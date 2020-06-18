@@ -33,6 +33,7 @@ import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.CASSANDRA;
+import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.prestosql.tests.TpchTableResults.PRESTO_NATION_RESULT;
 import static io.prestosql.tests.cassandra.CassandraTpchTableDefinitions.CASSANDRA_NATION;
 import static io.prestosql.tests.cassandra.CassandraTpchTableDefinitions.CASSANDRA_SUPPLIER;
@@ -72,7 +73,7 @@ public class TestSelect
                 immutableTable(CASSANDRA_ALL_TYPES));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testSelectNation()
     {
         String sql = format(
@@ -86,7 +87,7 @@ public class TestSelect
         assertThat(queryResult).matches(PRESTO_NATION_RESULT);
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testSelectWithEqualityFilterOnPartitioningKey()
     {
         String sql = format(
@@ -100,7 +101,7 @@ public class TestSelect
         assertThat(queryResult).containsOnly(row(0));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testSelectWithFilterOnPartitioningKey()
     {
         String sql = format(
@@ -114,7 +115,7 @@ public class TestSelect
         assertThat(queryResult).containsOnly(row(24));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testSelectWithEqualityFilterOnNonPartitioningKey()
     {
         String sql = format(
@@ -128,7 +129,7 @@ public class TestSelect
         assertThat(queryResult).containsOnly(row("UNITED STATES"));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testSelectWithNonEqualityFilterOnNonPartitioningKey()
     {
         String sql = format(
@@ -142,7 +143,7 @@ public class TestSelect
         assertThat(queryResult).containsOnly(row("ALGERIA"), row("ARGENTINA"));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testSelectWithMorePartitioningKeysThanLimit()
     {
         String sql = format(
@@ -156,7 +157,7 @@ public class TestSelect
         assertThat(queryResult).containsOnly(row(10));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testSelectWithMorePartitioningKeysThanLimitNonPK()
     {
         String sql = format(
@@ -170,7 +171,7 @@ public class TestSelect
         assertThat(queryResult).containsOnly(row(10));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testAllDataTypes()
     {
         // NOTE: DECIMAL is treated like DOUBLE
@@ -198,7 +199,7 @@ public class TestSelect
                                 null, null, null, null, null, null, null, null, null, null, null));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testNationJoinNation()
     {
         String tableName = format("%s.%s.%s", CONNECTOR_NAME, KEY_SPACE, CASSANDRA_NATION.getName());
@@ -219,7 +220,7 @@ public class TestSelect
                 row("CANADA", 3));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testNationJoinRegion()
     {
         String sql = format(
@@ -235,7 +236,7 @@ public class TestSelect
         assertThat(queryResult).containsOnly(row("CANADA", "AMERICA"));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testSelectAllTypePartitioningMaterializedView()
     {
         String materializedViewName = format("%s_partitioned_mv", CASSANDRA_ALL_TYPES.getName());
@@ -273,7 +274,7 @@ public class TestSelect
         onCassandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, materializedViewName));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testSelectClusteringMaterializedView()
     {
         String mvName = "clustering_mv";
@@ -314,7 +315,7 @@ public class TestSelect
         onCassandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, mvName));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testProtocolVersion()
     {
         QueryResult queryResult = onPresto()

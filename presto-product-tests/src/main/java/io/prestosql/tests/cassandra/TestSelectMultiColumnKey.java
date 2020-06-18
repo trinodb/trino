@@ -24,6 +24,7 @@ import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.prestosql.tests.TestGroups.CASSANDRA;
+import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.prestosql.tests.cassandra.MultiColumnKeyTableDefinition.CASSANDRA_MULTI_COLUMN_KEY;
 import static io.prestosql.tests.cassandra.TestConstants.CONNECTOR_NAME;
 import static io.prestosql.tests.cassandra.TestConstants.KEY_SPACE;
@@ -40,7 +41,7 @@ public class TestSelectMultiColumnKey
         return immutableTable(CASSANDRA_MULTI_COLUMN_KEY);
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testSelectWithEqualityFilterOnClusteringKey()
     {
         String sql = format(
@@ -54,7 +55,7 @@ public class TestSelectMultiColumnKey
         assertThat(queryResult).containsOnly(row("Test value 1"));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testSelectWithEqualityFilterOnPrimaryAndClusteringKeys()
     {
         String sql = format(
@@ -68,7 +69,7 @@ public class TestSelectMultiColumnKey
         assertThat(queryResult).containsOnly(row("Test value 1"));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testSelectWithMixedFilterOnPrimaryAndClusteringKeys()
     {
         String sql = format(
@@ -82,7 +83,7 @@ public class TestSelectMultiColumnKey
         assertThat(queryResult).containsOnly(row("Test value 1"));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testSelectWithFilterOnPrimaryKeyNoMatch()
     {
         String sql = format(
@@ -96,7 +97,7 @@ public class TestSelectMultiColumnKey
         assertThat(queryResult).hasNoRows();
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testSelectWithFilterOnPrefixOfClusteringKey()
     {
         String sql = format(
@@ -110,7 +111,7 @@ public class TestSelectMultiColumnKey
         assertThat(queryResult).containsOnly(row("Test value 2"));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testSelectWithFilterOnSecondClusteringKey()
     {
         // Since update_at is the second clustering key, this forces a full table scan.
