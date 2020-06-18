@@ -38,6 +38,7 @@ import static io.prestosql.tempto.fulfillment.table.TableRequirements.immutableT
 import static io.prestosql.tempto.fulfillment.table.kafka.KafkaMessageContentsBuilder.contentsBuilder;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.KAFKA;
+import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static java.lang.Double.doubleToRawLongBits;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
@@ -76,7 +77,7 @@ public class TestKafkaSmokeTest
         }
     }
 
-    @Test(groups = KAFKA)
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
     @Requires(SimpleKeyAndValueTable.class)
     public void testSelectSimpleKeyAndValue()
     {
@@ -128,7 +129,7 @@ public class TestKafkaSmokeTest
         }
     }
 
-    @Test(groups = KAFKA)
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
     @Requires(AllDataTypesRawTable.class)
     public void testSelectAllRawTable()
     {
@@ -199,7 +200,7 @@ public class TestKafkaSmokeTest
         }
     }
 
-    @Test(groups = KAFKA)
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
     @Requires(AllDataTypesCsvTable.class)
     public void testSelectAllCsvTable()
     {
@@ -274,7 +275,7 @@ public class TestKafkaSmokeTest
         }
     }
 
-    @Test(groups = KAFKA)
+    @Test(groups = {KAFKA, PROFILE_SPECIFIC_TESTS})
     @Requires(AllDataTypesJsonTable.class)
     public void testSelectAllJsonTable()
     {
