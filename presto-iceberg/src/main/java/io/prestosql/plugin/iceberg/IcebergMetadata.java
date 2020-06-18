@@ -112,6 +112,7 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
+import static org.apache.iceberg.FileFormat.ORC;
 import static org.apache.iceberg.TableMetadata.newTableMetadata;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.Transactions.createTableTransaction;
@@ -381,14 +382,15 @@ public class IcebergMetadata
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
+        boolean orcFormat = ORC == getFileFormat(icebergTable);
 
         for (NestedField column : icebergTable.schema().columns()) {
             io.prestosql.spi.type.Type type = toPrestoType(column.type(), typeManager);
             if (type instanceof DecimalType) {
                 throw new PrestoException(NOT_SUPPORTED, "Writing to columns of type decimal not yet supported");
             }
-            if (type instanceof TimestampType) {
-                throw new PrestoException(NOT_SUPPORTED, "Writing to columns of type timestamp not yet supported");
+            if (type instanceof TimestampType && !orcFormat) {
+                throw new PrestoException(NOT_SUPPORTED, "Writing to columns of type timestamp not yet supported for PARQUET format");
             }
         }
 
