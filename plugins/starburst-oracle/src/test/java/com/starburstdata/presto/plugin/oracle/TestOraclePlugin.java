@@ -10,7 +10,7 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.inject.CreationException;
+import io.airlift.bootstrap.ApplicationConfigurationException;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.testing.TestingConnectorContext;
@@ -35,7 +35,7 @@ public class TestOraclePlugin
     {
         Plugin plugin = new TestingOraclePlugin();
         ConnectorFactory factory = getOnlyElement(plugin.getConnectorFactories());
-        expectThrows(CreationException.class, () -> factory.create(
+        expectThrows(ApplicationConfigurationException.class, () -> factory.create(
                 "test",
                 ImmutableMap.<String, String>builder()
                         .put("connection-url", "test")
