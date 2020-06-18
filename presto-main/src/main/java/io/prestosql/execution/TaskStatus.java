@@ -126,7 +126,7 @@ public class TaskStatus
         checkArgument(fullGcCount >= 0, "fullGcCount is negative");
         this.fullGcCount = fullGcCount;
         this.fullGcTime = requireNonNull(fullGcTime, "fullGcTime is null");
-        this.dynamicFilterDomains = requireNonNull(dynamicFilterDomains, "dynamicFilterDomains is null");
+        this.dynamicFilterDomains = ImmutableMap.copyOf(requireNonNull(dynamicFilterDomains, "dynamicFilterDomains is null"));
     }
 
     @JsonProperty
