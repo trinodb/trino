@@ -14,12 +14,11 @@
 package io.prestosql.server;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.Duration;
 import io.prestosql.execution.SqlQueryExecution;
-import io.prestosql.execution.StageInfo;
 import io.prestosql.execution.StageState;
-import io.prestosql.execution.TaskInfo;
 import io.prestosql.execution.TaskManagerConfig;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -67,7 +66,7 @@ public class DynamicFilterService
 
     private final Duration statusRefreshMaxWait;
     @GuardedBy("this")
-    private final Map<QueryId, Supplier<List<StageInfo>>> queries = new HashMap<>();
+    private final Map<QueryId, Supplier<List<StageDynamicFilters>>> queries = new HashMap<>();
     @GuardedBy("this")
     private final Map<QueryId, Set<SourceDescriptor>> queryDynamicFilters = new HashMap<>();
 
@@ -101,14 +100,14 @@ public class DynamicFilterService
                 .map(dynamicFilter -> SourceDescriptor.of(sqlQueryExecution.getQueryId(), dynamicFilter))
                 .collect(toImmutableSet());
         if (!dynamicFilters.isEmpty()) {
-            registerQuery(sqlQueryExecution.getQueryId(), sqlQueryExecution::getAllStages, dynamicFilters);
+            registerQuery(sqlQueryExecution.getQueryId(), sqlQueryExecution::getStageDynamicFilters, dynamicFilters);
         }
     }
 
     @VisibleForTesting
-    synchronized void registerQuery(QueryId queryId, Supplier<List<StageInfo>> stageInfoSupplier, Set<SourceDescriptor> dynamicFilters)
+    synchronized void registerQuery(QueryId queryId, Supplier<List<StageDynamicFilters>> stageDynamicFiltersSupplier, Set<SourceDescriptor> dynamicFilters)
     {
-        queries.putIfAbsent(queryId, stageInfoSupplier);
+        queries.putIfAbsent(queryId, stageDynamicFiltersSupplier);
         queryDynamicFilters.put(queryId, dynamicFilters);
     }
 
@@ -122,24 +121,22 @@ public class DynamicFilterService
     @VisibleForTesting
     public void collectDynamicFilters()
     {
-        for (Map.Entry<QueryId, Supplier<List<StageInfo>>> entry : getQueries().entrySet()) {
+        for (Map.Entry<QueryId, Supplier<List<StageDynamicFilters>>> entry : getQueries().entrySet()) {
             QueryId queryId = entry.getKey();
             ImmutableMap.Builder<SourceDescriptor, Domain> newDynamicFiltersBuilder = ImmutableMap.builder();
-            for (StageInfo stageInfo : entry.getValue().get()) {
-                StageState stageState = stageInfo.getState();
+            for (StageDynamicFilters stageDynamicFilters : entry.getValue().get()) {
+                StageState stageState = stageDynamicFilters.getStageState();
                 // wait until stage has finished scheduling tasks
                 if (stageState.canScheduleMoreTasks()) {
                     continue;
                 }
-                List<TaskInfo> tasks = stageInfo.getTasks();
-                tasks.stream()
-                        .map(taskInfo -> taskInfo.getTaskStatus().getDynamicFilterDomains())
+                stageDynamicFilters.getTaskDynamicFilters().stream()
                         .flatMap(taskDomains -> taskDomains.entrySet().stream())
                         .filter(domain -> !dynamicFilterSummaries.containsKey(SourceDescriptor.of(queryId, domain.getKey())))
                         .collect(groupingBy(Map.Entry::getKey, mapping(Map.Entry::getValue, toImmutableList())))
                         .entrySet().stream()
                         // check if all tasks of a dynamic filter source have reported dynamic filter summary
-                        .filter(stageDomains -> stageDomains.getValue().size() == tasks.size())
+                        .filter(stageDomains -> stageDomains.getValue().size() == stageDynamicFilters.getNumberOfTasks())
                         .forEach(stageDomains -> newDynamicFiltersBuilder.put(
                                 SourceDescriptor.of(queryId, stageDomains.getKey()),
                                 Domain.union(stageDomains.getValue())));
@@ -170,7 +167,7 @@ public class DynamicFilterService
         return Optional.ofNullable(dynamicFilterSummaries.get(SourceDescriptor.of(queryId, filterId)));
     }
 
-    private synchronized Map<QueryId, Supplier<List<StageInfo>>> getQueries()
+    private synchronized Map<QueryId, Supplier<List<StageDynamicFilters>>> getQueries()
     {
         return ImmutableMap.copyOf(queries);
     }
@@ -202,6 +199,35 @@ public class DynamicFilterService
                 .collect(toImmutableMap(
                         DynamicFilters.Descriptor::getId,
                         descriptor -> columnHandles.get(Symbol.from(descriptor.getInput()))));
+    }
+
+    public static class StageDynamicFilters
+    {
+        private final StageState stageState;
+        private final int numberOfTasks;
+        private final List<Map<DynamicFilterId, Domain>> taskDynamicFilters;
+
+        public StageDynamicFilters(StageState stageState, int numberOfTasks, List<Map<DynamicFilterId, Domain>> taskDynamicFilters)
+        {
+            this.stageState = requireNonNull(stageState, "stageState is null");
+            this.numberOfTasks = numberOfTasks;
+            this.taskDynamicFilters = ImmutableList.copyOf(requireNonNull(taskDynamicFilters, "taskDynamicFilters is null"));
+        }
+
+        private StageState getStageState()
+        {
+            return stageState;
+        }
+
+        private int getNumberOfTasks()
+        {
+            return numberOfTasks;
+        }
+
+        private List<Map<DynamicFilterId, Domain>> getTaskDynamicFilters()
+        {
+            return taskDynamicFilters;
+        }
     }
 
     @Immutable

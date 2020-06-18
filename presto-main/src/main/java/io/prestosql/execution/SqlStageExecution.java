@@ -27,6 +27,7 @@ import io.prestosql.execution.scheduler.SplitSchedulerStats;
 import io.prestosql.failuredetector.FailureDetector;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
+import io.prestosql.server.DynamicFilterService.StageDynamicFilters;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.split.RemoteSplit;
 import io.prestosql.sql.planner.PlanFragment;
@@ -279,6 +280,17 @@ public final class SqlStageExecution
     public StageInfo getStageInfo()
     {
         return stateMachine.getStageInfo(this::getAllTaskInfo);
+    }
+
+    public StageDynamicFilters getStageDynamicFilters()
+    {
+        List<RemoteTask> tasks = getAllTasks();
+        return new StageDynamicFilters(
+                stateMachine.getState(),
+                tasks.size(),
+                tasks.stream()
+                        .map(task -> task.getTaskStatus().getDynamicFilterDomains())
+                        .collect(toImmutableList()));
     }
 
     private Iterable<TaskInfo> getAllTaskInfo()
