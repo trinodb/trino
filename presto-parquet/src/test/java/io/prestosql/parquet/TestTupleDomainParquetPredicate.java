@@ -22,6 +22,7 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.ShortTimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import org.apache.parquet.column.ColumnDescriptor;
@@ -38,12 +39,16 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.EMPTY_SLICE;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.parquet.ParquetEncoding.PLAIN_DICTIONARY;
+import static io.prestosql.parquet.ParquetTimestampUtils.JULIAN_EPOCH_OFFSET_DAYS;
 import static io.prestosql.parquet.predicate.TupleDomainParquetPredicate.getDomain;
 import static io.prestosql.spi.predicate.Domain.all;
 import static io.prestosql.spi.predicate.Domain.create;
@@ -64,9 +69,11 @@ import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static java.lang.Float.floatToRawIntBits;
+import static java.lang.Math.toIntExact;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.singletonList;
 import static java.util.Collections.singletonMap;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static org.apache.parquet.column.statistics.Statistics.getStatsBasedOnType;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.BINARY;
 import static org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName.INT32;
@@ -313,6 +320,50 @@ public class TestTupleDomainParquetPredicate
         assertThatExceptionOfType(ParquetCorruptionException.class)
                 .isThrownBy(() -> getDomain(DATE, 10, intColumnStats(200, 100), ID, column, true))
                 .withMessage("Corrupted statistics for column \"DateColumn\" in Parquet file \"testFile\": [min: 200, max: 100, num_nulls: 0]");
+    }
+
+    @Test
+    public void testTimestampMillis()
+            throws ParquetCorruptionException
+    {
+        Instant baseTime = Instant.ofEpochMilli(1592935098L);
+        String column = "timestampColumn";
+        ShortTimestampType timestampType = new ShortTimestampType(3);
+        assertEquals(getDomain(timestampType, 0, null, ID, column, true), all(timestampType));
+        assertEquals(getDomain(timestampType, 10, timestampColumnStats(baseTime, baseTime), ID, column, true), singleValue(timestampType, baseTime.toEpochMilli()));
+        assertEquals(
+                getDomain(timestampType, 10, timestampColumnStats(baseTime.minusSeconds(10), baseTime), ID, column, true),
+                create(ValueSet.ofRanges(range(timestampType, baseTime.minusSeconds(10).toEpochMilli(), true, baseTime.toEpochMilli(), true)), false));
+
+        // ignore corrupted statistics
+        assertEquals(getDomain(timestampType, 10, timestampColumnStats(baseTime.plusSeconds(10), baseTime), ID, column, false), create(ValueSet.all(timestampType), false));
+        // fail on corrupted statistics
+        assertThatExceptionOfType(ParquetCorruptionException.class)
+                .isThrownBy(() -> getDomain(timestampType, 10, timestampColumnStats(baseTime.plusSeconds(10), baseTime), ID, column, true))
+                .withMessageMatching("Corrupted statistics for column \"timestampColumn\" in Parquet file \"testFile\":.*");
+    }
+
+    private static BinaryStatistics timestampColumnStats(Instant minimum, Instant maximum)
+    {
+        BinaryStatistics statistics = new BinaryStatistics();
+        statistics.setMinMax(Binary.fromConstantByteArray(toParquetEncoding(minimum)), Binary.fromConstantByteArray(toParquetEncoding(maximum)));
+        return statistics;
+    }
+
+    private static byte[] toParquetEncoding(Instant timestamp)
+    {
+        long startOfDay = LocalDate.ofInstant(timestamp, ZoneOffset.UTC).atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli();
+        long timeOfDayNanos = (long) ((timestamp.toEpochMilli() - startOfDay) * Math.pow(10, 6));
+
+        Slice slice = Slices.allocate(12);
+        slice.setLong(0, timeOfDayNanos);
+        slice.setInt(8, millisToJulianDay(timestamp.toEpochMilli()));
+        return slice.byteArray();
+    }
+
+    private static int millisToJulianDay(long timestamp)
+    {
+        return toIntExact(MILLISECONDS.toDays(timestamp) + JULIAN_EPOCH_OFFSET_DAYS);
     }
 
     @Test

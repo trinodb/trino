@@ -13,6 +13,7 @@
  */
 package io.prestosql.parquet;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 import io.prestosql.spi.PrestoException;
@@ -28,7 +29,9 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
  */
 public final class ParquetTimestampUtils
 {
-    private static final int JULIAN_EPOCH_OFFSET_DAYS = 2_440_588;
+    @VisibleForTesting
+    static final int JULIAN_EPOCH_OFFSET_DAYS = 2_440_588;
+
     private static final long MILLIS_IN_DAY = TimeUnit.DAYS.toMillis(1);
     private static final long NANOS_PER_MILLISECOND = TimeUnit.MILLISECONDS.toNanos(1);
 
