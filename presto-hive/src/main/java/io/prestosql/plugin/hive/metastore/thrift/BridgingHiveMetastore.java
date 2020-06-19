@@ -71,9 +71,9 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public Optional<Database> getDatabase(String databaseName)
+    public Optional<Database> getDatabase(HiveIdentity identity, String databaseName)
     {
-        return delegate.getDatabase(databaseName).map(ThriftMetastoreUtil::fromMetastoreApiDatabase);
+        return delegate.getDatabase(identity, databaseName).map(ThriftMetastoreUtil::fromMetastoreApiDatabase);
     }
 
     @Override
@@ -129,21 +129,21 @@ public class BridgingHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getAllTables(HiveIdentity identity, String databaseName)
     {
-        return delegate.getAllTables(databaseName);
+        return delegate.getAllTables(identity, databaseName);
     }
 
     @Override
-    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    public List<String> getTablesWithParameter(HiveIdentity identity, String databaseName, String parameterKey, String parameterValue)
     {
-        return delegate.getTablesWithParameter(databaseName, parameterKey, parameterValue);
+        return delegate.getTablesWithParameter(identity, databaseName, parameterKey, parameterValue);
     }
 
     @Override
-    public List<String> getAllViews(String databaseName)
+    public List<String> getAllViews(HiveIdentity identity, String databaseName)
     {
-        return delegate.getAllViews(databaseName);
+        return delegate.getAllViews(identity, databaseName);
     }
 
     @Override
@@ -161,12 +161,12 @@ public class BridgingHiveMetastore
     @Override
     public void renameDatabase(HiveIdentity identity, String databaseName, String newDatabaseName)
     {
-        org.apache.hadoop.hive.metastore.api.Database database = delegate.getDatabase(databaseName)
+        org.apache.hadoop.hive.metastore.api.Database database = delegate.getDatabase(identity, databaseName)
                 .orElseThrow(() -> new SchemaNotFoundException(databaseName));
         database.setName(newDatabaseName);
         delegate.alterDatabase(identity, databaseName, database);
 
-        delegate.getDatabase(databaseName).ifPresent(newDatabase -> {
+        delegate.getDatabase(identity, databaseName).ifPresent(newDatabase -> {
             if (newDatabase.getName().equals(databaseName)) {
                 throw new PrestoException(NOT_SUPPORTED, "Hive metastore does not support renaming schemas");
             }
@@ -176,7 +176,7 @@ public class BridgingHiveMetastore
     @Override
     public void setDatabaseOwner(HiveIdentity identity, String databaseName, HivePrincipal principal)
     {
-        Database database = fromMetastoreApiDatabase(delegate.getDatabase(databaseName)
+        Database database = fromMetastoreApiDatabase(delegate.getDatabase(identity, databaseName)
                 .orElseThrow(() -> new SchemaNotFoundException(databaseName)));
 
         Database newDatabase = Database.builder(database)

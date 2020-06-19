@@ -54,13 +54,13 @@ public interface ThriftMetastore
 
     List<String> getAllDatabases();
 
-    List<String> getAllTables(String databaseName);
+    List<String> getAllTables(HiveIdentity identity, String databaseName);
 
-    List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue);
+    List<String> getTablesWithParameter(HiveIdentity identity, String databaseName, String parameterKey, String parameterValue);
 
-    List<String> getAllViews(String databaseName);
+    List<String> getAllViews(HiveIdentity identity, String databaseName);
 
-    Optional<Database> getDatabase(String databaseName);
+    Optional<Database> getDatabase(HiveIdentity identity, String databaseName);
 
     void addPartitions(HiveIdentity identity, String databaseName, String tableName, List<PartitionWithStatistics> partitions);
 

@@ -245,14 +245,14 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public Optional<Database> getDatabase(String databaseName)
+    public Optional<Database> getDatabase(HiveIdentity identity, String databaseName)
     {
         try {
             return retry()
                     .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
                     .run("getDatabase", stats.getGetDatabase().wrap(() -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                        try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
                             return Optional.of(client.getDatabase(databaseName));
                         }
                     }));
@@ -269,14 +269,14 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getAllTables(HiveIdentity identity, String databaseName)
     {
         try {
             return retry()
                     .stopOn(NoSuchObjectException.class)
                     .stopOnIllegalExceptions()
                     .run("getAllTables", () -> {
-                        try (ThriftMetastoreClient client = createMetastoreClient()) {
+                        try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
                             return client.getAllTables(databaseName);
                         }
                     });
@@ -293,7 +293,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    public List<String> getTablesWithParameter(HiveIdentity identity, String databaseName, String parameterKey, String parameterValue)
     {
         try {
             return retry()
@@ -903,7 +903,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public List<String> getAllViews(String databaseName)
+    public List<String> getAllViews(HiveIdentity identity, String databaseName)
     {
         try {
             return retry()
@@ -912,7 +912,7 @@ public class ThriftHiveMetastore
                     .run("getAllViews", stats.getGetAllViews().wrap(() -> {
                         if (translateHiveViews) {
                             return alternativeCall(
-                                    this::createMetastoreClient,
+                                    () -> createMetastoreClient(identity),
                                     exception -> !isUnknownMethodExceptionalResponse(exception),
                                     chosesGetAllViewsAlternative,
                                     client -> client.getTableNamesByType(databaseName, TableType.VIRTUAL_VIEW.name()),

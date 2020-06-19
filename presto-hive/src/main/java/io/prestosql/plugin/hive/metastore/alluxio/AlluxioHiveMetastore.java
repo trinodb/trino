@@ -75,7 +75,7 @@ public class AlluxioHiveMetastore
     }
 
     @Override
-    public Optional<Database> getDatabase(String databaseName)
+    public Optional<Database> getDatabase(HiveIdentity identity, String databaseName)
     {
         try {
             return Optional.of(ProtoUtils.fromProto(client.getDatabase(databaseName)));
@@ -197,7 +197,7 @@ public class AlluxioHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getAllTables(HiveIdentity identity, String databaseName)
     {
         try {
             return client.getAllTables(databaseName);
@@ -212,6 +212,7 @@ public class AlluxioHiveMetastore
 
     @Override
     public List<String> getTablesWithParameter(
+            HiveIdentity identity,
             String databaseName,
             String parameterKey,
             String parameterValue)
@@ -240,7 +241,7 @@ public class AlluxioHiveMetastore
     }
 
     @Override
-    public List<String> getAllViews(String databaseName)
+    public List<String> getAllViews(HiveIdentity identity, String databaseName)
     {
         // TODO: Add views on the server side
         return Collections.emptyList();

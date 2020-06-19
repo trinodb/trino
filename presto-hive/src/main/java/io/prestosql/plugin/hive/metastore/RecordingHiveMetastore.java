@@ -195,9 +195,9 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public Optional<Database> getDatabase(String databaseName)
+    public Optional<Database> getDatabase(HiveIdentity identity, String databaseName)
     {
-        return loadValue(databaseCache, databaseName, () -> delegate.getDatabase(databaseName));
+        return loadValue(databaseCache, databaseName, () -> delegate.getDatabase(identity, databaseName));
     }
 
     @Override
@@ -259,22 +259,22 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getAllTables(HiveIdentity identity, String databaseName)
     {
-        return loadValue(allTablesCache, databaseName, () -> delegate.getAllTables(databaseName));
+        return loadValue(allTablesCache, databaseName, () -> delegate.getAllTables(identity, databaseName));
     }
 
     @Override
-    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    public List<String> getTablesWithParameter(HiveIdentity identity, String databaseName, String parameterKey, String parameterValue)
     {
         TablesWithParameterCacheKey key = new TablesWithParameterCacheKey(databaseName, parameterKey, parameterValue);
-        return loadValue(tablesWithParameterCache, key, () -> delegate.getTablesWithParameter(databaseName, parameterKey, parameterValue));
+        return loadValue(tablesWithParameterCache, key, () -> delegate.getTablesWithParameter(identity, databaseName, parameterKey, parameterValue));
     }
 
     @Override
-    public List<String> getAllViews(String databaseName)
+    public List<String> getAllViews(HiveIdentity identity, String databaseName)
     {
-        return loadValue(allViewsCache, databaseName, () -> delegate.getAllViews(databaseName));
+        return loadValue(allViewsCache, databaseName, () -> delegate.getAllViews(identity, databaseName));
     }
 
     @Override

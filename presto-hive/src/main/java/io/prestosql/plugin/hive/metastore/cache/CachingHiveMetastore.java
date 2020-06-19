@@ -90,14 +90,14 @@ public class CachingHiveMetastore
         implements HiveMetastore
 {
     protected final HiveMetastore delegate;
-    private final LoadingCache<String, Optional<Database>> databaseCache;
+    private final LoadingCache<WithIdentity<String>, Optional<Database>> databaseCache;
     private final LoadingCache<String, List<String>> databaseNamesCache;
     private final LoadingCache<WithIdentity<HiveTableName>, Optional<Table>> tableCache;
-    private final LoadingCache<String, List<String>> tableNamesCache;
-    private final LoadingCache<TablesWithParameterCacheKey, List<String>> tablesWithParameterCache;
+    private final LoadingCache<WithIdentity<String>, List<String>> tableNamesCache;
+    private final LoadingCache<WithIdentity<TablesWithParameterCacheKey>, List<String>> tablesWithParameterCache;
     private final LoadingCache<WithIdentity<HiveTableName>, PartitionStatistics> tableStatisticsCache;
     private final LoadingCache<WithIdentity<HivePartitionName>, PartitionStatistics> partitionStatisticsCache;
-    private final LoadingCache<String, List<String>> viewNamesCache;
+    private final LoadingCache<WithIdentity<String>, List<String>> viewNamesCache;
     private final LoadingCache<WithIdentity<HivePartitionName>, Optional<Partition>> partitionCache;
     private final LoadingCache<WithIdentity<PartitionFilter>, Optional<List<String>>> partitionFilterCache;
     private final LoadingCache<WithIdentity<HiveTableName>, Optional<List<String>>> partitionNamesCache;
@@ -266,14 +266,14 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public Optional<Database> getDatabase(String databaseName)
+    public Optional<Database> getDatabase(HiveIdentity identity, String databaseName)
     {
-        return get(databaseCache, databaseName);
+        return get(databaseCache, new WithIdentity<>(identity, databaseName));
     }
 
-    private Optional<Database> loadDatabase(String databaseName)
+    private Optional<Database> loadDatabase(WithIdentity<String> databaseNameWithIdentity)
     {
-        return delegate.getDatabase(databaseName);
+        return delegate.getDatabase(databaseNameWithIdentity.getIdentity(), databaseNameWithIdentity.getKey());
     }
 
     @Override
@@ -401,37 +401,41 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public List<String> getAllTables(String databaseName)
+    public List<String> getAllTables(HiveIdentity identity, String databaseName)
     {
-        return get(tableNamesCache, databaseName);
+        updateIdentity(identity);
+        return get(tableNamesCache, new WithIdentity<>(identity, databaseName));
     }
 
-    private List<String> loadAllTables(String databaseName)
+    private List<String> loadAllTables(WithIdentity<String> databaseNameWithIdentity)
     {
-        return delegate.getAllTables(databaseName);
+        return delegate.getAllTables(databaseNameWithIdentity.getIdentity(), databaseNameWithIdentity.getKey());
     }
 
     @Override
-    public List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    public List<String> getTablesWithParameter(HiveIdentity identity, String databaseName, String parameterKey, String parameterValue)
     {
+        updateIdentity(identity);
         TablesWithParameterCacheKey key = new TablesWithParameterCacheKey(databaseName, parameterKey, parameterValue);
-        return get(tablesWithParameterCache, key);
+        return get(tablesWithParameterCache, new WithIdentity<TablesWithParameterCacheKey>(identity, key));
     }
 
-    private List<String> loadTablesMatchingParameter(TablesWithParameterCacheKey key)
+    private List<String> loadTablesMatchingParameter(WithIdentity<TablesWithParameterCacheKey> keyWithIdentity)
     {
-        return delegate.getTablesWithParameter(key.getDatabaseName(), key.getParameterKey(), key.getParameterValue());
+        TablesWithParameterCacheKey key = keyWithIdentity.getKey();
+        return delegate.getTablesWithParameter(keyWithIdentity.getIdentity(), key.getDatabaseName(), key.getParameterKey(), key.getParameterValue());
     }
 
     @Override
-    public List<String> getAllViews(String databaseName)
+    public List<String> getAllViews(HiveIdentity identity, String databaseName)
     {
-        return get(viewNamesCache, databaseName);
+        identity = updateIdentity(identity);
+        return get(viewNamesCache, new WithIdentity<>(identity, databaseName));
     }
 
-    private List<String> loadAllViews(String databaseName)
+    private List<String> loadAllViews(WithIdentity<String> databaseNameWithIdentity)
     {
-        return delegate.getAllViews(databaseName);
+        return delegate.getAllViews(databaseNameWithIdentity.getIdentity(), databaseNameWithIdentity.getKey());
     }
 
     @Override
@@ -442,7 +446,7 @@ public class CachingHiveMetastore
             delegate.createDatabase(identity, database);
         }
         finally {
-            invalidateDatabase(database.getDatabaseName());
+            invalidateDatabase(identity, database.getDatabaseName());
         }
     }
 
@@ -454,7 +458,7 @@ public class CachingHiveMetastore
             delegate.dropDatabase(identity, databaseName);
         }
         finally {
-            invalidateDatabase(databaseName);
+            invalidateDatabase(identity, databaseName);
         }
     }
 
@@ -466,8 +470,8 @@ public class CachingHiveMetastore
             delegate.renameDatabase(identity, databaseName, newDatabaseName);
         }
         finally {
-            invalidateDatabase(databaseName);
-            invalidateDatabase(newDatabaseName);
+            invalidateDatabase(identity, databaseName);
+            invalidateDatabase(identity, newDatabaseName);
         }
     }
 
@@ -479,13 +483,13 @@ public class CachingHiveMetastore
             delegate.setDatabaseOwner(identity, databaseName, principal);
         }
         finally {
-            invalidateDatabase(databaseName);
+            invalidateDatabase(identity, databaseName);
         }
     }
 
-    protected void invalidateDatabase(String databaseName)
+    protected void invalidateDatabase(HiveIdentity identity, String databaseName)
     {
-        databaseCache.invalidate(databaseName);
+        databaseCache.invalidate(new WithIdentity<>(identity, databaseName));
         databaseNamesCache.invalidateAll();
     }
 
@@ -497,7 +501,7 @@ public class CachingHiveMetastore
             delegate.createTable(identity, table, principalPrivileges);
         }
         finally {
-            invalidateTable(table.getDatabaseName(), table.getTableName());
+            invalidateTable(identity, table.getDatabaseName(), table.getTableName());
         }
     }
 
@@ -509,7 +513,7 @@ public class CachingHiveMetastore
             delegate.dropTable(identity, databaseName, tableName, deleteData);
         }
         finally {
-            invalidateTable(databaseName, tableName);
+            invalidateTable(identity, databaseName, tableName);
         }
     }
 
@@ -521,8 +525,8 @@ public class CachingHiveMetastore
             delegate.replaceTable(identity, databaseName, tableName, newTable, principalPrivileges);
         }
         finally {
-            invalidateTable(databaseName, tableName);
-            invalidateTable(newTable.getDatabaseName(), newTable.getTableName());
+            invalidateTable(identity, databaseName, tableName);
+            invalidateTable(identity, newTable.getDatabaseName(), newTable.getTableName());
         }
     }
 
@@ -534,8 +538,8 @@ public class CachingHiveMetastore
             delegate.renameTable(identity, databaseName, tableName, newDatabaseName, newTableName);
         }
         finally {
-            invalidateTable(databaseName, tableName);
-            invalidateTable(newDatabaseName, newTableName);
+            invalidateTable(identity, databaseName, tableName);
+            invalidateTable(identity, newDatabaseName, newTableName);
         }
     }
 
@@ -547,7 +551,7 @@ public class CachingHiveMetastore
             delegate.commentTable(identity, databaseName, tableName, comment);
         }
         finally {
-            invalidateTable(databaseName, tableName);
+            invalidateTable(identity, databaseName, tableName);
         }
     }
 
@@ -559,7 +563,7 @@ public class CachingHiveMetastore
             delegate.addColumn(identity, databaseName, tableName, columnName, columnType, columnComment);
         }
         finally {
-            invalidateTable(databaseName, tableName);
+            invalidateTable(identity, databaseName, tableName);
         }
     }
 
@@ -571,7 +575,7 @@ public class CachingHiveMetastore
             delegate.renameColumn(identity, databaseName, tableName, oldColumnName, newColumnName);
         }
         finally {
-            invalidateTable(databaseName, tableName);
+            invalidateTable(identity, databaseName, tableName);
         }
     }
 
@@ -583,15 +587,15 @@ public class CachingHiveMetastore
             delegate.dropColumn(identity, databaseName, tableName, columnName);
         }
         finally {
-            invalidateTable(databaseName, tableName);
+            invalidateTable(identity, databaseName, tableName);
         }
     }
 
-    protected void invalidateTable(String databaseName, String tableName)
+    protected void invalidateTable(HiveIdentity identity, String databaseName, String tableName)
     {
         invalidateTableCache(databaseName, tableName);
-        tableNamesCache.invalidate(databaseName);
-        viewNamesCache.invalidate(databaseName);
+        tableNamesCache.invalidate(new WithIdentity<>(identity, databaseName));
+        viewNamesCache.invalidate(new WithIdentity<>(identity, databaseName));
         tablePrivilegesCache.asMap().keySet().stream()
                 .filter(userTableKey -> userTableKey.matches(databaseName, tableName))
                 .forEach(tablePrivilegesCache::invalidate);
