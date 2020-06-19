@@ -15,6 +15,7 @@ package io.prestosql.server;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import io.prestosql.execution.SqlQueryExecution;
 import io.prestosql.execution.StageInfo;
 import io.prestosql.execution.StageState;
@@ -30,6 +31,7 @@ import io.prestosql.sql.planner.optimizations.PlanNodeSearcher;
 import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.JoinNode;
 
+import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.Immutable;
@@ -63,6 +65,7 @@ public class DynamicFilterService
 {
     private final Map<SourceDescriptor, Domain> dynamicFilterSummaries = new ConcurrentHashMap<>();
 
+    private final Duration statusRefreshMaxWait;
     @GuardedBy("this")
     private final Map<QueryId, Supplier<List<StageInfo>>> queries = new HashMap<>();
     @GuardedBy("this")
@@ -73,7 +76,13 @@ public class DynamicFilterService
     @Inject
     public DynamicFilterService(TaskManagerConfig taskConfig)
     {
-        collectDynamicFiltersExecutor.scheduleWithFixedDelay(this::collectDynamicFilters, 0, taskConfig.getStatusRefreshMaxWait().toMillis(), MILLISECONDS);
+        this.statusRefreshMaxWait = requireNonNull(taskConfig, "taskConfig is null").getStatusRefreshMaxWait();
+    }
+
+    @PostConstruct
+    public void start()
+    {
+        collectDynamicFiltersExecutor.scheduleWithFixedDelay(this::collectDynamicFilters, 0, statusRefreshMaxWait.toMillis(), MILLISECONDS);
     }
 
     @PreDestroy
