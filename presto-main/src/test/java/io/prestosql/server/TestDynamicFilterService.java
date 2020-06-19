@@ -72,6 +72,7 @@ import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expressio
 import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
 import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -93,13 +94,15 @@ public class TestDynamicFilterService
         dynamicFilterService.registerQuery(queryId, dynamicFiltersStageSupplier, ImmutableSet.of(SourceDescriptor.of(queryId, filterId)));
         assertFalse(dynamicFilterService.getSummary(queryId, filterId).isPresent());
 
+        int requestCount0 = dynamicFiltersStageSupplier.getRequestCount();
         dynamicFiltersStageSupplier.storeSummary(
                 filterId,
                 new TaskId(stageId, 0),
                 singleValue(INTEGER, 1L));
         dynamicFilterService.collectDynamicFilters();
         assertFalse(dynamicFilterService.getSummary(queryId, filterId).isPresent());
-        assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 1);
+        int requestCount1 = dynamicFiltersStageSupplier.getRequestCount();
+        assertThat(requestCount1).isGreaterThan(requestCount0);
 
         dynamicFiltersStageSupplier.storeSummary(
                 filterId,
@@ -107,7 +110,8 @@ public class TestDynamicFilterService
                 singleValue(INTEGER, 2L));
         dynamicFilterService.collectDynamicFilters();
         assertFalse(dynamicFilterService.getSummary(queryId, filterId).isPresent());
-        assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 2);
+        int requestCount2 = dynamicFiltersStageSupplier.getRequestCount();
+        assertThat(requestCount2).isGreaterThan(requestCount1);
 
         dynamicFiltersStageSupplier.storeSummary(
                 filterId,
@@ -117,11 +121,12 @@ public class TestDynamicFilterService
         Optional<Domain> summary = dynamicFilterService.getSummary(queryId, filterId);
         assertTrue(summary.isPresent());
         assertEquals(summary.get(), multipleValues(INTEGER, ImmutableList.of(1L, 2L, 3L)));
-        assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 3);
+        int requestCount3 = dynamicFiltersStageSupplier.getRequestCount();
+        assertThat(requestCount3).isGreaterThan(requestCount2);
 
         // all dynamic filters have been collected, no need for more requests
         dynamicFilterService.collectDynamicFilters();
-        assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 3);
+        assertEquals(dynamicFiltersStageSupplier.getRequestCount(), requestCount3);
     }
 
     @Test
