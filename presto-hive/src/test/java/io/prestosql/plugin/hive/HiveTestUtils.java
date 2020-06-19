@@ -108,7 +108,6 @@ public final class HiveTestUtils
     {
         return new HiveSessionProperties(
                 hiveConfig,
-                rubixEnabledConfig,
                 orcReaderConfig,
                 new OrcWriterConfig(),
                 new ParquetReaderConfig(),
