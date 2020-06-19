@@ -38,6 +38,7 @@ import static io.prestosql.tests.hive.TestHiveTransactionalTable.CompactionMode.
 import static io.prestosql.tests.hive.TestHiveTransactionalTable.CompactionMode.MINOR;
 import static io.prestosql.tests.hive.TransactionalTableType.ACID;
 import static io.prestosql.tests.hive.TransactionalTableType.INSERT_ONLY;
+import static io.prestosql.tests.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -57,7 +58,7 @@ public class TestHiveTransactionalTable
             throw new SkipException("Presto Hive transactional tables are supported with Hive version 3 or above");
         }
 
-        String tableName = "test_full_acid_table_read";
+        String tableName = format("test_full_acid_table_read_%s", randomTableSuffix());
         onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
         onHive().executeQuery("CREATE TABLE " + tableName + " (col INT, fcol INT) " +
                 (isPartitioned ? "PARTITIONED BY (part_col INT) " : "") +
@@ -107,7 +108,7 @@ public class TestHiveTransactionalTable
             throw new SkipException("Presto Hive transactional tables are supported with Hive version 3 or above");
         }
 
-        String tableName = "test_insert_only_table_read";
+        String tableName = format("test_insert_only_table_read_%s", randomTableSuffix());
         onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
         onHive().executeQuery("CREATE TABLE " + tableName + " (col INT) " +
                 (isPartitioned ? "PARTITIONED BY (part_col INT) " : "") +
@@ -154,7 +155,7 @@ public class TestHiveTransactionalTable
             throw new SkipException("This tests behavior of ACID table before Hive 3 ");
         }
 
-        String tableName = "test_fail_acid_before_hive_3";
+        String tableName = format("test_fail_acid_before_hive_3_%s", randomTableSuffix());
         onHive().executeQuery("" +
                 "CREATE TABLE " + tableName + "(a bigint) " +
                 "CLUSTERED BY(a) INTO 4 BUCKETS " +
