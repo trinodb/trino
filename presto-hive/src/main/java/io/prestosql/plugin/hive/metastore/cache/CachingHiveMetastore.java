@@ -569,7 +569,7 @@ public class CachingHiveMetastore
             delegate.commentColumn(identity, databaseName, tableName, columnName, comment);
         }
         finally {
-            invalidateTable(databaseName, tableName);
+            invalidateTable(identity, databaseName, tableName);
         }
     }
 

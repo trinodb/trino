@@ -457,7 +457,8 @@ public class SqlStandardAccessControl
         return isRoleEnabled(context.getIdentity(), metastore::listRoleGrants, ADMIN_ROLE_NAME);
     }
 
-    private boolean isDatabaseOwner(ConnectorSecurityContext context, String databaseName)
+    private boolean isDatabaseOwner(ConnectorSecurityContext cont
+                                    ext, String databaseName)
     {
         // all users are "owners" of the default database
         if (DEFAULT_DATABASE_NAME.equalsIgnoreCase(databaseName)) {
@@ -467,6 +468,9 @@ public class SqlStandardAccessControl
         if (isAdmin(context)) {
             return true;
         }
+
+
+
 
         SemiTransactionalHiveMetastore metastore = metastoreProvider.apply(((HiveTransactionHandle) context.getTransactionHandle()));
         Optional<Database> databaseMetadata = metastore.getDatabase(new HiveIdentity(context.getIdentity()), databaseName);
