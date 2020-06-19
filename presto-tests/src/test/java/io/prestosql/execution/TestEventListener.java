@@ -377,9 +377,8 @@ public class TestEventListener
         assertEquals(statistics.getAnalysisTime().get().toMillis(), queryStats.getAnalysisTime().toMillis());
         assertEquals(statistics.getExecutionTime().get().toMillis(), queryStats.getExecutionTime().toMillis());
         assertEquals(statistics.getPeakUserMemoryBytes(), queryStats.getPeakUserMemoryReservation().toBytes());
-        // TODO: https://github.com/prestosql/presto/issues/4060
-//        assertEquals(statistics.getPeakTotalNonRevocableMemoryBytes(), queryStats.getPeakTotalMemoryReservation().toBytes());
-        assertEquals(statistics.getPeakTaskTotalMemory(), queryStats.getPeakTaskTotalMemory().toBytes());
+        assertEquals(statistics.getPeakTotalNonRevocableMemoryBytes(), queryStats.getPeakNonRevocableMemoryReservation().toBytes());
+        assertEquals(statistics.getPeakTaskTotalMemory(), queryStats.getPeakTaskUserMemory().toBytes());
         assertEquals(statistics.getPhysicalInputBytes(), queryStats.getPhysicalInputDataSize().toBytes());
         assertEquals(statistics.getPhysicalInputRows(), queryStats.getPhysicalInputPositions());
         assertEquals(statistics.getInternalNetworkBytes(), queryStats.getInternalNetworkInputDataSize().toBytes());

@@ -240,7 +240,7 @@ public class QueryMonitor
                 Optional.of(ofMillis(queryStats.getAnalysisTime().toMillis())),
                 Optional.of(ofMillis(queryStats.getExecutionTime().toMillis())),
                 queryStats.getPeakUserMemoryReservation().toBytes(),
-                queryStats.getPeakTotalMemoryReservation().toBytes(),
+                queryStats.getPeakNonRevocableMemoryReservation().toBytes(),
                 queryStats.getPeakTaskUserMemory().toBytes(),
                 queryStats.getPeakTaskTotalMemory().toBytes(),
                 queryStats.getPhysicalInputDataSize().toBytes(),
