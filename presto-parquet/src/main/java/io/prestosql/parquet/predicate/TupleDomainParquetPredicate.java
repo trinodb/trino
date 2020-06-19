@@ -28,6 +28,7 @@ import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.column.statistics.BinaryStatistics;
@@ -46,6 +47,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static io.prestosql.parquet.ParquetTimestampUtils.getTimestampMillis;
 import static io.prestosql.parquet.predicate.PredicateUtils.isStatisticsOverflow;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -227,6 +229,18 @@ public class TupleDomainParquetPredicate
             }
             ParquetIntegerStatistics parquetIntegerStatistics = new ParquetIntegerStatistics((long) intStatistics.getMin(), (long) intStatistics.getMax());
             return createDomain(type, hasNullValue, parquetIntegerStatistics);
+        }
+
+        if (type instanceof TimestampType && statistics instanceof BinaryStatistics) {
+            BinaryStatistics binaryStatistics = (BinaryStatistics) statistics;
+            long max = getTimestampMillis(binaryStatistics.genericGetMax());
+            long min = getTimestampMillis(binaryStatistics.genericGetMin());
+            if (min > max) {
+                failWithCorruptionException(failOnCorruptedParquetStatistics, column, id, binaryStatistics);
+                return Domain.create(ValueSet.all(type), hasNullValue);
+            }
+            ParquetTimestampStatistics parquetTimestampStatistics = new ParquetTimestampStatistics(min, max);
+            return createDomain(type, hasNullValue, parquetTimestampStatistics);
         }
 
         return Domain.create(ValueSet.all(type), hasNullValue);
