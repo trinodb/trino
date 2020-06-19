@@ -12,6 +12,7 @@ DIR="${BASH_SOURCE%/*}"
 echo "[$(date)] $0: configuring hadoop services"
 
 apply-site-xml-override /etc/hive/conf/hive-site.xml "${DIR}/hive-site-overrides.xml" || fail "Could not apply hive-site-overrides.xml"
+apply-site-xml-override /etc/hadoop/conf/hdfs-site.xml "${DIR}/hdfs-site-overrides.xml" || fail "Could not apply hdfs-site-overrides.xml"
 
 echo "[$(date)] $0: starting hadoop services"
 set -x

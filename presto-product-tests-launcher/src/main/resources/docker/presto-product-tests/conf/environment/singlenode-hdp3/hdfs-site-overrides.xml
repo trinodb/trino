@@ -1,0 +1,7 @@
+<configuration>
+    <!-- This property explicitly forbids datanode to enter safe mode which results in 30 s penalty on environment startup -->
+    <property>
+        <name>dfs.safemode.threshold.pct</name>
+        <value>0</value>
+    </property>
+</configuration>
