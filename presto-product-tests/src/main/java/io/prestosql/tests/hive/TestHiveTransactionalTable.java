@@ -181,10 +181,11 @@ public class TestHiveTransactionalTable
 
     private static String hiveTableProperties(TransactionalTableType transactionalTableType, BucketingType bucketingType)
     {
-        return Stream.concat(
-                transactionalTableType.getHiveTableProperties().stream(),
-                bucketingType.getHiveTableProperties().stream())
-                .collect(joining(",", "TBLPROPERTIES (", ")"));
+        ImmutableList.Builder<String> tableProperties = ImmutableList.builder();
+        tableProperties.addAll(transactionalTableType.getHiveTableProperties());
+        tableProperties.addAll(bucketingType.getHiveTableProperties());
+        tableProperties.add("'NO_AUTO_COMPACTION'='true'");
+        return tableProperties.build().stream().collect(joining(",", "TBLPROPERTIES (", ")"));
     }
 
     private static void compactTableAndWait(CompactionMode compactMode, String tableName, String partitionString, Duration timeout)
