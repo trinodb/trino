@@ -26,7 +26,6 @@ import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.BasicStageStats;
-import io.prestosql.execution.LocationFactory;
 import io.prestosql.execution.NodeTaskMap;
 import io.prestosql.execution.QueryState;
 import io.prestosql.execution.QueryStateMachine;
@@ -124,7 +123,6 @@ public class SqlQueryScheduler
 
     public static SqlQueryScheduler createSqlQueryScheduler(
             QueryStateMachine queryStateMachine,
-            LocationFactory locationFactory,
             StageExecutionPlan plan,
             NodePartitioningManager nodePartitioningManager,
             NodeScheduler nodeScheduler,
@@ -142,7 +140,6 @@ public class SqlQueryScheduler
     {
         SqlQueryScheduler sqlQueryScheduler = new SqlQueryScheduler(
                 queryStateMachine,
-                locationFactory,
                 plan,
                 nodePartitioningManager,
                 nodeScheduler,
@@ -163,7 +160,6 @@ public class SqlQueryScheduler
 
     private SqlQueryScheduler(
             QueryStateMachine queryStateMachine,
-            LocationFactory locationFactory,
             StageExecutionPlan plan,
             NodePartitioningManager nodePartitioningManager,
             NodeScheduler nodeScheduler,
