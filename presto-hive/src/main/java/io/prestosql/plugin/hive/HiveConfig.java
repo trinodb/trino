@@ -885,13 +885,11 @@ public class HiveConfig
         return this;
     }
 
-    @Deprecated
     public boolean isAllowRegisterPartition()
     {
         return allowRegisterPartition;
     }
 
-    @Deprecated
     @Config("hive.allow-register-partition-procedure")
     public HiveConfig setAllowRegisterPartition(boolean allowRegisterPartition)
     {
