@@ -15,7 +15,6 @@ package io.prestosql.tests.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Sets;
 import io.airlift.units.Duration;
 import io.prestosql.tempto.query.QueryResult;
 import org.testng.SkipException;
@@ -189,16 +188,11 @@ public class TestHiveTransactionalTable
 
     private static void compactTableAndWait(CompactionMode compactMode, String tableName, String partitionString, Duration timeout)
     {
-        Set<String> existingCompactionsIds = getTableCompactions(compactMode, tableName)
-                .map(row -> row.get("compactionid"))
-                .collect(toUnmodifiableSet());
-
         onHive().executeQuery(format("ALTER TABLE %s %s COMPACT '%s'", tableName, partitionString, compactMode.name()));
 
-        Set<String> tableCompactionsIds = Sets.difference(getTableCompactions(compactMode, tableName)
+        Set<String> tableCompactionsIds = getTableCompactions(compactMode, tableName)
                 .map(row -> row.get("compactionid"))
-                .collect(toUnmodifiableSet()),
-                existingCompactionsIds);
+                .collect(toUnmodifiableSet());
 
         assertFalse(tableCompactionsIds.isEmpty(), "tableCompactionsIds are empty");
 
