@@ -64,6 +64,7 @@ import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Semaphore;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -155,7 +156,7 @@ public class PrestoResultSet
         this.columnInfoList = getColumnInfo(columns);
         this.resultSetMetaData = new PrestoResultSetMetaData(columnInfoList);
 
-        this.results = new AsyncIterator<>(flatten(new ResultsPageIterator(client, progressCallback, warningsManager), maxRows), client, Thread.currentThread());
+        this.results = new AsyncIterator<>(flatten(new ResultsPageIterator(client, progressCallback, warningsManager), maxRows), client);
     }
 
     public String getQueryId()
@@ -1799,31 +1800,35 @@ public class PrestoResultSet
     }
 
     private static class AsyncIterator<T>
-            implements Iterator<T>
+            extends AbstractIterator<T>
     {
         private static final int MAX_QUEUED_ROWS = 50_000;
         private static final ExecutorService executorService = newCachedThreadPool(daemonThreadsNamed("Presto JDBC worker-%d"));
 
         private final StatementClient client;
         private final BlockingQueue<T> rowQueue = new ArrayBlockingQueue<>(MAX_QUEUED_ROWS);
+        // Semaphore to indicate that some data is ready.
+        // Each permit represents a row of data (or that the underlying iterator is exhausted).
+        private final Semaphore semaphore = new Semaphore(0);
         private final CompletableFuture<Void> future;
-        private Thread parent;
 
-        public AsyncIterator(Iterator<T> dataIterator, StatementClient client, Thread parent)
+        public AsyncIterator(Iterator<T> dataIterator, StatementClient client)
         {
             requireNonNull(dataIterator, "dataIterator is null");
-            this.parent = parent;
             this.client = client;
-            this.future = CompletableFuture.supplyAsync(() -> {
-                while (dataIterator.hasNext()) {
-                    try {
+            this.future = CompletableFuture.runAsync(() -> {
+                try {
+                    while (dataIterator.hasNext()) {
                         rowQueue.put(dataIterator.next());
-                    }
-                    catch (InterruptedException e) {
-                        interrupt(e);
+                        semaphore.release();
                     }
                 }
-                return null;
+                catch (InterruptedException e) {
+                    interrupt(e);
+                }
+                finally {
+                    semaphore.release();
+                }
             }, executorService);
         }
 
@@ -1840,18 +1845,17 @@ public class PrestoResultSet
         }
 
         @Override
-        public boolean hasNext()
+        protected T computeNext()
         {
-            if (!rowQueue.isEmpty()) {
-                return true;
+            try {
+                semaphore.acquire();
             }
-            while (rowQueue.isEmpty() && !future.isDone()) {
-                // making sure rowQueue has some records to process or return false
-                if (parent.isInterrupted()) {
-                    interrupt(new InterruptedException("parent thread interrupted"));
-                }
+            catch (InterruptedException e) {
+                interrupt(e);
             }
-            if (future.isCompletedExceptionally()) {
+            if (rowQueue.isEmpty()) {
+                // If we got here and the queue is empty the thread fetching from the underlying iterator is done.
+                // Wait for Future to marked done and check status.
                 try {
                     future.get();
                 }
@@ -1862,13 +1866,8 @@ public class PrestoResultSet
                     throwIfUnchecked(e.getCause());
                     throw new RuntimeException(e.getCause());
                 }
+                return endOfData();
             }
-            return !rowQueue.isEmpty();
-        }
-
-        @Override
-        public T next()
-        {
             return rowQueue.poll();
         }
     }
