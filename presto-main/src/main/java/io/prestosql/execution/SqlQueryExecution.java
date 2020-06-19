@@ -111,7 +111,6 @@ public class SqlQueryExecution
     private final List<PlanOptimizer> planOptimizers;
     private final PlanFragmenter planFragmenter;
     private final RemoteTaskFactory remoteTaskFactory;
-    private final LocationFactory locationFactory;
     private final int scheduleSplitBatchSize;
     private final ExecutorService queryExecutor;
     private final ScheduledExecutorService schedulerExecutor;
@@ -140,7 +139,6 @@ public class SqlQueryExecution
             List<PlanOptimizer> planOptimizers,
             PlanFragmenter planFragmenter,
             RemoteTaskFactory remoteTaskFactory,
-            LocationFactory locationFactory,
             int scheduleSplitBatchSize,
             ExecutorService queryExecutor,
             ScheduledExecutorService schedulerExecutor,
@@ -163,7 +161,6 @@ public class SqlQueryExecution
             this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
             this.planOptimizers = requireNonNull(planOptimizers, "planOptimizers is null");
             this.planFragmenter = requireNonNull(planFragmenter, "planFragmenter is null");
-            this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
             this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
             this.schedulerExecutor = requireNonNull(schedulerExecutor, "schedulerExecutor is null");
             this.failureDetector = requireNonNull(failureDetector, "failureDetector is null");
@@ -455,7 +452,6 @@ public class SqlQueryExecution
         // build the stage execution objects (this doesn't schedule execution)
         SqlQueryScheduler scheduler = createSqlQueryScheduler(
                 stateMachine,
-                locationFactory,
                 outputStageExecutionPlan,
                 nodePartitioningManager,
                 nodeScheduler,
@@ -665,7 +661,6 @@ public class SqlQueryExecution
         private final PlanFragmenter planFragmenter;
         private final RemoteTaskFactory remoteTaskFactory;
         private final QueryExplainer queryExplainer;
-        private final LocationFactory locationFactory;
         private final ExecutorService queryExecutor;
         private final ScheduledExecutorService schedulerExecutor;
         private final FailureDetector failureDetector;
@@ -681,7 +676,6 @@ public class SqlQueryExecution
                 Metadata metadata,
                 AccessControl accessControl,
                 SqlParser sqlParser,
-                LocationFactory locationFactory,
                 SplitManager splitManager,
                 NodePartitioningManager nodePartitioningManager,
                 NodeScheduler nodeScheduler,
@@ -705,7 +699,6 @@ public class SqlQueryExecution
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.accessControl = requireNonNull(accessControl, "accessControl is null");
             this.sqlParser = requireNonNull(sqlParser, "sqlParser is null");
-            this.locationFactory = requireNonNull(locationFactory, "locationFactory is null");
             this.splitManager = requireNonNull(splitManager, "splitManager is null");
             this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
             this.nodeScheduler = requireNonNull(nodeScheduler, "nodeScheduler is null");
@@ -747,7 +740,6 @@ public class SqlQueryExecution
                     planOptimizers,
                     planFragmenter,
                     remoteTaskFactory,
-                    locationFactory,
                     scheduleSplitBatchSize,
                     queryExecutor,
                     schedulerExecutor,
