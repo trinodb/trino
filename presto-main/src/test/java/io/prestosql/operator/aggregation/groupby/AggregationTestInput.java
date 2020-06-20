@@ -46,13 +46,11 @@ public class AggregationTestInput
 
     public void runPagesOnAccumulatorWithAssertion(long groupId, GroupedAccumulator groupedAccumulator, AggregationTestOutput expectedValue)
     {
-        GroupedAccumulator accumulator = Suppliers.ofInstance(groupedAccumulator).get();
-
         for (Page page : getPages()) {
-            accumulator.addInput(getGroupIdBlock(groupId, page), page);
+            groupedAccumulator.addInput(getGroupIdBlock(groupId, page), page);
         }
 
-        expectedValue.validateAccumulator(accumulator, groupId);
+        expectedValue.validateAccumulator(groupedAccumulator, groupId);
     }
 
     public GroupedAccumulator runPagesOnAccumulator(long groupId, GroupedAccumulator groupedAccumulator)

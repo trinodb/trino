@@ -38,9 +38,10 @@ public class AggregationTestOutput
     }
 
     private static BiConsumer<Object, Object> createEqualAssertion(Object expectedValue, long groupId)
-
     {
-        BiConsumer<Object, Object> equalAssertion = (actual, expected) -> assertEquals(actual, expected, format("failure on group %s", groupId));
+        BiConsumer<Object, Object> equalAssertion = (actual, expected) -> {
+            assertEquals(actual, expected, format("failure on group %s", groupId));
+        };
 
         if (expectedValue instanceof Double && !expectedValue.equals(Double.NaN)) {
             equalAssertion = (actual, expected) -> assertEquals((double) actual, (double) expected, 1e-10);
