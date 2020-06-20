@@ -15,10 +15,13 @@ package io.prestosql.tests.product.launcher.env;
 
 import com.google.common.base.Stopwatch;
 import io.airlift.log.Logger;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.utility.MountableFile;
 
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.LinkedHashMap;
 
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -37,8 +40,23 @@ public class DockerContainer
     }
 
     @Override
+    public DockerContainer withFileSystemBind(String hostPath, String containerPath)
+    {
+        verifyHostPath(hostPath);
+        return super.withFileSystemBind(hostPath, containerPath);
+    }
+
+    @Override
+    public DockerContainer withFileSystemBind(String hostPath, String containerPath, BindMode mode)
+    {
+        verifyHostPath(hostPath);
+        return super.withFileSystemBind(hostPath, containerPath, mode);
+    }
+
+    @Override
     public void copyFileToContainer(MountableFile mountableFile, String containerPath)
     {
+        verifyHostPath(mountableFile.getResolvedPath());
         copyFileToContainer(containerPath, () -> super.copyFileToContainer(mountableFile, containerPath));
     }
 
@@ -53,5 +71,13 @@ public class DockerContainer
         Stopwatch stopwatch = Stopwatch.createStarted();
         copy.run();
         log.info("Copied files into %s in %.1f s", containerPath, stopwatch.elapsed(MILLISECONDS) / 1000.);
+    }
+
+    // Mounting a non-existing file results in docker creating a directory. This is often not the desired effect. Fail fast instead.
+    private static void verifyHostPath(String hostPath)
+    {
+        if (!Files.exists(Paths.get(hostPath))) {
+            throw new IllegalArgumentException("Host path does not exist: " + hostPath);
+        }
     }
 }
