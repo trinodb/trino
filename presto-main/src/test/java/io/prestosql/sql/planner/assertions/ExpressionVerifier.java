@@ -103,7 +103,8 @@ public final class ExpressionVerifier
             return false;
         }
 
-        return getValueFromLiteral(actual).equals(getValueFromLiteral(expectedExpression));
+        return getValueFromLiteral(actual).equals(getValueFromLiteral(expectedExpression)) &&
+                actual.getType().equals(((GenericLiteral) expectedExpression).getType());
     }
 
     @Override

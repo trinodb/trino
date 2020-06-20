@@ -160,7 +160,7 @@ public class TestHiveProjectionPushdownIntoTableScan
                 format("SELECT col0.x FROM %s WHERE col0.x = col1 + 3 and col0.y = 2", testTable),
                 anyTree(
                         filter(
-                                "col0_y = bigint '2' AND (col0_x =  cast((col1 + 3) as bigint))",
+                                "col0_y = BIGINT '2' AND (col0_x =  cast((col1 + 3) as BIGINT))",
                                 tableScan(
                                         table -> ((HiveTableHandle) table).getCompactEffectivePredicate().getDomains().get()
                                                 .equals(ImmutableMap.of(columnY, Domain.singleValue(BIGINT, 2L))),
@@ -172,7 +172,7 @@ public class TestHiveProjectionPushdownIntoTableScan
                 format("SELECT col0, col0.y expr_y FROM %s WHERE col0.x = 5", testTable),
                 anyTree(
                         filter(
-                                "col0_x = bigint '5'",
+                                "col0_x = BIGINT '5'",
                                 tableScan(
                                         table -> ((HiveTableHandle) table).getCompactEffectivePredicate().getDomains().get()
                                                 .equals(ImmutableMap.of(columnX, Domain.singleValue(BIGINT, 5L))),
