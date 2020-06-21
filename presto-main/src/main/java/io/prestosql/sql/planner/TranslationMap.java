@@ -61,7 +61,7 @@ class TranslationMap
     // all expressions are rewritten in terms of fields declared by this relation plan
     private final Scope scope;
     private final Analysis analysis;
-    private final Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap;
+    private final Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments;
     private final Optional<TranslationMap> outerContext;
 
     // current mappings of underlying field -> symbol for translating direct field references
@@ -70,22 +70,22 @@ class TranslationMap
     // current mappings of sub-expressions -> symbol
     private final Map<ScopeAware<Expression>, Symbol> astToSymbols;
 
-    public TranslationMap(Optional<TranslationMap> outerContext, Scope scope, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap, List<Symbol> fieldSymbols)
+    public TranslationMap(Optional<TranslationMap> outerContext, Scope scope, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, List<Symbol> fieldSymbols)
     {
-        this(outerContext, scope, analysis, lambdaDeclarationToSymbolMap, fieldSymbols.toArray(new Symbol[0]).clone(), ImmutableMap.of());
+        this(outerContext, scope, analysis, lambdaArguments, fieldSymbols.toArray(new Symbol[0]).clone(), ImmutableMap.of());
     }
 
-    public TranslationMap(Optional<TranslationMap> outerContext, Scope scope, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap, List<Symbol> fieldSymbols, Map<ScopeAware<Expression>, Symbol> astToSymbols)
+    public TranslationMap(Optional<TranslationMap> outerContext, Scope scope, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, List<Symbol> fieldSymbols, Map<ScopeAware<Expression>, Symbol> astToSymbols)
     {
-        this(outerContext, scope, analysis, lambdaDeclarationToSymbolMap, fieldSymbols.toArray(new Symbol[0]), astToSymbols);
+        this(outerContext, scope, analysis, lambdaArguments, fieldSymbols.toArray(new Symbol[0]), astToSymbols);
     }
 
-    public TranslationMap(Optional<TranslationMap> outerContext, Scope scope, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap, Symbol[] fieldSymbols, Map<ScopeAware<Expression>, Symbol> astToSymbols)
+    public TranslationMap(Optional<TranslationMap> outerContext, Scope scope, Analysis analysis, Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaArguments, Symbol[] fieldSymbols, Map<ScopeAware<Expression>, Symbol> astToSymbols)
     {
         this.outerContext = requireNonNull(outerContext, "outerContext is null");
         this.scope = requireNonNull(scope, "scope is null");
         this.analysis = requireNonNull(analysis, "analysis is null");
-        this.lambdaDeclarationToSymbolMap = requireNonNull(lambdaDeclarationToSymbolMap, "lambdaDeclarationToSymbolMap is null");
+        this.lambdaArguments = requireNonNull(lambdaArguments, "lambdaDeclarationToSymbolMap is null");
 
         requireNonNull(fieldSymbols, "fieldSymbols is null");
         this.fieldSymbols = fieldSymbols.clone();
@@ -105,7 +105,7 @@ class TranslationMap
 
     public TranslationMap withScope(Scope scope, List<Symbol> fields)
     {
-        return new TranslationMap(outerContext, scope, analysis, lambdaDeclarationToSymbolMap, fields.toArray(new Symbol[0]), astToSymbols);
+        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fields.toArray(new Symbol[0]), astToSymbols);
     }
 
     public TranslationMap withNewMappings(Map<Expression, Symbol> mappings, List<Symbol> fields)
@@ -113,7 +113,7 @@ class TranslationMap
         Map<ScopeAware<Expression>, Symbol> newMappings = mappings.entrySet().stream()
                 .collect(toImmutableMap(entry -> scopeAwareKey(entry.getKey(), analysis, scope), Map.Entry::getValue));
 
-        return new TranslationMap(outerContext, scope, analysis, lambdaDeclarationToSymbolMap, fields, newMappings);
+        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fields, newMappings);
     }
 
     public TranslationMap withAdditionalMappings(Map<ScopeAware<Expression>, Symbol> mappings)
@@ -122,7 +122,7 @@ class TranslationMap
         newMappings.putAll(this.astToSymbols);
         newMappings.putAll(mappings);
 
-        return new TranslationMap(outerContext, scope, analysis, lambdaDeclarationToSymbolMap, fieldSymbols, newMappings);
+        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fieldSymbols, newMappings);
     }
 
     public List<Symbol> getFieldSymbols()
@@ -197,7 +197,7 @@ class TranslationMap
 
                 LambdaArgumentDeclaration referencedLambdaArgumentDeclaration = analysis.getLambdaArgumentReference(node);
                 if (referencedLambdaArgumentDeclaration != null) {
-                    Symbol symbol = lambdaDeclarationToSymbolMap.get(NodeRef.of(referencedLambdaArgumentDeclaration));
+                    Symbol symbol = lambdaArguments.get(NodeRef.of(referencedLambdaArgumentDeclaration));
                     return coerceIfNecessary(node, symbol.toSymbolReference());
                 }
 
@@ -256,7 +256,7 @@ class TranslationMap
 
                 ImmutableList.Builder<LambdaArgumentDeclaration> newArguments = ImmutableList.builder();
                 for (LambdaArgumentDeclaration argument : node.getArguments()) {
-                    Symbol symbol = lambdaDeclarationToSymbolMap.get(NodeRef.of(argument));
+                    Symbol symbol = lambdaArguments.get(NodeRef.of(argument));
                     newArguments.add(new LambdaArgumentDeclaration(new Identifier(symbol.getName())));
                 }
                 Expression rewrittenBody = treeRewriter.rewrite(node.getBody(), null);
