@@ -64,7 +64,7 @@ public final class TestQueryRunnerUtil
                     dispatchManager.getQueryInfo(queryInfo.getQueryId());
                 }
             }
-            MILLISECONDS.sleep(500);
+            MILLISECONDS.sleep(100);
         }
         while (!expectedQueryStates.contains(dispatchManager.getQueryInfo(queryId).getState()));
     }
