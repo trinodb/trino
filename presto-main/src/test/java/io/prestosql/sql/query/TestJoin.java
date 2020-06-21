@@ -52,4 +52,13 @@ public class TestJoin
                         "JOIN d ON d.id = a.id"))
                 .matches("VALUES 1");
     }
+
+    @Test
+    public void testJoinOnNan()
+    {
+        assertThat(assertions.query(
+                "WITH t(x) AS (VALUES if(rand() > 0, nan())) " + // TODO: remove if(rand() > 0, ...) once https://github.com/prestosql/presto/issues/4119 is fixed
+                "SELECT * FROM t t1 JOIN t t2 ON NOT t1.x < t2.x"))
+            .matches("VALUES (nan(), nan())");
+    }
 }
