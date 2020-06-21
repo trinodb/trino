@@ -23,6 +23,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.FixedWidthType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
@@ -30,6 +31,7 @@ import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarcharType;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -56,6 +58,16 @@ public final class TypeUtils
     {
         if (type instanceof FixedWidthType) {
             return ((FixedWidthType) type).getFixedSize();
+        }
+        // If bound on length of varchar or char is smaller than defaultSize, use that as expected size
+        // The data can take up to 4 bytes per character due to UTF-8 encoding, but we assume it is ASCII and only needs one byte.
+        if (type instanceof VarcharType) {
+            return ((VarcharType) type).getLength()
+                    .map(length -> Math.min(length, defaultSize))
+                    .orElse(defaultSize);
+        }
+        if (type instanceof CharType) {
+            return Math.min(((CharType) type).getLength(), defaultSize);
         }
         return defaultSize;
     }
