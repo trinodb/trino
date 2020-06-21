@@ -65,7 +65,7 @@ public class TestHiveStorageFormats
                 {storageFormat("RCTEXT", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "true"))},
                 {storageFormat("SEQUENCEFILE")},
                 {storageFormat("TEXTFILE")},
-                {storageFormat("TEXTFILE", ImmutableMap.of("textfile_field_separator", "F", "textfile_field_separator_escape", "E"), ImmutableMap.of())},
+                {storageFormat("TEXTFILE", ImmutableMap.of(), ImmutableMap.of("textfile_field_separator", "F", "textfile_field_separator_escape", "E"))},
                 {storageFormat("AVRO")}
         };
     }
@@ -299,12 +299,15 @@ public class TestHiveStorageFormats
 
     private static StorageFormat storageFormat(String name, Map<String, String> sessionProperties)
     {
-        return new StorageFormat(name, ImmutableMap.of(), sessionProperties);
+        return new StorageFormat(name, sessionProperties, ImmutableMap.of());
     }
 
-    private static StorageFormat storageFormat(String name, Map<String, String> properties, Map<String, String> sessionProperties)
+    private static StorageFormat storageFormat(
+            String name,
+            Map<String, String> sessionProperties,
+            Map<String, String> properties)
     {
-        return new StorageFormat(name, properties, sessionProperties);
+        return new StorageFormat(name, sessionProperties, properties);
     }
 
     private static class StorageFormat
@@ -313,7 +316,10 @@ public class TestHiveStorageFormats
         private final Map<String, String> properties;
         private final Map<String, String> sessionProperties;
 
-        private StorageFormat(String name, Map<String, String> properties, Map<String, String> sessionProperties)
+        private StorageFormat(
+                String name,
+                Map<String, String> sessionProperties,
+                Map<String, String> properties)
         {
             this.name = requireNonNull(name, "name is null");
             this.properties = requireNonNull(properties, "properties is null");
