@@ -333,8 +333,6 @@ class RelationPlanner
             List<ComparisonExpression.Operator> joinConditionComparisonOperators = new ArrayList<>();
 
             for (Expression conjunct : ExpressionUtils.extractConjuncts(criteria)) {
-                conjunct = ExpressionUtils.normalize(conjunct);
-
                 if (!isEqualComparisonExpression(conjunct) && node.getType() != INNER) {
                     complexJoinExpressions.add(conjunct);
                     continue;
