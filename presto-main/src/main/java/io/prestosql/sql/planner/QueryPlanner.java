@@ -24,6 +24,7 @@ import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.Analysis;
+import io.prestosql.sql.analyzer.Analysis.GroupingSetAnalysis;
 import io.prestosql.sql.analyzer.Analysis.SelectExpression;
 import io.prestosql.sql.analyzer.FieldId;
 import io.prestosql.sql.analyzer.Scope;
@@ -525,7 +526,7 @@ class QueryPlanner
             // The catch is that simple group-by expressions can be arbitrary expressions (this is a departure from the SQL specification).
             // But, they don't affect the number of grouping sets or the behavior of "distinct" . We can compute all the candidate
             // grouping sets in terms of fieldId, dedup as appropriate and then cross-join them with the complex expressions.
-            Analysis.GroupingSetAnalysis groupingSetAnalysis = analysis.getGroupingSets(node);
+            GroupingSetAnalysis groupingSetAnalysis = analysis.getGroupingSets(node);
             columnOnlyGroupingSets = enumerateGroupingSets(groupingSetAnalysis);
 
             if (node.getGroupBy().get().isDistinct()) {
@@ -641,7 +642,7 @@ class QueryPlanner
         return handleGroupingOperations(subPlan, node, groupIdSymbol, columnOnlyGroupingSets);
     }
 
-    private List<Set<FieldId>> enumerateGroupingSets(Analysis.GroupingSetAnalysis groupingSetAnalysis)
+    private List<Set<FieldId>> enumerateGroupingSets(GroupingSetAnalysis groupingSetAnalysis)
     {
         List<List<Set<FieldId>>> partialSets = new ArrayList<>();
 
