@@ -475,7 +475,7 @@ class QueryPlanner
         analysis.getAggregates(node).stream()
                 .map(FunctionCall::getArguments)
                 .flatMap(List::stream)
-                .filter(exp -> !(exp instanceof LambdaExpression)) // lambda expression is generated at execution time
+                .filter(expression -> !(expression instanceof LambdaExpression)) // lambda expression is generated at execution time
                 .forEach(arguments::add);
 
         analysis.getAggregates(node).stream()
