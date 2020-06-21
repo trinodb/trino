@@ -22,13 +22,10 @@ import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.block.SortOrder;
-import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.Analysis;
 import io.prestosql.sql.analyzer.Analysis.SelectExpression;
-import io.prestosql.sql.analyzer.Field;
 import io.prestosql.sql.analyzer.FieldId;
-import io.prestosql.sql.analyzer.RelationType;
 import io.prestosql.sql.analyzer.Scope;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
@@ -261,17 +258,7 @@ class QueryPlanner
     public DeleteNode plan(Delete node)
     {
         Table table = node.getTable();
-        RelationType descriptor = analysis.getOutputDescriptor(table);
         TableHandle handle = analysis.getTableHandle(table);
-
-        // add table columns
-        ImmutableMap.Builder<Symbol, ColumnHandle> columns = ImmutableMap.builder();
-        ImmutableList.Builder<Field> fields = ImmutableList.builder();
-        for (Field field : descriptor.getAllFields()) {
-            Symbol symbol = symbolAllocator.newSymbol(field);
-            columns.put(symbol, analysis.getColumn(field));
-            fields.add(field);
-        }
 
         // create table scan
         RelationPlan relationPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, session)
