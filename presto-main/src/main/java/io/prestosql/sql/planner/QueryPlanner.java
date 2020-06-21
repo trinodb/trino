@@ -23,6 +23,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.NodeUtils;
 import io.prestosql.sql.analyzer.Analysis;
 import io.prestosql.sql.analyzer.Analysis.GroupingSetAnalysis;
 import io.prestosql.sql.analyzer.Analysis.SelectExpression;
@@ -326,9 +327,7 @@ class QueryPlanner
 
         analysis.getAggregates(node).stream()
                 .map(FunctionCall::getOrderBy)
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .map(OrderBy::getSortItems)
+                .map(NodeUtils::getSortItemsFromOrderBy)
                 .flatMap(List::stream)
                 .map(SortItem::getSortKey)
                 .forEach(inputBuilder::add);
