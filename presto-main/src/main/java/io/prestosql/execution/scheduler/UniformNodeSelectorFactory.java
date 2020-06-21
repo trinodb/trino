@@ -13,11 +13,13 @@
  */
 package io.prestosql.execution.scheduler;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Suppliers;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableSetMultimap;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.NodeTaskMap;
 import io.prestosql.metadata.InternalNode;
@@ -37,6 +39,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.metadata.NodeState.ACTIVE;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class UniformNodeSelectorFactory
         implements NodeSelectorFactory
@@ -54,12 +58,23 @@ public class UniformNodeSelectorFactory
     private final int maxPendingSplitsPerTask;
     private final boolean optimizedLocalScheduling;
     private final NodeTaskMap nodeTaskMap;
+    private final Duration nodeMapMemoizationDuration;
 
     @Inject
     public UniformNodeSelectorFactory(
             InternalNodeManager nodeManager,
             NodeSchedulerConfig config,
             NodeTaskMap nodeTaskMap)
+    {
+        this(nodeManager, config, nodeTaskMap, new Duration(5, SECONDS));
+    }
+
+    @VisibleForTesting
+    UniformNodeSelectorFactory(
+            InternalNodeManager nodeManager,
+            NodeSchedulerConfig config,
+            NodeTaskMap nodeTaskMap,
+            Duration nodeMapMemoizationDuration)
     {
         requireNonNull(nodeManager, "nodeManager is null");
         requireNonNull(config, "config is null");
@@ -73,6 +88,7 @@ public class UniformNodeSelectorFactory
         this.optimizedLocalScheduling = config.getOptimizedLocalScheduling();
         this.nodeTaskMap = requireNonNull(nodeTaskMap, "nodeTaskMap is null");
         checkArgument(maxSplitsPerNode >= maxPendingSplitsPerTask, "maxSplitsPerNode must be > maxPendingSplitsPerTask");
+        this.nodeMapMemoizationDuration = nodeMapMemoizationDuration;
     }
 
     @Override
@@ -82,9 +98,15 @@ public class UniformNodeSelectorFactory
 
         // this supplier is thread-safe. TODO: this logic should probably move to the scheduler since the choice of which node to run in should be
         // done as close to when the the split is about to be scheduled
-        Supplier<NodeMap> nodeMap = Suppliers.memoizeWithExpiration(
-                () -> createNodeMap(catalogName),
-                5, TimeUnit.SECONDS);
+        Supplier<NodeMap> nodeMap;
+        if (nodeMapMemoizationDuration.toMillis() > 0) {
+            nodeMap = Suppliers.memoizeWithExpiration(
+                    () -> createNodeMap(catalogName),
+                    nodeMapMemoizationDuration.toMillis(), MILLISECONDS);
+        }
+        else {
+            nodeMap = () -> createNodeMap(catalogName);
+        }
 
         return new UniformNodeSelector(
                 nodeManager,
