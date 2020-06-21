@@ -110,6 +110,4 @@ public interface QueryManager
      * state, the call is ignored.  If the query does not exist, the call is ignored.
      */
     void cancelStage(StageId stageId);
-
-    QueryManagerStats getStats();
 }
