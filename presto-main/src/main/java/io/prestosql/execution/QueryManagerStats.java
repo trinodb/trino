@@ -25,7 +25,6 @@ import org.weakref.jmx.Nested;
 import javax.annotation.concurrent.GuardedBy;
 
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 import static io.prestosql.execution.QueryState.RUNNING;
@@ -36,8 +35,6 @@ import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class QueryManagerStats
 {
-    private final AtomicInteger queuedQueries = new AtomicInteger();
-    private final AtomicInteger runningQueries = new AtomicInteger();
     private final CounterStat submittedQueries = new CounterStat();
     private final CounterStat startedQueries = new CounterStat();
     private final CounterStat completedQueries = new CounterStat();
@@ -59,14 +56,12 @@ public class QueryManagerStats
     public void trackQueryStats(DispatchQuery managedQueryExecution)
     {
         submittedQueries.update(1);
-        queuedQueries.incrementAndGet();
         managedQueryExecution.addStateChangeListener(new StatisticsListener(managedQueryExecution));
     }
 
     public void trackQueryStats(QueryExecution managedQueryExecution)
     {
         submittedQueries.update(1);
-        queuedQueries.incrementAndGet();
         managedQueryExecution.addStateChangeListener(new StatisticsListener());
         managedQueryExecution.addFinalQueryInfoListener(finalQueryInfo -> queryFinished(new BasicQueryInfo(finalQueryInfo)));
     }
@@ -74,13 +69,6 @@ public class QueryManagerStats
     private void queryStarted()
     {
         startedQueries.update(1);
-        runningQueries.incrementAndGet();
-        queuedQueries.decrementAndGet();
-    }
-
-    private void queryStopped()
-    {
-        runningQueries.decrementAndGet();
     }
 
     private void queryFinished(BasicQueryInfo info)
@@ -161,9 +149,6 @@ public class QueryManagerStats
 
                 if (newValue.isDone()) {
                     stopped = true;
-                    if (started) {
-                        queryStopped();
-                    }
                     finalQueryInfoSupplier.get()
                             .ifPresent(QueryManagerStats.this::queryFinished);
                 }
@@ -175,19 +160,6 @@ public class QueryManagerStats
                 }
             }
         }
-    }
-
-    @Managed
-    public long getRunningQueries()
-    {
-        // This is not startedQueries - completeQueries, since queries can finish without ever starting (cancelled before started, for example)
-        return runningQueries.get();
-    }
-
-    @Managed
-    public long getQueuedQueries()
-    {
-        return queuedQueries.get();
     }
 
     @Managed

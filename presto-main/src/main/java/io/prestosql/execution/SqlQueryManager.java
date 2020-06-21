@@ -29,7 +29,6 @@ import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.sql.planner.Plan;
-import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -75,8 +74,6 @@ public class SqlQueryManager
 
     private final ScheduledExecutorService queryManagementExecutor;
     private final ThreadPoolExecutorMBean queryManagementExecutorMBean;
-
-    private final QueryManagerStats stats = new QueryManagerStats();
 
     @Inject
     public SqlQueryManager(ClusterMemoryManager memoryManager, QueryMonitor queryMonitor, QueryManagerConfig queryManagerConfig)
@@ -232,8 +229,6 @@ public class SqlQueryManager
             }
         });
 
-        stats.trackQueryStats(queryExecution);
-
         queryExecution.start();
     }
 
@@ -264,14 +259,6 @@ public class SqlQueryManager
 
         queryTracker.tryGetQuery(stageId.getQueryId())
                 .ifPresent(query -> query.cancelStage(stageId));
-    }
-
-    @Override
-    @Managed
-    @Flatten
-    public QueryManagerStats getStats()
-    {
-        return stats;
     }
 
     @Managed(description = "Query scheduler executor")
