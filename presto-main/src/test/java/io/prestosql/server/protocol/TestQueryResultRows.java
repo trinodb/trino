@@ -29,6 +29,7 @@ import org.testng.annotations.Test;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.Consumer;
 
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
@@ -50,7 +51,7 @@ public class TestQueryResultRows
 
         assertThat((Iterable<? extends List<Object>>) rows).as("rows").isEmpty();
         assertThat(getAllValues(rows)).hasSize(0);
-        assertThat(rows.getColumns()).hasSize(0);
+        assertThat(rows.getColumns()).isEmpty();
         assertThat(rows.iterator().hasNext()).isFalse();
     }
 
@@ -65,7 +66,7 @@ public class TestQueryResultRows
 
         assertThat((Iterable<? extends List<Object>>) rows).as("rows").isNotEmpty();
         assertThat(getAllValues(rows)).hasSize(1).containsOnly(ImmutableList.of(true));
-        assertThat(rows.getColumns()).containsOnly(column);
+        assertThat(rows.getColumns().orElseThrow()).containsOnly(column);
         assertThat(rows.iterator().hasNext()).isFalse();
     }
 
@@ -76,7 +77,7 @@ public class TestQueryResultRows
         long value = 10123;
 
         QueryResultRows rows = queryResultRowsBuilder(getSession())
-                .withColumns(ImmutableList.of(column), ImmutableList.of(BigintType.BIGINT))
+                .withColumnsAndTypes(ImmutableList.of(column), ImmutableList.of(BigintType.BIGINT))
                 .addPages(rowPagesBuilder(BigintType.BIGINT).row(value).build())
                 .build();
 
@@ -85,7 +86,7 @@ public class TestQueryResultRows
         assertThat(rows.getUpdateCount().get()).isEqualTo(value);
 
         assertThat(getAllValues(rows)).containsExactly(ImmutableList.of(value));
-        assertThat(rows.getColumns()).containsOnly(column);
+        assertThat(rows.getColumns().orElseThrow()).containsOnly(column);
         assertThat(rows.iterator()).isExhausted();
     }
 
@@ -125,14 +126,14 @@ public class TestQueryResultRows
 
         TestExceptionConsumer exceptionConsumer = new TestExceptionConsumer();
         QueryResultRows rows = queryResultRowsBuilder(getSession())
-                .withColumns(columns, types)
+                .withColumnsAndTypes(columns, types)
                 .addPages(pages)
                 .withExceptionConsumer(exceptionConsumer)
                 .build();
 
         assertThat((Iterable<? extends List<Object>>) rows).as("rows").isNotEmpty();
         assertThat(rows.getTotalRowsCount()).isEqualTo(10);
-        assertThat(rows.getColumns()).isEqualTo(columns);
+        assertThat(rows.getColumns()).isEqualTo(Optional.of(columns));
         assertThat(rows.getUpdateCount()).isEmpty();
 
         assertThat(getAllValues(rows)).containsExactly(
@@ -166,14 +167,14 @@ public class TestQueryResultRows
 
         TestExceptionConsumer exceptionConsumer = new TestExceptionConsumer();
         QueryResultRows rows = queryResultRowsBuilder(getSession())
-                .withColumns(columns, types)
+                .withColumnsAndTypes(columns, types)
                 .withExceptionConsumer(exceptionConsumer)
                 .addPages(pages)
                 .build();
 
         assertFalse(rows.isEmpty(), "rows are empty");
         assertThat(rows.getTotalRowsCount()).isEqualTo(5);
-        assertThat(rows.getColumns()).isEqualTo(columns);
+        assertThat(rows.getColumns()).isEqualTo(Optional.of(columns));
         assertTrue(rows.getUpdateCount().isEmpty());
 
         assertThat(getAllValues(rows))
@@ -219,7 +220,7 @@ public class TestQueryResultRows
 
         TestExceptionConsumer exceptionConsumer = new TestExceptionConsumer();
         QueryResultRows rows = queryResultRowsBuilder(getSession())
-                .withColumns(columns, types)
+                .withColumnsAndTypes(columns, types)
                 .withExceptionConsumer(exceptionConsumer)
                 .addPages(pages)
                 .build();
@@ -230,6 +231,67 @@ public class TestQueryResultRows
         assertThat(getAllValues(rows))
                 .hasSize(3)
                 .containsExactly(newArrayList(0, null), newArrayList(1, null), newArrayList(2, true));
+    }
+
+    @Test
+    public void shouldNotThrowWhenDataAndColumnsAreMissing()
+    {
+        QueryResultRows.empty(getSession());
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "columns and types size mismatch")
+    public void shouldThrowWhenColumnsAndTypesSizeMismatch()
+    {
+        List<Column> columns = ImmutableList.of(new Column("_col0", INTEGER, new ClientTypeSignature(INTEGER)));
+        List<Type> types = ImmutableList.of(IntegerType.INTEGER, BooleanType.BOOLEAN);
+
+        List<Page> pages = rowPagesBuilder(types)
+                .row(0, null)
+                .build();
+
+        queryResultRowsBuilder(getSession())
+                .addPages(pages)
+                .withColumnsAndTypes(columns, types)
+                .build();
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "columns and types must be present at the same time")
+    public void shouldThrowWhenColumnsAreNull()
+    {
+        List<Type> types = ImmutableList.of(IntegerType.INTEGER, BooleanType.BOOLEAN);
+
+        List<Page> pages = rowPagesBuilder(types)
+                .row(0, null)
+                .build();
+
+        queryResultRowsBuilder(getSession())
+                .addPages(pages)
+                .withColumnsAndTypes(null, types)
+                .build();
+    }
+
+    @Test
+    public void shouldAcceptNullColumnsAndTypes()
+    {
+        queryResultRowsBuilder(getSession())
+                .withColumnsAndTypes(null, null)
+                .build();
+    }
+
+    @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "columns and types must be present at the same time")
+    public void shouldThrowWhenTypesAreNull()
+    {
+        List<Column> columns = ImmutableList.of(new Column("_col0", INTEGER, new ClientTypeSignature(INTEGER)));
+        List<Type> types = ImmutableList.of(IntegerType.INTEGER, BooleanType.BOOLEAN);
+
+        List<Page> pages = rowPagesBuilder(types)
+                .row(0, null)
+                .build();
+
+        queryResultRowsBuilder(getSession())
+                .addPages(pages)
+                .withColumnsAndTypes(columns, null)
+                .build();
     }
 
     private static List<List<Object>> getAllValues(QueryResultRows rows)
