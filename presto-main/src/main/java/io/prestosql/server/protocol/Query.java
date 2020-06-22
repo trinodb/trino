@@ -466,7 +466,7 @@ class Query
                 queryHtmlUri,
                 partialCancelUri,
                 nextResultsUri,
-                resultRows.getColumns(),
+                resultRows.getColumns().orElse(null),
                 resultRows.isEmpty() ? null : resultRows, // client excepts null that indicates "no data"
                 toStatementStats(queryInfo),
                 toQueryError(queryInfo, typeSerializationException),
@@ -499,7 +499,7 @@ class Query
                 // Intercept serialization exceptions and fail query if it's still possible.
                 // Put serialization exception aside to return failed query result.
                 .withExceptionConsumer(this::handleSerializationException)
-                .withColumns(columns, types);
+                .withColumnsAndTypes(columns, types);
 
         try {
             long bytes = 0;

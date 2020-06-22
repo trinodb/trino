@@ -26,10 +26,11 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
+
+import javax.annotation.Nullable;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
@@ -39,14 +40,14 @@ import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Verify.verify;
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verifyNotNull;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.StandardErrorCode.SERIALIZATION_ERROR;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static java.lang.String.format;
-import static java.util.Collections.emptyList;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
@@ -55,8 +56,7 @@ public class QueryResultRows
         implements Iterable<List<Object>>
 {
     private final ConnectorSession session;
-    private final List<Type> types;
-    private final List<Column> columns;
+    private final Optional<List<ColumnAndType>> columns;
     private final Deque<Page> pages;
     private final Optional<Consumer<Throwable>> exceptionConsumer;
     private final long totalRows;
@@ -66,23 +66,15 @@ public class QueryResultRows
     private int rowPosition = -1;
     private int inPageIndex = -1;
 
-    private QueryResultRows(Session session, List<Type> types, List<Column> columns, List<Page> pages)
-    {
-        this(session, types, columns, pages, null);
-    }
-
-    private QueryResultRows(Session session, List<Type> types, List<Column> columns, List<Page> pages, Consumer<Throwable> exceptionConsumer)
+    private QueryResultRows(Session session, Optional<List<ColumnAndType>> columns, List<Page> pages, Consumer<Throwable> exceptionConsumer)
     {
         this.session = requireNonNull(session, "session is null").toConnectorSession();
-        this.types = requireNonNull(types, "types is null");
         this.columns = requireNonNull(columns, "columns is null");
         this.pages = new ArrayDeque<>(requireNonNull(pages, "pages is null"));
         this.exceptionConsumer = Optional.ofNullable(exceptionConsumer);
         this.totalRows = countRows(pages);
         this.currentPage = this.pages.pollFirst();
         this.supportsParametricDateTime = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
-
-        verify(this.types.size() == this.columns.size(), "columns and types sizes mismatch");
     }
 
     public boolean isEmpty()
@@ -90,9 +82,11 @@ public class QueryResultRows
         return totalRows == 0;
     }
 
-    public List<Column> getColumns()
+    public Optional<List<Column>> getColumns()
     {
-        return columns;
+        return columns.map(columns -> columns.stream()
+                .map(ColumnAndType::getColumn)
+                .collect(toImmutableList()));
     }
 
     /**
@@ -107,12 +101,18 @@ public class QueryResultRows
     public Optional<Long> getUpdateCount()
     {
         // We should have exactly single bigint value as an update count.
-        if (totalRows != 1 || columns.size() != 1 || !columns.get(0).getType().equals(StandardTypes.BIGINT)) {
+        if (totalRows != 1 || columns.isEmpty()) {
+            return Optional.empty();
+        }
+
+        List<ColumnAndType> columns = this.columns.get();
+
+        if (columns.size() != 1 || !columns.get(0).getType().equals(BIGINT)) {
             return Optional.empty();
         }
 
         verifyNotNull(currentPage, "currentPage is null");
-        Number value = (Number) types.get(0).getObjectValue(session, currentPage.getBlock(0), 0);
+        Number value = (Number) columns.get(0).getType().getObjectValue(session, currentPage.getBlock(0), 0);
 
         return Optional.ofNullable(value).map(Number::longValue);
     }
@@ -150,10 +150,13 @@ public class QueryResultRows
 
     private Optional<List<Object>> getRowValues()
     {
+        // types are present if data is present
+        List<ColumnAndType> columns = this.columns.orElseThrow();
         List<Object> row = new ArrayList<>(columns.size());
 
         for (int channel = 0; channel < currentPage.getChannelCount(); channel++) {
-            Type type = types.get(channel);
+            ColumnAndType column = columns.get(channel);
+            Type type = column.getType();
             Block block = currentPage.getBlock(channel);
 
             try {
@@ -168,7 +171,7 @@ public class QueryResultRows
                 }
             }
             catch (Throwable throwable) {
-                propagateException(rowPosition, channel, throwable);
+                propagateException(rowPosition, channel, column, throwable);
                 // skip row as it contains non-serializable value
                 return Optional.empty();
             }
@@ -177,10 +180,10 @@ public class QueryResultRows
         return Optional.of(unmodifiableList(row));
     }
 
-    private void propagateException(int row, int column, Throwable cause)
+    private void propagateException(int row, int column, ColumnAndType columnAndType, Throwable cause)
     {
         // columns and rows are 0-indexed
-        String message = format("Could not serialize type '%s' value at position %d:%d", columns.get(column).getType(), row + 1, column + 1);
+        String message = format("Could not serialize type '%s' value at position %d:%d", columnAndType.getColumn().getType(), row + 1, column + 1);
         exceptionConsumer.ifPresent(consumer -> consumer.accept(new PrestoException(SERIALIZATION_ERROR, message, cause)));
     }
 
@@ -203,7 +206,6 @@ public class QueryResultRows
     public String toString()
     {
         return toStringHelper(this)
-                .add("types", types)
                 .add("columns", columns)
                 .add("totalRowsCount", getTotalRowsCount())
                 .add("pagesCount", this.pages.size())
@@ -212,7 +214,7 @@ public class QueryResultRows
 
     public static QueryResultRows empty(Session session)
     {
-        return new QueryResultRows(session, ImmutableList.of(), ImmutableList.of(), ImmutableList.of());
+        return new QueryResultRows(session, Optional.empty(), ImmutableList.of(), null);
     }
 
     public static Builder queryResultRowsBuilder(Session session)
@@ -224,8 +226,7 @@ public class QueryResultRows
     {
         private final Session session;
         private ImmutableList.Builder<Page> pages = ImmutableList.builder();
-        private List<Type> types = new ArrayList<>();
-        private List<Column> columns = new ArrayList<>();
+        private Optional<List<ColumnAndType>> columns = Optional.empty();
         private Consumer<Throwable> exceptionConsumer;
 
         public Builder(Session session)
@@ -245,10 +246,11 @@ public class QueryResultRows
             return this;
         }
 
-        public Builder withColumns(List<Column> columns, List<Type> types)
+        public Builder withColumnsAndTypes(@Nullable List<Column> columns, @Nullable List<Type> types)
         {
-            this.columns = firstNonNull(columns, emptyList());
-            this.types = firstNonNull(types, emptyList());
+            if (columns != null || types != null) {
+                this.columns = Optional.of(combine(columns, types));
+            }
 
             return this;
         }
@@ -258,8 +260,7 @@ public class QueryResultRows
             BlockBuilder blockBuilder = BOOLEAN.createBlockBuilder(null, 1);
             BOOLEAN.writeBoolean(blockBuilder, value);
             pages = ImmutableList.<Page>builder().add(new Page(blockBuilder.build()));
-            types = ImmutableList.of(BOOLEAN);
-            columns = ImmutableList.of(column);
+            columns = Optional.of(combine(ImmutableList.of(column), ImmutableList.of(BOOLEAN)));
 
             return this;
         }
@@ -274,10 +275,54 @@ public class QueryResultRows
         {
             return new QueryResultRows(
                     session,
-                    types,
                     columns,
                     pages.build(),
                     exceptionConsumer);
+        }
+
+        private static List<ColumnAndType> combine(@Nullable List<Column> columns, @Nullable List<Type> types)
+        {
+            checkArgument(columns != null && types != null, "columns and types must be present at the same time");
+            checkArgument(columns.size() == types.size(), "columns and types size mismatch");
+
+            ImmutableList.Builder<ColumnAndType> builder = ImmutableList.builder();
+
+            for (int i = 0; i < columns.size(); i++) {
+                builder.add(new ColumnAndType(columns.get(i), types.get(i)));
+            }
+
+            return builder.build();
+        }
+    }
+
+    private static class ColumnAndType
+    {
+        private final Column column;
+        private final Type type;
+
+        private ColumnAndType(Column column, Type type)
+        {
+            this.column = column;
+            this.type = type;
+        }
+
+        public Column getColumn()
+        {
+            return column;
+        }
+
+        public Type getType()
+        {
+            return type;
+        }
+
+        @Override
+        public String toString()
+        {
+            return toStringHelper(this)
+                    .add("column", column)
+                    .add("type", type)
+                    .toString();
         }
     }
 }
