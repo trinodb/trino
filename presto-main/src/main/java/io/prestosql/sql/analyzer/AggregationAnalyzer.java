@@ -50,6 +50,7 @@ import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.NotExpression;
 import io.prestosql.sql.tree.NullIfExpression;
 import io.prestosql.sql.tree.Parameter;
+import io.prestosql.sql.tree.QuantifiedComparisonExpression;
 import io.prestosql.sql.tree.Row;
 import io.prestosql.sql.tree.SearchedCaseExpression;
 import io.prestosql.sql.tree.SimpleCaseExpression;
@@ -307,6 +308,12 @@ class AggregationAnalyzer
         protected Boolean visitInPredicate(InPredicate node, Void context)
         {
             return process(node.getValue(), context) && process(node.getValueList(), context);
+        }
+
+        @Override
+        protected Boolean visitQuantifiedComparisonExpression(QuantifiedComparisonExpression node, Void context)
+        {
+            return process(node.getValue(), context) && process(node.getSubquery(), context);
         }
 
         @Override
