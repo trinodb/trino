@@ -217,6 +217,7 @@ public class SnowflakeSplitSource
                             jdbcTableHandle.getCatalogName(),
                             jdbcTableHandle.getSchemaName(),
                             jdbcTableHandle.getTableName(),
+                            jdbcTableHandle.getGroupingSets(),
                             columns,
                             jdbcTableHandle.getConstraint(),
                             Optional.empty(),

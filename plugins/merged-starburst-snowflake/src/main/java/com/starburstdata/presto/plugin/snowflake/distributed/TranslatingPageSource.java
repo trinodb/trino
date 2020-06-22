@@ -19,6 +19,8 @@ import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 
 import java.io.IOException;
@@ -29,6 +31,7 @@ import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.starburstdata.presto.plugin.snowflake.distributed.LegacyDateTimeConversionUtils.toPrestoLegacyTime;
 import static com.starburstdata.presto.plugin.snowflake.distributed.LegacyDateTimeConversionUtils.toPrestoLegacyTimestamp;
 import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeQueryBuilder.TIMESTAMP_WITH_TIME_ZONE_MILLIS_SHIFT;
@@ -36,8 +39,6 @@ import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeQue
 import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeQueryBuilder.ZONE_OFFSET_MINUTES_BIAS;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -87,14 +88,15 @@ public class TranslatingPageSource
                                 originalBlock,
                                 legacyTimeTranslation));
             }
-            else if (TIMESTAMP.equals(type) && session.isLegacyTimestamp()) {
+            else if (type instanceof TimestampType && session.isLegacyTimestamp()) {
+                verify(((TimestampType) type).getPrecision() == 3, "Unsupported TimestampType: %s", type);
                 translatedBlocks[index] = new LazyBlock(
                         originalBlock.getPositionCount(),
                         new TranslateToLongBlockLoader(
                                 originalBlock,
                                 legacyTimestampTranslation));
             }
-            else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+            else if (type instanceof TimestampWithTimeZoneType) {
                 translatedBlocks[index] = new LazyBlock(
                         originalBlock.getPositionCount(),
                         new TranslateToLongBlockLoader(

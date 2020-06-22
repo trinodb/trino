@@ -160,8 +160,8 @@ public abstract class BaseSnowflakeDistributedQueries
         MaterializedResult actual = computeActual(session, "DESCRIBE INPUT my_query");
         MaterializedResult expected = resultBuilder(session, BIGINT, VARCHAR)
                 .row(0, "unknown")
-                .row(1, "decimal")
-                .row(2, "varchar")
+                .row(1, "decimal(38,0)")
+                .row(2, "varchar(25)")
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
     }

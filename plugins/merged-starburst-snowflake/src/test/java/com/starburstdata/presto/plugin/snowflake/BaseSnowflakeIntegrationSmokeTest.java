@@ -27,7 +27,7 @@ import java.time.ZoneOffset;
 
 import static com.google.common.base.Strings.repeat;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
@@ -214,6 +214,7 @@ public abstract class BaseSnowflakeIntegrationSmokeTest
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(ZoneOffset.UTC.getId()))
                 .setSystemProperty("legacy_timestamp", "false")
                 .build();
+
         try (TestTable testTable = new TestTable(
                 snowflakeExecutor,
                 tableName,
@@ -230,7 +231,7 @@ public abstract class BaseSnowflakeIntegrationSmokeTest
                         "DATEADD(YEAR, -70000, TO_TIMESTAMP_TZ('613-04-22T03:45:14.753Z'))",
                         "DATEADD(YEAR, -70000, TO_TIMESTAMP_TZ('613-04-22T17:45:14.753 +14:00'))"))) {
             MaterializedResult actual = computeActual(session, "SELECT a FROM " + testTable.getName()).toTestTypes();
-            MaterializedResult expected = MaterializedResult.resultBuilder(session, TIMESTAMP_WITH_TIME_ZONE)
+            MaterializedResult expected = MaterializedResult.resultBuilder(session, createTimestampWithTimeZoneType(3))
                     .row(LocalDateTime.of(1970, 1, 1, 0, 0).atZone(ZoneOffset.ofHoursMinutes(14, 0)))
                     .row(LocalDateTime.of(1970, 1, 1, 0, 0).atZone(ZoneOffset.ofHoursMinutes(-13, 0)))
                     .row(LocalDateTime.of(9999 + 2, 12, 31, 23, 59, 59, 999_000_000).atZone(ZoneId.of("UTC")))

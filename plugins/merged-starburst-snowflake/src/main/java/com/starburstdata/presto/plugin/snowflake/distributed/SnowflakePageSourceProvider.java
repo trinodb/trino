@@ -27,6 +27,7 @@ import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
@@ -49,7 +50,6 @@ import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.ge
 import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeDistributedSessionProperties.getParquetMaxReadBlockSize;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -101,7 +101,7 @@ class SnowflakePageSourceProvider
 
         List<HiveColumnHandle> transformedColumns = hiveColumns.stream()
                 .map(column -> {
-                    if (column.getType() == TIMESTAMP_WITH_TIME_ZONE) {
+                    if (column.getType() instanceof TimestampWithTimeZoneType) {
                         return new HiveColumnHandle(
                                 column.getName(),
                                 column.getBaseHiveColumnIndex(),
@@ -123,7 +123,7 @@ class SnowflakePageSourceProvider
                         // TODO use https://github.com/prestosql/presto/pull/3538 APIs
                         .filter(entry -> {
                             // We transform the values, so the domain would need to be translated.
-                            return entry.getValue().getType() != TIMESTAMP_WITH_TIME_ZONE;
+                            return !(entry.getValue().getType() instanceof TimestampWithTimeZoneType);
                         })
                         .collect(toImmutableMap(Entry::getKey, Entry::getValue)))
                 .transform(handle -> {
