@@ -19,7 +19,6 @@ import org.apache.helix.model.InstanceConfig;
 import org.apache.pinot.common.config.TableNameBuilder;
 import org.apache.pinot.common.metrics.BrokerMetrics;
 import org.apache.pinot.common.request.BrokerRequest;
-import org.apache.pinot.common.utils.CommonConstants;
 import org.apache.pinot.common.utils.DataTable;
 import org.apache.pinot.core.transport.AsyncQueryResponse;
 import org.apache.pinot.core.transport.QueryRouter;
@@ -37,7 +36,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Function;
+import java.util.function.LongFunction;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.pinot.PinotErrorCode.PINOT_EXCEPTION;
@@ -94,9 +93,8 @@ public class PinotQueryClient
         Map<ServerInstance, List<String>> realtimeRoutingTable = TableNameBuilder.isRealtimeTableResource(tableName) ? routingTable : null;
         BrokerRequest offlineBrokerRequest = TableNameBuilder.isOfflineTableResource(tableName) ? brokerRequest : null;
         BrokerRequest realtimeBrokerRequest = TableNameBuilder.isRealtimeTableResource(tableName) ? brokerRequest : null;
-        CommonConstants.Helix.TableType tableType = TableNameBuilder.getTableTypeFromTableName(tableName);
-        AsyncQueryResponse asyncQueryResponse =
-                doWithRetries(pinotRetryCount, (requestId) -> queryRouter.submitQuery(requestId, rawTableName, offlineBrokerRequest, offlineRoutingTable, realtimeBrokerRequest, realtimeRoutingTable, connectionTimeoutInMillis));
+        AsyncQueryResponse asyncQueryResponse = doWithRetries(pinotRetryCount, requestId ->
+                queryRouter.submitQuery(requestId, rawTableName, offlineBrokerRequest, offlineRoutingTable, realtimeBrokerRequest, realtimeRoutingTable, connectionTimeoutInMillis));
         try {
             Map<ServerRoutingInstance, ServerResponse> response = asyncQueryResponse.getResponse();
             Map<ServerInstance, DataTable> dataTableMap = new HashMap<>();
@@ -117,13 +115,13 @@ public class PinotQueryClient
         return new ServerInstance(InstanceConfig.toInstanceConfig(format("%s_%s_%s", SERVER_INSTANCE_PREFIX, serverRoutingInstance.getHostname(), serverRoutingInstance.getPort())));
     }
 
-    private <T> T doWithRetries(int retries, Function<Long, T> caller)
+    private <T> T doWithRetries(int retries, LongFunction<T> callWithRequestId)
     {
         checkArgument(retries >= 0, "retries is negative");
         PinotException firstError = null;
         for (int i = 0; i <= retries; i++) {
             try {
-                return caller.apply(requestIdGenerator.getAndIncrement());
+                return callWithRequestId.apply(requestIdGenerator.getAndIncrement());
             }
             catch (PinotException e) {
                 if (firstError == null) {
