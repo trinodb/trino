@@ -19,6 +19,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
 import com.qubole.rubix.core.CachingFileSystem;
+import com.qubole.rubix.prestosql.CachingPrestoAzureBlobFileSystem;
+import com.qubole.rubix.prestosql.CachingPrestoDistributedFileSystem;
+import com.qubole.rubix.prestosql.CachingPrestoS3FileSystem;
+import com.qubole.rubix.prestosql.CachingPrestoSecureAzureBlobFileSystem;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.metadata.InternalNode;
@@ -68,6 +72,7 @@ import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static com.qubole.rubix.spi.CacheConfig.setRemoteFetchProcessInterval;
 import static io.airlift.testing.Assertions.assertGreaterThan;
+import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.client.NodeVersion.UNKNOWN;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSessionProperties;
@@ -194,10 +199,10 @@ public class TestRubixCaching
     private FileSystem getCachingFileSystem()
             throws IOException
     {
-        return getCachingFileSystem(context);
+        return getCachingFileSystem(context, cacheStoragePath);
     }
 
-    private FileSystem getCachingFileSystem(HdfsContext context)
+    private FileSystem getCachingFileSystem(HdfsContext context, Path path)
             throws IOException
     {
         HdfsConfigurationInitializer configurationInitializer = new HdfsConfigurationInitializer(config, ImmutableSet.of());
@@ -205,9 +210,12 @@ public class TestRubixCaching
                 configurationInitializer,
                 ImmutableSet.of(
                         rubixConfigInitializer,
-                        (dynamicConfig, ignoredContext, ignoredUri) -> dynamicConfig.set("fs.file.impl", CachingLocalFileSystem.class.getName())));
+                        (dynamicConfig, ignoredContext, ignoredUri) -> {
+                            dynamicConfig.set("fs.file.impl", CachingLocalFileSystem.class.getName());
+                            dynamicConfig.set("fs.azure.account.key", "Zm9vCg==");
+                        }));
         HdfsEnvironment environment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
-        return environment.getFileSystem(context, cacheStoragePath);
+        return environment.getFileSystem(context, path);
     }
 
     @AfterClass(alwaysRun = true)
@@ -458,6 +466,53 @@ public class TestRubixCaching
                     assertGreaterThan(getCachedReadsCount(), secondCachedReadsCount);
                     assertEquals(getRemoteReadsCount(), secondRemoteReadsCount);
                 });
+    }
+
+    @Test
+    public void testFileSystemBindings()
+            throws Exception
+    {
+        initializeRubix(new RubixConfig());
+
+        try (FileSystem fileSystem = getCachingFileSystem(context, new Path("s3://bucket_name"))) {
+            assertRawFileSystemInstanceOf(fileSystem, CachingPrestoS3FileSystem.class);
+        }
+
+        try (FileSystem fileSystem = getCachingFileSystem(context, new Path("s3a://bucket_name"))) {
+            assertRawFileSystemInstanceOf(fileSystem, CachingPrestoS3FileSystem.class);
+        }
+
+        try (FileSystem fileSystem = getCachingFileSystem(context, new Path("s3n://bucket_name"))) {
+            assertRawFileSystemInstanceOf(fileSystem, CachingPrestoS3FileSystem.class);
+        }
+
+        try (FileSystem fileSystem = getCachingFileSystem(context, new Path("abfs://fileanalysis@foo-bar.dfs.core.windows.net/tutorials"))) {
+            assertRawFileSystemInstanceOf(fileSystem, CachingPrestoAzureBlobFileSystem.class);
+        }
+
+        // TODO: add check for "wasb" Azure FS.
+        // Testing "wasb" Azure FS requires valid Azure credentials as NativeAzureFileSystem tries to connect during initialization
+        // Fix after: https://github.com/prestosql/presto/issues/4159
+
+        try (FileSystem fileSystem = getCachingFileSystem(context, new Path("abfss://fileanalysis@foo-bar.dfs.core.windows.net/tutorials"))) {
+            assertRawFileSystemInstanceOf(fileSystem, CachingPrestoSecureAzureBlobFileSystem.class);
+        }
+
+        // TODO: renable when Rubix doesn't shade GCS connector (https://github.com/qubole/rubix/pull/415)
+        //try (FileSystem fileSystem = getCachingFileSystem(context, new Path("gs://bucket_name"))) {
+        //    assertRawFileSystemInstanceOf(fileSystem, CachingPrestoGoogleHadoopFileSystem.class);
+        //}
+
+        try (FileSystem fileSystem = getCachingFileSystem(context, new Path("hdfs://localhost:7897"))) {
+            assertRawFileSystemInstanceOf(fileSystem, CachingPrestoDistributedFileSystem.class);
+        }
+    }
+
+    private void assertRawFileSystemInstanceOf(FileSystem actual, Class<? extends FileSystem> expectedType)
+    {
+        assertInstanceOf(actual, FilterFileSystem.class);
+        FileSystem rawFileSystem = ((FilterFileSystem) actual).getRawFileSystem();
+        assertInstanceOf(rawFileSystem, expectedType);
     }
 
     private byte[] readFile(FileSystem fileSystem, Path path)
