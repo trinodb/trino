@@ -9,16 +9,18 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
+import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.sql.TestTable;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
 
+import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.TEST_SCHEMA;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationDisabled;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.jdbcBuilder;
-import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 
 public class TestJdbcSnowflakeIntegrationSmokeTest
@@ -54,11 +56,10 @@ public class TestJdbcSnowflakeIntegrationSmokeTest
             Session session = Session.builder(queryRunner.getDefaultSession())
                     .setIdentity(Identity.ofUser(SnowflakeServer.USER))
                     .build();
-            String tableName = "test_insert_" + randomTableSuffix();
-            queryRunner.execute(session, format("CREATE TABLE test_schema.%s (x decimal(19, 0), y varchar(100))", tableName));
-            queryRunner.execute(session, format("INSERT INTO %s VALUES (123, 'test')", tableName));
-            queryRunner.execute(session, format("SELECT * FROM %s", tableName));
-            queryRunner.execute(session, format("DROP TABLE test_schema.%s", tableName));
+            String tableName = TEST_SCHEMA + ".test_insert_";
+            try (TestTable testTable = new TestTable(snowflakeExecutor, tableName, "(x decimal(19, 0), y varchar(100))", ImmutableList.of("123, 'test'"))) {
+                queryRunner.execute(session, format("SELECT * FROM %s", testTable.getName()));
+            }
         }
     }
 }
