@@ -40,6 +40,7 @@ import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.pinot.PinotErrorCode.PINOT_EXCEPTION;
 import static io.prestosql.pinot.PinotErrorCode.PINOT_INVALID_PQL_GENERATED;
 import static java.lang.String.format;
@@ -123,8 +124,9 @@ public class PinotQueryClient
 
     private <T> T doWithRetries(int retries, Function<Long, T> caller)
     {
+        checkArgument(retries >= 0, "retries is negative");
         PinotException firstError = null;
-        for (int i = 0; i < retries; ++i) {
+        for (int i = 0; i <= retries; i++) {
             try {
                 return caller.apply(requestIdGenerator.getAndIncrement());
             }
