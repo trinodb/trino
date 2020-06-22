@@ -11,19 +11,7 @@ env:
   MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all"
 
 jobs:
-  setup:
-    runs-on: ubuntu-latest
-    steps:
-      # ------------------------------------------------------------------------
-      # Remove older builds for this branch that are running:
-      # https://github.com/marketplace/actions/cancel-workflow-action
-      # ------------------------------------------------------------------------
-      - name: Remove Old Builds
-        uses: styfle/cancel-workflow-action@0.4.0
-        with:
-          access_token: ${{ github.token }}
   maven-checks:
-    needs: setup
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -55,7 +43,6 @@ jobs:
         run: docker/build-local.sh
 
   error-prone-checks:
-    needs: setup
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -73,7 +60,6 @@ jobs:
             -pl '!presto-docs,!presto-server,!presto-server-rpm'
 
   web-ui-checks:
-    needs: setup
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -81,7 +67,6 @@ jobs:
         run: presto-main/bin/check_webui.sh
 
   hive-tests:
-    needs: setup
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -129,7 +114,6 @@ jobs:
             presto-hive-hadoop2/bin/run_hive_alluxio_tests.sh
 
   test-other-modules:
-    needs: setup
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -158,7 +142,6 @@ jobs:
             !presto-docs,!presto-server,!presto-server-rpm'
 
   test:
-    needs: setup
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -191,7 +174,6 @@ jobs:
         run: ./mvnw test -B -Dair.check.skip-all -pl ${{ matrix.modules }}
 
   pt:
-    needs: setup
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
