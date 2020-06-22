@@ -340,6 +340,9 @@ Property Name                                        Description
                                                      this parameter takes precedence over
                                                      ``hive.metastore.glue.iam-role``.
 
+``hive.metastore.glue.catalogid``                    The ID of the Glue Catalog in which the metadata database
+                                                     resides.
+
 ``hive.metastore.glue.iam-role``                     ARN of an IAM role to assume when connecting to the Glue
                                                      Catalog.
 
