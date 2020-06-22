@@ -36,6 +36,8 @@ import static org.testng.Assert.assertTrue;
 
 /**
  * Generic test for connectors exercising connector's read capabilities.
+ * This is also the base class for connector-specific tests (not generic),
+ * regardless whether they exercise read-only or read-write capabilities.
  *
  * @see AbstractTestDistributedQueries
  */
