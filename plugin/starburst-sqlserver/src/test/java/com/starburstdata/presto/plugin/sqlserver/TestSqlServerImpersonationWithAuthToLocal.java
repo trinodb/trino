@@ -74,10 +74,10 @@ public class TestSqlServerImpersonationWithAuthToLocal
         assertQueryFails(
                 createSession(UNKNOWN_USER + "/marketing@other.com"),
                 "SELECT * FROM user_context",
-                "No auth-to-local rule was found for user \\[non_existing_user/marketing@other.com\\] and principal is missing");
+                "No auth-to-local rule was found for user \\[non_existing_user/marketing@other.com] and principal \\[non_existing_user/marketing@other.com]");
         assertQueryFails(
                 createSession(BOB_USER),
                 "SELECT * FROM user_context",
-                "No auth-to-local rule was found for user \\[bob\\] and principal is missing");
+                "No auth-to-local rule was found for user \\[bob] and principal \\[bob]");
     }
 }
