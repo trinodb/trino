@@ -33,7 +33,7 @@ public abstract class BaseOracleImpersonationWithAuthToLocal
         assertQueryFails(
                 createSession(ALICE_USER),
                 "SELECT * FROM user_context",
-                "No auth-to-local rule was found for user \\[alice\\] and principal is missing");
+                "No auth-to-local rule was found for user \\[alice] and principal \\[alice]");
         assertQuery(
                 createSession(ALICE_USER + "/admin@company.com"),
                 "SELECT * FROM user_context",
@@ -53,6 +53,6 @@ public abstract class BaseOracleImpersonationWithAuthToLocal
         assertQueryFails(
                 createSession(UNKNOWN_USER + "/x@other.com"),
                 "SELECT * FROM user_context",
-                "No auth-to-local rule was found for user \\[non_existing_user/x@other.com\\] and principal is missing");
+                "No auth-to-local rule was found for user \\[non_existing_user/x@other.com] and principal \\[non_existing_user/x@other.com]");
     }
 }

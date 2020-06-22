@@ -55,7 +55,7 @@ public class OracleSplitManager
 
     public List<OracleSplit> getSplits(JdbcIdentity identity, JdbcTableHandle tableHandle, OracleParallelismType parallelismType, int maxSplits)
     {
-        if (parallelismType == NO_PARALLELISM) {
+        if (parallelismType == NO_PARALLELISM || tableHandle.getGroupingSets().isPresent()) {
             return ImmutableList.of(new OracleSplit(Optional.empty(), Optional.empty()));
         }
 

@@ -208,6 +208,7 @@ public class OracleClient
                 table.getCatalogName(),
                 table.getSchemaName(),
                 table.getTableName(),
+                table.getGroupingSets(),
                 columns,
                 table.getConstraint(),
                 split.getAdditionalPredicate(),
