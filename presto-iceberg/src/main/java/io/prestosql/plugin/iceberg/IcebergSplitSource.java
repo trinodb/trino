@@ -18,7 +18,6 @@ import com.google.common.collect.Streams;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitSource;
-import io.prestosql.spi.predicate.TupleDomain;
 import org.apache.iceberg.CombinedScanTask;
 import org.apache.iceberg.FileScanTask;
 import org.apache.iceberg.PartitionField;
@@ -51,15 +50,11 @@ public class IcebergSplitSource
         implements ConnectorSplitSource
 {
     private final CloseableIterable<CombinedScanTask> combinedScanIterable;
-    private final TupleDomain<IcebergColumnHandle> predicate;
     private final Iterator<FileScanTask> fileScanIterator;
 
-    public IcebergSplitSource(
-            CloseableIterable<CombinedScanTask> combinedScanIterable,
-            TupleDomain<IcebergColumnHandle> predicate)
+    public IcebergSplitSource(CloseableIterable<CombinedScanTask> combinedScanIterable)
     {
         this.combinedScanIterable = requireNonNull(combinedScanIterable, "combinedScanIterable is null");
-        this.predicate = requireNonNull(predicate, "predicate is null");
 
         this.fileScanIterator = Streams.stream(combinedScanIterable)
                 .map(CombinedScanTask::files)
@@ -75,7 +70,7 @@ public class IcebergSplitSource
         Iterator<FileScanTask> iterator = limit(fileScanIterator, maxSize);
         while (iterator.hasNext()) {
             FileScanTask task = iterator.next();
-            splits.add(toIcebergSplit(predicate, task));
+            splits.add(toIcebergSplit(task));
         }
         return completedFuture(new ConnectorSplitBatch(splits, isFinished()));
     }
@@ -97,7 +92,7 @@ public class IcebergSplitSource
         }
     }
 
-    private ConnectorSplit toIcebergSplit(TupleDomain<IcebergColumnHandle> predicate, FileScanTask task)
+    private ConnectorSplit toIcebergSplit(FileScanTask task)
     {
         // TODO: We should leverage residual expression and convert that to TupleDomain.
         //       The predicate here is used by readers for predicate push down at reader level,
@@ -110,7 +105,6 @@ public class IcebergSplitSource
                 task.length(),
                 task.file().format(),
                 ImmutableList.of(),
-                predicate,
                 getPartitionKeys(task));
     }
 
