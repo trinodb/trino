@@ -493,7 +493,7 @@ public class TestEffectivePredicateExtractor
                 assignments,
                 TupleDomain.all());
         effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
-        assertEquals(effectivePredicate, BooleanLiteral.TRUE_LITERAL);
+        assertEquals(effectivePredicate, and(equals(AE, bigintLiteral(1)), equals(BE, bigintLiteral(2))));
 
         node = new TableScanNode(
                 newId(),

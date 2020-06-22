@@ -224,8 +224,7 @@ public class EffectivePredicateExtractor
             Map<ColumnHandle, Symbol> assignments = ImmutableBiMap.copyOf(node.getAssignments()).inverse();
 
             TupleDomain<ColumnHandle> predicate = node.getEnforcedConstraint();
-            if (useTableProperties && !node.getEnforcedConstraint().isAll()) {
-                // extract table properties only when predicate has been pushed to table scan at least once
+            if (useTableProperties) {
                 predicate = metadata.getTableProperties(session, node.getTable()).getPredicate();
             }
 

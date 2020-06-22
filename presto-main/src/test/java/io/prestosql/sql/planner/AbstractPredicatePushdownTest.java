@@ -527,5 +527,19 @@ public abstract class AbstractPredicatePushdownTest
                                         tableScan(
                                                 "orders",
                                                 ImmutableMap.of("ORDERSTATUS", "orderstatus"))))));
+
+        assertPlan(
+                "SELECT * FROM orders JOIN nation ON orderstatus = CAST(nation.name AS varchar(1))",
+                anyTree(
+                        node(JoinNode.class,
+                                anyTree(
+                                        filter("CAST(NAME AS varchar(1)) IN ('F', 'O', 'P')",
+                                                tableScan(
+                                                        "nation",
+                                                        ImmutableMap.of("NAME", "name")))),
+                                anyTree(
+                                        tableScan(
+                                                "orders",
+                                                ImmutableMap.of("ORDERSTATUS", "orderstatus"))))));
     }
 }
