@@ -214,11 +214,20 @@ See also :doc:`/functions/datetime` and :doc:`/language/timestamp`
         SELECT cast(TIMESTAMP '2020-06-10 15:55:23.383345' as TIMESTAMP(12));
         -- 2020-06-10 15:55:23.383345000000
 
+.. _timestamp-with-time-zone-data-type:
+
 ``TIMESTAMP WITH TIME ZONE``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-    Instant in time that includes the date and time of day with a time zone.
-    Values of this type are rendered using the time zone from the value.
+    ``TIMESTAMP WITH TIME ZONE`` is an alias for ``TIMESTAMP(3) WITH TIME ZONE``
+    (millisecond precision).
+
+``TIMESTAMP(P) WITH TIME ZONE``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    Instant in time that includes the date and time of day with ``P`` digits of
+    precision for the fraction of seconds and with a time zone. Values of this
+    type are rendered using the time zone from the value.
 
     Example: ``TIMESTAMP '2001-08-22 03:04:05.321 America/Los_Angeles'``
 

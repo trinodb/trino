@@ -55,7 +55,17 @@ Date and Time Functions
 
 .. data:: current_timestamp
 
-    Returns the current timestamp with time zone as of the start of the query.
+    Returns the current timestamp with time zone as of the start of the query,
+    with ``3`` digits of subsecond precision,
+
+.. data:: current_timestamp(p)
+
+    Returns the current :ref:`timestamp with time zone
+    <timestamp-with-time-zone-data-type>` as of the start of the query, with
+    ``p`` digits of subsecond precision::
+
+        SELECT current_timestamp(6);
+        -- 2020-06-24 08:25:31.759993 America/Los_Angeles
 
 .. function:: current_timezone() -> varchar
 
@@ -70,11 +80,11 @@ Date and Time Functions
 
     Returns the last day of the month.
 
-.. function:: from_iso8601_timestamp(string) -> timestamp with time zone
+.. function:: from_iso8601_timestamp(string) -> timestamp(3) with time zone
 
-    Parses the ISO 8601 formatted date ``string``, optionally with
-    time and time zone, into a ``timestamp with time zone``. The time defaults
-    to ``00:00:00.000``, and the time zone defaults to the session time zone::
+    Parses the ISO 8601 formatted date ``string``, optionally with time and time
+    zone, into a ``timestamp(3) with time zone``. The time defaults to
+    ``00:00:00.000``, and the time zone defaults to the session time zone::
 
         SELECT from_iso8601_timestamp('2020-05-11');
         -- 2020-05-11 00:00:00.000 America/Vancouver
@@ -100,26 +110,28 @@ Date and Time Functions
         SELECT from_iso8601_date('2020-123');
         -- 2020-05-02
 
-.. function:: at_timezone(timestamp, zone) -> timestamp with time zone
+.. function:: at_timezone(timestamp, zone) -> timestamp(p) with time zone
 
-    Change the time zone component of ``timestamp`` to ``zone`` while preserving the instant in time.
+    Change the time zone component of ``timestamp`` with precision ``p`` to
+    ``zone`` while preserving the instant in time.
 
-.. function:: with_timezone(timestamp, zone) -> timestamp with time zone
+.. function:: with_timezone(timestamp, zone) -> timestamp(p) with time zone
 
-    Returns a timestamp with time zone from ``timestamp`` and ``zone``.
+    Returns a timestamp with time zone from ``timestamp`` with precision ``p``
+    and ``zone``.
 
 .. function:: from_unixtime(unixtime) -> timestamp(3)
 
     Returns the UNIX timestamp ``unixtime`` as a timestamp. ``unixtime`` is the
     number of seconds since ``1970-01-01 00:00:00 UTC``.
 
-.. function:: from_unixtime(unixtime, zone) -> timestamp with time zone
+.. function:: from_unixtime(unixtime, zone) -> timestamp(3) with time zone
 
     Returns the UNIX timestamp ``unixtime`` as a timestamp with time zone
     using ``zone`` for the time zone. ``unixtime`` is the number of seconds
     since ``1970-01-01 00:00:00 UTC``.
 
-.. function:: from_unixtime(unixtime, hours, minutes) -> timestamp with time zone
+.. function:: from_unixtime(unixtime, hours, minutes) -> timestamp(3) with time zone
 
     Returns the UNIX timestamp ``unixtime`` as a timestamp with time zone
     using ``hours`` and ``minutes`` for the time zone offset. ``unixtime`` is
@@ -142,7 +154,7 @@ Date and Time Functions
         SELECT localtimestamp(6);
         -- 2020-06-10 15:55:23.383628
 
-.. function:: now() -> timestamp with time zone
+.. function:: now() -> timestamp(3) with time zone
 
     This is an alias for ``current_timestamp``.
 
