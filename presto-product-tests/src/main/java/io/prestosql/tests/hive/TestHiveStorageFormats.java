@@ -108,7 +108,8 @@ public class TestHiveStorageFormats
                 "FROM tpch.%s.lineitem", tableName, TPCH_SCHEMA);
         query(insertInto);
 
-        assertSelect("select sum(tax), sum(discount), sum(linenumber) from %s", tableName);
+        assertResultEqualForLineitemTable(
+                "select sum(tax), sum(discount), sum(linenumber) from %s", tableName);
 
         query(format("DROP TABLE %s", tableName));
     }
@@ -134,7 +135,8 @@ public class TestHiveStorageFormats
                 TPCH_SCHEMA);
         query(createTableAsSelect);
 
-        assertSelect("select sum(extendedprice), sum(suppkey), count(partkey) from %s", tableName);
+        assertResultEqualForLineitemTable(
+                "select sum(extendedprice), sum(suppkey), count(partkey) from %s", tableName);
 
         query(format("DROP TABLE %s", tableName));
     }
@@ -177,7 +179,8 @@ public class TestHiveStorageFormats
                 "FROM tpch.%s.lineitem", tableName, TPCH_SCHEMA);
         query(insertInto);
 
-        assertSelect("select sum(tax), sum(discount), sum(length(returnflag)) from %s", tableName);
+        assertResultEqualForLineitemTable(
+                "select sum(tax), sum(discount), sum(length(returnflag)) from %s", tableName);
 
         query(format("DROP TABLE %s", tableName));
     }
@@ -203,7 +206,8 @@ public class TestHiveStorageFormats
                 TPCH_SCHEMA);
         query(createTableAsSelect);
 
-        assertSelect("select sum(tax), sum(discount), sum(length(returnflag)) from %s", tableName);
+        assertResultEqualForLineitemTable(
+                "select sum(tax), sum(discount), sum(length(returnflag)) from %s", tableName);
 
         query(format("DROP TABLE %s", tableName));
     }
@@ -244,7 +248,11 @@ public class TestHiveStorageFormats
         onHive().executeQuery("DROP TABLE " + tableName);
     }
 
-    private static void assertSelect(String query, String tableName)
+    /**
+     * Run the given query on the given table and the TPCH {@code lineitem} table
+     * (in the schema {@code TPCH_SCHEMA}, asserting that the results are equal.
+     */
+    private static void assertResultEqualForLineitemTable(String query, String tableName)
     {
         QueryResult expected = query(format(query, "tpch." + TPCH_SCHEMA + ".lineitem"));
         List<Row> expectedRows = expected.rows().stream()
