@@ -167,7 +167,7 @@ public class IcebergPageSourceProvider
                 split.getLength(),
                 split.getFileFormat(),
                 regularColumns,
-                split.getPredicate());
+                table.getPredicate());
 
         return new IcebergPageSource(icebergColumns, partitionKeys, dataPageSource, session.getTimeZoneKey());
     }
