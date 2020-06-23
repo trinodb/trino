@@ -193,7 +193,7 @@ public class PostgreSqlClient
         }
         this.tableTypes = tableTypes.toArray(new String[0]);
 
-        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), 0, 0, Optional.empty());
+        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), 0, 0, Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
                 this::quoted,
                 ImmutableSet.<AggregateFunctionRule>builder()
@@ -272,7 +272,8 @@ public class PostgreSqlClient
                             Optional.of(resultSet.getString("TYPE_NAME")),
                             resultSet.getInt("COLUMN_SIZE"),
                             resultSet.getInt("DECIMAL_DIGITS"),
-                            Optional.ofNullable(arrayColumnDimensions.get(columnName)));
+                            Optional.ofNullable(arrayColumnDimensions.get(columnName)),
+                            Optional.empty());
                     Optional<ColumnMapping> columnMapping = toPrestoType(session, connection, typeHandle);
                     log.debug("Mapping data type of '%s' column '%s': %s mapped to %s", tableHandle.getSchemaTableName(), columnName, typeHandle, columnMapping);
                     // skip unsupported column types
@@ -463,7 +464,7 @@ public class PostgreSqlClient
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
     {
-        return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), decimalType.getPrecision(), decimalType.getScale(), Optional.empty()));
+        return Optional.of(new JdbcTypeHandle(Types.NUMERIC, Optional.of("decimal"), decimalType.getPrecision(), decimalType.getScale(), Optional.empty(), Optional.empty()));
     }
 
     @Override
