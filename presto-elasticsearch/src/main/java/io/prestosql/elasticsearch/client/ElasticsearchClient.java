@@ -32,13 +32,18 @@ import io.airlift.stats.TimeStat;
 import io.airlift.units.Duration;
 import io.prestosql.elasticsearch.AwsSecurityConfig;
 import io.prestosql.elasticsearch.ElasticsearchConfig;
+import io.prestosql.elasticsearch.PasswordConfig;
 import io.prestosql.spi.PrestoException;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpHost;
+import org.apache.http.auth.AuthScope;
+import org.apache.http.auth.UsernamePasswordCredentials;
+import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.config.RequestConfig;
 import org.apache.http.conn.ssl.NoopHostnameVerifier;
 import org.apache.http.entity.ByteArrayEntity;
 import org.apache.http.entity.StringEntity;
+import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.nio.client.HttpAsyncClientBuilder;
 import org.apache.http.impl.nio.reactor.IOReactorConfig;
 import org.apache.http.message.BasicHeader;
@@ -138,11 +143,14 @@ public class ElasticsearchClient
     private final TimeStat countStats = new TimeStat(MILLISECONDS);
 
     @Inject
-    public ElasticsearchClient(ElasticsearchConfig config, Optional<AwsSecurityConfig> awsSecurityConfig)
+    public ElasticsearchClient(
+            ElasticsearchConfig config,
+            Optional<AwsSecurityConfig> awsSecurityConfig,
+            Optional<PasswordConfig> passwordConfig)
     {
         requireNonNull(config, "config is null");
 
-        client = createClient(config, awsSecurityConfig);
+        client = createClient(config, awsSecurityConfig, passwordConfig);
 
         this.ignorePublishAddress = config.isIgnorePublishAddress();
         this.scrollSize = config.getScrollSize();
@@ -196,7 +204,10 @@ public class ElasticsearchClient
         }
     }
 
-    private static RestHighLevelClient createClient(ElasticsearchConfig config, Optional<AwsSecurityConfig> awsSecurityConfig)
+    private static RestHighLevelClient createClient(
+            ElasticsearchConfig config,
+            Optional<AwsSecurityConfig> awsSecurityConfig,
+            Optional<PasswordConfig> passwordConfig)
     {
         RestClientBuilder builder = RestClient.builder(
                 new HttpHost(config.getHost(), config.getPort(), config.isTlsEnabled() ? "https" : "http"))
@@ -227,6 +238,12 @@ public class ElasticsearchClient
                     clientBuilder.setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE);
                 }
             }
+
+            passwordConfig.ifPresent(securityConfig -> {
+                CredentialsProvider credentials = new BasicCredentialsProvider();
+                credentials.setCredentials(AuthScope.ANY, new UsernamePasswordCredentials(securityConfig.getUser(), securityConfig.getPassword()));
+                clientBuilder.setDefaultCredentialsProvider(credentials);
+            });
 
             awsSecurityConfig.ifPresent(securityConfig -> clientBuilder.addInterceptorLast(new AwsRequestSigner(
                     securityConfig.getRegion(),
