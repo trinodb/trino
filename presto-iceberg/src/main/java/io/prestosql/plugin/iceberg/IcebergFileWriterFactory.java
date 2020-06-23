@@ -22,13 +22,10 @@ import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.orc.OrcWriterStats;
 import io.prestosql.orc.OutputStreamOrcDataSink;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
-import io.prestosql.plugin.hive.FileWriter;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveStorageFormat;
 import io.prestosql.plugin.hive.NodeVersion;
-import io.prestosql.plugin.hive.RecordFileWriter;
 import io.prestosql.plugin.hive.orc.HdfsOrcDataSource;
-import io.prestosql.plugin.hive.orc.OrcFileWriter;
 import io.prestosql.plugin.hive.orc.OrcWriterConfig;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -112,7 +109,7 @@ public class IcebergFileWriterFactory
         return orcWriterStats;
     }
 
-    public FileWriter createFileWriter(
+    public IcebergFileWriter createFileWriter(
             Path outputPath,
             Schema icebergSchema,
             List<IcebergColumnHandle> columns,
@@ -129,7 +126,7 @@ public class IcebergFileWriterFactory
         throw new PrestoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
     }
 
-    private FileWriter createParquetWriter(
+    private IcebergFileWriter createParquetWriter(
             Path outputPath,
             Schema icebergSchema,
             List<IcebergColumnHandle> columns,
@@ -147,7 +144,7 @@ public class IcebergFileWriterFactory
         setParquetSchema(jobConf, convert(icebergSchema, "table"));
         jobConf.set(ParquetOutputFormat.COMPRESSION, getCompressionCodec(session).getParquetCompressionCodec().name());
 
-        return new RecordFileWriter(
+        return new IcebergRecordFileWriter(
                 outputPath,
                 columns.stream()
                         .map(IcebergColumnHandle::getName)
@@ -160,7 +157,7 @@ public class IcebergFileWriterFactory
                 session);
     }
 
-    private FileWriter createOrcWriter(
+    private IcebergFileWriter createOrcWriter(
             Path outputPath,
             Schema icebergSchema,
             JobConf jobConf,
@@ -200,7 +197,8 @@ public class IcebergFileWriterFactory
                 });
             }
 
-            return new OrcFileWriter(
+            return new IcebergOrcFileWriter(
+                    icebergSchema,
                     orcDataSink,
                     rollbackAction,
                     fileColumnNames,
