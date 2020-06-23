@@ -3330,8 +3330,8 @@ public class TestHiveIntegrationSmokeTest
     {
         testCreateExternalTable(
                 "test_create_external_textfile_with_null_format",
-                "hello\u0001NULL_VALUE\nNULL_VALUE\u0001123",
-                "VALUES ('hello', NULL), (NULL, 123)",
+                "hello\u0001NULL_VALUE\nNULL_VALUE\u0001123\n\\N\u0001456",
+                "VALUES ('hello', NULL), (NULL, 123), ('\\N', 456)",
                 ImmutableList.of("null_format = 'NULL_VALUE'"));
     }
 
