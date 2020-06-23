@@ -29,12 +29,12 @@ import javax.inject.Inject;
 
 import java.io.File;
 
-import static io.prestosql.tests.product.launcher.docker.ContainerUtil.enableJavaDebugger;
 import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_PRESTO_HIVE_PROPERTIES;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_JVM_CONFIG;
 import static io.prestosql.tests.product.launcher.env.common.Standard.createPrestoContainer;
+import static io.prestosql.tests.product.launcher.env.common.Standard.enablePrestoJavaDebugger;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -94,7 +94,7 @@ public final class MultinodeHiveCaching
                 .withTmpFs(ImmutableMap.of("/tmp/cache", "rw"));
 
         if (debug) {
-            enableJavaDebugger(container, CONTAINER_PRESTO_JVM_CONFIG, 5008 + workerNumber); // debug port
+            enablePrestoJavaDebugger(container, 5008 + workerNumber); // debug port
         }
 
         builder.addContainer("presto-worker-" + workerNumber, container);
