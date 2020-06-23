@@ -42,6 +42,7 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.StandardErrorCode.SERIALIZATION_ERROR;
@@ -75,6 +76,8 @@ public class QueryResultRows
         this.totalRows = countRows(pages);
         this.currentPage = this.pages.pollFirst();
         this.supportsParametricDateTime = session.getClientCapabilities().contains(ClientCapabilities.PARAMETRIC_DATETIME.toString());
+
+        verify(totalRows == 0 || (totalRows > 0 && columns.isPresent()), "data present without columns and types");
     }
 
     public boolean isEmpty()
