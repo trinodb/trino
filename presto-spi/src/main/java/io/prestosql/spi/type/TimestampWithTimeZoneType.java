@@ -28,16 +28,22 @@ public abstract class TimestampWithTimeZoneType
     private static final int DEFAULT_PRECISION = 3; // TODO: should be 6 per SQL spec
 
     @Deprecated
-    public static final TimestampWithTimeZoneType TIMESTAMP_WITH_TIME_ZONE = createTimestampWithTimeZoneType(DEFAULT_PRECISION);
+    public static final TimestampWithTimeZoneType TIMESTAMP_WITH_TIME_ZONE = new ShortTimestampWithTimeZoneType(DEFAULT_PRECISION);
 
     private final int precision;
 
     public static TimestampWithTimeZoneType createTimestampWithTimeZoneType(int precision)
     {
+        if (precision == DEFAULT_PRECISION) {
+            // Use singleton for backwards compatibility with code checking `type == TIMESTAMP_WITH_TIME_ZONE`
+            return TIMESTAMP_WITH_TIME_ZONE;
+        }
+
         if (precision <= MAX_SHORT_PRECISION) {
             return new ShortTimestampWithTimeZoneType(precision);
         }
-        else if (precision <= MAX_PRECISION) {
+
+        if (precision <= MAX_PRECISION) {
             return new LongTimestampWithTimeZoneType(precision);
         }
 
