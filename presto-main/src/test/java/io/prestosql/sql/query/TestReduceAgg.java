@@ -17,6 +17,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 public class TestReduceAgg
 {
     private QueryAssertions assertions;
@@ -37,14 +39,14 @@ public class TestReduceAgg
     @Test
     public void testInWindowFunction()
     {
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT reduce_agg(value, 0, (a, b) -> a + b, (a, b) -> a + b) OVER () " +
-                        "FROM (VALUES 1, 2, 3, 4) t(value)",
-                "VALUES 10, 10, 10, 10");
+                        "FROM (VALUES 1, 2, 3, 4) t(value)"))
+                .matches("VALUES 10, 10, 10, 10");
 
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT k, reduce_agg(value, 0, (a, b) -> a + b, (a, b) -> a + b) OVER (PARTITION BY k) " +
-                        "FROM (VALUES ('a', 1), ('a', 2), ('b', 3), ('b', 4)) t(k, value)",
-                "VALUES ('a', 3), ('a', 3), ('b', 7), ('b', 7)");
+                        "FROM (VALUES ('a', 1), ('a', 2), ('b', 3), ('b', 4)) t(k, value)"))
+                .matches("VALUES ('a', 3), ('a', 3), ('b', 7), ('b', 7)");
     }
 }
