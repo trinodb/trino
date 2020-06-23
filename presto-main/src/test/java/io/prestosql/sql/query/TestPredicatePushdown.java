@@ -17,6 +17,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 public class TestPredicatePushdown
 {
     private QueryAssertions assertions;
@@ -37,7 +39,7 @@ public class TestPredicatePushdown
     @Test
     public void testConditionalExpressionWithFailingExpression()
     {
-        assertions.assertQuery("" +
+        assertThat(assertions.query("" +
                         "WITH t (k, a) AS ( " +
                         "    VALUES " +
                         "        (1, 1), " +
@@ -53,10 +55,10 @@ public class TestPredicatePushdown
                         "    SELECT v, if(v = 'x', 1 / a) AS r" +
                         "    FROM t JOIN u ON t.k = u.k " +
                         ") " +
-                        "WHERE v = 'x' AND r IS NOT NULL",
-                "VALUES ('x', 1)");
+                        "WHERE v = 'x' AND r IS NOT NULL"))
+                .matches("VALUES ('x', 1)");
 
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "WITH t (k, v) AS ( " +
                         "    VALUES " +
                         "        (1, 1), " +
@@ -70,10 +72,10 @@ public class TestPredicatePushdown
                         "    SELECT t.k, if(t.k = 1, 1 / t.v) AS r " +
                         "    FROM t JOIN u ON t.k = u.k " +
                         ") " +
-                        "WHERE k = 1 AND r <> 0",
-                "VALUES (1, 1)");
+                        "WHERE k = 1 AND r <> 0"))
+                .matches("VALUES (1, 1)");
 
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "WITH t (k, v) AS ( " +
                         "    VALUES " +
                         "        (1, 1), " +
@@ -87,7 +89,7 @@ public class TestPredicatePushdown
                         "    SELECT t.k, if(t.k = 1, 1 / t.v) AS r " +
                         "    FROM t LEFT JOIN u ON t.k = u.k " +
                         ") " +
-                        "WHERE k = 1 AND r <> 0",
-                "VALUES (1, 1)");
+                        "WHERE k = 1 AND r <> 0"))
+                .matches("VALUES (1, 1)");
     }
 }

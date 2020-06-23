@@ -35,6 +35,7 @@ import java.util.Optional;
 
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)
 public class TestRowFilter
@@ -97,14 +98,14 @@ public class TestRowFilter
                 new QualifiedObjectName(CATALOG, "tiny", "orders"),
                 USER,
                 new ViewExpression(USER, Optional.empty(), Optional.empty(), "orderkey < 10"));
-        assertions.assertQuery("SELECT count(*) FROM orders", "VALUES BIGINT '7'");
+        assertThat(assertions.query("SELECT count(*) FROM orders")).matches("VALUES BIGINT '7'");
 
         accessControl.reset();
         accessControl.rowFilter(
                 new QualifiedObjectName(CATALOG, "tiny", "orders"),
                 USER,
                 new ViewExpression(USER, Optional.empty(), Optional.empty(), "NULL"));
-        assertions.assertQuery("SELECT count(*) FROM orders", "VALUES BIGINT '0'");
+        assertThat(assertions.query("SELECT count(*) FROM orders")).matches("VALUES BIGINT '0'");
     }
 
     @Test
@@ -121,7 +122,7 @@ public class TestRowFilter
                 USER,
                 new ViewExpression(USER, Optional.empty(), Optional.empty(), "orderkey > 5"));
 
-        assertions.assertQuery("SELECT count(*) FROM orders", "VALUES BIGINT '2'");
+        assertThat(assertions.query("SELECT count(*) FROM orders")).matches("VALUES BIGINT '2'");
     }
 
     @Test
@@ -132,7 +133,7 @@ public class TestRowFilter
                 new QualifiedObjectName(CATALOG, "tiny", "orders"),
                 USER,
                 new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "EXISTS (SELECT 1 FROM nation WHERE nationkey = orderkey)"));
-        assertions.assertQuery("SELECT count(*) FROM orders", "VALUES BIGINT '7'");
+        assertThat(assertions.query("SELECT count(*) FROM orders")).matches("VALUES BIGINT '7'");
     }
 
     @Test
@@ -145,12 +146,12 @@ public class TestRowFilter
                 VIEW_OWNER,
                 new ViewExpression(VIEW_OWNER, Optional.empty(), Optional.empty(), "nationkey = 1"));
 
-        assertions.assertQuery(
+        assertThat(assertions.query(
+                "SELECT name FROM mock.default.nation_view",
                 Session.builder(SESSION)
                         .setIdentity(Identity.forUser(RUN_AS_USER).build())
-                        .build(),
-                "SELECT name FROM mock.default.nation_view",
-                "VALUES CAST('ARGENTINA' AS VARCHAR(25))");
+                        .build()))
+                .matches("VALUES CAST('ARGENTINA' AS VARCHAR(25))");
 
         // filter on the underlying table for view owner when running as themselves
         accessControl.reset();
@@ -159,12 +160,12 @@ public class TestRowFilter
                 VIEW_OWNER,
                 new ViewExpression(VIEW_OWNER, Optional.of(CATALOG), Optional.of("tiny"), "nationkey = 1"));
 
-        assertions.assertQuery(
+        assertThat(assertions.query(
+                "SELECT name FROM mock.default.nation_view",
                 Session.builder(SESSION)
                         .setIdentity(Identity.forUser(VIEW_OWNER).build())
-                        .build(),
-                "SELECT name FROM mock.default.nation_view",
-                "VALUES CAST('ARGENTINA' AS VARCHAR(25))");
+                        .build()))
+                .matches("VALUES CAST('ARGENTINA' AS VARCHAR(25))");
 
         // filter on the underlying table for user running the query (different from view owner) should not be applied
         accessControl.reset();
@@ -177,7 +178,7 @@ public class TestRowFilter
                 .setIdentity(Identity.forUser(RUN_AS_USER).build())
                 .build();
 
-        assertions.assertQuery(session, "SELECT count(*) FROM mock.default.nation_view", "VALUES BIGINT '25'");
+        assertThat(assertions.query("SELECT count(*) FROM mock.default.nation_view", session)).matches("VALUES BIGINT '25'");
 
         // filter on the view
         accessControl.reset();
@@ -185,7 +186,7 @@ public class TestRowFilter
                 new QualifiedObjectName(MOCK_CATALOG, "default", "nation_view"),
                 USER,
                 new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "nationkey = 1"));
-        assertions.assertQuery("SELECT name FROM mock.default.nation_view", "VALUES CAST('ARGENTINA' AS VARCHAR(25))");
+        assertThat(assertions.query("SELECT name FROM mock.default.nation_view")).matches("VALUES CAST('ARGENTINA' AS VARCHAR(25))");
     }
 
     @Test
@@ -196,7 +197,7 @@ public class TestRowFilter
                 new QualifiedObjectName(CATALOG, "tiny", "orders"),
                 USER,
                 new ViewExpression(USER, Optional.empty(), Optional.empty(), "orderkey = 1"));
-        assertions.assertQuery("WITH t AS (SELECT count(*) FROM orders) SELECT * FROM t", "VALUES BIGINT '1'");
+        assertThat(assertions.query("WITH t AS (SELECT count(*) FROM orders) SELECT * FROM t")).matches("VALUES BIGINT '1'");
     }
 
     @Test
@@ -207,7 +208,7 @@ public class TestRowFilter
                 new QualifiedObjectName(CATALOG, "tiny", "orders"),
                 USER,
                 new ViewExpression(USER, Optional.of(CATALOG), Optional.of("sf1"), "(SELECT count(*) FROM customer) = 150000")); // Filter is TRUE only if evaluating against sf1.customer
-        assertions.assertQuery("SELECT count(*) FROM orders", "VALUES BIGINT '15000'");
+        assertThat(assertions.query("SELECT count(*) FROM orders")).matches("VALUES BIGINT '15000'");
     }
 
     @Test
@@ -224,7 +225,7 @@ public class TestRowFilter
                 USER,
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "orderkey IN (SELECT orderkey FROM orders)"));
 
-        assertions.assertQuery("SELECT count(*) FROM orders", "VALUES BIGINT '1'");
+        assertThat(assertions.query("SELECT count(*) FROM orders")).matches("VALUES BIGINT '1'");
     }
 
     @Test
@@ -282,10 +283,10 @@ public class TestRowFilter
                 new QualifiedObjectName(CATALOG, "tiny", "nation"),
                 USER,
                 new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "regionkey IN (SELECT regionkey FROM region WHERE name = 'ASIA')"));
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "WITH region(regionkey, name) AS (VALUES (0, 'ASIA'), (1, 'ASIA'), (2, 'ASIA'), (3, 'ASIA'), (4, 'ASIA'))" +
-                        "SELECT name FROM nation ORDER BY name LIMIT 1",
-                "VALUES CAST('CHINA' AS VARCHAR(25))"); // if sql-injection would work then query would return ALGERIA
+                        "SELECT name FROM nation ORDER BY name LIMIT 1"))
+                .matches("VALUES CAST('CHINA' AS VARCHAR(25))"); // if sql-injection would work then query would return ALGERIA
     }
 
     @Test
