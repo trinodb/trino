@@ -33,12 +33,17 @@ public abstract class TimestampType
     private static final int DEFAULT_PRECISION = 3; // TODO: should be 6 per SQL spec
 
     @Deprecated
-    public static final TimestampType TIMESTAMP = createTimestampType(DEFAULT_PRECISION);
+    public static final TimestampType TIMESTAMP = new ShortTimestampType(DEFAULT_PRECISION);
 
     private final int precision;
 
     public static TimestampType createTimestampType(int precision)
     {
+        if (precision == DEFAULT_PRECISION) {
+            // Use singleton for backwards compatibility with code checking `type == TIMESTAMP`
+            return TIMESTAMP;
+        }
+
         if (precision < 0 || precision > MAX_PRECISION) {
             throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("TIMESTAMP precision must be in range [0, %s]", MAX_PRECISION));
         }
