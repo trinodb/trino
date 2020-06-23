@@ -22,19 +22,24 @@ import io.prestosql.spi.connector.ConnectorSession;
 
 import static java.lang.Long.rotateLeft;
 import static java.lang.Math.multiplyExact;
+import static java.lang.String.format;
 
 /**
  * Encodes timestamps up to p = 6.
- *
+ * <p>
  * For 0 <= p <= 3, the value is encoded as milliseconds from the 1970-01-01 00:00:00 epoch.
  * For 3 < p <= 6, the value is encoded as microseconds from the 1970-01-01 00:00:00 epoch.
  */
-public class ShortTimestampType
+class ShortTimestampType
         extends TimestampType
 {
     public ShortTimestampType(int precision)
     {
         super(precision, long.class);
+
+        if (precision < 0 || precision > MAX_SHORT_PRECISION) {
+            throw new IllegalArgumentException(format("Precision must be in the range [0, %s]", MAX_SHORT_PRECISION));
+        }
     }
 
     @Override
