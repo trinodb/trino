@@ -15,12 +15,12 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.sql.planner.assertions.PlanMatchPattern;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.tree.ExistsPredicate;
 import org.testng.annotations.Test;
 
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.project;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
@@ -38,7 +38,7 @@ public class TestRemoveRedundantExists
                         p.values(0)))
                 .matches(
                         project(
-                                ImmutableMap.of("exists", PlanMatchPattern.expression("false")),
+                                ImmutableMap.of("exists", expression("false")),
                                 values()));
     }
 
@@ -52,7 +52,7 @@ public class TestRemoveRedundantExists
                         p.values(1)))
                 .matches(
                         project(
-                                ImmutableMap.of("exists", PlanMatchPattern.expression("true")),
+                                ImmutableMap.of("exists", expression("true")),
                                 values()));
     }
 
