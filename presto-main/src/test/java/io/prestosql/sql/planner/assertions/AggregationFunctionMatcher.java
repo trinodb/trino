@@ -27,6 +27,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.sql.ExpressionTestUtils.getFunctionName;
 import static java.util.Objects.requireNonNull;
@@ -68,8 +69,9 @@ public class AggregationFunctionMatcher
         if (expectedCall.getWindow().isPresent()) {
             return false;
         }
+        checkArgument(aggregation.getFilter().isEmpty(), "Cannot match filters");
         return Objects.equals(getFunctionName(expectedCall), QualifiedName.of(aggregation.getResolvedFunction().getSignature().getName())) &&
-                Objects.equals(expectedCall.getFilter(), aggregation.getFilter()) &&
+                aggregation.getFilter().isEmpty() &&
                 Objects.equals(expectedCall.getOrderBy().map(OrderingScheme::fromOrderBy), aggregation.getOrderingScheme()) &&
                 Objects.equals(expectedCall.isDistinct(), aggregation.isDistinct()) &&
                 Objects.equals(expectedCall.getArguments(), aggregation.getArguments());
