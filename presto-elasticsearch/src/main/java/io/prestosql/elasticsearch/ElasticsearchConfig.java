@@ -49,7 +49,8 @@ public class ElasticsearchConfig
 {
     public enum Security
     {
-        AWS
+        AWS,
+        PASSWORD,
     }
 
     private String host;
