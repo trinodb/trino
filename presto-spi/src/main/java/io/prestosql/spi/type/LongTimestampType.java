@@ -22,6 +22,7 @@ import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static java.lang.String.format;
 
 /**
  * The representation is a 96-bit value that contains the microseconds from the epoch
@@ -34,6 +35,10 @@ public class LongTimestampType
     public LongTimestampType(int precision)
     {
         super(precision, LongTimestamp.class);
+
+        if (precision < MAX_SHORT_PRECISION + 1 || precision > MAX_PRECISION) {
+            throw new IllegalArgumentException(format("Precision must be in the range [%s, %s]", MAX_SHORT_PRECISION + 1, MAX_PRECISION));
+        }
     }
 
     @Override
