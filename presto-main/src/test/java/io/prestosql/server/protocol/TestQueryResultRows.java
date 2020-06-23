@@ -300,6 +300,18 @@ public class TestQueryResultRows
                 .build();
     }
 
+    @Test(expectedExceptions = VerifyException.class, expectedExceptionsMessageRegExp = "data present without columns and types")
+    public void shouldThrowWhenDataIsPresentWithoutColumns()
+    {
+        List<Page> pages = rowPagesBuilder(ImmutableList.of(IntegerType.INTEGER, BooleanType.BOOLEAN))
+                .row(0, null)
+                .build();
+
+        queryResultRowsBuilder(getSession())
+                .addPages(pages)
+                .build();
+    }
+
     private static List<List<Object>> getAllValues(QueryResultRows rows)
     {
         ImmutableList.Builder<List<Object>> builder = ImmutableList.builder();
