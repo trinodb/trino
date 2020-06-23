@@ -21,6 +21,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSessionFunctions
 {
@@ -31,7 +32,7 @@ public class TestSessionFunctions
                 .setIdentity(Identity.ofUser("test_current_user"))
                 .build();
         try (QueryAssertions queryAssertions = new QueryAssertions(session)) {
-            queryAssertions.assertQuery("SELECT CURRENT_USER", "SELECT CAST('" + session.getUser() + "' AS VARCHAR)");
+            assertThat(queryAssertions.query("SELECT CURRENT_USER")).matches("SELECT CAST('" + session.getUser() + "' AS VARCHAR)");
         }
     }
 
@@ -43,7 +44,7 @@ public class TestSessionFunctions
                 .build();
 
         try (QueryAssertions queryAssertions = new QueryAssertions(session)) {
-            queryAssertions.assertQuery("SELECT CURRENT_PATH", "SELECT CAST('" + session.getPath().toString() + "' AS VARCHAR)");
+            assertThat(queryAssertions.query("SELECT CURRENT_PATH")).matches("SELECT CAST('" + session.getPath().toString() + "' AS VARCHAR)");
         }
 
         Session emptyPathSession = testSessionBuilder()
@@ -51,7 +52,7 @@ public class TestSessionFunctions
                 .build();
 
         try (QueryAssertions queryAssertions = new QueryAssertions(emptyPathSession)) {
-            queryAssertions.assertQuery("SELECT CURRENT_PATH", "VALUES VARCHAR ''");
+            assertThat(queryAssertions.query("SELECT CURRENT_PATH")).matches("VALUES VARCHAR ''");
         }
     }
 }
