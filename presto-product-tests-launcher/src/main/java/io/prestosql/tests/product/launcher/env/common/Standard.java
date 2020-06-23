@@ -22,14 +22,25 @@ import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
+import org.testcontainers.utility.MountableFile;
 
 import javax.inject.Inject;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.attribute.FileAttribute;
+import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.time.Duration;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.tests.product.launcher.docker.ContainerUtil.enableJavaDebugger;
+import static io.prestosql.tests.product.launcher.docker.ContainerUtil.exposePort;
+import static java.lang.String.format;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -86,7 +97,7 @@ public final class Standard
         portBinder.exposePort(container, 8080); // Presto default port
 
         if (debug) {
-            enableJavaDebugger(container, CONTAINER_PRESTO_JVM_CONFIG, 5005); // debug port
+            enablePrestoJavaDebugger(container, 5005); // debug port
         }
 
         return container;
@@ -116,5 +127,28 @@ public final class Standard
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(Wait.forLogMessage(".*======== SERVER STARTED ========.*", 1))
                 .withStartupTimeout(Duration.ofMinutes(5));
+    }
+
+    public static void enablePrestoJavaDebugger(DockerContainer container, int debugPort)
+    {
+        try {
+            FileAttribute<Set<PosixFilePermission>> rwx = PosixFilePermissions.asFileAttribute(PosixFilePermissions.fromString("rwxrwxrwx"));
+            Path script = Files.createTempFile("enable-java-debugger", ".sh", rwx);
+            Files.writeString(
+                    script,
+                    format(
+                            "#!/bin/bash\n" +
+                                    "printf '%%s\\n' '%s' >> '%s'\n",
+                            "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=0.0.0.0:" + debugPort,
+                            CONTAINER_PRESTO_JVM_CONFIG),
+                    UTF_8);
+            container.withCopyFileToContainer(MountableFile.forHostPath(script), "/docker/presto-init.d/enable-java-debugger.sh");
+
+            // expose debug port unconditionally when debug is enabled
+            exposePort(container, debugPort);
+        }
+        catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 }
