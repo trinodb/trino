@@ -349,6 +349,42 @@ public class TestIcebergSmoke
     }
 
     @Test
+    public void testTableComments()
+    {
+        Session session = getSession();
+        String createTableTemplate = "" +
+                        "CREATE TABLE iceberg.tpch.test_table_comments (\n" +
+                        "   _x bigint\n" +
+                        ")\n" +
+                        "COMMENT '%s'\n" +
+                        "WITH (\n" +
+                        "   format = 'ORC'\n" +
+                        ")";
+        String createTableSql = format(createTableTemplate, "test table comment");
+        assertUpdate(createTableSql);
+        MaterializedResult resultOfCreate = computeActual("SHOW CREATE TABLE test_table_comments");
+        assertEquals(getOnlyElement(resultOfCreate.getOnlyColumnAsSet()), createTableSql);
+
+        assertUpdate("COMMENT ON TABLE test_table_comments IS 'different test table comment'");
+        MaterializedResult resultOfCommentChange = computeActual("SHOW CREATE TABLE test_table_comments");
+        String afterChangeSql = format(createTableTemplate, "different test table comment");
+        assertEquals(getOnlyElement(resultOfCommentChange.getOnlyColumnAsSet()), afterChangeSql);
+
+        String createTableWithoutComment = "" +
+                "CREATE TABLE iceberg.tpch.test_table_comments (\n" +
+                "   _x bigint\n" +
+                ")\n" +
+                "WITH (\n" +
+                "   format = 'ORC'\n" +
+                ")";
+        assertUpdate("COMMENT ON TABLE test_table_comments IS NULL");
+        MaterializedResult resultOfRemovingComment = computeActual("SHOW CREATE TABLE test_table_comments");
+        assertEquals(getOnlyElement(resultOfRemovingComment.getOnlyColumnAsSet()), createTableWithoutComment);
+
+        dropTable(session, "test_table_comments");
+    }
+
+    @Test
     public void testSchemaEvolution()
     {
         // Schema evolution should be id based

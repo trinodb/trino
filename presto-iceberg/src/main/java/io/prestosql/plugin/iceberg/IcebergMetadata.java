@@ -84,6 +84,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.prestosql.plugin.hive.util.HiveWriteUtils.getTableDefaultLocation;
 import static io.prestosql.plugin.iceberg.DomainConverter.convertTupleDomainTypes;
 import static io.prestosql.plugin.iceberg.ExpressionConverter.toIcebergExpression;
@@ -97,6 +98,7 @@ import static io.prestosql.plugin.iceberg.IcebergUtil.getColumns;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getDataPath;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getFileFormat;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getIcebergTable;
+import static io.prestosql.plugin.iceberg.IcebergUtil.getTableComment;
 import static io.prestosql.plugin.iceberg.IcebergUtil.isIcebergTable;
 import static io.prestosql.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.prestosql.plugin.iceberg.PartitionFields.toPartitionFields;
@@ -331,6 +333,20 @@ public class IcebergMetadata
     }
 
     @Override
+    public void setTableComment(ConnectorSession session, ConnectorTableHandle tableHandle, Optional<String> comment)
+    {
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        metastore.commentTable(new HiveIdentity(session), handle.getSchemaName(), handle.getTableName(), comment);
+        org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, handle.getSchemaTableName());
+        if (comment.isEmpty()) {
+            icebergTable.updateProperties().remove(TABLE_COMMENT).commit();
+        }
+        else {
+            icebergTable.updateProperties().set(TABLE_COMMENT, comment.get()).commit();
+        }
+    }
+
+    @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
         SchemaTableName schemaTableName = tableMetadata.getTable();
@@ -356,8 +372,14 @@ public class IcebergMetadata
             throw new TableAlreadyExistsException(schemaTableName);
         }
 
+        ImmutableMap.Builder<String, String> propertiesBuilder = ImmutableMap.builderWithExpectedSize(2);
         FileFormat fileFormat = getFileFormat(tableMetadata.getProperties());
-        TableMetadata metadata = newTableMetadata(operations, schema, partitionSpec, targetPath, ImmutableMap.of(DEFAULT_FILE_FORMAT, fileFormat.toString()));
+        propertiesBuilder.put(DEFAULT_FILE_FORMAT, fileFormat.toString());
+        if (tableMetadata.getComment().isPresent()) {
+            propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
+        }
+
+        TableMetadata metadata = newTableMetadata(operations, schema, partitionSpec, targetPath, propertiesBuilder.build());
 
         transaction = createTableTransaction(operations, metadata);
 
@@ -511,7 +533,7 @@ public class IcebergMetadata
             properties.put(PARTITIONING_PROPERTY, toPartitionFields(icebergTable.spec()));
         }
 
-        return new ConnectorTableMetadata(table, columns, properties.build(), Optional.empty());
+        return new ConnectorTableMetadata(table, columns, properties.build(), getTableComment(icebergTable));
     }
 
     private List<ColumnMetadata> getColumnMetadatas(org.apache.iceberg.Table table)
