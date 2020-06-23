@@ -171,7 +171,7 @@ public class QueryResultRows
                 }
             }
             catch (Throwable throwable) {
-                propagateException(rowPosition, channel, column, throwable);
+                propagateException(rowPosition, column, throwable);
                 // skip row as it contains non-serializable value
                 return Optional.empty();
             }
@@ -180,10 +180,15 @@ public class QueryResultRows
         return Optional.of(unmodifiableList(row));
     }
 
-    private void propagateException(int row, int column, ColumnAndType columnAndType, Throwable cause)
+    private void propagateException(int row, ColumnAndType column, Throwable cause)
     {
         // columns and rows are 0-indexed
-        String message = format("Could not serialize type '%s' value at position %d:%d", columnAndType.getColumn().getType(), row + 1, column + 1);
+        String message = format("Could not serialize column '%s' of type '%s' at position %d:%d",
+                column.getColumn().getName(),
+                column.getType(),
+                row + 1,
+                column.getPosition() + 1);
+
         exceptionConsumer.ifPresent(consumer -> consumer.accept(new PrestoException(SERIALIZATION_ERROR, message, cause)));
     }
 
@@ -288,7 +293,7 @@ public class QueryResultRows
             ImmutableList.Builder<ColumnAndType> builder = ImmutableList.builder();
 
             for (int i = 0; i < columns.size(); i++) {
-                builder.add(new ColumnAndType(columns.get(i), types.get(i)));
+                builder.add(new ColumnAndType(i, columns.get(i), types.get(i)));
             }
 
             return builder.build();
@@ -297,11 +302,13 @@ public class QueryResultRows
 
     private static class ColumnAndType
     {
+        private final int position;
         private final Column column;
         private final Type type;
 
-        private ColumnAndType(Column column, Type type)
+        private ColumnAndType(int position, Column column, Type type)
         {
+            this.position = position;
             this.column = column;
             this.type = type;
         }
@@ -316,12 +323,18 @@ public class QueryResultRows
             return type;
         }
 
+        public int getPosition()
+        {
+            return position;
+        }
+
         @Override
         public String toString()
         {
             return toStringHelper(this)
                     .add("column", column)
                     .add("type", type)
+                    .add("position", position)
                     .toString();
         }
     }

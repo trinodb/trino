@@ -13,6 +13,7 @@
  */
 package io.prestosql.server.protocol;
 
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
 import io.prestosql.client.ClientTypeSignature;
@@ -154,15 +155,15 @@ public class TestQueryResultRows
     @Test
     public void shouldOmitBadRows()
     {
-        List<Column> columns = ImmutableList.of(new Column("_col0", INTEGER, new ClientTypeSignature(INTEGER)), new Column("_col1", BOOLEAN, new ClientTypeSignature(BOOLEAN)));
-        List<Type> types = ImmutableList.of(IntegerType.INTEGER, BogusType.BOGUS);
+        List<Column> columns = ImmutableList.of(new Column("_col0", BOOLEAN, new ClientTypeSignature(BOOLEAN)), new Column("_col1", BOOLEAN, new ClientTypeSignature(BOOLEAN)));
+        List<Type> types = ImmutableList.of(BogusType.BOGUS, BogusType.BOGUS);
 
         List<Page> pages = rowPagesBuilder(types)
                 .row(0, 1)
+                .row(0, 0)
+                .row(0, 1)
                 .row(1, 0)
-                .row(2, 1)
-                .row(3, 0)
-                .row(4, 1)
+                .row(0, 1)
                 .build();
 
         TestExceptionConsumer exceptionConsumer = new TestExceptionConsumer();
@@ -178,7 +179,7 @@ public class TestQueryResultRows
         assertTrue(rows.getUpdateCount().isEmpty());
 
         assertThat(getAllValues(rows))
-                .containsExactly(ImmutableList.of(1, 0), ImmutableList.of(3, 0));
+                .containsExactly(ImmutableList.of(0, 0));
 
         List<Throwable> exceptions = exceptionConsumer.getExceptions();
 
@@ -186,21 +187,26 @@ public class TestQueryResultRows
                 .isNotEmpty();
 
         assertThat(exceptions)
-                .hasSize(3);
+                .hasSize(4);
 
         assertThat(exceptions.get(0))
                 .isInstanceOf(PrestoException.class)
-                .hasMessage("Could not serialize type 'boolean' value at position 1:2")
+                .hasMessage("Could not serialize column '_col1' of type 'Bogus' at position 1:2")
                 .hasRootCauseMessage("This is bogus exception");
 
         assertThat(exceptions.get(1))
                 .isInstanceOf(PrestoException.class)
-                .hasMessage("Could not serialize type 'boolean' value at position 3:2")
+                .hasMessage("Could not serialize column '_col1' of type 'Bogus' at position 3:2")
                 .hasRootCauseMessage("This is bogus exception");
 
         assertThat(exceptions.get(2))
                 .isInstanceOf(PrestoException.class)
-                .hasMessage("Could not serialize type 'boolean' value at position 5:2")
+                .hasMessage("Could not serialize column '_col0' of type 'Bogus' at position 4:1")
+                .hasRootCauseMessage("This is bogus exception");
+
+        assertThat(exceptions.get(3))
+                .isInstanceOf(PrestoException.class)
+                .hasMessage("Could not serialize column '_col1' of type 'Bogus' at position 5:2")
                 .hasRootCauseMessage("This is bogus exception");
     }
 
