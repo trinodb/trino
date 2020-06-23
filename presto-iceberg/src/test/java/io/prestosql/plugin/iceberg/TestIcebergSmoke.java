@@ -471,6 +471,20 @@ public class TestIcebergSmoke
         }
     }
 
+    @Test
+    public void testPredicating()
+    {
+        testWithAllFileFormats(this::testPredicating);
+    }
+
+    private void testPredicating(Session session, FileFormat fileFormat)
+    {
+        assertUpdate(session, "CREATE TABLE test_predicating_on_real (col REAL) WITH (format = '" + fileFormat + "')");
+        assertUpdate(session, "INSERT INTO test_predicating_on_real VALUES 1.2", 1);
+        assertQuery(session, "SELECT * FROM test_predicating_on_real WHERE col = 1.2", "VALUES 1.2");
+        dropTable(session, "test_predicating_on_real");
+    }
+
     private void testWithAllFileFormats(BiConsumer<Session, FileFormat> test)
     {
         test.accept(getSession(), FileFormat.PARQUET);

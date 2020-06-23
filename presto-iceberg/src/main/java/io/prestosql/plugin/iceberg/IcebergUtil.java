@@ -109,7 +109,7 @@ final class IcebergUtil
 
     public static TableScan getTableScan(ConnectorSession session, TupleDomain<IcebergColumnHandle> predicates, Optional<Long> snapshotId, Table icebergTable)
     {
-        Expression expression = ExpressionConverter.toIcebergExpression(predicates, session);
+        Expression expression = ExpressionConverter.toIcebergExpression(predicates);
         TableScan tableScan = icebergTable.newScan().filter(expression);
         return snapshotId
                 .map(id -> isSnapshot(icebergTable, id) ? tableScan.useSnapshot(id) : tableScan.asOfTime(id))

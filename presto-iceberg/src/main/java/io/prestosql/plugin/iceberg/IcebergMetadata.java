@@ -587,7 +587,7 @@ public class IcebergMetadata
         org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, handle.getSchemaTableName());
 
         icebergTable.newDelete()
-                .deleteFromRowFilter(toIcebergExpression(handle.getPredicate(), session))
+                .deleteFromRowFilter(toIcebergExpression(handle.getPredicate()))
                 .commit();
 
         // TODO: it should be possible to return number of deleted records
