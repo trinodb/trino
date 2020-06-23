@@ -13,7 +13,6 @@
  */
 package io.prestosql.spi.type;
 
-import io.airlift.slice.XxHash64;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.BlockBuilderStatus;
@@ -29,7 +28,7 @@ import static java.lang.String.format;
  * in the first long and the fractional increment in the remaining integer, as
  * a number of picoseconds additional to the epoch microsecond.
  */
-public class LongTimestampType
+class LongTimestampType
         extends TimestampType
 {
     public LongTimestampType(int precision)
@@ -98,7 +97,7 @@ public class LongTimestampType
     @Override
     public long hash(Block block, int position)
     {
-        return hash(getEpochMicros(block, position), getFraction(block, position));
+        return TimestampTypes.hashLongTimestamp(getEpochMicros(block, position), getFraction(block, position));
     }
 
     @Override
@@ -150,16 +149,6 @@ public class LongTimestampType
         else {
             return SqlTimestamp.newInstance(getPrecision(), epochMicros, fraction);
         }
-    }
-
-    public static long hash(LongTimestamp value)
-    {
-        return hash(value.getEpochMicros(), value.getPicosOfMicro());
-    }
-
-    public static long hash(long epochMicros, long fraction)
-    {
-        return XxHash64.hash(epochMicros) ^ XxHash64.hash(fraction);
     }
 
     private static long getEpochMicros(Block block, int position)

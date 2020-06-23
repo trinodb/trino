@@ -41,7 +41,6 @@ import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.RowType.Field;
-import io.prestosql.spi.type.ShortTimestampType;
 import io.prestosql.spi.type.SmallintType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.TimestampType;
@@ -521,7 +520,7 @@ public final class JsonUtil
                 long epochMicros;
                 int fraction;
 
-                if (type instanceof ShortTimestampType) {
+                if (type.isShort()) {
                     epochMicros = type.getLong(block, position);
                     if (type.getPrecision() <= 3) {
                         epochMicros = scaleEpochMillisToMicros(epochMicros);

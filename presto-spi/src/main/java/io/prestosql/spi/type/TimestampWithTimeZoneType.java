@@ -50,7 +50,7 @@ public abstract class TimestampWithTimeZoneType
         throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("TIMESTAMP WITH TIME ZONE precision must be in range [0, %s]", MAX_PRECISION));
     }
 
-    protected TimestampWithTimeZoneType(int precision, Class<?> javaType)
+    TimestampWithTimeZoneType(int precision, Class<?> javaType)
     {
         super(new TypeSignature(StandardTypes.TIMESTAMP_WITH_TIME_ZONE, TypeSignatureParameter.numericParameter(precision)), javaType);
 
@@ -64,6 +64,11 @@ public abstract class TimestampWithTimeZoneType
     public final int getPrecision()
     {
         return precision;
+    }
+
+    public final boolean isShort()
+    {
+        return precision <= MAX_SHORT_PRECISION;
     }
 
     @Override
