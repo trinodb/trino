@@ -120,6 +120,10 @@ public final class OrcWriter
     private long previouslyRecordedSizeInBytes;
     private boolean closed;
 
+    private long fileRowCount;
+    private Optional<ColumnMetadata<ColumnStatistics>> fileStats;
+    private long fileStatsRetainedBytes;
+
     @Nullable
     private final OrcWriteValidationBuilder validationBuilder;
 
@@ -228,7 +232,8 @@ public final class OrcWriter
                 columnWritersRetainedBytes +
                 closedStripesRetainedBytes +
                 orcDataSink.getRetainedSizeInBytes() +
-                (validationBuilder == null ? 0 : validationBuilder.getRetainedSize());
+                (validationBuilder == null ? 0 : validationBuilder.getRetainedSize()) +
+                fileStatsRetainedBytes;
     }
 
     public void write(Page page)
@@ -264,6 +269,7 @@ public final class OrcWriter
             }
 
             writeChunk(chunk);
+            fileRowCount += chunkRows;
         }
 
         long recordedSizeInBytes = getRetainedBytes();
@@ -467,21 +473,20 @@ public final class OrcWriter
         Slice metadataSlice = metadataWriter.writeMetadata(metadata);
         outputData.add(createDataOutput(metadataSlice));
 
-        long numberOfRows = closedStripes.stream()
-                .mapToLong(stripe -> stripe.getStripeInformation().getNumberOfRows())
-                .sum();
-
-        Optional<ColumnMetadata<ColumnStatistics>> fileStats = toFileStats(closedStripes.stream()
+        fileStats = toFileStats(closedStripes.stream()
                 .map(ClosedStripe::getStatistics)
                 .map(StripeStatistics::getColumnStatistics)
                 .collect(toList()));
+        fileStatsRetainedBytes = fileStats.map(stats -> stats.stream()
+                .mapToLong(ColumnStatistics::getRetainedSizeInBytes)
+                .sum()).orElse(0L);
         recordValidation(validation -> validation.setFileStatistics(fileStats));
 
         Map<String, Slice> userMetadata = this.userMetadata.entrySet().stream()
                 .collect(Collectors.toMap(Entry::getKey, entry -> utf8Slice(entry.getValue())));
 
         Footer footer = new Footer(
-                numberOfRows,
+                fileRowCount,
                 rowGroupMaxRowCount == 0 ? OptionalInt.empty() : OptionalInt.of(rowGroupMaxRowCount),
                 closedStripes.stream()
                         .map(ClosedStripe::getStripeInformation)
@@ -515,6 +520,18 @@ public final class OrcWriter
     {
         checkState(validationBuilder != null, "validation is not enabled");
         validateFile(validationBuilder.build(), input, types, hiveStorageTimeZone);
+    }
+
+    public long getFileRowCount()
+    {
+        checkState(closed, "File row count is not available until the writing has finished");
+        return fileRowCount;
+    }
+
+    public Optional<ColumnMetadata<ColumnStatistics>> getFileStats()
+    {
+        checkState(closed, "File statistics are not available until the writing has finished");
+        return fileStats;
     }
 
     private static <T> ColumnMetadata<T> toColumnMetadata(Map<OrcColumnId, T> data, int expectedSize)

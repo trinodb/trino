@@ -55,7 +55,7 @@ public class OrcFileWriter
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcFileWriter.class).instanceSize();
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
-    private final OrcWriter orcWriter;
+    protected final OrcWriter orcWriter;
     private final Callable<Void> rollbackAction;
     private final int[] fileInputColumnIndexes;
     private final List<Block> nullBlocks;
