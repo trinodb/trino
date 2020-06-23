@@ -52,13 +52,6 @@ public class TestIcebergDistributed
     }
 
     @Override
-    public void testCommentTable()
-    {
-        // Iceberg connector does not support comment on table
-        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
-    }
-
-    @Override
     public void testRenameTable()
     {
         assertQueryFails("ALTER TABLE orders RENAME TO rename_orders", "Rename not supported for Iceberg tables");
