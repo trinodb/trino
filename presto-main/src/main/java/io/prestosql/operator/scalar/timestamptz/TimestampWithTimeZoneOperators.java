@@ -21,8 +21,6 @@ import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestampWithTimeZone;
-import io.prestosql.spi.type.LongTimestampWithTimeZoneType;
-import io.prestosql.spi.type.ShortTimestampWithTimeZoneType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.type.Constraint;
 import org.joda.time.DateTimeField;
@@ -42,9 +40,12 @@ import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
+import static io.prestosql.spi.type.TimestampWithTimeZoneTypes.hashLongTimestampWithTimeZone;
+import static io.prestosql.spi.type.TimestampWithTimeZoneTypes.hashShortTimestampWithTimeZone;
 import static io.prestosql.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static io.prestosql.type.Timestamps.roundToNearest;
 
+@SuppressWarnings("UtilityClassWithoutPrivateConstructor")
 public final class TimestampWithTimeZoneOperators
 {
     private TimestampWithTimeZoneOperators() {}
@@ -168,14 +169,14 @@ public final class TimestampWithTimeZoneOperators
         @LiteralParameters("p")
         public static long hashCode(@SqlType("timestamp(p) with time zone") long value)
         {
-            return ShortTimestampWithTimeZoneType.hash(value);
+            return hashShortTimestampWithTimeZone(value);
         }
 
         @SqlType(StandardTypes.BIGINT)
         @LiteralParameters("p")
         public static long hashCode(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone value)
         {
-            return LongTimestampWithTimeZoneType.hash(value);
+            return hashLongTimestampWithTimeZone(value);
         }
     }
 

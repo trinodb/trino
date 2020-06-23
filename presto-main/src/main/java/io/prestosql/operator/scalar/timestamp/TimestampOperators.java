@@ -22,8 +22,6 @@ import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestamp;
-import io.prestosql.spi.type.LongTimestampType;
-import io.prestosql.spi.type.ShortTimestampType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.type.Constraint;
 import org.joda.time.DateTimeField;
@@ -41,6 +39,8 @@ import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.function.OperatorType.SUBTRACT;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.TimestampType.MAX_SHORT_PRECISION;
+import static io.prestosql.spi.type.TimestampTypes.hashLongTimestamp;
+import static io.prestosql.spi.type.TimestampTypes.hashShortTimestamp;
 import static io.prestosql.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.type.Timestamps.getMicrosOfMilli;
 import static io.prestosql.type.Timestamps.rescale;
@@ -50,6 +50,7 @@ import static io.prestosql.type.Timestamps.scaleEpochMillisToMicros;
 import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 import static java.lang.Math.multiplyExact;
 
+@SuppressWarnings("UtilityClassWithoutPrivateConstructor")
 public final class TimestampOperators
 {
     private TimestampOperators() {}
@@ -173,14 +174,14 @@ public final class TimestampOperators
         @LiteralParameters("p")
         public static long hashCode(@SqlType("timestamp(p)") long value)
         {
-            return ShortTimestampType.hash(value);
+            return hashShortTimestamp(value);
         }
 
         @SqlType(StandardTypes.BIGINT)
         @LiteralParameters("p")
         public static long hashCode(@SqlType("timestamp(p)") LongTimestamp value)
         {
-            return LongTimestampType.hash(value);
+            return hashLongTimestamp(value);
         }
     }
 

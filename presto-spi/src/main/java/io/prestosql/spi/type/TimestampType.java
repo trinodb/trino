@@ -55,7 +55,7 @@ public abstract class TimestampType
         return new LongTimestampType(precision);
     }
 
-    protected TimestampType(int precision, Class<?> javaType)
+    TimestampType(int precision, Class<?> javaType)
     {
         super(new TypeSignature(StandardTypes.TIMESTAMP, TypeSignatureParameter.numericParameter(precision)), javaType);
         this.precision = precision;
@@ -64,6 +64,11 @@ public abstract class TimestampType
     public int getPrecision()
     {
         return precision;
+    }
+
+    public final boolean isShort()
+    {
+        return precision <= MAX_SHORT_PRECISION;
     }
 
     @Override

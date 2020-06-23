@@ -13,7 +13,6 @@
  */
 package io.prestosql.spi.type;
 
-import io.airlift.slice.XxHash64;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.BlockBuilderStatus;
@@ -25,6 +24,7 @@ import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
+import static io.prestosql.spi.type.TimestampWithTimeZoneTypes.hashLongTimestampWithTimeZone;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.compare;
 import static java.lang.String.format;
 
@@ -33,7 +33,7 @@ import static java.lang.String.format;
  * in the first long and the fractional increment in the remaining integer, as a number of picoseconds
  * additional to the epoch millisecond.
  */
-public class LongTimestampWithTimeZoneType
+class LongTimestampWithTimeZoneType
         extends TimestampWithTimeZoneType
 {
     public LongTimestampWithTimeZoneType(int precision)
@@ -97,7 +97,7 @@ public class LongTimestampWithTimeZoneType
     @Override
     public long hash(Block block, int position)
     {
-        return hash(getPackedEpochMillis(block, position), getFraction(block, position));
+        return hashLongTimestampWithTimeZone(getPackedEpochMillis(block, position), getFraction(block, position));
     }
 
     @Override
@@ -143,16 +143,6 @@ public class LongTimestampWithTimeZoneType
         int fraction = getFraction(block, position);
 
         return SqlTimestampWithTimeZone.newInstance(getPrecision(), unpackMillisUtc(packedEpochMillis), fraction, unpackZoneKey(packedEpochMillis));
-    }
-
-    public static long hash(LongTimestampWithTimeZone value)
-    {
-        return hash(value.getEpochMillis(), value.getPicosOfMilli());
-    }
-
-    public static long hash(long epochMicros, long fraction)
-    {
-        return XxHash64.hash(epochMicros) ^ XxHash64.hash(fraction);
     }
 
     private static long getPackedEpochMillis(Block block, int position)
