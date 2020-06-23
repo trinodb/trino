@@ -40,14 +40,13 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.StandardTypes.BIGINT;
-import static io.prestosql.spi.type.StandardTypes.BOOLEAN;
-import static io.prestosql.spi.type.StandardTypes.INTEGER;
-import static io.prestosql.spi.type.StandardTypes.SMALLINT;
-import static io.prestosql.spi.type.StandardTypes.TINYINT;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 
 //import static io.prestosql.spi.type.StandardTypes.VARCHAR;
@@ -256,7 +255,7 @@ public class PrometheusRecordCursor
                     || INTEGER.equals(type)
                     || BIGINT.equals(type)
                     || DOUBLE.equals(type)
-                    || VARCHAR.equals(type)) {
+                    || type instanceof VarcharType) {
                 TypeUtils.writeNativeValue(type, builder, obj);
             }
         }
@@ -274,7 +273,7 @@ public class PrometheusRecordCursor
         else {
             if (type.getJavaType() == Slice.class) {
                 Slice slice = (Slice) TypeUtils.readNativeValue(type, block, position);
-                return type.equals(VarcharType.VARCHAR) ? slice.toStringUtf8() : slice.getBytes();
+                return (type instanceof VarcharType) ? slice.toStringUtf8() : slice.getBytes();
             }
 
             return TypeUtils.readNativeValue(type, block, position);
