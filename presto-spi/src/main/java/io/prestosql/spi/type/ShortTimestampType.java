@@ -20,7 +20,7 @@ import io.prestosql.spi.block.LongArrayBlockBuilder;
 import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
 
-import static java.lang.Long.rotateLeft;
+import static io.prestosql.spi.type.TimestampTypes.hashShortTimestamp;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
 
@@ -82,7 +82,7 @@ class ShortTimestampType
     @Override
     public long hash(Block block, int position)
     {
-        return hash(block.getLong(position, 0));
+        return hashShortTimestamp(block.getLong(position, 0));
     }
 
     @Override
@@ -139,12 +139,6 @@ class ShortTimestampType
         else {
             return SqlTimestamp.newInstance(getPrecision(), value, 0);
         }
-    }
-
-    public static long hash(long value)
-    {
-        // xxhash64 mix
-        return rotateLeft(value * 0xC2B2AE3D27D4EB4FL, 31) * 0x9E3779B185EBCA87L;
     }
 
     private static long scaleEpochMillisToMicros(long epochMillis)

@@ -23,16 +23,16 @@ import io.prestosql.spi.connector.ConnectorSession;
 
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
-import static java.lang.Long.rotateLeft;
+import static io.prestosql.spi.type.TimestampWithTimeZoneTypes.hashShortTimestampWithTimeZone;
 import static java.lang.String.format;
 
 /**
  * Encodes timestamps up to p = 6.
- *
+ * <p>
  * For 0 <= p <= 3, the value is encoded as milliseconds from the 1970-01-01 00:00:00 epoch.
  * For 3 < p <= 6, the value is encoded as microseconds from the 1970-01-01 00:00:00 epoch.
  */
-public class ShortTimestampWithTimeZoneType
+class ShortTimestampWithTimeZoneType
         extends TimestampWithTimeZoneType
 {
     public ShortTimestampWithTimeZoneType(int precision)
@@ -90,7 +90,7 @@ public class ShortTimestampWithTimeZoneType
     @Override
     public long hash(Block block, int position)
     {
-        return hash(block.getLong(position, 0));
+        return hashShortTimestampWithTimeZone(block.getLong(position, 0));
     }
 
     @Override
@@ -137,11 +137,5 @@ public class ShortTimestampWithTimeZoneType
 
         long value = block.getLong(position, 0);
         return SqlTimestampWithTimeZone.newInstance(getPrecision(), unpackMillisUtc(value), 0, unpackZoneKey(value));
-    }
-
-    public static long hash(long packedEpochMillis)
-    {
-        // xxhash64 mix
-        return rotateLeft(unpackMillisUtc(packedEpochMillis) * 0xC2B2AE3D27D4EB4FL, 31) * 0x9E3779B185EBCA87L;
     }
 }
