@@ -80,10 +80,10 @@ public class RemoveRedundantExists
         assignments.putIdentities(node.getInput().getOutputSymbols());
 
         Expression result;
-        if (QueryCardinalityUtil.isAtMost(node.getSubquery(), context.getLookup(), 0)) {
+        if (QueryCardinalityUtil.isEmpty(node.getSubquery(), context.getLookup())) {
             result = FALSE_LITERAL;
         }
-        else if (QueryCardinalityUtil.isAtLeast(node.getSubquery(), context.getLookup(), 1)) {
+        else if (QueryCardinalityUtil.isAtLeastScalar(node.getSubquery(), context.getLookup())) {
             result = TRUE_LITERAL;
         }
         else {
