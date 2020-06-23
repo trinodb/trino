@@ -16,7 +16,6 @@ package io.prestosql.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Iterables;
 import com.google.common.collect.ListMultimap;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
@@ -53,7 +52,6 @@ import io.prestosql.sql.tree.Except;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
 import io.prestosql.sql.tree.Identifier;
-import io.prestosql.sql.tree.InPredicate;
 import io.prestosql.sql.tree.Intersect;
 import io.prestosql.sql.tree.Join;
 import io.prestosql.sql.tree.JoinCriteria;
@@ -322,11 +320,11 @@ class RelationPlanner
         List<Expression> complexJoinExpressions = new ArrayList<>();
         List<Expression> postInnerJoinConditions = new ArrayList<>();
 
+        RelationType left = analysis.getOutputDescriptor(node.getLeft());
+        RelationType right = analysis.getOutputDescriptor(node.getRight());
+
         if (node.getType() != CROSS && node.getType() != IMPLICIT) {
             Expression criteria = analysis.getJoinCriteria(node);
-
-            RelationType left = analysis.getOutputDescriptor(node.getLeft());
-            RelationType right = analysis.getOutputDescriptor(node.getRight());
 
             List<Expression> leftComparisonExpressions = new ArrayList<>();
             List<Expression> rightComparisonExpressions = new ArrayList<>();
@@ -411,15 +409,22 @@ class RelationPlanner
 
         if (node.getType() != INNER) {
             for (Expression complexExpression : complexJoinExpressions) {
-                Set<InPredicate> inPredicates = subqueryPlanner.collectInPredicateSubqueries(complexExpression, node);
-                if (!inPredicates.isEmpty()) {
-                    InPredicate inPredicate = Iterables.getLast(inPredicates);
-                    throw semanticException(NOT_SUPPORTED, inPredicate, "IN with subquery predicate in join condition is not supported");
+                Set<QualifiedName> dependencies = SymbolsExtractor.extractNames(complexExpression, analysis.getColumnReferences());
+
+                // This is for handling uncorreled subqueries. Correlated subqueries are not currently supported and are dealt with
+                // during analysis.
+                // Make best effort to plan the subquery in the branch of the join involving the other inputs to the expression.
+                // E.g.,
+                //  t JOIN u ON t.x = (...) get's planned on the t side
+                //  t JOIN u ON t.x = (...) get's planned on the u side
+                //  t JOIN u ON t.x + u.x = (...) get's planned on an arbitrary side
+                if (dependencies.stream().allMatch(left::canResolve)) {
+                    leftPlanBuilder = subqueryPlanner.handleSubqueries(leftPlanBuilder, complexExpression, node);
+                }
+                else {
+                    rightPlanBuilder = subqueryPlanner.handleSubqueries(rightPlanBuilder, complexExpression, node);
                 }
             }
-
-            // subqueries can be applied only to one side of join - left side is selected in arbitrary way
-            leftPlanBuilder = subqueryPlanner.handleSubqueries(leftPlanBuilder, complexJoinExpressions, node);
         }
         TranslationMap translationMap = initializeTranslationMap(node, outputSymbols);
         translationMap.setFieldMappings(outputSymbols);
