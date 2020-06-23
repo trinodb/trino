@@ -51,7 +51,7 @@ public class TestQuerySerializationFailures
     public void shouldFailOnFirstSerializationError()
     {
         // BOGUS(value) returns BogusType that fails to serialize when value is true
-        assertQueryFails("SELECT * FROM (VALUES BOGUS(true), BOGUS(false), BOGUS(true))", "Could not serialize type 'Bogus' value at position 1:1");
+        assertQueryFails("SELECT * FROM (VALUES BOGUS(true), BOGUS(false), BOGUS(true))", "Could not serialize column '_col0' of type 'Bogus' at position 1:1");
     }
 
     @Test
