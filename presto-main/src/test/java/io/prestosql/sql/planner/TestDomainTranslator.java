@@ -248,7 +248,7 @@ public class TestDomainTranslator
 
         tupleDomain = withColumnDomains(ImmutableMap.<Symbol, Domain>builder().put(C_BIGINT, testDomain).build());
         assertEquals(toPredicate(tupleDomain),
-                or(between(C_BIGINT, bigintLiteral(1L), bigintLiteral(3L)), (between(C_BIGINT, bigintLiteral(5L), bigintLiteral(7L))), (between(C_BIGINT, bigintLiteral(9L), bigintLiteral(11L)))));
+                or(between(C_BIGINT, bigintLiteral(1L), bigintLiteral(3L)), between(C_BIGINT, bigintLiteral(5L), bigintLiteral(7L)), between(C_BIGINT, bigintLiteral(9L), bigintLiteral(11L))));
 
         testDomain = Domain.create(
                 ValueSet.ofRanges(
