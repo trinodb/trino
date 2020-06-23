@@ -14,6 +14,7 @@
 package io.prestosql.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slices;
 import io.prestosql.plugin.iceberg.util.PageListBuilder;
 import io.prestosql.spi.Page;
@@ -29,6 +30,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.TypeManager;
 import org.apache.iceberg.DataFile;
+import org.apache.iceberg.Schema;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.transforms.Transforms;
@@ -100,8 +102,7 @@ public class FilesTable
     {
         PageListBuilder pagesBuilder = PageListBuilder.forTable(tableMetadata);
         TableScan tableScan = getTableScan(session, TupleDomain.all(), snapshotId, icebergTable).includeColumnStats();
-        Map<Integer, Type> idToTypeMapping = icebergTable.schema().columns().stream()
-                .collect(toImmutableMap(Types.NestedField::fieldId, column -> column.type().asPrimitiveType()));
+        Map<Integer, Type> idToTypeMapping = getIcebergIdToTypeMapping(icebergTable.schema());
 
         tableScan.planFiles().forEach(fileScanTask -> {
             DataFile dataFile = fileScanTask.file();
@@ -153,5 +154,23 @@ public class FilesTable
             return false;
         }
         return true;
+    }
+
+    private static Map<Integer, Type> getIcebergIdToTypeMapping(Schema schema)
+    {
+        ImmutableMap.Builder<Integer, Type> icebergIdToTypeMapping = ImmutableMap.builder();
+        for (Types.NestedField field : schema.columns()) {
+            populateIcebergIdToTypeMapping(field, icebergIdToTypeMapping);
+        }
+        return icebergIdToTypeMapping.build();
+    }
+
+    private static void populateIcebergIdToTypeMapping(Types.NestedField field, ImmutableMap.Builder<Integer, Type> icebergIdToTypeMapping)
+    {
+        Type type = field.type();
+        icebergIdToTypeMapping.put(field.fieldId(), type);
+        if (type instanceof Type.NestedType) {
+            type.asNestedType().fields().forEach(child -> populateIcebergIdToTypeMapping(child, icebergIdToTypeMapping));
+        }
     }
 }
