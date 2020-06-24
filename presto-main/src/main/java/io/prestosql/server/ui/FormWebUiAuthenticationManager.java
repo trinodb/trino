@@ -13,34 +13,29 @@
  */
 package io.prestosql.server.ui;
 
+import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.Hashing;
-import com.google.common.io.ByteStreams;
-import io.airlift.http.client.HttpUriBuilder;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
-import io.prestosql.server.ServletSecurityUtils;
 import io.prestosql.server.security.AuthenticationException;
 import io.prestosql.server.security.Authenticator;
 import io.prestosql.server.security.PasswordAuthenticatorManager;
 import io.prestosql.spi.security.AccessDeniedException;
-import io.prestosql.spi.security.BasicPrincipal;
 import io.prestosql.spi.security.Identity;
 
 import javax.inject.Inject;
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.http.Cookie;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletRequestWrapper;
-import javax.servlet.http.HttpServletResponse;
+import javax.ws.rs.container.ContainerRequestContext;
+import javax.ws.rs.core.Cookie;
+import javax.ws.rs.core.NewCookie;
+import javax.ws.rs.core.Response;
+import javax.ws.rs.core.Response.ResponseBuilder;
+import javax.ws.rs.core.SecurityContext;
+import javax.ws.rs.core.UriBuilder;
+import javax.ws.rs.core.UriInfo;
 
-import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.security.Principal;
 import java.security.SecureRandom;
 import java.time.ZonedDateTime;
 import java.util.Date;
@@ -50,16 +45,11 @@ import java.util.function.Function;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.net.HttpHeaders.LOCATION;
-import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
-import static io.airlift.http.client.HttpUriBuilder.uriBuilder;
-import static io.prestosql.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
+import static io.prestosql.server.ServletSecurityUtils.sendWwwAuthenticate;
+import static io.prestosql.server.ServletSecurityUtils.setAuthenticatedIdentity;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static java.util.Arrays.stream;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
-import static javax.servlet.http.HttpServletResponse.SC_SEE_OTHER;
-import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 
 public class FormWebUiAuthenticationManager
         implements WebUiAuthenticationManager
@@ -67,8 +57,13 @@ public class FormWebUiAuthenticationManager
     private static final String PRESTO_UI_AUDIENCE = "presto-ui";
     private static final String PRESTO_UI_COOKIE = "Presto-UI-Token";
     private static final String LOGIN_FORM = "/ui/login.html";
+    static final URI LOGIN_FORM_URI = URI.create(LOGIN_FORM);
     private static final String DISABLED_LOCATION = "/ui/disabled.html";
+    static final URI DISABLED_LOCATION_URI = URI.create(DISABLED_LOCATION);
     private static final String UI_LOCATION = "/ui/";
+    private static final URI UI_LOCATION_URI = URI.create(UI_LOCATION);
+    static final String UI_LOGIN = "/ui/login";
+    static final String UI_LOGOUT = "/ui/logout";
 
     private final Function<String, String> jwtParser;
     private final Function<String, String> jwtGenerator;
@@ -100,88 +95,87 @@ public class FormWebUiAuthenticationManager
     }
 
     @Override
-    public void handleUiRequest(HttpServletRequest request, HttpServletResponse response, FilterChain nextFilter)
-            throws IOException, ServletException
+    public void handleUiRequest(ContainerRequestContext request)
     {
-        if (request.getPathInfo() == null || request.getPathInfo().equals("/")) {
-            sendRedirect(response, getUiLocation(request));
+        String path = request.getUriInfo().getRequestUri().getPath();
+        if (path.equals("/")) {
+            request.abortWith(Response.seeOther(UI_LOCATION_URI).build());
             return;
         }
 
-        if (isPublic(request)) {
-            nextFilter.doFilter(request, response);
+        if (isPublicUiResource(path)) {
             return;
         }
 
         // authenticator over a secure connection bypasses the form login
-        if (authenticator.isPresent() && request.isSecure()) {
-            handleProtocolLoginRequest(authenticator.get(), request, response, nextFilter);
+        if (authenticator.isPresent() && request.getSecurityContext().isSecure()) {
+            handleProtocolLoginRequest(authenticator.get(), request);
             return;
         }
 
-        if (request.getPathInfo().equals("/ui/login")) {
-            handleFormLoginRequest(request, response);
-            return;
-        }
-        if (request.getPathInfo().equals("/ui/logout")) {
-            handleLogoutRequest(request, response);
+        // login and logout resource is not visible to protocol authenticators
+        if (path.equals(UI_LOGIN) || path.equals(UI_LOGOUT)) {
             return;
         }
 
+        // check if the user is already authenticated
         Optional<String> username = getAuthenticatedUsername(request);
         if (username.isPresent()) {
-            if (request.getPathInfo().equals(LOGIN_FORM)) {
-                sendRedirectFromSuccessfulLogin(request, response, request.getQueryString());
+            // if the authenticated user is requesting the login page, send them directly to the ui
+            if (path.equals(LOGIN_FORM)) {
+                request.abortWith(redirectFromSuccessfulLoginResponse(request.getUriInfo().getRequestUri().getQuery()).build());
                 return;
             }
-            nextFilter.doFilter(withUsername(request, username.get()), response);
+            setAuthenticatedIdentity(request, username.get());
             return;
-        }
-
-        // clear authentication cookie if present
-        getAuthenticationCookie(request)
-                .ifPresent(ignored -> response.addCookie(getDeleteCookie(request)));
-
-        // drain the input
-        try (InputStream inputStream = request.getInputStream()) {
-            ByteStreams.exhaust(inputStream);
         }
 
         // send 401 to REST api calls and redirect to others
-        if (request.getPathInfo().startsWith("/ui/api/")) {
-            response.setHeader(WWW_AUTHENTICATE, "Presto-Form-Login");
-            response.setStatus(SC_UNAUTHORIZED);
+        if (path.startsWith("/ui/api/")) {
+            sendWwwAuthenticate(request, "Unauthorized", ImmutableSet.of("Presto-Form-Login"));
             return;
         }
 
-        if (!isAuthenticationEnabled(request)) {
-            sendRedirect(response, getRedirectLocation(request, DISABLED_LOCATION));
+        if (!isAuthenticationEnabled(request.getSecurityContext())) {
+            request.abortWith(Response.seeOther(DISABLED_LOCATION_URI).build());
             return;
         }
 
-        if (request.getPathInfo().equals(LOGIN_FORM)) {
-            nextFilter.doFilter(request, response);
+        if (path.equals(LOGIN_FORM)) {
             return;
         }
 
         // redirect to login page
-        sendRedirect(response, getRedirectLocation(request, LOGIN_FORM, encodeCurrentLocationForLoginRedirect(request)));
+        request.abortWith(Response.seeOther(LOGIN_FORM_URI).build());
+
+        request.abortWith(Response.seeOther(buildLoginFormURI(request.getUriInfo())).build());
     }
 
-    private static String encodeCurrentLocationForLoginRedirect(HttpServletRequest request)
+    private static URI buildLoginFormURI(UriInfo uriInfo)
     {
-        String path = request.getPathInfo();
-        if (!isNullOrEmpty(request.getQueryString())) {
-            path += "?" + request.getQueryString();
+        UriBuilder builder = uriInfo.getRequestUriBuilder()
+                .uri(LOGIN_FORM_URI);
+
+        String path = uriInfo.getRequestUri().getPath();
+        if (!isNullOrEmpty(uriInfo.getRequestUri().getQuery())) {
+            path += "?" + uriInfo.getRequestUri().getQuery();
         }
+
         if (path.equals("/ui") || path.equals("/ui/")) {
-            return null;
+            return builder.build();
         }
-        return path;
+
+        // this is a hack - the replaceQuery method encodes the value where the uri method just copies the value
+        try {
+            builder.uri(new URI(null, null, null, path, null));
+        }
+        catch (URISyntaxException ignored) {
+        }
+
+        return builder.build();
     }
 
-    private static void handleProtocolLoginRequest(Authenticator authenticator, HttpServletRequest request, HttpServletResponse response, FilterChain nextFilter)
-            throws IOException, ServletException
+    private static void handleProtocolLoginRequest(Authenticator authenticator, ContainerRequestContext request)
     {
         Identity authenticatedIdentity;
         try {
@@ -189,196 +183,128 @@ public class FormWebUiAuthenticationManager
         }
         catch (AuthenticationException e) {
             // authentication failed
-            ServletSecurityUtils.skipRequestBody(request);
-
-            e.getAuthenticateHeader().ifPresent(value -> response.addHeader(WWW_AUTHENTICATE, value));
-
-            ServletSecurityUtils.sendErrorMessage(response, SC_UNAUTHORIZED, firstNonNull(e.getMessage(), "Unauthorized"));
+            sendWwwAuthenticate(
+                    request,
+                    firstNonNull(e.getMessage(), "Unauthorized"),
+                    e.getAuthenticateHeader().map(ImmutableSet::of).orElse(ImmutableSet.of()));
             return;
         }
 
-        if (redirectFormLoginToUi(request, response)) {
+        if (redirectFormLoginToUi(request)) {
             return;
         }
 
-        ServletSecurityUtils.withAuthenticatedIdentity(nextFilter, request, response, authenticatedIdentity);
+        setAuthenticatedIdentity(request, authenticatedIdentity);
     }
 
-    public static boolean redirectFormLoginToUi(HttpServletRequest request, HttpServletResponse response)
+    private static boolean redirectFormLoginToUi(ContainerRequestContext request)
     {
         // these paths should never be used with a protocol login, but the user might have this cached or linked, so redirect back to the main UI page.
-        if (request.getPathInfo().equals(LOGIN_FORM) || request.getPathInfo().equals("/ui/login") || request.getPathInfo().equals("/ui/logout")) {
-            sendRedirect(response, getRedirectLocation(request, UI_LOCATION));
+        String path = request.getUriInfo().getRequestUri().getPath();
+        if (path.equals(LOGIN_FORM) || path.equals(UI_LOGIN) || path.equals(UI_LOGOUT)) {
+            request.abortWith(Response.seeOther(UI_LOCATION_URI).build());
             return true;
         }
         return false;
     }
 
-    private void handleFormLoginRequest(HttpServletRequest request, HttpServletResponse response)
+    public static ResponseBuilder redirectFromSuccessfulLoginResponse(String redirectPath)
     {
-        if (!isAuthenticationEnabled(request)) {
-            sendRedirect(response, getRedirectLocation(request, DISABLED_LOCATION));
-            return;
+        URI redirectLocation = UI_LOCATION_URI;
+
+        redirectPath = emptyToNull(redirectPath);
+        if (redirectPath != null) {
+            try {
+                redirectLocation = new URI(redirectPath);
+            }
+            catch (URISyntaxException ignored) {
+            }
         }
-        Optional<String> username = checkLoginCredentials(request);
-        if (username.isPresent()) {
-            response.addCookie(createAuthenticationCookie(request, username.get()));
-            sendRedirectFromSuccessfulLogin(request, response, request.getParameter("redirectPath"));
-            return;
-        }
-        sendRedirect(response, getLoginFormLocation(request));
+
+        return Response.seeOther(redirectLocation);
     }
 
-    private static void sendRedirectFromSuccessfulLogin(HttpServletRequest request, HttpServletResponse response, String redirectPath)
+    public Optional<NewCookie> checkLoginCredentials(String username, String password, boolean secure)
     {
-        try {
-            URI redirectUri = new URI(firstNonNull(emptyToNull(redirectPath), UI_LOCATION));
-            sendRedirect(response, getRedirectLocation(request, redirectUri.getPath(), redirectUri.getQuery()));
-        }
-        catch (URISyntaxException ignored) {
-            sendRedirect(response, UI_LOCATION);
-        }
-    }
-
-    private Optional<String> checkLoginCredentials(HttpServletRequest request)
-    {
-        String username = emptyToNull(request.getParameter("username"));
         if (username == null) {
             return Optional.empty();
         }
 
-        if (!request.isSecure()) {
-            return Optional.of(username);
+        if (!secure) {
+            return Optional.of(createAuthenticationCookie(username, secure));
         }
 
-        String password = emptyToNull(request.getParameter("password"));
         try {
             passwordAuthenticatorManager.getAuthenticator().createAuthenticatedPrincipal(username, password);
-            return Optional.of(username);
+            return Optional.of(createAuthenticationCookie(username, secure));
         }
         catch (AccessDeniedException e) {
             return Optional.empty();
         }
     }
 
-    private void handleLogoutRequest(HttpServletRequest request, HttpServletResponse response)
+    private Optional<String> getAuthenticatedUsername(ContainerRequestContext request)
     {
-        response.addCookie(getDeleteCookie(request));
-        if (isAuthenticationEnabled(request)) {
-            sendRedirect(response, getLoginFormLocation(request));
-            return;
+        Cookie cookie = request.getCookies().get(PRESTO_UI_COOKIE);
+        if (cookie == null) {
+            return Optional.empty();
         }
-        sendRedirect(response, getRedirectLocation(request, DISABLED_LOCATION));
-    }
 
-    private Optional<String> getAuthenticatedUsername(HttpServletRequest request)
-    {
-        Optional<Cookie> cookie = getAuthenticationCookie(request);
-        if (cookie.isPresent()) {
-            try {
-                return Optional.of(jwtParser.apply(cookie.get().getValue()));
-            }
-            catch (JwtException e) {
-                return Optional.empty();
-            }
-            catch (RuntimeException e) {
-                throw new RuntimeException("Authentication error", e);
-            }
+        try {
+            return Optional.of(jwtParser.apply(cookie.getValue()));
         }
-        return Optional.empty();
+        catch (JwtException e) {
+            return Optional.empty();
+        }
+        catch (RuntimeException e) {
+            throw new RuntimeException("Authentication error", e);
+        }
     }
 
-    private static ServletRequest withUsername(HttpServletRequest request, String username)
-    {
-        requireNonNull(username, "username is null");
-        BasicPrincipal principal = new BasicPrincipal(username);
-        request.setAttribute(AUTHENTICATED_IDENTITY, Identity.forUser(username)
-                .withPrincipal(principal)
-                .build());
-        return new HttpServletRequestWrapper(request)
-        {
-            @Override
-            public Principal getUserPrincipal()
-            {
-                return principal;
-            }
-        };
-    }
-
-    private Cookie createAuthenticationCookie(HttpServletRequest request, String userName)
+    private NewCookie createAuthenticationCookie(String userName, boolean secure)
     {
         String jwt = jwtGenerator.apply(userName);
-        Cookie cookie = new Cookie(PRESTO_UI_COOKIE, jwt);
-        cookie.setSecure(request.isSecure());
-        cookie.setHttpOnly(true);
-        cookie.setPath("/ui");
-        return cookie;
+        return new NewCookie(
+                PRESTO_UI_COOKIE,
+                jwt,
+                "/ui",
+                null,
+                Cookie.DEFAULT_VERSION,
+                null,
+                NewCookie.DEFAULT_MAX_AGE,
+                null,
+                secure,
+                true);
     }
 
-    private Cookie getDeleteCookie(HttpServletRequest request)
+    public static NewCookie getDeleteCookie(boolean secure)
     {
-        Cookie cookie = new Cookie(PRESTO_UI_COOKIE, "delete");
-        cookie.setMaxAge(0);
-        cookie.setSecure(request.isSecure());
-        cookie.setHttpOnly(true);
-        return cookie;
+        return new NewCookie(
+                PRESTO_UI_COOKIE,
+                "delete",
+                "/ui",
+                null,
+                Cookie.DEFAULT_VERSION,
+                null,
+                0,
+                null,
+                secure,
+                true);
     }
 
-    private static Optional<Cookie> getAuthenticationCookie(HttpServletRequest request)
-    {
-        return stream(firstNonNull(request.getCookies(), new Cookie[0]))
-                .filter(cookie -> cookie.getName().equals(PRESTO_UI_COOKIE))
-                .findFirst();
-    }
-
-    private static boolean isPublic(HttpServletRequest request)
+    static boolean isPublicUiResource(String path)
     {
         // note login page is handled later
-        String pathInfo = request.getPathInfo();
-        return pathInfo.equals(DISABLED_LOCATION) ||
-                pathInfo.startsWith("/ui/vendor") ||
-                pathInfo.startsWith("/ui/assets");
+        return path.equals(DISABLED_LOCATION) ||
+                path.startsWith("/ui/vendor") ||
+                path.startsWith("/ui/assets");
     }
 
-    private static void sendRedirect(HttpServletResponse response, String location)
-    {
-        response.setHeader(LOCATION, location);
-        response.setStatus(SC_SEE_OTHER);
-    }
-
-    private static String getLoginFormLocation(HttpServletRequest request)
-    {
-        return getRedirectLocation(request, LOGIN_FORM);
-    }
-
-    private static String getUiLocation(HttpServletRequest request)
-    {
-        return getRedirectLocation(request, UI_LOCATION);
-    }
-
-    private static String getRedirectLocation(HttpServletRequest request, String path)
-    {
-        return getRedirectLocation(request, path, null);
-    }
-
-    static String getRedirectLocation(HttpServletRequest request, String path, String queryParameter)
-    {
-        HttpUriBuilder builder = uriBuilder()
-                .scheme(request.getScheme())
-                .host(request.getServerName())
-                .port(request.getServerPort())
-                .replacePath(path);
-        if (queryParameter != null) {
-            builder.addParameter(queryParameter);
-        }
-        return builder.toString();
-    }
-
-    private boolean isAuthenticationEnabled(HttpServletRequest request)
+    boolean isAuthenticationEnabled(SecurityContext securityContext)
     {
         // unsecured requests support username-only authentication (no password)
         // secured requests require a password authenticator or a protocol level authenticator
-        return !request.isSecure() || passwordAuthenticatorManager.isLoaded() || authenticator.isPresent();
+        return !securityContext.isSecure() || passwordAuthenticatorManager.isLoaded() || authenticator.isPresent();
     }
 
     private static String generateJwt(byte[] hmac, String username, long sessionTimeoutNanos)
@@ -401,11 +327,12 @@ public class FormWebUiAuthenticationManager
                 .getSubject();
     }
 
-    public static boolean redirectAllFormLoginToUi(HttpServletRequest request, HttpServletResponse response)
+    public static boolean redirectAllFormLoginToUi(ContainerRequestContext request)
     {
         // these paths should never be used with a protocol login, but the user might have this cached or linked, so redirect back ot the main UI page.
-        if (request.getPathInfo().equals(LOGIN_FORM) || request.getPathInfo().equals("/ui/login") || request.getPathInfo().equals("/ui/logout")) {
-            sendRedirect(response, getRedirectLocation(request, UI_LOCATION));
+        String path = request.getUriInfo().getRequestUri().getPath();
+        if (path.equals(LOGIN_FORM) || path.equals(UI_LOGIN) || path.equals(UI_LOGOUT)) {
+            request.abortWith(Response.seeOther(UI_LOCATION_URI).build());
             return true;
         }
         return false;

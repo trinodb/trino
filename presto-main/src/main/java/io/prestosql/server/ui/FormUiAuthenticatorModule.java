@@ -22,6 +22,7 @@ import io.prestosql.server.security.PasswordAuthenticatorManager;
 
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 
 public class FormUiAuthenticatorModule
         implements Module
@@ -30,8 +31,10 @@ public class FormUiAuthenticatorModule
     public void configure(Binder binder)
     {
         binder.bind(PasswordAuthenticatorManager.class).in(Scopes.SINGLETON);
+        binder.bind(FormWebUiAuthenticationManager.class).in(Scopes.SINGLETON);
         binder.bind(WebUiAuthenticationManager.class).to(FormWebUiAuthenticationManager.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(FormWebUiConfig.class);
+        jaxrsBinder(binder).bind(LoginResource.class);
         newOptionalBinder(binder, Key.get(Authenticator.class, ForWebUi.class));
     }
 }

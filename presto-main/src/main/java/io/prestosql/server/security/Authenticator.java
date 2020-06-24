@@ -15,10 +15,10 @@ package io.prestosql.server.security;
 
 import io.prestosql.spi.security.Identity;
 
-import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.container.ContainerRequestContext;
 
 public interface Authenticator
 {
-    Identity authenticate(HttpServletRequest request)
+    Identity authenticate(ContainerRequestContext request)
             throws AuthenticationException;
 }

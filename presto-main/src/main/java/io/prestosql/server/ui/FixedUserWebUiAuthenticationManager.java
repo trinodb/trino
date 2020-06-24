@@ -17,14 +17,9 @@ import io.prestosql.spi.security.BasicPrincipal;
 import io.prestosql.spi.security.Identity;
 
 import javax.inject.Inject;
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import javax.ws.rs.container.ContainerRequestContext;
 
-import java.io.IOException;
-
-import static io.prestosql.server.ServletSecurityUtils.withAuthenticatedIdentity;
+import static io.prestosql.server.ServletSecurityUtils.setAuthenticatedIdentity;
 import static io.prestosql.server.ui.FormWebUiAuthenticationManager.redirectAllFormLoginToUi;
 import static java.util.Objects.requireNonNull;
 
@@ -45,14 +40,13 @@ public class FixedUserWebUiAuthenticationManager
     }
 
     @Override
-    public void handleUiRequest(HttpServletRequest request, HttpServletResponse response, FilterChain nextFilter)
-            throws IOException, ServletException
+    public void handleUiRequest(ContainerRequestContext request)
     {
-        if (redirectAllFormLoginToUi(request, response)) {
+        if (redirectAllFormLoginToUi(request)) {
             return;
         }
 
-        withAuthenticatedIdentity(nextFilter, request, response, webUiIdentity);
+        setAuthenticatedIdentity(request, webUiIdentity);
     }
 
     private static Identity basicIdentity(String username)

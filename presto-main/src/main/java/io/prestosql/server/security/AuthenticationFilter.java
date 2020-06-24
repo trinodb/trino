@@ -19,35 +19,36 @@ import io.prestosql.server.InternalAuthenticationManager;
 import io.prestosql.server.ui.WebUiAuthenticationManager;
 import io.prestosql.spi.security.Identity;
 
+import javax.annotation.Priority;
 import javax.inject.Inject;
-import javax.servlet.Filter;
-import javax.servlet.FilterChain;
-import javax.servlet.FilterConfig;
-import javax.servlet.ServletException;
-import javax.servlet.ServletRequest;
-import javax.servlet.ServletResponse;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import javax.ws.rs.container.ContainerRequestContext;
+import javax.ws.rs.container.ContainerRequestFilter;
+import javax.ws.rs.container.ContainerResponseContext;
+import javax.ws.rs.container.ContainerResponseFilter;
+import javax.ws.rs.core.Response;
 
-import java.io.IOException;
 import java.security.Principal;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.net.HttpHeaders.WWW_AUTHENTICATE;
+import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.net.MediaType.PLAIN_TEXT_UTF_8;
+import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
+import static io.prestosql.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
 import static io.prestosql.server.ServletSecurityUtils.sendErrorMessage;
-import static io.prestosql.server.ServletSecurityUtils.skipRequestBody;
-import static io.prestosql.server.ServletSecurityUtils.withAuthenticatedIdentity;
+import static io.prestosql.server.ServletSecurityUtils.sendWwwAuthenticate;
+import static io.prestosql.server.ServletSecurityUtils.setAuthenticatedIdentity;
 import static io.prestosql.server.security.BasicAuthCredentials.extractBasicAuthCredentials;
 import static java.util.Objects.requireNonNull;
-import static javax.servlet.http.HttpServletResponse.SC_FORBIDDEN;
-import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
+import static javax.ws.rs.Priorities.AUTHENTICATION;
+import static javax.ws.rs.core.Response.Status.FORBIDDEN;
+import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 
+@Priority(AUTHENTICATION)
 public class AuthenticationFilter
-        implements Filter
+        implements ContainerRequestFilter, ContainerResponseFilter
 {
     private final List<Authenticator> authenticators;
     private final InternalAuthenticationManager internalAuthenticationManager;
@@ -65,40 +66,31 @@ public class AuthenticationFilter
     }
 
     @Override
-    public void init(FilterConfig filterConfig) {}
-
-    @Override
-    public void destroy() {}
-
-    @Override
-    public void doFilter(ServletRequest servletRequest, ServletResponse servletResponse, FilterChain nextFilter)
-            throws IOException, ServletException
+    public void filter(ContainerRequestContext request)
     {
-        HttpServletRequest request = (HttpServletRequest) servletRequest;
-        HttpServletResponse response = (HttpServletResponse) servletResponse;
-
         if (internalAuthenticationManager.isInternalRequest(request)) {
             Principal principal = internalAuthenticationManager.authenticateInternalRequest(request);
             if (principal == null) {
-                response.setStatus(SC_UNAUTHORIZED);
-                response.setContentType(PLAIN_TEXT_UTF_8.toString());
+                request.abortWith(Response.status(UNAUTHORIZED)
+                        .type(PLAIN_TEXT_UTF_8.toString())
+                        .build());
                 return;
             }
             Identity identity = Identity.forUser("<internal>")
                     .withPrincipal(principal)
                     .build();
-            withAuthenticatedIdentity(nextFilter, request, response, identity);
+            setAuthenticatedIdentity(request, identity);
             return;
         }
 
         if (WebUiAuthenticationManager.isUiRequest(request)) {
-            uiAuthenticationManager.handleUiRequest(request, response, nextFilter);
+            uiAuthenticationManager.handleUiRequest(request);
             return;
         }
 
         // skip authentication if non-secure or not configured
         if (!doesRequestSupportAuthentication(request)) {
-            handleInsecureRequest(nextFilter, request, response);
+            handleInsecureRequest(request);
             return;
         }
 
@@ -120,54 +112,63 @@ public class AuthenticationFilter
             }
 
             // authentication succeeded
-            withAuthenticatedIdentity(nextFilter, request, response, authenticatedIdentity);
+            setAuthenticatedIdentity(request, authenticatedIdentity);
             return;
         }
 
         // authentication failed
-        skipRequestBody(request);
-
-        for (String value : authenticateHeaders) {
-            response.addHeader(WWW_AUTHENTICATE, value);
-        }
-
         if (messages.isEmpty()) {
             messages.add("Unauthorized");
         }
-
         // The error string is used by clients for exception messages and
         // is presented to the end user, thus it should be a single line.
         String error = Joiner.on(" | ").join(messages);
-        sendErrorMessage(response, SC_UNAUTHORIZED, error);
+
+        sendWwwAuthenticate(request, error, authenticateHeaders);
     }
 
-    private static void handleInsecureRequest(FilterChain nextFilter, HttpServletRequest request, HttpServletResponse response)
-            throws IOException, ServletException
+    @Override
+    public void filter(ContainerRequestContext request, ContainerResponseContext response)
+    {
+        // destroy identity if identity is still attached to the request
+        Optional.ofNullable(request.getProperty(AUTHENTICATED_IDENTITY))
+                .map(Identity.class::cast)
+                .ifPresent(Identity::destroy);
+    }
+
+    private static void handleInsecureRequest(ContainerRequestContext request)
     {
         Optional<BasicAuthCredentials> basicAuthCredentials;
         try {
             basicAuthCredentials = extractBasicAuthCredentials(request);
         }
         catch (AuthenticationException e) {
-            sendErrorMessage(response, SC_FORBIDDEN, e.getMessage());
+            sendErrorMessage(request, FORBIDDEN, e.getMessage());
             return;
         }
 
-        if (basicAuthCredentials.isEmpty()) {
-            nextFilter.doFilter(request, response);
+        String user;
+        if (basicAuthCredentials.isPresent()) {
+            if (basicAuthCredentials.get().getPassword().isPresent()) {
+                sendErrorMessage(request, FORBIDDEN, "Password not allowed for insecure request");
+                return;
+            }
+            user = basicAuthCredentials.get().getUser();
+        }
+        else {
+            user = emptyToNull(request.getHeaders().getFirst(PRESTO_USER));
+        }
+
+        if (user == null) {
+            sendWwwAuthenticate(request, "Basic authentication or " + PRESTO_USER + " must be sent", ImmutableList.of("Basic realm=\"Presto\""));
             return;
         }
 
-        if (basicAuthCredentials.get().getPassword().isPresent()) {
-            sendErrorMessage(response, SC_FORBIDDEN, "Password not allowed for insecure request");
-            return;
-        }
-
-        withAuthenticatedIdentity(nextFilter, request, response, Identity.ofUser(basicAuthCredentials.get().getUser()));
+        setAuthenticatedIdentity(request, user);
     }
 
-    private boolean doesRequestSupportAuthentication(HttpServletRequest request)
+    private boolean doesRequestSupportAuthentication(ContainerRequestContext request)
     {
-        return !authenticators.isEmpty() && request.isSecure();
+        return !authenticators.isEmpty() && request.getSecurityContext().isSecure();
     }
 }
