@@ -90,6 +90,8 @@ public class GracefulShutdownHandler
             // wait for grace period for shutting down state to be observed by the coordinator
             sleepUninterruptibly(gracePeriod.toMillis(), MILLISECONDS);
 
+            // At this point no new tasks should be scheduled by coordinator on this worker node.
+            // Wait for all remaining tasks to finish.
             while (activeTasks.size() > 0) {
                 CountDownLatch countDownLatch = new CountDownLatch(activeTasks.size());
 
@@ -112,9 +114,6 @@ public class GracefulShutdownHandler
                 }
 
                 activeTasks = getActiveTasks();
-
-                // wait for another grace period for all task states to be observed by the coordinator
-                sleepUninterruptibly(gracePeriod.toMillis(), MILLISECONDS);
             }
 
             // wait for another grace period for all task states to be observed by the coordinator
