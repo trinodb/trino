@@ -13,6 +13,7 @@
  */
 package io.prestosql.server.security;
 
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.Provides;
@@ -23,6 +24,7 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.server.DynamicAnnouncementResource;
 import io.airlift.discovery.server.ServiceResource;
 import io.airlift.discovery.store.StoreResource;
+import io.airlift.http.server.HttpServerConfig;
 import io.airlift.jmx.MBeanResource;
 
 import java.util.List;
@@ -54,6 +56,8 @@ public class ServerSecurityModule
 
         binder.bind(PasswordAuthenticatorManager.class).in(Scopes.SINGLETON);
         binder.bind(CertificateAuthenticatorManager.class).in(Scopes.SINGLETON);
+
+        insecureHttpAuthenticationDefaults();
 
         authenticatorBinder(binder); // create empty map binder
 
@@ -104,5 +108,16 @@ public class ServerSecurityModule
         return config.getAuthenticationTypes().stream()
                 .map(type -> type.toLowerCase(ENGLISH))
                 .collect(toImmutableList());
+    }
+
+    private void insecureHttpAuthenticationDefaults()
+    {
+        HttpServerConfig httpServerConfig = buildConfigObject(HttpServerConfig.class);
+        SecurityConfig securityConfig = buildConfigObject(SecurityConfig.class);
+        // if secure https authentication is enabled, disable insecure authentication over http
+        if ((httpServerConfig.isHttpsEnabled() || httpServerConfig.isProcessForwarded()) &&
+                !securityConfig.getAuthenticationTypes().equals(ImmutableList.of("insecure"))) {
+            install(binder -> configBinder(binder).bindConfigDefaults(SecurityConfig.class, config -> config.setInsecureAuthenticationOverHttpAllowed(false)));
+        }
     }
 }
