@@ -20,8 +20,6 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.prestosql.server.security.AuthenticationException;
 import io.prestosql.server.security.Authenticator;
-import io.prestosql.server.security.PasswordAuthenticatorManager;
-import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.Identity;
 
 import javax.inject.Inject;
@@ -30,7 +28,6 @@ import javax.ws.rs.core.Cookie;
 import javax.ws.rs.core.NewCookie;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.ResponseBuilder;
-import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.core.UriBuilder;
 import javax.ws.rs.core.UriInfo;
 
@@ -67,13 +64,13 @@ public class FormWebUiAuthenticationFilter
 
     private final Function<String, String> jwtParser;
     private final Function<String, String> jwtGenerator;
-    private final PasswordAuthenticatorManager passwordAuthenticatorManager;
+    private final FormAuthenticator formAuthenticator;
     private final Optional<Authenticator> authenticator;
 
     @Inject
     public FormWebUiAuthenticationFilter(
             FormWebUiConfig config,
-            PasswordAuthenticatorManager passwordAuthenticatorManager,
+            FormAuthenticator formAuthenticator,
             @ForWebUi Optional<Authenticator> authenticator)
     {
         byte[] hmac;
@@ -90,7 +87,7 @@ public class FormWebUiAuthenticationFilter
         long sessionTimeoutNanos = config.getSessionTimeout().roundTo(NANOSECONDS);
         this.jwtGenerator = username -> generateJwt(hmac, username, sessionTimeoutNanos);
 
-        this.passwordAuthenticatorManager = requireNonNull(passwordAuthenticatorManager, "passwordAuthenticatorManager is null");
+        this.formAuthenticator = requireNonNull(formAuthenticator, "formAuthenticator is null");
         this.authenticator = requireNonNull(authenticator, "authenticator is null");
     }
 
@@ -131,7 +128,7 @@ public class FormWebUiAuthenticationFilter
             return;
         }
 
-        if (!isAuthenticationEnabled(request.getSecurityContext())) {
+        if (!isAuthenticationEnabled(request.getSecurityContext().isSecure())) {
             request.abortWith(Response.seeOther(DISABLED_LOCATION_URI).build());
             return;
         }
@@ -221,21 +218,10 @@ public class FormWebUiAuthenticationFilter
 
     public Optional<NewCookie> checkLoginCredentials(String username, String password, boolean secure)
     {
-        if (username == null) {
-            return Optional.empty();
-        }
-
-        if (!secure) {
+        if (formAuthenticator.isValidCredential(username, password, secure)) {
             return Optional.of(createAuthenticationCookie(username, secure));
         }
-
-        try {
-            passwordAuthenticatorManager.getAuthenticator().createAuthenticatedPrincipal(username, password);
-            return Optional.of(createAuthenticationCookie(username, secure));
-        }
-        catch (AccessDeniedException e) {
-            return Optional.empty();
-        }
+        return Optional.empty();
     }
 
     private Optional<String> getAuthenticatedUsername(ContainerRequestContext request)
@@ -295,11 +281,14 @@ public class FormWebUiAuthenticationFilter
                 path.startsWith("/ui/assets");
     }
 
-    boolean isAuthenticationEnabled(SecurityContext securityContext)
+    public boolean isPasswordAllowed(boolean secure)
     {
-        // unsecured requests support username-only authentication (no password)
-        // secured requests require a password authenticator or a protocol level authenticator
-        return !securityContext.isSecure() || passwordAuthenticatorManager.isLoaded() || authenticator.isPresent();
+        return formAuthenticator.isPasswordAllowed(secure);
+    }
+
+    boolean isAuthenticationEnabled(boolean secure)
+    {
+        return formAuthenticator.isLoginEnabled(secure) || authenticator.isPresent();
     }
 
     private static String generateJwt(byte[] hmac, String username, long sessionTimeoutNanos)

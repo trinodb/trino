@@ -67,7 +67,8 @@ public class LoginResource
     @Path(LOGIN_FORM)
     public Response getFile(@Context SecurityContext securityContext)
     {
-        return Response.ok(loginHtml.replace(REPLACEMENT_TEXT, "var hidePassword = " + !securityContext.isSecure() + ";"))
+        boolean passwordAllowed = formWebUiAuthenticationManager.isPasswordAllowed(securityContext.isSecure());
+        return Response.ok(loginHtml.replace(REPLACEMENT_TEXT, "var hidePassword = " + !passwordAllowed + ";"))
                 .type(TEXT_HTML)
                 .build();
     }
@@ -85,7 +86,7 @@ public class LoginResource
         password = emptyToNull(password);
         redirectPath = emptyToNull(redirectPath);
 
-        if (!formWebUiAuthenticationManager.isAuthenticationEnabled(securityContext)) {
+        if (!formWebUiAuthenticationManager.isAuthenticationEnabled(securityContext.isSecure())) {
             return Response.seeOther(DISABLED_LOCATION_URI).build();
         }
 
@@ -106,7 +107,7 @@ public class LoginResource
     public Response logout(@Context HttpHeaders httpHeaders, @Context UriInfo uriInfo, @Context SecurityContext securityContext)
     {
         URI redirectLocation;
-        if (formWebUiAuthenticationManager.isAuthenticationEnabled(securityContext)) {
+        if (formWebUiAuthenticationManager.isAuthenticationEnabled(securityContext.isSecure())) {
             redirectLocation = LOGIN_FORM_URI;
         }
         else {
