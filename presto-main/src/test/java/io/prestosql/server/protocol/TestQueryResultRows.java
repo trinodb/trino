@@ -32,6 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
 import static io.prestosql.client.ClientStandardTypes.BIGINT;
@@ -45,6 +46,10 @@ import static org.testng.collections.Lists.newArrayList;
 
 public class TestQueryResultRows
 {
+    private static final Function<String, Column> BOOLEAN_COLUMN = name -> new Column(name, BOOLEAN, new ClientTypeSignature(BOOLEAN));
+    private static final Function<String, Column> BIGINT_COLUMN = name -> new Column(name, BIGINT, new ClientTypeSignature(BIGINT));
+    private static final Function<String, Column> INT_COLUMN = name -> new Column(name, INTEGER, new ClientTypeSignature(INTEGER));
+
     @Test
     public void shouldNotReturnValues()
     {
@@ -59,7 +64,7 @@ public class TestQueryResultRows
     @Test
     public void shouldReturnSingleValue()
     {
-        Column column = new Column("_col0", BOOLEAN, new ClientTypeSignature(BOOLEAN));
+        Column column = BOOLEAN_COLUMN.apply("_col0");
 
         QueryResultRows rows = queryResultRowsBuilder(getSession())
                 .withSingleBooleanValue(column, true)
@@ -74,7 +79,7 @@ public class TestQueryResultRows
     @Test
     public void shouldReturnUpdateCount()
     {
-        Column column = new Column("_col0", BIGINT, new ClientTypeSignature(BIGINT));
+        Column column = BIGINT_COLUMN.apply("_col0");
         long value = 10123;
 
         QueryResultRows rows = queryResultRowsBuilder(getSession())
@@ -94,7 +99,7 @@ public class TestQueryResultRows
     @Test
     public void shouldNotHaveUpdateCount()
     {
-        Column column = new Column("_col0", BOOLEAN, new ClientTypeSignature(BOOLEAN));
+        Column column = BOOLEAN_COLUMN.apply("_col0");
 
         QueryResultRows rows = queryResultRowsBuilder(getSession())
                 .withSingleBooleanValue(column, false)
@@ -108,7 +113,7 @@ public class TestQueryResultRows
     @Test
     public void shouldReadAllValuesFromMultiplePages()
     {
-        List<Column> columns = ImmutableList.of(new Column("_col0", INTEGER, new ClientTypeSignature(INTEGER)), new Column("_col1", BIGINT, new ClientTypeSignature(BIGINT)));
+        List<Column> columns = ImmutableList.of(INT_COLUMN.apply("_col0"), BIGINT_COLUMN.apply("_col1"));
         List<Type> types = ImmutableList.of(IntegerType.INTEGER, BigintType.BIGINT);
 
         List<Page> pages = rowPagesBuilder(types)
@@ -155,7 +160,7 @@ public class TestQueryResultRows
     @Test
     public void shouldOmitBadRows()
     {
-        List<Column> columns = ImmutableList.of(new Column("_col0", BOOLEAN, new ClientTypeSignature(BOOLEAN)), new Column("_col1", BOOLEAN, new ClientTypeSignature(BOOLEAN)));
+        List<Column> columns = ImmutableList.of(BOOLEAN_COLUMN.apply("_col0"), BOOLEAN_COLUMN.apply("_col1"));
         List<Type> types = ImmutableList.of(BogusType.BOGUS, BogusType.BOGUS);
 
         List<Page> pages = rowPagesBuilder(types)
@@ -248,7 +253,7 @@ public class TestQueryResultRows
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "columns and types size mismatch")
     public void shouldThrowWhenColumnsAndTypesSizeMismatch()
     {
-        List<Column> columns = ImmutableList.of(new Column("_col0", INTEGER, new ClientTypeSignature(INTEGER)));
+        List<Column> columns = ImmutableList.of(INT_COLUMN.apply("_col0"));
         List<Type> types = ImmutableList.of(IntegerType.INTEGER, BooleanType.BOOLEAN);
 
         List<Page> pages = rowPagesBuilder(types)
@@ -287,7 +292,7 @@ public class TestQueryResultRows
     @Test(expectedExceptions = IllegalArgumentException.class, expectedExceptionsMessageRegExp = "columns and types must be present at the same time")
     public void shouldThrowWhenTypesAreNull()
     {
-        List<Column> columns = ImmutableList.of(new Column("_col0", INTEGER, new ClientTypeSignature(INTEGER)));
+        List<Column> columns = ImmutableList.of(INT_COLUMN.apply("_col0"));
         List<Type> types = ImmutableList.of(IntegerType.INTEGER, BooleanType.BOOLEAN);
 
         List<Page> pages = rowPagesBuilder(types)
