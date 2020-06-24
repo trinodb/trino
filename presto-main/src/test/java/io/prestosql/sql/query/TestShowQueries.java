@@ -26,6 +26,7 @@ import org.testng.annotations.Test;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
 public class TestShowQueries
@@ -72,8 +73,10 @@ public class TestShowQueries
     @Test
     public void testShowCatalogsLikeWithEscape()
     {
-        assertions.assertFails("SHOW CATALOGS LIKE 't$_%' ESCAPE ''", "Escape string must be a single character");
-        assertions.assertFails("SHOW CATALOGS LIKE 't$_%' ESCAPE '$$'", "Escape string must be a single character");
+        assertThatThrownBy(() -> assertions.query("SHOW CATALOGS LIKE 't$_%' ESCAPE ''"))
+                .hasMessage("Escape string must be a single character");
+        assertThatThrownBy(() -> assertions.query("SHOW CATALOGS LIKE 't$_%' ESCAPE '$$'"))
+                .hasMessage("Escape string must be a single character");
         assertThat(assertions.query("SHOW CATALOGS LIKE '%$_%' ESCAPE '$'")).matches("VALUES('testing_catalog')");
         assertThat(assertions.query("SHOW CATALOGS LIKE '$_%' ESCAPE '$'")).matches("SELECT 'testing_catalog' WHERE FALSE");
     }
@@ -110,8 +113,10 @@ public class TestShowQueries
     @Test
     public void testShowSessionLikeWithEscape()
     {
-        assertions.assertFails("SHOW SESSION LIKE 't$_%' ESCAPE ''", "Escape string must be a single character");
-        assertions.assertFails("SHOW SESSION LIKE 't$_%' ESCAPE '$$'", "Escape string must be a single character");
+        assertThatThrownBy(() -> assertions.query("SHOW SESSION LIKE 't$_%' ESCAPE ''"))
+                .hasMessage("Escape string must be a single character");
+        assertThatThrownBy(() -> assertions.query("SHOW SESSION LIKE 't$_%' ESCAPE '$$'"))
+                .hasMessage("Escape string must be a single character");
         assertThat(assertions.query(
                 "SHOW SESSION LIKE '%page$_row$_c%' ESCAPE '$'"))
                 .matches("VALUES ('filter_and_project_min_output_page_row_count', cast('256' as VARCHAR(14)), cast('256' as VARCHAR(14)), 'integer', cast('Experimental: Minimum output page row count for filter and project operators' as VARCHAR(118)))");
@@ -164,8 +169,10 @@ public class TestShowQueries
     @Test
     public void testShowColumnsWithLikeWithEscape()
     {
-        assertions.assertFails("SHOW COLUMNS FROM system.runtime.nodes LIKE 't$_%' ESCAPE ''", "Escape string must be a single character");
-        assertions.assertFails("SHOW COLUMNS FROM system.runtime.nodes LIKE 't$_%' ESCAPE '$$'", "Escape string must be a single character");
+        assertThatThrownBy(() -> assertions.query("SHOW COLUMNS FROM system.runtime.nodes LIKE 't$_%' ESCAPE ''"))
+                .hasMessage("Escape string must be a single character");
+        assertThatThrownBy(() -> assertions.query("SHOW COLUMNS FROM system.runtime.nodes LIKE 't$_%' ESCAPE '$$'"))
+                .hasMessage("Escape string must be a single character");
         assertThat(assertions.query("SHOW COLUMNS FROM mock.mockSchema.mockTable LIKE 'cola$_' ESCAPE '$'"))
                 .matches("VALUES (CAST('cola_' AS VARCHAR), CAST('bigint' AS VARCHAR) , CAST('' AS VARCHAR), CAST('' AS VARCHAR))");
     }

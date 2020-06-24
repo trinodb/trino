@@ -36,6 +36,7 @@ import java.util.Optional;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test(singleThreaded = true)
 public class TestRowFilter
@@ -237,7 +238,8 @@ public class TestRowFilter
                 USER,
                 new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "orderkey IN (SELECT orderkey FROM orders)"));
 
-        assertions.assertFails("SELECT count(*) FROM orders", ".*\\QRow filter for 'local.tiny.orders' is recursive\\E.*");
+        assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
+                .hasMessageMatching(".*\\QRow filter for 'local.tiny.orders' is recursive\\E.*");
 
         // different reference style to same table
         accessControl.reset();
@@ -245,7 +247,8 @@ public class TestRowFilter
                 new QualifiedObjectName(CATALOG, "tiny", "orders"),
                 USER,
                 new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "orderkey IN (SELECT local.tiny.orderkey FROM orders)"));
-        assertions.assertFails("SELECT count(*) FROM orders", ".*\\QRow filter for 'local.tiny.orders' is recursive\\E.*");
+        assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
+                .hasMessageMatching(".*\\QRow filter for 'local.tiny.orders' is recursive\\E.*");
 
         // mutual recursion
         accessControl.reset();
@@ -259,7 +262,8 @@ public class TestRowFilter
                 USER,
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "orderkey IN (SELECT orderkey FROM orders)"));
 
-        assertions.assertFails("SELECT count(*) FROM orders", ".*\\QRow filter for 'local.tiny.orders' is recursive\\E.*");
+        assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
+                .hasMessageMatching(".*\\QRow filter for 'local.tiny.orders' is recursive\\E.*");
     }
 
     @Test
@@ -270,9 +274,9 @@ public class TestRowFilter
                 new QualifiedObjectName(CATALOG, "tiny", "customer"),
                 USER,
                 new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "orderkey = 1"));
-        assertions.assertFails(
-                "SELECT (SELECT min(name) FROM customer WHERE customer.custkey = orders.custkey) FROM orders",
-                "\\Qline 1:31: Invalid row filter for 'local.tiny.customer': Column 'orderkey' cannot be resolved\\E");
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT (SELECT min(name) FROM customer WHERE customer.custkey = orders.custkey) FROM orders"))
+                .hasMessageMatching("\\Qline 1:31: Invalid row filter for 'local.tiny.customer': Column 'orderkey' cannot be resolved\\E");
     }
 
     @Test
@@ -299,7 +303,8 @@ public class TestRowFilter
                 USER,
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "$$$"));
 
-        assertions.assertFails("SELECT count(*) FROM orders", "\\Qline 1:22: Invalid row filter for 'local.tiny.orders': mismatched input '$'. Expecting: <expression>\\E");
+        assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
+                .hasMessageMatching("\\Qline 1:22: Invalid row filter for 'local.tiny.orders': mismatched input '$'. Expecting: <expression>\\E");
 
         // unknown column
         accessControl.reset();
@@ -308,7 +313,8 @@ public class TestRowFilter
                 USER,
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "unknown_column"));
 
-        assertions.assertFails("SELECT count(*) FROM orders", "\\Qline 1:22: Invalid row filter for 'local.tiny.orders': Column 'unknown_column' cannot be resolved\\E");
+        assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
+                .hasMessageMatching("\\Qline 1:22: Invalid row filter for 'local.tiny.orders': Column 'unknown_column' cannot be resolved\\E");
 
         // invalid type
         accessControl.reset();
@@ -317,7 +323,8 @@ public class TestRowFilter
                 USER,
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "1"));
 
-        assertions.assertFails("SELECT count(*) FROM orders", "\\Qline 1:22: Expected row filter for 'local.tiny.orders' to be of type BOOLEAN, but was integer\\E");
+        assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
+                .hasMessageMatching("\\Qline 1:22: Expected row filter for 'local.tiny.orders' to be of type BOOLEAN, but was integer\\E");
 
         // aggregation
         accessControl.reset();
@@ -326,7 +333,8 @@ public class TestRowFilter
                 USER,
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "count(*) > 0"));
 
-        assertions.assertFails("SELECT count(*) FROM orders", "\\Qline 1:10: Row filter for 'local.tiny.orders' cannot contain aggregations, window functions or grouping operations: [count(*)]\\E");
+        assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
+                .hasMessageMatching("\\Qline 1:10: Row filter for 'local.tiny.orders' cannot contain aggregations, window functions or grouping operations: [count(*)]\\E");
 
         // window function
         accessControl.reset();
@@ -335,7 +343,8 @@ public class TestRowFilter
                 USER,
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "row_number() OVER () > 0"));
 
-        assertions.assertFails("SELECT count(*) FROM orders", "\\Qline 1:22: Row filter for 'local.tiny.orders' cannot contain aggregations, window functions or grouping operations: [row_number() OVER ()]\\E");
+        assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
+                .hasMessageMatching("\\Qline 1:22: Row filter for 'local.tiny.orders' cannot contain aggregations, window functions or grouping operations: [row_number() OVER ()]\\E");
 
         // window function
         accessControl.reset();
@@ -344,7 +353,8 @@ public class TestRowFilter
                 USER,
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "grouping(orderkey) = 0"));
 
-        assertions.assertFails("SELECT count(*) FROM orders", "\\Qline 1:20: Row filter for 'local.tiny.orders' cannot contain aggregations, window functions or grouping operations: [GROUPING (orderkey)]\\E");
+        assertThatThrownBy(() -> assertions.query("SELECT count(*) FROM orders"))
+                .hasMessageMatching("\\Qline 1:20: Row filter for 'local.tiny.orders' cannot contain aggregations, window functions or grouping operations: [GROUPING (orderkey)]\\E");
     }
 
     @Test
@@ -356,6 +366,7 @@ public class TestRowFilter
                 USER,
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "orderkey = 0"));
 
-        assertions.assertFails("SHOW STATS FOR (SELECT * FROM tiny.orders)", "\\QSHOW STATS is not supported for a table with row filtering");
+        assertThatThrownBy(() -> assertions.query("SHOW STATS FOR (SELECT * FROM tiny.orders)"))
+                .hasMessageMatching("\\QSHOW STATS is not supported for a table with row filtering");
     }
 }
