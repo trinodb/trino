@@ -28,6 +28,7 @@ import io.prestosql.execution.QueryState;
 import io.prestosql.server.HttpRequestSessionContext;
 import io.prestosql.server.SessionContext;
 import io.prestosql.server.protocol.Slug;
+import io.prestosql.server.security.ResourceSecurity;
 import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.security.GroupProvider;
@@ -75,6 +76,8 @@ import static io.prestosql.execution.QueryState.QUEUED;
 import static io.prestosql.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
 import static io.prestosql.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static io.prestosql.server.protocol.Slug.Context.QUEUED_QUERY;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.AUTHENTICATED_USER;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -154,6 +157,7 @@ public class QueuedStatementResource
         queryPurger.shutdownNow();
     }
 
+    @ResourceSecurity(AUTHENTICATED_USER)
     @POST
     @Produces(APPLICATION_JSON)
     public Response postStatement(
@@ -180,6 +184,7 @@ public class QueuedStatementResource
         return Response.ok(query.getQueryResults(query.getLastToken(), uriInfo)).build();
     }
 
+    @ResourceSecurity(PUBLIC)
     @GET
     @Path("queued/{queryId}/{slug}/{token}")
     @Produces(APPLICATION_JSON)
@@ -214,6 +219,7 @@ public class QueuedStatementResource
         bindAsyncResponse(asyncResponse, response, responseExecutor);
     }
 
+    @ResourceSecurity(PUBLIC)
     @DELETE
     @Path("queued/{queryId}/{slug}/{token}")
     @Produces(APPLICATION_JSON)

@@ -35,6 +35,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.net.CookieManager;
 import java.net.HttpCookie;
 import java.net.URI;
@@ -54,8 +55,8 @@ import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.testing.Closeables.closeQuietly;
 import static io.prestosql.client.OkHttpUtil.setupSsl;
-import static io.prestosql.server.ui.FormWebUiAuthenticationManager.UI_LOGIN;
-import static io.prestosql.server.ui.FormWebUiAuthenticationManager.UI_LOGOUT;
+import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.UI_LOGIN;
+import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.UI_LOGOUT;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
@@ -166,8 +167,8 @@ public class TestWebUi
                 .cookieJar(new JavaNetCookieJar(cookieManager))
                 .build();
 
-        Response response = assertOk(client, getLoginHtmlLocation(baseUri));
-        String body = response.body().string();
+        String body = assertOk(client, getLoginHtmlLocation(baseUri))
+                .orElseThrow(() -> new AssertionError("No response body"));
         assertThat(body).contains("action=\"/ui/login\"");
         assertThat(body).contains("method=\"post\"");
 
@@ -222,10 +223,11 @@ public class TestWebUi
                 .url(getLoginLocation(httpsUrl))
                 .post(formData.build())
                 .build();
-        Response response = client.newCall(request).execute();
-        assertEquals(response.code(), SC_SEE_OTHER);
-        assertEquals(response.header(LOCATION), getLoginHtmlLocation(httpsUrl));
-        assertTrue(cookieManager.getCookieStore().getCookies().isEmpty());
+        try (Response response = client.newCall(request).execute()) {
+            assertEquals(response.code(), SC_SEE_OTHER);
+            assertEquals(response.header(LOCATION), getLoginHtmlLocation(httpsUrl));
+            assertTrue(cookieManager.getCookieStore().getCookies().isEmpty());
+        }
     }
 
     @Test
@@ -459,7 +461,7 @@ public class TestWebUi
         assertResponseCode(notAuthorizedClient, getLocation(baseUri, "/ui/api/unknown"), SC_UNAUTHORIZED);
     }
 
-    private static Response assertOk(OkHttpClient client, String url)
+    private static Optional<String> assertOk(OkHttpClient client, String url)
             throws IOException
     {
         return assertResponseCode(client, url, SC_OK);
@@ -595,7 +597,7 @@ public class TestWebUi
         }
     }
 
-    private static Response assertResponseCode(OkHttpClient client, String url, int expectedCode)
+    private static Optional<String> assertResponseCode(OkHttpClient client, String url, int expectedCode)
             throws IOException
     {
         Request request = new Request.Builder()
@@ -608,9 +610,18 @@ public class TestWebUi
                     .build();
             request = request.newBuilder().post(formBody).build();
         }
-        Response response = client.newCall(request).execute();
-        assertEquals(response.code(), expectedCode);
-        return response;
+        try (Response response = client.newCall(request).execute()) {
+            assertEquals(response.code(), expectedCode, url);
+            return Optional.ofNullable(response.body())
+                    .map(responseBody -> {
+                        try {
+                            return responseBody.string();
+                        }
+                        catch (IOException e) {
+                            throw new UncheckedIOException(e);
+                        }
+                    });
+        }
     }
 
     private static Principal authenticate(String user, String password)

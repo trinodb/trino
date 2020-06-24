@@ -11,17 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.server.ui;
+package io.prestosql.server.security;
 
-import javax.ws.rs.container.ContainerRequestContext;
+import io.prestosql.server.security.ResourceSecurity.AccessType;
 
-public interface WebUiAuthenticationManager
+import java.lang.reflect.AnnotatedElement;
+import java.util.Optional;
+
+public interface ResourceAccessTypeLoader
 {
-    static boolean isUiRequest(ContainerRequestContext request)
-    {
-        String path = request.getUriInfo().getRequestUri().getPath();
-        return path == null || path.equals("/") || path.startsWith("/ui");
-    }
-
-    void handleUiRequest(ContainerRequestContext request);
+    Optional<AccessType> getAccessType(AnnotatedElement element);
 }

@@ -13,19 +13,12 @@
  */
 package io.prestosql.server.ui;
 
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.Scopes;
+import javax.annotation.Priority;
+import javax.ws.rs.Priorities;
+import javax.ws.rs.container.ContainerRequestFilter;
 
-import static io.airlift.configuration.ConfigBinder.configBinder;
-
-public class FixedUiAuthenticatorModule
-        implements Module
+@Priority(Priorities.AUTHENTICATION)
+public interface WebUiAuthenticationFilter
+        extends ContainerRequestFilter
 {
-    @Override
-    public void configure(Binder binder)
-    {
-        binder.bind(WebUiAuthenticationFilter.class).to(FixedUserWebUiAuthenticationFilter.class).in(Scopes.SINGLETON);
-        configBinder(binder).bindConfig(FixedUserWebUiConfig.class);
-    }
 }
