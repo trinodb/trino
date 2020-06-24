@@ -13,10 +13,10 @@
  */
 package io.prestosql.plugin.iceberg;
 
+import com.google.common.base.VerifyException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.EquatableValueSet;
-import io.prestosql.spi.predicate.EquatableValueSet.ValueEntry;
 import io.prestosql.spi.predicate.Marker;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.SortedRangeSet;
@@ -31,9 +31,7 @@ import io.prestosql.spi.type.Type;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.spi.predicate.Utils.nativeValueToBlock;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -53,13 +51,10 @@ public final class DomainConverter
         Type type = domain.getType();
         if (type instanceof TimestampType || type instanceof TimestampWithTimeZoneType || type instanceof TimeType || type instanceof TimeWithTimeZoneType) {
             if (valueSet instanceof EquatableValueSet) {
-                EquatableValueSet equatableValueSet = (EquatableValueSet) valueSet;
-                Set<ValueEntry> values = equatableValueSet.getEntries().stream()
-                        .map(value -> ValueEntry.create(value.getType(), convertToMicros(type, (long) value.getValue())))
-                        .collect(toImmutableSet());
-                valueSet = new EquatableValueSet(equatableValueSet.getType(), equatableValueSet.isWhiteList(), values);
+                throw new VerifyException("Did not expect an EquatableValueSet but got " + valueSet.getClass().getSimpleName());
             }
-            else if (valueSet instanceof SortedRangeSet) {
+
+            if (valueSet instanceof SortedRangeSet) {
                 List<Range> ranges = new ArrayList<>();
                 for (Range range : valueSet.getRanges().getOrderedRanges()) {
                     Marker low = range.getLow();
