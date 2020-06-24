@@ -19,6 +19,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.configuration.DefunctConfig;
 
+import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 
 import java.util.List;
@@ -32,9 +33,10 @@ public class SecurityConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
-    private List<String> authenticationTypes = ImmutableList.of();
+    private List<String> authenticationTypes = ImmutableList.of("insecure");
 
     @NotNull
+    @NotEmpty(message = "http-server.authentication.type cannot be empty")
     public List<String> getAuthenticationTypes()
     {
         return authenticationTypes;

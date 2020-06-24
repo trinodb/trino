@@ -29,6 +29,8 @@ import static java.util.Objects.requireNonNull;
 
 public class BasicAuthCredentials
 {
+    public static final String AUTHENTICATE_HEADER = "Basic realm=\"Presto\"";
+
     private final String user;
     private final Optional<String> password;
 
