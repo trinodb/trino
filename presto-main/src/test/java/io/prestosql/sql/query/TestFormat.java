@@ -1,9 +1,3 @@
-package io.prestosql.sql.query;
-
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
-
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -17,6 +11,12 @@ import org.testng.annotations.Test;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package io.prestosql.sql.query;
+
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
+
 public class TestFormat
 {
     private QueryAssertions assertions;
