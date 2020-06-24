@@ -13,6 +13,7 @@
  */
 package io.prestosql.server.ui;
 
+import com.google.common.io.Resources;
 import io.prestosql.server.security.ResourceSecurity;
 
 import javax.inject.Inject;
@@ -27,28 +28,48 @@ import javax.ws.rs.core.Response;
 import javax.ws.rs.core.SecurityContext;
 import javax.ws.rs.core.UriInfo;
 
+import java.io.IOException;
 import java.net.URI;
 import java.util.Optional;
 
 import static com.google.common.base.Strings.emptyToNull;
+import static com.google.common.base.Verify.verify;
 import static io.prestosql.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION_URI;
+import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.LOGIN_FORM;
 import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.LOGIN_FORM_URI;
 import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.UI_LOGIN;
 import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.UI_LOGOUT;
 import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.getDeleteCookie;
 import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.redirectFromSuccessfulLoginResponse;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
+import static javax.ws.rs.core.MediaType.TEXT_HTML;
 
 @Path("")
 public class LoginResource
 {
+    private static final String REPLACEMENT_TEXT = "var hidePassword = false; // This value will be replaced";
     private final FormWebUiAuthenticationFilter formWebUiAuthenticationManager;
+    private final String loginHtml;
 
     @Inject
     public LoginResource(FormWebUiAuthenticationFilter formWebUiAuthenticationManager)
+            throws IOException
     {
         this.formWebUiAuthenticationManager = requireNonNull(formWebUiAuthenticationManager, "formWebUiAuthenticationManager is null");
+        this.loginHtml = Resources.toString(getClass().getResource("/webapp/login.html"), UTF_8);
+        verify(loginHtml.contains(REPLACEMENT_TEXT), "login.html does not contain the replacement text");
+    }
+
+    @ResourceSecurity(WEB_UI)
+    @GET
+    @Path(LOGIN_FORM)
+    public Response getFile(@Context SecurityContext securityContext)
+    {
+        return Response.ok(loginHtml.replace(REPLACEMENT_TEXT, "var hidePassword = " + !securityContext.isSecure() + ";"))
+                .type(TEXT_HTML)
+                .build();
     }
 
     @ResourceSecurity(WEB_UI)

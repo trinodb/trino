@@ -56,9 +56,9 @@ public class FormWebUiAuthenticationFilter
 {
     private static final String PRESTO_UI_AUDIENCE = "presto-ui";
     private static final String PRESTO_UI_COOKIE = "Presto-UI-Token";
-    private static final String LOGIN_FORM = "/ui/login.html";
+    static final String LOGIN_FORM = "/ui/login.html";
     static final URI LOGIN_FORM_URI = URI.create(LOGIN_FORM);
-    private static final String DISABLED_LOCATION = "/ui/disabled.html";
+    static final String DISABLED_LOCATION = "/ui/disabled.html";
     static final URI DISABLED_LOCATION_URI = URI.create(DISABLED_LOCATION);
     private static final String UI_LOCATION = "/ui/";
     private static final URI UI_LOCATION_URI = URI.create(UI_LOCATION);
@@ -109,7 +109,7 @@ public class FormWebUiAuthenticationFilter
         }
 
         // login and logout resource is not visible to protocol authenticators
-        if (path.equals(UI_LOGIN) || path.equals(UI_LOGOUT)) {
+        if ((path.equals(UI_LOGIN) && request.getMethod().equals("POST")) || path.equals(UI_LOGOUT)) {
             return;
         }
 
