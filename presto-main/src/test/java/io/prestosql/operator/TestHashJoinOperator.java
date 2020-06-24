@@ -1550,7 +1550,7 @@ public class TestHashJoinOperator
                 }
                 catch (PrestoException e) {
                     driver.getDriverContext().failed(e);
-                    throw e;
+                    return;
                 }
                 runDriverInThread(executor, driver);
             }
