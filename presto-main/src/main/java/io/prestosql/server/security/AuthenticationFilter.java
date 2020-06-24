@@ -25,16 +25,13 @@ import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerRequestFilter;
 import javax.ws.rs.container.ContainerResponseContext;
 import javax.ws.rs.container.ContainerResponseFilter;
-import javax.ws.rs.core.Response;
 
-import java.security.Principal;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Strings.emptyToNull;
-import static com.google.common.net.MediaType.PLAIN_TEXT_UTF_8;
 import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
 import static io.prestosql.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
 import static io.prestosql.server.ServletSecurityUtils.sendErrorMessage;
@@ -44,7 +41,6 @@ import static io.prestosql.server.security.BasicAuthCredentials.extractBasicAuth
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.Priorities.AUTHENTICATION;
 import static javax.ws.rs.core.Response.Status.FORBIDDEN;
-import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 
 @Priority(AUTHENTICATION)
 public class AuthenticationFilter
@@ -68,18 +64,8 @@ public class AuthenticationFilter
     @Override
     public void filter(ContainerRequestContext request)
     {
-        if (internalAuthenticationManager.isInternalRequest(request)) {
-            Principal principal = internalAuthenticationManager.authenticateInternalRequest(request);
-            if (principal == null) {
-                request.abortWith(Response.status(UNAUTHORIZED)
-                        .type(PLAIN_TEXT_UTF_8.toString())
-                        .build());
-                return;
-            }
-            Identity identity = Identity.forUser("<internal>")
-                    .withPrincipal(principal)
-                    .build();
-            setAuthenticatedIdentity(request, identity);
+        if (InternalAuthenticationManager.isInternalRequest(request)) {
+            internalAuthenticationManager.handleInternalRequest(request);
             return;
         }
 
