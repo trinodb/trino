@@ -16,7 +16,6 @@ package io.prestosql.plugin.iceberg;
 import com.google.common.base.VerifyException;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.EquatableValueSet;
 import io.prestosql.spi.predicate.Marker;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.SortedRangeSet;
@@ -58,7 +57,6 @@ import static org.apache.iceberg.expressions.Expressions.isNull;
 import static org.apache.iceberg.expressions.Expressions.lessThan;
 import static org.apache.iceberg.expressions.Expressions.lessThanOrEqual;
 import static org.apache.iceberg.expressions.Expressions.not;
-import static org.apache.iceberg.expressions.Expressions.notEqual;
 import static org.apache.iceberg.expressions.Expressions.or;
 
 public final class ExpressionConverter
@@ -105,16 +103,6 @@ public final class ExpressionConverter
         Expression expression = null;
         if (domain.isNullAllowed()) {
             expression = isNull(columnName);
-        }
-
-        if (domainValues instanceof EquatableValueSet) {
-            expression = firstNonNull(expression, alwaysFalse());
-            EquatableValueSet valueSet = (EquatableValueSet) domainValues;
-            if (valueSet.isWhiteList()) {
-                // if whitelist is true than this is a case of "in", otherwise this is a case of "not in".
-                return or(expression, equal(columnName, valueSet.getValues()));
-            }
-            return or(expression, notEqual(columnName, valueSet.getValues()));
         }
 
         if (domainValues instanceof SortedRangeSet) {
@@ -173,7 +161,7 @@ public final class ExpressionConverter
             return expression;
         }
 
-        throw new VerifyException("Did not expect a domain value set other than SortedRangeSet and EquatableValueSet but got " + domainValues.getClass().getSimpleName());
+        throw new VerifyException("Did not expect a domain value set other than SortedRangeSet but got " + domainValues.getClass().getSimpleName());
     }
 
     private static Object getIcebergLiteralValue(Type type, Marker marker)
