@@ -24,7 +24,7 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.prestosql.server.security.InternalPrincipal;
 
 import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.container.ContainerRequestContext;
 
 import java.security.Principal;
 import java.time.ZonedDateTime;
@@ -72,14 +72,14 @@ public class InternalAuthenticationManager
         this.nodeId = nodeId;
     }
 
-    public boolean isInternalRequest(HttpServletRequest request)
+    public boolean isInternalRequest(ContainerRequestContext request)
     {
-        return request.getHeader(PRESTO_INTERNAL_BEARER) != null;
+        return request.getHeaders().getFirst(PRESTO_INTERNAL_BEARER) != null;
     }
 
-    public Principal authenticateInternalRequest(HttpServletRequest request)
+    public Principal authenticateInternalRequest(ContainerRequestContext request)
     {
-        String internalBarer = request.getHeader(PRESTO_INTERNAL_BEARER);
+        String internalBarer = request.getHeaders().getFirst(PRESTO_INTERNAL_BEARER);
         try {
             String subject = parseJwt(internalBarer);
             return new InternalPrincipal(subject);

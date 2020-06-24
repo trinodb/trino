@@ -18,7 +18,6 @@ import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
-import static io.airlift.http.server.HttpServerBinder.httpServerBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 
 public class WebUiModule
@@ -27,7 +26,7 @@ public class WebUiModule
     @Override
     protected void setup(Binder binder)
     {
-        httpServerBinder(binder).bindResource("/ui", "webapp").withWelcomeFile("index.html");
+        jaxrsBinder(binder).bind(WebUiStaticResource.class);
 
         configBinder(binder).bindConfig(WebUiConfig.class);
 

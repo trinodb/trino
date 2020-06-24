@@ -28,6 +28,7 @@ import okhttp3.FormBody;
 import okhttp3.JavaNetCookieJar;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import okhttp3.RequestBody;
 import okhttp3.Response;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -53,6 +54,8 @@ import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.testing.Closeables.closeQuietly;
 import static io.prestosql.client.OkHttpUtil.setupSsl;
+import static io.prestosql.server.ui.FormWebUiAuthenticationManager.UI_LOGIN;
+import static io.prestosql.server.ui.FormWebUiAuthenticationManager.UI_LOGOUT;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
@@ -474,6 +477,13 @@ public class TestWebUi
         Request request = new Request.Builder()
                 .url(url)
                 .build();
+        if (url.endsWith(UI_LOGIN)) {
+            RequestBody formBody = new FormBody.Builder()
+                    .add("username", "test")
+                    .add("password", "test")
+                    .build();
+            request = request.newBuilder().post(formBody).build();
+        }
         try (Response response = client.newCall(request).execute()) {
             assertEquals(response.code(), SC_SEE_OTHER);
             assertEquals(response.header(LOCATION), redirectLocation);
@@ -591,6 +601,13 @@ public class TestWebUi
         Request request = new Request.Builder()
                 .url(url)
                 .build();
+        if (url.endsWith(UI_LOGIN)) {
+            RequestBody formBody = new FormBody.Builder()
+                    .add("username", "fake")
+                    .add("password", "bad")
+                    .build();
+            request = request.newBuilder().post(formBody).build();
+        }
         Response response = client.newCall(request).execute();
         assertEquals(response.code(), expectedCode);
         return response;
@@ -616,12 +633,12 @@ public class TestWebUi
 
     private static String getLoginLocation(URI httpsUrl)
     {
-        return getLocation(httpsUrl, "/ui/login");
+        return getLocation(httpsUrl, UI_LOGIN);
     }
 
     private static String getLogoutLocation(URI baseUri)
     {
-        return getLocation(baseUri, "/ui/logout");
+        return getLocation(baseUri, UI_LOGOUT);
     }
 
     private static String getDisabledLocation(URI baseUri)
