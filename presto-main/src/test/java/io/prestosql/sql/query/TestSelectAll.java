@@ -101,39 +101,46 @@ public class TestSelectAll
     public void testSelectAllWithOrderBy()
     {
         // order by row field
-        assertions.assertQueryOrdered(
-                "SELECT t.r.* FROM (VALUES ROW(ROW(1, 'a', true)), ROW(ROW(2, 'b', false))) t(r) ORDER BY 2 DESC",
-                "VALUES (2, 'b', false), (1, 'a', true)");
-        assertions.assertQueryOrdered(
-                "SELECT t.r.* AS (x, y, z) FROM (VALUES ROW(ROW(1, 'a', true)), ROW(ROW(2, 'b', false))) t(r) ORDER BY y DESC",
-                "VALUES (2, 'b', false), (1, 'a', true)");
+        assertThat(assertions.query(
+                "SELECT t.r.* FROM (VALUES ROW(ROW(1, 'a', true)), ROW(ROW(2, 'b', false))) t(r) ORDER BY 2 DESC"))
+                .ordered()
+                .matches("VALUES (2, 'b', false), (1, 'a', true)");
+        assertThat(assertions.query(
+                "SELECT t.r.* AS (x, y, z) FROM (VALUES ROW(ROW(1, 'a', true)), ROW(ROW(2, 'b', false))) t(r) ORDER BY y DESC"))
+                .ordered()
+                .matches("VALUES (2, 'b', false), (1, 'a', true)");
 
         // order by row field, named row fields
-        assertions.assertQueryOrdered(
-                "SELECT t.r.* FROM (VALUES ROW(CAST(ROW(1) AS ROW(f1 integer))), ROW(CAST(ROW(2) AS ROW(f1 integer)))) t(r) ORDER BY 1 DESC",
-                "VALUES 2, 1");
-        assertions.assertQueryOrdered(
-                "SELECT t.r.* FROM (VALUES ROW(CAST(ROW(1) AS ROW(f1 integer))), ROW(CAST(ROW(2) AS ROW(f1 integer)))) t(r) ORDER BY f1 DESC",
-                "VALUES 2, 1");
+        assertThat(assertions.query(
+                "SELECT t.r.* FROM (VALUES ROW(CAST(ROW(1) AS ROW(f1 integer))), ROW(CAST(ROW(2) AS ROW(f1 integer)))) t(r) ORDER BY 1 DESC"))
+                .ordered()
+                .matches("VALUES 2, 1");
+        assertThat(assertions.query(
+                "SELECT t.r.* FROM (VALUES ROW(CAST(ROW(1) AS ROW(f1 integer))), ROW(CAST(ROW(2) AS ROW(f1 integer)))) t(r) ORDER BY f1 DESC"))
+                .ordered()
+                .matches("VALUES 2, 1");
         assertions.assertFails(
                 "SELECT t.r.* FROM (VALUES ROW(CAST(ROW(1) AS ROW(f1 integer))), ROW(CAST(ROW(2) AS ROW(f2 integer)))) t(r) ORDER BY f1 DESC",
                 ".*Column 'f1' cannot be resolved");
-        assertions.assertQueryOrdered(
-                "SELECT t.r.* AS (f1) FROM (VALUES ROW(CAST(ROW(1) AS ROW(f1 integer))), ROW(CAST(ROW(2) AS ROW(f2 integer)))) t(r) ORDER BY f1 DESC",
-                "VALUES 2, 1");
+        assertThat(assertions.query(
+                "SELECT t.r.* AS (f1) FROM (VALUES ROW(CAST(ROW(1) AS ROW(f1 integer))), ROW(CAST(ROW(2) AS ROW(f2 integer)))) t(r) ORDER BY f1 DESC"))
+                .ordered()
+                .matches("VALUES 2, 1");
         assertions.assertFails(
                 "SELECT t.r.* AS (x) FROM (VALUES ROW(CAST(ROW(1) AS ROW(f1 bigint))), ROW(CAST(ROW(2) AS ROW(f1 bigint)))) t(r) ORDER BY f1 DESC",
                 ".*Column 'f1' cannot be resolved");
 
         // order by row
-        assertions.assertQueryOrdered(
-                "SELECT t.r.* AS (x, y, z) FROM (VALUES ROW(ROW(1, 'a', true)), ROW(ROW(2, 'b', false))) t(r) ORDER BY r DESC",
-                "VALUES (2, 'b', false), (1, 'a', true)");
+        assertThat(assertions.query(
+                "SELECT t.r.* AS (x, y, z) FROM (VALUES ROW(ROW(1, 'a', true)), ROW(ROW(2, 'b', false))) t(r) ORDER BY r DESC"))
+                .ordered()
+                .matches("VALUES (2, 'b', false), (1, 'a', true)");
 
         // mixed wildcards
-        assertions.assertQueryOrdered(
-                "SELECT *, t.r.* AS (x, y) FROM (VALUES ROW(ROW('a', true)), ROW(ROW('b', false))) t(r) ORDER BY y",
-                "VALUES (ROW('b', false), 'b', false), (ROW('a', true), 'a', true)");
+        assertThat(assertions.query(
+                "SELECT *, t.r.* AS (x, y) FROM (VALUES ROW(ROW('a', true)), ROW(ROW('b', false))) t(r) ORDER BY y"))
+                .ordered()
+                .matches("VALUES (ROW('b', false), 'b', false), (ROW('a', true), 'a', true)");
     }
 
     @Test
@@ -150,24 +157,30 @@ public class TestSelectAll
     @Test
     public void testSelectAllWithAggregationAndOrderBy()
     {
-        assertions.assertQueryOrdered(
-                "SELECT t.r.* FROM (VALUES ROW(ROW(1, 'a', true)), ROW(ROW(2, 'b', false))) t(r) GROUP BY r ORDER BY r DESC",
-                "VALUES (2, 'b', false), (1, 'a', true)");
-        assertions.assertQueryOrdered(
-                "SELECT r, x, count(x), t.r.* FROM (VALUES (ROW(1), 'a'), (ROW(2), 'b'), (ROW(1), 'a'), (ROW(1), 'b')) t(r, x) GROUP BY r, x ORDER BY r, x DESC",
-                "VALUES (ROW(1), 'b', BIGINT '1', 1), (ROW(1), 'a', 2, 1), (ROW(2), 'b', 1, 2)");
-        assertions.assertQueryOrdered(
-                "SELECT array_agg(x), t.r.* FROM (VALUES (ROW(1), 'a'), (ROW(2), 'b'), (ROW(1), 'a'), (ROW(1), 'b')) t(r, x) GROUP BY r, x ORDER BY r, x DESC",
-                "VALUES (ARRAY['b'], 1), (ARRAY['a', 'a'], 1), (ARRAY['b'], 2)");
-        assertions.assertQueryOrdered(
-                "SELECT array_agg(x), t.r.* FROM (VALUES (ROW(1), 'a'), (ROW(2), 'b'), (ROW(1), 'a'), (ROW(1), 'b')) t(r, x) GROUP BY r ORDER BY r DESC",
-                "VALUES (ARRAY['b'], 2), (ARRAY['a', 'a', 'b'], 1)");
-        assertions.assertQueryOrdered(
-                "SELECT array_agg(x), t.r.* FROM (VALUES (ROW(1, true), 'a'), (ROW(2, false), 'b'), (ROW(1, true), 'c')) t(r, x) GROUP BY r ORDER BY r[2]",
-                "VALUES (ARRAY['b'], 2, false), (ARRAY['a', 'c'], 1, true)");
-        assertions.assertQueryOrdered(
-                "SELECT array_agg(r[2]), t.r.* FROM (VALUES ROW(ROW(1, true)), ROW(ROW(2, false)), ROW(ROW(1, true))) t(r) GROUP BY r ORDER BY r[2]",
-                "VALUES (ARRAY[false], 2, false), (ARRAY[true, true], 1, true)");
+        assertThat(assertions.query(
+                "SELECT t.r.* FROM (VALUES ROW(ROW(1, 'a', true)), ROW(ROW(2, 'b', false))) t(r) GROUP BY r ORDER BY r DESC"))
+                .ordered()
+                .matches("VALUES (2, 'b', false), (1, 'a', true)");
+        assertThat(assertions.query(
+                "SELECT r, x, count(x), t.r.* FROM (VALUES (ROW(1), 'a'), (ROW(2), 'b'), (ROW(1), 'a'), (ROW(1), 'b')) t(r, x) GROUP BY r, x ORDER BY r, x DESC"))
+                .ordered()
+                .matches("VALUES (ROW(1), 'b', BIGINT '1', 1), (ROW(1), 'a', 2, 1), (ROW(2), 'b', 1, 2)");
+        assertThat(assertions.query(
+                "SELECT array_agg(x), t.r.* FROM (VALUES (ROW(1), 'a'), (ROW(2), 'b'), (ROW(1), 'a'), (ROW(1), 'b')) t(r, x) GROUP BY r, x ORDER BY r, x DESC"))
+                .ordered()
+                .matches("VALUES (ARRAY['b'], 1), (ARRAY['a', 'a'], 1), (ARRAY['b'], 2)");
+        assertThat(assertions.query(
+                "SELECT array_agg(x), t.r.* FROM (VALUES (ROW(1), 'a'), (ROW(2), 'b'), (ROW(1), 'a'), (ROW(1), 'b')) t(r, x) GROUP BY r ORDER BY r DESC"))
+                .ordered()
+                .matches("VALUES (ARRAY['b'], 2), (ARRAY['a', 'a', 'b'], 1)");
+        assertThat(assertions.query(
+                "SELECT array_agg(x), t.r.* FROM (VALUES (ROW(1, true), 'a'), (ROW(2, false), 'b'), (ROW(1, true), 'c')) t(r, x) GROUP BY r ORDER BY r[2]"))
+                .ordered()
+                .matches("VALUES (ARRAY['b'], 2, false), (ARRAY['a', 'c'], 1, true)");
+        assertThat(assertions.query(
+                "SELECT array_agg(r[2]), t.r.* FROM (VALUES ROW(ROW(1, true)), ROW(ROW(2, false)), ROW(ROW(1, true))) t(r) GROUP BY r ORDER BY r[2]"))
+                .ordered()
+                .matches("VALUES (ARRAY[false], 2, false), (ARRAY[true, true], 1, true)");
     }
 
     @Test
