@@ -192,6 +192,16 @@ public class AccessControlManager
         this.systemAccessControls.set(ImmutableList.of(systemAccessControl));
     }
 
+    @VisibleForTesting
+    public void addSystemAccessControl(SystemAccessControl systemAccessControl)
+    {
+        systemAccessControls.updateAndGet(currentControls ->
+                ImmutableList.<SystemAccessControl>builder()
+                        .addAll(currentControls)
+                        .add(systemAccessControl)
+                        .build());
+    }
+
     @Override
     public void checkCanImpersonateUser(Identity identity, String userName)
     {
