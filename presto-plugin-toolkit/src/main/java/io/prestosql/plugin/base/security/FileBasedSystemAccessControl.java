@@ -71,6 +71,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyReadSystemInformationAccess;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
@@ -83,6 +84,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyViewQuery;
+import static io.prestosql.spi.security.AccessDeniedException.denyWriteSystemInformationAccess;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -99,6 +101,7 @@ public class FileBasedSystemAccessControl
     private final Optional<List<QueryAccessRule>> queryAccessRules;
     private final Optional<List<ImpersonationRule>> impersonationRules;
     private final Optional<List<PrincipalUserMatchRule>> principalUserMatchRules;
+    private final Optional<List<SystemInformationRule>> systemInformationRules;
     private final Optional<List<SchemaAccessControlRule>> schemaRules;
     private final Optional<List<TableAccessControlRule>> tableRules;
 
@@ -107,6 +110,7 @@ public class FileBasedSystemAccessControl
             Optional<List<QueryAccessRule>> queryAccessRules,
             Optional<List<ImpersonationRule>> impersonationRules,
             Optional<List<PrincipalUserMatchRule>> principalUserMatchRules,
+            Optional<List<SystemInformationRule>> systemInformationRules,
             Optional<List<SchemaAccessControlRule>> schemaRules,
             Optional<List<TableAccessControlRule>> tableRules)
     {
@@ -114,6 +118,7 @@ public class FileBasedSystemAccessControl
         this.queryAccessRules = queryAccessRules;
         this.impersonationRules = impersonationRules;
         this.principalUserMatchRules = principalUserMatchRules;
+        this.systemInformationRules = systemInformationRules;
         this.schemaRules = schemaRules;
         this.tableRules = tableRules;
     }
@@ -184,6 +189,7 @@ public class FileBasedSystemAccessControl
                     rules.getQueryAccessRules(),
                     rules.getImpersonationRules(),
                     rules.getPrincipalUserMatchRules(),
+                    rules.getSystemInformationRules(),
                     rules.getSchemaRules(),
                     rules.getTableRules());
         }
@@ -304,11 +310,28 @@ public class FileBasedSystemAccessControl
     @Override
     public void checkCanReadSystemInformation(SystemSecurityContext context)
     {
+        if (!checkCanSystemInformation(context.getIdentity(), SystemInformationRule.AccessMode.READ)) {
+            denyReadSystemInformationAccess();
+        }
     }
 
     @Override
     public void checkCanWriteSystemInformation(SystemSecurityContext context)
     {
+        if (!checkCanSystemInformation(context.getIdentity(), SystemInformationRule.AccessMode.WRITE)) {
+            denyWriteSystemInformationAccess();
+        }
+    }
+
+    private boolean checkCanSystemInformation(Identity identity, SystemInformationRule.AccessMode requiredAccess)
+    {
+        for (SystemInformationRule rule : systemInformationRules.orElseGet(ImmutableList::of)) {
+            Optional<Set<SystemInformationRule.AccessMode>> accessMode = rule.match(identity.getUser());
+            if (accessMode.isPresent()) {
+                return accessMode.get().contains(requiredAccess);
+            }
+        }
+        return false;
     }
 
     @Override
