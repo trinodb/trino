@@ -33,7 +33,21 @@ public class SecurityConfig
 {
     private static final Splitter SPLITTER = Splitter.on(',').trimResults().omitEmptyStrings();
 
+    private boolean insecureAuthenticationOverHttpAllowed = true;
     private List<String> authenticationTypes = ImmutableList.of("insecure");
+
+    public boolean isInsecureAuthenticationOverHttpAllowed()
+    {
+        return insecureAuthenticationOverHttpAllowed;
+    }
+
+    @Config("http-server.authentication.allow-insecure-over-http")
+    @ConfigDescription("Insecure authentication over HTTP (non-secure) enabled")
+    public SecurityConfig setInsecureAuthenticationOverHttpAllowed(boolean insecureAuthenticationOverHttpAllowed)
+    {
+        this.insecureAuthenticationOverHttpAllowed = insecureAuthenticationOverHttpAllowed;
+        return this;
+    }
 
     @NotNull
     @NotEmpty(message = "http-server.authentication.type cannot be empty")
