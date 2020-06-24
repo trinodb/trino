@@ -104,7 +104,7 @@ public class BroadcastOutputBuffer
     @Override
     public boolean isOverutilized()
     {
-        return memoryManager.isOverutilized();
+        return (getUtilization() > 0.5) && state.get().canAddPages();
     }
 
     @Override
