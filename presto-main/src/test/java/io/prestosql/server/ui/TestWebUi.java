@@ -55,6 +55,8 @@ import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.testing.Closeables.closeQuietly;
 import static io.prestosql.client.OkHttpUtil.setupSsl;
+import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION;
+import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.LOGIN_FORM;
 import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.UI_LOGIN;
 import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.UI_LOGOUT;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
@@ -142,7 +144,7 @@ public class TestWebUi
     {
         assertRedirect(client, getUiLocation(baseUri), getLoginHtmlLocation(baseUri));
 
-        assertRedirect(client, getLocation(baseUri, "/ui/query.html", "abc123"), getLocation(baseUri, "/ui/login.html", "/ui/query.html?abc123"), false);
+        assertRedirect(client, getLocation(baseUri, "/ui/query.html", "abc123"), getLocation(baseUri, LOGIN_FORM, "/ui/query.html?abc123"), false);
 
         assertResponseCode(client, getValidApiLocation(baseUri), SC_UNAUTHORIZED);
 
@@ -171,6 +173,14 @@ public class TestWebUi
                 .orElseThrow(() -> new AssertionError("No response body"));
         assertThat(body).contains("action=\"/ui/login\"");
         assertThat(body).contains("method=\"post\"");
+
+        assertThat(body).doesNotContain("// This value will be replaced");
+        if (baseUri.getScheme().equals("https")) {
+            assertThat(body).contains("var hidePassword = false;");
+        }
+        else {
+            assertThat(body).contains("var hidePassword = true;");
+        }
 
         logIn(baseUri, client);
         HttpCookie cookie = getOnlyElement(cookieManager.getCookieStore().getCookies());
@@ -455,7 +465,7 @@ public class TestWebUi
     {
         assertResponseCode(notAuthorizedClient, getUiLocation(baseUri), SC_UNAUTHORIZED);
         assertResponseCode(notAuthorizedClient, getValidApiLocation(baseUri), SC_UNAUTHORIZED);
-        assertResponseCode(notAuthorizedClient, getLoginLocation(baseUri), SC_UNAUTHORIZED);
+        assertResponseCode(notAuthorizedClient, getLoginLocation(baseUri), SC_UNAUTHORIZED, true);
         assertResponseCode(notAuthorizedClient, getLogoutLocation(baseUri), SC_UNAUTHORIZED);
         assertResponseCode(notAuthorizedClient, getLocation(baseUri, "/ui/unknown"), SC_UNAUTHORIZED);
         assertResponseCode(notAuthorizedClient, getLocation(baseUri, "/ui/api/unknown"), SC_UNAUTHORIZED);
@@ -600,10 +610,19 @@ public class TestWebUi
     private static Optional<String> assertResponseCode(OkHttpClient client, String url, int expectedCode)
             throws IOException
     {
+        return assertResponseCode(client, url, expectedCode, false);
+    }
+
+    private static Optional<String> assertResponseCode(OkHttpClient client,
+            String url,
+            int expectedCode,
+            boolean postLogin)
+            throws IOException
+    {
         Request request = new Request.Builder()
                 .url(url)
                 .build();
-        if (url.endsWith(UI_LOGIN)) {
+        if (postLogin) {
             RequestBody formBody = new FormBody.Builder()
                     .add("username", "fake")
                     .add("password", "bad")
@@ -639,7 +658,7 @@ public class TestWebUi
 
     private static String getLoginHtmlLocation(URI baseUri)
     {
-        return getLocation(baseUri, "/ui/login.html");
+        return getLocation(baseUri, LOGIN_FORM);
     }
 
     private static String getLoginLocation(URI httpsUrl)
@@ -654,7 +673,7 @@ public class TestWebUi
 
     private static String getDisabledLocation(URI baseUri)
     {
-        return getLocation(baseUri, "/ui/disabled.html");
+        return getLocation(baseUri, DISABLED_LOCATION);
     }
 
     private static String getValidApiLocation(URI baseUri)
