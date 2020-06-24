@@ -71,8 +71,11 @@ import static io.prestosql.plugin.jdbc.DecimalSessionSessionProperties.getDecima
 import static io.prestosql.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRounding;
 import static io.prestosql.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.realWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.timestampWriteFunctionUsingSqlTimestamp;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
@@ -88,6 +91,7 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.math.RoundingMode.UNNECESSARY;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 
@@ -174,6 +178,11 @@ public class MySqlClient
         if (mapping.isPresent()) {
             return mapping;
         }
+        Optional<ColumnMapping> unsignedMapping = getUnsignedMapping(typeHandle);
+        if (unsignedMapping.isPresent()) {
+            return unsignedMapping;
+        }
+
         if (jdbcTypeName.equalsIgnoreCase("json")) {
             return Optional.of(jsonColumnMapping());
         }
@@ -304,6 +313,29 @@ public class MySqlClient
                 (resultSet, columnIndex) -> jsonParse(utf8Slice(resultSet.getString(columnIndex))),
                 varcharWriteFunction(),
                 DISABLE_PUSHDOWN);
+    }
+
+    private static Optional<ColumnMapping> getUnsignedMapping(JdbcTypeHandle typeHandle)
+    {
+        if (typeHandle.getJdbcTypeName().isEmpty()) {
+            return Optional.empty();
+        }
+
+        String typeName = typeHandle.getJdbcTypeName().get();
+        if (typeName.equalsIgnoreCase("tinyint unsigned")) {
+            return Optional.of(smallintColumnMapping());
+        }
+        else if (typeName.equalsIgnoreCase("smallint unsigned")) {
+            return Optional.of(integerColumnMapping());
+        }
+        else if (typeName.equalsIgnoreCase("int unsigned")) {
+            return Optional.of(bigintColumnMapping());
+        }
+        else if (typeName.equalsIgnoreCase("bigint unsigned")) {
+            return Optional.of(decimalColumnMapping(createDecimalType(20), UNNECESSARY));
+        }
+
+        return Optional.empty();
     }
 
     private static final JsonFactory JSON_FACTORY = new JsonFactory()
