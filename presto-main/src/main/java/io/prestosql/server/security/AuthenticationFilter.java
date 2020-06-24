@@ -20,6 +20,7 @@ import io.prestosql.spi.security.Identity;
 
 import javax.annotation.Priority;
 import javax.inject.Inject;
+import javax.ws.rs.ForbiddenException;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerRequestFilter;
 
@@ -39,13 +40,15 @@ public class AuthenticationFilter
 {
     private final List<Authenticator> authenticators;
     private final InternalAuthenticationManager internalAuthenticationManager;
+    private final boolean insecureAuthenticationOverHttpAllowed;
 
     @Inject
-    public AuthenticationFilter(List<Authenticator> authenticators, InternalAuthenticationManager internalAuthenticationManager)
+    public AuthenticationFilter(List<Authenticator> authenticators, InternalAuthenticationManager internalAuthenticationManager, SecurityConfig securityConfig)
     {
         this.authenticators = ImmutableList.copyOf(requireNonNull(authenticators, "authenticators is null"));
         checkArgument(!authenticators.isEmpty(), "authenticators is empty");
         this.internalAuthenticationManager = requireNonNull(internalAuthenticationManager, "internalAuthenticationManager is null");
+        insecureAuthenticationOverHttpAllowed = requireNonNull(securityConfig, "securityConfig is null").isInsecureAuthenticationOverHttpAllowed();
     }
 
     @Override
@@ -60,8 +63,11 @@ public class AuthenticationFilter
         if (request.getSecurityContext().isSecure()) {
             authenticators = this.authenticators;
         }
-        else {
+        else if (insecureAuthenticationOverHttpAllowed) {
             authenticators = ImmutableList.of(new InsecureAuthenticator());
+        }
+        else {
+            throw new ForbiddenException("Authentication over HTTP is not enabled");
         }
 
         // try to authenticate, collecting errors and authentication headers
