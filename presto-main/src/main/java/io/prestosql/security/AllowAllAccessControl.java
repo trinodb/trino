@@ -41,6 +41,16 @@ public class AllowAllAccessControl
     }
 
     @Override
+    public void checkCanReadSystemInformation(Identity identity)
+    {
+    }
+
+    @Override
+    public void checkCanWriteSystemInformation(Identity identity)
+    {
+    }
+
+    @Override
     public void checkCanExecuteQuery(Identity identity)
     {
     }

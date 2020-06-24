@@ -73,6 +73,16 @@ public class AllowAllSystemAccessControl
     }
 
     @Override
+    public void checkCanReadSystemInformation(SystemSecurityContext context)
+    {
+    }
+
+    @Override
+    public void checkCanWriteSystemInformation(SystemSecurityContext context)
+    {
+    }
+
+    @Override
     public void checkCanExecuteQuery(SystemSecurityContext context)
     {
     }

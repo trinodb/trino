@@ -24,7 +24,7 @@ import javax.ws.rs.Path;
 import java.util.Collection;
 
 import static com.google.common.base.Predicates.in;
-import static io.prestosql.server.security.ResourceSecurity.AccessType.PUBLIC;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
 
 @Path("/v1/node")
 public class NodeResource
@@ -37,14 +37,14 @@ public class NodeResource
         this.failureDetector = failureDetector;
     }
 
-    @ResourceSecurity(PUBLIC)
+    @ResourceSecurity(MANAGEMENT_READ)
     @GET
     public Collection<HeartbeatFailureDetector.Stats> getNodeStats()
     {
         return failureDetector.getStats().values();
     }
 
-    @ResourceSecurity(PUBLIC)
+    @ResourceSecurity(MANAGEMENT_READ)
     @GET
     @Path("failed")
     public Collection<HeartbeatFailureDetector.Stats> getFailed()

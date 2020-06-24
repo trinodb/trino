@@ -36,6 +36,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.metadata.NodeState.ACTIVE;
 import static io.prestosql.metadata.NodeState.SHUTTING_DOWN;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.MANAGEMENT_WRITE;
 import static io.prestosql.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -71,7 +72,7 @@ public class ServerInfoResource
         return new ServerInfo(version, environment, coordinator, starting, Optional.of(nanosSince(startTime)));
     }
 
-    @ResourceSecurity(PUBLIC)
+    @ResourceSecurity(MANAGEMENT_WRITE)
     @PUT
     @Path("state")
     @Consumes(APPLICATION_JSON)

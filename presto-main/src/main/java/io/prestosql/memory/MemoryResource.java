@@ -30,7 +30,7 @@ import javax.ws.rs.core.Response;
 import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
 import static io.prestosql.memory.LocalMemoryManager.RESERVED_POOL;
 import static io.prestosql.server.security.ResourceSecurity.AccessType.INTERNAL_ONLY;
-import static io.prestosql.server.security.ResourceSecurity.AccessType.PUBLIC;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
@@ -60,7 +60,7 @@ public class MemoryResource
         return memoryManager.getInfo();
     }
 
-    @ResourceSecurity(PUBLIC)
+    @ResourceSecurity(MANAGEMENT_READ)
     @GET
     @Path("{poolId}")
     public Response getMemoryInfo(@PathParam("poolId") String poolId)

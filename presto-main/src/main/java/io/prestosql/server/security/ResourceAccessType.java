@@ -24,7 +24,7 @@ import java.lang.reflect.Method;
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.server.security.ResourceSecurity.AccessType.PUBLIC;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
 
 public class ResourceAccessType
 {
@@ -65,7 +65,7 @@ public class ResourceAccessType
         }
         // Presto resources are required to have a declared access control
         verifyNotPrestoResource(resourceInfo);
-        return PUBLIC;
+        return MANAGEMENT_READ;
     }
 
     private static void verifyNotPrestoResource(ResourceInfo resourceInfo)

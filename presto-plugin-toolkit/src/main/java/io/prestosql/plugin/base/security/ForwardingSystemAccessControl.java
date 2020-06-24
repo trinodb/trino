@@ -65,6 +65,18 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanReadSystemInformation(SystemSecurityContext context)
+    {
+        delegate().checkCanReadSystemInformation(context);
+    }
+
+    @Override
+    public void checkCanWriteSystemInformation(SystemSecurityContext context)
+    {
+        delegate().checkCanWriteSystemInformation(context);
+    }
+
+    @Override
     public void checkCanExecuteQuery(SystemSecurityContext context)
     {
         delegate().checkCanExecuteQuery(context);
