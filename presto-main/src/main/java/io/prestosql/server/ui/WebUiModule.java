@@ -37,7 +37,7 @@ public class WebUiModule
             jaxrsBinder(binder).bind(UiQueryResource.class);
         }
         else {
-            binder.bind(WebUiAuthenticationManager.class).to(DisabledWebUiAuthenticationManager.class).in(Scopes.SINGLETON);
+            binder.bind(WebUiAuthenticationFilter.class).to(DisabledWebUiAuthenticationFilter.class).in(Scopes.SINGLETON);
         }
     }
 }

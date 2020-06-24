@@ -21,6 +21,7 @@ import io.airlift.http.client.HttpRequestFilter;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.StringResponseHandler.StringResponse;
 import io.airlift.http.client.jetty.JettyHttpClient;
+import io.prestosql.server.security.ResourceSecurity;
 import io.prestosql.server.testing.TestingPrestoServer;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -43,6 +44,7 @@ import static io.airlift.http.client.TraceTokenRequestFilter.TRACETOKEN_HEADER;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.airlift.testing.Closeables.closeQuietly;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
 import static org.testng.Assert.assertEquals;
@@ -93,6 +95,7 @@ public class TestGenerateTokenFilter
     @Path("/testing")
     public static class TestResource
     {
+        @ResourceSecurity(PUBLIC)
         @GET
         @Path("/echo_token")
         public String echoToken(@HeaderParam(TRACETOKEN_HEADER) String token)

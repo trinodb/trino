@@ -207,7 +207,10 @@ public class TestQueryStateInfoResource
     public void testGetQueryStateInfoNo()
     {
         client.execute(
-                prepareGet().setUri(server.resolve("/v1/queryState/123")).build(),
+                prepareGet()
+                        .setUri(server.resolve("/v1/queryState/123"))
+                        .setHeader(PRESTO_USER, "unknown")
+                        .build(),
                 createJsonResponseHandler(jsonCodec(QueryStateInfo.class)));
     }
 }

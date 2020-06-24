@@ -19,6 +19,7 @@ import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryState;
 import io.prestosql.security.AccessControl;
 import io.prestosql.server.BasicQueryInfo;
+import io.prestosql.server.security.ResourceSecurity;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.security.AccessDeniedException;
@@ -48,6 +49,7 @@ import static io.prestosql.security.AccessControlUtil.checkCanKillQueryOwnedBy;
 import static io.prestosql.security.AccessControlUtil.checkCanViewQueryOwnedBy;
 import static io.prestosql.security.AccessControlUtil.filterQueries;
 import static io.prestosql.server.HttpRequestSessionContext.extractAuthorizedIdentity;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static java.util.Objects.requireNonNull;
 
 @Path("/ui/api/query")
@@ -65,6 +67,7 @@ public class UiQueryResource
         this.groupProvider = requireNonNull(groupProvider, "groupProvider is null");
     }
 
+    @ResourceSecurity(WEB_UI)
     @GET
     public List<BasicQueryInfo> getAllQueryInfo(@QueryParam("state") String stateFilter, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
     {
@@ -82,6 +85,7 @@ public class UiQueryResource
         return builder.build();
     }
 
+    @ResourceSecurity(WEB_UI)
     @GET
     @Path("{queryId}")
     public Response getQueryInfo(@PathParam("queryId") QueryId queryId, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
@@ -101,6 +105,7 @@ public class UiQueryResource
         return Response.status(Status.GONE).build();
     }
 
+    @ResourceSecurity(WEB_UI)
     @PUT
     @Path("{queryId}/killed")
     public Response killQuery(@PathParam("queryId") QueryId queryId, String message, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)
@@ -108,6 +113,7 @@ public class UiQueryResource
         return failQuery(queryId, createKillQueryException(message), servletRequest, httpHeaders);
     }
 
+    @ResourceSecurity(WEB_UI)
     @PUT
     @Path("{queryId}/preempted")
     public Response preemptQuery(@PathParam("queryId") QueryId queryId, String message, @Context HttpServletRequest servletRequest, @Context HttpHeaders httpHeaders)

@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Ordering;
+import io.prestosql.server.security.ResourceSecurity;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
@@ -33,10 +34,12 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static io.prestosql.server.ThreadResource.Info.byName;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.INTERNAL_ONLY;
 
 @Path("/v1/thread")
 public class ThreadResource
 {
+    @ResourceSecurity(INTERNAL_ONLY)
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public List<Info> getThreadInfo()
