@@ -45,7 +45,8 @@ public class WebUiAuthenticationModule
     {
         configBinder(binder).bindConfig(WebUiAuthenticationConfig.class);
 
-        installWebUiAuthenticator("form", new FormUiAuthenticatorModule());
+        installWebUiAuthenticator("insecure", new FormUiAuthenticatorModule(false));
+        installWebUiAuthenticator("form", new FormUiAuthenticatorModule(true));
         installWebUiAuthenticator("fixed", new FixedUiAuthenticatorModule());
 
         installWebUiAuthenticator("certificate", CertificateAuthenticator.class, CertificateConfig.class);
@@ -72,7 +73,7 @@ public class WebUiAuthenticationModule
     {
         checkArgument(name.toLowerCase(ENGLISH).equals(name), "name is not lower case: %s", name);
         Module authModule = binder -> {
-            binder.install(new FormUiAuthenticatorModule());
+            binder.install(new FormUiAuthenticatorModule(false));
             newOptionalBinder(binder, Key.get(Authenticator.class, ForWebUi.class)).setBinding().to(clazz).in(SINGLETON);
         };
         return webUiAuthenticator(name, Modules.combine(module, authModule));
@@ -113,13 +114,8 @@ public class WebUiAuthenticationModule
             if (authenticationTypes.contains("password")) {
                 return "form";
             }
-            // otherwise use the first authenticator, or if there are no authenticators
-            // configured, use form for the UI since it handles this case
-            authentication = authenticationTypes.stream().findFirst().orElseThrow(() -> new IllegalArgumentException("authenticatorTypes is empty"));
-            if (authentication.equals("insecure")) {
-                return "form";
-            }
-            return authentication;
+            // otherwise use the first authenticator type
+            return authenticationTypes.stream().findFirst().orElseThrow(() -> new IllegalArgumentException("authenticatorTypes is empty"));
         }
     }
 }
