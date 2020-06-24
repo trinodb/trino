@@ -406,7 +406,7 @@ public class TestFileBasedSystemAccessControl
     }
 
     @Test
-    public void testDocsExample()
+    public void testQueryDocsExample()
     {
         String rulesFile = new File("../presto-docs/src/main/sphinx/security/query-access.json").getAbsolutePath();
         SystemAccessControl accessControlManager = newFileBasedSystemAccessControl(ImmutableMap.of("security.config-file", rulesFile));
@@ -425,6 +425,49 @@ public class TestFileBasedSystemAccessControl
         assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), "any"));
         assertEquals(accessControlManager.filterViewQueryOwnedBy(new SystemSecurityContext(bob, queryId), ImmutableSet.of("a", "b")), ImmutableSet.of());
         assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanKillQueryOwnedBy(new SystemSecurityContext(bob, queryId), "any"));
+    }
+
+    @Test
+    public void testSystemInformation()
+    {
+        SystemAccessControl accessControlManager = newFileBasedSystemAccessControl("system-information.json");
+
+        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(admin, Optional.empty()));
+        accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(admin, Optional.empty()));
+
+        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(alice, Optional.empty()));
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(alice, Optional.empty())));
+
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, Optional.empty())));
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, Optional.empty())));
+
+        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(nonAsciiUser, Optional.empty()));
+        accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(nonAsciiUser, Optional.empty()));
+    }
+
+    @Test
+    public void testSystemInformationNotSet()
+    {
+        SystemAccessControl accessControlManager = newFileBasedSystemAccessControl("catalog.json");
+
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, Optional.empty())));
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, Optional.empty())));
+    }
+
+    @Test
+    public void testSystemInformationDocsExample()
+    {
+        String rulesFile = new File("../presto-docs/src/main/sphinx/security/system-information-access.json").getAbsolutePath();
+        SystemAccessControl accessControlManager = newFileBasedSystemAccessControl(ImmutableMap.of("security.config-file", rulesFile));
+
+        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(admin, Optional.empty()));
+        accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(admin, Optional.empty()));
+
+        accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(alice, Optional.empty()));
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(alice, Optional.empty())));
+
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanReadSystemInformation(new SystemSecurityContext(bob, Optional.empty())));
+        assertThrows(AccessDeniedException.class, () -> accessControlManager.checkCanWriteSystemInformation(new SystemSecurityContext(bob, Optional.empty())));
     }
 
     @Test

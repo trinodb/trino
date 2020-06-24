@@ -175,6 +175,31 @@ public class TestFileBasedSystemAccessControl
     }
 
     @Test
+    public void testSystemInformation()
+    {
+        TransactionManager transactionManager = createTestTransactionManager();
+        AccessControlManager accessControlManager = newAccessControlManager(transactionManager, "system_information.json");
+
+        accessControlManager.checkCanReadSystemInformation(admin);
+        accessControlManager.checkCanWriteSystemInformation(admin);
+
+        accessControlManager.checkCanReadSystemInformation(nonAsciiUser);
+        accessControlManager.checkCanWriteSystemInformation(nonAsciiUser);
+
+        accessControlManager.checkCanReadSystemInformation(admin);
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanWriteSystemInformation(alice);
+        }));
+
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanReadSystemInformation(bob);
+        }));
+        assertThrows(AccessDeniedException.class, () -> transaction(transactionManager, accessControlManager).execute(transactionId -> {
+            accessControlManager.checkCanWriteSystemInformation(bob);
+        }));
+    }
+
+    @Test
     public void testCatalogOperations()
     {
         TransactionManager transactionManager = createTestTransactionManager();
