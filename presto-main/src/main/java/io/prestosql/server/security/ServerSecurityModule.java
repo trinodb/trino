@@ -20,9 +20,6 @@ import com.google.inject.Scopes;
 import com.google.inject.multibindings.MapBinder;
 import com.google.inject.util.Modules;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.airlift.http.server.TheServlet;
-
-import javax.servlet.Filter;
 
 import java.util.List;
 import java.util.Map;
@@ -30,9 +27,9 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
-import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static java.util.Locale.ENGLISH;
 
 public class ServerSecurityModule
@@ -41,8 +38,7 @@ public class ServerSecurityModule
     @Override
     protected void setup(Binder binder)
     {
-        newSetBinder(binder, Filter.class, TheServlet.class).addBinding()
-                .to(AuthenticationFilter.class).in(Scopes.SINGLETON);
+        jaxrsBinder(binder).bind(AuthenticationFilter.class);
 
         binder.bind(PasswordAuthenticatorManager.class).in(Scopes.SINGLETON);
         binder.bind(CertificateAuthenticatorManager.class).in(Scopes.SINGLETON);

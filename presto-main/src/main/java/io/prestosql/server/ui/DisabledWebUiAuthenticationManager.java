@@ -13,66 +13,36 @@
  */
 package io.prestosql.server.ui;
 
-import com.google.common.io.ByteStreams;
+import javax.ws.rs.container.ContainerRequestContext;
+import javax.ws.rs.core.Response;
 
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import java.io.IOException;
-import java.io.InputStream;
-
-import static com.google.common.net.HttpHeaders.LOCATION;
-import static javax.servlet.http.HttpServletResponse.SC_SEE_OTHER;
-import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
+import static io.prestosql.server.ui.FormWebUiAuthenticationManager.DISABLED_LOCATION_URI;
+import static io.prestosql.server.ui.FormWebUiAuthenticationManager.isPublicUiResource;
+import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 
 public class DisabledWebUiAuthenticationManager
         implements WebUiAuthenticationManager
 {
-    private static final String DISABLED_LOCATION = "/ui/disabled.html";
-
     @Override
-    public void handleUiRequest(HttpServletRequest request, HttpServletResponse response, FilterChain nextFilter)
-            throws IOException, ServletException
+    public void handleUiRequest(ContainerRequestContext request)
     {
-        if (request.getPathInfo() == null || request.getPathInfo().equals("/")) {
-            response.setHeader(LOCATION, getRedirectLocation(request, DISABLED_LOCATION));
-            response.setStatus(SC_SEE_OTHER);
+        String path = request.getUriInfo().getRequestUri().getPath();
+        if (path.equals("/")) {
+            request.abortWith(Response.seeOther(DISABLED_LOCATION_URI).build());
             return;
         }
 
-        if (isPublic(request)) {
-            nextFilter.doFilter(request, response);
+        if (isPublicUiResource(path)) {
             return;
-        }
-
-        // drain the input
-        try (InputStream inputStream = request.getInputStream()) {
-            ByteStreams.exhaust(inputStream);
         }
 
         // send 401 to REST api calls and redirect to others
-        if (request.getPathInfo().startsWith("/ui/api/")) {
-            response.setStatus(SC_UNAUTHORIZED);
+        if (path.startsWith("/ui/api/")) {
+            request.abortWith(Response.status(UNAUTHORIZED).build());
         }
         else {
-            // redirect to login page
-            response.setHeader(LOCATION, getRedirectLocation(request, DISABLED_LOCATION));
-            response.setStatus(SC_SEE_OTHER);
+            // redirect to disabled page
+            request.abortWith(Response.seeOther(DISABLED_LOCATION_URI).build());
         }
-    }
-
-    private static boolean isPublic(HttpServletRequest request)
-    {
-        String pathInfo = request.getPathInfo();
-        return pathInfo.equals(DISABLED_LOCATION) ||
-                pathInfo.startsWith("/ui/vendor") ||
-                pathInfo.startsWith("/ui/assets");
-    }
-
-    private static String getRedirectLocation(HttpServletRequest request, String path)
-    {
-        return FormWebUiAuthenticationManager.getRedirectLocation(request, path, null);
     }
 }

@@ -13,21 +13,15 @@
  */
 package io.prestosql.server.ui;
 
-import javax.servlet.FilterChain;
-import javax.servlet.ServletException;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-
-import java.io.IOException;
+import javax.ws.rs.container.ContainerRequestContext;
 
 public interface WebUiAuthenticationManager
 {
-    static boolean isUiRequest(HttpServletRequest request)
+    static boolean isUiRequest(ContainerRequestContext request)
     {
-        String pathInfo = request.getPathInfo();
-        return pathInfo == null || pathInfo.equals("/") || pathInfo.startsWith("/ui");
+        String path = request.getUriInfo().getRequestUri().getPath();
+        return path == null || path.equals("/") || path.startsWith("/ui");
     }
 
-    void handleUiRequest(HttpServletRequest request, HttpServletResponse response, FilterChain nextFilter)
-            throws IOException, ServletException;
+    void handleUiRequest(ContainerRequestContext request);
 }

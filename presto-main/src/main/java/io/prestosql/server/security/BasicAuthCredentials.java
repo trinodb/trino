@@ -15,7 +15,7 @@ package io.prestosql.server.security;
 
 import com.google.common.base.Splitter;
 
-import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.container.ContainerRequestContext;
 
 import java.util.Base64;
 import java.util.List;
@@ -32,14 +32,14 @@ public class BasicAuthCredentials
     private final String user;
     private final Optional<String> password;
 
-    public static Optional<BasicAuthCredentials> extractBasicAuthCredentials(HttpServletRequest request)
+    public static Optional<BasicAuthCredentials> extractBasicAuthCredentials(ContainerRequestContext request)
             throws AuthenticationException
     {
         requireNonNull(request, "request is null");
 
         // This handles HTTP basic auth per RFC 7617. The header contains the
         // case-insensitive "Basic" scheme followed by a Base64 encoded "user:pass".
-        String header = nullToEmpty(request.getHeader(AUTHORIZATION));
+        String header = nullToEmpty(request.getHeaders().getFirst(AUTHORIZATION));
 
         return extractBasicAuthCredentials(header);
     }

@@ -17,7 +17,7 @@ import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.Identity;
 
 import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.container.ContainerRequestContext;
 
 import java.security.Principal;
 
@@ -42,7 +42,7 @@ public class PasswordAuthenticator
     }
 
     @Override
-    public Identity authenticate(HttpServletRequest request)
+    public Identity authenticate(ContainerRequestContext request)
             throws AuthenticationException
     {
         BasicAuthCredentials basicAuthCredentials = extractBasicAuthCredentials(request)

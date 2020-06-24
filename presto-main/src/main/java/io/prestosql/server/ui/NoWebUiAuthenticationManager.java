@@ -13,21 +13,17 @@
  */
 package io.prestosql.server.ui;
 
-import javax.servlet.FilterChain;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
+import javax.ws.rs.container.ContainerRequestContext;
+import javax.ws.rs.core.Response;
 
-import java.io.IOException;
-
-import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
+import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
 public class NoWebUiAuthenticationManager
         implements WebUiAuthenticationManager
 {
     @Override
-    public void handleUiRequest(HttpServletRequest request, HttpServletResponse response, FilterChain nextFilter)
-            throws IOException
+    public void handleUiRequest(ContainerRequestContext request)
     {
-        response.sendError(SC_NOT_FOUND);
+        request.abortWith(Response.status(NOT_FOUND).build());
     }
 }
