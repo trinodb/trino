@@ -25,19 +25,13 @@ import javax.ws.rs.container.ContainerRequestFilter;
 
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Strings.emptyToNull;
-import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
-import static io.prestosql.server.ServletSecurityUtils.sendErrorMessage;
 import static io.prestosql.server.ServletSecurityUtils.sendWwwAuthenticate;
 import static io.prestosql.server.ServletSecurityUtils.setAuthenticatedIdentity;
-import static io.prestosql.server.security.BasicAuthCredentials.extractBasicAuthCredentials;
 import static java.util.Objects.requireNonNull;
 import static javax.ws.rs.Priorities.AUTHENTICATION;
-import static javax.ws.rs.core.Response.Status.FORBIDDEN;
 
 @Priority(AUTHENTICATION)
 public class AuthenticationFilter
@@ -62,10 +56,12 @@ public class AuthenticationFilter
             return;
         }
 
-        // authentication not allowed over insecure connections
-        if (!request.getSecurityContext().isSecure()) {
-            handleInsecureRequest(request);
-            return;
+        List<Authenticator> authenticators;
+        if (request.getSecurityContext().isSecure()) {
+            authenticators = this.authenticators;
+        }
+        else {
+            authenticators = ImmutableList.of(new InsecureAuthenticator());
         }
 
         // try to authenticate, collecting errors and authentication headers
@@ -99,36 +95,5 @@ public class AuthenticationFilter
         String error = Joiner.on(" | ").join(messages);
 
         sendWwwAuthenticate(request, error, authenticateHeaders);
-    }
-
-    private static void handleInsecureRequest(ContainerRequestContext request)
-    {
-        Optional<BasicAuthCredentials> basicAuthCredentials;
-        try {
-            basicAuthCredentials = extractBasicAuthCredentials(request);
-        }
-        catch (AuthenticationException e) {
-            sendErrorMessage(request, FORBIDDEN, e.getMessage());
-            return;
-        }
-
-        String user;
-        if (basicAuthCredentials.isPresent()) {
-            if (basicAuthCredentials.get().getPassword().isPresent()) {
-                sendErrorMessage(request, FORBIDDEN, "Password not allowed for insecure request");
-                return;
-            }
-            user = basicAuthCredentials.get().getUser();
-        }
-        else {
-            user = emptyToNull(request.getHeaders().getFirst(PRESTO_USER));
-        }
-
-        if (user == null) {
-            sendWwwAuthenticate(request, "Basic authentication or " + PRESTO_USER + " must be sent", ImmutableList.of("Basic realm=\"Presto\""));
-            return;
-        }
-
-        setAuthenticatedIdentity(request, user);
     }
 }
