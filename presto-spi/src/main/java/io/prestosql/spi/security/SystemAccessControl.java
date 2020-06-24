@@ -132,6 +132,29 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to read system information such as statistics,
+     * service registry, thread stacks, etc.  This is typically allowed for administrators
+     * and management tools.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanReadSystemInformation(SystemSecurityContext context)
+    {
+        AccessDeniedException.denyReadSystemInformationAccess();
+    }
+
+    /**
+     * Check if identity is allowed to write system information such as marking nodes
+     * offline, or changing runtime flags.  This is typically allowed for administrators.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanWriteSystemInformation(SystemSecurityContext context)
+    {
+        AccessDeniedException.denyReadSystemInformationAccess();
+    }
+
+    /**
      * Check if identity is allowed to set the specified system property.
      *
      * @throws AccessDeniedException if not allowed

@@ -212,6 +212,22 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanReadSystemInformation(Identity identity)
+    {
+        requireNonNull(identity, "identity is null");
+
+        systemAuthorizationCheck(control -> control.checkCanReadSystemInformation(new SystemSecurityContext(identity, Optional.empty())));
+    }
+
+    @Override
+    public void checkCanWriteSystemInformation(Identity identity)
+    {
+        requireNonNull(identity, "identity is null");
+
+        systemAuthorizationCheck(control -> control.checkCanWriteSystemInformation(new SystemSecurityContext(identity, Optional.empty())));
+    }
+
+    @Override
     public void checkCanExecuteQuery(Identity identity)
     {
         requireNonNull(identity, "identity is null");

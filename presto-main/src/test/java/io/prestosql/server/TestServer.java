@@ -276,6 +276,7 @@ public class TestServer
     {
         Request request = prepareHead()
                 .setUri(uriFor("/v1/status"))
+                .setHeader(PRESTO_USER, "unknown")
                 .setFollowRedirects(false)
                 .build();
         StatusResponse response = client.execute(request, createStatusResponseHandler());

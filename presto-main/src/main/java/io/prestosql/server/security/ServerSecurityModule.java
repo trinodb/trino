@@ -49,8 +49,8 @@ public class ServerSecurityModule
         jaxrsBinder(binder).bind(ResourceSecurityDynamicFeature.class);
 
         resourceSecurityBinder(binder)
-                .publicResource(ServiceResource.class)
-                .publicResource(MBeanResource.class)
+                .managementReadResource(ServiceResource.class)
+                .managementReadResource(MBeanResource.class)
                 .internalOnlyResource(DynamicAnnouncementResource.class)
                 .internalOnlyResource(StoreResource.class);
 

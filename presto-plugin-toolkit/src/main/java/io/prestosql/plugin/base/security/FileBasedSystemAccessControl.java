@@ -302,6 +302,16 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
+    public void checkCanReadSystemInformation(SystemSecurityContext context)
+    {
+    }
+
+    @Override
+    public void checkCanWriteSystemInformation(SystemSecurityContext context)
+    {
+    }
+
+    @Override
     public void checkCanSetSystemSessionProperty(SystemSecurityContext context, String propertyName)
     {
     }
