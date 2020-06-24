@@ -31,6 +31,7 @@ import static io.prestosql.sql.planner.plan.AggregationNode.Step.FINAL;
 import static io.prestosql.sql.planner.plan.AggregationNode.Step.PARTIAL;
 import static io.prestosql.sql.planner.plan.AggregationNode.Step.SINGLE;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestSubqueries
 {
@@ -87,13 +88,13 @@ public class TestSubqueries
     public void testUnsupportedSubqueriesWithCoercions()
     {
         // coercion FROM subquery symbol type to correlation type
-        assertions.assertFails(
-                "SELECT EXISTS(SELECT 1 FROM (VALUES (1, null)) t(a, b) WHERE t.a=t2.b GROUP BY t.b) FROM (VALUES 1.0, 2.0) t2(b)",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT EXISTS(SELECT 1 FROM (VALUES (1, null)) t(a, b) WHERE t.a=t2.b GROUP BY t.b) FROM (VALUES 1.0, 2.0) t2(b)"))
+                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         // coercion from t.a (null) to integer
-        assertions.assertFails(
-                "SELECT EXISTS(SELECT 1 FROM (VALUES (null, null)) t(a, b) WHERE t.a=t2.b GROUP BY t.b) FROM (VALUES 1, 2) t2(b)",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT EXISTS(SELECT 1 FROM (VALUES (null, null)) t(a, b) WHERE t.a=t2.b GROUP BY t.b) FROM (VALUES 1, 2) t2(b)"))
+                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
     }
 
     @Test
@@ -108,28 +109,28 @@ public class TestSubqueries
         assertThat(assertions.query(
                 "SELECT (SELECT t.a FROM (VALUES 1, 2, 3) t(a) WHERE t.a = t2.b LIMIT 2) FROM (VALUES 1) t2(b)"))
                 .matches("VALUES 1");
-        assertions.assertFails(
-                "SELECT (SELECT t.a FROM (VALUES 1, 1, 2, 3) t(a) WHERE t.a = t2.b LIMIT 2) FROM (VALUES 1) t2(b)",
-                "Scalar sub-query has returned multiple rows");
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT (SELECT t.a FROM (VALUES 1, 1, 2, 3) t(a) WHERE t.a = t2.b LIMIT 2) FROM (VALUES 1) t2(b)"))
+                .hasMessageMatching("Scalar sub-query has returned multiple rows");
         // Limit(1) and non-constant output symbol of the subquery
-        assertions.assertFails(
-                "SELECT (SELECT count(*) FROM (VALUES (1, 0), (1, 1)) t(a, b) WHERE a = c GROUP BY b LIMIT 1) FROM (VALUES (1)) t2(c)",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT (SELECT count(*) FROM (VALUES (1, 0), (1, 1)) t(a, b) WHERE a = c GROUP BY b LIMIT 1) FROM (VALUES (1)) t2(c)"))
+                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         // Limit(1) and non-constant output symbol of the subquery
-        assertions.assertFails(
-                "SELECT (SELECT a + b FROM (VALUES (1, 1), (1, 1)) t(a, b) WHERE a = c LIMIT 1) FROM (VALUES (1)) t2(c)",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT (SELECT a + b FROM (VALUES (1, 1), (1, 1)) t(a, b) WHERE a = c LIMIT 1) FROM (VALUES (1)) t2(c)"))
+                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         // Limit and correlated non-equality predicate in the subquery
-        assertions.assertFails(
-                "SELECT (SELECT t.b FROM (VALUES (1, 2), (1, 3)) t(a, b) WHERE t.a = t2.a AND t.b > t2.b LIMIT 1) FROM (VALUES (1, 2)) t2(a, b)",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT (SELECT t.b FROM (VALUES (1, 2), (1, 3)) t(a, b) WHERE t.a = t2.a AND t.b > t2.b LIMIT 1) FROM (VALUES (1, 2)) t2(a, b)"))
+                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         assertThat(assertions.query(
                 "SELECT (SELECT t.a FROM (VALUES (1, 2), (1, 3)) t(a, b) WHERE t.a = t2.a AND t2.b > 1 LIMIT 1) FROM (VALUES (1, 2)) t2(a, b)"))
                 .matches("VALUES 1");
         // TopN and correlated non-equality predicate in the subquery
-        assertions.assertFails(
-                "SELECT (SELECT t.b FROM (VALUES (1, 2), (1, 3)) t(a, b) WHERE t.a = t2.a AND t.b > t2.b ORDER BY t.b LIMIT 1) FROM (VALUES (1, 2)) t2(a, b)",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT (SELECT t.b FROM (VALUES (1, 2), (1, 3)) t(a, b) WHERE t.a = t2.a AND t.b > t2.b ORDER BY t.b LIMIT 1) FROM (VALUES (1, 2)) t2(a, b)"))
+                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         assertThat(assertions.query(
                 "SELECT (SELECT t.b FROM (VALUES (1, 2), (1, 3)) t(a, b) WHERE t.a = t2.a AND t2.b > 1 ORDER BY t.b LIMIT 1) FROM (VALUES (1, 2)) t2(a, b)"))
                 .matches("VALUES 2");
@@ -172,9 +173,9 @@ public class TestSubqueries
                                                                 anyTree(
                                                                         values("u_x", "u_cid")))))))));
 
-        assertions.assertFails(
-                "SELECT (SELECT t.a FROM (VALUES 1, 2, 3) t(a) WHERE t.a = t2.b ORDER BY a FETCH FIRST ROW WITH TIES) FROM (VALUES 1) t2(b)",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT (SELECT t.a FROM (VALUES 1, 2, 3) t(a) WHERE t.a = t2.b ORDER BY a FETCH FIRST ROW WITH TIES) FROM (VALUES 1) t2(b)"))
+                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         assertThat(assertions.query(
                 "SELECT * " +
                         "FROM (VALUES 1, 2, 3, null) outer_relation(id) " +
@@ -245,14 +246,14 @@ public class TestSubqueries
                         "ON TRUE"))
                 .matches("VALUES (1, null), (2, null), (3, 'a'), (3, 'b'), (null, null)");
         // TopN with ordering not decorrelating
-        assertions.assertFails(
+        assertThatThrownBy(() -> assertions.query(
                 "SELECT * " +
                         "FROM (VALUES 1, 2, 3, null) outer_relation(id) " +
                         "LEFT JOIN LATERAL " +
                         "(SELECT value FROM (VALUES 'c', 'a', 'b') inner_relation(value) " +
                         "   WHERE outer_relation.id = 3 ORDER BY outer_relation.id LIMIT 2) " +
-                        "ON TRUE",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+                        "ON TRUE"))
+                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
         // TopN with ordering only by constants
         assertThat(assertions.query(
                 "SELECT * " +
@@ -303,9 +304,9 @@ public class TestSubqueries
     public void testCorrelatedSubqueriesWithGroupBy()
     {
         // t.a is not a "constant" column, group by does not guarantee single row per correlated subquery
-        assertions.assertFails(
-                "SELECT (SELECT count(*) FROM (VALUES 1, 2, 3, null) t(a) WHERE t.a<t2.b GROUP BY t.a) FROM (VALUES 1, 2, 3) t2(b)",
-                "Scalar sub-query has returned multiple rows");
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT (SELECT count(*) FROM (VALUES 1, 2, 3, null) t(a) WHERE t.a<t2.b GROUP BY t.a) FROM (VALUES 1, 2, 3) t2(b)"))
+                .hasMessageMatching("Scalar sub-query has returned multiple rows");
         assertThat(assertions.query(
                 "SELECT (SELECT count(*) FROM (VALUES 1, 1, 2, 3, null) t(a) WHERE t.a<t2.b GROUP BY t.a HAVING count(*) > 1) FROM (VALUES 1, 2) t2(b)"))
                 .matches("VALUES null, BIGINT '2'");
@@ -363,9 +364,9 @@ public class TestSubqueries
                                                                                 values("t_a", "t_b"))))))))));
 
         // t.b is not a "constant" column, cannot be pushed above aggregation
-        assertions.assertFails(
-                "SELECT EXISTS(SELECT 1 FROM (VALUES (1, 1), (1, 1), (null, null), (3, 3)) t(a, b) WHERE t.a+t.b<t2.b GROUP BY t.a) FROM (VALUES 1, 2) t2(b)",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT EXISTS(SELECT 1 FROM (VALUES (1, 1), (1, 1), (null, null), (3, 3)) t(a, b) WHERE t.a+t.b<t2.b GROUP BY t.a) FROM (VALUES 1, 2) t2(b)"))
+                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
 
         assertions.assertQueryAndPlan(
                 "SELECT EXISTS(SELECT 1 FROM (VALUES (1, 1), (1, 1), (null, null), (3, 3)) t(a, b) WHERE t.a+t.b<t2.b GROUP BY t.a, t.b) FROM (VALUES 1, 4) t2(b)",
@@ -448,9 +449,9 @@ public class TestSubqueries
                 "SELECT * FROM (VALUES 1, 2) t2(b), LATERAL (SELECT count(*) FROM (VALUES 1, 1, 2, 3) t(a) WHERE t.a=t2.b GROUP BY t.a HAVING count(*) > 1)"))
                 .matches("VALUES (1, BIGINT '2')");
         // correlated subqueries with grouping sets are not supported
-        assertions.assertFails(
-                "SELECT * FROM (VALUES 1, 2) t2(b), LATERAL (SELECT t.a, t.b, count(*) FROM (VALUES (1, 1), (1, 2), (2, 2), (3, 3)) t(a, b) WHERE t.a=t2.b GROUP BY GROUPING SETS ((t.a, t.b), (t.a)))",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT * FROM (VALUES 1, 2) t2(b), LATERAL (SELECT t.a, t.b, count(*) FROM (VALUES (1, 1), (1, 2), (2, 2), (3, 3)) t(a, b) WHERE t.a=t2.b GROUP BY GROUPING SETS ((t.a, t.b), (t.a)))"))
+                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
     }
 
     @Test
@@ -475,17 +476,17 @@ public class TestSubqueries
         assertThat(assertions.query("SELECT * FROM (VALUES 1, null) t(a) FULL JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON TRUE")).matches("VALUES (1, 2), (1, null), (null, 2), (null, null)");
         assertions.assertQueryReturnsEmptyResult("SELECT * FROM (SELECT 1 WHERE 0 = 1) t(a) FULL JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON TRUE");
         assertThat(assertions.query("SELECT * FROM (VALUES 1, null) t(a) FULL JOIN LATERAL (SELECT 1 WHERE 0 = 1) t2(b) ON TRUE")).matches("VALUES (1, CAST(null AS INTEGER)), (null, null)");
-        assertions.assertFails(
-                "SELECT * FROM (VALUES 1, null) t(a) FULL JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON a < b",
-                ".* FULL JOIN involving LATERAL relation is only supported with condition ON TRUE");
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT * FROM (VALUES 1, null) t(a) FULL JOIN LATERAL (SELECT * FROM (VALUES 2, null)) t2(b) ON a < b"))
+                .hasMessageMatching(".* FULL JOIN involving LATERAL relation is only supported with condition ON TRUE");
     }
 
     @Test
     public void testLateralWithUnnest()
     {
-        assertions.assertFails(
-                "SELECT * FROM (VALUES ARRAY[1]) t(x), LATERAL (SELECT * FROM UNNEST(x))",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT * FROM (VALUES ARRAY[1]) t(x), LATERAL (SELECT * FROM UNNEST(x))"))
+                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
     }
 
     @Test
@@ -562,15 +563,15 @@ public class TestSubqueries
         assertThat(assertions.query(
                 "SELECT (SELECT outer_relation.b FROM (VALUES 1) inner_relation) FROM (values 2) outer_relation(b)"))
                 .matches("VALUES 2");
-        assertions.assertFails(
-                "SELECT (VALUES b) FROM (VALUES 2) outer_relation(b)",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
-        assertions.assertFails(
-                "SELECT (SELECT a + b FROM (VALUES 1) inner_relation(a)) FROM (VALUES 2) outer_relation(b)",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
-        assertions.assertFails(
-                "SELECT (SELECT rank() OVER(partition by b) FROM (VALUES 1) inner_relation(a)) FROM (VALUES 2) outer_relation(b)",
-                UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT (VALUES b) FROM (VALUES 2) outer_relation(b)"))
+                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT (SELECT a + b FROM (VALUES 1) inner_relation(a)) FROM (VALUES 2) outer_relation(b)"))
+                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT (SELECT rank() OVER(partition by b) FROM (VALUES 1) inner_relation(a)) FROM (VALUES 2) outer_relation(b)"))
+                .hasMessageMatching(UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
     }
 
     @Test

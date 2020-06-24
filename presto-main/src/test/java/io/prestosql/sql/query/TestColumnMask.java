@@ -36,6 +36,7 @@ import java.util.Optional;
 import static io.prestosql.plugin.tpch.TpchMetadata.TINY_SCHEMA_NAME;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test(singleThreaded = true)
 public class TestColumnMask
@@ -274,7 +275,8 @@ public class TestColumnMask
                 USER,
                 new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "(SELECT orderkey FROM orders)"));
 
-        assertions.assertFails("SELECT orderkey FROM orders", ".*\\QColumn mask for 'local.tiny.orders.orderkey' is recursive\\E.*");
+        assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
+                .hasMessageMatching(".*\\QColumn mask for 'local.tiny.orders.orderkey' is recursive\\E.*");
 
         // different reference style to same table
         accessControl.reset();
@@ -284,7 +286,8 @@ public class TestColumnMask
                 USER,
                 new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "(SELECT orderkey FROM local.tiny.orders)"));
 
-        assertions.assertFails("SELECT orderkey FROM orders", ".*\\QColumn mask for 'local.tiny.orders.orderkey' is recursive\\E.*");
+        assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
+                .hasMessageMatching(".*\\QColumn mask for 'local.tiny.orders.orderkey' is recursive\\E.*");
 
         // mutual recursion
         accessControl.reset();
@@ -300,7 +303,8 @@ public class TestColumnMask
                 USER,
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "(SELECT orderkey FROM orders)"));
 
-        assertions.assertFails("SELECT orderkey FROM orders", ".*\\QColumn mask for 'local.tiny.orders.orderkey' is recursive\\E.*");
+        assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
+                .hasMessageMatching(".*\\QColumn mask for 'local.tiny.orders.orderkey' is recursive\\E.*");
     }
 
     @Test
@@ -312,9 +316,9 @@ public class TestColumnMask
                 "custkey",
                 USER,
                 new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "orderkey"));
-        assertions.assertFails(
-                "SELECT (SELECT min(custkey) FROM customer WHERE customer.custkey = orders.custkey) FROM orders",
-                "\\Qline 1:34: Invalid column mask for 'local.tiny.customer.custkey': Column 'orderkey' cannot be resolved\\E");
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT (SELECT min(custkey) FROM customer WHERE customer.custkey = orders.custkey) FROM orders"))
+                .hasMessageMatching("\\Qline 1:34: Invalid column mask for 'local.tiny.customer.custkey': Column 'orderkey' cannot be resolved\\E");
     }
 
     @Test
@@ -343,7 +347,8 @@ public class TestColumnMask
                 USER,
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "$$$"));
 
-        assertions.assertFails("SELECT orderkey FROM orders", "\\Qline 1:22: Invalid column mask for 'local.tiny.orders.orderkey': mismatched input '$'. Expecting: <expression>\\E");
+        assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
+            .hasMessageMatching("\\Qline 1:22: Invalid column mask for 'local.tiny.orders.orderkey': mismatched input '$'. Expecting: <expression>\\E");
 
         // unknown column
         accessControl.reset();
@@ -353,7 +358,8 @@ public class TestColumnMask
                 USER,
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "unknown_column"));
 
-        assertions.assertFails("SELECT orderkey FROM orders", "\\Qline 1:22: Invalid column mask for 'local.tiny.orders.orderkey': Column 'unknown_column' cannot be resolved\\E");
+        assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
+                .hasMessageMatching("\\Qline 1:22: Invalid column mask for 'local.tiny.orders.orderkey': Column 'unknown_column' cannot be resolved\\E");
 
         // invalid type
         accessControl.reset();
@@ -363,7 +369,8 @@ public class TestColumnMask
                 USER,
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "'foo'"));
 
-        assertions.assertFails("SELECT orderkey FROM orders", "\\Qline 1:22: Expected column mask for 'local.tiny.orders.orderkey' to be of type bigint, but was varchar(3)\\E");
+        assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
+                .hasMessageMatching("\\Qline 1:22: Expected column mask for 'local.tiny.orders.orderkey' to be of type bigint, but was varchar(3)\\E");
 
         // aggregation
         accessControl.reset();
@@ -373,7 +380,8 @@ public class TestColumnMask
                 USER,
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "count(*) > 0"));
 
-        assertions.assertFails("SELECT orderkey FROM orders", "\\Qline 1:10: Column mask for 'orders.orderkey' cannot contain aggregations, window functions or grouping operations: [count(*)]\\E");
+        assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
+                .hasMessageMatching("\\Qline 1:10: Column mask for 'orders.orderkey' cannot contain aggregations, window functions or grouping operations: [count(*)]\\E");
 
         // window function
         accessControl.reset();
@@ -383,7 +391,8 @@ public class TestColumnMask
                 USER,
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "row_number() OVER () > 0"));
 
-        assertions.assertFails("SELECT orderkey FROM orders", "\\Qline 1:22: Column mask for 'orders.orderkey' cannot contain aggregations, window functions or grouping operations: [row_number() OVER ()]\\E");
+        assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
+                .hasMessageMatching("\\Qline 1:22: Column mask for 'orders.orderkey' cannot contain aggregations, window functions or grouping operations: [row_number() OVER ()]\\E");
 
         // grouping function
         accessControl.reset();
@@ -393,7 +402,8 @@ public class TestColumnMask
                 USER,
                 new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "grouping(orderkey) = 0"));
 
-        assertions.assertFails("SELECT orderkey FROM orders", "\\Qline 1:20: Column mask for 'orders.orderkey' cannot contain aggregations, window functions or grouping operations: [GROUPING (orderkey)]\\E");
+        assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
+                .hasMessageMatching("\\Qline 1:20: Column mask for 'orders.orderkey' cannot contain aggregations, window functions or grouping operations: [GROUPING (orderkey)]\\E");
     }
 
     @Test
@@ -406,8 +416,10 @@ public class TestColumnMask
                 USER,
                 new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "7"));
 
-        assertions.assertFails("SHOW STATS FOR (SELECT * FROM orders)", "\\QSHOW STATS for table with column masking is not supported: orderkey");
-        assertions.assertFails("SHOW STATS FOR (SELECT orderkey FROM orders)", "\\QSHOW STATS for table with column masking is not supported: orderkey");
+        assertThatThrownBy(() -> assertions.query("SHOW STATS FOR (SELECT * FROM orders)"))
+                .hasMessageMatching("\\QSHOW STATS for table with column masking is not supported: orderkey");
+        assertThatThrownBy(() -> assertions.query("SHOW STATS FOR (SELECT orderkey FROM orders)"))
+                .hasMessageMatching("\\QSHOW STATS for table with column masking is not supported: orderkey");
         assertThat(assertions.query("SHOW STATS FOR (SELECT clerk FROM orders)"))
                 .matches("VALUES " +
                         "(cast('clerk' AS varchar), cast(15000 AS double), cast(1000 AS double), cast(0 AS double), cast(null AS double), cast(null AS varchar), cast(null AS varchar))," +
