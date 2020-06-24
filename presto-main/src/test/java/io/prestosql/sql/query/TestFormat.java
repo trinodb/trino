@@ -18,6 +18,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestFormat
 {
@@ -50,6 +51,7 @@ public class TestFormat
         assertThat(assertions.query("SELECT format('%s', sum(k)) FROM (VALUES 1, 2, 3) t(k)")).matches("VALUES CAST('6' as VARCHAR)");
         assertThat(assertions.query("SELECT format(arbitrary(s), sum(k)) FROM (VALUES ('%s', 1), ('%s', 2), ('%s', 3)) t(s, k)")).matches("VALUES CAST('6' as VARCHAR)");
 
-        assertions.assertFails("SELECT format(s, 1) FROM (VALUES ('%s', 1)) t(s, k) GROUP BY k", "\\Qline 1:8: 'format(s, 1)' must be an aggregate expression or appear in GROUP BY clause\\E");
+        assertThatThrownBy(() -> assertions.query("SELECT format(s, 1) FROM (VALUES ('%s', 1)) t(s, k) GROUP BY k"))
+                .hasMessageMatching("\\Qline 1:8: 'format(s, 1)' must be an aggregate expression or appear in GROUP BY clause\\E");
     }
 }
