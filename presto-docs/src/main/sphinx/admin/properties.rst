@@ -127,7 +127,7 @@ Query Management Properties
     * **Default value:** ``100 days``
     * **Session property:** ``query_max_execution_time``
 
-    The maxiumum allowed time for a query to be actively executing on the
+    The maximum allowed time for a query to be actively executing on the
     cluster, before it is terminated. Compared to the run time below, execution
     time does not include analysis, query planning or wait times in a queue.
 
@@ -138,7 +138,7 @@ Query Management Properties
     * **Default value:** ``100 days``
     * **Session property:** ``query_max_run_time``
 
-    The maxiumum allowed time for a query to be processed on the cluster, before
+    The maximum allowed time for a query to be processed on the cluster, before
     it is terminated. The time includes time for analysis and planning, but also
     time spend in a queue waiting, so essentially this is the time allowed for a
     query to exist since creation.
@@ -825,7 +825,7 @@ Logging Properties
     * **Type:** ``integer``
     * **Default value:** ``15``
 
-    The maxiumum number of log files for the HTTP server to use, before
+    The maximum number of log files for the HTTP server to use, before
     log rotation replaces old content.
 
 ``http-server.log.max-size``
