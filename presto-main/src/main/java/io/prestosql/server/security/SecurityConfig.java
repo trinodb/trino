@@ -35,6 +35,8 @@ public class SecurityConfig
 
     private boolean insecureAuthenticationOverHttpAllowed = true;
     private List<String> authenticationTypes = ImmutableList.of("insecure");
+    private Optional<String> fixedManagementUser = Optional.empty();
+    private boolean fixedManagementUserForHttps;
 
     public boolean isInsecureAuthenticationOverHttpAllowed()
     {
@@ -67,6 +69,32 @@ public class SecurityConfig
     public SecurityConfig setAuthenticationTypes(String types)
     {
         authenticationTypes = Optional.ofNullable(types).map(SPLITTER::splitToList).orElse(null);
+        return this;
+    }
+
+    public Optional<String> getFixedManagementUser()
+    {
+        return fixedManagementUser;
+    }
+
+    @Config("management.user")
+    @ConfigDescription("Optional fixed user for all requests to management endpoints")
+    public SecurityConfig setFixedManagementUser(String fixedManagementUser)
+    {
+        this.fixedManagementUser = Optional.ofNullable(fixedManagementUser);
+        return this;
+    }
+
+    public boolean isFixedManagementUserForHttps()
+    {
+        return fixedManagementUserForHttps;
+    }
+
+    @Config("management.user.https-enabled")
+    @ConfigDescription("Use fixed management user for secure HTTPS requests")
+    public SecurityConfig setFixedManagementUserForHttps(boolean fixedManagementUserForHttps)
+    {
+        this.fixedManagementUserForHttps = fixedManagementUserForHttps;
         return this;
     }
 }

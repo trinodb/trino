@@ -51,6 +51,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePriv
 import static io.prestosql.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyKillQuery;
+import static io.prestosql.spi.security.AccessDeniedException.denyReadSystemInformationAccess;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
@@ -73,6 +74,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowTables;
 import static io.prestosql.spi.security.AccessDeniedException.denyViewQuery;
+import static io.prestosql.spi.security.AccessDeniedException.denyWriteSystemInformationAccess;
 
 public class DenyAllAccessControl
         implements AccessControl
@@ -87,6 +89,18 @@ public class DenyAllAccessControl
     public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
         denySetUser(principal, userName);
+    }
+
+    @Override
+    public void checkCanReadSystemInformation(Identity identity)
+    {
+        denyReadSystemInformationAccess();
+    }
+
+    @Override
+    public void checkCanWriteSystemInformation(Identity identity)
+    {
+        denyWriteSystemInformationAccess();
     }
 
     @Override

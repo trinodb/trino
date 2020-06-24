@@ -34,12 +34,12 @@ import java.util.Objects;
 import java.util.stream.Collectors;
 
 import static io.prestosql.server.ThreadResource.Info.byName;
-import static io.prestosql.server.security.ResourceSecurity.AccessType.INTERNAL_ONLY;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
 
 @Path("/v1/thread")
 public class ThreadResource
 {
-    @ResourceSecurity(INTERNAL_ONLY)
+    @ResourceSecurity(MANAGEMENT_READ)
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     public List<Info> getThreadInfo()

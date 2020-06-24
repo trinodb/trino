@@ -31,7 +31,7 @@ public @interface ResourceSecurity
 {
     enum AccessType
     {
-        PUBLIC, WEB_UI, AUTHENTICATED_USER, INTERNAL_ONLY
+        PUBLIC, WEB_UI, AUTHENTICATED_USER, MANAGEMENT_READ, MANAGEMENT_WRITE, INTERNAL_ONLY
     }
 
     AccessType value();

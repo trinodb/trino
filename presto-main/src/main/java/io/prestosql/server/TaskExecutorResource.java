@@ -22,7 +22,7 @@ import javax.ws.rs.Path;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 
-import static io.prestosql.server.security.ResourceSecurity.AccessType.PUBLIC;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
 import static java.util.Objects.requireNonNull;
 
 @Path("/v1/maxActiveSplits")
@@ -37,7 +37,7 @@ public class TaskExecutorResource
         this.taskExecutor = requireNonNull(taskExecutor, "taskExecutor is null");
     }
 
-    @ResourceSecurity(PUBLIC)
+    @ResourceSecurity(MANAGEMENT_READ)
     @GET
     @Produces(MediaType.TEXT_PLAIN)
     public String getMaxActiveSplit()
