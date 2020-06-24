@@ -115,7 +115,11 @@ public class WebUiAuthenticationModule
             }
             // otherwise use the first authenticator, or if there are no authenticators
             // configured, use form for the UI since it handles this case
-            return authenticationTypes.stream().findFirst().orElse("form");
+            authentication = authenticationTypes.stream().findFirst().orElseThrow(() -> new IllegalArgumentException("authenticatorTypes is empty"));
+            if (authentication.equals("insecure")) {
+                return "form";
+            }
+            return authentication;
         }
     }
 }

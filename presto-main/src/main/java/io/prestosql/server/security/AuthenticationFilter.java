@@ -28,6 +28,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
 import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
 import static io.prestosql.server.ServletSecurityUtils.sendErrorMessage;
@@ -49,6 +50,7 @@ public class AuthenticationFilter
     public AuthenticationFilter(List<Authenticator> authenticators, InternalAuthenticationManager internalAuthenticationManager)
     {
         this.authenticators = ImmutableList.copyOf(requireNonNull(authenticators, "authenticators is null"));
+        checkArgument(!authenticators.isEmpty(), "authenticators is empty");
         this.internalAuthenticationManager = requireNonNull(internalAuthenticationManager, "internalAuthenticationManager is null");
     }
 
@@ -60,8 +62,8 @@ public class AuthenticationFilter
             return;
         }
 
-        // skip authentication if non-secure or not configured
-        if (!doesRequestSupportAuthentication(request)) {
+        // authentication not allowed over insecure connections
+        if (!request.getSecurityContext().isSecure()) {
             handleInsecureRequest(request);
             return;
         }
@@ -128,10 +130,5 @@ public class AuthenticationFilter
         }
 
         setAuthenticatedIdentity(request, user);
-    }
-
-    private boolean doesRequestSupportAuthentication(ContainerRequestContext request)
-    {
-        return !authenticators.isEmpty() && request.getSecurityContext().isSecure();
     }
 }

@@ -67,6 +67,6 @@ public class PasswordAuthenticator
 
     private static AuthenticationException needAuthentication(String message)
     {
-        return new AuthenticationException(message, "Basic realm=\"Presto\"");
+        return new AuthenticationException(message, BasicAuthCredentials.AUTHENTICATE_HEADER);
     }
 }

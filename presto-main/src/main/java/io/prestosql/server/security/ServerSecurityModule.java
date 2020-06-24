@@ -61,6 +61,8 @@ public class ServerSecurityModule
         installAuthenticator("kerberos", KerberosAuthenticator.class, KerberosConfig.class);
         installAuthenticator("password", PasswordAuthenticator.class, PasswordAuthenticatorConfig.class);
         installAuthenticator("jwt", JsonWebTokenAuthenticator.class, JsonWebTokenConfig.class);
+
+        install(authenticatorModule("insecure", InsecureAuthenticator.class, unused -> {}));
     }
 
     @Provides

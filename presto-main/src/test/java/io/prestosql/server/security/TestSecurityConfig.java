@@ -29,7 +29,7 @@ public class TestSecurityConfig
     public void testDefaults()
     {
         assertRecordedDefaults(recordDefaults(SecurityConfig.class)
-                .setAuthenticationTypes(""));
+                .setAuthenticationTypes("insecure"));
     }
 
     @Test
