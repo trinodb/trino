@@ -51,8 +51,8 @@ import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 
-public class FormWebUiAuthenticationManager
-        implements WebUiAuthenticationManager
+public class FormWebUiAuthenticationFilter
+        implements WebUiAuthenticationFilter
 {
     private static final String PRESTO_UI_AUDIENCE = "presto-ui";
     private static final String PRESTO_UI_COOKIE = "Presto-UI-Token";
@@ -71,7 +71,7 @@ public class FormWebUiAuthenticationManager
     private final Optional<Authenticator> authenticator;
 
     @Inject
-    public FormWebUiAuthenticationManager(
+    public FormWebUiAuthenticationFilter(
             FormWebUiConfig config,
             PasswordAuthenticatorManager passwordAuthenticatorManager,
             @ForWebUi Optional<Authenticator> authenticator)
@@ -95,14 +95,9 @@ public class FormWebUiAuthenticationManager
     }
 
     @Override
-    public void handleUiRequest(ContainerRequestContext request)
+    public void filter(ContainerRequestContext request)
     {
         String path = request.getUriInfo().getRequestUri().getPath();
-        if (path.equals("/")) {
-            request.abortWith(Response.seeOther(UI_LOCATION_URI).build());
-            return;
-        }
-
         if (isPublicUiResource(path)) {
             return;
         }

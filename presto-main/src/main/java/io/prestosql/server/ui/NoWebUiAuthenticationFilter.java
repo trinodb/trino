@@ -18,11 +18,11 @@ import javax.ws.rs.core.Response;
 
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
-public class NoWebUiAuthenticationManager
-        implements WebUiAuthenticationManager
+public class NoWebUiAuthenticationFilter
+        implements WebUiAuthenticationFilter
 {
     @Override
-    public void handleUiRequest(ContainerRequestContext request)
+    public void filter(ContainerRequestContext request)
     {
         request.abortWith(Response.status(NOT_FOUND).build());
     }

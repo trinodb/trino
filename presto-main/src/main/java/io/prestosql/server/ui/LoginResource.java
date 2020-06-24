@@ -13,6 +13,8 @@
  */
 package io.prestosql.server.ui;
 
+import io.prestosql.server.security.ResourceSecurity;
+
 import javax.inject.Inject;
 import javax.ws.rs.FormParam;
 import javax.ws.rs.GET;
@@ -29,25 +31,27 @@ import java.net.URI;
 import java.util.Optional;
 
 import static com.google.common.base.Strings.emptyToNull;
-import static io.prestosql.server.ui.FormWebUiAuthenticationManager.DISABLED_LOCATION_URI;
-import static io.prestosql.server.ui.FormWebUiAuthenticationManager.LOGIN_FORM_URI;
-import static io.prestosql.server.ui.FormWebUiAuthenticationManager.UI_LOGIN;
-import static io.prestosql.server.ui.FormWebUiAuthenticationManager.UI_LOGOUT;
-import static io.prestosql.server.ui.FormWebUiAuthenticationManager.getDeleteCookie;
-import static io.prestosql.server.ui.FormWebUiAuthenticationManager.redirectFromSuccessfulLoginResponse;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.WEB_UI;
+import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION_URI;
+import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.LOGIN_FORM_URI;
+import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.UI_LOGIN;
+import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.UI_LOGOUT;
+import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.getDeleteCookie;
+import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.redirectFromSuccessfulLoginResponse;
 import static java.util.Objects.requireNonNull;
 
 @Path("")
 public class LoginResource
 {
-    private final FormWebUiAuthenticationManager formWebUiAuthenticationManager;
+    private final FormWebUiAuthenticationFilter formWebUiAuthenticationManager;
 
     @Inject
-    public LoginResource(FormWebUiAuthenticationManager formWebUiAuthenticationManager)
+    public LoginResource(FormWebUiAuthenticationFilter formWebUiAuthenticationManager)
     {
         this.formWebUiAuthenticationManager = requireNonNull(formWebUiAuthenticationManager, "formWebUiAuthenticationManager is null");
     }
 
+    @ResourceSecurity(WEB_UI)
     @POST
     @Path(UI_LOGIN)
     public Response login(
@@ -75,6 +79,7 @@ public class LoginResource
                 .build();
     }
 
+    @ResourceSecurity(WEB_UI)
     @GET
     @Path(UI_LOGOUT)
     public Response logout(@Context HttpHeaders httpHeaders, @Context UriInfo uriInfo, @Context SecurityContext securityContext)

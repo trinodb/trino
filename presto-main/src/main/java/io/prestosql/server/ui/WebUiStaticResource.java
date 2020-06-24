@@ -13,6 +13,8 @@
  */
 package io.prestosql.server.ui;
 
+import io.prestosql.server.security.ResourceSecurity;
+
 import javax.servlet.ServletContext;
 import javax.ws.rs.GET;
 import javax.ws.rs.POST;
@@ -26,11 +28,14 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URL;
 
+import static io.prestosql.server.security.ResourceSecurity.AccessType.PUBLIC;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.WEB_UI;
 import static javax.ws.rs.core.Response.Status.NOT_FOUND;
 
 @Path("")
 public class WebUiStaticResource
 {
+    @ResourceSecurity(PUBLIC)
     @GET
     @Path("/")
     public Response getRoot()
@@ -38,6 +43,7 @@ public class WebUiStaticResource
         return Response.seeOther(URI.create("/ui/")).build();
     }
 
+    @ResourceSecurity(PUBLIC)
     @GET
     @Path("/ui")
     public Response getUi()
@@ -45,6 +51,7 @@ public class WebUiStaticResource
         return Response.seeOther(URI.create("/ui/")).build();
     }
 
+    @ResourceSecurity(WEB_UI)
     @POST
     @Path("/ui/{path: .*}")
     public Response postFile(@PathParam("path") String path)
@@ -55,6 +62,7 @@ public class WebUiStaticResource
         return Response.status(NOT_FOUND).build();
     }
 
+    @ResourceSecurity(WEB_UI)
     @GET
     @Path("/ui/{path: .*}")
     public Response getFile(@PathParam("path") String path, @Context ServletContext servletContext)

@@ -20,6 +20,10 @@ import com.google.inject.Scopes;
 import com.google.inject.multibindings.MapBinder;
 import com.google.inject.util.Modules;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.discovery.server.DynamicAnnouncementResource;
+import io.airlift.discovery.server.ServiceResource;
+import io.airlift.discovery.store.StoreResource;
+import io.airlift.jmx.MBeanResource;
 
 import java.util.List;
 import java.util.Map;
@@ -30,6 +34,7 @@ import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
+import static io.prestosql.server.security.ResourceSecurityBinder.resourceSecurityBinder;
 import static java.util.Locale.ENGLISH;
 
 public class ServerSecurityModule
@@ -38,7 +43,14 @@ public class ServerSecurityModule
     @Override
     protected void setup(Binder binder)
     {
-        jaxrsBinder(binder).bind(AuthenticationFilter.class);
+        binder.bind(AuthenticationFilter.class);
+        jaxrsBinder(binder).bind(ResourceSecurityDynamicFeature.class);
+
+        resourceSecurityBinder(binder)
+                .publicResource(ServiceResource.class)
+                .publicResource(MBeanResource.class)
+                .internalOnlyResource(DynamicAnnouncementResource.class)
+                .internalOnlyResource(StoreResource.class);
 
         binder.bind(PasswordAuthenticatorManager.class).in(Scopes.SINGLETON);
         binder.bind(CertificateAuthenticatorManager.class).in(Scopes.SINGLETON);

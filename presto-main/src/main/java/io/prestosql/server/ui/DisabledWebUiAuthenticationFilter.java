@@ -16,15 +16,15 @@ package io.prestosql.server.ui;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.core.Response;
 
-import static io.prestosql.server.ui.FormWebUiAuthenticationManager.DISABLED_LOCATION_URI;
-import static io.prestosql.server.ui.FormWebUiAuthenticationManager.isPublicUiResource;
+import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION_URI;
+import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.isPublicUiResource;
 import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 
-public class DisabledWebUiAuthenticationManager
-        implements WebUiAuthenticationManager
+public class DisabledWebUiAuthenticationFilter
+        implements WebUiAuthenticationFilter
 {
     @Override
-    public void handleUiRequest(ContainerRequestContext request)
+    public void filter(ContainerRequestContext request)
     {
         String path = request.getUriInfo().getRequestUri().getPath();
         if (path.equals("/")) {

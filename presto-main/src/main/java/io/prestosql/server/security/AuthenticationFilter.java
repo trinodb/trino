@@ -16,15 +16,12 @@ package io.prestosql.server.security;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.server.InternalAuthenticationManager;
-import io.prestosql.server.ui.WebUiAuthenticationManager;
 import io.prestosql.spi.security.Identity;
 
 import javax.annotation.Priority;
 import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 import javax.ws.rs.container.ContainerRequestFilter;
-import javax.ws.rs.container.ContainerResponseContext;
-import javax.ws.rs.container.ContainerResponseFilter;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -33,7 +30,6 @@ import java.util.Set;
 
 import static com.google.common.base.Strings.emptyToNull;
 import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
-import static io.prestosql.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
 import static io.prestosql.server.ServletSecurityUtils.sendErrorMessage;
 import static io.prestosql.server.ServletSecurityUtils.sendWwwAuthenticate;
 import static io.prestosql.server.ServletSecurityUtils.setAuthenticatedIdentity;
@@ -44,21 +40,16 @@ import static javax.ws.rs.core.Response.Status.FORBIDDEN;
 
 @Priority(AUTHENTICATION)
 public class AuthenticationFilter
-        implements ContainerRequestFilter, ContainerResponseFilter
+        implements ContainerRequestFilter
 {
     private final List<Authenticator> authenticators;
     private final InternalAuthenticationManager internalAuthenticationManager;
-    private final WebUiAuthenticationManager uiAuthenticationManager;
 
     @Inject
-    public AuthenticationFilter(List<Authenticator> authenticators,
-            SecurityConfig securityConfig,
-            InternalAuthenticationManager internalAuthenticationManager,
-            WebUiAuthenticationManager uiAuthenticationManager)
+    public AuthenticationFilter(List<Authenticator> authenticators, InternalAuthenticationManager internalAuthenticationManager)
     {
         this.authenticators = ImmutableList.copyOf(requireNonNull(authenticators, "authenticators is null"));
         this.internalAuthenticationManager = requireNonNull(internalAuthenticationManager, "internalAuthenticationManager is null");
-        this.uiAuthenticationManager = requireNonNull(uiAuthenticationManager, "uiAuthenticationManager is null");
     }
 
     @Override
@@ -66,11 +57,6 @@ public class AuthenticationFilter
     {
         if (InternalAuthenticationManager.isInternalRequest(request)) {
             internalAuthenticationManager.handleInternalRequest(request);
-            return;
-        }
-
-        if (WebUiAuthenticationManager.isUiRequest(request)) {
-            uiAuthenticationManager.handleUiRequest(request);
             return;
         }
 
@@ -111,15 +97,6 @@ public class AuthenticationFilter
         String error = Joiner.on(" | ").join(messages);
 
         sendWwwAuthenticate(request, error, authenticateHeaders);
-    }
-
-    @Override
-    public void filter(ContainerRequestContext request, ContainerResponseContext response)
-    {
-        // destroy identity if identity is still attached to the request
-        Optional.ofNullable(request.getProperty(AUTHENTICATED_IDENTITY))
-                .map(Identity.class::cast)
-                .ifPresent(Identity::destroy);
     }
 
     private static void handleInsecureRequest(ContainerRequestContext request)

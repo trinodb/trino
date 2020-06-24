@@ -31,8 +31,8 @@ public class FormUiAuthenticatorModule
     public void configure(Binder binder)
     {
         binder.bind(PasswordAuthenticatorManager.class).in(Scopes.SINGLETON);
-        binder.bind(FormWebUiAuthenticationManager.class).in(Scopes.SINGLETON);
-        binder.bind(WebUiAuthenticationManager.class).to(FormWebUiAuthenticationManager.class).in(Scopes.SINGLETON);
+        binder.bind(FormWebUiAuthenticationFilter.class).in(Scopes.SINGLETON);
+        binder.bind(WebUiAuthenticationFilter.class).to(FormWebUiAuthenticationFilter.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(FormWebUiConfig.class);
         jaxrsBinder(binder).bind(LoginResource.class);
         newOptionalBinder(binder, Key.get(Authenticator.class, ForWebUi.class));

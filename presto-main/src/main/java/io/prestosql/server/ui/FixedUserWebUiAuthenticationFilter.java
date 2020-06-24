@@ -20,27 +20,27 @@ import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 
 import static io.prestosql.server.ServletSecurityUtils.setAuthenticatedIdentity;
-import static io.prestosql.server.ui.FormWebUiAuthenticationManager.redirectAllFormLoginToUi;
+import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.redirectAllFormLoginToUi;
 import static java.util.Objects.requireNonNull;
 
-public class FixedUserWebUiAuthenticationManager
-        implements WebUiAuthenticationManager
+public class FixedUserWebUiAuthenticationFilter
+        implements WebUiAuthenticationFilter
 {
     private final Identity webUiIdentity;
 
     @Inject
-    public FixedUserWebUiAuthenticationManager(FixedUserWebUiConfig config)
+    public FixedUserWebUiAuthenticationFilter(FixedUserWebUiConfig config)
     {
         this(basicIdentity(requireNonNull(config, "config is null").getUsername()));
     }
 
-    public FixedUserWebUiAuthenticationManager(Identity webUiIdentity)
+    public FixedUserWebUiAuthenticationFilter(Identity webUiIdentity)
     {
         this.webUiIdentity = requireNonNull(webUiIdentity, "webUiIdentity is null");
     }
 
     @Override
-    public void handleUiRequest(ContainerRequestContext request)
+    public void filter(ContainerRequestContext request)
     {
         if (redirectAllFormLoginToUi(request)) {
             return;

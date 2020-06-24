@@ -11,21 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.server.ui;
+package io.prestosql.server.security;
 
-import com.google.inject.Binder;
-import com.google.inject.Module;
-import com.google.inject.Scopes;
+import io.prestosql.server.security.ResourceSecurity.AccessType;
 
-import static io.airlift.configuration.ConfigBinder.configBinder;
+import java.lang.reflect.AnnotatedElement;
+import java.util.Optional;
 
-public class FixedUiAuthenticatorModule
-        implements Module
+public class AnnotatedResourceAccessTypeLoader
+        implements ResourceAccessTypeLoader
 {
     @Override
-    public void configure(Binder binder)
+    public Optional<AccessType> getAccessType(AnnotatedElement element)
     {
-        binder.bind(WebUiAuthenticationFilter.class).to(FixedUserWebUiAuthenticationFilter.class).in(Scopes.SINGLETON);
-        configBinder(binder).bindConfig(FixedUserWebUiConfig.class);
+        return Optional.ofNullable(element.getAnnotation(ResourceSecurity.class))
+                .map(ResourceSecurity::value);
     }
 }
