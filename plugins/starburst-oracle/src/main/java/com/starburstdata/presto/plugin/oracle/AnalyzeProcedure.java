@@ -71,7 +71,7 @@ public class AnalyzeProcedure
     {
         SchemaTableName schemaTableName = new SchemaTableName(schemaName, tableName);
         Optional<JdbcTableHandle> tableHandle = client.getTableHandle(JdbcIdentity.from(session), schemaTableName);
-        if (!tableHandle.isPresent()) {
+        if (tableHandle.isEmpty()) {
             throw new TableNotFoundException(schemaTableName);
         }
 
