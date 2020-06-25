@@ -75,7 +75,9 @@ public final class ConfigurationUtils
             checkArgument(resourcePath.exists(), "File does not exist: %s", resourcePath);
 
             Configuration resourceProperties = new Configuration(false);
-            resourceProperties.addResource(new Path(resourcePath.toURI()));
+            // We need to call `getPath` instead of `toURI` because Hadoop library can not handle a configuration file with relative Xinclude files in case of passing URI.
+            // In details, see https://issues.apache.org/jira/browse/HADOOP-17088.
+            resourceProperties.addResource(new Path(resourcePath.getPath()));
             copy(resourceProperties, result);
         }
 
