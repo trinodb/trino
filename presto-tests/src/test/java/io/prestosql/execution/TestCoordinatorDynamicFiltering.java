@@ -145,7 +145,7 @@ public class TestCoordinatorDynamicFiltering
         assertQueryDynamicFilters(
                 "SELECT * FROM (" +
                         "SELECT supplier.suppkey FROM " +
-                            "lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')" +
+                        "lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')" +
                         ") t JOIN tpch.tiny.partsupp ON t.suppkey = partsupp.suppkey AND partsupp.suppkey IN (2, 3)",
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         suppKeyHandle,
@@ -260,10 +260,10 @@ public class TestCoordinatorDynamicFiltering
                             }
                             else if (Duration.nanosSince(start).compareTo(scanDuration) > 0) {
                                 throw new AssertionError(format(
-                                            "Received %s instead of expected dynamic filter %s after waiting for %s",
-                                            dynamicFilter.get().toString(session),
-                                            expectedDynamicFilter.get().toString(session),
-                                            scanDuration));
+                                        "Received %s instead of expected dynamic filter %s after waiting for %s",
+                                        dynamicFilter.get().toString(session),
+                                        expectedDynamicFilter.get().toString(session),
+                                        scanDuration));
                             }
                             // expected dynamic filter is not set yet
                             return false;
