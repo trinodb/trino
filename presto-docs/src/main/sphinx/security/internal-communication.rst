@@ -11,16 +11,16 @@ Internal Authentication
 Requests between Presto nodes are authenticated using a shared secret. For secure
 internal communication, the shared secret must be configured on all nodes in the cluster:
 
-    .. code-block:: none
+.. code-block:: none
 
-        internal-communication.shared-secret=<secret>
+    internal-communication.shared-secret=<secret>
 
 A large random key is recommended, and can be generated with the following Linux
 command:
 
-    .. code-block:: none
+.. code-block:: none
 
-        openssl rand 512 | base64
+    openssl rand 512 | base64
 
 Internal SSL/TLS configuration
 ------------------------------
@@ -35,16 +35,16 @@ To enable SSL/TLS for Presto internal communication, do the following:
 
 1. Disable HTTP endpoint.
 
-    .. code-block:: none
+   .. code-block:: none
 
-        http-server.http.enabled=false
+       http-server.http.enabled=false
 
-    .. warning::
+   .. warning::
 
-        You can enable HTTPS, while leaving HTTP enabled. In most cases this is a
-        security hole. If you are certain you want to use this configuration, you
-        should consider using an firewall to limit access to the HTTP endpoint to
-        only those hosts that should be allowed to use it.
+       You can enable HTTPS, while leaving HTTP enabled. In most cases this is a
+       security hole. If you are certain you want to use this configuration, you
+       should consider using an firewall to limit access to the HTTP endpoint to
+       only those hosts that should be allowed to use it.
 
 2. Configure the cluster to communicate using the fully qualified domain name (fqdn)
    of the cluster nodes. This can be done in either of the following ways:
@@ -74,60 +74,60 @@ To enable SSL/TLS for Presto internal communication, do the following:
    and specify it for the client (see step #8 below). In most cases it is
    simpler to use a wildcard in the certificate as shown below.
 
-    .. code-block:: none
+   .. code-block:: none
 
-        keytool -genkeypair -alias example.com -keyalg RSA -keystore keystore.jks
-        Enter keystore password:
-        Re-enter new password:
-        What is your first and last name?
-          [Unknown]:  *.example.com
-        What is the name of your organizational unit?
-          [Unknown]:
-        What is the name of your organization?
-          [Unknown]:
-        What is the name of your City or Locality?
-          [Unknown]:
-        What is the name of your State or Province?
-          [Unknown]:
-        What is the two-letter country code for this unit?
-          [Unknown]:
-        Is CN=*.example.com, OU=Unknown, O=Unknown, L=Unknown, ST=Unknown, C=Unknown correct?
-          [no]:  yes
+       keytool -genkeypair -alias example.com -keyalg RSA -keystore keystore.jks
+       Enter keystore password:
+       Re-enter new password:
+       What is your first and last name?
+         [Unknown]:  *.example.com
+       What is the name of your organizational unit?
+         [Unknown]:
+       What is the name of your organization?
+         [Unknown]:
+       What is the name of your City or Locality?
+         [Unknown]:
+       What is the name of your State or Province?
+         [Unknown]:
+       What is the two-letter country code for this unit?
+         [Unknown]:
+       Is CN=*.example.com, OU=Unknown, O=Unknown, L=Unknown, ST=Unknown, C=Unknown correct?
+         [no]:  yes
 
-        Enter key password for <presto>
-                (RETURN if same as keystore password):
+       Enter key password for <presto>
+               (RETURN if same as keystore password):
 
-    .. Note: Replace `example.com` with the appropriate domain.
+   .. Note: Replace `example.com` with the appropriate domain.
 
 4. Distribute the Java Keystore File across the Presto cluster.
 
 5. Enable the HTTPS endpoint.
 
-    .. code-block:: none
+   .. code-block:: none
 
-        http-server.https.enabled=true
-        http-server.https.port=<https port>
-        http-server.https.keystore.path=<keystore path>
-        http-server.https.keystore.key=<keystore password>
+       http-server.https.enabled=true
+       http-server.https.port=<https port>
+       http-server.https.keystore.path=<keystore path>
+       http-server.https.keystore.key=<keystore password>
 
 6. Change the discovery uri to HTTPS.
 
-    .. code-block:: none
+   .. code-block:: none
 
-        discovery.uri=https://<coordinator fqdn>:<https port>
+       discovery.uri=https://<coordinator fqdn>:<https port>
 
 7. Configure the internal communication to require HTTPS.
 
-    .. code-block:: none
+   .. code-block:: none
 
-        internal-communication.https.required=true
+       internal-communication.https.required=true
 
 8. Configure the internal communication to use the Java keystore file.
 
-    .. code-block:: none
+   .. code-block:: none
 
-        internal-communication.https.keystore.path=<keystore path>
-        internal-communication.https.keystore.key=<keystore password>
+       internal-communication.https.keystore.path=<keystore path>
+       internal-communication.https.keystore.key=<keystore password>
 
 
 Performance with SSL/TLS enabled
@@ -158,15 +158,15 @@ to switch the random number generator algorithm to ``SHA1PRNG``, by setting it v
 ``http-server.https.secure-random-algorithm`` property in ``config.properties`` on the coordinator
 and all of the workers:
 
-    .. code-block:: none
+.. code-block:: none
 
-        http-server.https.secure-random-algorithm=SHA1PRNG
+    http-server.https.secure-random-algorithm=SHA1PRNG
 
 Be aware that this algorithm takes the initial seed from
 the blocking ``/dev/random`` device. For environments that do not have enough entropy to seed
 the ``SHAPRNG`` algorithm, the source can be changed to ``/dev/urandom``
 by adding the ``java.security.egd`` property to ``jvm.config``:
 
-    .. code-block:: none
+.. code-block:: none
 
-        -Djava.security.egd=file:/dev/urandom
+    -Djava.security.egd=file:/dev/urandom

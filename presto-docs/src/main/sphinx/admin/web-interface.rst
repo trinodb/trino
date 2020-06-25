@@ -5,7 +5,7 @@ Web UI
 Presto provides a web-based user interface (UI) for monitoring a Presto cluster
 and managing queries. The Web UI is accessible on the coordinator via
 HTTP/HTTPS, using the corresponding port number specified in the coordinator
-:ref:`config_properties`. It can be configured with :ref:`web-ui-properties`.
+:ref:`config_properties`. It can be configured with :doc:`/admin/properties-web-interface`.
 
 The Web UI can be disabled entirely with the ``web-ui.enabled`` property.
 

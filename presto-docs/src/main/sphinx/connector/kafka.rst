@@ -2,10 +2,11 @@
 Kafka Connector
 ===============
 
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    Tutorial <kafka-tutorial>
 
 Overview
 --------
@@ -21,6 +22,8 @@ The connector reads message data from Kafka topics in parallel across workers to
 achieve a significant performance gain. The size of data sets for this
 parallelization is configurable and can therefore be adapted to your specific
 needs.
+
+See the :doc:`kafka-tutorial`.
 
 .. note::
 
@@ -318,21 +321,21 @@ message used for decoding. It can be one or two numbers separated by a colon (``
 
 If only a start position is given:
 
- * For fixed width types the column will use the appropriate number of bytes for the specified ``dateFormat`` (see above).
- * When ``VARCHAR`` value is decoded all bytes from start position till the end of the message will be used.
+* For fixed width types the column will use the appropriate number of bytes for the specified ``dateFormat`` (see above).
+* When ``VARCHAR`` value is decoded all bytes from start position till the end of the message will be used.
 
 If start and end position are given, then:
 
- * For fixed width types the size must be equal to number of bytes used by specified ``dataFormat``.
- * For ``VARCHAR`` all bytes between start (inclusive) and end (exclusive) are used.
+* For fixed width types the size must be equal to number of bytes used by specified ``dataFormat``.
+* For ``VARCHAR`` all bytes between start (inclusive) and end (exclusive) are used.
 
 If no ``mapping`` attribute is specified, it is equivalent to setting start position to 0 and leaving end position undefined.
 
 Decoding scheme of numeric data types (``BIGINT``, ``INTEGER``, ``SMALLINT``, ``TINYINT``, ``DOUBLE``) is straightforward.
 A sequence of bytes is read from input message and decoded according to either:
 
- * big-endian encoding (for integer types)
- * IEEE 754 format for (for ``DOUBLE``).
+* big-endian encoding (for integer types)
+* IEEE 754 format for (for ``DOUBLE``).
 
 Length of decoded byte sequence is implied by the ``dataFormat``.
 

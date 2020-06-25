@@ -4,11 +4,6 @@ Aggregate Functions
 
 Aggregate functions operate on a set of values to compute a single result.
 
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
-
 Except for :func:`count`, :func:`count_if`, :func:`max_by`, :func:`min_by` and
 :func:`approx_distinct`, all of these aggregate functions ignore null values
 and return null for no input rows or when all values are null. For example,
@@ -107,6 +102,7 @@ General Aggregate Functions
     Returns the average (arithmetic mean) of all input values.
 
 .. function:: avg(time interval type) -> time interval type
+    :noindex:
 
     Returns the average interval length of all input values.
 
@@ -127,6 +123,7 @@ General Aggregate Functions
     Returns the number of input rows.
 
 .. function:: count(x) -> bigint
+    :noindex:
 
     Returns the number of non-null input values.
 
@@ -148,6 +145,7 @@ General Aggregate Functions
     Returns the value of ``x`` associated with the maximum value of ``y`` over all input values.
 
 .. function:: max_by(x, y, n) -> array<[same as x]>
+    :noindex:
 
     Returns ``n`` values of ``x`` associated with the ``n`` largest of all input values of ``y``
     in descending order of ``y``.
@@ -157,6 +155,7 @@ General Aggregate Functions
     Returns the value of ``x`` associated with the minimum value of ``y`` over all input values.
 
 .. function:: min_by(x, y, n) -> array<[same as x]>
+    :noindex:
 
     Returns ``n`` values of ``x`` associated with the ``n`` smallest of all input values of ``y``
     in ascending order of ``y``.
@@ -166,6 +165,7 @@ General Aggregate Functions
     Returns the maximum value of all input values.
 
 .. function:: max(x, n) -> array<[same as x]>
+    :noindex:
 
     Returns ``n`` largest values of all input values of ``x``.
 
@@ -174,6 +174,7 @@ General Aggregate Functions
     Returns the minimum value of all input values.
 
 .. function:: min(x, n) -> array<[same as x]>
+    :noindex:
 
     Returns ``n`` smallest values of all input values of ``x``.
 
@@ -228,6 +229,7 @@ Approximate Aggregate Functions
     any specific input set.
 
 .. function:: approx_distinct(x, e) -> bigint
+    :noindex:
 
     Returns the approximate number of distinct input values.
     This function provides an approximation of ``count(DISTINCT x)``.
@@ -246,12 +248,14 @@ Approximate Aggregate Functions
     one and must be constant for all input rows.
 
 .. function:: approx_percentile(x, percentages) -> array<[same as x]>
+    :noindex:
 
     Returns the approximate percentile for all input values of ``x`` at each of
     the specified percentages. Each element of the ``percentages`` array must be
     between zero and one, and the array must be constant for all input rows.
 
 .. function:: approx_percentile(x, w, percentage) -> [same as x]
+    :noindex:
 
     Returns the approximate weighed percentile for all input values of ``x``
     using the per-item weight ``w`` at the percentage ``p``. Weights must be
@@ -260,6 +264,7 @@ Approximate Aggregate Functions
     between zero and one and must be constant for all input rows.
 
 .. function:: approx_percentile(x, w, percentage, accuracy) -> [same as x]
+    :noindex:
 
     Returns the approximate weighed percentile for all input values of ``x``
     using the per-item weight ``w`` at the percentage ``p``, with a maximum rank
@@ -270,6 +275,7 @@ Approximate Aggregate Functions
     and less than one, and it must be constant for all input rows.
 
 .. function:: approx_percentile(x, w, percentages) -> array<[same as x]>
+    :noindex:
 
     Returns the approximate weighed percentile for all input values of ``x``
     using the per-item weight ``w`` at each of the given percentages specified
@@ -322,6 +328,7 @@ Approximate Aggregate Functions
     ``buckets`` must be a ``bigint``. ``value`` and ``weight`` must be numeric.
 
 .. function:: numeric_histogram(buckets, value) -> map<double, double>
+    :noindex:
 
     Computes an approximate histogram with up to ``buckets`` number of buckets
     for all ``value``\ s. This function is equivalent to the variant of

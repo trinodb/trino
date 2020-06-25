@@ -49,20 +49,20 @@ Resource Group Properties
 * ``schedulingPolicy`` (optional): specifies how queued queries are selected to run,
   and how sub-groups become eligible to start their queries. May be one of three values:
 
-    * ``fair`` (default): queued queries are processed first-in-first-out, and sub-groups
-      must take turns starting new queries, if they have any queued.
+  * ``fair`` (default): queued queries are processed first-in-first-out, and sub-groups
+    must take turns starting new queries, if they have any queued.
 
-    * ``weighted_fair``: sub-groups are selected based on their ``schedulingWeight`` and the number of
-      queries they are already running concurrently. The expected share of running queries for a
-      sub-group is computed based on the weights for all currently eligible sub-groups. The sub-group
-      with the least concurrency relative to its share is selected to start the next query.
+  * ``weighted_fair``: sub-groups are selected based on their ``schedulingWeight`` and the number of
+    queries they are already running concurrently. The expected share of running queries for a
+    sub-group is computed based on the weights for all currently eligible sub-groups. The sub-group
+    with the least concurrency relative to its share is selected to start the next query.
 
-    * ``weighted``: queued queries are selected stochastically in proportion to their priority,
-      specified via the ``query_priority`` :doc:`session property </sql/set-session>`. Sub groups are selected
-      to start new queries in proportion to their ``schedulingWeight``.
+  * ``weighted``: queued queries are selected stochastically in proportion to their priority,
+    specified via the ``query_priority`` :doc:`session property </sql/set-session>`. Sub groups are selected
+    to start new queries in proportion to their ``schedulingWeight``.
 
-    * ``query_priority``: all sub-groups must also be configured with ``query_priority``.
-      Queued queries are selected strictly according to their priority.
+  * ``query_priority``: all sub-groups must also be configured with ``query_priority``.
+    Queued queries are selected strictly according to their priority.
 
 * ``schedulingWeight`` (optional): weight of this sub-group. See above.
   Defaults to ``1``.
@@ -82,13 +82,14 @@ Selector Rules
 * ``source`` (optional): regex to match against source string.
 
 * ``queryType`` (optional): string to match against the type of the query submitted:
-    * ``DATA_DEFINITION``: Queries that alter/create/drop the metadata of schemas/tables/views, and that manage
-      prepared statements, privileges, sessions, and transactions.
-    * ``DELETE``: ``DELETE`` queries.
-    * ``DESCRIBE``: ``DESCRIBE``, ``DESCRIBE INPUT``, ``DESCRIBE OUTPUT``, and ``SHOW`` queries.
-    * ``EXPLAIN``: ``EXPLAIN`` queries.
-    * ``INSERT``: ``INSERT`` and ``CREATE TABLE AS`` queries.
-    * ``SELECT``: ``SELECT`` queries.
+
+  * ``DATA_DEFINITION``: Queries that alter/create/drop the metadata of schemas/tables/views, and that manage
+    prepared statements, privileges, sessions, and transactions.
+  * ``DELETE``: ``DELETE`` queries.
+  * ``DESCRIBE``: ``DESCRIBE``, ``DESCRIBE INPUT``, ``DESCRIBE OUTPUT``, and ``SHOW`` queries.
+  * ``EXPLAIN``: ``EXPLAIN`` queries.
+  * ``INSERT``: ``INSERT`` and ``CREATE TABLE AS`` queries.
+  * ``SELECT``: ``SELECT`` queries.
 
 * ``clientTags`` (optional): list of tags. To match, every tag in this list must be in the list of
   client-provided tags associated with the query.
@@ -107,15 +108,15 @@ Providing Selector Properties
 
 The source name can be set as follows:
 
-  * CLI: use the ``--source`` option.
+* CLI: use the ``--source`` option.
 
-  * JDBC: set the ``ApplicationName`` client info property on the ``Connection`` instance.
+* JDBC: set the ``ApplicationName`` client info property on the ``Connection`` instance.
 
 Client tags can be set as follows:
 
-  * CLI: use the ``--client-tags`` option.
+* CLI: use the ``--client-tags`` option.
 
-  * JDBC: set the ``ClientTags`` client info property on the ``Connection`` instance.
+* JDBC: set the ``ClientTags`` client info property on the ``Connection`` instance.
 
 Example
 -------
@@ -128,27 +129,27 @@ query. You may also use custom named variables in the ``source`` and ``user`` re
 
 There are four selectors, that define which queries run in which resource group:
 
-  * The first selector matches queries from ``bob`` and places them in the admin group.
+* The first selector matches queries from ``bob`` and places them in the admin group.
 
-  * The second selector matches queries from ``admin`` user group and places them in the admin group.
+* The second selector matches queries from ``admin`` user group and places them in the admin group.
 
-  * The third selector matches all data definition (DDL) queries from a source name that includes ``pipeline``
-    and places them in the ``global.data_definition`` group. This could help reduce queue times for this
-    class of queries, since they are expected to be fast.
+* The third selector matches all data definition (DDL) queries from a source name that includes ``pipeline``
+  and places them in the ``global.data_definition`` group. This could help reduce queue times for this
+  class of queries, since they are expected to be fast.
 
-  * The fourth selector matches queries from a source name that includes ``pipeline``, and places them in a
-    dynamically-created per-user pipeline group under the ``global.pipeline`` group.
+* The fourth selector matches queries from a source name that includes ``pipeline``, and places them in a
+  dynamically-created per-user pipeline group under the ``global.pipeline`` group.
 
-  * The fifth selector matches queries that come from BI tools which have a source matching the regular
-    expression ``jdbc#(?<toolname>.*)``, and have client provided tags that are a superset of ``hi-pri``.
-    These are placed in a dynamically-created sub-group under the ``global.pipeline.tools`` group. The dynamic
-    sub-group are created based on the named variable ``toolname``, which is extracted from the in the
-    regular expression for source. Consider a query with a source ``jdbc#powerfulbi``, user ``kayla``, and
-    client tags ``hipri`` and ``fast``. This query is routed to the ``global.pipeline.bi-powerfulbi.kayla``
-    resource group.
+* The fifth selector matches queries that come from BI tools which have a source matching the regular
+  expression ``jdbc#(?<toolname>.*)``, and have client provided tags that are a superset of ``hi-pri``.
+  These are placed in a dynamically-created sub-group under the ``global.pipeline.tools`` group. The dynamic
+  sub-group are created based on the named variable ``toolname``, which is extracted from the in the
+  regular expression for source. Consider a query with a source ``jdbc#powerfulbi``, user ``kayla``, and
+  client tags ``hipri`` and ``fast``. This query is routed to the ``global.pipeline.bi-powerfulbi.kayla``
+  resource group.
 
-  * The last selector is a catch-all, which places all queries that have not yet been matched into a per-user
-    adhoc group.
+* The last selector is a catch-all, which places all queries that have not yet been matched into a per-user
+  adhoc group.
 
 Together, these selectors implement the following policy:
 
@@ -170,7 +171,6 @@ For the remaining users:
   results in fairness when under contention.
 
 * All remaining queries are placed into a per-user group under ``global.adhoc.other`` that behaves similarly.
-
 
 .. literalinclude:: resource-groups-example.json
     :language: json

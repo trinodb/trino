@@ -30,17 +30,17 @@ Available Statistics
 
 The following statistics are available in Presto:
 
- * For a table:
+* For a table:
 
-   * **row count**: the total number of rows in the table layout
+  * **row count**: the total number of rows in the table layout
 
- * For each column in a table:
+* For each column in a table:
 
-   * **data size**: the size of the data that needs to be read
-   * **nulls fraction**: the fraction of null values
-   * **distinct value count**: the number of distinct values
-   * **low value**: the smallest value in the column
-   * **high value**: the largest value in the column
+  * **data size**: the size of the data that needs to be read
+  * **nulls fraction**: the fraction of null values
+  * **distinct value count**: the number of distinct values
+  * **low value**: the smallest value in the column
+  * **high value**: the largest value in the column
 
 The set of statistics available for a particular query depends on the connector
 being used and can also vary by table or even by table layout. For example, the

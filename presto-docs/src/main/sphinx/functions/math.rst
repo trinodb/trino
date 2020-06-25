@@ -93,6 +93,7 @@ Mathematical Functions
     Returns ``x`` rounded to the nearest integer.
 
 .. function:: round(x, d) -> [same as input]
+    :noindex:
 
     Returns ``x`` rounded to ``d`` decimal places.
 
@@ -124,6 +125,7 @@ Mathematical Functions
     specified ``bound1`` and ``bound2`` bounds and ``n`` number of buckets.
 
 .. function:: width_bucket(x, bins) -> bigint
+    :noindex:
 
     Returns the bin number of ``x`` according to the bins specified by the
     array ``bins``. The ``bins`` parameter must be an array of doubles and is
@@ -141,10 +143,12 @@ Random Functions
     Returns a pseudo-random value in the range 0.0 <= x < 1.0.
 
 .. function:: random(n) -> [same as input]
+    :noindex:
 
     Returns a pseudo-random number between 0 and n (exclusive).
 
 .. function:: random(m, n) -> [same as input]
+    :noindex:
 
     Returns a pseudo-random number between m and n (exclusive).
 

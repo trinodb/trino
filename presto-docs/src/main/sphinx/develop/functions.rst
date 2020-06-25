@@ -49,7 +49,8 @@ types. Below is a sample function which implements ``is_null``:
         @ScalarFunction("is_null")
         @Description("Returns TRUE if the argument is NULL")
         @SqlType(StandardTypes.BOOLEAN)
-        public static boolean isNull(@SqlNullable @SqlType(StandardTypes.VARCHAR) Slice string)
+        public static boolean isNull(
+                @SqlNullable @SqlType(StandardTypes.VARCHAR) Slice string)
         {
             return (string == null);
         }
@@ -130,7 +131,10 @@ To make our previous example work with any type we need the following:
         @TypeParameter("T")
         @SqlType(StandardTypes.BOOLEAN)
         public static boolean isEqualOrNullSlice(
-                @OperatorDependency(operator = OperatorType.EQUAL, returnType = StandardTypes.BOOLEAN, argumentTypes = {"T", "T"}) MethodHandle equals,
+                @OperatorDependency(
+                        operator = OperatorType.EQUAL,
+                        returnType = StandardTypes.BOOLEAN,
+                        argumentTypes = {"T", "T"}) MethodHandle equals,
                 @SqlNullable @SqlType("T") Slice value1,
                 @SqlNullable @SqlType("T") Slice value2)
         {
@@ -166,7 +170,6 @@ The ``lowercaser`` function takes a single ``VARCHAR`` argument and returns a
         }
     }
 
-
 Note that for most common string functions, including converting a string to
 lower case, the Slice library also provides implementations that work directly
 on the underlying ``byte[]``, which have much better performance. This function
@@ -198,14 +201,18 @@ average of a ``DOUBLE`` column:
     public class AverageAggregation
     {
         @InputFunction
-        public static void input(LongAndDoubleState state, @SqlType(StandardTypes.DOUBLE) double value)
+        public static void input(
+                LongAndDoubleState state,
+                @SqlType(StandardTypes.DOUBLE) double value)
         {
             state.setLong(state.getLong() + 1);
             state.setDouble(state.getDouble() + value);
         }
 
         @CombineFunction
-        public static void combine(LongAndDoubleState state, LongAndDoubleState otherState)
+        public static void combine(
+                LongAndDoubleState state,
+                LongAndDoubleState otherState)
         {
             state.setLong(state.getLong() + otherState.getLong());
             state.setDouble(state.getDouble() + otherState.getDouble());

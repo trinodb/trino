@@ -2,7 +2,7 @@
 Hive Connector with Azure Storage
 =================================
 
-The :doc:`Hive connector </connector/hive>` can be configured to query
+The :doc:`hive` can be configured to query
 Azure Standard Blob Storage and Azure Data Lake Storage Gen2 (ABFS). Azure Blobs
 are accessed via the Windows Azure Storage Blob (WASB). This layer is built on
 top of the HDFS APIs and is what allows for the separation of storage from the
@@ -11,11 +11,6 @@ cluster.
 Presto supports both ADLS Gen1 and Gen2. With ADLS Gen2 now generally available,
 we recommend using ADLS Gen2. Learn more from `the official documentation
 <https://docs.microsoft.com/en-us/azure/data-lake-store/data-lake-store-overview>`_.
-
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
 
 Hive Connector Configuration
 ----------------------------

@@ -4,11 +4,6 @@ Date and Time Functions and Operators
 
 These functions and operators operate on :ref:`date and time data types <date-time-data-types>`.
 
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
-
 Date and Time Operators
 -----------------------
 
@@ -59,6 +54,7 @@ Date and Time Functions
     with ``3`` digits of subsecond precision,
 
 .. data:: current_timestamp(p)
+    :noindex:
 
     Returns the current :ref:`timestamp with time zone
     <timestamp-with-time-zone-data-type>` as of the start of the query, with
@@ -126,12 +122,14 @@ Date and Time Functions
     number of seconds since ``1970-01-01 00:00:00 UTC``.
 
 .. function:: from_unixtime(unixtime, zone) -> timestamp(3) with time zone
+    :noindex:
 
     Returns the UNIX timestamp ``unixtime`` as a timestamp with time zone
     using ``zone`` for the time zone. ``unixtime`` is the number of seconds
     since ``1970-01-01 00:00:00 UTC``.
 
 .. function:: from_unixtime(unixtime, hours, minutes) -> timestamp(3) with time zone
+    :noindex:
 
     Returns the UNIX timestamp ``unixtime`` as a timestamp with time zone
     using ``hours`` and ``minutes`` for the time zone offset. ``unixtime`` is
@@ -147,6 +145,7 @@ Date and Time Functions
     digits of subsecond precision.
 
 .. data:: localtimestamp(p)
+    :noindex:
 
     Returns the current :ref:`timestamp <timestamp-data-type>` as of the start
     of the query, with ``p`` digits of subsecond precision::

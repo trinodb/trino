@@ -2,11 +2,6 @@
 Presto Concepts
 ===============
 
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
-
 Overview
 --------
 
