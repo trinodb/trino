@@ -456,10 +456,10 @@ public class PostgreSqlClient
     }
 
     @Override
-    public Optional<JdbcExpression> implementAggregation(AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
         // TODO support complex ConnectorExpressions
-        return aggregateFunctionRewriter.rewrite(aggregate, assignments);
+        return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
     }
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
