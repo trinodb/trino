@@ -14,7 +14,7 @@ suite_exit_code=0
 
 TESTS_HIVE_VERSION_MAJOR="3" TESTS_HIVE_VERSION_MINOR="1" presto-product-tests-launcher/bin/run-launcher test run \
    --environment singlenode-hdp3 \
-    -- -g hdp3_only,storage_formats,hive_transactional \
+    -- -g hdp3_only,hive_transactional \
     || suite_exit_code=1
 
 echo "$0: exiting with ${suite_exit_code}"
