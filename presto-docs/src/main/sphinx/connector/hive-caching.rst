@@ -9,11 +9,6 @@ storage, by multiple workers and processed on these workers. Repeated queries
 with different parameters, or even different queries from different users, often
 access, and therefore transfer, the same objects.
 
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
-
 Benefits
 --------
 
@@ -164,8 +159,8 @@ The following object storage systems are tested:
 
 * HDFS
 * HDFS secured by Kerberos access
-* :ref:`Amazon S3 and S3-compatible systems <hive-s3>`
-* :doc:`Azure storage systems </connector/hive-azure>`
+* :doc:`Amazon S3 and S3-compatible systems <hive-s3>`
+* :doc:`Azure storage systems <hive-azure>`
 * Google Cloud Storage
 
 Metrics

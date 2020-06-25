@@ -218,6 +218,7 @@ Accessors
     geometries.
 
 .. function:: ST_Area(SphericalGeography) -> double
+    :noindex:
 
     Returns the area of a polygon or multi-polygon in square meters using a spherical model for Earth.
 
@@ -239,6 +240,7 @@ Accessors
     less than or equal to the coordinate dimension.
 
 .. function:: ST_Distance(Geometry, Geometry) -> double
+    :noindex:
 
     Returns the 2-dimensional cartesian minimum distance (based on spatial ref)
     between two geometries in projected units.
@@ -296,6 +298,7 @@ Accessors
     two dimensional plane (based on spatial ref) in projected units.
 
 .. function:: ST_Length(SphericalGeography) -> double
+    :noindex:
 
     Returns the length of a linestring or multi-linestring on a spherical model of the Earth.
     This is equivalent to the sum of great-circle distances between adjacent points on the linestring.
@@ -426,6 +429,7 @@ These functions convert between geometries and
     Zoom levels from 1 to 23 are supported.
 
 .. function:: bing_tile(quadKey) -> BingTile
+    :noindex:
 
     Creates a Bing tile object from a quadkey.
 
@@ -441,6 +445,7 @@ These functions convert between geometries and
     by the latitude and longitude arguments at a given zoom level.
 
 .. function:: bing_tiles_around(latitude, longitude, zoom_level, radius_in_km) -> array(BingTile)
+    :noindex:
 
     Returns a minimum set of Bing tiles at specified zoom level that cover a circle of specified
     radius in km around a specified (latitude, longitude) point.

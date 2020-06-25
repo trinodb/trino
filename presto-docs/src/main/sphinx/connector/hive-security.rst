@@ -1,16 +1,11 @@
-===========================
-Hive Security Configuration
-===========================
-
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
+=====================================
+Hive Connector Security Configuration
+=====================================
 
 Authorization
 =============
 
-You can enable authorization checks for the :doc:`/connector/hive` by setting
+You can enable authorization checks for the :doc:`hive` by setting
 the ``hive.security`` property in the Hive catalog properties file. This
 property must be one of the following values:
 
