@@ -22,7 +22,7 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.ShortTimestampType;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import org.apache.parquet.column.ColumnDescriptor;
@@ -65,6 +65,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
@@ -328,7 +329,7 @@ public class TestTupleDomainParquetPredicate
     {
         Instant baseTime = Instant.ofEpochMilli(1592935098L);
         String column = "timestampColumn";
-        ShortTimestampType timestampType = new ShortTimestampType(3);
+        TimestampType timestampType = createTimestampType(3);
         assertEquals(getDomain(timestampType, 0, null, ID, column, true), all(timestampType));
         assertEquals(getDomain(timestampType, 10, timestampColumnStats(baseTime, baseTime), ID, column, true), singleValue(timestampType, baseTime.toEpochMilli()));
         assertEquals(
