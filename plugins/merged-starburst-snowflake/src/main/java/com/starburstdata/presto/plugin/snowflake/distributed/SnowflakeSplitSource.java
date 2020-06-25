@@ -375,7 +375,7 @@ public class SnowflakeSplitSource
 
     private static Function<String, String> tryApplyLimit(OptionalLong limit)
     {
-        if (!limit.isPresent()) {
+        if (limit.isEmpty()) {
             return Function.identity();
         }
 

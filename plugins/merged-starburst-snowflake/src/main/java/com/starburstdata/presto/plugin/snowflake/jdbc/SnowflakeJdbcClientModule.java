@@ -258,7 +258,7 @@ public class SnowflakeJdbcClientModule
             @Override
             protected void setup(Binder binder)
             {
-                checkState(!buildConfigObject(SnowflakeConfig.class).getRole().isPresent(), "Snowflake role should not be set when impersonation is enabled");
+                checkState(buildConfigObject(SnowflakeConfig.class).getRole().isEmpty(), "Snowflake role should not be set when impersonation is enabled");
                 install(new AuthToLocalModule(catalogName));
             }
 

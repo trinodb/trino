@@ -147,7 +147,7 @@ class SnowflakePageSourceProvider
                 parquetReaderConfig.toParquetReaderOptions()
                         .withMaxReadBlockSize(getParquetMaxReadBlockSize(session)));
 
-        verify(!pageSource.getProjectedReaderColumns().isPresent(), "All columns expected to be base columns");
+        verify(pageSource.getProjectedReaderColumns().isEmpty(), "All columns expected to be base columns");
 
         return new TranslatingPageSource(pageSource.getConnectorPageSource(), hiveColumns, session);
     }
