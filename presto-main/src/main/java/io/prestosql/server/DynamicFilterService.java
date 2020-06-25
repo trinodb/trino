@@ -117,6 +117,18 @@ public class DynamicFilterService
         queryDynamicFilters.remove(queryId);
     }
 
+    public Supplier<TupleDomain<ColumnHandle>> createDynamicFilterSupplier(QueryId queryId, List<DynamicFilters.Descriptor> dynamicFilters, Map<Symbol, ColumnHandle> columnHandles)
+    {
+        Map<DynamicFilterId, ColumnHandle> sourceColumnHandles = extractSourceColumnHandles(dynamicFilters, columnHandles);
+
+        return () -> dynamicFilters.stream()
+                .map(filter -> getSummary(queryId, filter.getId())
+                        .map(summary -> translateSummaryToTupleDomain(filter.getId(), summary, sourceColumnHandles)))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .reduce(TupleDomain.all(), TupleDomain::intersect);
+    }
+
     @VisibleForTesting
     void collectDynamicFilters()
     {
@@ -146,18 +158,6 @@ public class DynamicFilterService
                 addDynamicFilters(queryId, newDynamicFilters);
             }
         }
-    }
-
-    public Supplier<TupleDomain<ColumnHandle>> createDynamicFilterSupplier(QueryId queryId, List<DynamicFilters.Descriptor> dynamicFilters, Map<Symbol, ColumnHandle> columnHandles)
-    {
-        Map<DynamicFilterId, ColumnHandle> sourceColumnHandles = extractSourceColumnHandles(dynamicFilters, columnHandles);
-
-        return () -> dynamicFilters.stream()
-                .map(filter -> getSummary(queryId, filter.getId())
-                        .map(summary -> translateSummaryToTupleDomain(filter.getId(), summary, sourceColumnHandles)))
-                .filter(Optional::isPresent)
-                .map(Optional::get)
-                .reduce(TupleDomain.all(), TupleDomain::intersect);
     }
 
     @VisibleForTesting
