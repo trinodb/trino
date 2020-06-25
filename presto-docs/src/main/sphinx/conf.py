@@ -64,7 +64,7 @@ needs_sphinx = '1.1'
 
 extensions = ['backquote', 'download', 'issue', 'sitemap']
 
-templates_path = ['_templates']
+templates_path = ['templates']
 
 source_suffix = '.rst'
 
@@ -75,9 +75,7 @@ project = u'Presto'
 version = get_version()
 release = version
 
-exclude_patterns = ['_build', 'rest*']
-
-pygments_style = 'sphinx'
+exclude_patterns = ['_build']
 
 highlight_language = 'sql'
 
@@ -89,11 +87,17 @@ rst_epilog = """
 
 # -- Options for HTML output ---------------------------------------------------
 
-html_theme_path = ['./themes']
+html_theme_path = ['themes']
 html_theme = 'presto'
 
 html_title = '%s %s Documentation' % (project, release)
 
+html_logo = 'images/presto.svg'
+
 html_add_permalinks = '#'
 html_show_copyright = False
 html_show_sphinx = False
+
+html_sidebars = {
+    "**": ['logo-text.html', 'globaltoc.html', 'localtoc.html', 'searchbox.html']
+}

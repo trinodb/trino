@@ -27,10 +27,10 @@ General Changes
   and ``sql.default-schema`` configuration properties. (:issue:`1524`)
 * Add support for ``IGNORE NULLS`` for window functions. (:issue:`1244`)
 * Add support for ``INNER`` and ``OUTER`` joins involving ``UNNEST``. (:issue:`1522`)
-* Rename ``legacy`` and ``flat`` :ref:`scheduler policies <node-scheduler-properties>` to
+* Rename ``legacy`` and ``flat`` :doc:`scheduler policies </admin/properties-node-scheduler>` to
   ``uniform`` and ``topology`` respectively.  These can be configured via the ``node-scheduler.policy``
   configuration property. (:issue:`10491`)
-* Add ``file`` :ref:`network topology provider <node-scheduler-properties>` which can be configured
+* Add ``file`` :doc:`network topology provider </admin/properties-node-scheduler>` which can be configured
   via the ``node-scheduler.network-topology.type`` configuration property. (:issue:`1500`)
 * Add support for ``SphericalGeography`` to :func:`ST_Length`. (:issue:`1551`)
 

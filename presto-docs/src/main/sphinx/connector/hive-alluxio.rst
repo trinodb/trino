@@ -2,7 +2,7 @@
 Hive Connector with Alluxio
 ===========================
 
-Presto can read and write tables stored in the `Alluxio Data Orchestration
+The :doc:`hive` can read and write tables stored in the `Alluxio Data Orchestration
 System <https://www.alluxio.io/?utm_source=prestosql&utm_medium=prestodocs>`_,
 leveraging Alluxio's distributed block-level read/write caching functionality.
 The tables must be created in the Hive metastore with the ``alluxio://``

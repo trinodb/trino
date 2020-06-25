@@ -28,12 +28,12 @@ TIMESTAMP semantic changes
 Previously, the ``TIMESTAMP`` type described an instance in time in the Presto session's time zone.
 Now, Presto treats ``TIMESTAMP`` values as a set of the following fields representing wall time:
 
- * ``YEAR OF ERA``
- * ``MONTH OF YEAR``
- * ``DAY OF MONTH``
- * ``HOUR OF DAY``
- * ``MINUTE OF HOUR``
- * ``SECOND OF MINUTE``
+* ``YEAR OF ERA``
+* ``MONTH OF YEAR``
+* ``DAY OF MONTH``
+* ``HOUR OF DAY``
+* ``MINUTE OF HOUR``
+* ``SECOND OF MINUTE``
 
 For that reason, a ``TIMESTAMP`` value is not linked with the session time zone in any way until
 a time zone is needed explicitly, such as when casting to a ``TIMESTAMP WITH TIME ZONE`` or
@@ -55,6 +55,6 @@ TIME ZONE``, Presto uses the session's start date and time.
 This can be seen in queries using ``TIME WITH TIME ZONE`` in a time zone that has had time zone policy
 changes or uses DST. For example, with a session start time of 2017-03-01:
 
- * Query: ``SELECT TIME '10:00:00 Asia/Kathmandu' AT TIME ZONE 'UTC'``
- * Legacy result: ``04:30:00.000 UTC``
- * New result: ``04:15:00.000 UTC``
+* Query: ``SELECT TIME '10:00:00 Asia/Kathmandu' AT TIME ZONE 'UTC'``
+* Legacy result: ``04:30:00.000 UTC``
+* New result: ``04:15:00.000 UTC``
