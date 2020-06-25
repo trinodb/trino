@@ -45,6 +45,11 @@ public class TestFileSystemCache
 
         FileSystem fs4 = getFileSystem(environment, "other_user");
         assertSame(fs3, fs4);
+
+        FileSystem.closeAll();
+
+        FileSystem fs5 = getFileSystem(environment, "user");
+        assertNotSame(fs5, fs1);
     }
 
     private FileSystem getFileSystem(HdfsEnvironment environment, String user)
