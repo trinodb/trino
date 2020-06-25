@@ -17,6 +17,8 @@ from different data sources.
     connector/hive
     connector/hive-gcs-tutorial
     connector/hive-security
+    connector/hive-caching
+    connector/hive-azure
     connector/jmx
     connector/kafka
     connector/kafka-tutorial
