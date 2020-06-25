@@ -15,7 +15,6 @@ package io.prestosql.tests.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Sets;
 import io.airlift.units.Duration;
 import io.prestosql.tempto.query.QueryResult;
 import io.prestosql.tests.hive.util.TemporaryHiveTable;
@@ -26,9 +25,11 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
@@ -45,9 +46,7 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toUnmodifiableList;
-import static java.util.stream.Collectors.toUnmodifiableSet;
-import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.assertEquals;
 
 public class TestHiveTransactionalTable
         extends HiveProductTest
@@ -185,26 +184,18 @@ public class TestHiveTransactionalTable
 
     private static void compactTableAndWait(CompactionMode compactMode, String tableName, String partitionString, Duration timeout)
     {
-        Set<String> existingCompactionsIds = getTableCompactions(compactMode, tableName)
-                .map(row -> row.get("compactionid"))
-                .collect(toUnmodifiableSet());
+        assertEquals(getTableCompactions(compactMode, tableName).count(), 0);
+        onHive().executeQuery(format("ALTER TABLE %s %s COMPACT '%s'", tableName, partitionString, compactMode.name())).getRowsCount();
 
-        onHive().executeQuery(format("ALTER TABLE %s %s COMPACT '%s'", tableName, partitionString, compactMode.name()));
-
-        Set<String> tableCompactionsIds = Sets.difference(getTableCompactions(compactMode, tableName)
-                .map(row -> row.get("compactionid"))
-                .collect(toUnmodifiableSet()),
-                existingCompactionsIds);
-
-        assertFalse(tableCompactionsIds.isEmpty(), "tableCompactionsIds are empty");
-
+        // Since we disabled table auto compaction and we checked that there are no compaction to the table
+        // we can assume that every compaction from now on is triggered in this test
+        // and all compaction should complete successfully before proceeding.
         assertEventually(timeout, () -> {
-            Set<String> completedCompactionsIds = getTableCompactions(compactMode, tableName)
-                    .filter(row -> row.get("state").equals("succeeded"))
-                    .map(row -> row.get("compactionid"))
-                    .collect(toUnmodifiableSet());
+            Map<String, String> compaction = getOnlyElement(getTableCompactions(compactMode, tableName)
+                    .collect(toImmutableList()));
 
-            assertTrue(completedCompactionsIds.containsAll(tableCompactionsIds));
+            verify(!compaction.get("state").equals("failed"), "compaction has failed");
+            assertEquals(compaction.get("state"), "succeeded");
         });
     }
 
