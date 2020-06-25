@@ -79,7 +79,7 @@ public class TestHiveTransactionalTable
 
             // test minor compacted data read
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (20, 3)");
-            compactTableAndWait(MINOR, tableName, hivePartitionString, Duration.valueOf("60s"));
+            compactTableAndWait(MINOR, tableName, hivePartitionString, Duration.valueOf("5m"));
             assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(20, 3), row(21, 1), row(22, 2));
 
             // delete a row
