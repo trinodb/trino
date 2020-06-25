@@ -15,10 +15,13 @@ package io.prestosql.plugin.kafka;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.slice.Slice;
 import io.prestosql.decoder.dummy.DummyRowDecoder;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
+import io.prestosql.spi.connector.ConnectorInsertTableHandle;
 import io.prestosql.spi.connector.ConnectorMetadata;
+import io.prestosql.spi.connector.ConnectorOutputMetadata;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
@@ -26,9 +29,11 @@ import io.prestosql.spi.connector.ConnectorTableProperties;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.statistics.ComputedStatistics;
 
 import javax.inject.Inject;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -82,7 +87,10 @@ public class KafkaMetadata
                         getDataFormat(kafkaTopicDescription.getKey()),
                         getDataFormat(kafkaTopicDescription.getMessage()),
                         kafkaTopicDescription.getKey().flatMap(KafkaTopicFieldGroup::getDataSchema),
-                        kafkaTopicDescription.getMessage().flatMap(KafkaTopicFieldGroup::getDataSchema)))
+                        kafkaTopicDescription.getMessage().flatMap(KafkaTopicFieldGroup::getDataSchema),
+                        getColumnHandles(schemaTableName).values().stream()
+                                .map(columnHandle -> (KafkaColumnHandle) columnHandle)
+                                .collect(toImmutableList())))
                 .orElse(null);
     }
 
@@ -107,13 +115,16 @@ public class KafkaMetadata
                 .collect(toImmutableList());
     }
 
-    @SuppressWarnings("ValueOfIncrementOrDecrementUsed")
     @Override
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         KafkaTableHandle kafkaTableHandle = convertTableHandle(tableHandle);
+        return getColumnHandles(kafkaTableHandle.toSchemaTableName());
+    }
 
-        SchemaTableName schemaTableName = kafkaTableHandle.toSchemaTableName();
+    @SuppressWarnings("ValueOfIncrementOrDecrementUsed")
+    private Map<String, ColumnHandle> getColumnHandles(SchemaTableName schemaTableName)
+    {
         KafkaTopicDescription kafkaTopicDescription = getRequiredTopicDescription(schemaTableName);
 
         ImmutableMap.Builder<String, ColumnHandle> columnHandles = ImmutableMap.builder();
@@ -234,5 +245,29 @@ public class KafkaMetadata
                 .filter(Optional::isPresent)
                 .map(Optional::get)
                 .findFirst();
+    }
+
+    @Override
+    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns)
+    {
+        KafkaTableHandle table = (KafkaTableHandle) tableHandle;
+
+        return new KafkaTableHandle(
+                table.getSchemaName(),
+                table.getTableName(),
+                table.getTopicName(),
+                table.getKeyDataFormat(),
+                table.getMessageDataFormat(),
+                table.getKeyDataSchemaLocation(),
+                table.getMessageDataSchemaLocation(),
+                columns.stream()
+                        .map(KafkaColumnHandle.class::cast)
+                        .collect(toImmutableList()));
+    }
+
+    @Override
+    public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
+    {
+        return Optional.empty();
     }
 }

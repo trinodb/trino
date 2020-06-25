@@ -1,0 +1,42 @@
+{
+    "tableName": "all_datatypes_avro",
+    "schemaName": "write_test",
+    "topicName": "all_datatypes_avro",
+    "key": {
+        "dataFormat": "raw",
+        "fields": [
+            {
+                "name": "kafka_key",
+                "dataFormat": "LONG",
+                "type": "BIGINT",
+                "hidden": "true"
+            }
+        ]
+    },
+    "message": {
+        "dataFormat": "avro",
+        "dataSchema": "/write_test/all_datatypes_avro_schema.avsc",
+        "fields": [
+            {
+            "name": "f_bigint",
+            "type": "BIGINT",
+            "mapping": "f_bigint"
+            },
+            {
+            "name": "f_double",
+            "type": "DOUBLE",
+            "mapping": "f_double"
+            },
+            {
+            "name": "f_boolean",
+            "type": "BOOLEAN",
+            "mapping": "f_boolean"
+            },
+            {
+            "name": "f_varchar",
+            "type": "VARCHAR",
+            "mapping": "f_varchar"
+            }
+        ]
+    }
+}

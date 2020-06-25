@@ -16,6 +16,7 @@ package io.prestosql.plugin.kafka;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.decoder.DecoderColumnHandle;
+import io.prestosql.plugin.kafka.encoder.EncoderColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.type.Type;
 
@@ -25,7 +26,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public final class KafkaColumnHandle
-        implements DecoderColumnHandle, Comparable<KafkaColumnHandle>
+        implements EncoderColumnHandle, DecoderColumnHandle, Comparable<KafkaColumnHandle>
 {
     private final int ordinalPosition;
 
@@ -92,12 +93,6 @@ public final class KafkaColumnHandle
         this.internal = internal;
     }
 
-    @JsonProperty
-    public int getOrdinalPosition()
-    {
-        return ordinalPosition;
-    }
-
     @Override
     @JsonProperty
     public String getName()
@@ -150,6 +145,13 @@ public final class KafkaColumnHandle
     public boolean isInternal()
     {
         return internal;
+    }
+
+    @Override
+    @JsonProperty
+    public int getOrdinalPosition()
+    {
+        return ordinalPosition;
     }
 
     ColumnMetadata getColumnMetadata()
