@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
 import io.airlift.units.Duration;
 import io.prestosql.tempto.query.QueryResult;
+import io.prestosql.tests.hive.util.TemporaryHiveTable;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -38,6 +39,7 @@ import static io.prestosql.tests.hive.TestHiveTransactionalTable.CompactionMode.
 import static io.prestosql.tests.hive.TestHiveTransactionalTable.CompactionMode.MINOR;
 import static io.prestosql.tests.hive.TransactionalTableType.ACID;
 import static io.prestosql.tests.hive.TransactionalTableType.INSERT_ONLY;
+import static io.prestosql.tests.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -57,14 +59,14 @@ public class TestHiveTransactionalTable
             throw new SkipException("Presto Hive transactional tables are supported with Hive version 3 or above");
         }
 
-        String tableName = "test_full_acid_table_read";
-        onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
-        onHive().executeQuery("CREATE TABLE " + tableName + " (col INT, fcol INT) " +
-                (isPartitioned ? "PARTITIONED BY (part_col INT) " : "") +
-                bucketingType.getHiveClustering("fcol", 4) + " " +
-                "STORED AS ORC " +
-                hiveTableProperties(ACID, bucketingType));
-        try {
+        try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable(tableName("read_full_acid", isPartitioned, bucketingType))) {
+            String tableName = table.getName();
+            onHive().executeQuery("CREATE TABLE " + tableName + " (col INT, fcol INT) " +
+                    (isPartitioned ? "PARTITIONED BY (part_col INT) " : "") +
+                    bucketingType.getHiveClustering("fcol", 4) + " " +
+                    "STORED AS ORC " +
+                    hiveTableProperties(ACID, bucketingType));
+
             String hivePartitionString = isPartitioned ? " PARTITION (part_col=2) " : "";
             onHive().executeQuery("INSERT OVERWRITE TABLE " + tableName + hivePartitionString + " VALUES (21, 1)");
 
@@ -95,9 +97,6 @@ public class TestHiveTransactionalTable
             compactTableAndWait(MAJOR, tableName, hivePartitionString, Duration.valueOf("5m"));
             assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(20, 3), row(23, 1));
         }
-        finally {
-            onHive().executeQuery("DROP TABLE " + tableName);
-        }
     }
 
     @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = 5 * 60 * 1000)
@@ -107,14 +106,15 @@ public class TestHiveTransactionalTable
             throw new SkipException("Presto Hive transactional tables are supported with Hive version 3 or above");
         }
 
-        String tableName = "test_insert_only_table_read";
-        onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
-        onHive().executeQuery("CREATE TABLE " + tableName + " (col INT) " +
-                (isPartitioned ? "PARTITIONED BY (part_col INT) " : "") +
-                bucketingType.getHiveClustering("col", 4) + " " +
-                "STORED AS ORC " +
-                hiveTableProperties(INSERT_ONLY, bucketingType));
-        try {
+        try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable(tableName("insert_only", isPartitioned, bucketingType))) {
+            String tableName = table.getName();
+
+            onHive().executeQuery("CREATE TABLE " + tableName + " (col INT) " +
+                    (isPartitioned ? "PARTITIONED BY (part_col INT) " : "") +
+                    bucketingType.getHiveClustering("col", 4) + " " +
+                    "STORED AS ORC " +
+                    hiveTableProperties(INSERT_ONLY, bucketingType));
+
             String hivePartitionString = isPartitioned ? " PARTITION (part_col=2) " : "";
             String predicate = isPartitioned ? " WHERE part_col = 2 " : "";
 
@@ -142,9 +142,6 @@ public class TestHiveTransactionalTable
                 assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(3), row(4));
             }
         }
-        finally {
-            onHive().executeQuery("DROP TABLE " + tableName);
-        }
     }
 
     @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL})
@@ -154,18 +151,16 @@ public class TestHiveTransactionalTable
             throw new SkipException("This tests behavior of ACID table before Hive 3 ");
         }
 
-        String tableName = "test_fail_acid_before_hive_3";
-        onHive().executeQuery("" +
-                "CREATE TABLE " + tableName + "(a bigint) " +
-                "CLUSTERED BY(a) INTO 4 BUCKETS " +
-                "STORED AS ORC " +
-                "TBLPROPERTIES ('transactional'='true')");
-        try {
+        try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable("test_fail_acid_before_hive3_" + randomTableSuffix())) {
+            String tableName = table.getName();
+            onHive().executeQuery("" +
+                    "CREATE TABLE " + tableName + "(a bigint) " +
+                    "CLUSTERED BY(a) INTO 4 BUCKETS " +
+                    "STORED AS ORC " +
+                    "TBLPROPERTIES ('transactional'='true')");
+
             assertThat(() -> query("SELECT * FROM " + tableName))
                     .failsWithMessage("Failed to open transaction. Transactional tables support requires Hive metastore version at least 3.0");
-        }
-        finally {
-            onHive().executeQuery("DROP TABLE " + tableName);
         }
     }
 
@@ -243,6 +238,11 @@ public class TestHiveTransactionalTable
         }
 
         return rows.build().stream();
+    }
+
+    private static String tableName(String testName, boolean isPartitioned, BucketingType bucketingType)
+    {
+        return format("test_%s_%b_%s_%s", testName, isPartitioned, bucketingType.name(), randomTableSuffix());
     }
 
     private static boolean isCompactionForTable(CompactionMode compactMode, String tableName, Map<String, String> row)
