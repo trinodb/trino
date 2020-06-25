@@ -18,6 +18,7 @@ import io.prestosql.matching.Pattern;
 import io.prestosql.plugin.jdbc.JdbcExpression;
 import io.prestosql.spi.connector.AggregateFunction;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorSession;
 
 import java.util.Map;
 import java.util.Optional;
@@ -34,5 +35,7 @@ public interface AggregateFunctionRule
         Map<String, ColumnHandle> getAssignments();
 
         Function<String, String> getIdentifierQuote();
+
+        ConnectorSession getSession();
     }
 }

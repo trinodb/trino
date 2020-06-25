@@ -211,7 +211,7 @@ public class JdbcMetadata
         ImmutableList.Builder<ConnectorExpression> projections = ImmutableList.builder();
         ImmutableList.Builder<Assignment> resultAssignments = ImmutableList.builder();
         for (AggregateFunction aggregate : aggregates) {
-            Optional<JdbcExpression> expression = jdbcClient.implementAggregation(aggregate, assignments);
+            Optional<JdbcExpression> expression = jdbcClient.implementAggregation(session, aggregate, assignments);
             if (expression.isEmpty()) {
                 return Optional.empty();
             }

@@ -119,9 +119,9 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
-    public Optional<JdbcExpression> implementAggregation(AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
-        return stats.getImplementAggregation().wrap(() -> delegate().implementAggregation(aggregate, assignments));
+        return stats.getImplementAggregation().wrap(() -> delegate().implementAggregation(session, aggregate, assignments));
     }
 
     @Override

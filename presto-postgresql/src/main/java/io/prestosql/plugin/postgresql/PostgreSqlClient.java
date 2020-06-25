@@ -200,7 +200,7 @@ public class PostgreSqlClient
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
                         .add(new ImplementMinMax())
-                        .add(new ImplementSum(PostgreSqlClient::toTypeHandle))
+                        .add(new ImplementSum((decimalType, session) -> toTypeHandle(decimalType)))
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgDecimal())
                         .add(new ImplementAvgBigint())
@@ -456,10 +456,10 @@ public class PostgreSqlClient
     }
 
     @Override
-    public Optional<JdbcExpression> implementAggregation(AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
         // TODO support complex ConnectorExpressions
-        return aggregateFunctionRewriter.rewrite(aggregate, assignments);
+        return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
     }
 
     private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)

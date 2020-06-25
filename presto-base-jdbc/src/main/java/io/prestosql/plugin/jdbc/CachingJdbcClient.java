@@ -135,9 +135,9 @@ public final class CachingJdbcClient
     }
 
     @Override
-    public Optional<JdbcExpression> implementAggregation(AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
-        return delegate.implementAggregation(aggregate, assignments);
+        return delegate.implementAggregation(session, aggregate, assignments);
     }
 
     @Override

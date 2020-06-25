@@ -57,7 +57,7 @@ public interface JdbcClient
         return true;
     }
 
-    default Optional<JdbcExpression> implementAggregation(AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    default Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
         return Optional.empty();
     }

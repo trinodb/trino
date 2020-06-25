@@ -20,11 +20,12 @@ import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcExpression;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.spi.connector.AggregateFunction;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.expression.Variable;
 import io.prestosql.spi.type.DecimalType;
 
 import java.util.Optional;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 
 import static com.google.common.base.Verify.verifyNotNull;
 import static io.prestosql.matching.Capture.newCapture;
@@ -43,9 +44,9 @@ public class ImplementSum
 {
     private static final Capture<Variable> INPUT = newCapture();
 
-    private final Function<DecimalType, Optional<JdbcTypeHandle>> decimalTypeHandle;
+    private final BiFunction<DecimalType, ConnectorSession, Optional<JdbcTypeHandle>> decimalTypeHandle;
 
-    public ImplementSum(Function<DecimalType, Optional<JdbcTypeHandle>> decimalTypeHandle)
+    public ImplementSum(BiFunction<DecimalType, ConnectorSession, Optional<JdbcTypeHandle>> decimalTypeHandle)
     {
         this.decimalTypeHandle = requireNonNull(decimalTypeHandle, "decimalTypeHandle is null");
     }
@@ -70,7 +71,7 @@ public class ImplementSum
             resultTypeHandle = columnHandle.getJdbcTypeHandle();
         }
         else if (aggregateFunction.getOutputType() instanceof DecimalType) {
-            Optional<JdbcTypeHandle> decimalTypeHandle = this.decimalTypeHandle.apply(((DecimalType) aggregateFunction.getOutputType()));
+            Optional<JdbcTypeHandle> decimalTypeHandle = this.decimalTypeHandle.apply(((DecimalType) aggregateFunction.getOutputType()), context.getSession());
             if (decimalTypeHandle.isEmpty()) {
                 return Optional.empty();
             }

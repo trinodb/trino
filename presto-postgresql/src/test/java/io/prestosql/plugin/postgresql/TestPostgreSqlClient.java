@@ -144,7 +144,7 @@ public class TestPostgreSqlClient
 
     private void testImplementAggregation(AggregateFunction aggregateFunction, Map<String, ColumnHandle> assignments, Optional<String> expectedExpression)
     {
-        Optional<JdbcExpression> result = JDBC_CLIENT.implementAggregation(aggregateFunction, assignments);
+        Optional<JdbcExpression> result = JDBC_CLIENT.implementAggregation(SESSION, aggregateFunction, assignments);
         if (expectedExpression.isEmpty()) {
             assertThat(result).isEmpty();
         }

@@ -18,6 +18,7 @@ import io.prestosql.plugin.jdbc.expression.AggregateFunctionRewriter;
 import io.prestosql.plugin.jdbc.expression.ImplementCountAll;
 import io.prestosql.spi.connector.AggregateFunction;
 import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.ConnectorSession;
 
 import java.sql.Types;
 import java.util.Map;
@@ -40,9 +41,9 @@ class TestingH2JdbcClient
     }
 
     @Override
-    public Optional<JdbcExpression> implementAggregation(AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
     {
         return new AggregateFunctionRewriter(this::quoted, ImmutableSet.of(new ImplementCountAll(BIGINT_TYPE_HANDLE)))
-                .rewrite(aggregate, assignments);
+                .rewrite(session, aggregate, assignments);
     }
 }
