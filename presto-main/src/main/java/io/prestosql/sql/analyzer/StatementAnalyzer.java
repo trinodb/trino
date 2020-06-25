@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
-import com.google.common.collect.Multimap;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.execution.warnings.WarningCollector;
@@ -63,6 +62,7 @@ import io.prestosql.sql.parser.ParsingException;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.DeterminismEvaluator;
 import io.prestosql.sql.planner.ExpressionInterpreter;
+import io.prestosql.sql.planner.ScopeAware;
 import io.prestosql.sql.planner.SymbolsExtractor;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.tree.AddColumn;
@@ -90,8 +90,6 @@ import io.prestosql.sql.tree.Execute;
 import io.prestosql.sql.tree.Explain;
 import io.prestosql.sql.tree.ExplainType;
 import io.prestosql.sql.tree.Expression;
-import io.prestosql.sql.tree.ExpressionRewriter;
-import io.prestosql.sql.tree.ExpressionTreeRewriter;
 import io.prestosql.sql.tree.FetchFirst;
 import io.prestosql.sql.tree.FieldReference;
 import io.prestosql.sql.tree.FrameBound;
@@ -177,7 +175,6 @@ import static io.prestosql.SystemSessionProperties.getMaxGroupingSets;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.FunctionKind.WINDOW;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
-import static io.prestosql.spi.StandardErrorCode.AMBIGUOUS_NAME;
 import static io.prestosql.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
@@ -218,6 +215,7 @@ import static io.prestosql.sql.ParsingUtil.createParsingOptions;
 import static io.prestosql.sql.analyzer.AggregationAnalyzer.verifyOrderByAggregations;
 import static io.prestosql.sql.analyzer.AggregationAnalyzer.verifySourceAggregations;
 import static io.prestosql.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupingFunctions;
+import static io.prestosql.sql.analyzer.CanonicalizationAware.canonicalizationAwareKey;
 import static io.prestosql.sql.analyzer.ExpressionAnalyzer.createConstantAnalyzer;
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.asQualifiedName;
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractAggregateFunctions;
@@ -1298,10 +1296,6 @@ class StatementAnalyzer
 
                 orderByExpressions = analyzeOrderBy(node, orderBy.getSortItems(), orderByScope.get());
 
-                if (node.getSelect().isDistinct()) {
-                    verifySelectDistinct(node, outputExpressions);
-                }
-
                 if (sourceScope.getOuterQueryParent().isPresent() && node.getLimit().isEmpty() && node.getOffset().isEmpty()) {
                     // not the root scope and ORDER BY is ineffective
                     analysis.markRedundantOrderBy(orderBy);
@@ -1338,6 +1332,10 @@ class StatementAnalyzer
                         .addAll(extractExpressions(orderByExpressions, GroupingOperation.class));
 
                 analysis.setOrderByAggregates(node.getOrderBy().get(), aggregates.build());
+            }
+
+            if (node.getOrderBy().isPresent() && node.getSelect().isDistinct()) {
+                verifySelectDistinct(node, orderByExpressions, outputExpressions, sourceScope, orderByScope.get());
             }
 
             return outputScope;
@@ -1794,56 +1792,6 @@ class StatementAnalyzer
                 }
 
                 analysis.setHaving(node, predicate);
-            }
-        }
-
-        private Multimap<QualifiedName, Expression> extractNamedOutputExpressions(Select node)
-        {
-            // Compute aliased output terms so we can resolve order by expressions against them first
-            ImmutableMultimap.Builder<QualifiedName, Expression> assignments = ImmutableMultimap.builder();
-            for (SelectItem item : node.getSelectItems()) {
-                if (item instanceof SingleColumn) {
-                    SingleColumn column = (SingleColumn) item;
-                    Optional<Identifier> alias = column.getAlias();
-                    if (alias.isPresent()) {
-                        assignments.put(QualifiedName.of(alias.get().getValue()), column.getExpression()); // TODO: need to know if alias was quoted
-                    }
-                    else if (column.getExpression() instanceof Identifier) {
-                        assignments.put(QualifiedName.of(((Identifier) column.getExpression()).getValue()), column.getExpression());
-                    }
-                }
-            }
-
-            return assignments.build();
-        }
-
-        private class OrderByExpressionRewriter
-                extends ExpressionRewriter<Void>
-        {
-            private final Multimap<QualifiedName, Expression> assignments;
-
-            public OrderByExpressionRewriter(Multimap<QualifiedName, Expression> assignments)
-            {
-                this.assignments = assignments;
-            }
-
-            @Override
-            public Expression rewriteIdentifier(Identifier reference, Void context, ExpressionTreeRewriter<Void> treeRewriter)
-            {
-                // if this is a simple name reference, try to resolve against output columns
-                QualifiedName name = QualifiedName.of(reference.getValue());
-                Set<Expression> expressions = ImmutableSet.copyOf(assignments.get(name));
-
-                if (expressions.size() > 1) {
-                    throw semanticException(AMBIGUOUS_NAME, reference, "'%s' in ORDER BY is ambiguous", name);
-                }
-
-                if (expressions.size() == 1) {
-                    return Iterables.getOnlyElement(expressions);
-                }
-
-                // otherwise, couldn't resolve name against output aliases, so fall through...
-                return reference;
             }
         }
 
@@ -2597,25 +2545,64 @@ class StatementAnalyzer
             return withScope;
         }
 
-        private void verifySelectDistinct(QuerySpecification node, List<Expression> outputExpressions)
+        private void verifySelectDistinct(QuerySpecification node, List<Expression> orderByExpressions, List<Expression> outputExpressions, Scope sourceScope, Scope orderByScope)
         {
-            for (SortItem item : node.getOrderBy().get().getSortItems()) {
-                Expression expression = item.getSortKey();
+            Set<CanonicalizationAware<Identifier>> aliases = getAliases(node.getSelect());
 
-                if (expression instanceof LongLiteral) {
+            Set<ScopeAware<Expression>> expressions = outputExpressions.stream()
+                    .map(e -> ScopeAware.scopeAwareKey(e, analysis, sourceScope))
+                    .collect(Collectors.toSet());
+
+            for (Expression expression : orderByExpressions) {
+                if (expression instanceof FieldReference) {
                     continue;
                 }
 
-                Expression rewrittenOrderByExpression = ExpressionTreeRewriter.rewriteWith(new OrderByExpressionRewriter(extractNamedOutputExpressions(node.getSelect())), expression);
-                int index = outputExpressions.indexOf(rewrittenOrderByExpression);
-                if (index == -1) {
-                    throw semanticException(EXPRESSION_NOT_IN_DISTINCT, node.getSelect(), "For SELECT DISTINCT, ORDER BY expressions must appear in select list");
+                // In a query such as
+                //    SELECT a FROM t ORDER BY a
+                // the "a" in the SELECT clause is bound to the FROM scope, while the "a" in ORDER BY clause is bound
+                // to the "a" from the SELECT clause, so we can't compare by field id / relation id.
+                if (expression instanceof Identifier && aliases.contains(canonicalizationAwareKey(expression))) {
+                    continue;
                 }
 
+                if (!expressions.contains(ScopeAware.scopeAwareKey(expression, analysis, orderByScope))) {
+                    throw semanticException(EXPRESSION_NOT_IN_DISTINCT, node.getSelect(), "For SELECT DISTINCT, ORDER BY expressions must appear in select list");
+                }
+            }
+
+            for (Expression expression : orderByExpressions) {
                 if (!DeterminismEvaluator.isDeterministic(expression, this::getFunctionMetadata)) {
                     throw semanticException(EXPRESSION_NOT_IN_DISTINCT, expression, "Non deterministic ORDER BY expression is not supported with SELECT DISTINCT");
                 }
             }
+        }
+
+        private Set<CanonicalizationAware<Identifier>> getAliases(Select node)
+        {
+            ImmutableSet.Builder<CanonicalizationAware<Identifier>> aliases = ImmutableSet.builder();
+            for (SelectItem item : node.getSelectItems()) {
+                if (item instanceof SingleColumn) {
+                    SingleColumn column = (SingleColumn) item;
+                    Optional<Identifier> alias = column.getAlias();
+                    if (alias.isPresent()) {
+                        aliases.add(canonicalizationAwareKey(alias.get()));
+                    }
+                    else if (column.getExpression() instanceof Identifier) {
+                        aliases.add(canonicalizationAwareKey((Identifier) column.getExpression()));
+                    }
+                    else if (column.getExpression() instanceof DereferenceExpression) {
+                        aliases.add(canonicalizationAwareKey(((DereferenceExpression) column.getExpression()).getField()));
+                    }
+                }
+                else if (item instanceof AllColumns) {
+                    ((AllColumns) item).getAliases().stream()
+                            .map(CanonicalizationAware::canonicalizationAwareKey)
+                            .forEach(aliases::add);
+                }
+            }
+
+            return aliases.build();
         }
 
         private FunctionMetadata getFunctionMetadata(FunctionCall functionCall)
