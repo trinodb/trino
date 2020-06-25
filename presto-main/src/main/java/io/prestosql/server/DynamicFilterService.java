@@ -118,7 +118,7 @@ public class DynamicFilterService
     }
 
     @VisibleForTesting
-    public void collectDynamicFilters()
+    void collectDynamicFilters()
     {
         for (Map.Entry<QueryId, Supplier<List<StageDynamicFilters>>> entry : getDynamicFilterSuppliers().entrySet()) {
             QueryId queryId = entry.getKey();
