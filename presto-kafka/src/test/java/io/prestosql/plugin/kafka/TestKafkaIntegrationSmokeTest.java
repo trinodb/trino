@@ -26,6 +26,7 @@ import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.ByteArraySerializer;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.nio.ByteBuffer;
@@ -34,7 +35,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.testing.TestngUtils.toDataProvider;
+import static java.util.Objects.requireNonNull;
 import static org.apache.kafka.clients.producer.ProducerConfig.ACKS_CONFIG;
 import static org.apache.kafka.clients.producer.ProducerConfig.BOOTSTRAP_SERVERS_CONFIG;
 import static org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG;
@@ -44,18 +49,17 @@ public class TestKafkaIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
     private TestingKafka testingKafka;
-    private String topicName;
+    private String rawFormatTopic;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
         testingKafka = new TestingKafka();
-        topicName = "test_raw_" + UUID.randomUUID().toString().replaceAll("-", "_");
-
+        rawFormatTopic = "test_raw_" + UUID.randomUUID().toString().replaceAll("-", "_");
         Map<SchemaTableName, KafkaTopicDescription> extraTopicDescriptions = ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
-                .put(new SchemaTableName("default", topicName),
-                        createDescription(topicName, "default", topicName,
+                .put(new SchemaTableName("default", rawFormatTopic),
+                        createDescription(rawFormatTopic, "default", rawFormatTopic,
                                 createFieldGroup("raw", ImmutableList.of(
                                         createOneFieldDescription("id", BigintType.BIGINT, "0", "LONG")))))
                 .build();
@@ -67,7 +71,7 @@ public class TestKafkaIntegrationSmokeTest
                         .build())
                 .build();
 
-        testingKafka.createTopics(topicName);
+        testingKafka.createTopics(rawFormatTopic);
         return queryRunner;
     }
 
@@ -79,14 +83,14 @@ public class TestKafkaIntegrationSmokeTest
 
         insertData(buf.array());
 
-        assertQuery("SELECT id FROM default." + topicName + " WHERE id = 1", "VALUES (1)");
-        assertQuery("SELECT id FROM default." + topicName + " WHERE id < 2", "VALUES (1)");
+        assertQuery("SELECT id FROM default." + rawFormatTopic + " WHERE id = 1", "VALUES (1)");
+        assertQuery("SELECT id FROM default." + rawFormatTopic + " WHERE id < 2", "VALUES (1)");
     }
 
     private void insertData(byte[] data)
     {
         try (KafkaProducer<byte[], byte[]> producer = createProducer()) {
-            producer.send(new ProducerRecord<>(topicName, data));
+            producer.send(new ProducerRecord<>(rawFormatTopic, data));
         }
     }
 
@@ -114,6 +118,87 @@ public class TestKafkaIntegrationSmokeTest
     private KafkaTopicFieldDescription createOneFieldDescription(String name, Type type, String mapping, String dataFormat)
     {
         return new KafkaTopicFieldDescription(name, type, mapping, null, dataFormat, null, false);
+    }
+
+    @Test(dataProvider = "testRoundTripAllFormatsDataProvider")
+    public void testRoundTripAllFormats(RoundTripTestCase testCase)
+    {
+        assertUpdate("INSERT into write_test." + testCase.getTableName() +
+                " (" + testCase.getFieldNames() + ")" +
+                " VALUES (" + testCase.getFieldValues() + ")", 1);
+        assertQuery("SELECT " + testCase.getFieldNames() + " FROM write_test." + testCase.getTableName() +
+                " WHERE " + testCase.getFieldName("f_bigint") + " = " + testCase.getFieldValue("f_bigint"),
+                "VALUES (" + testCase.getFieldValues() + ")");
+    }
+
+    @DataProvider(name = "testRoundTripAllFormatsDataProvider")
+    public final Object[][] testRoundTripAllFormatsDataProvider()
+    {
+        return testRoundTripAllFormatsData().stream()
+                .collect(toDataProvider());
+    }
+
+    private List<RoundTripTestCase> testRoundTripAllFormatsData()
+    {
+        return ImmutableList.<RoundTripTestCase>builder()
+                .build();
+    }
+
+    protected static final class RoundTripTestCase
+    {
+        private final String tableName;
+        private final List<String> fieldNames;
+        private final List<Object> fieldValues;
+        private final int length;
+
+        public RoundTripTestCase(String tableName, List<String> fieldNames, List<Object> fieldValues)
+        {
+            checkArgument(fieldNames.size() == fieldValues.size(), "sizes of fieldNames and fieldValues are not equal");
+            this.tableName = requireNonNull(tableName, "tableName is null");
+            this.fieldNames = ImmutableList.copyOf(fieldNames);
+            this.fieldValues = ImmutableList.copyOf(fieldValues);
+            this.length = fieldNames.size();
+        }
+
+        public String getTableName()
+        {
+            return tableName;
+        }
+
+        private int getIndex(String fieldName)
+        {
+            return fieldNames.indexOf(fieldName);
+        }
+
+        public String getFieldName(String fieldName)
+        {
+            int index = getIndex(fieldName);
+            checkArgument(index >= 0 && index < length, "index out of bounds");
+            return fieldNames.get(index);
+        }
+
+        public String getFieldNames()
+        {
+            return String.join(", ", fieldNames);
+        }
+
+        public Object getFieldValue(String fieldName)
+        {
+            int index = getIndex(fieldName);
+            checkArgument(index >= 0 && index < length, "index out of bounds");
+            return fieldValues.get(index);
+        }
+
+        public String getFieldValues()
+        {
+            return fieldValues.stream().map(Object::toString).collect(Collectors.joining(", "));
+        }
+
+        @Override
+        public String toString()
+        {
+            return tableName; // for test case label in IDE
+        }
     }
 
     @AfterClass(alwaysRun = true)

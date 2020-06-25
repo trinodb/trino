@@ -16,6 +16,7 @@ package io.prestosql.plugin.kafka;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorMetadata;
+import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
@@ -34,18 +35,21 @@ public class KafkaConnector
     private final ConnectorMetadata metadata;
     private final ConnectorSplitManager splitManager;
     private final ConnectorRecordSetProvider recordSetProvider;
+    private final ConnectorPageSinkProvider pageSinkProvider;
 
     @Inject
     public KafkaConnector(
             LifeCycleManager lifeCycleManager,
             ConnectorMetadata metadata,
             ConnectorSplitManager splitManager,
-            ConnectorRecordSetProvider recordSetProvider)
+            ConnectorRecordSetProvider recordSetProvider,
+            ConnectorPageSinkProvider pageSinkProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
+        this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
     }
 
     @Override
@@ -71,6 +75,12 @@ public class KafkaConnector
     public ConnectorRecordSetProvider getRecordSetProvider()
     {
         return recordSetProvider;
+    }
+
+    @Override
+    public ConnectorPageSinkProvider getPageSinkProvider()
+    {
+        return pageSinkProvider;
     }
 
     @Override

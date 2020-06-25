@@ -101,7 +101,7 @@ public final class KafkaTopicFieldDescription
         return hidden;
     }
 
-    KafkaColumnHandle getColumnHandle(boolean keyDecoder, int index)
+    KafkaColumnHandle getColumnHandle(boolean keyCodec, int index)
     {
         return new KafkaColumnHandle(
                 getName(),
@@ -109,7 +109,7 @@ public final class KafkaTopicFieldDescription
                 getMapping(),
                 getDataFormat(),
                 getFormatHint(),
-                keyDecoder,
+                keyCodec,
                 isHidden(),
                 false);
     }
