@@ -132,7 +132,7 @@ import static io.prestosql.plugin.hive.HiveMetadata.SKIP_FOOTER_COUNT_KEY;
 import static io.prestosql.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
 import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.prestosql.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
-import static io.prestosql.plugin.hive.HiveQlTranslation.translateHiveQlToPrestoSql;
+import static io.prestosql.plugin.hive.HiveQlToPrestoTranslator.translateHiveViewToPresto;
 import static io.prestosql.plugin.hive.HiveType.toHiveTypes;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.copy;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
@@ -687,7 +687,7 @@ public final class HiveUtil
         String viewText = view.getViewExpandedText()
                 .orElseThrow(() -> new PrestoException(HIVE_INVALID_METADATA, "No view expanded text: " + view.getSchemaTableName()));
         return new ConnectorViewDefinition(
-                translateHiveQlToPrestoSql(viewText),
+                translateHiveViewToPresto(viewText),
                 Optional.of(catalogName.toString()),
                 Optional.ofNullable(view.getDatabaseName()),
                 view.getDataColumns().stream()
