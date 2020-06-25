@@ -27,6 +27,7 @@ import java.util.function.BiConsumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -101,15 +102,34 @@ public class TestIcebergSmoke
     @Test
     public void testDecimal()
     {
-        assertUpdate("CREATE TABLE test_decimal_short (x decimal(3,2))");
-        assertQueryFails("INSERT INTO test_decimal_short VALUES (decimal '3.14')", "Writing to columns of type decimal not yet supported");
-//        assertQuery("SELECT * FROM test_decimal_short", "SELECT CAST('3.14' AS DECIMAL(3,2))");
-        dropTable(getSession(), "test_decimal_short");
+        for (int precision = 1; precision <= 38; precision++) {
+            testDecimalWithPrecisionAndScale(precision, precision - 1);
+        }
 
-        assertUpdate("CREATE TABLE test_decimal_long (x decimal(25,2))");
-        assertQueryFails("INSERT INTO test_decimal_long VALUES (decimal '3.14')", "Writing to columns of type decimal not yet supported");
-//        assertQuery("SELECT * FROM test_decimal_long", "SELECT CAST('3.14' AS DECIMAL(25,2))");
-        dropTable(getSession(), "test_decimal_long");
+        for (int scale = 1; scale < 37; scale++) {
+            testDecimalWithPrecisionAndScale(38, scale);
+        }
+
+        for (int scale = 1; scale < 17; scale++) {
+            testDecimalWithPrecisionAndScale(18, scale);
+        }
+    }
+
+    private void testDecimalWithPrecisionAndScale(int precision, int scale)
+    {
+        checkArgument(precision >= 1 && precision <= 38, "Decimal precision (%s) must be between 1 and 38 inclusive", precision);
+        checkArgument(scale < precision && scale >= 0, "Decimal scale (%s) must be less than the precision (%s) and non-negative", scale, precision);
+
+        String tableName = format("test_decimal_p%d_s%d", precision, scale);
+        String decimalType = format("DECIMAL(%d,%d)", precision, scale);
+        String beforeTheDecimalPoint = "12345678901234567890123456789012345678".substring(0, precision - scale);
+        String afterTheDecimalPoint = "09876543210987654321098765432109876543".substring(0, scale);
+        String decimalValue = format("%s.%s", beforeTheDecimalPoint, afterTheDecimalPoint);
+
+        assertUpdate(format("CREATE TABLE %s (x %s)", tableName, decimalType));
+        assertUpdate(format("INSERT INTO %s (x) VALUES (CAST('%s' AS %s))", tableName, decimalValue, decimalType), 1);
+        assertQuery(format("SELECT * FROM %s", tableName), format("SELECT CAST('%s' AS %s)", decimalValue, decimalType));
+        dropTable(getSession(), tableName);
     }
 
     @Test
@@ -139,9 +159,10 @@ public class TestIcebergSmoke
                 ", _real REAL" +
                 ", _double DOUBLE" +
                 ", _boolean BOOLEAN" +
-//                ", _decimal_short DECIMAL(3,2)" +
-//                ", _decimal_long DECIMAL(30,10)" +
-//                ", _timestamp TIMESTAMP" +
+                returnSqlIfFormatSupportsDecimalsAndTimestamps(fileFormat, "" +
+                        ", _decimal_short DECIMAL(3,2)" +
+                        ", _decimal_long DECIMAL(30,10)" +
+                        ", _timestamp TIMESTAMP") +
                 ", _date DATE" +
                 ") " +
                 "WITH (" +
@@ -153,9 +174,10 @@ public class TestIcebergSmoke
                 "  '_boolean'," +
                 "  '_real'," +
                 "  '_double'," +
-//                "  '_decimal_short', " +
-//                "  '_decimal_long'," +
-//                "  '_timestamp'," +
+                returnSqlIfFormatSupportsDecimalsAndTimestamps(FileFormat.PARQUET, "" +
+                        "  '_decimal_short', " +
+                        "  '_decimal_long'," +
+                        "  '_timestamp',") +
                 "  '_date']" +
                 ")";
 
@@ -172,9 +194,10 @@ public class TestIcebergSmoke
                 ", CAST('123.45' AS REAL) _real" +
                 ", CAST('3.14' AS DOUBLE) _double" +
                 ", true _boolean" +
-//                ", CAST('3.14' AS DECIMAL(3,2)) _decimal_short" +
-//                ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _decimal_long" +
-//                ", CAST('2017-05-01 10:12:34' AS TIMESTAMP) _timestamp" +
+                returnSqlIfFormatSupportsDecimalsAndTimestamps(fileFormat, "" +
+                        ", CAST('3.14' AS DECIMAL(3,2)) _decimal_short" +
+                        ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _decimal_long" +
+                        ", CAST('2017-05-01 10:12:34' AS TIMESTAMP) _timestamp") +
                 ", CAST('2017-05-01' AS DATE) _date";
 
         assertUpdate(session, "INSERT INTO test_partitioned_table " + select, 1);
@@ -185,9 +208,10 @@ public class TestIcebergSmoke
                         " AND 456 = _integer" +
                         " AND CAST(123 AS BIGINT) = _bigint" +
                         " AND true = _boolean" +
-//                        " AND CAST('3.14' AS DECIMAL(3,2)) = _decimal_short" +
-//                        " AND CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) = _decimal_long" +
-//                        " AND CAST('2017-05-01 10:12:34' AS TIMESTAMP) = _timestamp" +
+                        returnSqlIfFormatSupportsDecimalsAndTimestamps(fileFormat, "" +
+                                " AND CAST('3.14' AS DECIMAL(3,2)) = _decimal_short" +
+                                " AND CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) = _decimal_long" +
+                                " AND CAST('2017-05-01 10:12:34' AS TIMESTAMP) = _timestamp") +
                         " AND CAST('2017-05-01' AS DATE) = _date",
                 select);
 
@@ -222,9 +246,10 @@ public class TestIcebergSmoke
                 ", _real REAL" +
                 ", _double DOUBLE" +
                 ", _boolean BOOLEAN" +
-//                ", _decimal_short DECIMAL(3,2)" +
-//                ", _decimal_long DECIMAL(30,10)" +
-//                ", _timestamp TIMESTAMP" +
+                returnSqlIfFormatSupportsDecimalsAndTimestamps(fileFormat, "" +
+                        ", _decimal_short DECIMAL(3,2)" +
+                        ", _decimal_long DECIMAL(30,10)" +
+                        ", _timestamp TIMESTAMP") +
                 ", _date DATE" +
                 ") " +
                 "WITH (" +
@@ -236,9 +261,10 @@ public class TestIcebergSmoke
                 "  '_boolean'," +
                 "  '_real'," +
                 "  '_double'," +
-//                "  '_decimal_short', " +
-//                "  '_decimal_long'," +
-//                "  '_timestamp'," +
+                returnSqlIfFormatSupportsDecimalsAndTimestamps(fileFormat, "" +
+                        "  '_decimal_short', " +
+                        "  '_decimal_long'," +
+                        "  '_timestamp',") +
                 "  '_date']" +
                 ")";
 
@@ -255,9 +281,10 @@ public class TestIcebergSmoke
                 ", null _real" +
                 ", null _double" +
                 ", null _boolean" +
-//                ", CAST('3.14' AS DECIMAL(3,2)) _decimal_short" +
-//                ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _decimal_long" +
-//                ", CAST('2017-05-01 10:12:34' AS TIMESTAMP) _timestamp" +
+                returnSqlIfFormatSupportsDecimalsAndTimestamps(fileFormat, "" +
+                        ", null _decimal_short" +
+                        ", null _decimal_long" +
+                        ", null _timestamp") +
                 ", null _date";
 
         assertUpdate(session, "INSERT INTO test_partitioned_table " + select, 1);
@@ -412,6 +439,12 @@ public class TestIcebergSmoke
     {
         test.accept(getSession(), FileFormat.PARQUET);
         test.accept(getSession(), FileFormat.ORC);
+    }
+
+    // TODO: Remove and eliminate callers once we correctly handle Parquet decimals and timestamps
+    private String returnSqlIfFormatSupportsDecimalsAndTimestamps(FileFormat fileFormat, String sql)
+    {
+        return fileFormat == FileFormat.ORC ? sql : "";
     }
 
     private void dropTable(Session session, String table)
