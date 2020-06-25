@@ -386,7 +386,7 @@ public class IcebergMetadata
 
         for (NestedField column : icebergTable.schema().columns()) {
             io.prestosql.spi.type.Type type = toPrestoType(column.type(), typeManager);
-            if (type instanceof DecimalType) {
+            if (type instanceof DecimalType && !orcFormat) {
                 throw new PrestoException(NOT_SUPPORTED, "Writing to columns of type decimal not yet supported");
             }
             if (type instanceof TimestampType && !orcFormat) {

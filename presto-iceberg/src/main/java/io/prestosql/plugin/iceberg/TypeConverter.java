@@ -335,8 +335,8 @@ public final class TypeConverter
             case BINARY:
                 return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.BINARY, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case DECIMAL:
-                DecimalType decimalType = (DecimalType) type;
-                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.DECIMAL, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.of(decimalType.getPrecision()), Optional.of(decimalType.getScale()), attributes));
+                Types.DecimalType decimalType = (Types.DecimalType) type;
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.DECIMAL, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.of(decimalType.precision()), Optional.of(decimalType.scale()), attributes));
             case STRUCT:
                 return toOrcStructType(nextFieldTypeIndex, (Types.StructType) type, attributes);
             case LIST:

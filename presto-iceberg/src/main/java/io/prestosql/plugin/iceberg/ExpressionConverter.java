@@ -24,19 +24,24 @@ import io.prestosql.spi.predicate.SortedRangeSet;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.DateType;
+import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
 import org.apache.iceberg.expressions.Expression;
 
+import java.math.BigDecimal;
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.predicate.Marker.Bound.ABOVE;
 import static io.prestosql.spi.predicate.Marker.Bound.BELOW;
 import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
 import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.expressions.Expressions.alwaysFalse;
 import static org.apache.iceberg.expressions.Expressions.alwaysTrue;
 import static org.apache.iceberg.expressions.Expressions.and;
@@ -173,6 +178,17 @@ public final class ExpressionConverter
 
         if (type instanceof VarbinaryType) {
             return ((Slice) marker.getValue()).getBytes();
+        }
+
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            Object value = requireNonNull(marker.getValue(), "The value of the marker must be non-null");
+            if (Decimals.isShortDecimal(decimalType)) {
+                checkArgument(value instanceof Long, "A short decimal should be represented by a Long value but was %s", value.getClass().getName());
+                return value;
+            }
+            checkArgument(value instanceof Slice, "A long decimal should be represented by a Slice value but was %s", value.getClass().getName());
+            return new BigDecimal(Decimals.decodeUnscaledValue((Slice) value), decimalType.getScale());
         }
 
         return marker.getValue();
