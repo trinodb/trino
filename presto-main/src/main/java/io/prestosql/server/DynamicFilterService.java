@@ -62,15 +62,14 @@ import static java.util.stream.Collectors.mapping;
 @ThreadSafe
 public class DynamicFilterService
 {
-    private final Map<SourceDescriptor, Domain> dynamicFilterSummaries = new ConcurrentHashMap<>();
-
     private final Duration statusRefreshMaxWait;
+    private final ScheduledExecutorService collectDynamicFiltersExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("DynamicFilterService"));
+
+    private final Map<SourceDescriptor, Domain> dynamicFilterSummaries = new ConcurrentHashMap<>();
     @GuardedBy("this")
-    private final Map<QueryId, Supplier<List<StageDynamicFilters>>> queries = new HashMap<>();
+    private final Map<QueryId, Supplier<List<StageDynamicFilters>>> dynamicFilterSuppliers = new HashMap<>();
     @GuardedBy("this")
     private final Map<QueryId, Set<SourceDescriptor>> queryDynamicFilters = new HashMap<>();
-
-    private final ScheduledExecutorService collectDynamicFiltersExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("DynamicFilterService"));
 
     @Inject
     public DynamicFilterService(TaskManagerConfig taskConfig)
@@ -107,21 +106,21 @@ public class DynamicFilterService
     @VisibleForTesting
     synchronized void registerQuery(QueryId queryId, Supplier<List<StageDynamicFilters>> stageDynamicFiltersSupplier, Set<SourceDescriptor> dynamicFilters)
     {
-        queries.putIfAbsent(queryId, stageDynamicFiltersSupplier);
+        dynamicFilterSuppliers.putIfAbsent(queryId, stageDynamicFiltersSupplier);
         queryDynamicFilters.put(queryId, dynamicFilters);
     }
 
     public synchronized void removeQuery(QueryId queryId)
     {
         dynamicFilterSummaries.keySet().removeIf(sourceDescriptor -> sourceDescriptor.getQueryId().equals(queryId));
-        queries.remove(queryId);
+        dynamicFilterSuppliers.remove(queryId);
         queryDynamicFilters.remove(queryId);
     }
 
     @VisibleForTesting
     public void collectDynamicFilters()
     {
-        for (Map.Entry<QueryId, Supplier<List<StageDynamicFilters>>> entry : getQueries().entrySet()) {
+        for (Map.Entry<QueryId, Supplier<List<StageDynamicFilters>>> entry : getDynamicFilterSuppliers().entrySet()) {
             QueryId queryId = entry.getKey();
             ImmutableMap.Builder<SourceDescriptor, Domain> newDynamicFiltersBuilder = ImmutableMap.builder();
             for (StageDynamicFilters stageDynamicFilters : entry.getValue().get()) {
@@ -167,15 +166,15 @@ public class DynamicFilterService
         return Optional.ofNullable(dynamicFilterSummaries.get(SourceDescriptor.of(queryId, filterId)));
     }
 
-    private synchronized Map<QueryId, Supplier<List<StageDynamicFilters>>> getQueries()
+    private synchronized Map<QueryId, Supplier<List<StageDynamicFilters>>> getDynamicFilterSuppliers()
     {
-        return ImmutableMap.copyOf(queries);
+        return ImmutableMap.copyOf(dynamicFilterSuppliers);
     }
 
     private synchronized void addDynamicFilters(QueryId queryId, Map<SourceDescriptor, Domain> dynamicFilters)
     {
         // query might have been removed while we collected dynamic filters asynchronously
-        if (!queries.containsKey(queryId)) {
+        if (!dynamicFilterSuppliers.containsKey(queryId)) {
             return;
         }
 
@@ -183,7 +182,7 @@ public class DynamicFilterService
 
         // stop collecting dynamic filters for query when all dynamic filters have been collected
         if (dynamicFilterSummaries.keySet().containsAll(queryDynamicFilters.get(queryId))) {
-            queries.remove(queryId);
+            dynamicFilterSuppliers.remove(queryId);
         }
     }
 
