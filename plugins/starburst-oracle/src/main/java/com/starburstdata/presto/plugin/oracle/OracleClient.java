@@ -635,6 +635,11 @@ public class OracleClient
     private Optional<TableStatistics> readTableStatistics(ConnectorSession session, JdbcTableHandle table)
             throws SQLException
     {
+        if (table.getGroupingSets().isPresent()) {
+            // TODO retrieve statistics for base table and derive statistics for the aggregation
+            return Optional.empty();
+        }
+
         try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session));
                 Handle handle = Jdbi.open(connection)) {
             StatisticsDao statisticsDao = new StatisticsDao(handle);
