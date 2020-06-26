@@ -19,8 +19,10 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.io.ByteStreams;
 import com.google.common.io.Closer;
 import com.qubole.rubix.core.CachingFileSystem;
+import com.qubole.rubix.prestosql.CachingPrestoAdlFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoAzureBlobFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoDistributedFileSystem;
+import com.qubole.rubix.prestosql.CachingPrestoGoogleHadoopFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoS3FileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoSecureAzureBlobFileSystem;
 import io.airlift.units.DataSize;
@@ -212,7 +214,11 @@ public class TestRubixCaching
                         rubixConfigInitializer,
                         (dynamicConfig, ignoredContext, ignoredUri) -> {
                             dynamicConfig.set("fs.file.impl", CachingLocalFileSystem.class.getName());
+                            dynamicConfig.setBoolean("fs.gs.lazy.init.enable", true);
                             dynamicConfig.set("fs.azure.account.key", "Zm9vCg==");
+                            dynamicConfig.set("fs.adl.oauth2.client.id", "test");
+                            dynamicConfig.set("fs.adl.oauth2.refresh.url", "http://localhost");
+                            dynamicConfig.set("fs.adl.oauth2.credential", "password");
                         }));
         HdfsEnvironment environment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
         return environment.getFileSystem(context, path);
@@ -498,10 +504,13 @@ public class TestRubixCaching
             assertRawFileSystemInstanceOf(fileSystem, CachingPrestoSecureAzureBlobFileSystem.class);
         }
 
-        // TODO: renable when Rubix doesn't shade GCS connector (https://github.com/qubole/rubix/pull/415)
-        //try (FileSystem fileSystem = getCachingFileSystem(context, new Path("gs://bucket_name"))) {
-        //    assertRawFileSystemInstanceOf(fileSystem, CachingPrestoGoogleHadoopFileSystem.class);
-        //}
+        try (FileSystem fileSystem = getCachingFileSystem(context, new Path("adl://fileanalysis@foo-bar.dfs.core.windows.net/tutorials"))) {
+            assertRawFileSystemInstanceOf(fileSystem, CachingPrestoAdlFileSystem.class);
+        }
+
+        try (FileSystem fileSystem = getCachingFileSystem(context, new Path("gs://bucket_name"))) {
+            assertRawFileSystemInstanceOf(fileSystem, CachingPrestoGoogleHadoopFileSystem.class);
+        }
 
         try (FileSystem fileSystem = getCachingFileSystem(context, new Path("hdfs://localhost:7897"))) {
             assertRawFileSystemInstanceOf(fileSystem, CachingPrestoDistributedFileSystem.class);
