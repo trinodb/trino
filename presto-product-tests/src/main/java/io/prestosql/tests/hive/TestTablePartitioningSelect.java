@@ -74,6 +74,7 @@ public class TestTablePartitioningSelect
             sb.append("ROW FORMAT ").append(rowFormat.get());
         }
         sb.append(" STORED AS " + fileFormat);
+        sb.append(" TBLPROPERTIES ('transactional'='false')");
         return sb.toString();
     }
 
