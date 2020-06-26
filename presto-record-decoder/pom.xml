@@ -42,8 +42,8 @@
         </dependency>
 
         <dependency>
-            <groupId>net.sf.opencsv</groupId>
-            <artifactId>opencsv</artifactId>
+            <groupId>com.univocity</groupId>
+            <artifactId>univocity-parsers</artifactId>
         </dependency>
 
         <dependency>
