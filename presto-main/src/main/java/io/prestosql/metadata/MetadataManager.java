@@ -74,7 +74,9 @@ import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.connector.SampleType;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
+import io.prestosql.spi.connector.SortItem;
 import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.connector.TopNApplicationResult;
 import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.expression.Variable;
 import io.prestosql.spi.function.InvocationConvention;
@@ -1158,6 +1160,28 @@ public final class MetadataManager
                             result.getAssignments(),
                             result.getGroupingColumnMapping());
                 });
+    }
+
+    @Override
+    public Optional<TopNApplicationResult<TableHandle>> applyTopN(
+            Session session,
+            TableHandle table,
+            long topNCount,
+            List<SortItem> sortItems,
+            Map<String, ColumnHandle> assignments)
+    {
+        CatalogName catalogName = table.getCatalogName();
+        ConnectorMetadata metadata = getMetadata(session, catalogName);
+
+        if (metadata.usesLegacyTableLayouts()) {
+            return Optional.empty();
+        }
+
+        ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+        return metadata.applyTopN(connectorSession, table.getConnectorHandle(), topNCount, sortItems, assignments)
+                .map(result -> new TopNApplicationResult<>(
+                        new TableHandle(catalogName, result.getHandle(), table.getTransaction(), Optional.empty()),
+                        result.isTopNGuaranteed()));
     }
 
     private void verifyProjection(TableHandle table, List<ConnectorExpression> projections, List<Assignment> assignments, int expectedProjectionSize)

@@ -140,6 +140,7 @@ import io.prestosql.sql.planner.iterative.rule.PushProjectionThroughUnion;
 import io.prestosql.sql.planner.iterative.rule.PushRemoteExchangeThroughAssignUniqueId;
 import io.prestosql.sql.planner.iterative.rule.PushSampleIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.PushTableWriteThroughUnion;
+import io.prestosql.sql.planner.iterative.rule.PushTopNIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.PushTopNThroughOuterJoin;
 import io.prestosql.sql.planner.iterative.rule.PushTopNThroughProject;
 import io.prestosql.sql.planner.iterative.rule.PushTopNThroughUnion;
@@ -623,7 +624,8 @@ public class PlanOptimizers
                         new CreatePartialTopN(),
                         new PushTopNThroughProject(),
                         new PushTopNThroughOuterJoin(),
-                        new PushTopNThroughUnion())));
+                        new PushTopNThroughUnion(),
+                        new PushTopNIntoTableScan(metadata))));
         builder.add(new IterativeOptimizer(
                 ruleStats,
                 statsCalculator,

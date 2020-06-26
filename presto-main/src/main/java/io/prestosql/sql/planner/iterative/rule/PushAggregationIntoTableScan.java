@@ -26,7 +26,6 @@ import io.prestosql.spi.connector.AggregationApplicationResult;
 import io.prestosql.spi.connector.Assignment;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.SortItem;
-import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.expression.Variable;
 import io.prestosql.sql.planner.ConnectorExpressionTranslator;
@@ -200,12 +199,7 @@ public class PushAggregationIntoTableScan
         }
 
         Optional<OrderingScheme> orderingScheme = aggregation.getOrderingScheme();
-        Optional<List<SortItem>> sortBy = orderingScheme.map(orderings ->
-                orderings.getOrderBy().stream()
-                        .map(orderBy -> new SortItem(
-                                orderBy.getName(),
-                                SortOrder.valueOf(orderings.getOrderings().get(orderBy).name())))
-                        .collect(toImmutableList()));
+        Optional<List<SortItem>> sortBy = orderingScheme.map(OrderingScheme::toSortItems);
 
         Optional<ConnectorExpression> filter = aggregation.getFilter()
                 .map(symbol -> new Variable(symbol.getName(), context.getSymbolAllocator().getTypes().get(symbol)));
