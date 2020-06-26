@@ -11,10 +11,11 @@ package com.starburstdata.presto.plugin.snowflake.distributed;
 
 import com.google.common.util.concurrent.ListeningExecutorService;
 import com.google.inject.Binder;
-import com.google.inject.Inject;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
+import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.DynamicFilteringModule;
+import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.ForDynamicFiltering;
 import com.starburstdata.presto.plugin.snowflake.jdbc.SnowflakeJdbcClientModule;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorPageSourceProvider;
@@ -29,8 +30,6 @@ import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.procedure.Procedure;
-
-import javax.inject.Provider;
 
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
@@ -77,10 +76,7 @@ class SnowflakeDistributedModule
 
         install(new JdbcModule(catalogName));
         install(new SnowflakeJdbcClientModule(catalogName, true));
-
-        newOptionalBinder(binder, ConnectorSplitManager.class).setBinding()
-                .toProvider(ConnectorSplitManagerProvider.class)
-                .in(Scopes.SINGLETON);
+        install(new DynamicFilteringModule());
     }
 
     @Provides
@@ -97,21 +93,11 @@ class SnowflakeDistributedModule
         return listeningDecorator(newCachedThreadPool(daemonThreadsNamed("snowflake-%s")));
     }
 
-    private static class ConnectorSplitManagerProvider
-            implements Provider<ConnectorSplitManager>
+    @Provides
+    @Singleton
+    @ForDynamicFiltering
+    public ConnectorSplitManager createSplitManager(SnowflakeSplitManager snowflakeSplitManager)
     {
-        private final SnowflakeSplitManager snowflakeSplitManager;
-
-        @Inject
-        public ConnectorSplitManagerProvider(SnowflakeSplitManager snowflakeSplitManager)
-        {
-            this.snowflakeSplitManager = requireNonNull(snowflakeSplitManager, "snowflakeSplitManager is null");
-        }
-
-        @Override
-        public ConnectorSplitManager get()
-        {
-            return new ClassLoaderSafeConnectorSplitManager(snowflakeSplitManager, getClass().getClassLoader());
-        }
+        return new ClassLoaderSafeConnectorSplitManager(snowflakeSplitManager, getClass().getClassLoader());
     }
 }

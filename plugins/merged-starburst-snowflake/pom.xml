@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-presto-root</artifactId>
-        <version>337-e-SNAPSHOT</version>
+        <version>339-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -208,6 +208,13 @@
         <dependency>
             <groupId>com.starburstdata.presto</groupId>
             <artifactId>starburst-license</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.starburstdata.presto</groupId>
+            <artifactId>starburst-base-jdbc</artifactId>
             <type>test-jar</type>
             <scope>test</scope>
         </dependency>
