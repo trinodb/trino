@@ -157,8 +157,6 @@ public class TestServer
         assertThat(data).isPresent();
 
         QueryResults results = data.orElseThrow();
-
-        assertThat(results.getStats().getState()).isEqualTo("RUNNING");
         assertThat(results.getData()).containsOnly(ImmutableList.of("system"));
     }
 
