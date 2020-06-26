@@ -11,6 +11,7 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import com.starburstdata.presto.plugin.jdbc.stats.TableStatisticsClient;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
@@ -19,6 +20,7 @@ import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DoubleWriteFunction;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
+import io.prestosql.plugin.jdbc.JdbcExpression;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
 import io.prestosql.plugin.jdbc.JdbcSplit;
@@ -28,7 +30,16 @@ import io.prestosql.plugin.jdbc.LongWriteFunction;
 import io.prestosql.plugin.jdbc.QueryBuilder;
 import io.prestosql.plugin.jdbc.SliceWriteFunction;
 import io.prestosql.plugin.jdbc.WriteMapping;
+import io.prestosql.plugin.jdbc.expression.AggregateFunctionRewriter;
+import io.prestosql.plugin.jdbc.expression.AggregateFunctionRule;
+import io.prestosql.plugin.jdbc.expression.ImplementAvgDecimal;
+import io.prestosql.plugin.jdbc.expression.ImplementAvgFloatingPoint;
+import io.prestosql.plugin.jdbc.expression.ImplementCount;
+import io.prestosql.plugin.jdbc.expression.ImplementCountAll;
+import io.prestosql.plugin.jdbc.expression.ImplementMinMax;
+import io.prestosql.plugin.jdbc.expression.ImplementSum;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.AggregateFunction;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitSource;
@@ -85,6 +96,7 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.charReadFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.charWriteFunction;
@@ -156,6 +168,8 @@ public class OracleClient
         return domain.simplify();
     };
 
+    private static final int PRESTO_BIGINT_TYPE = 832_424_001;
+
     private static final Map<Type, WriteMapping> WRITE_MAPPINGS = ImmutableMap.<Type, WriteMapping>builder()
             .put(BOOLEAN, oracleBooleanWriteMapping())
             .put(BIGINT, WriteMapping.longMapping("number(19)", bigintWriteFunction()))
@@ -171,6 +185,7 @@ public class OracleClient
 
     private final boolean synonymsEnabled;
     private final OracleSplitManager splitManager;
+    private final AggregateFunctionRewriter aggregateFunctionRewriter;
     private final TableStatisticsClient tableStatisticsClient;
 
     @Inject
@@ -184,6 +199,17 @@ public class OracleClient
         super(config, "\"", connectionFactory);
         synonymsEnabled = oracleConfig.isSynonymsEnabled();
         splitManager = oracleSplitManager;
+        JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(PRESTO_BIGINT_TYPE, Optional.empty(), 0, 0, Optional.empty());
+        this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
+                this::quoted,
+                ImmutableSet.<AggregateFunctionRule>builder()
+                        .add(new ImplementCountAll(bigintTypeHandle))
+                        .add(new ImplementCount(bigintTypeHandle))
+                        .add(new ImplementMinMax())
+                        .add(new ImplementSum(OracleClient::toTypeHandle))
+                        .add(new ImplementAvgFloatingPoint())
+                        .add(new ImplementAvgDecimal())
+                        .build());
         tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
     }
 
@@ -368,6 +394,11 @@ public class OracleClient
     @Override
     public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle type)
     {
+        if (type.getJdbcType() == PRESTO_BIGINT_TYPE) {
+            // Synthetic column
+            return Optional.of(bigintColumnMapping());
+        }
+
         Optional<ColumnMapping> mappingToVarchar = getForcedMappingToVarchar(type);
         if (mappingToVarchar.isPresent()) {
             return mappingToVarchar;
@@ -600,6 +631,18 @@ public class OracleClient
             return writeMapping;
         }
         throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+    }
+
+    @Override
+    public Optional<JdbcExpression> implementAggregation(ConnectorSession session, AggregateFunction aggregate, Map<String, ColumnHandle> assignments)
+    {
+        // TODO support complex ConnectorExpressions
+        return aggregateFunctionRewriter.rewrite(session, aggregate, assignments);
+    }
+
+    private static Optional<JdbcTypeHandle> toTypeHandle(DecimalType decimalType)
+    {
+        return Optional.of(new JdbcTypeHandle(OracleTypes.NUMBER, Optional.empty(), decimalType.getPrecision(), decimalType.getScale(), Optional.empty()));
     }
 
     @Override

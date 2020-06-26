@@ -19,6 +19,9 @@ import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.BOB_USER;
 import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.CHARLIE_USER;
 import static com.starburstdata.presto.plugin.oracle.OracleTestUsers.UNKNOWN_USER;
 import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.executeInOracle;
+import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.withSynonym;
+import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.withTable;
+import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.withView;
 import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -121,23 +124,5 @@ public abstract class BaseOracleImpersonationTest
                     "SELECT * FROM " + synonymName,
                     "VALUES 'a'");
         }
-    }
-
-    private static AutoCloseable withTable(String tableName, String tableDefinition)
-    {
-        executeInOracle(format("CREATE TABLE %s %s", tableName, tableDefinition));
-        return () -> executeInOracle(format("DROP TABLE %s", tableName));
-    }
-
-    private static AutoCloseable withView(String tableName, String tableDefinition)
-    {
-        executeInOracle(format("CREATE VIEW %s AS %s", tableName, tableDefinition));
-        return () -> executeInOracle(format("DROP VIEW %s", tableName));
-    }
-
-    private static AutoCloseable withSynonym(String tableName, String tableDefinition)
-    {
-        executeInOracle(format("CREATE SYNONYM %s FOR %s", tableName, tableDefinition));
-        return () -> executeInOracle(format("DROP SYNONYM %s", tableName));
     }
 }

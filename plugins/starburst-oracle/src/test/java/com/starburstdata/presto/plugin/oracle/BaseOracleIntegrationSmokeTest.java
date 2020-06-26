@@ -27,6 +27,7 @@ import java.util.List;
 import static com.google.common.base.Strings.repeat;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.oracleTimestamp3TimeZoneDataType;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.prestoTimestampWithTimeZoneDataType;
+import static com.starburstdata.presto.plugin.oracle.TestingOracleServer.executeInOracle;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static io.prestosql.testing.datatype.DataType.timestampDataType;
@@ -210,6 +211,32 @@ public abstract class BaseOracleIntegrationSmokeTest
                     table.getName(),
                     prestoTimestampWithTimeZoneDataType().toLiteral(pacific1976)),
                     expectedQueryResult);
+        }
+    }
+
+    @Test
+    public void testAggregationPushdown()
+    {
+        // TODO support aggregation pushdown with GROUPING SETS
+
+        assertPushedDown("SELECT count(*) FROM nation");
+        assertPushedDown("SELECT count(nationkey) FROM nation");
+        assertPushedDown("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey");
+        assertPushedDown("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey");
+        assertPushedDown("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey");
+        assertPushedDown(
+                "SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey",
+                "SELECT regionkey, avg(CAST(nationkey AS double)) FROM nation GROUP BY regionkey");
+
+        try (TestTable testTable = new TestTable(inOracle(), getSession().getSchema().orElseThrow() + ".test_aggregation_pushdown",
+                "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
+            executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (100.000, 100000000.000000000)");
+            executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (123.321, 123456789.987654321)");
+
+            assertPushedDown("SELECT min(short_decimal), min(long_decimal) FROM " + testTable.getName(), "SELECT 100.000, 100000000.000000000");
+            assertPushedDown("SELECT max(short_decimal), max(long_decimal) FROM " + testTable.getName(), "SELECT 123.321, 123456789.987654321");
+            assertPushedDown("SELECT sum(short_decimal), sum(long_decimal) FROM " + testTable.getName(), "SELECT 223.321, 223456789.987654321");
+            assertPushedDown("SELECT avg(short_decimal), avg(long_decimal) FROM " + testTable.getName(), "SELECT 223.321 / 2, 223456789.987654321 / 2");
         }
     }
 

@@ -81,6 +81,24 @@ public final class TestingOracleServer
         }
     }
 
+    public static AutoCloseable withTable(String tableName, String tableDefinition)
+    {
+        executeInOracle(format("CREATE TABLE %s %s", tableName, tableDefinition));
+        return () -> executeInOracle(format("DROP TABLE %s", tableName));
+    }
+
+    public static AutoCloseable withView(String tableName, String tableDefinition)
+    {
+        executeInOracle(format("CREATE VIEW %s AS %s", tableName, tableDefinition));
+        return () -> executeInOracle(format("DROP VIEW %s", tableName));
+    }
+
+    public static AutoCloseable withSynonym(String tableName, String tableDefinition)
+    {
+        executeInOracle(format("CREATE SYNONYM %s FOR %s", tableName, tableDefinition));
+        return () -> executeInOracle(format("DROP SYNONYM %s", tableName));
+    }
+
     private TestingOracleServer() {}
 
     private static class CustomOracleContainer
