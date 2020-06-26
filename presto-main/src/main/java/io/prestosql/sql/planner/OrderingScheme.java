@@ -129,4 +129,13 @@ public class OrderingScheme
         }
         return SortOrder.DESC_NULLS_LAST;
     }
+
+    public List<io.prestosql.spi.connector.SortItem> toSortItems()
+    {
+        return getOrderBy().stream()
+                .map(symbol -> new io.prestosql.spi.connector.SortItem(
+                        symbol.getName(),
+                        io.prestosql.spi.connector.SortOrder.valueOf(getOrdering(symbol).name())))
+                .collect(toImmutableList());
+    }
 }

@@ -40,7 +40,9 @@ import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LimitApplicationResult;
 import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.connector.SampleType;
+import io.prestosql.spi.connector.SortItem;
 import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.connector.TopNApplicationResult;
 import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.OperatorType;
@@ -738,6 +740,12 @@ public abstract class AbstractMockMetadata
 
     @Override
     public Optional<ProjectionApplicationResult<TableHandle>> applyProjection(Session session, TableHandle table, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments)
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public Optional<TopNApplicationResult<TableHandle>> applyTopN(Session session, TableHandle handle, long topNFunctions, List<SortItem> sortItems, Map<String, ColumnHandle> assignments)
     {
         return Optional.empty();
     }
