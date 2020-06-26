@@ -160,9 +160,9 @@ public class TestDomainConverter
 
         assertTupleDomain(
                 TupleDomain.withColumnDomains(
-                        ImmutableMap.of(ICEBERG_COLUMN_PROVIDER.apply(TIMESTAMP), Domain.multipleValues(TIMESTAMP, ImmutableList.of(1_234_567_890_123L, 1_234_567_890_124L)))),
+                        ImmutableMap.of(ICEBERG_COLUMN_PROVIDER.apply(TIMESTAMP), Domain.multipleValues(TIMESTAMP, ImmutableList.of(1_234_567_890_123L, 1_234_567_890_987L)))),
                 TupleDomain.withColumnDomains(
-                        ImmutableMap.of(ICEBERG_COLUMN_PROVIDER.apply(TIMESTAMP), Domain.multipleValues(TIMESTAMP, ImmutableList.of(1_234_567_890_123_000L, 1_234_567_890_124_000L)))));
+                        ImmutableMap.of(ICEBERG_COLUMN_PROVIDER.apply(TIMESTAMP), Domain.multipleValues(TIMESTAMP, ImmutableList.of(1_234_567_890_123_000L, 1_234_567_890_987_000L)))));
     }
 
     @Test
@@ -176,9 +176,9 @@ public class TestDomainConverter
 
         assertTupleDomain(
                 TupleDomain.withColumnDomains(
-                        ImmutableMap.of(ICEBERG_COLUMN_PROVIDER.apply(TIME), Domain.multipleValues(TIME, ImmutableList.of(1_234_567_890_123L, 1_234_567_890_124L)))),
+                        ImmutableMap.of(ICEBERG_COLUMN_PROVIDER.apply(TIME), Domain.multipleValues(TIME, ImmutableList.of(1_234_567_890_123L, 1_234_567_890_987L)))),
                 TupleDomain.withColumnDomains(
-                        ImmutableMap.of(ICEBERG_COLUMN_PROVIDER.apply(TIME), Domain.multipleValues(TIME, ImmutableList.of(1_234_567_890_123_000L, 1_234_567_890_124_000L)))));
+                        ImmutableMap.of(ICEBERG_COLUMN_PROVIDER.apply(TIME), Domain.multipleValues(TIME, ImmutableList.of(1_234_567_890_123_000L, 1_234_567_890_987_000L)))));
     }
 
     @Test

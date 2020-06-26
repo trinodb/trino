@@ -15,6 +15,7 @@ package io.prestosql.spi.predicate;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.module.SimpleModule;
+import com.google.common.collect.ImmutableList;
 import io.airlift.json.ObjectMapperProvider;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.TestingBlockEncodingSerde;
@@ -28,6 +29,9 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -296,5 +300,15 @@ public class TestRange
 
         range = Range.lessThanOrEqual(DOUBLE, Double.MAX_VALUE);
         assertEquals(range, mapper.readValue(mapper.writeValueAsString(range), Range.class));
+    }
+
+    @Test
+    public void testEmpty()
+    {
+        for (Type type : ImmutableList.of(TINYINT, SMALLINT, INTEGER, BIGINT)) {
+            assertTrue(Range.range(type, 1L, false, 2L, false).isEmpty());
+        }
+        assertFalse(Range.range(DOUBLE, 1.0, false, 2.0, false).isEmpty());
+        assertFalse(Range.range(VARCHAR, utf8Slice("a"), false, utf8Slice("b"), false).isEmpty());
     }
 }

@@ -26,6 +26,8 @@ import io.prestosql.spi.type.TestingTypeManager;
 import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
+import java.util.List;
+
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -42,6 +44,25 @@ public class TestSortedRangeSet
     public void testEmptySet()
     {
         SortedRangeSet rangeSet = SortedRangeSet.none(BIGINT);
+        assertEquals(rangeSet.getType(), BIGINT);
+        assertTrue(rangeSet.isNone());
+        assertFalse(rangeSet.isAll());
+        assertFalse(rangeSet.isSingleValue());
+        assertTrue(Iterables.isEmpty(rangeSet.getOrderedRanges()));
+        assertEquals(rangeSet.getRangeCount(), 0);
+        assertEquals(rangeSet.complement(), SortedRangeSet.all(BIGINT));
+        assertFalse(rangeSet.includesMarker(Marker.lowerUnbounded(BIGINT)));
+        assertFalse(rangeSet.includesMarker(Marker.exactly(BIGINT, 0L)));
+        assertFalse(rangeSet.includesMarker(Marker.upperUnbounded(BIGINT)));
+    }
+
+    @Test
+    public void testSkipEmptyRange()
+    {
+        SortedRangeSet rangeSet1 = SortedRangeSet.of(Range.greaterThan(BIGINT, 1L));
+        SortedRangeSet rangeSet2 = SortedRangeSet.of(Range.lessThan(BIGINT, 2L));
+        SortedRangeSet rangeSet = rangeSet1.intersect(rangeSet2);
+
         assertEquals(rangeSet.getType(), BIGINT);
         assertTrue(rangeSet.isNone());
         assertFalse(rangeSet.isAll());
@@ -87,6 +108,23 @@ public class TestSortedRangeSet
         assertTrue(rangeSet.includesMarker(Marker.exactly(BIGINT, 10L)));
         assertFalse(rangeSet.includesMarker(Marker.exactly(BIGINT, 9L)));
         assertFalse(rangeSet.includesMarker(Marker.upperUnbounded(BIGINT)));
+    }
+
+    @Test
+    public void testConsecutiveValues()
+    {
+        SortedRangeSet rangeSet = SortedRangeSet.of(BIGINT, 1L, 2L, 3L, 5L, 6L, 8L);
+
+        assertEquals(rangeSet.getType(), BIGINT);
+        assertFalse(rangeSet.isNone());
+        assertFalse(rangeSet.isAll());
+        assertFalse(rangeSet.isSingleValue());
+        List<Range> expectedRanges = ImmutableList.of(
+                Range.range(BIGINT, 1L, true, 3L, true),
+                Range.range(BIGINT, 5L, true, 6L, true),
+                Range.equal(BIGINT, 8L));
+        assertEquals(rangeSet.getRangeCount(), expectedRanges.size());
+        assertEquals(rangeSet.getOrderedRanges(), expectedRanges);
     }
 
     @Test
@@ -140,11 +178,11 @@ public class TestSortedRangeSet
 
         ImmutableList<Range> normalizedResult = ImmutableList.of(
                 Range.lessThanOrEqual(BIGINT, 0L),
-                Range.range(BIGINT, 1L, false, 6L, false),
+                Range.range(BIGINT, 2L, true, 6L, false),
                 Range.greaterThan(BIGINT, 9L));
 
         SortedRangeSet complement = SortedRangeSet.of(
-                Range.range(BIGINT, 0L, false, 1L, true),
+                Range.range(BIGINT, 0L, false, 2L, false),
                 Range.range(BIGINT, 6L, true, 9L, true));
 
         assertEquals(rangeSet.getType(), BIGINT);
@@ -386,7 +424,7 @@ public class TestSortedRangeSet
                 SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)));
         assertEquals(
                 SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).subtract(SortedRangeSet.of(BIGINT, 0L)),
-                SortedRangeSet.of(BIGINT, 1L));
+                SortedRangeSet.of(Range.range(BIGINT, 0L, false, 1L, true)));
         assertEquals(
                 SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L)).subtract(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L))),
                 SortedRangeSet.none(BIGINT));
@@ -405,7 +443,7 @@ public class TestSortedRangeSet
                 SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)));
         assertEquals(
                 SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)).subtract(SortedRangeSet.of(Range.equal(BIGINT, 0L), Range.equal(BIGINT, 1L))),
-                SortedRangeSet.of(Range.range(BIGINT, 0L, false, 1L, false), Range.greaterThan(BIGINT, 1L)));
+                SortedRangeSet.of(Range.greaterThan(BIGINT, 1L)));
         assertEquals(
                 SortedRangeSet.of(Range.greaterThan(BIGINT, 0L)).subtract(SortedRangeSet.of(Range.greaterThan(BIGINT, 0L))),
                 SortedRangeSet.none(BIGINT));

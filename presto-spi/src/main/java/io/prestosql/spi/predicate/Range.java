@@ -15,10 +15,12 @@ package io.prestosql.spi.predicate;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
 
 import java.util.Objects;
+import java.util.Optional;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -228,5 +230,20 @@ public final class Range
         buffer.append(high.isUpperUnbounded() ? "<max>" : high.getPrintableValue(session));
         buffer.append((high.getBound() == Marker.Bound.EXACTLY) ? ']' : ')');
         return buffer.toString();
+    }
+
+    public boolean isEmpty()
+    {
+        Type type = getType();
+        Optional<Block> lowBlock = low.getValueBlock();
+        Optional<Block> highBlock = high.getValueBlock();
+        if (type.getJavaType() == long.class &&
+                low.getBound() != Marker.Bound.EXACTLY && high.getBound() != Marker.Bound.EXACTLY &&
+                low.getValueBlock().isPresent() && high.getValueBlock().isPresent()) {
+            long lowValue = type.getLong(lowBlock.get(), 0);
+            long highValue = type.getLong(highBlock.get(), 0);
+            return highValue - lowValue == 1;
+        }
+        return false;
     }
 }

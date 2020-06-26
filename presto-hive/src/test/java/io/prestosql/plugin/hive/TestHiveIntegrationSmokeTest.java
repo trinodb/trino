@@ -810,9 +810,6 @@ public class TestHiveIntegrationSmokeTest
                                                                 ImmutableSet.of(
                                                                         new FormattedRange(
                                                                                 new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY)),
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY),
                                                                                 new FormattedMarker(Optional.of("2"), EXACTLY))))),
                                                 new ColumnConstraint(
                                                         "processing",
@@ -838,10 +835,10 @@ public class TestHiveIntegrationSmokeTest
 
         assertUpdate("DROP TABLE test_io_explain");
 
-        // Test IO explain with large number of discrete components where Domain::simpify comes into play.
-        computeActual("CREATE TABLE test_io_explain WITH (partitioned_by = ARRAY['orderkey']) AS SELECT custkey, orderkey FROM orders WHERE orderkey < 200");
+        // Test IO explain with large number of discrete non-adjacent components where Domain::simplify comes into play.
+        computeActual("CREATE TABLE test_io_explain WITH (partitioned_by = ARRAY['orderkey']) AS SELECT custkey, orderkey FROM orders WHERE orderkey < 400 AND orderkey % 2 = 0");
 
-        estimate = new EstimatedStatsAndCost(55.0, 990.0, 990.0, 0.0, 0.0);
+        estimate = new EstimatedStatsAndCost(51.0, 918.0, 918.0, 0.0, 0.0);
         result = computeActual("EXPLAIN (TYPE IO, FORMAT JSON) INSERT INTO test_io_explain SELECT custkey, orderkey + 10 FROM test_io_explain WHERE custkey <= 10");
         assertEquals(
                 getIoPlanCodec().fromJson((String) getOnlyElement(result.getOnlyColumnAsSet())),
@@ -857,8 +854,8 @@ public class TestHiveIntegrationSmokeTest
                                                                 false,
                                                                 ImmutableSet.of(
                                                                         new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("199"), EXACTLY))))),
+                                                                                new FormattedMarker(Optional.of("2"), EXACTLY),
+                                                                                new FormattedMarker(Optional.of("390"), EXACTLY))))),
                                                 new ColumnConstraint(
                                                         "custkey",
                                                         BIGINT,
@@ -931,9 +928,6 @@ public class TestHiveIntegrationSmokeTest
                                                                 ImmutableSet.of(
                                                                         new FormattedRange(
                                                                                 new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY)),
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY),
                                                                                 new FormattedMarker(Optional.of("2"), EXACTLY))))),
                                                 new ColumnConstraint(
                                                         "custkey",
@@ -972,9 +966,6 @@ public class TestHiveIntegrationSmokeTest
                                                                 ImmutableSet.of(
                                                                         new FormattedRange(
                                                                                 new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY)),
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY),
                                                                                 new FormattedMarker(Optional.of("2"), EXACTLY))))),
                                                 new ColumnConstraint(
                                                         "orderstatus",
@@ -1016,9 +1007,6 @@ public class TestHiveIntegrationSmokeTest
                                                                 ImmutableSet.of(
                                                                         new FormattedRange(
                                                                                 new FormattedMarker(Optional.of("1"), EXACTLY),
-                                                                                new FormattedMarker(Optional.of("1"), EXACTLY)),
-                                                                        new FormattedRange(
-                                                                                new FormattedMarker(Optional.of("2"), EXACTLY),
                                                                                 new FormattedMarker(Optional.of("2"), EXACTLY))))),
                                                 new ColumnConstraint(
                                                         "custkey",

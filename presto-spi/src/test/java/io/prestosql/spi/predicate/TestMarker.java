@@ -32,8 +32,13 @@ import java.util.Map;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.Float.floatToIntBits;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -163,6 +168,18 @@ public class TestMarker
         }
         catch (IllegalStateException e) {
         }
+
+        for (Type type : ImmutableList.of(TINYINT, SMALLINT, INTEGER, BIGINT, TIMESTAMP, DATE)) {
+            assertTrue(Marker.exactly(type, 1L).isAdjacent(Marker.exactly(type, 2L)));
+            assertTrue(Marker.exactly(type, 2L).isAdjacent(Marker.exactly(type, 1L)));
+            assertFalse(Marker.exactly(type, 7L).isAdjacent(Marker.exactly(type, 7L)));
+        }
+        assertFalse(Marker.exactly(DOUBLE, 1.0).isAdjacent(Marker.exactly(DOUBLE, 2.0)));
+        assertFalse(Marker.exactly(DOUBLE, 2.0).isAdjacent(Marker.exactly(DOUBLE, 1.0)));
+        assertFalse(Marker.exactly(BOOLEAN, true).isAdjacent(Marker.exactly(BOOLEAN, false)));
+        assertFalse(Marker.exactly(BOOLEAN, false).isAdjacent(Marker.exactly(BOOLEAN, true)));
+        assertFalse(Marker.exactly(VARCHAR, utf8Slice("a")).isAdjacent(Marker.exactly(VARCHAR, utf8Slice("b"))));
+        assertFalse(Marker.exactly(VARCHAR, utf8Slice("b")).isAdjacent(Marker.exactly(VARCHAR, utf8Slice("a"))));
     }
 
     @Test

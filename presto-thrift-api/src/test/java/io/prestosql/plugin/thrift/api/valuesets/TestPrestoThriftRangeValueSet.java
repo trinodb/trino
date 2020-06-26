@@ -54,12 +54,12 @@ public class TestPrestoThriftRangeValueSet
     @Test
     public void testFromValueSetOf()
     {
-        PrestoThriftValueSet thriftValueSet = fromValueSet(ValueSet.of(BIGINT, 1L, 2L, 3L));
+        PrestoThriftValueSet thriftValueSet = fromValueSet(ValueSet.of(BIGINT, 1L, 3L, 6L));
         assertNotNull(thriftValueSet.getRangeValueSet());
         assertEquals(thriftValueSet.getRangeValueSet().getRanges(), ImmutableList.of(
                 new PrestoThriftRange(new PrestoThriftMarker(longValue(1), EXACTLY), new PrestoThriftMarker(longValue(1), EXACTLY)),
-                new PrestoThriftRange(new PrestoThriftMarker(longValue(2), EXACTLY), new PrestoThriftMarker(longValue(2), EXACTLY)),
-                new PrestoThriftRange(new PrestoThriftMarker(longValue(3), EXACTLY), new PrestoThriftMarker(longValue(3), EXACTLY))));
+                new PrestoThriftRange(new PrestoThriftMarker(longValue(3), EXACTLY), new PrestoThriftMarker(longValue(3), EXACTLY)),
+                new PrestoThriftRange(new PrestoThriftMarker(longValue(6), EXACTLY), new PrestoThriftMarker(longValue(6), EXACTLY))));
     }
 
     @Test

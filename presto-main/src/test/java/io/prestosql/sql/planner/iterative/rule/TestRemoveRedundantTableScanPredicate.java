@@ -133,7 +133,7 @@ public class TestRemoveRedundantTableScanPredicate
                                 TupleDomain.withColumnDomains(ImmutableMap.of(columnHandle, Domain.multipleValues(BIGINT, ImmutableList.of(44L, 45L, 46L)))))))
                 .matches(
                         filter(
-                                expression("nationkey IN (BIGINT '44', BIGINT '45')"),
+                                expression("nationkey BETWEEN BIGINT '44' AND BIGINT '45'"),
                                 constrainedTableScanWithTableLayout(
                                         "nation",
                                         ImmutableMap.of("nationkey", Domain.multipleValues(BIGINT, ImmutableList.of(44L, 45L, 46L))),

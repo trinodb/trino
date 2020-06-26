@@ -445,7 +445,9 @@ public final class SortedRangeSet
                 throw new IllegalArgumentException(format("Range type %s does not match builder type %s", range.getType(), type));
             }
 
-            ranges.add(range);
+            if (!range.isEmpty()) {
+                ranges.add(range);
+            }
             return this;
         }
 

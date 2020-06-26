@@ -532,11 +532,11 @@ public class TestEffectivePredicateExtractor
                                 newId(),
                                 ImmutableList.of(A),
                                 ImmutableList.of(
-                                        ImmutableList.of(bigintLiteral(1)),
-                                        ImmutableList.of(bigintLiteral(2)))),
+                                        ImmutableList.of(bigintLiteral(10)),
+                                        ImmutableList.of(bigintLiteral(20)))),
                         types,
                         typeAnalyzer),
-                new InPredicate(AE, new InListExpression(ImmutableList.of(bigintLiteral(1), bigintLiteral(2)))));
+                new InPredicate(AE, new InListExpression(ImmutableList.of(bigintLiteral(10), bigintLiteral(20)))));
 
         // one column with null
         assertEquals(
@@ -546,13 +546,13 @@ public class TestEffectivePredicateExtractor
                                 newId(),
                                 ImmutableList.of(A),
                                 ImmutableList.of(
-                                        ImmutableList.of(bigintLiteral(1)),
-                                        ImmutableList.of(bigintLiteral(2)),
+                                        ImmutableList.of(bigintLiteral(10)),
+                                        ImmutableList.of(bigintLiteral(20)),
                                         ImmutableList.of(new Cast(new NullLiteral(), toSqlType(BIGINT))))),
                         types,
                         typeAnalyzer),
                 or(
-                        new InPredicate(AE, new InListExpression(ImmutableList.of(bigintLiteral(1), bigintLiteral(2)))),
+                        new InPredicate(AE, new InListExpression(ImmutableList.of(bigintLiteral(10), bigintLiteral(20)))),
                         new IsNullPredicate(AE)));
 
         // all nulls
@@ -591,12 +591,12 @@ public class TestEffectivePredicateExtractor
                                 newId(),
                                 ImmutableList.of(A, B),
                                 ImmutableList.of(
-                                        ImmutableList.of(bigintLiteral(1), bigintLiteral(100)),
-                                        ImmutableList.of(bigintLiteral(2), bigintLiteral(200)))),
+                                        ImmutableList.of(bigintLiteral(10), bigintLiteral(100)),
+                                        ImmutableList.of(bigintLiteral(20), bigintLiteral(200)))),
                         types,
                         typeAnalyzer),
                 and(
-                        new InPredicate(AE, new InListExpression(ImmutableList.of(bigintLiteral(1), bigintLiteral(2)))),
+                        new InPredicate(AE, new InListExpression(ImmutableList.of(bigintLiteral(10), bigintLiteral(20)))),
                         new InPredicate(BE, new InListExpression(ImmutableList.of(bigintLiteral(100), bigintLiteral(200))))));
 
         // multiple columns with null

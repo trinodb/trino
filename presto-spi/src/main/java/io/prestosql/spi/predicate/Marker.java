@@ -183,6 +183,14 @@ public final class Marker
         if (isUpperUnbounded() || isLowerUnbounded() || other.isUpperUnbounded() || other.isLowerUnbounded()) {
             return false;
         }
+        // Allow merging two consecutive long values into a range:
+        if (bound == Bound.EXACTLY && other.bound == Bound.EXACTLY && type.getJavaType() == long.class) {
+            long value = type.getLong(valueBlock.get(), 0);
+            long otherValue = type.getLong(other.valueBlock.get(), 0);
+            if (Math.abs(value - otherValue) == 1) {
+                return true;
+            }
+        }
         if (type.compareTo(valueBlock.get(), 0, other.valueBlock.get(), 0) != 0) {
             return false;
         }
