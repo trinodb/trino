@@ -46,8 +46,8 @@ Hive Connector Changes
 * Improve performance of ``INSERT`` queries writing to bucketed tables when some buckets do not contain any data. (:issue:`1375`)
 * Improve performance of queries reading Parquet data with predicates on ``timestamp`` columns. (:issue:`4104`)
 * Improve performance for join queries over partitioned tables. (:issue:`4156`)
-* Add add support for ``null_format`` table property for tables using TextFile storage format (:issue:`4056`)
-* Add add support for ``null_format`` table property for tables using RCText and SequenceFile
+* Add support for ``null_format`` table property for tables using TextFile storage format (:issue:`4056`)
+* Add support for ``null_format`` table property for tables using RCText and SequenceFile
   storage formats (:issue:`4143`)
 * Add optimized Parquet writer. The new writer is disabled by default, and can be enabled with the
   ``parquet_optimized_writer_enabled`` session property or the ``hive.parquet.optimized-writer.enabled`` configuration
