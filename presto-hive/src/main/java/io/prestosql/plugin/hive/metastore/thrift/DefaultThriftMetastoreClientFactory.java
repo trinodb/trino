@@ -31,7 +31,9 @@ import javax.net.ssl.X509TrustManager;
 import javax.security.auth.x500.X500Principal;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.cert.Certificate;
@@ -80,7 +82,8 @@ public class DefaultThriftMetastoreClientFactory
                         config.isTlsEnabled(),
                         Optional.ofNullable(config.getKeystorePath()),
                         Optional.ofNullable(config.getKeystorePassword()),
-                        config.getTruststorePath()),
+                        config.getTruststorePath(),
+                        Optional.ofNullable(config.getTruststorePassword())),
                 Optional.ofNullable(config.getSocksProxy()),
                 config.getMetastoreTimeout(),
                 metastoreAuthentication,
@@ -111,7 +114,8 @@ public class DefaultThriftMetastoreClientFactory
             boolean tlsEnabled,
             Optional<File> keyStorePath,
             Optional<String> keyStorePassword,
-            File trustStorePath)
+            File trustStorePath,
+            Optional<String> trustStorePassword)
     {
         if (!tlsEnabled) {
             return Optional.empty();
@@ -120,16 +124,27 @@ public class DefaultThriftMetastoreClientFactory
         try {
             // load KeyStore if configured and get KeyManagers
             KeyManager[] keyManagers = null;
+            KeyStore keyStore = null;
+            char[] keyManagerPassword = new char[0];
             if (keyStorePath.isPresent()) {
-                KeyStore keyStore = PemReader.loadKeyStore(keyStorePath.get(), keyStorePath.get(), keyStorePassword);
+                try {
+                    keyStore = PemReader.loadKeyStore(keyStorePath.get(), keyStorePath.get(), keyStorePassword);
+                }
+                catch (IOException | GeneralSecurityException e) {
+                    keyManagerPassword = keyStorePassword.map(String::toCharArray).orElse(null);
+                    keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+                    try (InputStream in = new FileInputStream(keyStorePath.get())) {
+                        keyStore.load(in, keyManagerPassword);
+                    }
+                }
                 validateCertificates(keyStore);
                 KeyManagerFactory keyManagerFactory = KeyManagerFactory.getInstance(KeyManagerFactory.getDefaultAlgorithm());
-                keyManagerFactory.init(keyStore, new char[0]);
+                keyManagerFactory.init(keyStore, keyManagerPassword);
                 keyManagers = keyManagerFactory.getKeyManagers();
             }
 
             // load TrustStore
-            KeyStore trustStore = loadTrustStore(trustStorePath);
+            KeyStore trustStore = loadTrustStore(trustStorePath, trustStorePassword);
 
             // create TrustManagerFactory
             TrustManagerFactory trustManagerFactory = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
@@ -151,16 +166,27 @@ public class DefaultThriftMetastoreClientFactory
         }
     }
 
-    private static KeyStore loadTrustStore(File trustStorePath)
+    private static KeyStore loadTrustStore(File trustStorePath, Optional<String> trustStorePassword)
             throws IOException, GeneralSecurityException
     {
-        List<X509Certificate> certificateChain = PemReader.readCertificateChain(trustStorePath);
-
         KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
-        trustStore.load(null, null);
-        for (X509Certificate certificate : certificateChain) {
-            X500Principal principal = certificate.getSubjectX500Principal();
-            trustStore.setCertificateEntry(principal.getName(), certificate);
+        try {
+            // attempt to read the trust store as a PEM file
+            List<X509Certificate> certificateChain = PemReader.readCertificateChain(trustStorePath);
+            if (!certificateChain.isEmpty()) {
+                trustStore.load(null, null);
+                for (X509Certificate certificate : certificateChain) {
+                    X500Principal principal = certificate.getSubjectX500Principal();
+                    trustStore.setCertificateEntry(principal.getName(), certificate);
+                }
+                return trustStore;
+            }
+        }
+        catch (IOException | GeneralSecurityException e) {
+        }
+
+        try (InputStream in = new FileInputStream(trustStorePath)) {
+            trustStore.load(in, trustStorePassword.map(String::toCharArray).orElse(null));
         }
         return trustStore;
     }

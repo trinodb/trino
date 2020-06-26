@@ -294,45 +294,47 @@ Property Name                                      Description                  
 Thrift Metastore Configuration Properties
 -----------------------------------------
 
-============================================================= ============================================================ ============
-Property Name                                                 Description                                                  Default
-============================================================= ============================================================ ============
-``hive.metastore.uri``                                        The URI(s) of the Hive metastore to connect to using the
-                                                              Thrift protocol. If multiple URIs are provided, the first
-                                                              URI is used by default, and the rest of the URIs are
-                                                              fallback metastores. This property is required.
-                                                              Example: ``thrift://192.0.2.3:9083`` or
-                                                              ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
+=============================================================== ============================================================ ============
+Property Name                                                   Description                                                  Default
+=============================================================== ============================================================ ============
+``hive.metastore.uri``                                          The URI(s) of the Hive metastore to connect to using the
+                                                                Thrift protocol. If multiple URIs are provided, the first
+                                                                URI is used by default, and the rest of the URIs are
+                                                                fallback metastores. This property is required.
+                                                                Example: ``thrift://192.0.2.3:9083`` or
+                                                                ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
 
-``hive.metastore.username``                                   The username Presto uses to access the Hive metastore.
+``hive.metastore.username``                                     The username Presto uses to access the Hive metastore.
 
-``hive.metastore.authentication.type``                        Hive metastore authentication type.
-                                                              Possible values are ``NONE`` or ``KERBEROS``
-                                                              (defaults to ``NONE``).
+``hive.metastore.authentication.type``                          Hive metastore authentication type.
+                                                                Possible values are ``NONE`` or ``KERBEROS``
+                                                                (defaults to ``NONE``).
 
-``hive.metastore.thrift.impersonation.enabled``               Enable Hive metastore end user impersonation.
+``hive.metastore.thrift.impersonation.enabled``                 Enable Hive metastore end user impersonation.
 
-``hive.metastore.thrift.delegation-token.cache-ttl``          Time to live delegation token cache for metastore.           ``1h``
+``hive.metastore.thrift.delegation-token.cache-ttl``            Time to live delegation token cache for metastore.           ``1h``
 
-``hive.metastore.thrift.delegation-token.cache-maximum-size`` Delegation token cache maximum size.                         1,000
+``hive.metastore.thrift.delegation-token.cache-maximum-size``   Delegation token cache maximum size.                         1,000
 
-``hive.metastore.thrift.client.ssl.enabled``                  Use SSL when connecting to metastore.                        ``false``
+``hive.metastore.thrift.client.ssl.enabled``                    Use SSL when connecting to metastore.                        ``false``
 
-``hive.metastore.thrift.client.ssl.key``                      Path to PEM private key and client certificate (key store).
+``hive.metastore.thrift.client.ssl.key``                        Path to private key and client certificate (key store).
 
-``hive.metastore.thrift.client.ssl.key-password``             Password for the PEM private key.
+``hive.metastore.thrift.client.ssl.key-password``               Password for the private key.
 
-``hive.metastore.thrift.client.ssl.trust-certificate``        Path to the PEM server certificate chain (trust store).
-                                                              Required when SSL is enabled.
+``hive.metastore.thrift.client.ssl.trust-certificate``          Path to the server certificate chain (trust store).
+                                                                Required when SSL is enabled.
 
-``hive.metastore.service.principal``                          The Kerberos principal of the Hive metastore service.
+``hive.metastore.thrift.client.ssl.trust-certificate-password`` Password for the trust store
 
-``hive.metastore.client.principal``                           The Kerberos principal that Presto uses when connecting
-                                                              to the Hive metastore service.
+``hive.metastore.service.principal``                            The Kerberos principal of the Hive metastore service.
 
-``hive.metastore.client.keytab``                              Hive metastore client keytab location.
+``hive.metastore.client.principal``                             The Kerberos principal that Presto uses when connecting
+                                                                to the Hive metastore service.
 
-============================================================= ============================================================ ============
+``hive.metastore.client.keytab``                                Hive metastore client keytab location.
+
+=============================================================== ============================================================ ============
 
 AWS Glue Catalog Configuration Properties
 -----------------------------------------
