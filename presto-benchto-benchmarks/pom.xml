@@ -12,6 +12,7 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <main-class>io.prestosql.benchto.driver.DriverApp</main-class>
         <air.check.fail-dependency>false</air.check.fail-dependency>
         <air.check.fail-duplicate-finder>false</air.check.fail-duplicate-finder>
     </properties>
@@ -90,6 +91,7 @@
                     </execution>
                 </executions>
             </plugin>
+
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
@@ -100,24 +102,32 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
-                            <shadedArtifactAttached>false</shadedArtifactAttached>
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <shadedClassifierName>executable</shadedClassifierName>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
+                                    <manifestEntries>
+                                        <Main-Class>${main-class}</Main-Class>
+                                    </manifestEntries>
+                                </transformer>
+                            </transformers>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
+
             <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <version>1.2.5.RELEASE</version>
+                <groupId>org.skife.maven</groupId>
+                <artifactId>really-executable-jar-maven-plugin</artifactId>
                 <configuration>
+                    <flags>-Xmx1G</flags>
                     <classifier>executable</classifier>
-                    <mainClass>io.prestosql.benchto.driver.DriverApp</mainClass>
-                    <layout>ZIP</layout>
                 </configuration>
                 <executions>
                     <execution>
+                        <phase>package</phase>
                         <goals>
-                            <goal>repackage</goal>
+                            <goal>really-executable-jar</goal>
                         </goals>
                     </execution>
                 </executions>
