@@ -104,6 +104,7 @@ import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createDeci
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createStringColumnStatistics;
+import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.ALTER;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
@@ -765,6 +766,8 @@ public final class ThriftMetastoreUtil
                 return ImmutableSet.of(new HivePrivilegeInfo(UPDATE, grantOption, grantor, grantee.orElse(grantor)));
             case "DELETE":
                 return ImmutableSet.of(new HivePrivilegeInfo(DELETE, grantOption, grantor, grantee.orElse(grantor)));
+            case "ALTER":
+                return ImmutableSet.of(new HivePrivilegeInfo(ALTER, grantOption, grantor, grantee.orElse(grantor)));
             case "OWNERSHIP":
                 return ImmutableSet.of(new HivePrivilegeInfo(OWNERSHIP, grantOption, grantor, grantee.orElse(grantor)));
             default:

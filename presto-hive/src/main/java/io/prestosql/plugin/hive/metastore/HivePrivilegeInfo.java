@@ -36,7 +36,13 @@ public class HivePrivilegeInfo
 {
     public enum HivePrivilege
     {
-        SELECT, INSERT, UPDATE, DELETE, OWNERSHIP
+        SELECT,
+        INSERT,
+        UPDATE,
+        DELETE,
+        ALTER,
+        OWNERSHIP,
+        /**/
     }
 
     private final HivePrivilege hivePrivilege;

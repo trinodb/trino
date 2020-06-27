@@ -240,4 +240,13 @@ public class TestSqlStandardAccessControlChecks
         aliceExecutor.executeQuery(format("GRANT SELECT ON %s TO bob", tableName));
         assertThat(bobExecutor.executeQuery(format("SELECT * FROM information_schema.columns WHERE table_name = '%s'", tableName))).hasRowsCount(2);
     }
+
+    @Test(groups = {AUTHORIZATION, PROFILE_SPECIFIC_TESTS})
+    public void testHiveAlterPrivilege()
+    {
+        onHive().executeQuery(format("GRANT ALTER ON TABLE %s TO USER bob", tableName));
+
+        assertThat(bobExecutor.executeQuery("SELECT * FROM " + tableName))
+                .hasNoRows();
+    }
 }
