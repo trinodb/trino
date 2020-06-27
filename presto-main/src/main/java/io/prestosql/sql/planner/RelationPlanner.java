@@ -228,6 +228,7 @@ class RelationPlanner
         PlanBuilder planBuilder = newPlanBuilder(plan, analysis, lambdaDeclarationToSymbolMap)
                 .withScope(analysis.getAccessControlScope(table), plan.getFieldMappings()); // The fields in the access control scope has the same layout as those for the table scope
 
+        List<Symbol> newFieldMappings = new ArrayList<>(plan.getFieldMappings());
         for (int i = 0; i < plan.getDescriptor().getAllFieldCount(); i++) {
             Field field = plan.getDescriptor().getFieldByIndex(i);
 
@@ -238,9 +239,13 @@ class RelationPlanner
                 for (Symbol symbol : plan.getRoot().getOutputSymbols()) {
                     assignments.put(symbol, symbol.toSymbolReference());
                 }
-                assignments.put(plan.getFieldMappings().get(i), coerceIfNecessary(analysis, mask, planBuilder.rewrite(mask)));
+
+                Symbol symbol = symbolAllocator.newSymbol(plan.getFieldMappings().get(i));
+                assignments.put(symbol, coerceIfNecessary(analysis, mask, planBuilder.rewrite(mask)));
+                newFieldMappings.set(i, symbol);
 
                 planBuilder = planBuilder
+                        .withScope(planBuilder.getScope(), newFieldMappings)
                         .withNewRoot(new ProjectNode(
                                 idAllocator.getNextId(),
                                 planBuilder.getRoot(),
@@ -248,7 +253,7 @@ class RelationPlanner
             }
         }
 
-        return new RelationPlan(planBuilder.getRoot(), plan.getScope(), plan.getFieldMappings(), outerContext);
+        return new RelationPlan(planBuilder.getRoot(), plan.getScope(), newFieldMappings, outerContext);
     }
 
     @Override

@@ -425,4 +425,32 @@ public class TestColumnMask
                         "(cast('clerk' AS varchar), cast(15000 AS double), cast(1000 AS double), cast(0 AS double), cast(null AS double), cast(null AS varchar), cast(null AS varchar))," +
                         "(null, null, null, null, 15000, null, null)");
     }
+
+    @Test
+    public void testJoin()
+    {
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "orderkey",
+                USER,
+                new ViewExpression(USER, Optional.of(CATALOG), Optional.of("tiny"), "orderkey + 1"));
+        assertThat(assertions.query("SELECT count(*) FROM orders JOIN orders USING (orderkey)")).matches("VALUES BIGINT '15000'");
+
+        // multiple masks
+        accessControl.reset();
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "orderkey",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "-orderkey"));
+
+        accessControl.columnMask(
+                new QualifiedObjectName(CATALOG, "tiny", "orders"),
+                "orderkey",
+                USER,
+                new ViewExpression(USER, Optional.empty(), Optional.empty(), "orderkey * 2"));
+
+        assertThat(assertions.query("SELECT count(*) FROM orders JOIN orders USING (orderkey)")).matches("VALUES BIGINT '15000'");
+    }
 }
