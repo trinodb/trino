@@ -33,6 +33,8 @@ import static io.prestosql.plugin.iceberg.IcebergQueryRunner.createIcebergQueryR
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static java.lang.String.format;
+import static java.util.stream.Collectors.joining;
+import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -198,6 +200,12 @@ public class TestIcebergSmoke
     public void testCreatePartitionedTable()
     {
         testWithAllFileFormats(this::testCreatePartitionedTable);
+    }
+
+    @Test
+    public void testOnePartitionCase()
+    {
+        testCreatePartitionedTable(getSession(), FileFormat.ORC);
     }
 
     private void testCreatePartitionedTable(Session session, FileFormat fileFormat)
@@ -801,16 +809,90 @@ public class TestIcebergSmoke
         dropTable(session, "test_bucket_transform");
     }
 
-    private void testWithAllFileFormats(BiConsumer<Session, FileFormat> test)
+    @Test
+    public void testMetadataDeleteSimple()
     {
-        test.accept(getSession(), FileFormat.PARQUET);
-        test.accept(getSession(), FileFormat.ORC);
+        testWithAllFileFormats(this::testMetadataDeleteSimpleForFormat);
     }
 
-    private void dropTable(Session session, String table)
+    private void testMetadataDeleteSimpleForFormat(Session session, FileFormat format)
     {
-        assertUpdate(session, "DROP TABLE " + table);
-        assertFalse(getQueryRunner().tableExists(session, table));
+        assertUpdate(session, format("CREATE TABLE test_metadata_delete_simple (col1 BIGINT, col2 BIGINT) WITH (format = '%s', partitioning = ARRAY['col1'])", format.name()));
+        assertUpdate(session, "INSERT INTO test_metadata_delete_simple VALUES(1, 100), (1, 101), (1, 102), (2, 200), (2, 201), (3, 300)", 6);
+        assertQueryFails(
+                session,
+                "DELETE FROM test_metadata_delete_simple WHERE col1 = 1 AND col2 > 101",
+                "This connector only supports delete where one or more partitions are deleted entirely");
+        assertQuery(session, "SELECT sum(col2) FROM test_metadata_delete_simple", "SELECT 1004");
+        assertQuery(session, "SELECT count(*) FROM \"test_metadata_delete_simple$partitions\"", "SELECT 3");
+        assertUpdate(session, "DELETE FROM test_metadata_delete_simple WHERE col1 = 1");
+        assertQuery(session, "SELECT sum(col2) FROM test_metadata_delete_simple", "SELECT 701");
+        assertQuery(session, "SELECT count(*) FROM \"test_metadata_delete_simple$partitions\"", "SELECT 2");
+        dropTable(session, "test_metadata_delete_simple");
+    }
+
+    @Test
+    public void testMetadataDelete()
+    {
+        testWithAllFileFormats(this::testMetadataDeleteForFormat);
+    }
+
+    private void testMetadataDeleteForFormat(Session session, FileFormat format)
+    {
+        @Language("SQL") String createTable = "" +
+                "CREATE TABLE test_metadata_delete (" +
+                "  orderkey BIGINT," +
+                "  linenumber INTEGER," +
+                "  linestatus VARCHAR" +
+                ") " +
+                "WITH (" +
+                format(" format = '%s', partitioning = ARRAY[ 'linenumber', 'linestatus' ]", format.name()) +
+                ") ";
+
+        assertUpdate(session, createTable);
+
+        assertUpdate(session, "" +
+                        "INSERT INTO test_metadata_delete " +
+                        "SELECT orderkey, linenumber, linestatus " +
+                        "FROM tpch.tiny.lineitem",
+                "SELECT count(*) FROM lineitem");
+
+        assertQuery(session, "SELECT COUNT(*) FROM \"test_metadata_delete$partitions\"", "SELECT 14");
+
+        assertUpdate(session, "DELETE FROM test_metadata_delete WHERE linestatus = 'F' AND linenumber = 3");
+        assertQuery(session, "SELECT * FROM test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus <> 'F' or linenumber <> 3");
+        assertQuery(session, "SELECT count(*) FROM \"test_metadata_delete$partitions\"", "SELECT 13");
+
+        assertUpdate(session, "DELETE FROM test_metadata_delete WHERE linestatus='O'");
+        assertQuery(session, "SELECT count(*) FROM \"test_metadata_delete$partitions\"", "SELECT 6");
+        assertQuery(session, "SELECT * FROM test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus <> 'O' AND linenumber <> 3");
+
+        assertQueryFails("DELETE FROM test_metadata_delete WHERE orderkey=1", "This connector only supports delete where one or more partitions are deleted entirely");
+
+        dropTable(session, "test_metadata_delete");
+    }
+
+    @Test
+    public void testInSet()
+    {
+        testWithAllFileFormats((session, format) -> testInSetForFormat(session, format, 31));
+        testWithAllFileFormats((session, format) -> testInSetForFormat(session, format, 35));
+    }
+
+    private void testInSetForFormat(Session session, FileFormat format, int inCount)
+    {
+        String values = range(1, inCount + 1)
+                .mapToObj(n -> format("(%s, %s)", n, n + 10))
+                .collect(joining(", "));
+        String inList = range(1, inCount + 1)
+                .mapToObj(Integer::toString)
+                .collect(joining(", "));
+
+        assertUpdate(session, "CREATE TABLE test_in_set (col1 INTEGER, col2 BIGINT)");
+        assertUpdate(session, format("INSERT INTO test_in_set VALUES %s", values), inCount);
+        // This proves that SELECTs with large IN phrases work correctly
+        MaterializedResult result = computeActual(format("SELECT col1 FROM test_in_set WHERE col1 IN (%s)", inList));
+        dropTable(session, "test_in_set");
     }
 
     @Test
@@ -878,5 +960,17 @@ public class TestIcebergSmoke
 
         dropTable(session, "test_nested_table");
         dropTable(session, "test_nested_table2");
+    }
+
+    private void testWithAllFileFormats(BiConsumer<Session, FileFormat> test)
+    {
+        test.accept(getSession(), FileFormat.PARQUET);
+        test.accept(getSession(), FileFormat.ORC);
+    }
+
+    private void dropTable(Session session, String table)
+    {
+        assertUpdate(session, "DROP TABLE " + table);
+        assertFalse(getQueryRunner().tableExists(session, table));
     }
 }
