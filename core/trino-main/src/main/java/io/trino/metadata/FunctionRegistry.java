@@ -297,6 +297,7 @@ import static io.trino.operator.scalar.ArraySubscriptOperator.ARRAY_SUBSCRIPT;
 import static io.trino.operator.scalar.ArrayToArrayCast.ARRAY_TO_ARRAY_CAST;
 import static io.trino.operator.scalar.ArrayToElementConcatFunction.ARRAY_TO_ELEMENT_CONCAT_FUNCTION;
 import static io.trino.operator.scalar.ArrayToJsonCast.ARRAY_TO_JSON;
+import static io.trino.operator.scalar.ArrayToJsonCast.LEGACY_ARRAY_TO_JSON;
 import static io.trino.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFORM_FUNCTION;
 import static io.trino.operator.scalar.CastFromUnknownOperator.CAST_FROM_UNKNOWN;
 import static io.trino.operator.scalar.ConcatFunction.VARBINARY_CONCAT;
@@ -316,12 +317,14 @@ import static io.trino.operator.scalar.Least.LEAST;
 import static io.trino.operator.scalar.MapConstructor.MAP_CONSTRUCTOR;
 import static io.trino.operator.scalar.MapElementAtFunction.MAP_ELEMENT_AT;
 import static io.trino.operator.scalar.MapFilterFunction.MAP_FILTER_FUNCTION;
+import static io.trino.operator.scalar.MapToJsonCast.LEGACY_MAP_TO_JSON;
 import static io.trino.operator.scalar.MapToJsonCast.MAP_TO_JSON;
 import static io.trino.operator.scalar.MapTransformValuesFunction.MAP_TRANSFORM_VALUES_FUNCTION;
 import static io.trino.operator.scalar.MapZipWithFunction.MAP_ZIP_WITH_FUNCTION;
 import static io.trino.operator.scalar.MathFunctions.DECIMAL_MOD_FUNCTION;
 import static io.trino.operator.scalar.Re2JCastToRegexpFunction.castCharToRe2JRegexp;
 import static io.trino.operator.scalar.Re2JCastToRegexpFunction.castVarcharToRe2JRegexp;
+import static io.trino.operator.scalar.RowToJsonCast.LEGACY_ROW_TO_JSON;
 import static io.trino.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static io.trino.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
 import static io.trino.operator.scalar.TryCastFunction.TRY_CAST;
@@ -554,10 +557,10 @@ public class FunctionRegistry
                 .function(new MapToMapCast(blockTypeOperators))
                 .function(ARRAY_FLATTEN_FUNCTION)
                 .function(ARRAY_CONCAT_FUNCTION)
-                .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_TO_JSON, JSON_TO_ARRAY, JSON_STRING_TO_ARRAY)
+                .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, JSON_TO_ARRAY, JSON_STRING_TO_ARRAY)
                 .function(ARRAY_AGG)
                 .functions(new MapSubscriptOperator())
-                .functions(MAP_CONSTRUCTOR, MAP_TO_JSON, JSON_TO_MAP, JSON_STRING_TO_MAP)
+                .functions(MAP_CONSTRUCTOR, JSON_TO_MAP, JSON_STRING_TO_MAP)
                 .functions(new MapAggregationFunction(blockTypeOperators), new MapUnionAggregation(blockTypeOperators))
                 .function(REDUCE_AGG)
                 .function(new MultimapAggregationFunction(blockTypeOperators))
@@ -577,7 +580,7 @@ public class FunctionRegistry
                 .functions(MAX_BY, MIN_BY, new MaxByNAggregationFunction(blockTypeOperators), new MinByNAggregationFunction(blockTypeOperators))
                 .functions(MAX_AGGREGATION, MIN_AGGREGATION, new MaxNAggregationFunction(blockTypeOperators), new MinNAggregationFunction(blockTypeOperators))
                 .function(COUNT_COLUMN)
-                .functions(ROW_TO_JSON, JSON_TO_ROW, JSON_STRING_TO_ROW, ROW_TO_ROW_CAST)
+                .functions(JSON_TO_ROW, JSON_STRING_TO_ROW, ROW_TO_ROW_CAST)
                 .functions(VARCHAR_CONCAT, VARBINARY_CONCAT)
                 .function(CONCAT_WS)
                 .function(DECIMAL_TO_DECIMAL_CAST)
@@ -736,6 +739,13 @@ public class FunctionRegistry
                 builder.scalars(Re2JRegexpFunctions.class);
                 builder.scalar(Re2JRegexpReplaceLambdaFunction.class);
                 break;
+        }
+
+        if (featuresConfig.isLegacyRowToJsonCast()) {
+            builder.functions(LEGACY_ROW_TO_JSON, LEGACY_ARRAY_TO_JSON, LEGACY_MAP_TO_JSON);
+        }
+        else {
+            builder.functions(ROW_TO_JSON, ARRAY_TO_JSON, MAP_TO_JSON);
         }
 
         addFunctions(builder.getFunctions());
