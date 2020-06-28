@@ -15,6 +15,7 @@ package io.prestosql.sql.planner.assertions;
 
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.ArithmeticUnaryExpression;
+import io.prestosql.sql.tree.ArrayConstructor;
 import io.prestosql.sql.tree.AstVisitor;
 import io.prestosql.sql.tree.BetweenPredicate;
 import io.prestosql.sql.tree.BooleanLiteral;
@@ -50,12 +51,12 @@ import io.prestosql.sql.tree.WhenClause;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.sql.ExpressionTestUtils.getFunctionName;
 import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public final class ExpressionVerifier
 {
@@ -68,7 +69,7 @@ public final class ExpressionVerifier
 
     public static boolean verify(Expression actual, Expression expected, SymbolAliases symbolAliases)
     {
-        return new Visitor(symbolAliases).process(actual, expected);
+        return new Visitor().process(actual, new Context(expected, symbolAliases));
     }
 
     /**
@@ -96,24 +97,18 @@ public final class ExpressionVerifier
      * </pre>
      */
     private static class Visitor
-            extends AstVisitor<Boolean, Node>
+            extends AstVisitor<Boolean, Context>
     {
-        private final SymbolAliases symbolAliases;
-
-        Visitor(SymbolAliases symbolAliases)
-        {
-            this.symbolAliases = requireNonNull(symbolAliases, "symbolAliases is null");
-        }
-
         @Override
-        protected Boolean visitNode(Node node, Node expectedExpression)
+        protected Boolean visitNode(Node node, Context context)
         {
             throw new IllegalStateException(format("Node %s is not supported", node.getClass().getSimpleName()));
         }
 
         @Override
-        protected Boolean visitGenericLiteral(GenericLiteral actual, Node expectedExpression)
+        protected Boolean visitGenericLiteral(GenericLiteral actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof GenericLiteral)) {
                 return false;
             }
@@ -123,8 +118,9 @@ public final class ExpressionVerifier
         }
 
         @Override
-        protected Boolean visitStringLiteral(StringLiteral actual, Node expectedExpression)
+        protected Boolean visitStringLiteral(StringLiteral actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof StringLiteral)) {
                 return false;
             }
@@ -135,8 +131,9 @@ public final class ExpressionVerifier
         }
 
         @Override
-        protected Boolean visitLongLiteral(LongLiteral actual, Node expectedExpression)
+        protected Boolean visitLongLiteral(LongLiteral actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof LongLiteral)) {
                 return false;
             }
@@ -145,8 +142,9 @@ public final class ExpressionVerifier
         }
 
         @Override
-        protected Boolean visitDoubleLiteral(DoubleLiteral actual, Node expectedExpression)
+        protected Boolean visitDoubleLiteral(DoubleLiteral actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof DoubleLiteral)) {
                 return false;
             }
@@ -155,8 +153,9 @@ public final class ExpressionVerifier
         }
 
         @Override
-        protected Boolean visitDecimalLiteral(DecimalLiteral actual, Node expectedExpression)
+        protected Boolean visitDecimalLiteral(DecimalLiteral actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof DecimalLiteral)) {
                 return false;
             }
@@ -165,8 +164,9 @@ public final class ExpressionVerifier
         }
 
         @Override
-        protected Boolean visitBooleanLiteral(BooleanLiteral actual, Node expectedExpression)
+        protected Boolean visitBooleanLiteral(BooleanLiteral actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof BooleanLiteral)) {
                 return false;
             }
@@ -175,9 +175,9 @@ public final class ExpressionVerifier
         }
 
         @Override
-        protected Boolean visitNullLiteral(NullLiteral node, Node expectedExpression)
+        protected Boolean visitNullLiteral(NullLiteral node, Context context)
         {
-            return expectedExpression instanceof NullLiteral;
+            return context.getExpectedNode() instanceof NullLiteral;
         }
 
         private static String getValueFromLiteral(Node expression)
@@ -206,20 +206,22 @@ public final class ExpressionVerifier
         }
 
         @Override
-        protected Boolean visitSymbolReference(SymbolReference actual, Node expectedExpression)
+        protected Boolean visitSymbolReference(SymbolReference actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof SymbolReference)) {
                 return false;
             }
 
             SymbolReference expected = (SymbolReference) expectedExpression;
 
-            return symbolAliases.get(expected.getName()).equals(actual);
+            return context.getSymbolAliases().get(expected.getName()).equals(actual);
         }
 
         @Override
-        protected Boolean visitDereferenceExpression(DereferenceExpression actual, Node expectedExpression)
+        protected Boolean visitDereferenceExpression(DereferenceExpression actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof DereferenceExpression)) {
                 return false;
             }
@@ -227,26 +229,28 @@ public final class ExpressionVerifier
             DereferenceExpression expected = (DereferenceExpression) expectedExpression;
 
             return actual.getField().equals(expected.getField()) &&
-                    process(actual.getBase(), expected.getBase());
+                    process(actual.getBase(), context.replaceExpectedNode(expected.getBase()));
         }
 
         @Override
-        protected Boolean visitIfExpression(IfExpression actual, Node expectedExpression)
+        protected Boolean visitIfExpression(IfExpression actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof IfExpression)) {
                 return false;
             }
 
             IfExpression expected = (IfExpression) expectedExpression;
 
-            return process(actual.getCondition(), expected.getCondition())
-                    && process(actual.getTrueValue(), expected.getTrueValue())
-                    && process(actual.getFalseValue(), expected.getFalseValue());
+            return process(actual.getCondition(), context.replaceExpectedNode(expected.getCondition()))
+                    && process(actual.getTrueValue(), context.replaceExpectedNode(expected.getTrueValue()))
+                    && process(actual.getFalseValue(), expected.getFalseValue(), context.getSymbolAliases());
         }
 
         @Override
-        protected Boolean visitCast(Cast actual, Node expectedExpression)
+        protected Boolean visitCast(Cast actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof Cast)) {
                 return false;
             }
@@ -261,36 +265,39 @@ public final class ExpressionVerifier
                 return false;
             }
 
-            return process(actual.getExpression(), expected.getExpression());
+            return process(actual.getExpression(), context.replaceExpectedNode(expected.getExpression()));
         }
 
         @Override
-        protected Boolean visitIsNullPredicate(IsNullPredicate actual, Node expectedExpression)
+        protected Boolean visitIsNullPredicate(IsNullPredicate actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof IsNullPredicate)) {
                 return false;
             }
 
             IsNullPredicate expected = (IsNullPredicate) expectedExpression;
 
-            return process(actual.getValue(), expected.getValue());
+            return process(actual.getValue(), context.replaceExpectedNode(expected.getValue()));
         }
 
         @Override
-        protected Boolean visitIsNotNullPredicate(IsNotNullPredicate actual, Node expectedExpression)
+        protected Boolean visitIsNotNullPredicate(IsNotNullPredicate actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof IsNotNullPredicate)) {
                 return false;
             }
 
             IsNotNullPredicate expected = (IsNotNullPredicate) expectedExpression;
 
-            return process(actual.getValue(), expected.getValue());
+            return process(actual.getValue(), context.replaceExpectedNode(expected.getValue()));
         }
 
         @Override
-        protected Boolean visitInPredicate(InPredicate actual, Node expectedExpression)
+        protected Boolean visitInPredicate(InPredicate actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof InPredicate)) {
                 return false;
             }
@@ -298,8 +305,8 @@ public final class ExpressionVerifier
             InPredicate expected = (InPredicate) expectedExpression;
 
             if (actual.getValueList() instanceof InListExpression || !(expected.getValueList() instanceof InListExpression)) {
-                return process(actual.getValue(), expected.getValue()) &&
-                        process(actual.getValueList(), expected.getValueList());
+                return process(actual.getValue(), context.replaceExpectedNode(expected.getValue())) &&
+                        process(actual.getValueList(), context.replaceExpectedNode(expected.getValueList()));
             }
 
             /*
@@ -321,25 +328,27 @@ public final class ExpressionVerifier
             List<Expression> values = ((InListExpression) expected.getValueList()).getValues();
             checkState(values.size() == 1, "Multiple expressions in expected value list %s, but actual value is not a list", values, actual.getValue());
             Expression onlyExpectedExpression = values.get(0);
-            return process(actual.getValue(), expected.getValue()) &&
-                    process(actual.getValueList(), onlyExpectedExpression);
+            return process(actual.getValue(), context.replaceExpectedNode(expected.getValue())) &&
+                    process(actual.getValueList(), context.replaceExpectedNode(onlyExpectedExpression));
         }
 
         @Override
-        protected Boolean visitInListExpression(InListExpression actual, Node expectedExpression)
+        protected Boolean visitInListExpression(InListExpression actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof InListExpression)) {
                 return false;
             }
 
             InListExpression expected = (InListExpression) expectedExpression;
 
-            return process(actual.getValues(), expected.getValues());
+            return process(actual.getValues(), expected.getValues(), context.getSymbolAliases());
         }
 
         @Override
-        protected Boolean visitComparisonExpression(ComparisonExpression actual, Node expectedExpression)
+        protected Boolean visitComparisonExpression(ComparisonExpression actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof ComparisonExpression)) {
                 return false;
             }
@@ -347,33 +356,35 @@ public final class ExpressionVerifier
             ComparisonExpression expected = (ComparisonExpression) expectedExpression;
 
             if (actual.getOperator() == expected.getOperator() &&
-                    process(actual.getLeft(), expected.getLeft()) &&
-                    process(actual.getRight(), expected.getRight())) {
+                    process(actual.getLeft(), context.replaceExpectedNode(expected.getLeft())) &&
+                    process(actual.getRight(), context.replaceExpectedNode(expected.getRight()))) {
                 return true;
             }
 
             return actual.getOperator() == expected.getOperator().flip() &&
-                    process(actual.getLeft(), expected.getRight()) &&
-                    process(actual.getRight(), expected.getLeft());
+                    process(actual.getLeft(), context.replaceExpectedNode(expected.getRight())) &&
+                    process(actual.getRight(), context.replaceExpectedNode(expected.getLeft()));
         }
 
         @Override
-        protected Boolean visitBetweenPredicate(BetweenPredicate actual, Node expectedExpression)
+        protected Boolean visitBetweenPredicate(BetweenPredicate actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof BetweenPredicate)) {
                 return false;
             }
 
             BetweenPredicate expected = (BetweenPredicate) expectedExpression;
 
-            return process(actual.getValue(), expected.getValue()) &&
-                    process(actual.getMin(), expected.getMin()) &&
-                    process(actual.getMax(), expected.getMax());
+            return process(actual.getValue(), context.replaceExpectedNode(expected.getValue())) &&
+                    process(actual.getMin(), context.replaceExpectedNode(expected.getMin())) &&
+                    process(actual.getMax(), context.replaceExpectedNode(expected.getMax()));
         }
 
         @Override
-        protected Boolean visitArithmeticUnary(ArithmeticUnaryExpression actual, Node expectedExpression)
+        protected Boolean visitArithmeticUnary(ArithmeticUnaryExpression actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof ArithmeticUnaryExpression)) {
                 return false;
             }
@@ -381,12 +392,13 @@ public final class ExpressionVerifier
             ArithmeticUnaryExpression expected = (ArithmeticUnaryExpression) expectedExpression;
 
             return actual.getSign() == expected.getSign() &&
-                    process(actual.getValue(), expected.getValue());
+                    process(actual.getValue(), context.replaceExpectedNode(expected.getValue()));
         }
 
         @Override
-        protected Boolean visitArithmeticBinary(ArithmeticBinaryExpression actual, Node expectedExpression)
+        protected Boolean visitArithmeticBinary(ArithmeticBinaryExpression actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof ArithmeticBinaryExpression)) {
                 return false;
             }
@@ -394,25 +406,27 @@ public final class ExpressionVerifier
             ArithmeticBinaryExpression expected = (ArithmeticBinaryExpression) expectedExpression;
 
             return actual.getOperator() == expected.getOperator() &&
-                    process(actual.getLeft(), expected.getLeft()) &&
-                    process(actual.getRight(), expected.getRight());
+                    process(actual.getLeft(), context.replaceExpectedNode(expected.getLeft())) &&
+                    process(actual.getRight(), context.replaceExpectedNode(expected.getRight()));
         }
 
         @Override
-        protected Boolean visitNotExpression(NotExpression actual, Node expectedExpression)
+        protected Boolean visitNotExpression(NotExpression actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof NotExpression)) {
                 return false;
             }
 
             NotExpression expected = (NotExpression) expectedExpression;
 
-            return process(actual.getValue(), expected.getValue());
+            return process(actual.getValue(), context.replaceExpectedNode(expected.getValue()));
         }
 
         @Override
-        protected Boolean visitLogicalBinaryExpression(LogicalBinaryExpression actual, Node expectedExpression)
+        protected Boolean visitLogicalBinaryExpression(LogicalBinaryExpression actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof LogicalBinaryExpression)) {
                 return false;
             }
@@ -420,13 +434,14 @@ public final class ExpressionVerifier
             LogicalBinaryExpression expected = (LogicalBinaryExpression) expectedExpression;
 
             return actual.getOperator() == expected.getOperator() &&
-                    process(actual.getLeft(), expected.getLeft()) &&
-                    process(actual.getRight(), expected.getRight());
+                    process(actual.getLeft(), context.replaceExpectedNode(expected.getLeft())) &&
+                    process(actual.getRight(), context.replaceExpectedNode(expected.getRight()));
         }
 
         @Override
-        protected Boolean visitCoalesceExpression(CoalesceExpression actual, Node expectedExpression)
+        protected Boolean visitCoalesceExpression(CoalesceExpression actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof CoalesceExpression)) {
                 return false;
             }
@@ -438,7 +453,7 @@ public final class ExpressionVerifier
             }
 
             for (int i = 0; i < actual.getOperands().size(); i++) {
-                if (!process(actual.getOperands().get(i), expected.getOperands().get(i))) {
+                if (!process(actual.getOperands().get(i), context.replaceExpectedNode(expected.getOperands().get(i)))) {
                     return false;
                 }
             }
@@ -446,28 +461,30 @@ public final class ExpressionVerifier
         }
 
         @Override
-        protected Boolean visitSimpleCaseExpression(SimpleCaseExpression actual, Node expectedExpression)
+        protected Boolean visitSimpleCaseExpression(SimpleCaseExpression actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof SimpleCaseExpression)) {
                 return false;
             }
 
             SimpleCaseExpression expected = (SimpleCaseExpression) expectedExpression;
 
-            return process(actual.getOperand(), expected.getOperand()) &&
-                    process(actual.getWhenClauses(), expected.getWhenClauses()) &&
-                    process(actual.getDefaultValue(), expected.getDefaultValue());
+            return process(actual.getOperand(), context.replaceExpectedNode(expected.getOperand())) &&
+                    process(actual.getWhenClauses(), expected.getWhenClauses(), context.getSymbolAliases()) &&
+                    process(actual.getDefaultValue(), expected.getDefaultValue(), context.getSymbolAliases());
         }
 
         @Override
-        protected Boolean visitSearchedCaseExpression(SearchedCaseExpression actual, Node expected)
+        protected Boolean visitSearchedCaseExpression(SearchedCaseExpression actual, Context context)
         {
+            Node expected = context.getExpectedNode();
             if (!(expected instanceof SearchedCaseExpression)) {
                 return false;
             }
 
             SearchedCaseExpression expectedCase = (SearchedCaseExpression) expected;
-            if (!process(actual.getWhenClauses(), expectedCase.getWhenClauses())) {
+            if (!process(actual.getWhenClauses(), expectedCase.getWhenClauses(), context.getSymbolAliases())) {
                 return false;
             }
 
@@ -475,25 +492,27 @@ public final class ExpressionVerifier
                 return false;
             }
 
-            return process(actual.getDefaultValue(), expectedCase.getDefaultValue());
+            return process(actual.getDefaultValue(), expectedCase.getDefaultValue(), context.getSymbolAliases());
         }
 
         @Override
-        protected Boolean visitWhenClause(WhenClause actual, Node expectedExpression)
+        protected Boolean visitWhenClause(WhenClause actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof WhenClause)) {
                 return false;
             }
 
             WhenClause expected = (WhenClause) expectedExpression;
 
-            return process(actual.getOperand(), expected.getOperand()) &&
-                    process(actual.getResult(), expected.getResult());
+            return process(actual.getOperand(), context.replaceExpectedNode(expected.getOperand())) &&
+                    process(actual.getResult(), context.replaceExpectedNode(expected.getResult()));
         }
 
         @Override
-        protected Boolean visitFunctionCall(FunctionCall actual, Node expectedExpression)
+        protected Boolean visitFunctionCall(FunctionCall actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof FunctionCall)) {
                 return false;
             }
@@ -502,99 +521,154 @@ public final class ExpressionVerifier
 
             return actual.isDistinct() == expected.isDistinct() &&
                     getFunctionName(actual).equals(getFunctionName(expected)) &&
-                    process(actual.getArguments(), expected.getArguments()) &&
-                    process(actual.getFilter(), expected.getFilter()) &&
-                    process(actual.getWindow(), expected.getWindow());
+                    process(actual.getArguments(), expected.getArguments(), context.getSymbolAliases()) &&
+                    process(actual.getFilter(), expected.getFilter(), context.getSymbolAliases()) &&
+                    process(actual.getWindow(), expected.getWindow(), context.getSymbolAliases());
         }
 
         @Override
-        protected Boolean visitLambdaExpression(LambdaExpression actual, Node expected)
+        protected Boolean visitLambdaExpression(LambdaExpression actual, Context context)
         {
+            Node expected = context.getExpectedNode();
             if (!(expected instanceof LambdaExpression)) {
                 return false;
             }
 
             LambdaExpression lambdaExpression = (LambdaExpression) expected;
 
-            // todo this should allow the arguments to have different names
-            if (!actual.getArguments().equals(lambdaExpression.getArguments())) {
+            if (actual.getArguments().size() != lambdaExpression.getArguments().size()) {
                 return false;
             }
 
-            return process(actual.getBody(), lambdaExpression.getBody());
+            SymbolAliases.Builder aliasesWithLambdaArguments = SymbolAliases.builder()
+                    .putAll(context.getSymbolAliases());
+
+            IntStream.range(0, actual.getArguments().size()).boxed()
+                    .forEach(index -> {
+                        String expectedArgument = lambdaExpression.getArguments().get(index).getName().getValue();
+                        String actualArgument = actual.getArguments().get(index).getName().getValue();
+                        aliasesWithLambdaArguments.put(expectedArgument, new SymbolReference(actualArgument));
+                    });
+
+            return process(actual.getBody(), new Context(lambdaExpression.getBody(), aliasesWithLambdaArguments.build()));
         }
 
         @Override
-        protected Boolean visitRow(Row actual, Node expectedExpression)
+        protected Boolean visitArrayConstructor(ArrayConstructor actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
+            if (!(expectedExpression instanceof ArrayConstructor)) {
+                return false;
+            }
+
+            ArrayConstructor expected = (ArrayConstructor) expectedExpression;
+
+            return process(actual.getValues(), expected.getValues(), context.getSymbolAliases());
+        }
+
+        @Override
+        protected Boolean visitRow(Row actual, Context context)
+        {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof Row)) {
                 return false;
             }
 
             Row expected = (Row) expectedExpression;
 
-            return process(actual.getItems(), expected.getItems());
+            return process(actual.getItems(), expected.getItems(), context.getSymbolAliases());
         }
 
         @Override
-        protected Boolean visitTryExpression(TryExpression actual, Node expectedExpression)
+        protected Boolean visitTryExpression(TryExpression actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof TryExpression)) {
                 return false;
             }
 
             TryExpression expected = (TryExpression) expectedExpression;
 
-            return process(actual.getInnerExpression(), expected.getInnerExpression());
+            return process(actual.getInnerExpression(), context.replaceExpectedNode(expected.getInnerExpression()));
         }
 
         @Override
-        protected Boolean visitLikePredicate(LikePredicate actual, Node expectedExpression)
+        protected Boolean visitLikePredicate(LikePredicate actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof LikePredicate)) {
                 return false;
             }
 
             LikePredicate expected = (LikePredicate) expectedExpression;
 
-            return process(actual.getValue(), expected.getValue())
-                    && process(actual.getPattern(), expected.getPattern())
-                    && process(actual.getEscape(), expected.getEscape());
+            return process(actual.getValue(), context.replaceExpectedNode(expected.getValue()))
+                    && process(actual.getPattern(), context.replaceExpectedNode(expected.getPattern()))
+                    && process(actual.getEscape(), expected.getEscape(), context.getSymbolAliases());
         }
 
         @Override
-        protected Boolean visitSubscriptExpression(SubscriptExpression actual, Node expectedExpression)
+        protected Boolean visitSubscriptExpression(SubscriptExpression actual, Context context)
         {
+            Node expectedExpression = context.getExpectedNode();
             if (!(expectedExpression instanceof SubscriptExpression)) {
                 return false;
             }
 
             SubscriptExpression expected = (SubscriptExpression) expectedExpression;
-            return process(actual.getBase(), expected.getBase()) && process(actual.getIndex(), expected.getIndex());
+            return process(actual.getBase(), context.replaceExpectedNode(expected.getBase()))
+                    && process(actual.getIndex(), context.replaceExpectedNode(expected.getIndex()));
         }
 
-        private <T extends Node> boolean process(List<T> actuals, List<T> expecteds)
+        private <T extends Node> boolean process(List<T> actuals, List<T> expecteds, SymbolAliases symbolAliases)
         {
             if (actuals.size() != expecteds.size()) {
                 return false;
             }
             for (int i = 0; i < actuals.size(); i++) {
-                if (!process(actuals.get(i), expecteds.get(i))) {
+                if (!process(actuals.get(i), new Context(expecteds.get(i), symbolAliases))) {
                     return false;
                 }
             }
             return true;
         }
 
-        private <T extends Node> boolean process(Optional<T> actual, Optional<T> expected)
+        private <T extends Node> boolean process(Optional<T> actual, Optional<T> expected, SymbolAliases symbolAliases)
         {
             if (actual.isPresent() != expected.isPresent()) {
                 return false;
             }
             if (actual.isPresent()) {
-                return process(actual.get(), expected.get());
+                return process(actual.get(), new Context(expected.get(), symbolAliases));
             }
             return true;
+        }
+    }
+
+    private static class Context
+    {
+        private final Node expectedNode;
+        private final SymbolAliases symbolAliases;
+
+        Context(Node expectedNode, SymbolAliases symbolAliases)
+        {
+            this.expectedNode = expectedNode;
+            this.symbolAliases = symbolAliases;
+        }
+
+        Node getExpectedNode()
+        {
+            return expectedNode;
+        }
+
+        SymbolAliases getSymbolAliases()
+        {
+            return symbolAliases;
+        }
+
+        Context replaceExpectedNode(Expression expected)
+        {
+            return new Context(expected, symbolAliases);
         }
     }
 }

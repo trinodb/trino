@@ -111,6 +111,37 @@ public class TestExpressionVerifier
         assertTrue(verify("y IS DISTINCT FROM x", "b IS DISTINCT FROM a", symbolAliases));
     }
 
+    @Test
+    public void testLambdaExpressions()
+    {
+        SymbolAliases symbolAliases = SymbolAliases.builder()
+                .put("a", new SymbolReference("x"))
+                .put("b", new SymbolReference("y"))
+                .build();
+
+        assertTrue(verify(
+                "transform(x, p -> p.f0.f0 + y)",
+                "transform(a, q -> q.f0.f0 + b)",
+                symbolAliases));
+
+        // The same identifier used in multiple lambda expressions
+        assertTrue(verify(
+                "transform(x, p -> p.f0.f0) || transform(y, p -> p + 2)",
+                "transform(a, q -> q.f0.f0) || transform(b, q -> q + 2)",
+                symbolAliases));
+
+        assertTrue(verify(
+                "transform(x, p -> p.f0.f0) || transform(y, p -> p + 2)",
+                "transform(a, q -> q.f0.f0) || transform(b, r -> r + 2)",
+                symbolAliases));
+
+        // Nested lambda expressions
+        assertTrue(verify(
+                "transform(x, p -> transform(array[p], q -> q + 1 + f(p)))",
+                "transform(a, q -> transform(array[q], s -> s + 1 + f(q)))",
+                symbolAliases));
+    }
+
     private static void assertThrows(Runnable runnable)
     {
         try {
