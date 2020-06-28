@@ -49,6 +49,7 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.statistics.ComputedStatistics;
@@ -57,6 +58,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.PartitionSpecParser;
 import org.apache.iceberg.Schema;
@@ -77,10 +79,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.BiPredicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.prestosql.plugin.hive.util.HiveWriteUtils.getTableDefaultLocation;
 import static io.prestosql.plugin.iceberg.ExpressionConverter.toIcebergExpression;
@@ -104,6 +109,7 @@ import static io.prestosql.plugin.iceberg.TypeConverter.toPrestoType;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -374,7 +380,7 @@ public class IcebergMetadata
             propertiesBuilder.put(TABLE_COMMENT, tableMetadata.getComment().get());
         }
 
-        TableMetadata metadata = newTableMetadata(operations, schema, partitionSpec, targetPath, propertiesBuilder.build());
+        TableMetadata metadata = newTableMetadata(schema, partitionSpec, targetPath, propertiesBuilder.build());
 
         transaction = createTableTransaction(tableName, operations, metadata);
 
@@ -451,6 +457,12 @@ public class IcebergMetadata
         return Optional.of(new HiveWrittenPartitions(commitTasks.stream()
                 .map(CommitTaskData::getPath)
                 .collect(toImmutableList())));
+    }
+
+    @Override
+    public ColumnHandle getUpdateRowIdColumnHandle(ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return new IcebergColumnHandle(0, "$row_id", BIGINT, Optional.empty());
     }
 
     @Override
@@ -599,22 +611,46 @@ public class IcebergMetadata
     public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle handle, Constraint constraint)
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
+
         // TODO: Remove TupleDomain#simplify once Iceberg supports IN expression
         TupleDomain<IcebergColumnHandle> newDomain = constraint.getSummary()
                 .transform(IcebergColumnHandle.class::cast)
-                .simplify()
                 .intersect(table.getPredicate());
+
+        if (newDomain.isNone()) {
+            return Optional.empty();
+        }
 
         if (newDomain.equals(table.getPredicate())) {
             return Optional.empty();
         }
+
+        org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
+
+        List<PartitionField> fields = icebergTable.spec().fields().stream()
+                .filter(field -> field.transform().isIdentity())
+                .collect(toImmutableList());
+
+        // Ensure partition specs in all manifests contain the identity fields from the predicate
+        if (!icebergTable.specs().values().stream().allMatch(spec -> spec.fields().containsAll(fields))) {
+            return Optional.empty();
+        }
+
+        Set<Integer> partitionSourceIds = icebergTable.spec().fields().stream()
+                .filter(field -> field.transform().isIdentity())
+                .map(PartitionField::sourceId)
+                .collect(toImmutableSet());
+
+        BiPredicate<IcebergColumnHandle, Domain> contains = (column, domain) -> partitionSourceIds.contains(column.getId());
+        TupleDomain<ColumnHandle> remainingTupleDomain = newDomain.filter(contains.negate()).transform(ColumnHandle.class::cast);
+        TupleDomain<IcebergColumnHandle> enforcedTupleDomain = newDomain.filter(contains);
 
         return Optional.of(new ConstraintApplicationResult<>(
                 new IcebergTableHandle(table.getSchemaName(),
                         table.getTableName(),
                         table.getTableType(),
                         table.getSnapshotId(),
-                        newDomain),
-                constraint.getSummary()));
+                        enforcedTupleDomain),
+                remainingTupleDomain));
     }
 }
