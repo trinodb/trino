@@ -27,8 +27,10 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.SqlTime;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
+import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
@@ -200,6 +202,10 @@ public class QueryResultRows
 
             if (type instanceof TimestampWithTimeZoneType) {
                 return ((SqlTimestampWithTimeZone) value).roundTo(3);
+            }
+
+            if (type instanceof TimeType) {
+                return ((SqlTime) value).roundTo(3);
             }
         }
 

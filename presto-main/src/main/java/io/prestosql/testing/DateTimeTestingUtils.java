@@ -21,14 +21,12 @@ import io.prestosql.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
-import java.time.ZoneId;
 
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
 import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
 import static java.lang.Math.toIntExact;
-import static java.time.ZoneOffset.UTC;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -126,35 +124,15 @@ public final class DateTimeTestingUtils
             int hourOfDay,
             int minuteOfHour,
             int secondOfMinute,
-            int millisOfSecond,
-            Session session)
-    {
-        return sqlTimeOf(hourOfDay, minuteOfHour, secondOfMinute, millisOfSecond, session.toConnectorSession());
-    }
-
-    public static SqlTime sqlTimeOf(
-            int hourOfDay,
-            int minuteOfHour,
-            int secondOfMinute,
-            int millisOfSecond,
-            ConnectorSession session)
+            int millisOfSecond)
     {
         LocalTime time = LocalTime.of(hourOfDay, minuteOfHour, secondOfMinute, millisToNanos(millisOfSecond));
-        return sqlTimeOf(time, session);
+        return sqlTimeOf(time);
     }
 
-    public static SqlTime sqlTimeOf(LocalTime time, ConnectorSession session)
+    public static SqlTime sqlTimeOf(LocalTime time)
     {
-        if (session.isLegacyTimestamp()) {
-            long millisUtc = LocalDate.ofEpochDay(0)
-                    .atTime(time)
-                    .atZone(UTC)
-                    .withZoneSameLocal(ZoneId.of(session.getTimeZoneKey().getId()))
-                    .toInstant()
-                    .toEpochMilli();
-            return new SqlTime(millisUtc, session.getTimeZoneKey());
-        }
-        return new SqlTime(NANOSECONDS.toMillis(time.toNanoOfDay()));
+        return SqlTime.newInstance(3, time.toNanoOfDay() * PICOSECONDS_PER_NANOSECOND);
     }
 
     private static int millisToNanos(int millisOfSecond)

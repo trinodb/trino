@@ -143,6 +143,11 @@ import io.prestosql.operator.scalar.UrlFunctions;
 import io.prestosql.operator.scalar.VarbinaryFunctions;
 import io.prestosql.operator.scalar.WilsonInterval;
 import io.prestosql.operator.scalar.WordStemFunction;
+import io.prestosql.operator.scalar.time.LocalTimeFunction;
+import io.prestosql.operator.scalar.time.TimeFunctions;
+import io.prestosql.operator.scalar.time.TimeOperators;
+import io.prestosql.operator.scalar.time.TimeToTimestampCast;
+import io.prestosql.operator.scalar.time.TimeToTimestampWithTimeZoneCast;
 import io.prestosql.operator.scalar.timestamp.DateAdd;
 import io.prestosql.operator.scalar.timestamp.DateDiff;
 import io.prestosql.operator.scalar.timestamp.DateFormat;
@@ -165,7 +170,6 @@ import io.prestosql.operator.scalar.timestamp.LastDayOfMonth;
 import io.prestosql.operator.scalar.timestamp.LocalTimestamp;
 import io.prestosql.operator.scalar.timestamp.SequenceIntervalDayToSecond;
 import io.prestosql.operator.scalar.timestamp.SequenceIntervalYearToMonth;
-import io.prestosql.operator.scalar.timestamp.TimeToTimestampCast;
 import io.prestosql.operator.scalar.timestamp.TimeWithTimezoneToTimestampCast;
 import io.prestosql.operator.scalar.timestamp.TimestampDistinctFromOperator;
 import io.prestosql.operator.scalar.timestamp.TimestampOperators;
@@ -184,7 +188,6 @@ import io.prestosql.operator.scalar.timestamptz.AtTimeZone;
 import io.prestosql.operator.scalar.timestamptz.AtTimeZoneWithOffset;
 import io.prestosql.operator.scalar.timestamptz.CurrentTimestamp;
 import io.prestosql.operator.scalar.timestamptz.DateToTimestampWithTimeZoneCast;
-import io.prestosql.operator.scalar.timestamptz.TimeToTimestampWithTimeZoneCast;
 import io.prestosql.operator.scalar.timestamptz.TimeWithTimeZoneToTimestampWithTimeZoneCast;
 import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneDistinctFromOperator;
 import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneOperators;
@@ -231,7 +234,6 @@ import io.prestosql.type.LikeFunctions;
 import io.prestosql.type.QuantileDigestOperators;
 import io.prestosql.type.RealOperators;
 import io.prestosql.type.SmallintOperators;
-import io.prestosql.type.TimeOperators;
 import io.prestosql.type.TimeWithTimeZoneOperators;
 import io.prestosql.type.TinyintOperators;
 import io.prestosql.type.UnknownOperators;
@@ -502,8 +504,6 @@ public class FunctionRegistry
                 .scalar(VarbinaryOperators.VarbinaryDistinctFromOperator.class)
                 .scalars(DateOperators.class)
                 .scalar(DateOperators.DateDistinctFromOperator.class)
-                .scalars(TimeOperators.class)
-                .scalar(TimeOperators.TimeDistinctFromOperator.class)
                 .scalars(IntervalDayTimeOperators.class)
                 .scalar(IntervalDayTimeOperators.IntervalDayTimeDistinctFromOperator.class)
                 .scalars(IntervalYearMonthOperators.class)
@@ -749,6 +749,12 @@ public class FunctionRegistry
                 .scalar(TimeToTimestampWithTimeZoneCast.class)
                 .scalar(TimeWithTimeZoneToTimestampWithTimeZoneCast.class)
                 .scalar(VarcharToTimestampWithTimeZoneCast.class);
+
+        // time without time zone functions and operators
+        builder.scalar(LocalTimeFunction.class)
+                .scalars(TimeOperators.class)
+                .scalars(TimeFunctions.class)
+                .scalar(TimeOperators.TimeDistinctFromOperator.class);
 
         switch (featuresConfig.getRegexLibrary()) {
             case JONI:

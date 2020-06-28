@@ -28,6 +28,7 @@ import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static java.lang.String.format;
 
 public abstract class AbstractDateTimeJsonValueProvider
@@ -66,7 +67,10 @@ public abstract class AbstractDateTimeJsonValueProvider
         if (type.equals(DATE)) {
             return TimeUnit.MILLISECONDS.toDays(millis);
         }
-        if (type.equals(TIMESTAMP) || type.equals(TIME)) {
+        if (type.equals(TIME)) {
+            return millis * PICOSECONDS_PER_MILLISECOND;
+        }
+        if (type.equals(TIMESTAMP)) {
             return millis;
         }
         if (type.equals(TIMESTAMP_WITH_TIME_ZONE) || type.equals(TIME_WITH_TIME_ZONE)) {

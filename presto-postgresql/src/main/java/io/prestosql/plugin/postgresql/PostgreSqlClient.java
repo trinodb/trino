@@ -119,7 +119,7 @@ import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoLegacyTimestamp;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoTimestamp;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.timeColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.timeColumnMappingWithTruncation;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.timeWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.timestampReadFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
@@ -360,7 +360,9 @@ public class PostgreSqlClient
             return Optional.of(typedVarcharColumnMapping(jdbcTypeName));
         }
         if (typeHandle.getJdbcType() == Types.TIME) {
-            return Optional.of(timeColumnMapping(session));
+            // When inserting a time such as 12:34:56.999, Postgres returns 12:34:56.999999999. If we use rounding semantics, the time turns into 00:00:00.000 when
+            // reading it back into a time(3). Hence, truncate instead
+            return Optional.of(timeColumnMappingWithTruncation());
         }
         if (typeHandle.getJdbcType() == Types.TIMESTAMP) {
             return Optional.of(ColumnMapping.longMapping(
@@ -430,7 +432,7 @@ public class PostgreSqlClient
             return WriteMapping.sliceMapping("bytea", varbinaryWriteFunction());
         }
         if (TIME.equals(type)) {
-            return WriteMapping.longMapping("time", timeWriteFunction(session));
+            return WriteMapping.longMapping("time", timeWriteFunction());
         }
         if (TIMESTAMP.equals(type)) {
             return WriteMapping.longMapping("timestamp", timestampWriteFunction(session));

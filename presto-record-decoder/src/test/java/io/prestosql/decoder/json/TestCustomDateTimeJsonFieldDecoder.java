@@ -44,9 +44,9 @@ public class TestCustomDateTimeJsonFieldDecoder
         timestampWithTimeZoneTester.assertDecodedAs("\"02/2018/19 11:20:11 +02:00\"", TIMESTAMP, 1519032011000L);
         timestampTester.assertDecodedAs("\"02/2018/19 9:20:11\"", TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(1519032011000L, UTC_KEY));
         timestampWithTimeZoneTester.assertDecodedAs("\"02/2018/19 11:20:11 +02:00\"", TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(1519032011000L, UTC_KEY)); // TODO: extract TZ from pattern
-        timeTester.assertDecodedAs("\"15:13:18\"", TIME, 47718000);
-        timeJustHourTester.assertDecodedAs("\"15\"", TIME, 54000000);
-        timeJustHourTester.assertDecodedAs("15", TIME, 54000000);
+        timeTester.assertDecodedAs("\"15:13:18\"", TIME, 47_718_000_000_000_000L);
+        timeJustHourTester.assertDecodedAs("\"15\"", TIME, 54_000_000_000_000_000L);
+        timeJustHourTester.assertDecodedAs("15", TIME, 54_000_000_000_000_000L);
         timeTester.assertDecodedAs("\"15:13:18\"", TIME_WITH_TIME_ZONE, packDateTimeWithZone(47718000, UTC_KEY));
         dateTester.assertDecodedAs("\"02/2018/11\"", DATE, 17573);
     }

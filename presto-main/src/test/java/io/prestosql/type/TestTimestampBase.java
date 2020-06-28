@@ -184,7 +184,7 @@ public abstract class TestTimestampBase
     @Test
     public void testCastToTime()
     {
-        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as time)", TIME, sqlTimeOf(3, 4, 5, 321, session));
+        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as time)", TIME, sqlTimeOf(3, 4, 5, 321));
     }
 
     @Test

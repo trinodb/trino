@@ -33,8 +33,8 @@ public class TestMillisecondsSinceEpochJsonFieldDecoder
     @Test
     public void testDecode()
     {
-        tester.assertDecodedAs("33701000", TIME, 33701000);
-        tester.assertDecodedAs("\"33701000\"", TIME, 33701000);
+        tester.assertDecodedAs("33701000", TIME, 33_701_000_000_000_000L);
+        tester.assertDecodedAs("\"33701000\"", TIME, 33_701_000_000_000_000L);
         tester.assertDecodedAs("33701000", TIME_WITH_TIME_ZONE, packDateTimeWithZone(33701000, UTC_KEY));
         tester.assertDecodedAs("\"33701000\"", TIME_WITH_TIME_ZONE, packDateTimeWithZone(33701000, UTC_KEY));
         tester.assertDecodedAs("1519032101123", TIMESTAMP, 1519032101123L);
@@ -65,8 +65,8 @@ public class TestMillisecondsSinceEpochJsonFieldDecoder
         }
 
         // TIME specific range checks
-        tester.assertInvalidInput("-1", TIME, "could not parse value '-1' as 'time' for column 'some_column'");
-        tester.assertInvalidInput("" + TimeUnit.DAYS.toMillis(1) + 1, TIME, "could not parse value '864000001' as 'time' for column 'some_column'");
+        tester.assertInvalidInput("-1", TIME, "\\Qcould not parse value '-1' as 'time(3)' for column 'some_column'\\E");
+        tester.assertInvalidInput("" + TimeUnit.DAYS.toMillis(1) + 1, TIME, "\\Qcould not parse value '864000001' as 'time(3)' for column 'some_column'\\E");
         tester.assertInvalidInput("-1", TIME_WITH_TIME_ZONE, "could not parse value '-1' as 'time with time zone' for column 'some_column'");
         tester.assertInvalidInput("" + TimeUnit.DAYS.toMillis(1) + 1, TIME_WITH_TIME_ZONE, "could not parse value '864000001' as 'time with time zone' for column 'some_column'");
     }

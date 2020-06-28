@@ -75,7 +75,6 @@ import io.prestosql.sql.tree.TimeLiteral;
 import io.prestosql.sql.tree.TimestampLiteral;
 import io.prestosql.sql.tree.WhenClause;
 import io.prestosql.type.UnknownType;
-import io.prestosql.util.DateTimeUtils;
 
 import java.util.List;
 import java.util.Map;
@@ -118,13 +117,13 @@ import static io.prestosql.sql.relational.SpecialForm.Form.OR;
 import static io.prestosql.sql.relational.SpecialForm.Form.ROW_CONSTRUCTOR;
 import static io.prestosql.sql.relational.SpecialForm.Form.SWITCH;
 import static io.prestosql.sql.relational.SpecialForm.Form.WHEN;
-import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.DateTimes.parseLegacyTimestamp;
+import static io.prestosql.type.DateTimes.parseTime;
 import static io.prestosql.type.DateTimes.parseTimestamp;
 import static io.prestosql.type.DateTimes.parseTimestampWithTimeZone;
+import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.util.DateTimeUtils.parseDayTimeInterval;
 import static io.prestosql.util.DateTimeUtils.parseTimeWithTimeZone;
-import static io.prestosql.util.DateTimeUtils.parseTimeWithoutTimeZone;
 import static io.prestosql.util.DateTimeUtils.parseYearMonthInterval;
 import static java.util.Objects.requireNonNull;
 
@@ -276,13 +275,7 @@ public final class SqlToRowExpressionTranslator
                 value = parseTimeWithTimeZone(node.getValue());
             }
             else {
-                if (isLegacyTimestamp) {
-                    // parse in time zone of client
-                    value = DateTimeUtils.parseLegacyTime(timeZoneKey, node.getValue());
-                }
-                else {
-                    value = parseTimeWithoutTimeZone(node.getValue());
-                }
+                value = parseTime(node.getValue());
             }
             return constant(value, getType(node));
         }

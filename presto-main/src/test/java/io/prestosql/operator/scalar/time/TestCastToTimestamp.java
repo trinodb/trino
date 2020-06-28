@@ -11,27 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.type;
+package io.prestosql.operator.scalar.time;
 
-import org.testng.annotations.Test;
-
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
-
-public class TestTimeWithTimeZone
-        extends TestTimeWithTimeZoneBase
+public class TestCastToTimestamp
+        extends BaseTestCastToTimestamp
 {
-    public TestTimeWithTimeZone()
+    protected TestCastToTimestamp()
     {
         super(false);
-    }
-
-    @Test
-    @Override
-    public void testCastToTimestamp()
-    {
-        assertFunction("cast(TIME '03:04:05.321 +07:09' as timestamp)",
-                TIMESTAMP,
-                sqlTimestampOf(3, 1970, 1, 1, 3, 4, 5, 321, session));
     }
 }

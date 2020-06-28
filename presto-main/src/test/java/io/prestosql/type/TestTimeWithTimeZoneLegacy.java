@@ -15,9 +15,7 @@ package io.prestosql.type;
 
 import org.testng.annotations.Test;
 
-import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.testing.DateTimeTestingUtils.sqlTimeOf;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 
 public class TestTimeWithTimeZoneLegacy
@@ -26,15 +24,6 @@ public class TestTimeWithTimeZoneLegacy
     public TestTimeWithTimeZoneLegacy()
     {
         super(true);
-    }
-
-    @Test
-    @Override
-    public void testCastToTime()
-    {
-        assertFunction("cast(TIME '03:04:05.321 +07:09' as time)",
-                TIME,
-                sqlTimeOf(2 /* not 3 */, 4, 5, 321, session));
     }
 
     @Test

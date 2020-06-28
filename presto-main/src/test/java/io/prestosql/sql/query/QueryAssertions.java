@@ -302,11 +302,7 @@ public class QueryAssertions
                 }
                 else if (object instanceof SqlTime) {
                     SqlTime time = (SqlTime) object;
-                    return String.format(
-                            "%s [millis = %s, tz = %s]",
-                            time,
-                            time.getMillis(),
-                            time.getSessionTimeZoneKey().map(Object::toString).orElse("ø"));
+                    return String.format("%s [picos = %s]", time, time.getPicos());
                 }
                 else if (object instanceof SqlTimeWithTimeZone) {
                     SqlTimeWithTimeZone time = (SqlTimeWithTimeZone) object;
