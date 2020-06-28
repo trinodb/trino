@@ -28,12 +28,14 @@ import static io.prestosql.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.DateTimeTestingUtils.sqlTimeOf;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
@@ -267,7 +269,16 @@ public abstract class TestTimestampWithTimeZoneBase
     }
 
     @Test
-    public abstract void testCastToTime();
+    public void testCastToTime()
+    {
+        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as time)",
+                TIME,
+                sqlTimeOf(3, 4, 5, 321));
+
+        functionAssertions.assertFunctionString("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as time)",
+                TIME,
+                "03:04:05.321");
+    }
 
     @Test
     public void testCastToTimeWithTimeZone()

@@ -52,6 +52,7 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.HashMap;
@@ -82,6 +83,8 @@ abstract class AbstractPrestoResultSet
             "(?<year>[-+]?\\d{4,})-(?<month>\\d{1,2})-(?<day>\\d{1,2})" +
             "(?: (?<hour>\\d{1,2}):(?<minute>\\d{1,2})(?::(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?)?)?" +
             "\\s*(?<timezone>.+)?");
+
+    public static final Pattern TIME_PATTERN = Pattern.compile("(?<hour>\\d{1,2}):(?<minute>\\d{1,2}):(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?");
 
     private static final long[] POWERS_OF_TEN = {
             1L,
@@ -296,9 +299,9 @@ abstract class AbstractPrestoResultSet
         }
 
         ColumnInfo columnInfo = columnInfo(columnIndex);
-        if (columnInfo.getColumnTypeName().equalsIgnoreCase("time")) {
+        if (columnInfo.getColumnTypeSignature().getRawType().equalsIgnoreCase("time")) {
             try {
-                return new Time(TIME_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value)));
+                return parseTime(String.valueOf(value), ZoneId.of(localTimeZone.getID()));
             }
             catch (IllegalArgumentException e) {
                 throw new SQLException("Invalid time from server: " + value, e);
@@ -1825,6 +1828,36 @@ abstract class AbstractPrestoResultSet
         }
         timestamp.setNanos((int) rescale(fractionValue, precision, 9));
         return timestamp;
+    }
+
+    private static Time parseTime(String value, ZoneId localTimeZone)
+    {
+        Matcher matcher = TIME_PATTERN.matcher(value);
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException("Invalid time: " + value);
+        }
+
+        int hour = Integer.parseInt(matcher.group("hour"));
+        int minute = Integer.parseInt(matcher.group("minute"));
+        int second = matcher.group("second") == null ? 0 : Integer.parseInt(matcher.group("second"));
+
+        if (hour > 23 || minute > 59 || second > 59) {
+            throw new IllegalArgumentException("Invalid time: " + value);
+        }
+
+        int precision = 0;
+        String fraction = matcher.group("fraction");
+        long fractionValue = 0;
+        if (fraction != null) {
+            precision = fraction.length();
+            fractionValue = Long.parseLong(fraction);
+        }
+
+        long epochMilli = ZonedDateTime.of(1970, 1, 1, hour, minute, second, (int) rescale(fractionValue, precision, 9), localTimeZone)
+                .toInstant()
+                .toEpochMilli();
+
+        return new Time(epochMilli);
     }
 
     private static long rescale(long value, int fromPrecision, int toPrecision)

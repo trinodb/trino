@@ -15,18 +15,20 @@ package io.prestosql.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
-import io.prestosql.operator.scalar.timestamp.TimeWithTimezoneToTimestampCast;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.BlockIndex;
 import io.prestosql.spi.function.BlockPosition;
 import io.prestosql.spi.function.IsNull;
+import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.AbstractLongType;
 import io.prestosql.spi.type.StandardTypes;
+
+import java.time.Instant;
+import java.time.LocalTime;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.function.OperatorType.CAST;
@@ -42,7 +44,12 @@ import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.function.OperatorType.SUBTRACT;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
+import static io.prestosql.spi.type.TimeType.MAX_PRECISION;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_DAY;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
+import static io.prestosql.type.DateTimes.round;
 import static io.prestosql.util.DateTimeUtils.parseTimeWithTimeZone;
 import static io.prestosql.util.DateTimeUtils.printTimeWithTimeZone;
 
@@ -106,12 +113,13 @@ public final class TimeWithTimeZoneOperators
     }
 
     @ScalarOperator(CAST)
-    @SqlType(StandardTypes.TIME)
-    public static long castToTime(ConnectorSession session, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value)
+    @LiteralParameters("p")
+    @SqlType("time(p)")
+    public static long castToTime(@LiteralParameter("p") long precision, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long value)
     {
-        // This is exactly the same operation as for TIME WITH TIME ZONE -> TIMESTAMP, as the representations
-        // of those types are aligned in range that is covered by TIME WITH TIME ZONE.
-        return TimeWithTimezoneToTimestampCast.cast(3, session, value);
+        long millis = unpackMillisUtc(value);
+        long nanos = LocalTime.ofInstant(Instant.ofEpochMilli(millis), unpackZoneKey(value).getZoneId()).toNanoOfDay();
+        return round(nanos * PICOSECONDS_PER_NANOSECOND, (int) (MAX_PRECISION - precision)) % PICOSECONDS_PER_DAY;
     }
 
     @ScalarOperator(CAST)

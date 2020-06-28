@@ -35,7 +35,6 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -59,6 +58,12 @@ import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_DAY;
+import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_DAY;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.prestosql.spi.type.Timestamps.roundDiv;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
@@ -271,26 +276,15 @@ public final class StandardColumnMappings
      * {@link #timeColumnMapping} instead.
      */
     @Deprecated
-    public static ColumnMapping timeColumnMappingUsingSqlTime(ConnectorSession session)
+    public static ColumnMapping timeColumnMappingUsingSqlTime()
     {
-        if (session.isLegacyTimestamp()) {
-            ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
-            return ColumnMapping.longMapping(
-                    TIME,
-                    (resultSet, columnIndex) -> {
-                        Time time = resultSet.getTime(columnIndex);
-                        return toPrestoLegacyTimestamp(toLocalTime(time).atDate(LocalDate.ofEpochDay(0)), sessionZone);
-                    },
-                    timeWriteFunctionUsingSqlTime(session));
-        }
-
         return ColumnMapping.longMapping(
                 TIME,
                 (resultSet, columnIndex) -> {
                     Time time = resultSet.getTime(columnIndex);
-                    return NANOSECONDS.toMillis(toLocalTime(time).toNanoOfDay());
+                    return (toLocalTime(time).toNanoOfDay() * PICOSECONDS_PER_NANOSECOND) % PICOSECONDS_PER_DAY;
                 },
-                timeWriteFunctionUsingSqlTime(session));
+                timeWriteFunctionUsingSqlTime());
     }
 
     private static LocalTime toLocalTime(Time sqlTime)
@@ -307,13 +301,9 @@ public final class StandardColumnMappings
      * {@link #timeWriteFunction} instead.
      */
     @Deprecated
-    public static LongWriteFunction timeWriteFunctionUsingSqlTime(ConnectorSession session)
+    public static LongWriteFunction timeWriteFunctionUsingSqlTime()
     {
-        if (session.isLegacyTimestamp()) {
-            ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
-            return (statement, index, value) -> statement.setTime(index, toSqlTime(fromPrestoLegacyTimestamp(value, sessionZone).toLocalTime()));
-        }
-        return (statement, index, value) -> statement.setTime(index, toSqlTime(fromPrestoTimestamp(value).toLocalTime()));
+        return (statement, index, value) -> statement.setTime(index, toSqlTime(fromPrestoTime(value)));
     }
 
     private static Time toSqlTime(LocalTime localTime)
@@ -322,35 +312,36 @@ public final class StandardColumnMappings
         return new Time(Time.valueOf(localTime).getTime() + NANOSECONDS.toMillis(localTime.getNano()));
     }
 
-    public static ColumnMapping timeColumnMapping(ConnectorSession session)
+    public static ColumnMapping timeColumnMapping()
     {
-        if (session.isLegacyTimestamp()) {
-            ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
-            return ColumnMapping.longMapping(
-                    TIME,
-                    (resultSet, columnIndex) -> {
-                        LocalTime time = resultSet.getObject(columnIndex, LocalTime.class);
-                        return toPrestoLegacyTimestamp(time.atDate(LocalDate.ofEpochDay(0)), sessionZone);
-                    },
-                    timeWriteFunction(session));
-        }
-
         return ColumnMapping.longMapping(
                 TIME,
                 (resultSet, columnIndex) -> {
                     LocalTime time = resultSet.getObject(columnIndex, LocalTime.class);
-                    return NANOSECONDS.toMillis(time.toNanoOfDay());
+                    long nanos = time.toNanoOfDay();
+                    return (roundDiv(nanos, NANOSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_MILLISECOND) % PICOSECONDS_PER_DAY;
                 },
-                timeWriteFunction(session));
+                timeWriteFunction());
     }
 
-    public static LongWriteFunction timeWriteFunction(ConnectorSession session)
+    /**
+     * Truncates the time value on read to millisecond precision.
+     */
+    public static ColumnMapping timeColumnMappingWithTruncation()
     {
-        if (session.isLegacyTimestamp()) {
-            ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
-            return (statement, index, value) -> statement.setObject(index, fromPrestoLegacyTimestamp(value, sessionZone).toLocalTime());
-        }
-        return (statement, index, value) -> statement.setObject(index, fromPrestoTimestamp(value).toLocalTime());
+        return ColumnMapping.longMapping(
+                TIME,
+                (resultSet, columnIndex) -> {
+                    LocalTime time = resultSet.getObject(columnIndex, LocalTime.class);
+                    return ((time.toNanoOfDay() / NANOSECONDS_PER_MILLISECOND) * PICOSECONDS_PER_MILLISECOND) % PICOSECONDS_PER_DAY;
+                },
+                timeWriteFunction(),
+                DISABLE_PUSHDOWN);
+    }
+
+    public static LongWriteFunction timeWriteFunction()
+    {
+        return (statement, index, value) -> statement.setObject(index, fromPrestoTime(value));
     }
 
     /**
@@ -454,6 +445,12 @@ public final class StandardColumnMappings
         return Instant.ofEpochMilli(value).atZone(UTC).toLocalDateTime();
     }
 
+    public static LocalTime fromPrestoTime(long value)
+    {
+        // value can round up to NANOSECONDS_PER_DAY, so we need to do % to keep it in the desired range
+        return LocalTime.ofNanoOfDay(roundDiv(value, PICOSECONDS_PER_NANOSECOND) % NANOSECONDS_PER_DAY);
+    }
+
     public static Optional<ColumnMapping> jdbcTypeToPrestoType(ConnectorSession session, JdbcTypeHandle type)
     {
         int columnSize = type.getColumnSize();
@@ -515,7 +512,7 @@ public final class StandardColumnMappings
 
             case Types.TIME:
                 // TODO default to `timeColumnMapping`
-                return Optional.of(timeColumnMappingUsingSqlTime(session));
+                return Optional.of(timeColumnMappingUsingSqlTime());
 
             case Types.TIMESTAMP:
                 // TODO default to `timestampColumnMapping`

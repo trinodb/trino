@@ -18,6 +18,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.DateTimeEncoding;
 import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.LongTimestampWithTimeZone;
+import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
@@ -51,6 +52,10 @@ public final class DateTimes
             "\\s*(?<timezone>.+)?");
     private static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss");
 
+    public static final Pattern TIME_PATTERN = Pattern.compile("" +
+            "(?<hour>\\d{1,2}):(?<minute>\\d{1,2})(?::(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?)?" +
+            "\\s*(?<timezone>.+)?");
+
     private static final long[] POWERS_OF_TEN = {
             1L,
             10L,
@@ -68,14 +73,23 @@ public final class DateTimes
     };
 
     public static final int MILLISECONDS_PER_SECOND = 1000;
+    public static final long MILLISECONDS_PER_DAY = 24 * 60 * 60 * MILLISECONDS_PER_SECOND;
     public static final int MICROSECONDS_PER_SECOND = 1_000_000;
     public static final int MICROSECONDS_PER_MILLISECOND = 1000;
+    public static final long MICROSECONDS_PER_DAY = MILLISECONDS_PER_DAY * MICROSECONDS_PER_MILLISECOND;
     public static final long PICOSECONDS_PER_SECOND = 1_000_000_000_000L;
     public static final int NANOSECONDS_PER_MILLISECOND = 1_000_000;
     public static final int NANOSECONDS_PER_MICROSECOND = 1_000;
     public static final int PICOSECONDS_PER_MILLISECOND = 1_000_000_000;
     public static final int PICOSECONDS_PER_MICROSECOND = 1_000_000;
     public static final int PICOSECONDS_PER_NANOSECOND = 1000;
+    public static final long SECONDS_PER_MINUTE = 60;
+    public static final long MINUTES_PER_HOUR = 60;
+    public static final long HOURS_PER_DAY = 24;
+    public static final long PICOSECONDS_PER_MINUTE = PICOSECONDS_PER_SECOND * SECONDS_PER_MINUTE;
+    public static final long PICOSECONDS_PER_HOUR = PICOSECONDS_PER_MINUTE * MINUTES_PER_HOUR;
+    public static final long PICOSECONDS_PER_DAY = PICOSECONDS_PER_HOUR * HOURS_PER_DAY;
+    public static final long SECONDS_PER_DAY = SECONDS_PER_MINUTE * MINUTES_PER_HOUR * HOURS_PER_DAY;
 
     private DateTimes() {}
 
@@ -99,12 +113,12 @@ public final class DateTimes
         return Math.floorDiv(value, MICROSECONDS_PER_MILLISECOND);
     }
 
-    private static long scaleEpochMillisToSeconds(long epochMillis)
+    public static long scaleEpochMillisToSeconds(long epochMillis)
     {
         return Math.floorDiv(epochMillis, MILLISECONDS_PER_SECOND);
     }
 
-    private static long scaleEpochMicrosToSeconds(long epochMicros)
+    public static long scaleEpochMicrosToSeconds(long epochMicros)
     {
         return Math.floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
     }
@@ -149,7 +163,7 @@ public final class DateTimes
         return roundDiv(value, bound) * bound;
     }
 
-    private static long scaleFactor(int fromPrecision, int toPrecision)
+    public static long scaleFactor(int fromPrecision, int toPrecision)
     {
         if (fromPrecision > toPrecision) {
             throw new IllegalArgumentException("fromPrecision must be <= toPrecision");
@@ -174,6 +188,13 @@ public final class DateTimes
             value /= scaleFactor(toPrecision, fromPrecision);
         }
 
+        return value;
+    }
+
+    public static long rescaleWithRounding(long value, int fromPrecision, int toPrecision)
+    {
+        value = round(value, fromPrecision - toPrecision);
+        value = rescale(value, fromPrecision, toPrecision);
         return value;
     }
 
@@ -472,6 +493,61 @@ public final class DateTimes
         }
 
         return timestamp.toEpochSecond(offsets.get(0));
+    }
+
+    public static boolean timeHasTimeZone(String value)
+    {
+        Matcher matcher = TIME_PATTERN.matcher(value);
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException(format("Invalid time '%s'", value));
+        }
+
+        return matcher.group("timezone") != null;
+    }
+
+    public static int extractTimePrecision(String value)
+    {
+        Matcher matcher = TIME_PATTERN.matcher(value);
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException(format("Invalid time '%s'", value));
+        }
+
+        String fraction = matcher.group("fraction");
+        if (fraction == null) {
+            return 0;
+        }
+
+        return fraction.length();
+    }
+
+    public static long parseTime(String value)
+    {
+        Matcher matcher = TIME_PATTERN.matcher(value);
+        if (!matcher.matches() || matcher.group("timezone") != null) {
+            throw new IllegalArgumentException("Invalid time: " + value);
+        }
+
+        int hour = Integer.parseInt(matcher.group("hour"));
+        int minute = Integer.parseInt(matcher.group("minute"));
+        int second = matcher.group("second") == null ? 0 : Integer.parseInt(matcher.group("second"));
+
+        if (hour > 23 || minute > 59 || second > 59) {
+            throw new IllegalArgumentException("Invalid time: " + value);
+        }
+
+        int precision = 0;
+        String fraction = matcher.group("fraction");
+        long fractionValue = 0;
+        if (fraction != null) {
+            precision = fraction.length();
+            fractionValue = Long.parseLong(fraction);
+        }
+
+        if (precision > TimeType.MAX_PRECISION) {
+            throw new IllegalArgumentException("Invalid time: " + value);
+        }
+
+        return (((hour * 60) + minute) * 60 + second) * PICOSECONDS_PER_SECOND + rescale(fractionValue, precision, 12);
     }
 
     public static LongTimestamp longTimestamp(long precision, Instant start)

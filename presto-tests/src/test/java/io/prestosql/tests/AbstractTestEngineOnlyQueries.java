@@ -1076,13 +1076,14 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         Session session = Session.builder(getSession())
                 .setSystemProperty("omit_datetime_type_precision", "true")
-                .addPreparedStatement("my_query", "SELECT localtimestamp a, current_timestamp b")
+                .addPreparedStatement("my_query", "SELECT localtimestamp a, current_timestamp b, localtime c")
                 .build();
 
         MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
         MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .row("a", "", "", "", "timestamp", 8, true)
                 .row("b", "", "", "", "timestamp with time zone", 8, true)
+                .row("c", "", "", "", "time", 8, true)
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
 

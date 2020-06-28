@@ -73,13 +73,13 @@ public abstract class TestDateTimeOperatorsBase
     @Test
     public void testTimePlusInterval()
     {
-        assertFunction("TIME '03:04:05.321' + INTERVAL '3' hour", TIME, sqlTimeOf(6, 4, 5, 321, session));
-        assertFunction("INTERVAL '3' hour + TIME '03:04:05.321'", TIME, sqlTimeOf(6, 4, 5, 321, session));
-        assertFunction("TIME '03:04:05.321' + INTERVAL '3' day", TIME, sqlTimeOf(3, 4, 5, 321, session));
-        assertFunction("INTERVAL '3' day + TIME '03:04:05.321'", TIME, sqlTimeOf(3, 4, 5, 321, session));
+        assertFunction("TIME '03:04:05.321' + INTERVAL '3' hour", TIME, sqlTimeOf(6, 4, 5, 321));
+        assertFunction("INTERVAL '3' hour + TIME '03:04:05.321'", TIME, sqlTimeOf(6, 4, 5, 321));
+        assertFunction("TIME '03:04:05.321' + INTERVAL '3' day", TIME, sqlTimeOf(3, 4, 5, 321));
+        assertFunction("INTERVAL '3' day + TIME '03:04:05.321'", TIME, sqlTimeOf(3, 4, 5, 321));
 
-        assertFunction("TIME '03:04:05.321' + INTERVAL '27' hour", TIME, sqlTimeOf(6, 4, 5, 321, session));
-        assertFunction("INTERVAL '27' hour + TIME '03:04:05.321'", TIME, sqlTimeOf(6, 4, 5, 321, session));
+        assertFunction("TIME '03:04:05.321' + INTERVAL '27' hour", TIME, sqlTimeOf(6, 4, 5, 321));
+        assertFunction("INTERVAL '27' hour + TIME '03:04:05.321'", TIME, sqlTimeOf(6, 4, 5, 321));
 
         assertFunction("TIME '03:04:05.321 +05:09' + INTERVAL '3' hour",
                 TIME_WITH_TIME_ZONE,
@@ -167,10 +167,10 @@ public abstract class TestDateTimeOperatorsBase
     @Test
     public void testTimeMinusInterval()
     {
-        assertFunction("TIME '03:04:05.321' - INTERVAL '3' hour", TIME, sqlTimeOf(0, 4, 5, 321, session));
-        assertFunction("TIME '03:04:05.321' - INTERVAL '3' day", TIME, sqlTimeOf(3, 4, 5, 321, session));
+        assertFunction("TIME '03:04:05.321' - INTERVAL '3' hour", TIME, sqlTimeOf(0, 4, 5, 321));
+        assertFunction("TIME '03:04:05.321' - INTERVAL '3' day", TIME, sqlTimeOf(3, 4, 5, 321));
 
-        assertFunction("TIME '03:04:05.321' - INTERVAL '6' hour", TIME, sqlTimeOf(21, 4, 5, 321, session));
+        assertFunction("TIME '03:04:05.321' - INTERVAL '6' hour", TIME, sqlTimeOf(21, 4, 5, 321));
 
         assertFunction("TIME '03:04:05.321 +05:09' - INTERVAL '3' hour",
                 TIME_WITH_TIME_ZONE,

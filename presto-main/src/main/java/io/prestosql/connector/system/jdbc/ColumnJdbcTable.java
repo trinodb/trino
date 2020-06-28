@@ -40,6 +40,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
@@ -416,8 +417,12 @@ public class ColumnJdbcTable
         if (type.equals(VARBINARY)) {
             return Integer.MAX_VALUE;
         }
-        if (type.equals(TIME)) {
-            return 8; // 00:00:00
+        if (type instanceof TimeType) {
+            // 8 characters for "HH:MM:SS"
+            // min(p, 1) for the fractional second period (i.e., no period if p == 0)
+            // p for the fractional digits
+            int precision = ((TimeType) type).getPrecision();
+            return 8 + min(precision, 1) + precision;
         }
         if (type.equals(TIME_WITH_TIME_ZONE)) {
             return 8 + 6; // 00:00:00+00:00

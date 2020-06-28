@@ -955,12 +955,12 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(timeDataType(), LocalTime.of(15, 12, 34, 567_000_000))
                 .addRoundTrip(timeDataType(), LocalTime.of(23, 59, 59, 999_000_000));
 
-        addTimeTestIfSupported(tests, legacyTimestamp, sessionZone, epoch.toLocalTime()); // epoch is also a gap in JVM zone
-        addTimeTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInJvmZone);
+        // epoch is also a gap in JVM zone
+        tests.addRoundTrip(timeDataType(), epoch.toLocalTime());
+        tests.addRoundTrip(timeDataType(), timeGapInJvmZone);
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                .setSystemProperty("legacy_timestamp", Boolean.toString(legacyTimestamp))
                 .build();
 
         if (insertWithPresto) {
@@ -969,16 +969,6 @@ public class TestPostgreSqlTypeMapping
         else {
             tests.execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_time"));
         }
-    }
-
-    private void addTimeTestIfSupported(DataTypeTest tests, boolean legacyTimestamp, ZoneId sessionZone, LocalTime time)
-    {
-        if (legacyTimestamp && isGap(sessionZone, time.atDate(EPOCH_DAY))) {
-            // in legacy timestamp semantics we cannot represent this time
-            return;
-        }
-
-        tests.addRoundTrip(timeDataType(), time);
     }
 
     @Test(dataProvider = "testTimestampDataProvider")

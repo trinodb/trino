@@ -11,12 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.type;
+package io.prestosql.operator.scalar.time;
 
-public class TestTimeLegacy
-        extends TestTimeBase
+public class TestCastToLegacyTimestamp
+        extends BaseTestCastToTimestamp
 {
-    public TestTimeLegacy()
+    protected TestCastToLegacyTimestamp()
     {
         super(true);
     }

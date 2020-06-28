@@ -30,17 +30,17 @@ public class TestTimeType
     public static Block createTestBlock()
     {
         BlockBuilder blockBuilder = TIME.createBlockBuilder(null, 15);
-        TIME.writeLong(blockBuilder, 1111);
-        TIME.writeLong(blockBuilder, 1111);
-        TIME.writeLong(blockBuilder, 1111);
-        TIME.writeLong(blockBuilder, 2222);
-        TIME.writeLong(blockBuilder, 2222);
-        TIME.writeLong(blockBuilder, 2222);
-        TIME.writeLong(blockBuilder, 2222);
-        TIME.writeLong(blockBuilder, 2222);
-        TIME.writeLong(blockBuilder, 3333);
-        TIME.writeLong(blockBuilder, 3333);
-        TIME.writeLong(blockBuilder, 4444);
+        TIME.writeLong(blockBuilder, 1_111_000_000_000L);
+        TIME.writeLong(blockBuilder, 1_111_000_000_000L);
+        TIME.writeLong(blockBuilder, 1_111_000_000_000L);
+        TIME.writeLong(blockBuilder, 2_222_000_000_000L);
+        TIME.writeLong(blockBuilder, 2_222_000_000_000L);
+        TIME.writeLong(blockBuilder, 2_222_000_000_000L);
+        TIME.writeLong(blockBuilder, 2_222_000_000_000L);
+        TIME.writeLong(blockBuilder, 2_222_000_000_000L);
+        TIME.writeLong(blockBuilder, 3_333_000_000_000L);
+        TIME.writeLong(blockBuilder, 3_333_000_000_000L);
+        TIME.writeLong(blockBuilder, 4_444_000_000_000L);
         return blockBuilder.build();
     }
 

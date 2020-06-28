@@ -19,7 +19,6 @@ import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.SqlDate;
-import io.prestosql.spi.type.SqlTime;
 import io.prestosql.spi.type.SqlTimeWithTimeZone;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.TimeType;
@@ -54,6 +53,7 @@ import static io.prestosql.operator.scalar.DateTimeFunctions.currentDate;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.TimeType.createTimeType;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
@@ -592,13 +592,13 @@ public abstract class TestDateTimeFunctionsBase
     {
         LocalTime result = TIME;
         result = result.withNano(0);
-        assertFunction("date_trunc('second', " + TIME_LITERAL + ")", TimeType.TIME, toTime(result));
+        assertFunction("date_trunc('second', " + TIME_LITERAL + ")", TimeType.TIME, sqlTimeOf(result));
 
         result = result.withSecond(0);
-        assertFunction("date_trunc('minute', " + TIME_LITERAL + ")", TimeType.TIME, toTime(result));
+        assertFunction("date_trunc('minute', " + TIME_LITERAL + ")", TimeType.TIME, sqlTimeOf(result));
 
         result = result.withMinute(0);
-        assertFunction("date_trunc('hour', " + TIME_LITERAL + ")", TimeType.TIME, toTime(result));
+        assertFunction("date_trunc('hour', " + TIME_LITERAL + ")", TimeType.TIME, sqlTimeOf(result));
     }
 
     @Test
@@ -675,14 +675,14 @@ public abstract class TestDateTimeFunctionsBase
     @Test
     public void testAddFieldToTime()
     {
-        assertFunction("date_add('millisecond', 0, " + TIME_LITERAL + ")", TimeType.TIME, toTime(TIME));
-        assertFunction("date_add('millisecond', 3, " + TIME_LITERAL + ")", TimeType.TIME, toTime(TIME.plusNanos(3_000_000)));
-        assertFunction("date_add('second', 3, " + TIME_LITERAL + ")", TimeType.TIME, toTime(TIME.plusSeconds(3)));
-        assertFunction("date_add('minute', 3, " + TIME_LITERAL + ")", TimeType.TIME, toTime(TIME.plusMinutes(3)));
-        assertFunction("date_add('hour', 3, " + TIME_LITERAL + ")", TimeType.TIME, toTime(TIME.plusHours(3)));
-        assertFunction("date_add('hour', 23, " + TIME_LITERAL + ")", TimeType.TIME, toTime(TIME.plusHours(23)));
-        assertFunction("date_add('hour', -4, " + TIME_LITERAL + ")", TimeType.TIME, toTime(TIME.minusHours(4)));
-        assertFunction("date_add('hour', -23, " + TIME_LITERAL + ")", TimeType.TIME, toTime(TIME.minusHours(23)));
+        assertFunction("date_add('millisecond', 0, " + TIME_LITERAL + ")", TimeType.TIME, sqlTimeOf(TIME));
+        assertFunction("date_add('millisecond', 3, " + TIME_LITERAL + ")", TimeType.TIME, sqlTimeOf(TIME.plusNanos(3_000_000)));
+        assertFunction("date_add('second', 3, " + TIME_LITERAL + ")", TimeType.TIME, sqlTimeOf(TIME.plusSeconds(3)));
+        assertFunction("date_add('minute', 3, " + TIME_LITERAL + ")", TimeType.TIME, sqlTimeOf(TIME.plusMinutes(3)));
+        assertFunction("date_add('hour', 3, " + TIME_LITERAL + ")", TimeType.TIME, sqlTimeOf(TIME.plusHours(3)));
+        assertFunction("date_add('hour', 23, " + TIME_LITERAL + ")", TimeType.TIME, sqlTimeOf(TIME.plusHours(23)));
+        assertFunction("date_add('hour', -4, " + TIME_LITERAL + ")", TimeType.TIME, sqlTimeOf(TIME.minusHours(4)));
+        assertFunction("date_add('hour', -23, " + TIME_LITERAL + ")", TimeType.TIME, sqlTimeOf(TIME.minusHours(23)));
     }
 
     @Test
@@ -1011,10 +1011,10 @@ public abstract class TestDateTimeFunctionsBase
         assertFunctionString("date '1560-04-29'", DateType.DATE, "1560-04-29");
 
         // SqlTime
-        assertFunctionString("time '00:00:00'", TimeType.TIME, "00:00:00.000");
-        assertFunctionString("time '01:02:03'", TimeType.TIME, "01:02:03.000");
-        assertFunctionString("time '23:23:23.233'", TimeType.TIME, "23:23:23.233");
-        assertFunctionString("time '23:59:59.999'", TimeType.TIME, "23:59:59.999");
+        assertFunctionString("time '00:00:00'", createTimeType(0), "00:00:00");
+        assertFunctionString("time '01:02:03'", createTimeType(0), "01:02:03");
+        assertFunctionString("time '23:23:23.233'", createTimeType(3), "23:23:23.233");
+        assertFunctionString("time '23:59:59.999'", createTimeType(3), "23:59:59.999");
 
         // SqlTimeWithTimeZone
         assertFunctionString("time '00:00:00 UTC'", TIME_WITH_TIME_ZONE, "00:00:00.000 UTC");
@@ -1318,11 +1318,6 @@ public abstract class TestDateTimeFunctionsBase
     private static long hoursBetween(OffsetTime start, OffsetTime end)
     {
         return MILLISECONDS.toHours(millisBetween(start, end));
-    }
-
-    private SqlTime toTime(LocalTime time)
-    {
-        return sqlTimeOf(time, session.toConnectorSession());
     }
 
     private static SqlTimeWithTimeZone toTimeWithTimeZone(OffsetTime offsetTime)
