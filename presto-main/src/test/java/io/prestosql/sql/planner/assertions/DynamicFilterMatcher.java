@@ -35,6 +35,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
+import static io.prestosql.sql.planner.assertions.ExpressionVerifier.verify;
 import static java.util.Objects.requireNonNull;
 
 public class DynamicFilterMatcher
@@ -78,9 +79,8 @@ public class DynamicFilterMatcher
         this.symbolAliases = symbolAliases;
 
         boolean staticFilterMatches = expectedStaticFilter.map(filter -> {
-            ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
             Expression staticFilter = combineConjuncts(metadata, extractDynamicFilters(filterNode.getPredicate()).getStaticConjuncts());
-            return verifier.process(staticFilter, filter);
+            return verify(staticFilter, filter, symbolAliases);
         }).orElse(true);
 
         return new MatchResult(match(metadata) && staticFilterMatches);

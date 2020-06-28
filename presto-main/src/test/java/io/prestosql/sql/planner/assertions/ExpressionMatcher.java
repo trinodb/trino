@@ -33,6 +33,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static io.prestosql.sql.planner.assertions.ExpressionVerifier.verify;
 import static java.util.Objects.requireNonNull;
 
 public class ExpressionMatcher
@@ -75,10 +76,8 @@ public class ExpressionMatcher
             return result;
         }
 
-        ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
-
         for (Map.Entry<Symbol, Expression> assignment : assignments.entrySet()) {
-            if (verifier.process(assignment.getValue(), expression)) {
+            if (verify(assignment.getValue(), expression, symbolAliases)) {
                 result = Optional.of(assignment.getKey());
                 matchesBuilder.add(assignment.getValue());
             }

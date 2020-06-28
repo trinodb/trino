@@ -30,6 +30,7 @@ import java.util.stream.IntStream;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.sql.planner.assertions.ExpressionVerifier.verify;
 import static io.prestosql.sql.planner.assertions.MatchResult.NO_MATCH;
 import static java.util.Objects.requireNonNull;
 
@@ -106,7 +107,7 @@ final class UnnestMatcher
         if (filter.isEmpty()) {
             return MatchResult.match();
         }
-        if (!new ExpressionVerifier(symbolAliases).process(unnestNode.getFilter().get(), filter.get())) {
+        if (!verify(unnestNode.getFilter().get(), filter.get(), symbolAliases)) {
             return NO_MATCH;
         }
 

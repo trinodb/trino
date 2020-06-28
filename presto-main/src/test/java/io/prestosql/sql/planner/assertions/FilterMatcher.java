@@ -27,6 +27,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
+import static io.prestosql.sql.planner.assertions.ExpressionVerifier.verify;
 import static java.util.Objects.requireNonNull;
 
 final class FilterMatcher
@@ -53,15 +54,16 @@ final class FilterMatcher
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
         FilterNode filterNode = (FilterNode) node;
+
+        // match non-dynamic filters only
         Expression filterPredicate = filterNode.getPredicate();
-        ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
 
         if (dynamicFilter.isPresent()) {
-            return new MatchResult(verifier.process(filterPredicate, combineConjuncts(metadata, predicate, dynamicFilter.get())));
+            return new MatchResult(verify(filterPredicate, combineConjuncts(metadata, predicate, dynamicFilter.get()), symbolAliases));
         }
 
         DynamicFilters.ExtractResult extractResult = extractDynamicFilters(filterPredicate);
-        return new MatchResult(verifier.process(combineConjuncts(metadata, extractResult.getStaticConjuncts()), predicate));
+        return new MatchResult(verify(combineConjuncts(metadata, extractResult.getStaticConjuncts()), predicate, symbolAliases));
     }
 
     @Override
