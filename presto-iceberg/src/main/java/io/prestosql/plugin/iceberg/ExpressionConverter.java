@@ -204,7 +204,7 @@ public final class ExpressionConverter
             Object value = requireNonNull(marker.getValue(), "The value of the marker must be non-null");
             if (Decimals.isShortDecimal(decimalType)) {
                 checkArgument(value instanceof Long, "A short decimal should be represented by a Long value but was %s", value.getClass().getName());
-                return value;
+                return BigDecimal.valueOf((long) value).movePointLeft(decimalType.getScale());
             }
             checkArgument(value instanceof Slice, "A long decimal should be represented by a Slice value but was %s", value.getClass().getName());
             return new BigDecimal(Decimals.decodeUnscaledValue((Slice) value), decimalType.getScale());
