@@ -136,7 +136,7 @@ public class TestHiveGlueMetastore
         GlueHiveMetastore metastore = (GlueHiveMetastore) getMetastoreClient();
         GlueMetastoreStats stats = metastore.getStats();
         long initialFailureCount = stats.getGetDatabase().getTotalFailures().getTotalCount();
-        assertThrows(() -> getMetastoreClient().getDatabase(null));
+        assertThrows(() -> getMetastoreClient().getDatabase(HiveIdentity.none(), null));
         assertEquals(stats.getGetDatabase().getTotalFailures().getTotalCount(), initialFailureCount + 1);
     }
 }

@@ -22,6 +22,7 @@ import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveReadOnlyException;
 import io.prestosql.plugin.hive.HiveType;
+import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.avro.AvroRecordWriter;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.Partition;
@@ -450,7 +451,7 @@ public final class HiveWriteUtils
 
     public static Path getTableDefaultLocation(HdfsContext context, SemiTransactionalHiveMetastore metastore, HdfsEnvironment hdfsEnvironment, String schemaName, String tableName)
     {
-        Database database = metastore.getDatabase(schemaName)
+        Database database = metastore.getDatabase(new HiveIdentity(context.getIdentity()), schemaName)
                 .orElseThrow(() -> new SchemaNotFoundException(schemaName));
 
         return getTableDefaultLocation(database, context, hdfsEnvironment, schemaName, tableName);

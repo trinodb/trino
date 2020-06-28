@@ -147,7 +147,7 @@ public class IcebergMetadata
     @Override
     public Map<String, Object> getSchemaProperties(ConnectorSession session, CatalogSchemaName schemaName)
     {
-        Optional<Database> db = metastore.getDatabase(schemaName.getSchemaName());
+        Optional<Database> db = metastore.getDatabase(new HiveIdentity(session), schemaName.getSchemaName());
         if (db.isPresent()) {
             return HiveSchemaProperties.fromDatabase(db.get());
         }
@@ -158,7 +158,7 @@ public class IcebergMetadata
     @Override
     public Optional<PrestoPrincipal> getSchemaOwner(ConnectorSession session, CatalogSchemaName schemaName)
     {
-        Optional<Database> database = metastore.getDatabase(schemaName.getSchemaName());
+        Optional<Database> database = metastore.getDatabase(new HiveIdentity(session), schemaName.getSchemaName());
         if (database.isPresent()) {
             return database.flatMap(db -> Optional.of(new PrestoPrincipal(db.getOwnerType(), db.getOwnerName())));
         }
@@ -227,7 +227,7 @@ public class IcebergMetadata
         return schemaName.map(Collections::singletonList)
                 .orElseGet(metastore::getAllDatabases)
                 .stream()
-                .flatMap(schema -> metastore.getTablesWithParameter(schema, TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE).stream()
+                .flatMap(schema -> metastore.getTablesWithParameter(new HiveIdentity(session), schema, TABLE_TYPE_PROP, ICEBERG_TABLE_TYPE_VALUE).stream()
                         .map(table -> new SchemaTableName(schema, table))
                         .collect(toList())
                         .stream())
@@ -340,7 +340,7 @@ public class IcebergMetadata
 
         PartitionSpec partitionSpec = parsePartitionFields(schema, getPartitioning(tableMetadata.getProperties()));
 
-        Database database = metastore.getDatabase(schemaName)
+        Database database = metastore.getDatabase(new HiveIdentity(session), schemaName)
                 .orElseThrow(() -> new SchemaNotFoundException(schemaName));
 
         HdfsContext hdfsContext = new HdfsContext(session, schemaName, tableName);

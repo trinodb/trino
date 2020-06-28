@@ -115,21 +115,21 @@ public class TestCachingHiveMetastore
     public void testGetAllTable()
     {
         assertEquals(mockClient.getAccessCount(), 0);
-        assertEquals(metastore.getAllTables(TEST_DATABASE), ImmutableList.of(TEST_TABLE));
+        assertEquals(metastore.getAllTables(IDENTITY, TEST_DATABASE), ImmutableList.of(TEST_TABLE));
         assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getAllTables(TEST_DATABASE), ImmutableList.of(TEST_TABLE));
+        assertEquals(metastore.getAllTables(IDENTITY, TEST_DATABASE), ImmutableList.of(TEST_TABLE));
         assertEquals(mockClient.getAccessCount(), 1);
 
         metastore.flushCache();
 
-        assertEquals(metastore.getAllTables(TEST_DATABASE), ImmutableList.of(TEST_TABLE));
+        assertEquals(metastore.getAllTables(IDENTITY, TEST_DATABASE), ImmutableList.of(TEST_TABLE));
         assertEquals(mockClient.getAccessCount(), 2);
     }
 
     @Test
     public void testInvalidDbGetAllTAbles()
     {
-        assertTrue(metastore.getAllTables(BAD_DATABASE).isEmpty());
+        assertTrue(metastore.getAllTables(IDENTITY, BAD_DATABASE).isEmpty());
     }
 
     @Test

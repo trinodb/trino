@@ -129,7 +129,7 @@ public class InMemoryThriftMetastore
         if (!databases.containsKey(databaseName)) {
             throw new SchemaNotFoundException(databaseName);
         }
-        if (!getAllTables(databaseName).isEmpty()) {
+        if (!getAllTables(identity, databaseName).isEmpty()) {
             throw new PrestoException(SCHEMA_NOT_EMPTY, "Schema not empty: " + databaseName);
         }
         databases.remove(databaseName);
@@ -276,7 +276,7 @@ public class InMemoryThriftMetastore
     }
 
     @Override
-    public synchronized List<String> getAllTables(String databaseName)
+    public synchronized List<String> getAllTables(HiveIdentity identity, String databaseName)
     {
         ImmutableList.Builder<String> tables = ImmutableList.builder();
         for (SchemaTableName schemaTableName : this.relations.keySet()) {
@@ -288,7 +288,7 @@ public class InMemoryThriftMetastore
     }
 
     @Override
-    public synchronized List<String> getTablesWithParameter(String databaseName, String parameterKey, String parameterValue)
+    public synchronized List<String> getTablesWithParameter(HiveIdentity identity, String databaseName, String parameterKey, String parameterValue)
     {
         requireNonNull(parameterKey, "parameterKey is null");
         requireNonNull(parameterValue, "parameterValue is null");
@@ -301,7 +301,7 @@ public class InMemoryThriftMetastore
     }
 
     @Override
-    public synchronized List<String> getAllViews(String databaseName)
+    public synchronized List<String> getAllViews(HiveIdentity identity, String databaseName)
     {
         ImmutableList.Builder<String> tables = ImmutableList.builder();
         for (SchemaTableName schemaTableName : this.views.keySet()) {
@@ -313,7 +313,7 @@ public class InMemoryThriftMetastore
     }
 
     @Override
-    public synchronized Optional<Database> getDatabase(String databaseName)
+    public synchronized Optional<Database> getDatabase(HiveIdentity identity, String databaseName)
     {
         return Optional.ofNullable(databases.get(databaseName));
     }

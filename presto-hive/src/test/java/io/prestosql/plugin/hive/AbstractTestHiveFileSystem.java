@@ -526,9 +526,9 @@ public abstract class AbstractTestHiveFileSystem
         }
 
         @Override
-        public Optional<Database> getDatabase(String databaseName)
+        public Optional<Database> getDatabase(HiveIdentity identity, String databaseName)
         {
-            return super.getDatabase(databaseName)
+            return super.getDatabase(identity, databaseName)
                     .map(database -> Database.builder(database)
                             .setLocation(Optional.of(basePath.toString()))
                             .build());
@@ -574,7 +574,7 @@ public abstract class AbstractTestHiveFileSystem
                 throw new UncheckedIOException(e);
             }
             finally {
-                invalidateTable(databaseName, tableName);
+                invalidateTable(identity, databaseName, tableName);
             }
         }
 
