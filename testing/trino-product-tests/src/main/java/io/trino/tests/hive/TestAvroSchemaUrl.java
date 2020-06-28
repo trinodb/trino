@@ -176,13 +176,13 @@ public class TestAvroSchemaUrl
                 "  string_col, " +
                 "  long_record.record_field, " +
                 "  long_record.record_field422, " +
-                "  regexp_replace(json_format(CAST(long_record AS json)), '(?s)^.*(.{20})$', '... $1') " +
+                "  regexp_replace(json_format(CAST(long_record AS json)), '(?s)^.*(.{29})$', '... $1') " +
                 "FROM test_avro_schema_url_long_column"))
                 .containsOnly(row(
                         "string_col val",
                         "val",
                         "val422",
-                        "... \",\"val498\",\"val499\"]"));
+                        "... \",\"record_field499\":\"val499\"}"));
 
         onTrino().executeQuery("DROP TABLE test_avro_schema_url_long_column");
     }
@@ -219,14 +219,14 @@ public class TestAvroSchemaUrl
                 "  string_col, " +
                 "  long_record.record_field, " +
                 "  long_record.record_field422, " +
-                "  regexp_replace(json_format(CAST(long_record AS json)), '(?s)^.*(.{20})$', '... $1') " +
+                "  regexp_replace(json_format(CAST(long_record AS json)), '(?s)^.*(.{29})$', '... $1') " +
                 "FROM test_avro_schema_url_partitioned_long_column"))
                 .containsOnly(row(
                         "partition key value",
                         "string_col val",
                         "val",
                         "val422",
-                        "... \",\"val498\",\"val499\"]"));
+                        "... \",\"record_field499\":\"val499\"}"));
 
         onHive().executeQuery("DROP TABLE IF EXISTS test_avro_schema_url_partitioned_long_column");
     }
