@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.execution.StageId;
+import io.prestosql.execution.StageState;
 import io.prestosql.execution.TaskId;
 import io.prestosql.execution.TaskManagerConfig;
 import io.prestosql.server.DynamicFilterService.SourceDescriptor;
@@ -40,6 +41,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.execution.StageState.RUNNING;
+import static io.prestosql.execution.StageState.SCHEDULING;
 import static io.prestosql.spi.predicate.Domain.multipleValues;
 import static io.prestosql.spi.predicate.Domain.none;
 import static io.prestosql.spi.predicate.Domain.singleValue;
@@ -61,9 +63,9 @@ public class TestDynamicFilterService
         List<TaskId> taskIds = ImmutableList.of(new TaskId(stageId, 0), new TaskId(stageId, 1), new TaskId(stageId, 2));
 
         assertFalse(dynamicFilterService.getSummary(queryId, filterId).isPresent());
-        TestDynamicFiltersStageSupplier dynamicFiltersStageSupplier = new TestDynamicFiltersStageSupplier();
+        TestDynamicFiltersStageSupplier dynamicFiltersStageSupplier = new TestDynamicFiltersStageSupplier(RUNNING);
         dynamicFiltersStageSupplier.addTasks(taskIds);
-        dynamicFilterService.registerQuery(queryId, dynamicFiltersStageSupplier, ImmutableSet.of(SourceDescriptor.of(queryId, filterId)));
+        dynamicFilterService.registerQuery(queryId, dynamicFiltersStageSupplier, ImmutableSet.of(SourceDescriptor.of(queryId, filterId)), ImmutableSet.of());
         assertFalse(dynamicFilterService.getSummary(queryId, filterId).isPresent());
 
         dynamicFiltersStageSupplier.storeSummary(
@@ -124,7 +126,7 @@ public class TestDynamicFilterService
                         Symbol.from(df3), new TestingColumnHandle("probeColumnB")));
 
         assertTrue(dynamicFilterSupplier.get().isAll());
-        TestDynamicFiltersStageSupplier dynamicFiltersStageSupplier = new TestDynamicFiltersStageSupplier();
+        TestDynamicFiltersStageSupplier dynamicFiltersStageSupplier = new TestDynamicFiltersStageSupplier(RUNNING);
 
         dynamicFiltersStageSupplier.addTasks(ImmutableList.of(new TaskId(stageId1, 0), new TaskId(stageId1, 1)));
         dynamicFiltersStageSupplier.addTasks(ImmutableList.of(new TaskId(stageId2, 0), new TaskId(stageId2, 1)));
@@ -136,7 +138,8 @@ public class TestDynamicFilterService
                 ImmutableSet.of(
                         SourceDescriptor.of(queryId, filterId1),
                         SourceDescriptor.of(queryId, filterId2),
-                        SourceDescriptor.of(queryId, filterId3)));
+                        SourceDescriptor.of(queryId, filterId3)),
+                ImmutableSet.of());
         assertTrue(dynamicFilterSupplier.get().isAll());
 
         dynamicFiltersStageSupplier.storeSummary(
@@ -200,12 +203,60 @@ public class TestDynamicFilterService
         assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 6);
     }
 
+    @Test
+    public void testReplicatedDynamicFilterSupplier()
+    {
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(new TaskManagerConfig());
+        DynamicFilterId filterId1 = new DynamicFilterId("df1");
+        Expression df1 = expression("DF_SYMBOL1");
+        QueryId queryId = new QueryId("query");
+        StageId stageId1 = new StageId(queryId, 1);
+
+        TestDynamicFiltersStageSupplier dynamicFiltersStageSupplier = new TestDynamicFiltersStageSupplier(SCHEDULING);
+        dynamicFiltersStageSupplier.addTasks(ImmutableList.of(new TaskId(stageId1, 0), new TaskId(stageId1, 1)));
+
+        dynamicFilterService.registerQuery(
+                queryId,
+                dynamicFiltersStageSupplier,
+                ImmutableSet.of(SourceDescriptor.of(queryId, filterId1)),
+                ImmutableSet.of(filterId1));
+
+        Supplier<TupleDomain<ColumnHandle>> dynamicFilterSupplier = dynamicFilterService.createDynamicFilterSupplier(
+                queryId,
+                ImmutableList.of(new DynamicFilters.Descriptor(filterId1, df1)),
+                ImmutableMap.of(
+                        Symbol.from(df1), new TestingColumnHandle("probeColumnA")));
+        assertTrue(dynamicFilterSupplier.get().isAll());
+
+        dynamicFiltersStageSupplier.storeSummary(
+                filterId1,
+                new TaskId(stageId1, 0),
+                singleValue(INTEGER, 1L));
+        dynamicFilterService.collectDynamicFilters();
+
+        // tuple domain from single broadcast join task is sufficient
+        assertEquals(dynamicFilterSupplier.get(), TupleDomain.withColumnDomains(ImmutableMap.of(
+                new TestingColumnHandle("probeColumnA"),
+                singleValue(INTEGER, 1L))));
+        assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 1);
+
+        // all dynamic filters have been collected, no need for more requests
+        dynamicFilterService.collectDynamicFilters();
+        assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 1);
+    }
+
     private static class TestDynamicFiltersStageSupplier
             implements Supplier<List<StageDynamicFilters>>
     {
         private final Map<StageId, Map<TaskId, Map<DynamicFilterId, Domain>>> stageDynamicFilters = new HashMap<>();
+        private final StageState stageState;
 
         private int requestCount;
+
+        TestDynamicFiltersStageSupplier(StageState stageState)
+        {
+            this.stageState = stageState;
+        }
 
         void addTasks(List<TaskId> taskIds)
         {
@@ -232,7 +283,7 @@ public class TestDynamicFilterService
             requestCount++;
             return ImmutableList.copyOf(stageDynamicFilters.values().stream()
                     .map(stage -> new StageDynamicFilters(
-                            RUNNING,
+                            stageState,
                             stage.size(),
                             stage.values().stream()
                                     .collect(toImmutableList())))
