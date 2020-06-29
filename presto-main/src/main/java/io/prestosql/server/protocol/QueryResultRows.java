@@ -163,15 +163,16 @@ public class QueryResultRows
             Block block = currentPage.getBlock(channel);
 
             try {
-                if (type instanceof TimestampType && !supportsParametricDateTime) {
-                    row.add(channel, ((SqlTimestamp) type.getObjectValue(session, block, inPageIndex)).roundTo(3));
+                Object value = type.getObjectValue(session, block, inPageIndex);
+                if (value != null && !supportsParametricDateTime) {
+                    if (type instanceof TimestampType) {
+                        value = ((SqlTimestamp) value).roundTo(3);
+                    }
+                    else if (type instanceof TimestampWithTimeZoneType) {
+                        value = ((SqlTimestampWithTimeZone) value).roundTo(3);
+                    }
                 }
-                else if (type instanceof TimestampWithTimeZoneType && !supportsParametricDateTime) {
-                    row.add(channel, ((SqlTimestampWithTimeZone) type.getObjectValue(session, block, inPageIndex)).roundTo(3));
-                }
-                else {
-                    row.add(channel, type.getObjectValue(session, block, inPageIndex));
-                }
+                row.add(channel, value);
             }
             catch (Throwable throwable) {
                 propagateException(rowPosition, column, throwable);
