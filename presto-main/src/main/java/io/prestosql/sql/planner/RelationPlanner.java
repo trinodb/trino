@@ -236,7 +236,7 @@ class RelationPlanner
                 planBuilder = subqueryPlanner.handleSubqueries(planBuilder, mask, mask);
 
                 Map<Symbol, Expression> assignments = new LinkedHashMap<>();
-                for (Symbol symbol : plan.getRoot().getOutputSymbols()) {
+                for (Symbol symbol : planBuilder.getRoot().getOutputSymbols()) {
                     assignments.put(symbol, symbol.toSymbolReference());
                 }
 
