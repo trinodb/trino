@@ -284,12 +284,12 @@ public class AcidInfo
         public Builder addOriginalFile(Path originalFilePath, long originalFileLength, int bucketId)
         {
             requireNonNull(originalFilePath, "originalFilePath is null");
-            Path partitionPathFromOriginalPath = originalFilePath.getParent();
+/*            Path partitionPathFromOriginalPath = originalFilePath.getParent();
             checkArgument(
                     partitionLocation.equals(partitionPathFromOriginalPath),
                     "Partition location in OriginalFile '%s' does not match stored location '%s'",
                     originalFilePath.getParent().toString(),
-                    partitionLocation);
+                    partitionLocation);*/
             List<OriginalFileInfo> originalFileInfoList = bucketIdToOriginalFileInfoMap.getOrDefault(bucketId, new ArrayList<>());
             originalFileInfoList.add(new OriginalFileInfo(originalFilePath.getName(), originalFileLength));
             bucketIdToOriginalFileInfoMap.put(bucketId, originalFileInfoList);
