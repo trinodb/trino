@@ -23,6 +23,8 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.IntegerType;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.testing.TestingSession;
 import io.prestosql.tests.BogusType;
@@ -38,6 +40,8 @@ import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
 import static io.prestosql.client.ClientStandardTypes.BIGINT;
 import static io.prestosql.client.ClientStandardTypes.BOOLEAN;
 import static io.prestosql.client.ClientStandardTypes.INTEGER;
+import static io.prestosql.client.ClientStandardTypes.TIMESTAMP;
+import static io.prestosql.client.ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.server.protocol.QueryResultRows.queryResultRowsBuilder;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
@@ -242,6 +246,34 @@ public class TestQueryResultRows
         assertThat(getAllValues(rows))
                 .hasSize(3)
                 .containsExactly(newArrayList(0, null), newArrayList(1, null), newArrayList(2, true));
+    }
+
+    @Test
+    public void shouldHandleNullTimestamps()
+    {
+        List<Column> columns = ImmutableList.of(
+                new Column("_col0", TIMESTAMP, new ClientTypeSignature(TIMESTAMP)),
+                new Column("_col1", TIMESTAMP_WITH_TIME_ZONE, new ClientTypeSignature(TIMESTAMP_WITH_TIME_ZONE)));
+        List<Type> types = ImmutableList.of(TimestampType.TIMESTAMP, TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE);
+
+        List<Page> pages = rowPagesBuilder(types)
+                .row(null, null)
+                .build();
+
+        TestExceptionConsumer exceptionConsumer = new TestExceptionConsumer();
+        QueryResultRows rows = queryResultRowsBuilder(getSession())
+                .withColumnsAndTypes(columns, types)
+                .withExceptionConsumer(exceptionConsumer)
+                .addPages(pages)
+                .build();
+
+        assertThat(exceptionConsumer.getExceptions()).isEmpty();
+        assertFalse(rows.isEmpty(), "rows are empty");
+        assertThat(rows.getTotalRowsCount()).isEqualTo(1);
+
+        assertThat(getAllValues(rows))
+                .hasSize(1)
+                .containsExactly(newArrayList(null, null));
     }
 
     @Test
