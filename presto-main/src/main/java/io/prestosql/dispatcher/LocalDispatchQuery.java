@@ -251,6 +251,12 @@ public class LocalDispatchQuery
     }
 
     @Override
+    public QueryState getState()
+    {
+        return stateMachine.getQueryState();
+    }
+
+    @Override
     public Session getSession()
     {
         return stateMachine.getSession();
