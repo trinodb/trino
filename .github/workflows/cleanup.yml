@@ -8,7 +8,7 @@ jobs:
   cancel:
     runs-on: ubuntu-latest
     steps:
-      - uses: n1hility/cancel-previous-runs@v2
+      - uses: n1hility/cancel-previous-runs@2e3c189
         with:
           token: ${{ github.token }}
           workflow: ci.yml
