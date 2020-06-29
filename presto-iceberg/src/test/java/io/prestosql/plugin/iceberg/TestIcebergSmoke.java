@@ -385,6 +385,35 @@ public class TestIcebergSmoke
     }
 
     @Test
+    public void testRollbackSnapshot()
+    {
+        Session session = getSession();
+        MaterializedResult result = computeActual("SHOW SCHEMAS FROM system");
+        assertUpdate(session, "CREATE TABLE test_rollback (col0 INTEGER, col1 BIGINT)");
+        long afterCreateTableId = getLatestSnapshotId();
+
+        assertUpdate(session, "INSERT INTO test_rollback (col0, col1) VALUES (123, CAST(987 AS BIGINT))", 1);
+        long afterFirstInsertId = getLatestSnapshotId();
+
+        assertUpdate(session, "INSERT INTO test_rollback (col0, col1) VALUES (456, CAST(654 AS BIGINT))", 1);
+        assertQuery(session, "SELECT * FROM test_rollback ORDER BY col0", "VALUES (123, CAST(987 AS BIGINT)), (456, CAST(654 AS BIGINT))");
+
+        assertUpdate(format("CALL system.rollback_to_snapshot('tpch', 'test_rollback', %s)", afterFirstInsertId));
+        assertQuery(session, "SELECT * FROM test_rollback ORDER BY col0", "VALUES (123, CAST(987 AS BIGINT))");
+
+        assertUpdate(format("CALL system.rollback_to_snapshot('tpch', 'test_rollback', %s)", afterCreateTableId));
+        assertEquals((long) computeActual(session, "SELECT COUNT(*) FROM test_rollback").getOnlyValue(), 0);
+
+        dropTable(session, "test_rollback");
+    }
+
+    private long getLatestSnapshotId()
+    {
+        return (long) computeActual("SELECT snapshot_id FROM \"test_rollback$snapshots\" ORDER BY committed_at DESC LIMIT 1")
+                .getOnlyValue();
+    }
+
+    @Test
     public void testSchemaEvolution()
     {
         // Schema evolution should be id based
