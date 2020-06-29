@@ -51,6 +51,7 @@ import io.prestosql.testing.TestingMetadata;
 import io.prestosql.testing.TestingPageSinkProvider;
 import io.prestosql.testing.TestingTransactionHandle;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -58,6 +59,8 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Supplier;
 
@@ -65,14 +68,16 @@ import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.spi.predicate.Domain.singleValue;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.prestosql.testing.TestingMetadata.TestingColumnHandle;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
-import static java.util.Collections.nCopies;
+import static java.lang.Thread.sleep;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
 @Test(singleThreaded = true)
 public class TestCoordinatorDynamicFiltering
@@ -81,6 +86,20 @@ public class TestCoordinatorDynamicFiltering
     private static final TestingColumnHandle SUPP_KEY_HANDLE = new TestingColumnHandle("suppkey", 2, BIGINT);
 
     private final AtomicReference<TupleDomain<ColumnHandle>> expectedDynamicFilter = new AtomicReference<>(TupleDomain.all());
+
+    private ExecutorService executorService;
+
+    @BeforeClass
+    public void setup()
+    {
+        executorService = newSingleThreadScheduledExecutor();
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        executorService.shutdownNow();
+    }
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -92,7 +111,9 @@ public class TestCoordinatorDynamicFiltering
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
                 .build();
-        return DistributedQueryRunner.builder(session).build();
+        return DistributedQueryRunner.builder(session)
+                .setExtraProperties(ImmutableMap.of("query.min-schedule-split-batch-size", "1"))
+                .build();
     }
 
     @BeforeClass
@@ -130,6 +151,17 @@ public class TestCoordinatorDynamicFiltering
     }
 
     @Test
+    public void testBroadcastJoinWithSelectiveBuildSide()
+    {
+        assertQueryDynamicFilters(
+                withBroadcastJoin(),
+                "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name = 'Supplier#000000001'",
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SUPP_KEY_HANDLE,
+                        singleValue(BIGINT, 1L))));
+    }
+
+    @Test
     public void testJoinWithNonSelectiveBuildSide()
     {
         assertQueryDynamicFilters(
@@ -159,7 +191,20 @@ public class TestCoordinatorDynamicFiltering
         computeActual(query);
     }
 
-    private static class TestPlugin
+    private void assertQueryDynamicFilters(Session session, @Language("SQL") String query, TupleDomain<ColumnHandle> expectedTupleDomain)
+    {
+        expectedDynamicFilter.set(expectedTupleDomain);
+        computeActual(session, query);
+    }
+
+    private Session withBroadcastJoin()
+    {
+        return Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
+                .build();
+    }
+
+    private class TestPlugin
             implements Plugin
     {
         private final AtomicReference<TupleDomain<ColumnHandle>> expectedDynamicFilter;
@@ -197,7 +242,7 @@ public class TestCoordinatorDynamicFiltering
         }
     }
 
-    private static class TestConnector
+    private class TestConnector
             implements Connector
     {
         private final ConnectorMetadata metadata;
@@ -237,14 +282,31 @@ public class TestCoordinatorDynamicFiltering
                         Supplier<TupleDomain<ColumnHandle>> dynamicFilter)
                 {
                     long start = System.nanoTime();
+                    AtomicBoolean splitProduced = new AtomicBoolean();
+
                     return new ConnectorSplitSource()
                     {
                         @Override
                         public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
                         {
-                            return completedFuture(new ConnectorSplitBatch(
-                                    nCopies(maxSize, new EmptySplit(new CatalogName("test"))),
-                                    isFinished()));
+                            // producing single empty split allows to assert that dynamic filters will be collected for broadcast
+                            // joins once the first probe side task starts running
+                            if (!splitProduced.get()) {
+                                splitProduced.set(true);
+                                return completedFuture(new ConnectorSplitBatch(ImmutableList.of(new EmptySplit(new CatalogName("test"))), false));
+                            }
+
+                            return CompletableFuture.supplyAsync(
+                                    () -> {
+                                        try {
+                                            sleep(50);
+                                            return new ConnectorSplitBatch(ImmutableList.of(), isFinished());
+                                        }
+                                        catch (InterruptedException e) {
+                                            throw new RuntimeException(e);
+                                        }
+                                    },
+                                    executorService);
                         }
 
                         @Override

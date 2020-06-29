@@ -16,6 +16,7 @@ package io.prestosql.server;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.units.Duration;
 import io.prestosql.execution.SqlQueryExecution;
 import io.prestosql.execution.StageState;
@@ -50,8 +51,8 @@ import java.util.function.Supplier;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.prestosql.operator.JoinUtils.isBuildSideReplicated;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -70,6 +71,8 @@ public class DynamicFilterService
     private final Map<QueryId, Supplier<List<StageDynamicFilters>>> dynamicFilterSuppliers = new HashMap<>();
     @GuardedBy("this")
     private final Map<QueryId, Set<SourceDescriptor>> queryDynamicFilters = new HashMap<>();
+    @GuardedBy("this") // for updates
+    private final Map<QueryId, Set<DynamicFilterId>> queryReplicatedDynamicFilters = new ConcurrentHashMap<>();
 
     @Inject
     public DynamicFilterService(TaskManagerConfig taskConfig)
@@ -92,22 +95,35 @@ public class DynamicFilterService
     public void registerQuery(SqlQueryExecution sqlQueryExecution)
     {
         // register query only if it contains dynamic filters
-        Set<SourceDescriptor> dynamicFilters = PlanNodeSearcher.searchFrom(sqlQueryExecution.getQueryPlan().getRoot())
+        ImmutableSet.Builder<SourceDescriptor> dynamicFiltersBuilder = ImmutableSet.builder();
+        ImmutableSet.Builder<DynamicFilterId> replicatedDynamicFiltersBuilder = ImmutableSet.builder();
+        PlanNodeSearcher.searchFrom(sqlQueryExecution.getQueryPlan().getRoot())
                 .where(JoinNode.class::isInstance)
-                .<JoinNode>findAll().stream()
-                .flatMap(node -> node.getDynamicFilters().keySet().stream())
-                .map(dynamicFilter -> SourceDescriptor.of(sqlQueryExecution.getQueryId(), dynamicFilter))
-                .collect(toImmutableSet());
+                .<JoinNode>findAll()
+                .forEach(node -> {
+                    node.getDynamicFilters().keySet().stream()
+                            .map(filter -> SourceDescriptor.of(sqlQueryExecution.getQueryId(), filter))
+                            .forEach(dynamicFiltersBuilder::add);
+                    if (isBuildSideReplicated(node)) {
+                        replicatedDynamicFiltersBuilder.addAll(node.getDynamicFilters().keySet());
+                    }
+                });
+        Set<SourceDescriptor> dynamicFilters = dynamicFiltersBuilder.build();
         if (!dynamicFilters.isEmpty()) {
-            registerQuery(sqlQueryExecution.getQueryId(), sqlQueryExecution::getStageDynamicFilters, dynamicFilters);
+            registerQuery(sqlQueryExecution.getQueryId(), sqlQueryExecution::getStageDynamicFilters, dynamicFilters, replicatedDynamicFiltersBuilder.build());
         }
     }
 
     @VisibleForTesting
-    synchronized void registerQuery(QueryId queryId, Supplier<List<StageDynamicFilters>> stageDynamicFiltersSupplier, Set<SourceDescriptor> dynamicFilters)
+    synchronized void registerQuery(
+            QueryId queryId,
+            Supplier<List<StageDynamicFilters>> stageDynamicFiltersSupplier,
+            Set<SourceDescriptor> dynamicFilters,
+            Set<DynamicFilterId> replicatedDynamicFilters)
     {
         dynamicFilterSuppliers.put(queryId, stageDynamicFiltersSupplier);
         queryDynamicFilters.put(queryId, dynamicFilters);
+        queryReplicatedDynamicFilters.put(queryId, replicatedDynamicFilters);
     }
 
     public synchronized void removeQuery(QueryId queryId)
@@ -115,6 +131,7 @@ public class DynamicFilterService
         dynamicFilterSummaries.keySet().removeIf(sourceDescriptor -> sourceDescriptor.getQueryId().equals(queryId));
         dynamicFilterSuppliers.remove(queryId);
         queryDynamicFilters.remove(queryId);
+        queryReplicatedDynamicFilters.remove(queryId);
     }
 
     public Supplier<TupleDomain<ColumnHandle>> createDynamicFilterSupplier(QueryId queryId, List<DynamicFilters.Descriptor> dynamicFilters, Map<Symbol, ColumnHandle> columnHandles)
@@ -134,20 +151,24 @@ public class DynamicFilterService
     {
         for (Map.Entry<QueryId, Supplier<List<StageDynamicFilters>>> entry : getDynamicFilterSuppliers().entrySet()) {
             QueryId queryId = entry.getKey();
+            Set<DynamicFilterId> replicatedDynamicFilters = queryReplicatedDynamicFilters.getOrDefault(queryId, ImmutableSet.of());
             ImmutableMap.Builder<SourceDescriptor, Domain> newDynamicFiltersBuilder = ImmutableMap.builder();
             for (StageDynamicFilters stageDynamicFilters : entry.getValue().get()) {
                 StageState stageState = stageDynamicFilters.getStageState();
-                // wait until stage has finished scheduling tasks
-                if (stageState.canScheduleMoreTasks()) {
-                    continue;
-                }
                 stageDynamicFilters.getTaskDynamicFilters().stream()
                         .flatMap(taskDomains -> taskDomains.entrySet().stream())
                         .filter(domain -> !dynamicFilterSummaries.containsKey(SourceDescriptor.of(queryId, domain.getKey())))
                         .collect(groupingBy(Map.Entry::getKey, mapping(Map.Entry::getValue, toImmutableList())))
                         .entrySet().stream()
-                        // check if all tasks of a dynamic filter source have reported dynamic filter summary
-                        .filter(stageDomains -> stageDomains.getValue().size() == stageDynamicFilters.getNumberOfTasks())
+                        .filter(stageDomains -> {
+                            if (replicatedDynamicFilters.contains(stageDomains.getKey())) {
+                                // for replicated dynamic filters it's enough to get dynamic filter from a single task
+                                return true;
+                            }
+
+                            // check if all tasks of a repartitioned dynamic filter source have reported dynamic filter summary
+                            return !stageState.canScheduleMoreTasks() && stageDomains.getValue().size() == stageDynamicFilters.getNumberOfTasks();
+                        })
                         .forEach(stageDomains -> newDynamicFiltersBuilder.put(
                                 SourceDescriptor.of(queryId, stageDomains.getKey()),
                                 Domain.union(stageDomains.getValue())));
