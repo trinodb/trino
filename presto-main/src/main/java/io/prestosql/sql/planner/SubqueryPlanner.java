@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.sql.analyzer.Analysis;
-import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.ApplyNode;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
@@ -45,7 +44,6 @@ import io.prestosql.sql.tree.QuantifiedComparisonExpression.Quantifier;
 import io.prestosql.sql.tree.Query;
 import io.prestosql.sql.tree.SubqueryExpression;
 import io.prestosql.sql.tree.SymbolReference;
-import io.prestosql.util.MorePredicates;
 
 import java.util.Collection;
 import java.util.List;
@@ -59,7 +57,6 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.sql.planner.ReferenceAwareExpressionNodeInliner.replaceExpression;
-import static io.prestosql.sql.planner.optimizations.PlanNodeSearcher.searchFrom;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static io.prestosql.sql.util.AstUtils.nodeContains;
@@ -366,17 +363,6 @@ class SubqueryPlanner
                 quantifiedComparison.getSubquery(),
                 subqueryPlan.getRoot(),
                 Assignments.of(coercedQuantifiedComparisonSymbol, coercedQuantifiedComparison));
-    }
-
-    private static boolean isAggregationWithEmptyGroupBy(PlanNode planNode)
-    {
-        return searchFrom(planNode)
-                .recurseOnlyWhen(MorePredicates.isInstanceOfAny(ProjectNode.class))
-                .where(AggregationNode.class::isInstance)
-                .findFirst()
-                .map(AggregationNode.class::cast)
-                .map(aggregation -> aggregation.getGroupingKeys().isEmpty())
-                .orElse(false);
     }
 
     /**
