@@ -954,4 +954,34 @@ public final class StringFunctions
 
         return target;
     }
+
+    @Description("Returns string in proper casing")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARCHAR)
+    public static Slice proper(@SqlType(StandardTypes.VARCHAR) Slice string)
+    {
+        if (string == null || string.length() == 0) {
+            return string;
+        }
+
+        StringBuilder proper = new StringBuilder();
+
+        boolean convertNext = true;
+        for (char ch : string.toStringUtf8().toCharArray()) {
+            if(convertNext) {
+                ch = Character.toTitleCase(ch);
+            }
+            else {
+                ch = Character.toLowerCase(ch);
+            }
+
+            convertNext = false;
+            if (!Character.isAlphabetic(ch) && !Character.isDigit(ch)) {
+                convertNext = true;
+            }
+            proper.append(ch);
+        }
+
+        return utf8Slice(proper.toString());
+    }
 }
