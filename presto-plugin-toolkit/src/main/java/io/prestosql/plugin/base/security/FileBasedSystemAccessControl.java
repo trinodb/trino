@@ -231,11 +231,7 @@ public class FileBasedSystemAccessControl
             return;
         }
 
-        if (principal.isEmpty()) {
-            denySetUser(principal, userName);
-        }
-
-        String principalName = principal.get().getName();
+        String principalName = (principal.isPresent()) ? principal.get().getName() : "";
 
         for (PrincipalUserMatchRule rule : principalUserMatchRules.get()) {
             Optional<Boolean> allowed = rule.match(principalName, userName);
