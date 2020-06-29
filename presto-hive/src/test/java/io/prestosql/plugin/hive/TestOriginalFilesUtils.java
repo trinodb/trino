@@ -26,6 +26,7 @@ import org.testng.annotations.Test;
 import java.util.ArrayList;
 import java.util.List;
 
+import static io.prestosql.plugin.hive.AcidInfo.OriginalFileInfo;
 import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static org.testng.Assert.assertTrue;
 
@@ -46,10 +47,10 @@ public class TestOriginalFilesUtils
     @Test
     public void testGetRowCountSingleOriginalFileBucket()
     {
-        List<OriginalFileLocations.OriginalFileInfo> originalFileInfos = new ArrayList<>();
-        originalFileInfos.add(new OriginalFileLocations.OriginalFileInfo("000001_0", 730));
+        List<OriginalFileInfo> originalFileInfoList = new ArrayList<>();
+        originalFileInfoList.add(new OriginalFileInfo("000001_0", 730));
 
-        long rowCountResult = OriginalFilesUtils.getRowCount(originalFileInfos,
+        long rowCountResult = OriginalFilesUtils.getRowCount(originalFileInfoList,
                 new Path(tablePath + "/000001_0"),
                 HDFS_ENVIRONMENT,
                 SESSION.getUser(),
@@ -62,11 +63,11 @@ public class TestOriginalFilesUtils
     @Test
     public void testGetRowCountMultipleOriginalFilesBucket()
     {
-        List<OriginalFileLocations.OriginalFileInfo> originalFileInfos = new ArrayList<>();
+        List<OriginalFileInfo> originalFileInfos = new ArrayList<>();
 
-        originalFileInfos.add(new OriginalFileLocations.OriginalFileInfo("000002_0", 741));
-        originalFileInfos.add(new OriginalFileLocations.OriginalFileInfo("000002_0_copy_1", 768));
-        originalFileInfos.add(new OriginalFileLocations.OriginalFileInfo("000002_0_copy_2", 743));
+        originalFileInfos.add(new OriginalFileInfo("000002_0", 741));
+        originalFileInfos.add(new OriginalFileInfo("000002_0_copy_1", 768));
+        originalFileInfos.add(new OriginalFileInfo("000002_0_copy_2", 743));
 
         long rowCountResult = OriginalFilesUtils.getRowCount(originalFileInfos,
                 new Path(tablePath + "/000002_0_copy_2"),

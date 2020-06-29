@@ -24,13 +24,12 @@ import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.io.AcidUtils;
 
 import java.io.IOException;
 import java.util.List;
 
+import static io.prestosql.plugin.hive.AcidInfo.OriginalFileInfo;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
-import static io.prestosql.plugin.hive.OriginalFileLocations.OriginalFileInfo;
 
 public class OriginalFilesUtils
 {
@@ -94,26 +93,11 @@ public class OriginalFilesUtils
         long rowCount = 0;
         for (OriginalFileInfo originalFileInfo : originalFileInfos) {
             Path path = new Path(splitPath.getParent() + "/" + originalFileInfo.getName());
-            try {
-                // Check if the file belongs to the same bucket and comes before 'reqPath' in lexicographic order.
-                if (isSameBucket(splitPath, path, configuration) && path.compareTo(splitPath) < 0) {
-                    rowCount += getRowsInFile(path, hdfsEnvironment, sessionUser, options, configuration, stats, originalFileInfo.getFileSize());
-                }
-            }
-            catch (IOException e) {
-                throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, "Could not get number of rows from file: " + path.getName(), e);
+            // Check if the file belongs to the same bucket and comes before 'reqPath' in lexicographic order.
+            if (path.compareTo(splitPath) < 0) {
+                rowCount += getRowsInFile(path, hdfsEnvironment, sessionUser, options, configuration, stats, originalFileInfo.getFileSize());
             }
         }
         return rowCount;
-    }
-
-    /**
-     * Returns if both the file path belong to the same bucket.
-     */
-    public static boolean isSameBucket(Path splitPath, Path deleteDeltaFilePath, Configuration configuration)
-            throws IOException
-    {
-        return AcidUtils.parseBaseOrDeltaBucketFilename(deleteDeltaFilePath, configuration).getBucketId() ==
-                AcidUtils.parseBaseOrDeltaBucketFilename(splitPath, configuration).getBucketId();
     }
 }

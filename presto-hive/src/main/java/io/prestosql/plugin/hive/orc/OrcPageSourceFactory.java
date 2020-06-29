@@ -213,7 +213,7 @@ public class OrcPageSourceFactory
 
         OrcDataSource orcDataSource;
 
-        boolean originalFilesPresent = acidInfo.flatMap(AcidInfo::getOriginalFileLocations).isPresent();
+        boolean originalFilesPresent = acidInfo.isPresent() && acidInfo.get().getOriginalFiles().size() > 0;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
             FSDataInputStream inputStream = hdfsEnvironment.doAs(sessionUser, () -> fileSystem.open(path));
@@ -259,7 +259,7 @@ public class OrcPageSourceFactory
             }
 
             Map<String, OrcColumn> fileColumnsByName = ImmutableMap.of();
-            if (useOrcColumnNames || (isFullAcid && !originalFilesPresent)) {
+            if (useOrcColumnNames || isFullAcid) {
                 verifyFileHasColumnNames(fileColumns, path);
 
                 // Convert column names read from ORC files to lower case to be consistent with those stored in Hive Metastore
@@ -268,7 +268,7 @@ public class OrcPageSourceFactory
 
             Map<String, List<List<String>>> projectionsByColumnName = ImmutableMap.of();
             Map<Integer, List<List<String>>> projectionsByColumnIndex = ImmutableMap.of();
-            if (useOrcColumnNames || (isFullAcid && !originalFilesPresent)) {
+            if (useOrcColumnNames || isFullAcid) {
                 projectionsByColumnName = projections.stream()
                         .collect(Collectors.groupingBy(
                                 HiveColumnHandle::getBaseColumnName,
@@ -295,7 +295,7 @@ public class OrcPageSourceFactory
                 OrcReader.ProjectedLayout projectedLayout = null;
                 Map<Optional<HiveColumnProjectionInfo>, Domain> columnDomains = null;
 
-                if (useOrcColumnNames || (isFullAcid && !originalFilesPresent)) {
+                if (useOrcColumnNames || isFullAcid) {
                     String columnName = column.getName().toLowerCase(ENGLISH);
                     orcColumn = fileColumnsByName.get(columnName);
                     if (orcColumn != null) {
@@ -360,10 +360,10 @@ public class OrcPageSourceFactory
             Optional<Long> originalFileRowId = acidInfo
                     .filter(
                             info -> info.getDeleteDeltas().size() > 0 &&
-                                    info.getOriginalFileLocations().isPresent())
+                                    acidInfo.isPresent() && acidInfo.get().getOriginalFiles().size() > 0)
                     .map(
                             info -> OriginalFilesUtils.getRowCount(
-                                    info.getOriginalFileLocations().get().getOriginalFiles(),
+                                    acidInfo.get().getOriginalFiles(),
                                     path,
                                     hdfsEnvironment,
                                     sessionUser,

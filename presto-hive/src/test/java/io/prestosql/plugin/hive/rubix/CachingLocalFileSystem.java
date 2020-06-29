@@ -22,6 +22,7 @@ public class CachingLocalFileSystem
 {
     private static final String SCHEME = "file";
 
+    @Override
     public ClusterType getClusterType()
     {
         return ClusterType.PRESTOSQL_CLUSTER_MANAGER;

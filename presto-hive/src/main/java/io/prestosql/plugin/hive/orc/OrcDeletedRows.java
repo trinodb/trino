@@ -33,7 +33,6 @@ import javax.annotation.concurrent.NotThreadSafe;
 
 import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.sql.RowId;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -45,12 +44,17 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.deleteDeltaSubdir;
 
 @NotThreadSafe
 public class OrcDeletedRows
 {
+    private static final int ORIGINAL_TRANSACTION_INDEX = 0;
+    private static final int BUCKET_ID_INDEX = 1;
+    private static final int ROW_ID_INDEX = 2;
+
     private final String sourceFileName;
     private final OrcDeleteDeltaPageSourceFactory pageSourceFactory;
     private final String sessionUser;
@@ -121,12 +125,12 @@ public class OrcDeletedRows
         private int positionCount;
         @Nullable
         private int[] validPositions;
-        private Optional<Long> startRowID;
+        private Optional<Long> startRowId;
 
-        public MaskDeletedRows(Page sourcePage, Optional<Long> startRowID)
+        public MaskDeletedRows(Page sourcePage, Optional<Long> startRowId)
         {
             this.sourcePage = requireNonNull(sourcePage, "sourcePage is null");
-            this.startRowID = startRowID;
+            this.startRowId = startRowId;
         }
 
         @Override
@@ -166,9 +170,20 @@ public class OrcDeletedRows
 
             int[] validPositions = new int[sourcePage.getPositionCount()];
             int validPositionsIndex = 0;
-            long rowId = startRowID.isPresent() ? startRowID.get() : 0;
+            long rowId = startRowId.isPresent() ? startRowId.get() : 0;
             for (int position = 0; position < sourcePage.getPositionCount(); position++) {
-                OrcDeletedRows.RowId rowIdObj = startRowID.isPresent() ? new OrcDeletedRows.RowId(-1, -1, rowId) : new OrcDeletedRows.RowId(sourcePage, position);
+                RowId rowIdObj;
+                if (startRowId.isPresent()) {
+                    // In case of original files, we only need to read and compare 'rowId' column
+                    rowIdObj = new OrcDeletedRows.RowId(-1, -1, rowId);
+                }
+                else {
+                    long originalTransaction = BIGINT.getLong(sourcePage.getBlock(ORIGINAL_TRANSACTION_INDEX), position);
+                    int bucket = toIntExact(INTEGER.getLong(sourcePage.getBlock(BUCKET_ID_INDEX), position));
+                    long row = BIGINT.getLong(sourcePage.getBlock(ROW_ID_INDEX), position);
+                    rowIdObj = new RowId(originalTransaction, bucket, row);
+                }
+
                 if (!deletedRows.contains(rowIdObj)) {
                     validPositions[validPositionsIndex++] = position;
                 }
@@ -198,7 +213,19 @@ public class OrcDeletedRows
                         Page page = pageSource.getNextPage();
                         if (page != null) {
                             for (int i = 0; i < page.getPositionCount(); i++) {
-                                deletedRowsBuilder.add(new RowId(page, i));
+                                long originalTransaction = -1;
+                                int bucket = -1;
+                                long row;
+                                // In case of original files, we only read row Id ACID column
+                                if (page.getChannelCount() == 1) {
+                                    row = BIGINT.getLong(page.getBlock(0), i);
+                                }
+                                else {
+                                    originalTransaction = BIGINT.getLong(page.getBlock(ORIGINAL_TRANSACTION_INDEX), i);
+                                    bucket = toIntExact(INTEGER.getLong(page.getBlock(BUCKET_ID_INDEX), i));
+                                    row = BIGINT.getLong(page.getBlock(ROW_ID_INDEX), i);
+                                }
+                                deletedRowsBuilder.add(new RowId(originalTransaction, bucket, row));
                             }
                         }
                     }
@@ -234,31 +261,20 @@ public class OrcDeletedRows
             return new Path(directory, fileName.substring(0, fileName.lastIndexOf("_")));
         }
 
-        if (acidInfo != null && acidInfo.getOriginalFileLocations() != null) {
+        if (acidInfo != null && acidInfo.getOriginalFiles().size() > 0) {
             /**
              * construct delete delta file path from bucket ID.
              */
-            return AcidUtils.createBucketFile(directory, acidInfo.getBucketId().get());
+            return AcidUtils.createBucketFile(directory, acidInfo.getBucketId());
         }
         return new Path(directory, fileName);
     }
 
     private static class RowId
     {
-        private static final int ORIGINAL_TRANSACTION_INDEX = 0;
-        private static final int BUCKET_ID_INDEX = 1;
-        private static final int ROW_ID_INDEX = 2;
-
         private final long originalTransaction;
         private final int bucket;
         private final long rowId;
-
-        private RowId(Page page, int position)
-        {
-            this(page.getChannelCount() == 1 ? -1 : BIGINT.getLong(page.getBlock(0), position),
-                    page.getChannelCount() == 1 ? -1 : (int) INTEGER.getLong(page.getBlock(1), position),
-                    page.getChannelCount() == 1 ? BIGINT.getLong(page.getBlock(0), position) : BIGINT.getLong(page.getBlock(2), position));
-        }
 
         public RowId(long originalTransaction, int bucket, long rowId)
         {
