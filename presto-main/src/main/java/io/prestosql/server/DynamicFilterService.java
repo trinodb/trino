@@ -66,6 +66,7 @@ public class DynamicFilterService
     private final Duration statusRefreshMaxWait;
     private final ScheduledExecutorService collectDynamicFiltersExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("DynamicFilterService"));
 
+    @GuardedBy("this") // for updates
     private final Map<SourceDescriptor, Domain> dynamicFilterSummaries = new ConcurrentHashMap<>();
     @GuardedBy("this")
     private final Map<QueryId, Supplier<List<StageDynamicFilters>>> dynamicFilterSuppliers = new HashMap<>();
