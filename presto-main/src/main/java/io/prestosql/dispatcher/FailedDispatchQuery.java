@@ -91,6 +91,12 @@ public class FailedDispatchQuery
     }
 
     @Override
+    public QueryState getState()
+    {
+        return fullQueryInfo.getState();
+    }
+
+    @Override
     public Session getSession()
     {
         return session;
