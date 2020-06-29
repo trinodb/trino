@@ -108,10 +108,9 @@ public class TestThrottledAsyncQueue
         assertFalse(future2.isDone());
 
         assertTrue(queue.offer(3).isDone());
-        assertTrue(queue.offer(4).isDone());
         queue.finish();
 
-        assertEquals(getFutureValue(future2), ImmutableList.of(3, 4));
+        assertEquals(getFutureValue(future2), ImmutableList.of(3));
 
         assertTrue(queue.isFinished());
     }
