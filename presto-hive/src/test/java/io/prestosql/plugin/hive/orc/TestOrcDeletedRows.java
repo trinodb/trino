@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.plugin.hive.AcidInfo;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
-import io.prestosql.plugin.hive.OriginalFileLocations;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
@@ -29,14 +28,11 @@ import org.apache.hadoop.mapred.JobConf;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
 import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
-import static io.prestosql.plugin.hive.OriginalFileLocations.OriginalFileInfo;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
@@ -44,7 +40,6 @@ import static org.testng.Assert.assertEquals;
 
 public class TestOrcDeletedRows
 {
-    private static final Path PARTITION_DIR = new Path(TestOrcDeletedRows.class.getClassLoader().getResource("fullacid_delete_delta_test") + "/");
     private Path partitionDirectory;
     private Block bucketBlock;
     private Block rowIdBlock;
@@ -59,16 +54,6 @@ public class TestOrcDeletedRows
         rowIdBlock = BIGINT.createFixedSizeBlockBuilder(1)
                 .writeLong(0)
                 .build();
-    }
-
-    @Test
-    public void testEmptyDeletedLocations()
-    {
-        OrcDeletedRows deletedRows = createOrcDeletedRows(Optional.empty(), "bucket_00000");
-
-        Page testPage = createTestPage(0, 10);
-        Block block = deletedRows.getMaskDeletedRowsFunction(testPage, Optional.empty()).apply(testPage.getBlock(2));
-        assertEquals(block.getPositionCount(), 10);
     }
 
     @Test
@@ -104,15 +89,9 @@ public class TestOrcDeletedRows
         AcidInfo.Builder acidInfoBuilder = AcidInfo.builder(path);
         addDeleteDelta(acidInfoBuilder, 10000001L, 10000001L, 0, path);
 
-        List<OriginalFileInfo> originalFileInfoList = new ArrayList<>();
+        acidInfoBuilder.addOriginalFile(new Path(path, "000000_0"), 743, 0);
 
-        originalFileInfoList.add(new OriginalFileInfo("000000_0", 743));
-        OriginalFileLocations originalFileLocations = new OriginalFileLocations(originalFileInfoList);
-
-        acidInfoBuilder.addOriginalFiles(Optional.of(originalFileLocations));
-        acidInfoBuilder.setBucketId(0);
-
-        OrcDeletedRows deletedRows = createOrcDeletedRows(acidInfoBuilder.build(), "000000_0");
+        OrcDeletedRows deletedRows = createOrcDeletedRows(acidInfoBuilder.buildWithRequiredOriginalFiles(0), "000000_0");
 
         // page with deleted rows
         Page testPage = createTestPage(0, 4);
@@ -146,7 +125,7 @@ public class TestOrcDeletedRows
                 configuration,
                 HDFS_ENVIRONMENT,
                 new FileFormatDataSourceStats(),
-                acidInfo != null && acidInfo.isPresent() && acidInfo.get().getOriginalFileLocations() != null);
+                acidInfo != null && acidInfo.isPresent() && acidInfo.get().getOriginalFiles().size() > 0);
 
         return new OrcDeletedRows(
                 sourceFileName,

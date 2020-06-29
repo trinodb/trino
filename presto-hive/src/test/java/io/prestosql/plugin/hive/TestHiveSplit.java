@@ -26,8 +26,6 @@ import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
 
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
@@ -58,12 +56,8 @@ public class TestHiveSplit
         acidInfoBuilder.addDeleteDelta(new Path("file:///data/fullacid/delete_delta_0000004_0000004_0000"), 4L, 4L, 0);
         acidInfoBuilder.addDeleteDelta(new Path("file:///data/fullacid/delete_delta_0000007_0000007_0000"), 7L, 7L, 0);
 
-        List<OriginalFileLocations.OriginalFileInfo> originalFileInfos = new ArrayList<>();
-        originalFileInfos.add(new OriginalFileLocations.OriginalFileInfo("000000_0", 120));
-        originalFileInfos.add(new OriginalFileLocations.OriginalFileInfo("000001_0", 125));
-        OriginalFileLocations originalFileLocations = new OriginalFileLocations(originalFileInfos);
-
-        acidInfoBuilder.addOriginalFiles(Optional.of(originalFileLocations));
+        acidInfoBuilder.addOriginalFile(new Path("file:///data/fullacid/000000_0"), 120, 0);
+        acidInfoBuilder.addOriginalFile(new Path("file:///data/fullacid/000001_0"), 125, 0);
 
         AcidInfo acidInfo = acidInfoBuilder.build().get();
 

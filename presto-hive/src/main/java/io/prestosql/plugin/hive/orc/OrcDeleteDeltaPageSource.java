@@ -105,10 +105,18 @@ public class OrcDeleteDeltaPageSource
             Map<String, OrcColumn> acidColumns = uniqueIndex(
                     reader.getRootColumn().getNestedColumns(),
                     orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH));
-            List<OrcColumn> rowIdColumns = originalFilesPresent ? ImmutableList.of(acidColumns.get(ACID_COLUMN_ROW_ID.toLowerCase(ENGLISH))) : ImmutableList.of(
-                    acidColumns.get(ACID_COLUMN_ORIGINAL_TRANSACTION.toLowerCase(ENGLISH)),
-                    acidColumns.get(ACID_COLUMN_BUCKET.toLowerCase(ENGLISH)),
-                    acidColumns.get(ACID_COLUMN_ROW_ID.toLowerCase(ENGLISH)));
+
+            List<OrcColumn> rowIdColumns;
+            if (originalFilesPresent) {
+                // When storing delete delta for original files, only need to read Row Id ACID column.
+                rowIdColumns = ImmutableList.of(acidColumns.get(ACID_COLUMN_ROW_ID.toLowerCase(ENGLISH)));
+            }
+            else {
+                rowIdColumns = ImmutableList.of(
+                        acidColumns.get(ACID_COLUMN_ORIGINAL_TRANSACTION.toLowerCase(ENGLISH)),
+                        acidColumns.get(ACID_COLUMN_BUCKET.toLowerCase(ENGLISH)),
+                        acidColumns.get(ACID_COLUMN_ROW_ID.toLowerCase(ENGLISH)));
+            }
 
             recordReader = reader.createRecordReader(
                     rowIdColumns,
