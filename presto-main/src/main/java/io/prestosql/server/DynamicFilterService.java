@@ -106,7 +106,7 @@ public class DynamicFilterService
     @VisibleForTesting
     synchronized void registerQuery(QueryId queryId, Supplier<List<StageDynamicFilters>> stageDynamicFiltersSupplier, Set<SourceDescriptor> dynamicFilters)
     {
-        dynamicFilterSuppliers.putIfAbsent(queryId, stageDynamicFiltersSupplier);
+        dynamicFilterSuppliers.put(queryId, stageDynamicFiltersSupplier);
         queryDynamicFilters.put(queryId, dynamicFilters);
     }
 
