@@ -69,6 +69,23 @@ Iceberg supports `$snapshot_id` and `$snapshot_timestamp_ms` as hidden columns.
 These columns allow users to query an old version of the table. Think of this
 as a time travel feature which lets you query your table's snapshot at a given time.
 
+## Rolling back to a previous Snapshot
+
+The connector provides a system snapshots table for each Iceberg table.  Snapshots are
+identified by BIGINT snapshot ids.  You can find the latest snapshot id for table
+foo by incanting:
+
+``` sql
+SELECT snapshot_id FROM 'foo$snapshots' ORDER BY committed_at DESC LIMIT 1
+```
+
+An SQL procedure allows the caller to roll back the state of the table to
+a previous snapshot id, thusly:
+
+``` sql
+CALL system.rollback_to_snapshot(schema_name, table_name, snapshot_id)
+```
+
 ## TODO
 
 * Update the README to reflect the current status, and convert it to proper connector documentation
