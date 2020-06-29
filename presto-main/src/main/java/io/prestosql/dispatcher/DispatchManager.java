@@ -267,7 +267,7 @@ public class DispatchManager
     public long getQueuedQueries()
     {
         return queryTracker.getAllQueries().stream()
-                .filter(query -> query.getBasicQueryInfo().getState() == QUEUED)
+                .filter(query -> query.getState() == QUEUED)
                 .count();
     }
 
@@ -275,7 +275,7 @@ public class DispatchManager
     public long getRunningQueries()
     {
         return queryTracker.getAllQueries().stream()
-                .filter(query -> query.getBasicQueryInfo().getState() == RUNNING && !query.getBasicQueryInfo().getQueryStats().isFullyBlocked())
+                .filter(query -> query.getState() == RUNNING && !query.getBasicQueryInfo().getQueryStats().isFullyBlocked())
                 .count();
     }
 

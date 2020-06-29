@@ -262,6 +262,7 @@ public class MockManagedQueryExecution
         return cpuUsage;
     }
 
+    @Override
     public QueryState getState()
     {
         return state;
