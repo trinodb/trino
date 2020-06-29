@@ -78,7 +78,8 @@ import static java.util.concurrent.CompletableFuture.completedFuture;
 public class TestCoordinatorDynamicFiltering
         extends AbstractTestQueryFramework
 {
-    private static final TestingColumnHandle suppKeyHandle = new TestingColumnHandle("suppkey", 2, BIGINT);
+    private static final TestingColumnHandle SUPP_KEY_HANDLE = new TestingColumnHandle("suppkey", 2, BIGINT);
+
     private final AtomicReference<TupleDomain<ColumnHandle>> expectedDynamicFilter = new AtomicReference<>(TupleDomain.all());
 
     @Override
@@ -124,7 +125,7 @@ public class TestCoordinatorDynamicFiltering
         assertQueryDynamicFilters(
                 "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name = 'Supplier#000000001'",
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        suppKeyHandle,
+                        SUPP_KEY_HANDLE,
                         singleValue(BIGINT, 1L))));
     }
 
@@ -134,7 +135,7 @@ public class TestCoordinatorDynamicFiltering
         assertQueryDynamicFilters(
                 "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey",
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        suppKeyHandle,
+                        SUPP_KEY_HANDLE,
                         Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, true, 100L, true)), false))));
     }
 
@@ -148,7 +149,7 @@ public class TestCoordinatorDynamicFiltering
                         "lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')" +
                         ") t JOIN tpch.tiny.partsupp ON t.suppkey = partsupp.suppkey AND partsupp.suppkey IN (2, 3)",
                 TupleDomain.withColumnDomains(ImmutableMap.of(
-                        suppKeyHandle,
+                        SUPP_KEY_HANDLE,
                         singleValue(BIGINT, 2L))));
     }
 
