@@ -56,6 +56,7 @@ import static com.qubole.rubix.spi.CacheConfig.setCacheDataDirPrefix;
 import static com.qubole.rubix.spi.CacheConfig.setCacheDataEnabled;
 import static com.qubole.rubix.spi.CacheConfig.setCacheDataExpirationAfterWrite;
 import static com.qubole.rubix.spi.CacheConfig.setCacheDataFullnessPercentage;
+import static com.qubole.rubix.spi.CacheConfig.setCacheDataOnMasterEnabled;
 import static com.qubole.rubix.spi.CacheConfig.setClusterNodeRefreshTime;
 import static com.qubole.rubix.spi.CacheConfig.setCoordinatorHostName;
 import static com.qubole.rubix.spi.CacheConfig.setDataTransferServerPort;
@@ -287,6 +288,11 @@ public class RubixInitializer
         setEmbeddedMode(config, true);
         enableHeartbeat(config, false);
         setClusterNodeRefreshTime(config, 10);
+
+        if (nodeManager.getCurrentNode().isCoordinator() && !startServerOnCoordinator) {
+            // disable initialization of cache directories on master which hasn't got cache explicitly enabled
+            setCacheDataOnMasterEnabled(config, false);
+        }
 
         config.set("fs.s3.impl", RUBIX_S3_FS_CLASS_NAME);
         config.set("fs.s3a.impl", RUBIX_S3_FS_CLASS_NAME);
