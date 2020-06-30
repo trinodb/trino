@@ -77,6 +77,7 @@ import static io.airlift.slice.SliceUtf8.getCodePointAt;
 import static io.airlift.slice.SliceUtf8.lengthOfCodePoint;
 import static io.airlift.slice.SliceUtf8.setCodePointAt;
 import static io.prestosql.spi.function.OperatorType.SATURATED_FLOOR_CAST;
+import static io.prestosql.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.prestosql.sql.ExpressionUtils.and;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.ExpressionUtils.combineDisjunctsWithDefault;
@@ -89,8 +90,6 @@ import static io.prestosql.sql.tree.ComparisonExpression.Operator.GREATER_THAN_O
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.LESS_THAN_OR_EQUAL;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.NOT_EQUAL;
-import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.collectingAndThen;
 import static java.util.stream.Collectors.toList;
@@ -621,8 +620,7 @@ public final class DomainTranslator
             }
 
             // Handle comparisons against NaN
-            if ((type instanceof DoubleType && Double.isNaN((double) value)) ||
-                    (type instanceof RealType && Float.isNaN(intBitsToFloat(toIntExact((long) value))))) {
+            if (isFloatingPointNaN(type, value)) {
                 switch (comparisonOperator) {
                     case EQUAL:
                     case GREATER_THAN:
