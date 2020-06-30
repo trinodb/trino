@@ -56,6 +56,7 @@ import static io.prestosql.execution.StageState.ABORTED;
 import static io.prestosql.execution.StageState.CANCELED;
 import static io.prestosql.execution.StageState.FAILED;
 import static io.prestosql.execution.StageState.FINISHED;
+import static io.prestosql.execution.StageState.FLUSHING;
 import static io.prestosql.execution.StageState.PLANNED;
 import static io.prestosql.execution.StageState.RUNNING;
 import static io.prestosql.execution.StageState.SCHEDULED;
@@ -161,7 +162,12 @@ public class StageStateMachine
 
     public boolean transitionToRunning()
     {
-        return stageState.setIf(RUNNING, currentState -> currentState != RUNNING && !currentState.isDone());
+        return stageState.setIf(RUNNING, currentState -> currentState != RUNNING && currentState != FLUSHING && !currentState.isDone());
+    }
+
+    public boolean transitionToFlushing()
+    {
+        return stageState.setIf(FLUSHING, currentState -> currentState != FLUSHING && !currentState.isDone());
     }
 
     public boolean transitionToFinished()
@@ -253,7 +259,7 @@ public class StageStateMachine
         // information, the stage could finish, and the task states would
         // never be visible.
         StageState state = stageState.get();
-        boolean isScheduled = (state == RUNNING) || state.isDone();
+        boolean isScheduled = state == RUNNING || state == FLUSHING || state.isDone();
 
         List<TaskInfo> taskInfos = ImmutableList.copyOf(taskInfosSupplier.get());
 

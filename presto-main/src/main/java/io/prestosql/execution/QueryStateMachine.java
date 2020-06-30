@@ -998,7 +998,7 @@ public class QueryStateMachine
         }
         return getAllStages(rootStage).stream()
                 .map(StageInfo::getState)
-                .allMatch(state -> (state == StageState.RUNNING) || state.isDone());
+                .allMatch(state -> state == StageState.RUNNING || state == StageState.FLUSHING || state.isDone());
     }
 
     public Optional<ExecutionFailureInfo> getFailureInfo()
