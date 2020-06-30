@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.PartitioningScheme;
-import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
@@ -82,12 +81,7 @@ public class SymbolMapper
         return map(node, source, node.getId());
     }
 
-    public AggregationNode map(AggregationNode node, PlanNode source, PlanNodeIdAllocator idAllocator)
-    {
-        return map(node, source, idAllocator.getNextId());
-    }
-
-    private AggregationNode map(AggregationNode node, PlanNode source, PlanNodeId newNodeId)
+    public AggregationNode map(AggregationNode node, PlanNode source, PlanNodeId newNodeId)
     {
         ImmutableMap.Builder<Symbol, Aggregation> aggregations = ImmutableMap.builder();
         for (Entry<Symbol, Aggregation> entry : node.getAggregations().entrySet()) {

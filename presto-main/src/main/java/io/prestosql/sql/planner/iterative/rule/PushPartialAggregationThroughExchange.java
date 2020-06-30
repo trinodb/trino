@@ -160,7 +160,7 @@ public class PushPartialAggregationThroughExchange
             }
 
             SymbolMapper symbolMapper = mappingsBuilder.build();
-            AggregationNode mappedPartial = symbolMapper.map(aggregation, source, context.getIdAllocator());
+            AggregationNode mappedPartial = symbolMapper.map(aggregation, source, context.getIdAllocator().getNextId());
 
             Assignments.Builder assignments = Assignments.builder();
 
