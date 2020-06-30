@@ -277,8 +277,9 @@ public class TestSqlTaskExecution
                     throw new UnsupportedOperationException();
             }
 
+            assertEquals(taskStateMachine.getStateChange(TaskState.RUNNING).get(10, SECONDS), TaskState.FLUSHING);
             outputBufferConsumer.abort(); // complete the task by calling abort on it
-            TaskState taskState = taskStateMachine.getStateChange(TaskState.RUNNING).get(10, SECONDS);
+            TaskState taskState = taskStateMachine.getStateChange(TaskState.FLUSHING).get(10, SECONDS);
             assertEquals(taskState, TaskState.FINISHED);
         }
         finally {
@@ -579,8 +580,9 @@ public class TestSqlTaskExecution
                     throw new UnsupportedOperationException();
             }
 
+            assertEquals(taskStateMachine.getStateChange(TaskState.RUNNING).get(10, SECONDS), TaskState.FLUSHING);
             outputBufferConsumer.abort(); // complete the task by calling abort on it
-            TaskState taskState = taskStateMachine.getStateChange(TaskState.RUNNING).get(10, SECONDS);
+            TaskState taskState = taskStateMachine.getStateChange(TaskState.FLUSHING).get(10, SECONDS);
             assertEquals(taskState, TaskState.FINISHED);
         }
         finally {
