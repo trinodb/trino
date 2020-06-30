@@ -142,13 +142,23 @@ public class TestHiveHadoop2Plugin
                 .shutdown())
                 .hasRootCauseMessage("None of the cache parent directories exists");
 
+        assertThatThrownBy(() -> connectorFactory.create(
+                "test",
+                ImmutableMap.<String, String>builder()
+                        .put("hive.cache.enabled", "true")
+                        .put("hive.cache.start-server-on-coordinator", "true")
+                        .put("hive.metastore.uri", "thrift://foo:1234")
+                        .build(),
+                new TestingConnectorContext())
+                .shutdown())
+                .hasRootCauseMessage("caching directories were not provided");
+
         // cache directories should not be required when cache is not explicitly started on coordinator
         connectorFactory.create(
                 "test",
                 ImmutableMap.<String, String>builder()
                         .put("hive.cache.enabled", "true")
                         .put("hive.metastore.uri", "thrift://foo:1234")
-                        .put("hive.cache.location", "/tmp/non/existing/directory")
                         .build(),
                 new TestingConnectorContext())
                 .shutdown();
