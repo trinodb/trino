@@ -64,6 +64,7 @@ import io.prestosql.sql.tree.BetweenPredicate;
 import io.prestosql.sql.tree.BooleanLiteral;
 import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.ComparisonExpression;
+import io.prestosql.sql.tree.DoubleLiteral;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
 import io.prestosql.sql.tree.FunctionCall;
@@ -72,6 +73,7 @@ import io.prestosql.sql.tree.InListExpression;
 import io.prestosql.sql.tree.InPredicate;
 import io.prestosql.sql.tree.IsNullPredicate;
 import io.prestosql.sql.tree.LongLiteral;
+import io.prestosql.sql.tree.NotExpression;
 import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.testing.TestingMetadata.TestingColumnHandle;
@@ -96,6 +98,8 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.FunctionId.toFunctionId;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.sql.ExpressionUtils.and;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.ExpressionUtils.or;
@@ -522,6 +526,7 @@ public class TestEffectivePredicateExtractor
         TypeProvider types = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
                 .put(A, BIGINT)
                 .put(B, BIGINT)
+                .put(D, DOUBLE)
                 .build());
 
         // one column
@@ -582,6 +587,58 @@ public class TestEffectivePredicateExtractor
                         types,
                         typeAnalyzer),
                 new BetweenPredicate(AE, bigintLiteral(0), bigintLiteral(499)));
+
+        // NaN
+        assertEquals(
+                effectivePredicateExtractor.extract(
+                        SESSION,
+                        new ValuesNode(
+                                newId(),
+                                ImmutableList.of(D),
+                                ImmutableList.of(ImmutableList.of(doubleLiteral(Double.NaN)))),
+                        types,
+                        typeAnalyzer),
+                new NotExpression(new IsNullPredicate(DE)));
+
+        // NaN and NULL
+        assertEquals(
+                effectivePredicateExtractor.extract(
+                        SESSION,
+                        new ValuesNode(
+                                newId(),
+                                ImmutableList.of(D),
+                                ImmutableList.of(
+                                        ImmutableList.of(new Cast(new NullLiteral(), toSqlType(DOUBLE))),
+                                        ImmutableList.of(doubleLiteral(Double.NaN)))),
+                        types,
+                        typeAnalyzer),
+                TRUE_LITERAL);
+
+        // NaN and value
+        assertEquals(
+                effectivePredicateExtractor.extract(
+                        SESSION,
+                        new ValuesNode(
+                                newId(),
+                                ImmutableList.of(D),
+                                ImmutableList.of(
+                                        ImmutableList.of(doubleLiteral(42.)),
+                                        ImmutableList.of(doubleLiteral(Double.NaN)))),
+                        types,
+                        typeAnalyzer),
+                new NotExpression(new IsNullPredicate(DE)));
+
+        // Real NaN
+        assertEquals(
+                effectivePredicateExtractor.extract(
+                        SESSION,
+                        new ValuesNode(
+                                newId(),
+                                ImmutableList.of(D),
+                                ImmutableList.of(ImmutableList.of(new Cast(doubleLiteral(Double.NaN), toSqlType(REAL))))),
+                        TypeProvider.copyOf(ImmutableMap.of(D, REAL)),
+                        typeAnalyzer),
+                new NotExpression(new IsNullPredicate(DE)));
 
         // multiple columns
         assertEquals(
@@ -1035,6 +1092,11 @@ public class TestEffectivePredicateExtractor
             return new GenericLiteral("BIGINT", String.valueOf(number));
         }
         return new LongLiteral(String.valueOf(number));
+    }
+
+    private static Expression doubleLiteral(double value)
+    {
+        return new DoubleLiteral(String.valueOf(value));
     }
 
     private static ComparisonExpression equals(Expression expression1, Expression expression2)
