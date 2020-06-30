@@ -243,6 +243,7 @@ import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.prestosql.spi.predicate.TupleDomain.withColumnDomains;
 import static io.prestosql.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -2217,8 +2218,9 @@ public class HiveMetadata
         checkArgument(!partitions.isEmpty(), "partitions cannot be empty");
 
         boolean hasNull = false;
+        boolean hasNaN = false;
         List<Object> nonNullValues = new ArrayList<>();
-        Type type = null;
+        Type type = ((HiveColumnHandle) column).getType();
 
         for (HivePartition partition : partitions) {
             NullableValue value = partition.getKeys().get(column);
@@ -2230,24 +2232,29 @@ public class HiveMetadata
                 hasNull = true;
             }
             else {
+                if (isFloatingPointNaN(type, value.getValue())) {
+                    hasNaN = true;
+                }
                 nonNullValues.add(value.getValue());
             }
-
-            if (type == null) {
-                type = value.getType();
-            }
         }
 
-        if (!nonNullValues.isEmpty()) {
-            Domain domain = Domain.multipleValues(type, nonNullValues);
-            if (hasNull) {
-                return domain.union(Domain.onlyNull(type));
-            }
-
-            return domain;
+        Domain domain;
+        if (nonNullValues.isEmpty()) {
+            domain = Domain.none(type);
+        }
+        else if (hasNaN) {
+            domain = Domain.notNull(type);
+        }
+        else {
+            domain = Domain.multipleValues(type, nonNullValues);
         }
 
-        return Domain.onlyNull(type);
+        if (hasNull) {
+            domain = domain.union(Domain.onlyNull(type));
+        }
+
+        return domain;
     }
 
     @Override
