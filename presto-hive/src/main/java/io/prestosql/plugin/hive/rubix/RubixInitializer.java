@@ -108,7 +108,7 @@ public class RubixInitializer
     private final RetryDriver coordinatorRetryDriver;
     private final boolean startServerOnCoordinator;
     private final boolean parallelWarmupEnabled;
-    private final String cacheLocation;
+    private final Optional<String> cacheLocation;
     private final long cacheTtlMillis;
     private final int diskUsagePercentage;
     private final int bookKeeperServerPort;
@@ -168,6 +168,10 @@ public class RubixInitializer
             // enable caching on coordinator so that cached block locations can be obtained
             cacheReady = true;
             return;
+        }
+
+        if (cacheLocation.isEmpty()) {
+            throw new IllegalArgumentException("caching directories were not provided");
         }
 
         waitForCoordinator();
@@ -279,7 +283,6 @@ public class RubixInitializer
         setCoordinatorHostName(config, masterAddress.getHostText());
 
         setIsParallelWarmupEnabled(config, parallelWarmupEnabled);
-        setCacheDataDirPrefix(config, cacheLocation);
         setCacheDataExpirationAfterWrite(config, cacheTtlMillis);
         setCacheDataFullnessPercentage(config, diskUsagePercentage);
         setBookKeeperServerPort(config, bookKeeperServerPort);
@@ -292,6 +295,9 @@ public class RubixInitializer
         if (nodeManager.getCurrentNode().isCoordinator() && !startServerOnCoordinator) {
             // disable initialization of cache directories on master which hasn't got cache explicitly enabled
             setCacheDataOnMasterEnabled(config, false);
+        }
+        else {
+            setCacheDataDirPrefix(config, cacheLocation.get());
         }
 
         config.set("fs.s3.impl", RUBIX_S3_FS_CLASS_NAME);

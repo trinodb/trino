@@ -289,7 +289,8 @@ public class TestRubixCaching
     @Test
     public void testCoordinatorNotJoining()
     {
-        RubixConfig rubixConfig = new RubixConfig();
+        RubixConfig rubixConfig = new RubixConfig()
+                .setCacheLocation("/tmp/not/existing/dir");
         HdfsConfigurationInitializer configurationInitializer = new HdfsConfigurationInitializer(config, ImmutableSet.of());
         InternalNode workerNode = new InternalNode(
                 "worker",
