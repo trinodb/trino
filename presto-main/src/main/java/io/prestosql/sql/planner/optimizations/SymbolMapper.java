@@ -65,7 +65,7 @@ public class SymbolMapper
         return canonical;
     }
 
-    public Expression map(Expression value)
+    public Expression map(Expression expression)
     {
         return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
         {
@@ -75,7 +75,7 @@ public class SymbolMapper
                 Symbol canonical = map(Symbol.from(node));
                 return canonical.toSymbolReference();
             }
-        }, value);
+        }, expression);
     }
 
     public AggregationNode map(AggregationNode node, PlanNode source)
