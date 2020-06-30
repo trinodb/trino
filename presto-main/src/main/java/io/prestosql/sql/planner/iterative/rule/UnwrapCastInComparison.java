@@ -46,6 +46,7 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
+import static io.prestosql.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.prestosql.sql.ExpressionUtils.and;
 import static io.prestosql.sql.ExpressionUtils.or;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
@@ -188,7 +189,7 @@ public class UnwrapCastInComparison
 
             // Handle comparison against NaN.
             // It must be done before source type range bounds are compared to target value.
-            if ((targetType instanceof DoubleType && Double.isNaN((double) right)) || (targetType instanceof RealType && Float.isNaN(intBitsToFloat(toIntExact((long) right))))) {
+            if (isFloatingPointNaN(targetType, right)) {
                 switch (operator) {
                     case EQUAL:
                     case GREATER_THAN:
