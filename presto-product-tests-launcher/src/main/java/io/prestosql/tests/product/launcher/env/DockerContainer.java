@@ -17,6 +17,7 @@ import com.google.common.base.Stopwatch;
 import io.airlift.log.Logger;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.FixedHostPortGenericContainer;
+import org.testcontainers.containers.SelinuxContext;
 import org.testcontainers.images.builder.Transferable;
 import org.testcontainers.utility.MountableFile;
 
@@ -37,6 +38,20 @@ public class DockerContainer
 
         // workaround for https://github.com/testcontainers/testcontainers-java/pull/2861
         setCopyToFileContainerPathMap(new LinkedHashMap<>());
+    }
+
+    @Override
+    public void addFileSystemBind(String hostPath, String containerPath, BindMode mode)
+    {
+        verifyHostPath(hostPath);
+        super.addFileSystemBind(hostPath, containerPath, mode);
+    }
+
+    @Override
+    public void addFileSystemBind(String hostPath, String containerPath, BindMode mode, SelinuxContext selinuxContext)
+    {
+        verifyHostPath(hostPath);
+        super.addFileSystemBind(hostPath, containerPath, mode, selinuxContext);
     }
 
     @Override
