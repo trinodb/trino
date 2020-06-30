@@ -27,5 +27,10 @@ presto-product-tests-launcher/bin/run-launcher test run \
     -- -g storage_formats,cli,hdfs_impersonation,authorization,hive_file_header -x iceberg,"${DISTRO_SKIP_GROUP}" -e "${DISTRO_SKIP_TEST}" \
     || suite_exit_code=1
 
+presto-product-tests-launcher/bin/run-launcher test run \
+    --environment singlenode \
+    -- -g hive_with_external_writes -x "${DISTRO_SKIP_GROUP}" -e "${DISTRO_SKIP_TEST}" \
+    || suite_exit_code=1
+
 echo "$0: exiting with ${suite_exit_code}"
 exit "${suite_exit_code}"
