@@ -58,11 +58,10 @@ public class SymbolMapper
 
     public Symbol map(Symbol symbol)
     {
-        Symbol canonical = symbol;
-        while (mapping.containsKey(canonical) && !mapping.get(canonical).equals(canonical)) {
-            canonical = mapping.get(canonical);
+        while (mapping.containsKey(symbol) && !mapping.get(symbol).equals(symbol)) {
+            symbol = mapping.get(symbol);
         }
-        return canonical;
+        return symbol;
     }
 
     public Expression map(Expression expression)
