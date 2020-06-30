@@ -22,15 +22,18 @@ import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.assertions.Assert;
 import org.intellij.lang.annotations.Language;
-import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
 import static io.prestosql.plugin.druid.DruidQueryRunner.copyAndIngestTpchData;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.tpch.TpchTable.CUSTOMER;
+import static io.prestosql.tpch.TpchTable.LINE_ITEM;
+import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
+import static io.prestosql.tpch.TpchTable.PART;
+import static io.prestosql.tpch.TpchTable.REGION;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 @Test
 public class TestDruidIntegrationSmokeTest
@@ -48,6 +51,67 @@ public class TestDruidIntegrationSmokeTest
             "shippriority, " +
             "comment " +
             "FROM tpch.tiny.orders";
+
+    private static final String SELECT_FROM_LINEITEM = " SELECT " +
+            "orderkey, " +
+            "partkey, " +
+            "suppkey, " +
+            "linenumber, " +
+            "quantity, " +
+            "extendedprice, " +
+            "discount, " +
+            "tax, " +
+            "returnflag, " +
+            "linestatus, " +
+            "shipdate, " +
+            "shipdate AS shipdate_druid_ts, " +  // Druid stores the shipdate_druid_ts column as __time column.
+            "commitdate, " +
+            "receiptdate, " +
+            "shipinstruct, " +
+            "shipmode, " +
+            "comment " +
+            "FROM tpch.tiny.lineitem";
+
+    private static final String SELECT_FROM_NATION = " SELECT " +
+            "nationkey, " +
+            "name, " +
+            "regionkey, " +
+            "comment, " +
+            "'1995-01-02' AS nation_druid_dummy_ts " + // Dummy timestamp for Druid __time column
+            "FROM tpch.tiny.nation";
+
+    private static final String SELECT_FROM_REGION = " SELECT " +
+            "regionkey, " +
+            "name, " +
+            "comment, " +
+            "'1995-01-02' AS region_druid_dummy_ts " + // Dummy timestamp for Druid __time column
+            "FROM tpch.tiny.region";
+
+    private static final String SELECT_FROM_PART = " SELECT " +
+            "partkey, " +
+            "name, " +
+            "mfgr, " +
+            "brand, " +
+            "type, " +
+            "size, " +
+            "container, " +
+            "retailprice, " +
+            "comment, " +
+            "'1995-01-02' AS part_druid_dummy_ts " + // Dummy timestamp for Druid __time column;
+            "FROM tpch.tiny.part";
+
+    private static final String SELECT_FROM_CUSTOMER = " SELECT " +
+            "custkey, " +
+            "name, " +
+            "address, " +
+            "nationkey, " +
+            "phone, " +
+            "acctbal, " +
+            "mktsegment, " +
+            "comment, " +
+            "'1995-01-02' AS customer_druid_dummy_ts " +  // Dummy timestamp for Druid __time column
+            "FROM tpch.tiny.customer";
+
     private TestingDruidServer druidServer;
 
     @Override
@@ -57,6 +121,11 @@ public class TestDruidIntegrationSmokeTest
         this.druidServer = new TestingDruidServer();
         QueryRunner runner = DruidQueryRunner.createDruidQueryRunnerTpch(druidServer);
         copyAndIngestTpchData(runner.execute(SELECT_FROM_ORDERS), this.druidServer, ORDERS.getTableName());
+        copyAndIngestTpchData(runner.execute(SELECT_FROM_LINEITEM), this.druidServer, LINE_ITEM.getTableName());
+        copyAndIngestTpchData(runner.execute(SELECT_FROM_NATION), this.druidServer, NATION.getTableName());
+        copyAndIngestTpchData(runner.execute(SELECT_FROM_REGION), this.druidServer, REGION.getTableName());
+        copyAndIngestTpchData(runner.execute(SELECT_FROM_PART), this.druidServer, PART.getTableName());
+        copyAndIngestTpchData(runner.execute(SELECT_FROM_CUSTOMER), this.druidServer, CUSTOMER.getTableName());
         return runner;
     }
 
@@ -66,16 +135,6 @@ public class TestDruidIntegrationSmokeTest
         if (druidServer != null) {
             druidServer.close();
         }
-    }
-
-    @Override
-    public void testAggregation()
-    {
-        assertThatThrownBy(super::testAggregation)
-                .hasRootCauseMessage("line 1:26: Table 'druid.druid.nation' does not exist");
-
-        // TODO (https://github.com/prestosql/presto/issues/4116)
-        throw new SkipException("TODO");
     }
 
     @Test
@@ -162,20 +221,6 @@ public class TestDruidIntegrationSmokeTest
     {
         // List columns explicitly, as Druid has an additional __time column
         assertQuery("SELECT orderkey, custkey, orderstatus, totalprice, orderdate, orderpriority, clerk, shippriority, comment  FROM orders");
-    }
-
-    @Test
-    @Override
-    // nation, region, customer tables don't have any date/time in the rows.
-    // For a table to be ingested into Druid, a date/time/timestamp column is required.
-    //TODO: This test needs to be adjusted to possibly join between lineitems and orders datasources
-    public void testJoin()
-    {
-        assertThatThrownBy(super::testJoin)
-                .hasRootCauseMessage("line 1:36: Table 'druid.druid.nation' does not exist");
-
-        // TODO (https://github.com/prestosql/presto/issues/4116)
-        throw new SkipException("TODO");
     }
 
     /**
