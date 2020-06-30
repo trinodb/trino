@@ -1601,8 +1601,10 @@ class StatementAnalyzer
         {
             checkState(node.getRows().size() >= 1);
 
+            Scope valuesScope = createScope(scope);
+
             List<List<Type>> rowTypes = node.getRows().stream()
-                    .map(row -> analyzeExpression(row, createScope(scope)).getType(row))
+                    .map(row -> analyzeExpression(row, valuesScope).getType(row))
                     .map(type -> {
                         if (type instanceof RowType) {
                             return type.getTypeParameters();
