@@ -13,6 +13,8 @@
  */
 package io.prestosql.decoder;
 
+import javax.annotation.Nullable;
+
 import java.util.Map;
 import java.util.Optional;
 
@@ -22,13 +24,23 @@ import java.util.Optional;
 public interface RowDecoder
 {
     /**
-     * Decodes a given set of bytes into field values.
+     * Decodes a given sequence of bytes into field values.
+     *
+     * @param data The row data to decode.
+     * @return Returns mapping from column handle to decoded value. Unmapped columns will be reported as null. Optional.empty() signals decoding error.
+     */
+    default Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data)
+    {
+        return decodeRow(data, null);
+    }
+
+    /**
+     * Decodes a given sequence of bytes into field values.
      *
      * @param data The row data to decode.
      * @param dataMap The row data as fields map
      * @return Returns mapping from column handle to decoded value. Unmapped columns will be reported as null. Optional.empty() signals decoding error.
      */
-    Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(
-            byte[] data,
-            Map<String, String> dataMap);
+    // TODO This is Redis-specific, move to presto-redis
+    Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodeRow(byte[] data, @Nullable Map<String, String> dataMap);
 }
