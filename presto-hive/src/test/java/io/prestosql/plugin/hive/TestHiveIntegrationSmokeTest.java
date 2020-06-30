@@ -3297,7 +3297,8 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testCreateExternalTable() throws Exception
+    public void testCreateExternalTable()
+            throws Exception
     {
         testCreateExternalTable(
                 "test_create_external",
@@ -3307,7 +3308,8 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testCreateExternalTableWithFieldSeparator() throws Exception
+    public void testCreateExternalTableWithFieldSeparator()
+            throws Exception
     {
         testCreateExternalTable(
                 "test_create_external",
@@ -3317,7 +3319,8 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testCreateExternalTableWithFieldSeparatorEscape() throws Exception
+    public void testCreateExternalTableWithFieldSeparatorEscape()
+            throws Exception
     {
         testCreateExternalTable(
                 "test_create_external_text_file_with_field_separator_and_escape",
@@ -3329,7 +3332,8 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testCreateExternalTableWithNullFormat() throws Exception
+    public void testCreateExternalTableWithNullFormat()
+            throws Exception
     {
         testCreateExternalTable(
                 "test_create_external_textfile_with_null_format",
