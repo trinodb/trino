@@ -31,10 +31,10 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
-import static org.testng.Assert.fail;
 
 public class TestSortedRangeSet
 {
@@ -166,23 +166,17 @@ public class TestSortedRangeSet
     public void testGetSingleValue()
     {
         assertEquals(SortedRangeSet.of(BIGINT, 0L).getSingleValue(), 0L);
-        try {
-            SortedRangeSet.all(BIGINT).getSingleValue();
-            fail();
-        }
-        catch (IllegalStateException e) {
-        }
+        assertThatThrownBy(() -> SortedRangeSet.all(BIGINT).getSingleValue())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("SortedRangeSet does not have just a single value");
     }
 
     @Test
     public void testSpan()
     {
-        try {
-            SortedRangeSet.none(BIGINT).getSpan();
-            fail();
-        }
-        catch (IllegalStateException e) {
-        }
+        assertThatThrownBy(() -> SortedRangeSet.none(BIGINT).getSpan())
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessage("Cannot get span if no ranges exist");
 
         assertEquals(SortedRangeSet.all(BIGINT).getSpan(), Range.all(BIGINT));
         assertEquals(SortedRangeSet.of(BIGINT, 0L).getSpan(), Range.equal(BIGINT, 0L));

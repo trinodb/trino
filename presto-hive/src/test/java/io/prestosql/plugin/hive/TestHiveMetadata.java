@@ -15,13 +15,16 @@ package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.Slices;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.NullableValue;
+import io.prestosql.spi.predicate.ValueSet;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.stream.IntStream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveMetadata.createPredicate;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -45,10 +48,17 @@ public class TestHiveMetadata
             partitions.add(new HivePartition(
                     new SchemaTableName("test", "test"),
                     Integer.toString(i),
-                    ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.of(VARCHAR, Slices.utf8Slice(Integer.toString(i))))));
+                    ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.of(VARCHAR, utf8Slice(Integer.toString(i))))));
         }
 
-        createPredicate(ImmutableList.of(TEST_COLUMN_HANDLE), partitions.build());
+        Domain domain = createPredicate(ImmutableList.of(TEST_COLUMN_HANDLE), partitions.build())
+                .getDomains().orElseThrow().get(TEST_COLUMN_HANDLE);
+        assertEquals(domain, Domain.create(
+                ValueSet.copyOf(VARCHAR,
+                        IntStream.range(0, 5_000)
+                                .mapToObj(i -> utf8Slice(Integer.toString(i)))
+                                .collect(toImmutableList())),
+                false));
     }
 
     @Test
@@ -63,7 +73,9 @@ public class TestHiveMetadata
                     ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.asNull(VARCHAR))));
         }
 
-        createPredicate(ImmutableList.of(TEST_COLUMN_HANDLE), partitions.build());
+        Domain domain = createPredicate(ImmutableList.of(TEST_COLUMN_HANDLE), partitions.build())
+                .getDomains().orElseThrow().get(TEST_COLUMN_HANDLE);
+        assertEquals(domain, Domain.onlyNull(VARCHAR));
     }
 
     @Test
@@ -75,7 +87,7 @@ public class TestHiveMetadata
             partitions.add(new HivePartition(
                     new SchemaTableName("test", "test"),
                     Integer.toString(i),
-                    ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.of(VARCHAR, Slices.utf8Slice(Integer.toString(i))))));
+                    ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.of(VARCHAR, utf8Slice(Integer.toString(i))))));
         }
 
         partitions.add(new HivePartition(
@@ -83,6 +95,8 @@ public class TestHiveMetadata
                 "null",
                 ImmutableMap.of(TEST_COLUMN_HANDLE, NullableValue.asNull(VARCHAR))));
 
-        createPredicate(ImmutableList.of(TEST_COLUMN_HANDLE), partitions.build());
+        Domain domain = createPredicate(ImmutableList.of(TEST_COLUMN_HANDLE), partitions.build())
+                .getDomains().orElseThrow().get(TEST_COLUMN_HANDLE);
+        assertEquals(domain, Domain.create(ValueSet.of(VARCHAR, utf8Slice("0"), utf8Slice("1"), utf8Slice("2"), utf8Slice("3"), utf8Slice("4")), true));
     }
 }
