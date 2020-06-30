@@ -18,7 +18,6 @@ import com.fasterxml.jackson.databind.deser.std.FromStringDeserializer;
 import com.google.inject.Binder;
 import com.google.inject.Scopes;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
-import io.prestosql.decoder.DecoderModule;
 import io.prestosql.elasticsearch.client.ElasticsearchClient;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeId;
@@ -54,8 +53,6 @@ public class ElasticsearchConnectorModule
         configBinder(binder).bindConfig(ElasticsearchConfig.class);
 
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
-
-        binder.install(new DecoderModule());
 
         newOptionalBinder(binder, AwsSecurityConfig.class);
         newOptionalBinder(binder, PasswordConfig.class);
