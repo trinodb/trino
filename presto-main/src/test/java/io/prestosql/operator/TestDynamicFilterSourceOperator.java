@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
@@ -50,9 +51,11 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static java.lang.Float.floatToRawIntBits;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.stream.Collectors.toList;
@@ -215,6 +218,42 @@ public class TestDynamicFilterSourceOperator
         assertEquals(partitions.build(), ImmutableList.of(
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         new DynamicFilterId("0"), Domain.create(ValueSet.of(INTEGER, 1L, 2L, 3L, 4L, 5L), false)))));
+    }
+
+    @Test
+    public void testCollectWithDoubleNaN()
+    {
+        BlockBuilder input = DOUBLE.createBlockBuilder(null, 10);
+        DOUBLE.writeDouble(input, 42.0);
+        DOUBLE.writeDouble(input, Double.NaN);
+
+        OperatorFactory operatorFactory = createOperatorFactory(channel(0, DOUBLE));
+        verifyPassthrough(createOperator(operatorFactory),
+                ImmutableList.of(DOUBLE),
+                new Page(input.build()));
+        operatorFactory.noMoreOperators();
+
+        assertEquals(partitions.build(), ImmutableList.of(
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        new DynamicFilterId("0"), Domain.multipleValues(DOUBLE, ImmutableList.of(42.0))))));
+    }
+
+    @Test
+    public void testCollectWithRealNaN()
+    {
+        BlockBuilder input = REAL.createBlockBuilder(null, 10);
+        REAL.writeLong(input, floatToRawIntBits(42.0f));
+        REAL.writeLong(input, floatToRawIntBits(Float.NaN));
+
+        OperatorFactory operatorFactory = createOperatorFactory(channel(0, REAL));
+        verifyPassthrough(createOperator(operatorFactory),
+                ImmutableList.of(REAL),
+                new Page(input.build()));
+        operatorFactory.noMoreOperators();
+
+        assertEquals(partitions.build(), ImmutableList.of(
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        new DynamicFilterId("0"), Domain.multipleValues(REAL, ImmutableList.of((long) floatToRawIntBits(42.0f)))))));
     }
 
     @Test
