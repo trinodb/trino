@@ -1636,7 +1636,11 @@ public class ExpressionAnalyzer
         Analysis analysis = new Analysis(null, parameters, isDescribe);
         ExpressionAnalyzer analyzer = create(analysis, session, metadata, sqlParser, accessControl, types, warningCollector);
         for (Expression expression : expressions) {
-            analyzer.analyze(expression, Scope.builder().withRelationType(RelationId.anonymous(), new RelationType()).build());
+            analyzer.analyze(
+                    expression,
+                    Scope.builder()
+                            .withRelationType(RelationId.anonymous(), new RelationType())
+                            .build());
         }
 
         return new ExpressionAnalysis(
