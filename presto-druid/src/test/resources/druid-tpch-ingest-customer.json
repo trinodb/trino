@@ -1,0 +1,90 @@
+{
+    "type": "index",
+    "spec": {
+        "dataSchema": {
+            "dataSource": "customer",
+            "parser": {
+                "type": "string",
+                "parseSpec": {
+                    "format": "tsv",
+                    "timestampSpec": {
+                        "column": "customer_druid_dummy_ts",
+                        "format": "yyyy-MM-dd"
+                    },
+                    "columns": [
+                        "custkey",
+                        "name",
+                        "address",
+                        "nationkey",
+                        "phone",
+                        "acctbal",
+                        "mktsegment",
+                        "comment",
+                        "customer_druid_dummy_ts"
+                    ],
+                    "dimensionsSpec": {
+                        "dimensions": [
+                            {
+                                "name": "custkey",
+                                "type": "long"
+                            },
+                            {
+                                "name": "name",
+                                "type": "string"
+                            },
+                            {
+                                "name": "address",
+                                "type": "string"
+                            },
+                            {
+                                "name": "nationkey",
+                                "type": "long"
+                            },
+                            {
+                                "name": "phone",
+                                "type": "string"
+                            },
+                            {
+                                "name": "acctbal",
+                                "type": "double"
+                            },
+                            {
+                                "name": "mktsegment",
+                                "type": "string"
+                            },
+                            {
+                                "name": "comment",
+                                "type": "string"
+                            }
+                        ]
+                    }
+                }
+            },
+            "granularitySpec": {
+                "type": "uniform",
+                "intervals": [
+                    "1992-01-02/1998-12-01"
+                ],
+                "segmentGranularity": "year",
+                "queryGranularity": "day"
+            }
+        },
+        "ioConfig": {
+            "type": "index",
+            "firehose": {
+                "type": "local",
+                "baseDir": "/opt/druid/var/",
+                "filter": "customer.tsv"
+            },
+            "appendToExisting": false
+        },
+        "tuningConfig": {
+            "type": "index",
+            "maxRowsPerSegment": 5000000,
+            "maxRowsInMemory": 250000,
+            "segmentWriteOutMediumFactory": {
+                "type": "offHeapMemory"
+            }
+        }
+    }
+}
