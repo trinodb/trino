@@ -36,6 +36,7 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.spi.type.TypeUtils.isFloatingPointNaN;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
@@ -253,9 +254,13 @@ public class DynamicFilterSourceOperator
         for (int position = 0; position < block.getPositionCount(); ++position) {
             Object value = TypeUtils.readNativeValue(type, block, position);
             if (value != null) {
-                values.add(value);
+                // join doesn't match rows with NaN values.
+                if (!isFloatingPointNaN(type, value)) {
+                    values.add(value);
+                }
             }
         }
+
         // Inner and right join doesn't match rows with null key column values.
         return Domain.create(ValueSet.copyOf(type, values.build()), false);
     }
