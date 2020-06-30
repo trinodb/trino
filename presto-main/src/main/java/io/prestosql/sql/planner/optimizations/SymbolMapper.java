@@ -255,14 +255,14 @@ public class SymbolMapper
     {
         private final ImmutableMap.Builder<Symbol, Symbol> mappings = ImmutableMap.builder();
 
-        public SymbolMapper build()
-        {
-            return new SymbolMapper(mappings.build());
-        }
-
         public void put(Symbol from, Symbol to)
         {
             mappings.put(from, to);
+        }
+
+        public SymbolMapper build()
+        {
+            return new SymbolMapper(mappings.build());
         }
     }
 }
