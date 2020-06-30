@@ -73,7 +73,7 @@ public class TestJsonDecoder
         Set<DecoderColumnHandle> columns = ImmutableSet.of(column1, column2, column3, column4, column5);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json, null)
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json)
                 .orElseThrow(AssertionError::new);
 
         assertEquals(decodedRow.size(), columns.size());
@@ -98,7 +98,7 @@ public class TestJsonDecoder
         Set<DecoderColumnHandle> columns = ImmutableSet.of(column1, column2, column3, column4);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json, null)
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(json)
                 .orElseThrow(AssertionError::new);
 
         assertEquals(decodedRow.size(), columns.size());
@@ -122,7 +122,7 @@ public class TestJsonDecoder
         Set<DecoderColumnHandle> columns = ImmutableSet.of(column1, column2, column3, column4);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
-        Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedRow = rowDecoder.decodeRow(json, null);
+        Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedRow = rowDecoder.decodeRow(json);
         assertTrue(decodedRow.isPresent());
 
         assertEquals(decodedRow.get().size(), columns.size());

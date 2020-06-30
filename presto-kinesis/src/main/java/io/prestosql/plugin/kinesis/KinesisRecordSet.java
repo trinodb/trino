@@ -307,7 +307,7 @@ public class KinesisRecordSet
 
             log.debug("Fetching %d bytes from current record. %d messages read so far", messageData.length, totalMessages);
 
-            Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue = messageDecoder.decodeRow(messageData, null);
+            Optional<Map<DecoderColumnHandle, FieldValueProvider>> decodedValue = messageDecoder.decodeRow(messageData);
 
             Map<ColumnHandle, FieldValueProvider> currentRowValuesMap = new HashMap<>();
             for (DecoderColumnHandle columnHandle : columnHandles) {

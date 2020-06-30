@@ -166,7 +166,7 @@ public class TestAvroDecoder
     private static Map<DecoderColumnHandle, FieldValueProvider> decodeRow(byte[] avroData, Set<DecoderColumnHandle> columns, Map<String, String> dataParams)
     {
         RowDecoder rowDecoder = DECODER_FACTORY.create(dataParams, columns);
-        return rowDecoder.decodeRow(avroData, null)
+        return rowDecoder.decodeRow(avroData)
                 .orElseThrow(AssertionError::new);
     }
 

@@ -60,7 +60,7 @@ public class TestRawDecoder
         Set<DecoderColumnHandle> columns = ImmutableSet.of(column);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(emptyRow, null)
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(emptyRow)
                 .orElseThrow(AssertionError::new);
 
         checkIsNull(decodedRow, column);
@@ -88,7 +88,7 @@ public class TestRawDecoder
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4, row5);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row, null)
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row)
                 .orElseThrow(AssertionError::new);
 
         assertEquals(decodedRow.size(), columns.size());
@@ -114,7 +114,7 @@ public class TestRawDecoder
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2, row3, row4);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row, null)
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row)
                 .orElseThrow(AssertionError::new);
 
         assertEquals(decodedRow.size(), columns.size());
@@ -144,7 +144,7 @@ public class TestRawDecoder
         Set<DecoderColumnHandle> columns = ImmutableSet.of(row1, row2);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row, null)
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row)
                 .orElseThrow(AssertionError::new);
 
         assertEquals(decodedRow.size(), columns.size());
@@ -218,7 +218,7 @@ public class TestRawDecoder
                 row34);
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row, null)
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row)
                 .orElseThrow(AssertionError::new);
 
         assertEquals(decodedRow.size(), columns.size());
@@ -427,7 +427,7 @@ public class TestRawDecoder
 
         RowDecoder rowDecoder = DECODER_FACTORY.create(emptyMap(), columns);
 
-        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row, null)
+        Map<DecoderColumnHandle, FieldValueProvider> decodedRow = rowDecoder.decodeRow(row)
                 .orElseThrow(AssertionError::new);
 
         assertEquals(decodedRow.size(), columns.size());
