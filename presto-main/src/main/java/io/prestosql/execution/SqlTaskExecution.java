@@ -641,6 +641,7 @@ public class SqlTaskExecution
 
         // are there still pages in the output buffer
         if (!outputBuffer.isFinished()) {
+            taskStateMachine.transitionToFlushing();
             return;
         }
 
