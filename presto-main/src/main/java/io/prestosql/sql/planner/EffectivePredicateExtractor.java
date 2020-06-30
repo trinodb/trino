@@ -60,6 +60,7 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.ExpressionUtils.expressionOrNullSymbols;
 import static io.prestosql.sql.ExpressionUtils.extractConjuncts;
@@ -332,6 +333,7 @@ public class EffectivePredicateExtractor
 
                 ImmutableList.Builder<Object> builder = ImmutableList.builder();
                 boolean hasNull = false;
+                boolean hasNaN = false;
                 boolean nonDeterministic = false;
                 for (int row = 0; row < node.getRows().size(); row++) {
                     Expression value = node.getRows().get(row).get(column);
@@ -352,6 +354,9 @@ public class EffectivePredicateExtractor
                         hasNull = true;
                     }
                     else {
+                        if (isFloatingPointNaN(type, evaluated)) {
+                            hasNaN = true;
+                        }
                         builder.add(evaluated);
                     }
                 }
@@ -364,10 +369,15 @@ public class EffectivePredicateExtractor
 
                 List<Object> values = builder.build();
 
-                Domain domain = Domain.none(type);
-
-                if (!values.isEmpty()) {
-                    domain = domain.union(Domain.multipleValues(type, values));
+                Domain domain;
+                if (values.isEmpty()) {
+                    domain = Domain.none(type);
+                }
+                else if (hasNaN) {
+                    domain = Domain.notNull(type);
+                }
+                else {
+                    domain = Domain.multipleValues(type, values);
                 }
 
                 if (hasNull) {
