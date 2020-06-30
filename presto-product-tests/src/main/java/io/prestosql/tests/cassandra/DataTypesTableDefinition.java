@@ -32,6 +32,7 @@ import java.util.UUID;
 
 import static io.prestosql.tests.cassandra.TestConstants.CONNECTOR_NAME;
 import static io.prestosql.tests.cassandra.TestConstants.KEY_SPACE;
+import static java.lang.Double.parseDouble;
 
 public final class DataTypesTableDefinition
 {
@@ -61,7 +62,7 @@ public final class DataTypesTableDefinition
                                 "\0", BigInteger.valueOf(Long.MIN_VALUE)),
                         ImmutableList.of("the quick brown fox jumped over the lazy dog", Long.MAX_VALUE,
                                 Bytes.fromHexString("0x3031323334"), true,
-                                new BigDecimal(new Double("99999999999999999999999999999999999999")),
+                                BigDecimal.valueOf(parseDouble("99999999999999999999999999999999999999")),
                                 Double.MAX_VALUE, LocalDate.fromYearMonthDay(9999, 12, 31), Float.MAX_VALUE, ImmutableSet.of(4, 5, 6, 7),
                                 Inet4Address.getByName("255.255.255.255"), Integer.MAX_VALUE,
                                 ImmutableList.of(4, 5, 6), ImmutableMap.of("a", 1, "b", 2), ImmutableSet.of(4, 5, 6), Short.MAX_VALUE,
