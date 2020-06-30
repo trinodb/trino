@@ -143,6 +143,23 @@ Query Management Properties
     time spend in a queue waiting, so essentially this is the time allowed for a
     query to exist since creation.
 
+``query.max-stage-count``
+^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``integer``
+    * **Default value:** ``100``
+    * **Minimum value:** ``1``
+
+    The maximum number of stages allowed to be generated per query. If a query
+    generates more stages than this it will get killed with error
+    ``QUERY_HAS_TOO_MANY_STAGES``.
+
+    .. warning:: Setting this to a high value can cause queries with large
+                 number of stages to introduce instability in the cluster
+                 causing unrelated queries to get killed with
+                 ``REMOTE_TASK_ERROR`` and the message ``Max requests queued
+                 per destination exceeded for HttpDestination ...``
+
 ``query.max-history``
 ^^^^^^^^^^^^^^^^^^^^^
     * **Type:** ``integer``
