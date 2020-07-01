@@ -15,25 +15,29 @@ package io.prestosql.tests.hive;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.prestosql.tempto.query.QueryResult;
 import io.prestosql.tests.hive.util.TemporaryHiveTable;
+import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.RetryPolicy;
 import org.testng.SkipException;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.OptionalLong;
+import java.util.concurrent.TimeoutException;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.testing.assertions.Assert.assertEventually;
 import static io.prestosql.tests.TestGroups.HIVE_TRANSACTIONAL;
 import static io.prestosql.tests.TestGroups.STORAGE_FORMATS;
 import static io.prestosql.tests.hive.TestHiveTransactionalTable.CompactionMode.MAJOR;
@@ -46,12 +50,13 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toUnmodifiableList;
-import static org.testng.Assert.assertEquals;
 
 public class TestHiveTransactionalTable
         extends HiveProductTest
 {
-    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = 5 * 60 * 1000)
+    private static final Logger log = Logger.get(TestHiveTransactionalTable.class);
+
+    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = 10 * 60 * 1000)
     public void testReadFullAcid(boolean isPartitioned, BucketingType bucketingType)
     {
         if (getHiveVersionMajor() < 3) {
@@ -80,7 +85,7 @@ public class TestHiveTransactionalTable
 
             // test minor compacted data read
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (20, 3)");
-            compactTableAndWait(MINOR, tableName, hivePartitionString, Duration.valueOf("5m"));
+            compactTableAndWait(MINOR, tableName, hivePartitionString, Duration.valueOf("3m"));
             assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(20, 3), row(21, 1), row(22, 2));
 
             // delete a row
@@ -93,12 +98,12 @@ public class TestHiveTransactionalTable
             assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(20, 3), row(23, 1));
 
             // test major compaction
-            compactTableAndWait(MAJOR, tableName, hivePartitionString, Duration.valueOf("5m"));
+            compactTableAndWait(MAJOR, tableName, hivePartitionString, Duration.valueOf("3m"));
             assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(20, 3), row(23, 1));
         }
     }
 
-    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = 5 * 60 * 1000)
+    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = 10 * 60 * 1000)
     public void testReadInsertOnly(boolean isPartitioned, BucketingType bucketingType)
     {
         if (getHiveVersionMajor() < 3) {
@@ -125,7 +130,7 @@ public class TestHiveTransactionalTable
             assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(1), row(2));
 
             // test minor compacted data read
-            compactTableAndWait(MINOR, tableName, hivePartitionString, Duration.valueOf("5m"));
+            compactTableAndWait(MINOR, tableName, hivePartitionString, Duration.valueOf("3m"));
             assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(1), row(2));
 
             onHive().executeQuery("INSERT OVERWRITE TABLE " + tableName + hivePartitionString + " SELECT 3");
@@ -137,7 +142,7 @@ public class TestHiveTransactionalTable
 
                 // test major compaction
                 onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " SELECT 4");
-                compactTableAndWait(MAJOR, tableName, hivePartitionString, Duration.valueOf("5m"));
+                compactTableAndWait(MAJOR, tableName, hivePartitionString, Duration.valueOf("3m"));
                 assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(3), row(4));
             }
         }
@@ -184,25 +189,82 @@ public class TestHiveTransactionalTable
 
     private static void compactTableAndWait(CompactionMode compactMode, String tableName, String partitionString, Duration timeout)
     {
-        assertEquals(getTableCompactions(compactMode, tableName).count(), 0);
-        onHive().executeQuery(format("ALTER TABLE %s %s COMPACT '%s'", tableName, partitionString, compactMode.name())).getRowsCount();
+        log.info("Running %s compaction on %s", compactMode, tableName);
 
-        // Since we disabled table auto compaction and we checked that there are no compaction to the table
-        // we can assume that every compaction from now on is triggered in this test
-        // and all compaction should complete successfully before proceeding.
-        assertEventually(timeout, () -> {
-            Map<String, String> compaction = getOnlyElement(getTableCompactions(compactMode, tableName)
-                    .collect(toImmutableList()));
-
-            verify(!compaction.get("state").equals("failed"), "compaction has failed");
-            assertEquals(compaction.get("state"), "succeeded");
-        });
+        Failsafe.with(
+                new RetryPolicy<>()
+                        .withMaxDuration(java.time.Duration.ofMillis(timeout.toMillis()))
+                        .withMaxAttempts(Integer.MAX_VALUE))  // limited by MaxDuration
+                .onFailure(event -> {
+                    throw new IllegalStateException(format("Could not compact table %s in %d retries", tableName, event.getAttemptCount()), event.getFailure());
+                })
+                .onSuccess(event -> log.info("Finished %s compaction on %s in %s (%d tries)", compactMode, tableName, event.getElapsedTime(), event.getAttemptCount()))
+                .run(() -> tryCompactingTable(compactMode, tableName, partitionString, Duration.valueOf("60s")));
     }
 
-    private static Stream<Map<String, String>> getTableCompactions(CompactionMode compactionMode, String tableName)
+    private static void tryCompactingTable(CompactionMode compactMode, String tableName, String partitionString, Duration timeout)
+            throws TimeoutException
+    {
+        long beforeCompactionStart = Instant.now().getEpochSecond();
+        onHive().executeQuery(format("ALTER TABLE %s %s COMPACT '%s'", tableName, partitionString, compactMode.name())).getRowsCount();
+
+        log.info("Started compactions: %s", getTableCompactions(compactMode, tableName, OptionalLong.empty()));
+
+        long loopStart = System.nanoTime();
+        while (true) {
+            try {
+                // Compaction takes couple of second so there is no need to check state more frequent than 1s
+                Thread.sleep(1000);
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+
+            // Since we disabled auto compaction for uniquely named table and every compaction is triggered in this test
+            // we can expect that single compaction in given mode should complete before proceeding.
+            List<Map<String, String>> startedCompactions = getTableCompactions(compactMode, tableName, OptionalLong.of(beforeCompactionStart));
+            verify(startedCompactions.size() < 2, "Expected at most 1 compaction");
+
+            if (startedCompactions.isEmpty()) {
+                log.info("Compaction has not started yet");
+                continue;
+            }
+
+            String compactionState = startedCompactions.get(0).get("state");
+
+            if (compactionState.equals("failed")) {
+                log.info("Compaction has failed: %s", startedCompactions.get(0));
+                // This will retry compacting table
+                throw new IllegalStateException("Compaction has failed");
+            }
+
+            if (compactionState.equals("succeeded")) {
+                return;
+            }
+
+            if (Duration.nanosSince(loopStart).compareTo(timeout) > 0) {
+                log.info("Waiting for compaction has timed out: %s", startedCompactions.get(0));
+                throw new TimeoutException("Compaction has timed out");
+            }
+        }
+    }
+
+    private static List<Map<String, String>> getTableCompactions(CompactionMode compactionMode, String tableName, OptionalLong startedAfter)
     {
         return Stream.of(onHive().executeQuery("SHOW COMPACTIONS")).flatMap(TestHiveTransactionalTable::mapRows)
-                .filter(row -> isCompactionForTable(compactionMode, tableName, row));
+                .filter(row -> isCompactionForTable(compactionMode, tableName, row))
+                .filter(row -> {
+                    if (startedAfter.isPresent()) {
+                        try {
+                            return Long.parseLong(row.get("start time")) >= startedAfter.getAsLong();
+                        }
+                        catch (NumberFormatException ignored) {
+                        }
+                    }
+
+                    return true;
+                }).collect(toImmutableList());
     }
 
     private static Stream<Map<String, String>> mapRows(QueryResult result)
