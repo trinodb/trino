@@ -40,7 +40,6 @@ import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -60,6 +59,7 @@ import static io.airlift.concurrent.MoreFutures.getDone;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.prestosql.operator.JoinUtils.isBuildSideRepartitioned;
 import static io.prestosql.operator.JoinUtils.isBuildSideReplicated;
 import static io.prestosql.spi.connector.DynamicFilter.EMPTY;
 import static io.prestosql.spi.predicate.Domain.union;
@@ -80,6 +80,8 @@ public class DynamicFilterService
     private final Map<QueryId, Map<DynamicFilterId, SettableFuture<Domain>>> dynamicFilterSummaries = new ConcurrentHashMap<>();
     @GuardedBy("this") // for updates
     private final Map<QueryId, Supplier<List<StageDynamicFilters>>> dynamicFilterSuppliers = new ConcurrentHashMap<>();
+    @GuardedBy("this") // for updates
+    private final Map<QueryId, Set<DynamicFilterId>> queryRepartitionedDynamicFilters = new ConcurrentHashMap<>();
     @GuardedBy("this") // for updates
     private final Map<QueryId, Set<DynamicFilterId>> queryReplicatedDynamicFilters = new ConcurrentHashMap<>();
 
@@ -105,6 +107,7 @@ public class DynamicFilterService
     {
         // register query only if it contains dynamic filters
         ImmutableSet.Builder<DynamicFilterId> dynamicFiltersBuilder = ImmutableSet.builder();
+        ImmutableSet.Builder<DynamicFilterId> repartitionedDynamicFiltersBuilder = ImmutableSet.builder();
         ImmutableSet.Builder<DynamicFilterId> replicatedDynamicFiltersBuilder = ImmutableSet.builder();
         PlanNodeSearcher.searchFrom(sqlQueryExecution.getQueryPlan().getRoot())
                 .where(JoinNode.class::isInstance)
@@ -115,10 +118,18 @@ public class DynamicFilterService
                     if (isBuildSideReplicated(node)) {
                         replicatedDynamicFiltersBuilder.addAll(node.getDynamicFilters().keySet());
                     }
+                    if (isBuildSideRepartitioned(node)) {
+                        repartitionedDynamicFiltersBuilder.addAll(node.getDynamicFilters().keySet());
+                    }
                 });
         Set<DynamicFilterId> dynamicFilters = dynamicFiltersBuilder.build();
         if (!dynamicFilters.isEmpty()) {
-            registerQuery(sqlQueryExecution.getQueryId(), sqlQueryExecution::getStageDynamicFilters, dynamicFilters, replicatedDynamicFiltersBuilder.build());
+            registerQuery(
+                    sqlQueryExecution.getQueryId(),
+                    sqlQueryExecution::getStageDynamicFilters,
+                    dynamicFilters,
+                    repartitionedDynamicFiltersBuilder.build(),
+                    replicatedDynamicFiltersBuilder.build());
         }
     }
 
@@ -127,6 +138,7 @@ public class DynamicFilterService
             QueryId queryId,
             Supplier<List<StageDynamicFilters>> stageDynamicFiltersSupplier,
             Set<DynamicFilterId> dynamicFilters,
+            Set<DynamicFilterId> repartitionedDynamicFilters,
             Set<DynamicFilterId> replicatedDynamicFilters)
     {
         Map<DynamicFilterId, SettableFuture<Domain>> dynamicFilterFutures = dynamicFilters.stream()
@@ -139,6 +151,7 @@ public class DynamicFilterService
 
             dynamicFilterSummaries.put(queryId, dynamicFilterFutures);
             dynamicFilterSuppliers.put(queryId, stageDynamicFiltersSupplier);
+            queryRepartitionedDynamicFilters.put(queryId, repartitionedDynamicFilters);
             queryReplicatedDynamicFilters.put(queryId, replicatedDynamicFilters);
         }
     }
@@ -147,6 +160,7 @@ public class DynamicFilterService
     {
         dynamicFilterSummaries.remove(queryId);
         dynamicFilterSuppliers.remove(queryId);
+        queryRepartitionedDynamicFilters.remove(queryId);
         queryReplicatedDynamicFilters.remove(queryId);
     }
 
@@ -166,6 +180,10 @@ public class DynamicFilterService
         List<ListenableFuture<?>> futures = dynamicFilters.stream()
                 .map(dynamicFilterFutures::get)
                 .collect(toImmutableList());
+        List<ListenableFuture<?>> repartitionedFutures = dynamicFilters.stream()
+                .filter(queryRepartitionedDynamicFilters.getOrDefault(queryId, ImmutableSet.of())::contains)
+                .map(dynamicFilterFutures::get)
+                .collect(toImmutableList());
         AtomicReference<TupleDomain<ColumnHandle>> completedDynamicFilter = new AtomicReference<>();
 
         return new DynamicFilter()
@@ -174,7 +192,7 @@ public class DynamicFilterService
             public CompletableFuture<?> isBlocked()
             {
                 // wait for any of the requested dynamic filter domains to be completed
-                List<ListenableFuture<?>> undoneFutures = futures.stream()
+                List<ListenableFuture<?>> undoneFutures = repartitionedFutures.stream()
                         .filter(future -> !future.isDone())
                         .collect(toImmutableList());
 

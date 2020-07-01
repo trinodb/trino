@@ -87,14 +87,9 @@ public class TestLazyCoordinatorDynamicFiltering
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
                 .build();
-        return DistributedQueryRunner.builder(session).build();
-    }
-
-    @Test(enabled = false)
-    @Override
-    public void testBroadcastJoinWithEmptyBuildSide()
-    {
-        // lazy dynamic filters on coordinator do not work with broadcast joins
+        return DistributedQueryRunner.builder(session)
+                .setExtraProperties(ImmutableMap.of("query.min-schedule-split-batch-size", "1"))
+                .build();
     }
 
     @Test(enabled = false)
