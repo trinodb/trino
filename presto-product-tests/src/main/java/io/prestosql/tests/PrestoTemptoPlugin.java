@@ -22,6 +22,7 @@ import io.prestosql.tempto.fulfillment.table.kafka.KafkaTableManager;
 import io.prestosql.tempto.initialization.SuiteModuleProvider;
 import io.prestosql.tempto.internal.fulfillment.ldap.LdapObjectFulfiller;
 import io.prestosql.tempto.internal.fulfillment.ldap.LdapObjectModuleProvider;
+import io.prestosql.tests.hive.HiveVersionProvider;
 
 import java.util.List;
 
@@ -47,7 +48,9 @@ public class PrestoTemptoPlugin
     @Override
     public List<Class<? extends SuiteModuleProvider>> getSuiteModules()
     {
-        return ImmutableList.of(LdapObjectModuleProvider.class);
+        return ImmutableList.of(
+                LdapObjectModuleProvider.class,
+                HiveVersionProvider.ModuleProvider.class);
     }
 
     @Override
