@@ -364,6 +364,11 @@ public class TestingPrestoServer
         return queryManager.getQueryPlan(queryId);
     }
 
+    public QueryInfo getFullQueryInfo(QueryId queryId)
+    {
+        return queryManager.getFullQueryInfo(queryId);
+    }
+
     public void addFinalQueryInfoListener(QueryId queryId, StateChangeListener<QueryInfo> stateChangeListener)
     {
         queryManager.addFinalQueryInfoListener(queryId, stateChangeListener);
