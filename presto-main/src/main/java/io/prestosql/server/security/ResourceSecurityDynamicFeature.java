@@ -152,6 +152,10 @@ public class ResourceSecurityDynamicFeature
         @Override
         public void filter(ContainerRequestContext request)
         {
+            if (request.getSecurityContext().getUserPrincipal() instanceof InternalPrincipal) {
+                return;
+            }
+
             try {
                 Identity identity = extractAuthorizedIdentity(
                         Optional.ofNullable((Identity) request.getProperty(AUTHENTICATED_IDENTITY)),
