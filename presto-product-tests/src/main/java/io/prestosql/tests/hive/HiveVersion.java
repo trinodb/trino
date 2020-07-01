@@ -13,15 +13,22 @@
  */
 package io.prestosql.tests.hive;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 public class HiveVersion
 {
+    private static final Pattern HIVE_VERSION_PATTERN = Pattern.compile("(\\d+)\\.(\\d+)\\.(\\d+).*");
+
     private final int majorVersion;
     private final int minorVersion;
+    private final int patchVersion;
 
-    public HiveVersion(int majorVersion, int minorVersion)
+    public HiveVersion(int majorVersion, int minorVersion, int patchVersion)
     {
         this.majorVersion = majorVersion;
         this.minorVersion = minorVersion;
+        this.patchVersion = patchVersion;
     }
 
     public int getMajorVersion()
@@ -34,8 +41,20 @@ public class HiveVersion
         return minorVersion;
     }
 
-    public static HiveVersion createFromParts(int majorVersion, int minorVersion)
+    public int getPatchVersion()
     {
-        return new HiveVersion(majorVersion, minorVersion);
+        return patchVersion;
+    }
+
+    public static HiveVersion createFromString(String versionString)
+    {
+        Matcher matcher = HIVE_VERSION_PATTERN.matcher(versionString);
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException("Cannot parse Hive version " + versionString);
+        }
+        int majorVersion = Integer.parseInt(matcher.group(1));
+        int minorVersion = Integer.parseInt(matcher.group(2));
+        int patchVersion = Integer.parseInt(matcher.group(3));
+        return new HiveVersion(majorVersion, minorVersion, patchVersion);
     }
 }

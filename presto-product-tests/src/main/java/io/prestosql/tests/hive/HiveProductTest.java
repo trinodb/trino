@@ -33,6 +33,11 @@ public class HiveProductTest
         return hiveVersionProvider.getHiveVersion().getMinorVersion();
     }
 
+    protected int getHivePatchVersion()
+    {
+        return hiveVersionProvider.getHiveVersion().getPatchVersion();
+    }
+
     protected boolean isHiveVersionBefore12()
     {
         return getHiveVersionMajor() == 0
