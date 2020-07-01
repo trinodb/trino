@@ -48,6 +48,16 @@ public interface ConnectorSplitManager
         return getSplits(transaction, session, table, splitSchedulingStrategy);
     }
 
+    default ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            DynamicFilter dynamicFilter)
+    {
+        return getSplits(transaction, session, table, splitSchedulingStrategy, dynamicFilter::getCurrentPredicate);
+    }
+
     enum SplitSchedulingStrategy
     {
         UNGROUPED_SCHEDULING,
