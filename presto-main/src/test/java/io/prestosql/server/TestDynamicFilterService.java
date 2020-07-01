@@ -64,7 +64,7 @@ public class TestDynamicFilterService
 
         TestDynamicFiltersStageSupplier dynamicFiltersStageSupplier = new TestDynamicFiltersStageSupplier(RUNNING);
         dynamicFiltersStageSupplier.addTasks(taskIds);
-        dynamicFilterService.registerQuery(queryId, dynamicFiltersStageSupplier, ImmutableSet.of(filterId), ImmutableSet.of());
+        dynamicFilterService.registerQuery(queryId, dynamicFiltersStageSupplier, ImmutableSet.of(filterId), ImmutableSet.of(), ImmutableSet.of());
         assertFalse(dynamicFilterService.getSummary(queryId, filterId).isPresent());
 
         dynamicFiltersStageSupplier.storeSummary(
@@ -122,6 +122,7 @@ public class TestDynamicFilterService
         dynamicFilterService.registerQuery(
                 queryId,
                 dynamicFiltersStageSupplier,
+                ImmutableSet.of(filterId1, filterId2, filterId3),
                 ImmutableSet.of(filterId1, filterId2, filterId3),
                 ImmutableSet.of());
 
@@ -269,6 +270,7 @@ public class TestDynamicFilterService
                 queryId,
                 dynamicFiltersStageSupplier,
                 ImmutableSet.of(filterId1),
+                ImmutableSet.of(),
                 ImmutableSet.of(filterId1));
 
         DynamicFilter dynamicFilter = dynamicFilterService.createDynamicFilter(
@@ -279,9 +281,8 @@ public class TestDynamicFilterService
         assertTrue(dynamicFilter.getCurrentPredicate().isAll());
         assertFalse(dynamicFilter.isComplete());
 
-        // dynamic filter should be blocked waiting for tuple domain to be provided
-        CompletableFuture<?> blockedFuture = dynamicFilter.isBlocked();
-        assertFalse(blockedFuture.isDone());
+        // replicated dynamic filters cannot be lazy due to replicated join task scheduling dependencies
+        assertTrue(dynamicFilter.isBlocked().isDone());
 
         dynamicFiltersStageSupplier.storeSummary(
                 filterId1,
@@ -294,7 +295,6 @@ public class TestDynamicFilterService
                 new TestingColumnHandle("probeColumnA"),
                 singleValue(INTEGER, 1L))));
         assertTrue(dynamicFilter.isComplete());
-        assertTrue(blockedFuture.isDone());
         assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 1);
 
         // all dynamic filters have been collected, no need for more requests
