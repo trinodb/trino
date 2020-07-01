@@ -39,9 +39,7 @@ public class HiveVersionProvider
     {
         try {
             DatabaseMetaData metaData = onHive().getConnection().getMetaData();
-            int majorVersion = metaData.getDatabaseMajorVersion();
-            int minorVersion = metaData.getDatabaseMinorVersion();
-            return HiveVersion.createFromParts(majorVersion, minorVersion);
+            return HiveVersion.createFromString(metaData.getDatabaseProductVersion());
         }
         catch (SQLException e) {
             throw new RuntimeException(e);
