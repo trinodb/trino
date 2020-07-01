@@ -77,11 +77,17 @@ public class ClientOptions
     @Option(name = "--keystore-password", title = "keystore password", description = "Keystore password")
     public String keystorePassword;
 
+    @Option(name = "--keystore-type", title = "keystore type", description = "Keystore type")
+    public String keystoreType;
+
     @Option(name = "--truststore-path", title = "truststore path", description = "Truststore path")
     public String truststorePath;
 
     @Option(name = "--truststore-password", title = "truststore password", description = "Truststore password")
     public String truststorePassword;
+
+    @Option(name = "--truststore-type", title = "truststore type", description = "Truststore type")
+    public String truststoreType;
 
     @Option(name = "--insecure", title = "trust all certificates", description = "Skip validation of HTTP server certificates (should only be used for debugging)")
     public boolean insecure;

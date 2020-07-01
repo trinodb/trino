@@ -92,7 +92,9 @@ public class TestWebUi
                 clientBuilder,
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.of(LOCALHOST_KEYSTORE),
+                Optional.empty(),
                 Optional.empty());
         client = clientBuilder.build();
     }
@@ -393,7 +395,9 @@ public class TestWebUi
                     clientBuilder,
                     Optional.of(LOCALHOST_KEYSTORE),
                     Optional.empty(),
+                    Optional.empty(),
                     Optional.of(LOCALHOST_KEYSTORE),
+                    Optional.empty(),
                     Optional.empty());
             OkHttpClient clientWithCert = clientBuilder.build();
             testAlwaysAuthorized(httpServerInfo.getHttpsUri(), clientWithCert, nodeId);
