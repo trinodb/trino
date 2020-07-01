@@ -15,7 +15,6 @@ package io.prestosql.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.plugin.tpch.TpchPlugin;
@@ -36,6 +35,7 @@ import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.EmptyPageSource;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.transaction.IsolationLevel;
@@ -46,47 +46,35 @@ import io.prestosql.testing.TestingHandleResolver;
 import io.prestosql.testing.TestingMetadata;
 import io.prestosql.testing.TestingPageSinkProvider;
 import io.prestosql.testing.TestingTransactionHandle;
-import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Supplier;
 
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
-import static java.lang.Thread.sleep;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
-public class TestCoordinatorDynamicFiltering
+public class TestLazyCoordinatorDynamicFiltering
         extends AbstractCoordinatorDynamicFilteringTest
 {
-    private ExecutorService executorService;
-
     @BeforeClass
     public void setup()
     {
-        executorService = newSingleThreadScheduledExecutor();
         getQueryRunner().installPlugin(new TestPlugin());
         getQueryRunner().installPlugin(new TpchPlugin());
         getQueryRunner().createCatalog("test", "test", ImmutableMap.of());
         getQueryRunner().createCatalog("tpch", "tpch", ImmutableMap.of());
         computeActual("CREATE TABLE lineitem AS SELECT * FROM tpch.tiny.lineitem");
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        executorService.shutdownNow();
     }
 
     @Override
@@ -99,9 +87,21 @@ public class TestCoordinatorDynamicFiltering
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
                 .build();
-        return DistributedQueryRunner.builder(session)
-                .setExtraProperties(ImmutableMap.of("query.min-schedule-split-batch-size", "1"))
-                .build();
+        return DistributedQueryRunner.builder(session).build();
+    }
+
+    @Test(enabled = false)
+    @Override
+    public void testBroadcastJoinWithEmptyBuildSide()
+    {
+        // lazy dynamic filters on coordinator do not work with broadcast joins
+    }
+
+    @Test(enabled = false)
+    @Override
+    public void testBroadcastJoinWithSelectiveBuildSide()
+    {
+        // lazy dynamic filters on coordinator do not work with broadcast joins
     }
 
     private class TestPlugin
@@ -129,7 +129,7 @@ public class TestCoordinatorDynamicFiltering
                 @Override
                 public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
                 {
-                    return new TestConnector(metadata, Duration.valueOf("10s"));
+                    return new TestConnector(metadata);
                 }
             });
         }
@@ -139,12 +139,10 @@ public class TestCoordinatorDynamicFiltering
             implements Connector
     {
         private final ConnectorMetadata metadata;
-        private final Duration scanDuration;
 
-        private TestConnector(ConnectorMetadata metadata, Duration scanDuration)
+        private TestConnector(ConnectorMetadata metadata)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
-            this.scanDuration = requireNonNull(scanDuration, "scanDuration is null");
         }
 
         @Override
@@ -170,9 +168,8 @@ public class TestCoordinatorDynamicFiltering
                         ConnectorSession session,
                         ConnectorTableHandle table,
                         SplitSchedulingStrategy splitSchedulingStrategy,
-                        Supplier<TupleDomain<ColumnHandle>> dynamicFilter)
+                        DynamicFilter dynamicFilter)
                 {
-                    long start = System.nanoTime();
                     AtomicBoolean splitProduced = new AtomicBoolean();
                     TupleDomain<ColumnHandle> expectedDynamicFilter = getExpectedDynamicFilter(session);
 
@@ -181,24 +178,17 @@ public class TestCoordinatorDynamicFiltering
                         @Override
                         public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
                         {
-                            // producing single empty split allows to assert that dynamic filters will be collected for broadcast
-                            // joins once the first probe side task starts running
-                            if (!splitProduced.get()) {
+                            CompletableFuture<?> blocked = dynamicFilter.isBlocked();
+
+                            if (blocked.isDone()) {
                                 splitProduced.set(true);
-                                return completedFuture(new ConnectorSplitBatch(ImmutableList.of(new EmptySplit(new CatalogName("test"))), false));
+                                return completedFuture(new ConnectorSplitBatch(ImmutableList.of(new EmptySplit(new CatalogName("test"))), isFinished()));
                             }
 
-                            return CompletableFuture.supplyAsync(
-                                    () -> {
-                                        try {
-                                            sleep(50);
-                                            return new ConnectorSplitBatch(ImmutableList.of(), isFinished());
-                                        }
-                                        catch (InterruptedException e) {
-                                            throw new RuntimeException(e);
-                                        }
-                                    },
-                                    executorService);
+                            return blocked.thenApply(ignored -> {
+                                // yield until dynamic filter is fully loaded
+                                return new ConnectorSplitBatch(ImmutableList.of(), false);
+                            });
                         }
 
                         @Override
@@ -209,19 +199,14 @@ public class TestCoordinatorDynamicFiltering
                         @Override
                         public boolean isFinished()
                         {
-                            if (dynamicFilter.get().equals(expectedDynamicFilter)) {
-                                // if we received expected dynamic filter then we are done
-                                return true;
+                            if (!dynamicFilter.isComplete() || !splitProduced.get()) {
+                                return false;
                             }
-                            else if (Duration.nanosSince(start).compareTo(scanDuration) > 0) {
-                                throw new AssertionError(format(
-                                        "Received %s instead of expected dynamic filter %s after waiting for %s",
-                                        dynamicFilter.get().toString(session),
-                                        expectedDynamicFilter.toString(session),
-                                        scanDuration));
-                            }
-                            // expected dynamic filter is not set yet
-                            return false;
+
+                            assertEquals(dynamicFilter.getCurrentPredicate(), expectedDynamicFilter);
+                            assertTrue(dynamicFilter.isBlocked().isDone());
+
+                            return true;
                         }
                     };
                 }
