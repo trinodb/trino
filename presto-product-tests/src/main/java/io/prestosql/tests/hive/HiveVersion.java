@@ -13,29 +13,29 @@
  */
 package io.prestosql.tests.hive;
 
-import io.prestosql.tempto.ProductTest;
-
-import javax.inject.Inject;
-
-public class HiveProductTest
-        extends ProductTest
+public class HiveVersion
 {
-    @Inject
-    private HiveVersionProvider hiveVersionProvider;
+    private final int majorVersion;
+    private final int minorVersion;
 
-    protected int getHiveVersionMajor()
+    public HiveVersion(int majorVersion, int minorVersion)
     {
-        return hiveVersionProvider.getHiveVersion().getMajorVersion();
+        this.majorVersion = majorVersion;
+        this.minorVersion = minorVersion;
     }
 
-    protected int getHiveVersionMinor()
+    public int getMajorVersion()
     {
-        return hiveVersionProvider.getHiveVersion().getMinorVersion();
+        return majorVersion;
     }
 
-    protected boolean isHiveVersionBefore12()
+    public int getMinorVersion()
     {
-        return getHiveVersionMajor() == 0
-                || (getHiveVersionMajor() == 1 && getHiveVersionMinor() < 2);
+        return minorVersion;
+    }
+
+    public static HiveVersion createFromParts(int majorVersion, int minorVersion)
+    {
+        return new HiveVersion(majorVersion, minorVersion);
     }
 }
