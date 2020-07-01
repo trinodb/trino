@@ -13,37 +13,25 @@
  */
 package io.prestosql.tests.hive;
 
-import com.google.inject.Inject;
-import com.google.inject.name.Named;
 import io.prestosql.tempto.ProductTest;
 
 import java.sql.SQLException;
+import java.util.OptionalInt;
 
-import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 
 public class HiveProductTest
         extends ProductTest
 {
-    @Inject
-    @Named("databases.hive.major_version")
-    private int hiveVersionMajor;
-    private boolean hiveVersionMajorVerified;
-
-    @Inject
-    @Named("databases.hive.minor_version")
-    private int hiveVersionMinor;
-    private boolean hiveVersionMinorVerified;
+    private OptionalInt hiveVersionMajor = OptionalInt.empty();
+    private OptionalInt hiveVersionMinor = OptionalInt.empty();
 
     protected int getHiveVersionMajor()
     {
-        checkState(hiveVersionMajor > 0, "hiveVersionMajor not set");
-        if (!hiveVersionMajorVerified) {
-            int detected = detectHiveVersionMajor();
-            checkState(hiveVersionMajor == detected, "Hive version major expected: %s, but was detected as: %s", hiveVersionMajor, detected);
-            hiveVersionMajorVerified = true;
+        if (hiveVersionMajor.isEmpty()) {
+            hiveVersionMajor = OptionalInt.of(detectHiveVersionMajor());
         }
-        return hiveVersionMajor;
+        return hiveVersionMajor.getAsInt();
     }
 
     private static int detectHiveVersionMajor()
@@ -58,13 +46,10 @@ public class HiveProductTest
 
     protected int getHiveVersionMinor()
     {
-        checkState(hiveVersionMinor > 0, "hiveVersionMinor not set");
-        if (!hiveVersionMinorVerified) {
-            int detected = detectHiveVersionMinor();
-            checkState(hiveVersionMinor == detected, "Hive version minor expected: %s, but was detected as: %s", hiveVersionMinor, detected);
-            hiveVersionMinorVerified = true;
+        if (hiveVersionMinor.isEmpty()) {
+            hiveVersionMinor = OptionalInt.of(detectHiveVersionMinor());
         }
-        return hiveVersionMinor;
+        return hiveVersionMinor.getAsInt();
     }
 
     private static int detectHiveVersionMinor()
