@@ -1421,7 +1421,7 @@
                             <compilerArgs>
                                 <arg>-XDcompilePolicy=simple</arg>
                                 <!-- TODO enable more checks, i.e. remove "-XepDisableAllChecks" -->
-                                <arg>-Xplugin:ErrorProne -XepExcludedPaths:.*/target/generated-(|test-)sources/.* -XepDisableAllChecks -Xep:MissingOverride:ERROR -Xep:ClassCanBeStatic:ERROR -Xep:ArrayToString:ERROR -Xep:GetClassOnClass:ERROR -Xep:EqualsIncompatibleType:ERROR -Xep:BoxedPrimitiveConstructor:ERROR</arg>
+                                <arg>-Xplugin:ErrorProne -XepExcludedPaths:.*/target/generated-(|test-)sources/.* -XepDisableAllChecks -Xep:MissingOverride:ERROR -Xep:ClassCanBeStatic:ERROR -Xep:ArrayToString:ERROR -Xep:GetClassOnClass:ERROR -Xep:EqualsIncompatibleType:ERROR -Xep:BoxedPrimitiveConstructor:ERROR -Xep:BadInstanceof:ERROR -Xep:CompareToZero:ERROR -Xep:InconsistentHashCode:ERROR -Xep:ObjectToString:ERROR</arg>
                             </compilerArgs>
                             <annotationProcessorPaths>
                                 <path>
