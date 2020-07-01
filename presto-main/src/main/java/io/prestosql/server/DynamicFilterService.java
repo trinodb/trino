@@ -78,8 +78,8 @@ public class DynamicFilterService
 
     @GuardedBy("this") // for updates
     private final Map<QueryId, Map<DynamicFilterId, SettableFuture<Domain>>> dynamicFilterSummaries = new ConcurrentHashMap<>();
-    @GuardedBy("this")
-    private final Map<QueryId, Supplier<List<StageDynamicFilters>>> dynamicFilterSuppliers = new HashMap<>();
+    @GuardedBy("this") // for updates
+    private final Map<QueryId, Supplier<List<StageDynamicFilters>>> dynamicFilterSuppliers = new ConcurrentHashMap<>();
     @GuardedBy("this") // for updates
     private final Map<QueryId, Set<DynamicFilterId>> queryReplicatedDynamicFilters = new ConcurrentHashMap<>();
 
@@ -265,7 +265,7 @@ public class DynamicFilterService
         return Optional.of(getDone(future));
     }
 
-    private synchronized Map<QueryId, Supplier<List<StageDynamicFilters>>> getDynamicFilterSuppliers()
+    private Map<QueryId, Supplier<List<StageDynamicFilters>>> getDynamicFilterSuppliers()
     {
         return ImmutableMap.copyOf(dynamicFilterSuppliers);
     }
