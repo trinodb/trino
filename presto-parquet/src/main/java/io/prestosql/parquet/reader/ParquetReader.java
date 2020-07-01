@@ -13,7 +13,6 @@
  */
 package io.prestosql.parquet.reader;
 
-import io.airlift.concurrent.Threads;
 import io.airlift.slice.Slice;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.parquet.ChunkKey;
@@ -53,18 +52,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.parquet.ParquetValidationUtils.validateParquet;
 import static io.prestosql.parquet.reader.ListColumnReader.calculateCollectionOffsets;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class ParquetReader
         implements Closeable

@@ -264,7 +264,8 @@ public abstract class PrimitiveColumnReader
         return true;
     }
 
-    private void prefetchNextPage() {
+    private void prefetchNextPage()
+    {
         nextPageFuture = prefetchPageService.submit(() -> pageReader.readPage());
     }
 
