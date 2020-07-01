@@ -194,12 +194,7 @@ public class LocalDynamicFilterConsumer
 
     private static boolean isFilterAboveTableScan(PlanNode node)
     {
-        if (node instanceof FilterNode) {
-            if (((FilterNode) node).getSource() instanceof TableScanNode) {
-                return true;
-            }
-        }
-        return false;
+        return node instanceof FilterNode && ((FilterNode) node).getSource() instanceof TableScanNode;
     }
 
     public Map<DynamicFilterId, Integer> getBuildChannels()
