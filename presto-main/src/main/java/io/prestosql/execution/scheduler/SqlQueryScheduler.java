@@ -421,7 +421,7 @@ public class SqlQueryScheduler
         }
         Set<SqlStageExecution> childStages = childStagesBuilder.build();
         stage.addStateChangeListener(newState -> {
-            if (newState.isDone()) {
+            if (newState == FLUSHING || newState.isDone()) {
                 childStages.forEach(SqlStageExecution::cancel);
             }
         });
