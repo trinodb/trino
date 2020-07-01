@@ -34,6 +34,9 @@ function main () {
   retry check_hadoop
   retry check_alluxio & # data can be generated while we wait for alluxio to start
 
+  # obtain Hive version
+  TESTS_HIVE_VERSION_MAJOR=$(get_hive_major_version)
+
   # generate test data
   exec_in_hadoop_master_container sudo -Eu hdfs hdfs dfs -mkdir /alluxio
   exec_in_hadoop_master_container sudo -Eu hdfs hdfs dfs -chmod 777 /alluxio
