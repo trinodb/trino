@@ -58,8 +58,10 @@ public class QueryRunner
             Optional<HostAndPort> httpProxy,
             Optional<String> keystorePath,
             Optional<String> keystorePassword,
+            Optional<String> keystoreType,
             Optional<String> truststorePath,
             Optional<String> truststorePassword,
+            Optional<String> truststoreType,
             boolean insecureSsl,
             Optional<String> accessToken,
             Optional<String> user,
@@ -79,7 +81,7 @@ public class QueryRunner
             this.sslSetup = OkHttpUtil::setupInsecureSsl;
         }
         else {
-            this.sslSetup = builder -> setupSsl(builder, keystorePath, keystorePassword, truststorePath, truststorePassword);
+            this.sslSetup = builder -> setupSsl(builder, keystorePath, keystorePassword, keystoreType, truststorePath, truststorePassword, truststoreType);
         }
 
         OkHttpClient.Builder builder = new OkHttpClient.Builder();

@@ -153,6 +153,8 @@ public class TestQueryRunner
                 Optional.empty(),
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
                 insecureSsl,
                 Optional.empty(),
                 Optional.empty(),

@@ -100,9 +100,13 @@ Name                                   Description
 ``SSLKeyStorePath``                    The location of the Java KeyStore file that contains the certificate
                                        and private key to use for authentication.
 ``SSLKeyStorePassword``                The password for the KeyStore.
+``SSLKeyStoreType``                    The type of the KeyStore. The default type is provided by the Java
+                                       ``keystore.type`` security property or ``jks`` if none exists.
 ``SSLTrustStorePath``                  The location of the Java TrustStore file to use.
                                        to validate HTTPS server certificates.
 ``SSLTrustStorePassword``              The password for the TrustStore.
+``SSLTrustStoreType``                  The type of the TrustStore. The default type is provided by the Java
+                                       ``keystore.type`` security property or ``jks`` if none exists.
 ``KerberosRemoteServiceName``          Presto coordinator Kerberos service name. This parameter is
                                        required for Kerberos authentication.
 ``KerberosPrincipal``                  The principal to use when authenticating to the Presto coordinator.

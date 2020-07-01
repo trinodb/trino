@@ -80,7 +80,9 @@ public class TestResourceSecurity
                 clientBuilder,
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.of(LOCALHOST_KEYSTORE),
+                Optional.empty(),
                 Optional.empty());
         client = clientBuilder.build();
     }
@@ -255,7 +257,9 @@ public class TestResourceSecurity
                     clientBuilder,
                     Optional.of(LOCALHOST_KEYSTORE),
                     Optional.empty(),
+                    Optional.empty(),
                     Optional.of(LOCALHOST_KEYSTORE),
+                    Optional.empty(),
                     Optional.empty());
             OkHttpClient clientWithCert = clientBuilder.build();
             assertAuthenticationAutomatic(httpServerInfo.getHttpsUri(), clientWithCert);

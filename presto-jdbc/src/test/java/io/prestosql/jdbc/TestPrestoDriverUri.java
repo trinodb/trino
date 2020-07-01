@@ -76,8 +76,14 @@ public class TestPrestoDriverUri
         // ssl key store password without path
         assertInvalid("jdbc:presto://localhost:8080?SSL=true&SSLKeyStorePassword=password", "Connection property 'SSLKeyStorePassword' is not allowed");
 
+        // ssl key store type without path
+        assertInvalid("jdbc:presto://localhost:8080?SSL=true&SSLKeyStoreType=type", "Connection property 'SSLKeyStoreType' is not allowed");
+
         // ssl trust store password without path
         assertInvalid("jdbc:presto://localhost:8080?SSL=true&SSLTrustStorePassword=password", "Connection property 'SSLTrustStorePassword' is not allowed");
+
+        // ssl trust store type without path
+        assertInvalid("jdbc:presto://localhost:8080?SSL=true&SSLTrustStoreType=type", "Connection property 'SSLTrustStoreType' is not allowed");
 
         // key store path without ssl
         assertInvalid("jdbc:presto://localhost:8080?SSLKeyStorePath=keystore.jks", "Connection property 'SSLKeyStorePath' is not allowed");
