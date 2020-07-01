@@ -39,6 +39,7 @@ import java.io.IOException;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -51,7 +52,6 @@ import static io.prestosql.parquet.ValuesType.REPETITION_LEVEL;
 import static io.prestosql.parquet.ValuesType.VALUES;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public abstract class PrimitiveColumnReader
 {
@@ -72,7 +72,7 @@ public abstract class PrimitiveColumnReader
     private DataPage page;
     private int remainingValueCountInPage;
     private int readOffset;
-    private final ExecutorService prefetchPageService = newCachedThreadPool(daemonThreadsNamed("parquet-fetch-page-%s"));
+    private static final ExecutorService prefetchPageService = Executors.newFixedThreadPool(4, daemonThreadsNamed("parquet-fetch-page-%s"));
     private Future<DataPage> nextPageFuture;
 
     protected abstract void readValue(BlockBuilder blockBuilder, Type type);
