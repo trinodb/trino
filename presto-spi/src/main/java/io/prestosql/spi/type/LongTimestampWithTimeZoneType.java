@@ -25,7 +25,6 @@ import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.TimestampWithTimeZoneTypes.hashLongTimestampWithTimeZone;
-import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.compare;
 import static java.lang.String.format;
 
 /**
@@ -87,17 +86,22 @@ class LongTimestampWithTimeZoneType
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        long leftPackedEpochMillis = getPackedEpochMillis(leftBlock, leftPosition);
+        long leftEpochMillis = getEpochMillis(leftBlock, leftPosition);
         int leftFraction = getFraction(leftBlock, leftPosition);
-        long rightPackedEpochMillis = getPackedEpochMillis(rightBlock, rightPosition);
+        long rightEpochMillis = getEpochMillis(rightBlock, rightPosition);
         int rightFraction = getFraction(rightBlock, rightPosition);
-        return compare(leftFraction, leftPackedEpochMillis, rightFraction, rightPackedEpochMillis);
+
+        int value = Long.compare(leftEpochMillis, rightEpochMillis);
+        if (value != 0) {
+            return value;
+        }
+        return Integer.compareUnsigned(leftFraction, rightFraction);
     }
 
     @Override
     public long hash(Block block, int position)
     {
-        return hashLongTimestampWithTimeZone(getPackedEpochMillis(block, position), getFraction(block, position));
+        return hashLongTimestampWithTimeZone(getEpochMillis(block, position), getFraction(block, position));
     }
 
     @Override
@@ -148,6 +152,11 @@ class LongTimestampWithTimeZoneType
     private static long getPackedEpochMillis(Block block, int position)
     {
         return block.getLong(position, 0);
+    }
+
+    private static long getEpochMillis(Block block, int position)
+    {
+        return unpackMillisUtc(getPackedEpochMillis(block, position));
     }
 
     private static int getFraction(Block block, int position)
