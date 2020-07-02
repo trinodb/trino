@@ -24,7 +24,7 @@ import static java.util.Objects.requireNonNull;
 
 public final class EnvironmentOptions
 {
-    private static final String DOCKER_IMAGES_VERSION = "28";
+    private static final String DOCKER_IMAGES_VERSION = "30";
 
     @Option(name = "--hadoop-base-image", title = "image", description = "Hadoop base image")
     public String hadoopBaseImage = System.getenv().getOrDefault("HADOOP_BASE_IMAGE", "prestodev/hdp2.6-hive");
