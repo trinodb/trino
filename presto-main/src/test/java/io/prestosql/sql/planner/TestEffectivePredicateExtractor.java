@@ -340,6 +340,51 @@ public class TestEffectivePredicateExtractor
     }
 
     @Test
+    public void testProjectWithSymbolReuse()
+    {
+        // symbol B is reused so underlying predicates involving BE are invalid after Projection
+        // and will not be included in the resulting predicate
+        PlanNode projectReusingB = new ProjectNode(
+                newId(),
+                filter(
+                        baseTableScan,
+                        and(
+                                equals(AE, BE),
+                                equals(BE, CE),
+                                lessThan(CE, bigintLiteral(10)))),
+                Assignments.of(D, AE, B, CE));
+
+        Expression effectivePredicateWhenBReused = effectivePredicateExtractor.extract(SESSION, projectReusingB, TypeProvider.empty(), typeAnalyzer);
+
+        assertEquals(
+                normalizeConjuncts(effectivePredicateWhenBReused),
+                normalizeConjuncts(lessThan(BE, bigintLiteral(10))));
+
+        // symbol C is reused so underlying predicates involving CE are invalid after Projection
+        // and will not be included in the resulting predicate
+        // also, Projection assignments containing C in the assigned expression will not be used to derive equalities
+        PlanNode projectReusingC = new ProjectNode(
+                newId(),
+                filter(
+                        baseTableScan,
+                        and(
+                                equals(AE, BE),
+                                equals(BE, CE),
+                                lessThan(CE, bigintLiteral(10)))),
+                Assignments.builder()
+                        .put(C, AE)
+                        .put(E, CE)
+                        .put(F, BE)
+                        .build());
+
+        Expression effectivePredicateWhenCReused = effectivePredicateExtractor.extract(SESSION, projectReusingC, TypeProvider.empty(), typeAnalyzer);
+
+        assertEquals(
+                normalizeConjuncts(effectivePredicateWhenCReused),
+                normalizeConjuncts(normalizeConjuncts(equals(CE, FE))));
+    }
+
+    @Test
     public void testTopN()
     {
         PlanNode node = new TopNNode(
