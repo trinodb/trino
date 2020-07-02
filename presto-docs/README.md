@@ -2,6 +2,7 @@
 
 The presto-docs module contains the reference documentation for Presto.
 
+- [Writing and contributing](#writing-and-contributing)
 - [Tools](#tools)
 - [Default Build](#default-build)
 - [Faster Build for Authoring](#faster-build-for-authoring)
@@ -9,6 +10,32 @@ The presto-docs module contains the reference documentation for Presto.
 - [Using sphinx-autobuild](#using-sphinx-autobuild)
 - [Versioning](#versioning)
 - [Known Issues](#known-issues)
+
+## Writing and contributing
+
+We welcome any contributions to the documentation. Contributions need to [follow
+the same process as code contributions](https://prestosql.io/development/) and
+can be part of your code contributions or separate documentation improvements.
+
+The documentation follows the Google developer documentation style guide for any
+new documentation:
+
+- [Google developer documentation style guide](https://developers.google.com/style)
+- [Highlights](https://developers.google.com/style/highlights)
+- [Word list](https://developers.google.com/style/word-list)
+- [Style and tone](https://developers.google.com/style/tone)
+- [Writing for a global audience](https://developers.google.com/style/translation)
+- [Cross-references](https://developers.google.com/style/cross-references)
+- [Present tense](https://developers.google.com/style/tense)
+
+The guidelines include much more material and are used as a guide and enable
+easy decision making. Existing documentation upgrades to follow the guidelines
+are ongoing.
+
+Other useful resources:
+
+- [Google Technical Writing Courses](https://developers.google.com/tech-writing)
+- [RST cheatsheet](https://github.com/ralsina/rst-cheatsheet/blob/master/rst-cheatsheet.rst)
 
 ## Tools
 
