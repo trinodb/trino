@@ -20,6 +20,7 @@ from different data sources.
     connector/hive-security
     connector/hive-caching
     connector/hive-azure
+    connector/hive-alluxio
     connector/jmx
     connector/kafka
     connector/kafka-tutorial
