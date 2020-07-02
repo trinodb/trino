@@ -100,34 +100,6 @@ public final class DateTimeOperators
         return datePlusIntervalYearToMonth(date, interval);
     }
 
-    @ScalarOperator(ADD)
-    @SqlType(StandardTypes.TIME)
-    public static long timePlusIntervalYearToMonth(@SqlType(StandardTypes.TIME) long time, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
-    {
-        return time;
-    }
-
-    @ScalarOperator(ADD)
-    @SqlType(StandardTypes.TIME)
-    public static long intervalYearToMonthPlusTime(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval, @SqlType(StandardTypes.TIME) long time)
-    {
-        return time;
-    }
-
-    @ScalarOperator(ADD)
-    @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
-    public static long timeWithTimeZonePlusIntervalYearToMonth(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long time, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
-    {
-        return time;
-    }
-
-    @ScalarOperator(ADD)
-    @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
-    public static long intervalYearToMonthPlusTimeWithTimeZone(@SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long time)
-    {
-        return time;
-    }
-
     @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.DATE)
     public static long dateMinusIntervalDayToSecond(@SqlType(StandardTypes.DATE) long date, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
@@ -157,20 +129,6 @@ public final class DateTimeOperators
     public static long dateMinusIntervalYearToMonth(@SqlType(StandardTypes.DATE) long date, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
     {
         return datePlusIntervalYearToMonth(date, -interval);
-    }
-
-    @ScalarOperator(SUBTRACT)
-    @SqlType(StandardTypes.TIME)
-    public static long timeMinusIntervalYearToMonth(@SqlType(StandardTypes.TIME) long time, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
-    {
-        return time;
-    }
-
-    @ScalarOperator(SUBTRACT)
-    @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
-    public static long timeWithTimeZoneMinusIntervalYearToMonth(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long time, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
-    {
-        return time;
     }
 
     public static int modulo24Hour(ISOChronology chronology, long millis)
