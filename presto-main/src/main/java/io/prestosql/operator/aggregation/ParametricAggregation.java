@@ -37,7 +37,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
@@ -97,7 +96,7 @@ public class ParametricAggregation
 
         // Build state factory and serializer
         Class<?> stateClass = concreteImplementation.getStateClass();
-        AccumulatorStateSerializer<?> stateSerializer = getAccumulatorStateSerializer(concreteImplementation, variables, metadata, stateClass, classLoader);
+        AccumulatorStateSerializer<?> stateSerializer = generateStateSerializer(stateClass, classLoader);
         AccumulatorStateFactory<?> stateFactory = StateCompiler.generateStateFactory(stateClass, classLoader);
 
         // Bind provided dependencies to aggregation method handlers
@@ -165,26 +164,6 @@ public class ParametricAggregation
             throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported type parameters (%s) for %s", variables, getFunctionMetadata().getSignature()));
         }
         return foundImplementation.get();
-    }
-
-    private static AccumulatorStateSerializer<?> getAccumulatorStateSerializer(AggregationImplementation implementation, BoundVariables variables, Metadata metadata, Class<?> stateClass, DynamicClassLoader classLoader)
-    {
-        AccumulatorStateSerializer<?> stateSerializer;
-        Optional<MethodHandle> stateSerializerFactory = implementation.getStateSerializerFactory();
-        if (stateSerializerFactory.isPresent()) {
-            try {
-                MethodHandle factoryHandle = bindDependencies(stateSerializerFactory.get(), implementation.getStateSerializerFactoryDependencies(), variables, metadata);
-                stateSerializer = (AccumulatorStateSerializer<?>) factoryHandle.invoke();
-            }
-            catch (Throwable t) {
-                throwIfUnchecked(t);
-                throw new RuntimeException(t);
-            }
-        }
-        else {
-            stateSerializer = generateStateSerializer(stateClass, classLoader);
-        }
-        return stateSerializer;
     }
 
     private static List<TypeSignature> signaturesFromTypes(List<Type> types)
