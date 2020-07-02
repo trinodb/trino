@@ -311,11 +311,7 @@ public class PushPredicateIntoTableScan
             Object optimized = TryFunction.evaluate(() -> evaluator.optimize(inputs), true);
 
             // If any conjuncts evaluate to FALSE or null, then the whole predicate will never be true and so the partition should be pruned
-            if (Boolean.FALSE.equals(optimized) || optimized == null || optimized instanceof NullLiteral) {
-                return false;
-            }
-
-            return true;
+            return !(Boolean.FALSE.equals(optimized) || optimized == null || optimized instanceof NullLiteral);
         }
     }
 }
