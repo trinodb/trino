@@ -70,6 +70,7 @@ import org.apache.iceberg.Transaction;
 import org.apache.iceberg.hadoop.HadoopInputFile;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
+import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
 
 import java.io.IOException;
@@ -563,9 +564,10 @@ public class IcebergMetadata
                 icebergColumns.add(field);
             }
         }
-        Schema schema = new Schema(icebergColumns);
+        Type icebergSchema = Types.StructType.of(icebergColumns);
         AtomicInteger nextFieldId = new AtomicInteger(1);
-        return TypeUtil.assignFreshIds(schema, nextFieldId::getAndIncrement);
+        icebergSchema = TypeUtil.assignFreshIds(icebergSchema, nextFieldId::getAndIncrement);
+        return new Schema(icebergSchema.asStructType().fields());
     }
 
     @Override
