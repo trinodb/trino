@@ -22,10 +22,8 @@ import io.prestosql.metadata.Signature;
 import io.prestosql.operator.aggregation.AggregationImplementation;
 import io.prestosql.operator.aggregation.AggregationMetadata;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
-import io.prestosql.operator.aggregation.LazyAccumulatorFactoryBinder;
 import io.prestosql.operator.aggregation.ParametricAggregation;
 import io.prestosql.operator.aggregation.state.NullableDoubleState;
-import io.prestosql.operator.aggregation.state.NullableDoubleStateSerializer;
 import io.prestosql.operator.aggregation.state.NullableLongState;
 import io.prestosql.operator.aggregation.state.SliceState;
 import io.prestosql.operator.annotations.LiteralImplementationDependency;
@@ -33,10 +31,8 @@ import io.prestosql.operator.annotations.OperatorImplementationDependency;
 import io.prestosql.operator.annotations.TypeImplementationDependency;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.AccumulatorStateSerializer;
 import io.prestosql.spi.function.AggregationFunction;
 import io.prestosql.spi.function.AggregationState;
-import io.prestosql.spi.function.AggregationStateSerializerFactory;
 import io.prestosql.spi.function.BlockIndex;
 import io.prestosql.spi.function.BlockPosition;
 import io.prestosql.spi.function.CombineFunction;
@@ -117,7 +113,6 @@ public class TestAnnotationEngineForAggregates
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
         assertImplementationCount(implementations, 1, 0, 0);
         AggregationImplementation implementation = getOnlyElement(implementations.getExactImplementations().values());
-        assertFalse(implementation.getStateSerializerFactory().isPresent());
         assertEquals(implementation.getDefinitionClass(), ExactAggregationFunction.class);
         assertDependencyCount(implementation, 0, 0, 0);
         assertFalse(implementation.hasSpecializedTypeParameters());
@@ -207,58 +202,6 @@ public class TestAnnotationEngineForAggregates
         assertEquals(specialized.name(), "no_aggregation_state_aggregate");
     }
 
-    @AggregationFunction("custom_serializer_aggregate")
-    @Description("Aggregate with no @AggregationState annotations")
-    public static final class CustomStateSerializerAggregationFunction
-    {
-        public static class CustomSerializer
-                extends NullableDoubleStateSerializer
-        {
-        }
-
-        @InputFunction
-        public static void input(
-                @AggregationState NullableDoubleState state,
-                @SqlType(DOUBLE) double value)
-        {
-            // noop this is only for annotation testing puproses
-        }
-
-        @CombineFunction
-        public static void combine(
-                @AggregationState NullableDoubleState combine1,
-                @AggregationState NullableDoubleState combine2)
-        {
-            // noop this is only for annotation testing puproses
-        }
-
-        @OutputFunction(DOUBLE)
-        public static void output(@AggregationState NullableDoubleState state, BlockBuilder out)
-        {
-            // noop this is only for annotation testing puproses
-        }
-
-        @AggregationStateSerializerFactory(NullableDoubleState.class)
-        public static CustomSerializer createSerializer()
-        {
-            return new CustomSerializer();
-        }
-    }
-
-    @Test
-    public void testCustomStateSerializerAggregationParse()
-    {
-        ParametricAggregation aggregation = parseFunctionDefinition(CustomStateSerializerAggregationFunction.class);
-        AggregationImplementation implementation = getOnlyElement(aggregation.getImplementations().getExactImplementations().values());
-        assertTrue(implementation.getStateSerializerFactory().isPresent());
-
-        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().build(), 1, METADATA);
-        AccumulatorStateSerializer<?> createdSerializer = getOnlyElement(((LazyAccumulatorFactoryBinder) specialized.getAccumulatorFactoryBinder())
-                .getGenericAccumulatorFactoryBinder().getStateDescriptors()).getSerializer();
-        Class<?> serializerFactory = implementation.getStateSerializerFactory().get().type().returnType();
-        assertTrue(serializerFactory.isInstance(createdSerializer));
-    }
-
     @AggregationFunction(value = "custom_decomposable_aggregate", decomposable = false)
     @Description("Aggregate with Decomposable=false")
     public static final class NotDecomposableAggregationFunction
@@ -285,12 +228,6 @@ public class TestAnnotationEngineForAggregates
                 BlockBuilder out)
         {
             // noop this is only for annotation testing puproses
-        }
-
-        @AggregationStateSerializerFactory(NullableDoubleState.class)
-        public static AccumulatorStateSerializer<?> createSerializer()
-        {
-            return new CustomStateSerializerAggregationFunction.CustomSerializer();
         }
     }
 
@@ -387,7 +324,6 @@ public class TestAnnotationEngineForAggregates
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
         assertImplementationCount(implementations, 0, 0, 2);
         AggregationImplementation implementationDouble = implementations.getGenericImplementations().stream().filter(impl -> impl.getStateClass() == NullableDoubleState.class).collect(toImmutableList()).get(0);
-        assertFalse(implementationDouble.getStateSerializerFactory().isPresent());
         assertEquals(implementationDouble.getDefinitionClass(), GenericAggregationFunction.class);
         assertDependencyCount(implementationDouble, 0, 0, 0);
         assertFalse(implementationDouble.hasSpecializedTypeParameters());
@@ -396,7 +332,6 @@ public class TestAnnotationEngineForAggregates
         assertEquals(implementationDouble.getStateClass(), NullableDoubleState.class);
 
         AggregationImplementation implementationLong = implementations.getGenericImplementations().stream().filter(impl -> impl.getStateClass() == NullableLongState.class).collect(toImmutableList()).get(0);
-        assertFalse(implementationLong.getStateSerializerFactory().isPresent());
         assertEquals(implementationLong.getDefinitionClass(), GenericAggregationFunction.class);
         assertDependencyCount(implementationLong, 0, 0, 0);
         assertFalse(implementationLong.hasSpecializedTypeParameters());
@@ -458,7 +393,6 @@ public class TestAnnotationEngineForAggregates
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
         assertImplementationCount(implementations, 1, 0, 0);
         AggregationImplementation implementation = getOnlyElement(implementations.getExactImplementations().values());
-        assertFalse(implementation.getStateSerializerFactory().isPresent());
         assertEquals(implementation.getDefinitionClass(), BlockInputAggregationFunction.class);
         assertDependencyCount(implementation, 0, 0, 0);
         assertFalse(implementation.hasSpecializedTypeParameters());
@@ -724,7 +658,6 @@ public class TestAnnotationEngineForAggregates
         assertImplementationCount(implementations2, 1, 0, 0);
 
         AggregationImplementation implementation = getOnlyElement(implementations1.getExactImplementations().values());
-        assertFalse(implementation.getStateSerializerFactory().isPresent());
         assertEquals(implementation.getDefinitionClass(), MultiOutputAggregationFunction.class);
         assertDependencyCount(implementation, 0, 0, 0);
         assertFalse(implementation.hasSpecializedTypeParameters());
@@ -765,13 +698,6 @@ public class TestAnnotationEngineForAggregates
         {
             // noop this is only for annotation testing puproses
         }
-
-        @AggregationStateSerializerFactory(NullableDoubleState.class)
-        public static CustomStateSerializerAggregationFunction.CustomSerializer createSerializer(
-                @OperatorDependency(operator = LESS_THAN, argumentTypes = {DOUBLE, DOUBLE}) MethodHandle methodHandle)
-        {
-            return new CustomStateSerializerAggregationFunction.CustomSerializer();
-        }
     }
 
     @Test
@@ -790,17 +716,12 @@ public class TestAnnotationEngineForAggregates
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
 
         AggregationImplementation implementation = getOnlyElement(implementations.getExactImplementations().values());
-
-        assertTrue(implementation.getStateSerializerFactory().isPresent());
         assertEquals(implementation.getDefinitionClass(), InjectOperatorAggregateFunction.class);
-
         assertDependencyCount(implementation, 1, 1, 1);
-        assertEquals(implementation.getStateSerializerFactoryDependencies().size(), 1);
 
         assertTrue(implementation.getInputDependencies().get(0) instanceof OperatorImplementationDependency);
         assertTrue(implementation.getCombineDependencies().get(0) instanceof OperatorImplementationDependency);
         assertTrue(implementation.getOutputDependencies().get(0) instanceof OperatorImplementationDependency);
-        assertTrue(implementation.getStateSerializerFactoryDependencies().get(0) instanceof OperatorImplementationDependency);
 
         assertFalse(implementation.hasSpecializedTypeParameters());
         List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
@@ -842,13 +763,6 @@ public class TestAnnotationEngineForAggregates
         {
             // noop this is only for annotation testing puproses
         }
-
-        @AggregationStateSerializerFactory(NullableDoubleState.class)
-        public static CustomStateSerializerAggregationFunction.CustomSerializer createSerializer(
-                @TypeParameter("T") Type type)
-        {
-            return new CustomStateSerializerAggregationFunction.CustomSerializer();
-        }
     }
 
     @Test
@@ -871,17 +785,12 @@ public class TestAnnotationEngineForAggregates
 
         assertEquals(implementations.getGenericImplementations().size(), 1);
         AggregationImplementation implementation = implementations.getGenericImplementations().get(0);
-
-        assertTrue(implementation.getStateSerializerFactory().isPresent());
         assertEquals(implementation.getDefinitionClass(), InjectTypeAggregateFunction.class);
-
         assertDependencyCount(implementation, 1, 1, 1);
-        assertEquals(implementation.getStateSerializerFactoryDependencies().size(), 1);
 
         assertTrue(implementation.getInputDependencies().get(0) instanceof TypeImplementationDependency);
         assertTrue(implementation.getCombineDependencies().get(0) instanceof TypeImplementationDependency);
         assertTrue(implementation.getOutputDependencies().get(0) instanceof TypeImplementationDependency);
-        assertTrue(implementation.getStateSerializerFactoryDependencies().get(0) instanceof TypeImplementationDependency);
 
         assertFalse(implementation.hasSpecializedTypeParameters());
         List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
@@ -923,13 +832,6 @@ public class TestAnnotationEngineForAggregates
         {
             // noop this is only for annotation testing puproses
         }
-
-        @AggregationStateSerializerFactory(SliceState.class)
-        public static CustomStateSerializerAggregationFunction.CustomSerializer createSerializer(
-                @LiteralParameter("x") Long varcharSize)
-        {
-            return new CustomStateSerializerAggregationFunction.CustomSerializer();
-        }
     }
 
     @Test
@@ -949,17 +851,12 @@ public class TestAnnotationEngineForAggregates
 
         assertEquals(implementations.getGenericImplementations().size(), 1);
         AggregationImplementation implementation = implementations.getGenericImplementations().get(0);
-
-        assertTrue(implementation.getStateSerializerFactory().isPresent());
         assertEquals(implementation.getDefinitionClass(), InjectLiteralAggregateFunction.class);
-
         assertDependencyCount(implementation, 1, 1, 1);
-        assertEquals(implementation.getStateSerializerFactoryDependencies().size(), 1);
 
         assertTrue(implementation.getInputDependencies().get(0) instanceof LiteralImplementationDependency);
         assertTrue(implementation.getCombineDependencies().get(0) instanceof LiteralImplementationDependency);
         assertTrue(implementation.getOutputDependencies().get(0) instanceof LiteralImplementationDependency);
-        assertTrue(implementation.getStateSerializerFactoryDependencies().get(0) instanceof LiteralImplementationDependency);
 
         assertFalse(implementation.hasSpecializedTypeParameters());
         List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
@@ -1023,12 +920,8 @@ public class TestAnnotationEngineForAggregates
 
         assertEquals(implementations.getGenericImplementations().size(), 1);
         AggregationImplementation implementation = implementations.getGenericImplementations().get(0);
-
-        assertTrue(implementation.getStateSerializerFactory().isEmpty());
         assertEquals(implementation.getDefinitionClass(), LongConstraintAggregateFunction.class);
-
         assertDependencyCount(implementation, 0, 0, 0);
-        assertEquals(implementation.getStateSerializerFactoryDependencies().size(), 0);
 
         assertFalse(implementation.hasSpecializedTypeParameters());
         List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
@@ -1096,7 +989,6 @@ public class TestAnnotationEngineForAggregates
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
         assertImplementationCount(implementations, 1, 0, 0);
         AggregationImplementation implementationDouble = implementations.getExactImplementations().get(expectedSignature);
-        assertFalse(implementationDouble.getStateSerializerFactory().isPresent());
         assertEquals(implementationDouble.getDefinitionClass(), FixedTypeParameterInjectionAggregateFunction.class);
         assertDependencyCount(implementationDouble, 1, 1, 1);
         assertFalse(implementationDouble.hasSpecializedTypeParameters());
@@ -1162,7 +1054,6 @@ public class TestAnnotationEngineForAggregates
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
         assertImplementationCount(implementations, 0, 0, 1);
         AggregationImplementation implementationDouble = implementations.getGenericImplementations().stream().filter(impl -> impl.getStateClass() == NullableDoubleState.class).collect(toImmutableList()).get(0);
-        assertFalse(implementationDouble.getStateSerializerFactory().isPresent());
         assertEquals(implementationDouble.getDefinitionClass(), PartiallyFixedTypeParameterInjectionAggregateFunction.class);
         assertDependencyCount(implementationDouble, 1, 1, 1);
         assertFalse(implementationDouble.hasSpecializedTypeParameters());
