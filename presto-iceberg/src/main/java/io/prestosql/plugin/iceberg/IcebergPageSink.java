@@ -86,6 +86,7 @@ public class IcebergPageSink
     private final String outputPath;
     private final IcebergFileWriterFactory fileWriterFactory;
     private final HdfsEnvironment hdfsEnvironment;
+    private final HdfsContext hdfsContext;
     private final JobConf jobConf;
     private final JsonCodec<CommitTaskData> jsonCodec;
     private final ConnectorSession session;
@@ -117,7 +118,7 @@ public class IcebergPageSink
         this.outputPath = requireNonNull(outputPath, "outputPath is null");
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        requireNonNull(hdfsContext, "hdfsContext is null");
+        this.hdfsContext = requireNonNull(hdfsContext, "hdfsContext is null");
         this.jobConf = toJobConf(hdfsEnvironment.getConfiguration(hdfsContext, new Path(outputPath)));
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.session = requireNonNull(session, "session is null");
@@ -308,6 +309,7 @@ public class IcebergPageSink
                 outputSchema,
                 jobConf,
                 session,
+                hdfsContext,
                 fileFormat);
 
         return new WriteContext(writer, outputPath, partitionData);
