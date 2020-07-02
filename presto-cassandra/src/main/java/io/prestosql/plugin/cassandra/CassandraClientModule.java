@@ -122,13 +122,13 @@ public class CassandraClientModule
             loadPolicy = new TokenAwarePolicy(loadPolicy, config.isTokenAwareShuffleReplicas());
         }
 
-        if (config.isUseWhiteList()) {
-            checkArgument(!config.getWhiteListAddresses().isEmpty(), "empty WhiteListAddresses");
-            List<InetSocketAddress> whiteList = new ArrayList<>();
-            for (String point : config.getWhiteListAddresses()) {
-                whiteList.add(new InetSocketAddress(point, config.getNativeProtocolPort()));
+        if (!config.getAllowedAddresses().isEmpty()) {
+            checkArgument(!config.getAllowedAddresses().isEmpty(), "empty AllowListAddresses");
+            List<InetSocketAddress> allowList = new ArrayList<>();
+            for (String point : config.getAllowedAddresses()) {
+                allowList.add(new InetSocketAddress(point, config.getNativeProtocolPort()));
             }
-            loadPolicy = new WhiteListPolicy(loadPolicy, whiteList);
+            loadPolicy = new WhiteListPolicy(loadPolicy, allowList);
         }
 
         clusterBuilder.withLoadBalancingPolicy(loadPolicy);
