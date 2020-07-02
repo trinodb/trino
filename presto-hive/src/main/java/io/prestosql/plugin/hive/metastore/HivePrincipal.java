@@ -53,6 +53,11 @@ public class HivePrincipal
         return new HivePrincipal(PrincipalType.ROLE, role);
     }
 
+    private static HivePrincipal ofGroup(String group)
+    {
+        return new HivePrincipal(PrincipalType.GROUP, group);
+    }
+
     public static Set<HivePrincipal> from(Set<PrestoPrincipal> prestoPrincipals)
     {
         return prestoPrincipals.stream()
@@ -79,6 +84,9 @@ public class HivePrincipal
         }
         else if (type == PrincipalType.ROLE) {
             // In Hive role names are case insensitive
+            this.name = name.toLowerCase(ENGLISH);
+        }
+        else if (type == PrincipalType.GROUP) {
             this.name = name.toLowerCase(ENGLISH);
         }
         else {

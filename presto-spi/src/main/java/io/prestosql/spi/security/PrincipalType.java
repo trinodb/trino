@@ -15,5 +15,5 @@ package io.prestosql.spi.security;
 
 public enum PrincipalType
 {
-    USER, ROLE
+    USER, ROLE, GROUP
 }

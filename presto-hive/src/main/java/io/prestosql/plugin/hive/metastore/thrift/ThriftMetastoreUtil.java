@@ -104,11 +104,18 @@ import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createDeci
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createDoubleColumnStatistics;
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createIntegerColumnStatistics;
 import static io.prestosql.plugin.hive.metastore.HiveColumnStatistics.createStringColumnStatistics;
+import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.CREATE;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.DELETE;
+import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.DROP;
+import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.INDEX;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.INSERT;
+import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.LOCK;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.OWNERSHIP;
+import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.READ;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.SELECT;
 import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.UPDATE;
+import static io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege.WRITE;
+import static io.prestosql.spi.security.PrincipalType.GROUP;
 import static io.prestosql.spi.security.PrincipalType.ROLE;
 import static io.prestosql.spi.security.PrincipalType.USER;
 import static io.prestosql.spi.statistics.ColumnStatisticType.MAX_VALUE;
@@ -225,6 +232,8 @@ public final class ThriftMetastoreUtil
                 return org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
             case ROLE:
                 return org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
+            case GROUP:
+                return org.apache.hadoop.hive.metastore.api.PrincipalType.GROUP;
             default:
                 throw new IllegalArgumentException("Unsupported principal type: " + principalType);
         }
@@ -662,6 +671,8 @@ public final class ThriftMetastoreUtil
                 return org.apache.hadoop.hive.metastore.api.PrincipalType.USER;
             case ROLE:
                 return org.apache.hadoop.hive.metastore.api.PrincipalType.ROLE;
+            case GROUP:
+                return org.apache.hadoop.hive.metastore.api.PrincipalType.GROUP;
             default:
                 throw new IllegalArgumentException("Unsupported principal type: " + principalType);
         }
@@ -675,6 +686,8 @@ public final class ThriftMetastoreUtil
                 return USER;
             case ROLE:
                 return ROLE;
+            case GROUP:
+                return GROUP;
             default:
                 throw new IllegalArgumentException("Unsupported principal type: " + principalType);
         }
@@ -758,6 +771,18 @@ public final class ThriftMetastoreUtil
                 return ImmutableSet.of(new HivePrivilegeInfo(UPDATE, grantOption, grantor, grantee.orElse(grantor)));
             case "DELETE":
                 return ImmutableSet.of(new HivePrivilegeInfo(DELETE, grantOption, grantor, grantee.orElse(grantor)));
+            case "CREATE":
+                return ImmutableSet.of(new HivePrivilegeInfo(CREATE, grantOption, grantor, grantee.orElse(grantor)));
+            case "DROP":
+                return ImmutableSet.of(new HivePrivilegeInfo(DROP, grantOption, grantor, grantee.orElse(grantor)));
+            case "INDEX":
+                return ImmutableSet.of(new HivePrivilegeInfo(INDEX, grantOption, grantor, grantee.orElse(grantor)));
+            case "LOCK":
+                return ImmutableSet.of(new HivePrivilegeInfo(LOCK, grantOption, grantor, grantee.orElse(grantor)));
+            case "WRITE":
+                return ImmutableSet.of(new HivePrivilegeInfo(WRITE, grantOption, grantor, grantee.orElse(grantor)));
+            case "READ":
+                return ImmutableSet.of(new HivePrivilegeInfo(READ, grantOption, grantor, grantee.orElse(grantor)));
             case "OWNERSHIP":
                 return ImmutableSet.of(new HivePrivilegeInfo(OWNERSHIP, grantOption, grantor, grantee.orElse(grantor)));
             default:
