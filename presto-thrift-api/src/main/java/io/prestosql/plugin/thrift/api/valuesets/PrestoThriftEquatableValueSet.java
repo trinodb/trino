@@ -33,27 +33,27 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * A set containing values that are uniquely identifiable.
- * Assumes an infinite number of possible values. The values may be collectively included (aka whitelist)
- * or collectively excluded (aka !whitelist).
+ * Assumes an infinite number of possible values. The values may be collectively included
+ * or collectively excluded.
  * This structure is used with comparable, but not orderable types like "json", "map".
  */
 @ThriftStruct
 public final class PrestoThriftEquatableValueSet
 {
-    private final boolean whiteList;
+    private final boolean inclusive;
     private final List<PrestoThriftBlock> values;
 
     @ThriftConstructor
-    public PrestoThriftEquatableValueSet(boolean whiteList, List<PrestoThriftBlock> values)
+    public PrestoThriftEquatableValueSet(boolean inclusive, List<PrestoThriftBlock> values)
     {
-        this.whiteList = whiteList;
+        this.inclusive = inclusive;
         this.values = requireNonNull(values, "values are null");
     }
 
     @ThriftField(1)
-    public boolean isWhiteList()
+    public boolean isInclusive()
     {
-        return whiteList;
+        return inclusive;
     }
 
     @ThriftField(2)
@@ -72,21 +72,21 @@ public final class PrestoThriftEquatableValueSet
             return false;
         }
         PrestoThriftEquatableValueSet other = (PrestoThriftEquatableValueSet) obj;
-        return this.whiteList == other.whiteList &&
+        return this.inclusive == other.inclusive &&
                 Objects.equals(this.values, other.values);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(whiteList, values);
+        return Objects.hash(inclusive, values);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("whiteList", whiteList)
+                .add("inclusive", inclusive)
                 .add("values", values)
                 .toString();
     }
@@ -100,6 +100,6 @@ public final class PrestoThriftEquatableValueSet
             checkState(type.equals(value.getType()), "ValueEntrySet has elements of different types: %s vs %s", type, value.getType());
             thriftValues.add(fromBlock(value.getBlock(), type));
         }
-        return new PrestoThriftEquatableValueSet(valueSet.isWhiteList(), thriftValues);
+        return new PrestoThriftEquatableValueSet(valueSet.inclusive(), thriftValues);
     }
 }

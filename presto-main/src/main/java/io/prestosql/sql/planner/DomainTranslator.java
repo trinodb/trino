@@ -283,7 +283,7 @@ public final class DomainTranslator
             predicate = new InPredicate(reference, new InListExpression(values));
         }
 
-        if (!discreteValues.isWhiteList()) {
+        if (!discreteValues.isInclusive()) {
             predicate = new NotExpression(predicate);
         }
         return ImmutableList.of(predicate);
