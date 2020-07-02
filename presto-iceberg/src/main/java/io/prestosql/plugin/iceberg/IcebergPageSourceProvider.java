@@ -184,11 +184,9 @@ public class IcebergPageSourceProvider
     {
         switch (fileFormat) {
             case ORC:
-                FileSystem fileSystem = null;
                 FileStatus fileStatus = null;
                 try {
-                    fileSystem = hdfsEnvironment.getFileSystem(hdfsContext, path);
-                    fileStatus = fileSystem.getFileStatus(path);
+                    fileStatus = hdfsEnvironment.doAs(session.getUser(), () -> hdfsEnvironment.getFileSystem(hdfsContext, path).getFileStatus(path));
                 }
                 catch (IOException e) {
                     throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, e);
@@ -358,11 +356,11 @@ public class IcebergPageSourceProvider
         ParquetDataSource dataSource = null;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(user, path, configuration);
-            FileStatus fileStatus = fileSystem.getFileStatus(path);
+            FileStatus fileStatus = hdfsEnvironment.doAs(user, () -> fileSystem.getFileStatus(path));
             long fileSize = fileStatus.getLen();
             FSDataInputStream inputStream = hdfsEnvironment.doAs(user, () -> fileSystem.open(path));
             dataSource = buildHdfsParquetDataSource(inputStream, path, fileSize, fileFormatDataSourceStats, options);
-            ParquetMetadata parquetMetadata = MetadataReader.readFooter(fileSystem, path, fileSize);
+            ParquetMetadata parquetMetadata = hdfsEnvironment.doAs(user, () -> MetadataReader.readFooter(fileSystem, path, fileSize));
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();
             MessageType fileSchema = fileMetaData.getSchema();
 

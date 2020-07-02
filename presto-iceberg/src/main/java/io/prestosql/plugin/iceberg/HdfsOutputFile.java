@@ -17,48 +17,60 @@ import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.fs.Path;
-import org.apache.iceberg.io.FileIO;
+import org.apache.iceberg.hadoop.HadoopOutputFile;
 import org.apache.iceberg.io.InputFile;
 import org.apache.iceberg.io.OutputFile;
+import org.apache.iceberg.io.PositionOutputStream;
 
 import java.io.IOException;
 
 import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_FILESYSTEM_ERROR;
 import static java.util.Objects.requireNonNull;
 
-public class HdfsFileIo
-        implements FileIO
+public class HdfsOutputFile
+        implements OutputFile
 {
+    private final OutputFile delegate;
+    private final Path path;
     private final HdfsEnvironment environment;
     private final HdfsContext context;
+    private final String user;
 
-    public HdfsFileIo(HdfsEnvironment environment, HdfsContext context)
+    public HdfsOutputFile(Path path, HdfsEnvironment environment, HdfsContext context)
     {
+        this.path = requireNonNull(path, "path is null");
         this.environment = requireNonNull(environment, "environment is null");
         this.context = requireNonNull(context, "context is null");
-    }
-
-    @Override
-    public InputFile newInputFile(String path)
-    {
-        return new HdfsInputFile(new Path(path), environment, context);
-    }
-
-    @Override
-    public OutputFile newOutputFile(String path)
-    {
-        return new HdfsOutputFile(new Path(path), environment, context);
-    }
-
-    @Override
-    public void deleteFile(String pathString)
-    {
-        Path path = new Path(pathString);
         try {
-            environment.doAs(context.getIdentity().getUser(), () -> environment.getFileSystem(context, path).delete(path, false));
+            this.delegate = HadoopOutputFile.fromPath(path, environment.getFileSystem(context, path), environment.getConfiguration(context, path));
         }
         catch (IOException e) {
-            throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, "Failed to delete file: " + path, e);
+            throw new PrestoException(ICEBERG_FILESYSTEM_ERROR, "Failed to create output file: " + path.toString(), e);
         }
+        this.user = context.getIdentity().getUser();
+    }
+
+    @Override
+    public PositionOutputStream create()
+    {
+        return environment.doAs(user, delegate::create);
+    }
+
+    @Override
+    public PositionOutputStream createOrOverwrite()
+    {
+        return environment.doAs(user, delegate::createOrOverwrite);
+    }
+
+    @Override
+    public String location()
+    {
+        return delegate.location();
+    }
+
+    @Override
+    public InputFile toInputFile()
+    {
+        return new HdfsInputFile(path, environment, context);
     }
 }
