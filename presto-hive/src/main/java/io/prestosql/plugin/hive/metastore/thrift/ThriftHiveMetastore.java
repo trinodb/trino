@@ -1802,7 +1802,7 @@ public class ThriftHiveMetastore
         throw propagate(firstException);
     }
 
-    // TODO instead of whitelisting exceptions we propagate we should recognize exceptions which we suppress and try different alternative call
+    // TODO we should recognize exceptions which we suppress and try different alternative call
     // this requires product tests with HDP 3
     private static boolean defaultIsValidExceptionalResponse(Exception exception)
     {
