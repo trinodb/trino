@@ -83,7 +83,6 @@ class SnowflakeDistributedModule
                 .in(Scopes.SINGLETON);
     }
 
-    @Inject
     @Provides
     @Singleton
     public ConnectorPageSourceProvider createConnectorPageSourceProvider(SnowflakePageSourceProvider snowflakePageSourceProvider)
