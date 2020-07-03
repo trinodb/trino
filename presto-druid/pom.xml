@@ -42,7 +42,7 @@
         <dependency>
             <groupId>org.apache.calcite.avatica</groupId>
             <artifactId>avatica-core</artifactId>
-            <version>1.16.0</version>
+            <version>1.17.0</version>
             <!-- Excluded as they bring in duplicate classes -->
             <exclusions>
                 <exclusion>
