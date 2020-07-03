@@ -25,10 +25,8 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public final class KafkaColumnHandle
-        implements DecoderColumnHandle, Comparable<KafkaColumnHandle>
+        implements DecoderColumnHandle
 {
-    private final int ordinalPosition;
-
     /**
      * Column Name
      */
@@ -71,7 +69,6 @@ public final class KafkaColumnHandle
 
     @JsonCreator
     public KafkaColumnHandle(
-            @JsonProperty("ordinalPosition") int ordinalPosition,
             @JsonProperty("name") String name,
             @JsonProperty("type") Type type,
             @JsonProperty("mapping") String mapping,
@@ -81,7 +78,6 @@ public final class KafkaColumnHandle
             @JsonProperty("hidden") boolean hidden,
             @JsonProperty("internal") boolean internal)
     {
-        this.ordinalPosition = ordinalPosition;
         this.name = requireNonNull(name, "name is null");
         this.type = requireNonNull(type, "type is null");
         this.mapping = mapping;
@@ -90,12 +86,6 @@ public final class KafkaColumnHandle
         this.keyDecoder = keyDecoder;
         this.hidden = hidden;
         this.internal = internal;
-    }
-
-    @JsonProperty
-    public int getOrdinalPosition()
-    {
-        return ordinalPosition;
     }
 
     @Override
@@ -164,7 +154,7 @@ public final class KafkaColumnHandle
     @Override
     public int hashCode()
     {
-        return Objects.hash(ordinalPosition, name, type, mapping, dataFormat, formatHint, keyDecoder, hidden, internal);
+        return Objects.hash(name, type, mapping, dataFormat, formatHint, keyDecoder, hidden, internal);
     }
 
     @Override
@@ -178,8 +168,7 @@ public final class KafkaColumnHandle
         }
 
         KafkaColumnHandle other = (KafkaColumnHandle) obj;
-        return Objects.equals(this.ordinalPosition, other.ordinalPosition) &&
-                Objects.equals(this.name, other.name) &&
+        return Objects.equals(this.name, other.name) &&
                 Objects.equals(this.type, other.type) &&
                 Objects.equals(this.mapping, other.mapping) &&
                 Objects.equals(this.dataFormat, other.dataFormat) &&
@@ -190,16 +179,9 @@ public final class KafkaColumnHandle
     }
 
     @Override
-    public int compareTo(KafkaColumnHandle otherHandle)
-    {
-        return Integer.compare(this.getOrdinalPosition(), otherHandle.getOrdinalPosition());
-    }
-
-    @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("ordinalPosition", ordinalPosition)
                 .add("name", name)
                 .add("type", type)
                 .add("mapping", mapping)
