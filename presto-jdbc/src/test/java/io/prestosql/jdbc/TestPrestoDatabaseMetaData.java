@@ -162,6 +162,27 @@ public class TestPrestoDatabaseMetaData
     }
 
     @Test
+    public void testGetClientInfoProperties()
+            throws Exception
+    {
+        DatabaseMetaData metaData = connection.getMetaData();
+
+        try (ResultSet resultSet = metaData.getClientInfoProperties()) {
+            assertResultSet(resultSet)
+                    .hasColumnCount(4)
+                    .hasColumn(1, "NAME", Types.VARCHAR)
+                    .hasColumn(2, "MAX_LEN", Types.INTEGER)
+                    .hasColumn(3, "DEFAULT_VALUE", Types.VARCHAR)
+                    .hasColumn(4, "DESCRIPTION", Types.VARCHAR)
+                    .hasRows((list(
+                            list("ApplicationName", Integer.MAX_VALUE, null, null),
+                            list("ClientInfo", Integer.MAX_VALUE, null, null),
+                            list("ClientTags", Integer.MAX_VALUE, null, null),
+                            list("TraceToken", Integer.MAX_VALUE, null, null))));
+        }
+    }
+
+    @Test
     public void testPassEscapeInMetaDataQuery()
             throws Exception
     {
@@ -1437,5 +1458,42 @@ public class TestPrestoDatabaseMetaData
     {
         T apply(DatabaseMetaData metaData)
                 throws SQLException;
+    }
+
+    private static ResultSetAssert assertResultSet(ResultSet resultSet)
+    {
+        return new ResultSetAssert(resultSet);
+    }
+
+    private static class ResultSetAssert
+    {
+        private final ResultSet resultSet;
+
+        public ResultSetAssert(ResultSet resultSet)
+        {
+            this.resultSet = requireNonNull(resultSet, "resultSet is null");
+        }
+
+        public ResultSetAssert hasColumnCount(int expectedColumnCount)
+                throws SQLException
+        {
+            assertThat(resultSet.getMetaData().getColumnCount()).isEqualTo(expectedColumnCount);
+            return this;
+        }
+
+        public ResultSetAssert hasColumn(int columnIndex, String name, int sqlType)
+                throws SQLException
+        {
+            assertThat(resultSet.getMetaData().getColumnName(columnIndex)).isEqualTo(name);
+            assertThat(resultSet.getMetaData().getColumnType(columnIndex)).isEqualTo(sqlType);
+            return this;
+        }
+
+        public ResultSetAssert hasRows(List<List<?>> expected)
+                throws SQLException
+        {
+            assertThat(readRows(resultSet)).isEqualTo(expected);
+            return this;
+        }
     }
 }
