@@ -16,7 +16,7 @@ package io.prestosql.jdbc;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultiset;
-import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multiset;
 import io.airlift.log.Logging;
 import io.prestosql.plugin.blackhole.BlackHolePlugin;
 import io.prestosql.plugin.hive.HiveHadoop2Plugin;
@@ -568,8 +568,8 @@ public class TestPrestoDatabaseMetaData
 
                     try (ResultSet rs = connection.getMetaData().getTables("hive", "default", "test_%", types.toArray(new String[0]))) {
                         assertTableMetadata(rs);
-                        Set<List<Object>> rows = ImmutableSet.copyOf(readRows(rs));
-                        assertThat(rows).containsExactlyInAnyOrder(expected.toArray(new List[0]));
+                        Multiset<List<Object>> rows = ImmutableMultiset.copyOf(readRows(rs));
+                        assertThat(rows).isEqualTo(ImmutableMultiset.copyOf(expected));
                     }
                 }
             }
