@@ -104,7 +104,6 @@ public final class KafkaTopicFieldDescription
     KafkaColumnHandle getColumnHandle(boolean keyDecoder, int index)
     {
         return new KafkaColumnHandle(
-                index,
                 getName(),
                 getType(),
                 getMapping(),
