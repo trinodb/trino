@@ -533,9 +533,14 @@ public class PrestoConnection
         return schema.get();
     }
 
+    ZoneId getTimeZone()
+    {
+        return timeZoneId.get();
+    }
+
     public String getTimeZoneId()
     {
-        return timeZoneId.get().getId();
+        return getTimeZone().getId();
     }
 
     public void setTimeZoneId(String timeZoneId)
