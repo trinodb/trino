@@ -19,6 +19,8 @@ import io.prestosql.plugin.base.util.LoggingInvocationHandler;
 import io.prestosql.plugin.base.util.LoggingInvocationHandler.AirliftParameterNamesProvider;
 import io.prestosql.plugin.base.util.LoggingInvocationHandler.ParameterNamesProvider;
 import org.apache.hadoop.hive.common.ValidTxnList;
+import org.apache.hadoop.hive.metastore.api.AbortTxnRequest;
+import org.apache.hadoop.hive.metastore.api.AllocateTableWriteIdsRequest;
 import org.apache.hadoop.hive.metastore.api.CheckLockRequest;
 import org.apache.hadoop.hive.metastore.api.ClientCapabilities;
 import org.apache.hadoop.hive.metastore.api.ClientCapability;
@@ -54,6 +56,7 @@ import org.apache.hadoop.hive.metastore.api.RolePrincipalGrant;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.metastore.api.TableStatsRequest;
 import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
+import org.apache.hadoop.hive.metastore.api.TxnToWriteId;
 import org.apache.hadoop.hive.metastore.txn.TxnUtils;
 import org.apache.thrift.TException;
 import org.apache.thrift.protocol.TBinaryProtocol;
@@ -462,6 +465,13 @@ public class ThriftHiveMetastoreClient
     }
 
     @Override
+    public void abortTransaction(long transactionId)
+            throws TException
+    {
+        client.abort_txn(new AbortTxnRequest(transactionId));
+    }
+
+    @Override
     public void sendTransactionHeartbeat(long transactionId)
             throws TException
     {
@@ -510,5 +520,15 @@ public class ThriftHiveMetastoreClient
             throws TException
     {
         return client.get_delegation_token(userName, userName);
+    }
+
+    // Only for product tests, Presto does not support writing to Hive transactional tables yet.
+    @Override
+    public List<TxnToWriteId> allocateTableWriteIds(String database, String tableName, List<Long> transactionIds)
+            throws TException
+    {
+        AllocateTableWriteIdsRequest request = new AllocateTableWriteIdsRequest(database, tableName);
+        request.setTxnIds(transactionIds);
+        return client.allocate_table_write_ids(request).getTxnToWriteIds();
     }
 }
