@@ -113,7 +113,8 @@ public class TestFeaturesConfig
                 .setDynamicFilteringMaxPerDriverRowCount(100)
                 .setDynamicFilteringMaxPerDriverSize(DataSize.of(10, KILOBYTE))
                 .setIgnoreDownstreamPreferences(false)
-                .setOmitDateTimeTypePrecision(false));
+                .setOmitDateTimeTypePrecision(false)
+                .setIterativeRuleBasedColumnPruning(true));
     }
 
     @Test
@@ -189,6 +190,7 @@ public class TestFeaturesConfig
                 .put("dynamic-filtering-max-per-driver-size", "64kB")
                 .put("optimizer.ignore-downstream-preferences", "true")
                 .put("deprecated.omit-datetime-type-precision", "true")
+                .put("optimizer.iterative-rule-based-column-pruning", "false")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -260,7 +262,8 @@ public class TestFeaturesConfig
                 .setDynamicFilteringMaxPerDriverRowCount(256)
                 .setDynamicFilteringMaxPerDriverSize(DataSize.of(64, KILOBYTE))
                 .setIgnoreDownstreamPreferences(true)
-                .setOmitDateTimeTypePrecision(true);
+                .setOmitDateTimeTypePrecision(true)
+                .setIterativeRuleBasedColumnPruning(false);
         assertFullMapping(properties, expected);
     }
 }
