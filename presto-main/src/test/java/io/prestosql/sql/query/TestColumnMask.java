@@ -348,7 +348,7 @@ public class TestColumnMask
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "$$$"));
 
         assertThatThrownBy(() -> assertions.query("SELECT orderkey FROM orders"))
-            .hasMessageMatching("\\Qline 1:22: Invalid column mask for 'local.tiny.orders.orderkey': mismatched input '$'. Expecting: <expression>\\E");
+                .hasMessageMatching("\\Qline 1:22: Invalid column mask for 'local.tiny.orders.orderkey': mismatched input '$'. Expecting: <expression>\\E");
 
         // unknown column
         accessControl.reset();

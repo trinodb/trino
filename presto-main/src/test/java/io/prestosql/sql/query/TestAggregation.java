@@ -50,7 +50,7 @@ public class TestAggregation
                 .hasMessageContaining("must be an aggregate expression or appear in GROUP BY clause");
 
         assertThat(assertions.query("SELECT count_if(v > ALL (VALUES 0, 1)) FROM (VALUES (1, 1), (1, 2)) t(k, v) GROUP BY k"))
-            .matches("VALUES BIGINT '1'");
+                .matches("VALUES BIGINT '1'");
 
         assertThat(assertions.query("SELECT count_if(v > ANY (VALUES 0, 1)) FROM (VALUES (1, 1), (1, 2)) t(k, v) GROUP BY k"))
                 .matches("VALUES BIGINT '2'");
