@@ -38,24 +38,30 @@ public class TestSalesforceBasicAuthenticator
     private String successResponse;
     private String failedResponse;
     private SalesforceConfig config;
+    private boolean forReal;
 
     @BeforeSuite
     void initOnce()
     {
         successResponse = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns=\"urn:partner.soap.sforce.com\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"><soapenv:Body><loginResponse><result><metadataServerUrl>https://d360-test-123.my.salesforce.com/services/Soap/m/46.0/00D3k000000tr3G</metadataServerUrl><passwordExpired>false</passwordExpired><sandbox>false</sandbox><serverUrl>https://d360-test-123.my.salesforce.com/services/Soap/u/46.0/00D3k000000tr3G</serverUrl><sessionId>00D3k000000tr3G!AQEAQIjDc300gIJ969brMw03trgRdbIiCcNfFf9s7nvrzajcuvAkHP6vAXp2iw0V7hj0yG2WDRcdF5yfuH28uuQ6VtW9bQiv</sessionId><userId>0053k00000B3GjcAAF</userId><userInfo><accessibilityMode>false</accessibilityMode><chatterExternal>false</chatterExternal><currencySymbol>$</currencySymbol><orgAttachmentFileSizeLimit>5242880</orgAttachmentFileSizeLimit><orgDefaultCurrencyIsoCode>USD</orgDefaultCurrencyIsoCode><orgDefaultCurrencyLocale>en_US</orgDefaultCurrencyLocale><orgDisallowHtmlAttachments>false</orgDisallowHtmlAttachments><orgHasPersonAccounts>true</orgHasPersonAccounts><organizationId>%s</organizationId><organizationMultiCurrency>false</organizationMultiCurrency><organizationName>D360-3</organizationName><profileId>00e3k000001b389AAA</profileId><roleId>00E3k000001cJwSEAU</roleId><sessionSecondsValid>7200</sessionSecondsValid><userDefaultCurrencyIsoCode xsi:nil=\"true\"/><userEmail>bweissler@salesforce.com</userEmail><userFullName>Brian Weissler</userFullName><userId>0053k00000B3GjcAAF</userId><userLanguage>en_US</userLanguage><userLocale>en_US</userLocale><userName>%s</userName><userTimeZone>America/Chicago</userTimeZone><userType>Standard</userType><userUiSkin>Theme3</userUiSkin></userInfo></result></loginResponse></soapenv:Body></soapenv:Envelope>";
         failedResponse = "<?xml version=\"1.0\" encoding=\"UTF-8\"?><soapenv:Envelope xmlns:soapenv=\"http://schemas.xmlsoap.org/soap/envelope/\" xmlns:sf=\"urn:fault.partner.soap.sforce.com\" xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"><soapenv:Body><soapenv:Fault><faultcode>sf:INVALID_LOGIN</faultcode><faultstring>INVALID_LOGIN: Invalid username, password, security token; or user locked out.</faultstring><detail><sf:LoginFault xsi:type=\"sf:LoginFault\"><sf:exceptionCode>INVALID_LOGIN</sf:exceptionCode><sf:exceptionMessage>Invalid username, password, security token; or user locked out.</sf:exceptionMessage></sf:LoginFault></detail></soapenv:Fault></soapenv:Body></soapenv:Envelope>";
+        forReal = false;
+        String forRealEnvVar = System.getenv("SALESFORCE_TEST_FORREAL");
+        if (forRealEnvVar != null && forRealEnvVar.equalsIgnoreCase("TRUE")) {
+            forReal = true;
+        }
     }
 
     @Test
     public void createAuthenticatedPrincipal_success()
             throws InterruptedException
     {
-        org = "00d3k000000tr3geaq";  // As if from salesforce.org property.
+        org = "my18CharOrgId";  // As if from salesforce.org property.
         username = "user@salesforce.com";
-        password = "pass";
+        password = "passtoken";
 
         config = new SalesforceConfig()
-                .setOrg(org)
+                .setOrgs(org)
                 .setCacheExpireSeconds(1); // Test cache timeout.
 
         String xmlResponse = String.format(successResponse, org, username);
@@ -77,12 +83,12 @@ public class TestSalesforceBasicAuthenticator
     @Test(expectedExceptions = AccessDeniedException.class)
     public void createAuthenticatedPrincipal_wrongOrg()
     {
-        org = "00d3k000000tr3geaq";  // As if from salesforce.org property.
+        org = "my18CharOrgId";  // As if from salesforce.org property.
         username = "user@salesforce.com";
-        password = "pass";
+        password = "passtoken";
 
         config = new SalesforceConfig()
-                .setOrg(org);
+                .setOrgs(org);
 
         final String xmlResponse = String.format(successResponse, "NotMyOrg", username);
 
@@ -91,38 +97,59 @@ public class TestSalesforceBasicAuthenticator
         authenticator.createAuthenticatedPrincipal(username, password);
     }
 
-    @Test
-    public void createAuthenticatedPrincipal_noOrg()
-    {
-        org = "00d3k000000tr3geaq";  // As if from salesforce.org property.
-        username = "user@salesforce.com";
-        password = "pass";
-
-        config = new SalesforceConfig();
-
-        final String xmlResponse = String.format(successResponse, "NotMyOrg", username);
-
-        testHttpClient = new TestingHttpClient((request -> mockResponse(HttpStatus.OK, MediaType.ANY_TEXT_TYPE, xmlResponse)));
-        SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);
-        Principal principal = authenticator.createAuthenticatedPrincipal(username, password);
-        assertEquals(principal.getName(), username, "Test without org check.");
-    }
-
     @Test(expectedExceptions = AccessDeniedException.class)
     public void createAuthenticatedPrincipal_badPass()
     {
-        org = "00d3k000000tr3geaq";  // As if from salesforce.org property.
+        org = "my18CharOrgId";  // As if from salesforce.org property.
         username = "user@salesforce.com";
-        password = "pass";
+        password = "passtoken";
 
         config = new SalesforceConfig()
-                .setOrg(org);
+                .setOrgs(org);
 
         final String xmlResponse = failedResponse;
 
         testHttpClient = new TestingHttpClient((request -> mockResponse(HttpStatus.INTERNAL_SERVER_ERROR, MediaType.ANY_TEXT_TYPE, xmlResponse)));
         SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);
         Principal principal = authenticator.createAuthenticatedPrincipal(username, password);
+    }
+
+    @Test
+    public void createAuthenticatedPrincipalAllOrgs()
+    {
+        org = "all";  // As if from salesforce.org property.
+        username = "user@salesforce.com";
+        password = "passtoken";
+
+        config = new SalesforceConfig()
+                .setOrgs(org);
+
+        String xmlResponse = String.format(successResponse, "some18CharOrgId", username);
+
+        testHttpClient = new TestingHttpClient((request -> mockResponse(HttpStatus.OK, MediaType.ANY_TEXT_TYPE, xmlResponse)));
+        SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);
+
+        Principal principal = authenticator.createAuthenticatedPrincipal(username, password);
+        assertEquals(principal.getName(), username, "Test allowing all orgs.");
+    }
+
+    @Test
+    public void createAuthenticatedPrincipalFewOrgs()
+    {
+        org = "my18CharOrgId,your18CharOrgId, his18CharOrgId ,her18CharOrgId";  // As if from salesforce.org property.
+        username = "user@salesforce.com";
+        password = "passtoken";
+
+        config = new SalesforceConfig()
+                .setOrgs(org);
+
+        String xmlResponse = String.format(successResponse, "my18CharOrgId", username);
+
+        testHttpClient = new TestingHttpClient((request -> mockResponse(HttpStatus.OK, MediaType.ANY_TEXT_TYPE, xmlResponse)));
+        SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);
+
+        Principal principal = authenticator.createAuthenticatedPrincipal(username, password);
+        assertEquals(principal.getName(), username, "Test allowing a few orgs.");
     }
 
     /*
@@ -142,7 +169,7 @@ public class TestSalesforceBasicAuthenticator
     void createAuthenticatedPrincipal_realSuccess()
     {
         // Skip this test if SALESFORCE_TEST_FORREAL is not set to TRUE.
-        if (!System.getenv("SALESFORCE_TEST_FORREAL").equalsIgnoreCase("TRUE")) {
+        if (!forReal) {
             throw new SkipException("Skipping real tests.");
         }
 
@@ -157,7 +184,7 @@ public class TestSalesforceBasicAuthenticator
         }
 
         config = new SalesforceConfig()
-                .setOrg(org);
+                .setOrgs(org);
         testHttpClient = new JettyHttpClient();
         SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);
 
@@ -170,7 +197,7 @@ public class TestSalesforceBasicAuthenticator
     void createAuthenticatedPrincipal_realWrongOrg()
     {
         // Skip this test if SALESFORCE_TEST_FORREAL is not set to TRUE.
-        if (!System.getenv("SALESFORCE_TEST_FORREAL").equalsIgnoreCase("TRUE")) {
+        if (!forReal) {
             throw new SkipException("Skipping real tests.");
         }
 
@@ -182,7 +209,7 @@ public class TestSalesforceBasicAuthenticator
 
         org = "NotMyOrg";
         config = new SalesforceConfig()
-                .setOrg(org);
+                .setOrgs(org);
         testHttpClient = new JettyHttpClient();
         SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);
 
@@ -194,7 +221,7 @@ public class TestSalesforceBasicAuthenticator
     void createAuthenticatedPrincipal_realNoOrg()
     {
         // Skip this test if SALESFORCE_TEST_FORREAL is not set to TRUE.
-        if (!System.getenv("SALESFORCE_TEST_FORREAL").equalsIgnoreCase("TRUE")) {
+        if (!forReal) {
             throw new SkipException("Skipping real tests.");
         }
 
@@ -218,7 +245,7 @@ public class TestSalesforceBasicAuthenticator
     void createAuthenticatedPrincipal_realBadPassword()
     {
         // Skip this test if SALESFORCE_TEST_FORREAL is not set to TRUE.
-        if (!System.getenv("SALESFORCE_TEST_FORREAL").equalsIgnoreCase("TRUE")) {
+        if (!forReal) {
             throw new SkipException("Skipping real tests.");
         }
 
@@ -233,7 +260,7 @@ public class TestSalesforceBasicAuthenticator
         }
 
         config = new SalesforceConfig()
-                .setOrg(org);
+                .setOrgs(org);
         testHttpClient = new JettyHttpClient();
         SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);
         authenticator.createAuthenticatedPrincipal(username, "NotMyPassword");

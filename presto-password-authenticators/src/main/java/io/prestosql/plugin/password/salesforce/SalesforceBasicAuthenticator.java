@@ -42,7 +42,9 @@ import java.io.StringReader;
 import java.net.URI;
 import java.security.Principal;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
@@ -65,16 +67,20 @@ public class SalesforceBasicAuthenticator
 {
     private static final Logger log = Logger.get(SalesforceBasicAuthenticator.class);
 
-    private final String org;                                   // Salesforce org, which users must belong to in order to authN.
+    private Set<String> orgs;                                   // Comma separated list of Salesforce org, which users must belong to in order to authN.
     private Map<String, String> responseMap = new HashMap<>();  // A flattened map of xml elements from the Salesforce login response.
     private String key = "";                                    // Will hold the xml element tag, we can add to the map with its text attribute.
     private final HttpClient httpClient;                        // An http client for posting to the Salesforce login endpoint.
     private final LoadingCache<Credential, Principal> userCache;
 
+    private final Locale locale = Locale.US;                    // Tested API request and response for user with Japanese locale and language preference,
+    // and responses are English, and organization id is not in Japaneses characters (this is
+    // also true of the organization id in the UI, even with other text showing in Japanese).
+
     @Inject
     public SalesforceBasicAuthenticator(SalesforceConfig config, @SalesforceAuthenticationClient HttpClient httpClient)
     {
-        this.org = config.getOrg();
+        this.orgs = config.getOrgSet();
         this.httpClient = httpClient;
 
         this.userCache = CacheBuilder.newBuilder()
@@ -147,7 +153,8 @@ public class SalesforceBasicAuthenticator
         if (returnedOrg == null || returnedOrg.length() == 0) {
             throw new RuntimeException("Can't find organizationId in Salesforce login response.");
         }
-        if (org != null && !returnedOrg.equalsIgnoreCase(org)) {
+        // If the only entry in the set is "all", don't bother to check, otherwise make sure the returned org is in the set.
+        if (!(orgs.size() == 1 && orgs.contains("all")) && !orgs.contains(returnedOrg.toLowerCase(locale))) {
             throw new AccessDeniedException(String.format(
                     "Login successful, but for wrong Salesforce org.  Got %s, but expected a different org.",
                     returnedOrg));

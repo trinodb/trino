@@ -19,6 +19,10 @@ import io.airlift.log.Logger;
 
 import javax.validation.constraints.NotNull;
 
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.Set;
+
 public class SalesforceConfig
 {
     private static final Logger log = Logger.get(SalesforceConfig.class);
@@ -45,21 +49,42 @@ public class SalesforceConfig
             "</env:Envelope>\n";
 
     public static final int MAX_EXPIRE = 3600;
-    private String org;
     private int cacheSize = 4096;
     private int cacheExpireSeconds = 120;
+    private String orgs;
+
+    private final Locale locale = Locale.US;    // Tested API request and response for user with Japanese locale and language preference,
+    // and responses are English, and organization id is not in Japaneses characters (this is
+    // also true of the organization id in the UI, even with other text showing in Japanese).
 
     @NotNull
-    public String getOrg()
+    public String getOrgs()
     {
-        return org;
+        return orgs;
+    }
+
+    public Set<String> getOrgSet()
+    {
+        Set<String> tmp = new HashSet<>();
+        if (orgs == null) {
+            orgs = "";
+        }
+        String[] orgsSplit = orgs.split("[,;]");
+        for (String s : orgsSplit) {
+            tmp.add(s.toLowerCase(locale).trim());
+        }
+
+        return tmp;
     }
 
     @Config("salesforce.org")
-    @ConfigDescription("Salesforce 18 Character OrgId.")
-    public SalesforceConfig setOrg(String org)
+    @ConfigDescription("Comma separated list of Salesforce 18 Character OrgId.")
+    public SalesforceConfig setOrgs(String orgs)
     {
-        this.org = org;
+        this.orgs = orgs;
+        if (orgs == null || orgs.length() == 0) {
+            throw new RuntimeException("Must set salesforce.org with one or more Salesforce 18 char OrgId's, or \"all\".");
+        }
         return this;
     }
 

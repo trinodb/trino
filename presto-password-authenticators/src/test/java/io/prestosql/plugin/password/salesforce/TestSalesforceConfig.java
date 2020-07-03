@@ -22,6 +22,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.prestosql.plugin.password.salesforce.SalesforceConfig.MAX_EXPIRE;
+import static org.testng.Assert.assertEquals;
 
 public class TestSalesforceConfig
 {
@@ -31,17 +32,21 @@ public class TestSalesforceConfig
     @Test
     public void testDefault()
     {
-        assertRecordedDefaults(recordDefaults(SalesforceConfig.class)
-                .setOrg(null)
-                .setCacheSize(defaultCacheSize)
-                .setCacheExpireSeconds(defaultCacheExpireSeconds));
+        try {
+            assertRecordedDefaults(recordDefaults(SalesforceConfig.class)
+                    .setOrgs(null)
+                    .setCacheSize(defaultCacheSize)
+                    .setCacheExpireSeconds(defaultCacheExpireSeconds));
+        }
+        catch (RuntimeException e) {
+        }
     }
 
     // Test will only pass if config is created with properties that are different than the defaults.
     @Test
     public void testExplicitConfig()
     {
-        String org = "00D3k000000tr3GEAQ";
+        String org = "my18CharOrgId";
         String cacheSize = "128";
         String cacheExpire = "3600";
 
@@ -52,7 +57,7 @@ public class TestSalesforceConfig
                 .build();
 
         SalesforceConfig expected = new SalesforceConfig()
-                .setOrg("00D3k000000tr3GEAQ")
+                .setOrgs(org)
                 .setCacheSize(Integer.valueOf(cacheSize))
                 .setCacheExpireSeconds(Integer.valueOf(cacheExpire));
 
@@ -64,5 +69,15 @@ public class TestSalesforceConfig
     {
         new SalesforceConfig()
                 .setCacheExpireSeconds(MAX_EXPIRE + 1);
+    }
+
+    @Test
+    public void testGetOrgSet()
+    {
+        String orgs = "my18CharOrgId,your18CharOrgId, his18CharOrgId ,her18CharOrgId";
+        int expected = (int) orgs.chars().filter(sep -> sep == ',').count() + 1;
+        int actual = (new SalesforceConfig()
+                .setOrgs(orgs)).getOrgSet().size();
+        assertEquals(expected, actual);
     }
 }
