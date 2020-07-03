@@ -81,6 +81,7 @@ public class TestHiveTransactionalTable
 
     @Inject
     private HdfsClient hdfsClient;
+    private TransactionalTestHelper transactionalTestHelper;
 
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
     public void testReadFullAcid()
