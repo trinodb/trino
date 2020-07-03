@@ -116,7 +116,6 @@ public enum KafkaInternalFieldDescription
     KafkaColumnHandle getColumnHandle(int index, boolean hidden)
     {
         return new KafkaColumnHandle(
-                index,
                 getColumnName(),
                 getType(),
                 null,
