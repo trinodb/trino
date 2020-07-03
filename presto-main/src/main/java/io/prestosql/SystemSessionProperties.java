@@ -125,6 +125,7 @@ public final class SystemSessionProperties
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_ROW_COUNT = "dynamic_filtering_max_per_driver_row_count";
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE = "dynamic_filtering_max_per_driver_size";
     public static final String IGNORE_DOWNSTREAM_PREFERENCES = "ignore_downstream_preferences";
+    public static final String ITERATIVE_COLUMN_PRUNING = "iterative_rule_based_column_pruning";
     public static final String REQUIRED_WORKERS_COUNT = "required_workers_count";
     public static final String REQUIRED_WORKERS_MAX_WAIT_TIME = "required_workers_max_wait_time";
     public static final String COST_ESTIMATION_WORKER_COUNT = "cost_estimation_worker_count";
@@ -544,6 +545,11 @@ public final class SystemSessionProperties
                         IGNORE_DOWNSTREAM_PREFERENCES,
                         "Ignore Parent's PreferredProperties in AddExchange optimizer",
                         featuresConfig.isIgnoreDownstreamPreferences(),
+                        false),
+                booleanProperty(
+                        ITERATIVE_COLUMN_PRUNING,
+                        "Use iterative rules to prune unreferenced columns",
+                        featuresConfig.isIterativeRuleBasedColumnPruning(),
                         false),
                 integerProperty(
                         REQUIRED_WORKERS_COUNT,
@@ -993,6 +999,11 @@ public final class SystemSessionProperties
     public static boolean ignoreDownStreamPreferences(Session session)
     {
         return session.getSystemProperty(IGNORE_DOWNSTREAM_PREFERENCES, Boolean.class);
+    }
+
+    public static boolean isIterativeRuleBasedColumnPruning(Session session)
+    {
+        return session.getSystemProperty(ITERATIVE_COLUMN_PRUNING, Boolean.class);
     }
 
     public static int getRequiredWorkers(Session session)

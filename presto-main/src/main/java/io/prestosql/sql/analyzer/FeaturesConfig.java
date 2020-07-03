@@ -126,6 +126,7 @@ public class FeaturesConfig
     private boolean skipRedundantSort = true;
     private boolean predicatePushdownUseTableProperties = true;
     private boolean ignoreDownstreamPreferences;
+    private boolean iterativeRuleBasedColumnPruning = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
     private boolean enableDynamicFiltering = true;
@@ -1041,6 +1042,18 @@ public class FeaturesConfig
     public FeaturesConfig setIgnoreDownstreamPreferences(boolean ignoreDownstreamPreferences)
     {
         this.ignoreDownstreamPreferences = ignoreDownstreamPreferences;
+        return this;
+    }
+
+    public boolean isIterativeRuleBasedColumnPruning()
+    {
+        return iterativeRuleBasedColumnPruning;
+    }
+
+    @Config("optimizer.iterative-rule-based-column-pruning")
+    public FeaturesConfig setIterativeRuleBasedColumnPruning(boolean iterativeRuleBasedColumnPruning)
+    {
+        this.iterativeRuleBasedColumnPruning = iterativeRuleBasedColumnPruning;
         return this;
     }
 }

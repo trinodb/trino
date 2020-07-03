@@ -15,6 +15,7 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.SystemSessionProperties;
 import io.prestosql.cost.CostCalculator;
 import io.prestosql.cost.CostCalculator.EstimatedExchanges;
 import io.prestosql.cost.CostComparator;
@@ -360,6 +361,14 @@ public class PlanOptimizers
                         .add(new RemoveTrivialFilters())
                         .build());
 
+        IterativeOptimizer columnPruningOptimizer = new IterativeOptimizer(
+                ruleStats,
+                statsCalculator,
+                estimatedExchangesCostCalculator,
+                SystemSessionProperties::isIterativeRuleBasedColumnPruning,
+                ImmutableList.of(new PruneUnreferencedOutputs(metadata, typeAnalyzer)),
+                columnPruningRules);
+
         builder.add(
                 // Clean up all the sugar in expressions, e.g. AtTimeZone, must be run before all the other optimizers
                 new IterativeOptimizer(
@@ -451,7 +460,7 @@ public class PlanOptimizers
                                 new ImplementIntersectAsUnion(metadata),
                                 new ImplementExceptAsUnion(metadata))),
                 new LimitPushDown(), // Run the LimitPushDown after flattening set operators to make it easier to do the set flattening
-                new PruneUnreferencedOutputs(metadata, typeAnalyzer),
+                columnPruningOptimizer,
                 inlineProjections,
                 new IterativeOptimizer(
                         ruleStats,
@@ -483,7 +492,7 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(
                                 new RemoveUnreferencedScalarApplyNodes(),
-                                new TransformCorrelatedInPredicateToJoin(metadata), // must be run after PruneUnreferencedOutputs
+                                new TransformCorrelatedInPredicateToJoin(metadata), // must be run after columnPruningOptimizer
                                 new TransformCorrelatedScalarSubquery(metadata), // must be run after TransformCorrelatedScalarAggregationToJoin
                                 new TransformCorrelatedJoinToJoin(metadata),
                                 new ImplementFilteredAggregations(metadata))),
@@ -518,7 +527,7 @@ public class PlanOptimizers
                         // Temporary hack: separate optimizer step to avoid the sample node being replaced by filter before pushing
                         // it to table scan node
                         ImmutableSet.of(new ImplementBernoulliSampleAsFilter(metadata))),
-                new PruneUnreferencedOutputs(metadata, typeAnalyzer),
+                columnPruningOptimizer,
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -541,7 +550,7 @@ public class PlanOptimizers
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new PushPredicateIntoTableScan(metadata, typeAnalyzer))),
                 new UnaliasSymbolReferences(metadata), // Run again because predicate pushdown and projection pushdown might add more projections
-                new PruneUnreferencedOutputs(metadata, typeAnalyzer), // Make sure to run this before index join. Filtered projections may not have all the columns.
+                columnPruningOptimizer, // Make sure to run this before index join. Filtered projections may not have all the columns.
                 new IndexJoinOptimizer(metadata), // Run this after projections and filters have been fully simplified and pushed down
                 new IterativeOptimizer(
                         ruleStats,
@@ -560,7 +569,7 @@ public class PlanOptimizers
                                 .addAll(GatherAndMergeWindows.rules())
                                 .build()),
                 inlineProjections,
-                new PruneUnreferencedOutputs(metadata, typeAnalyzer), // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
+                columnPruningOptimizer, // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -592,7 +601,7 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.of(new PushPredicateIntoTableScan(metadata, typeAnalyzer))),
-                new PruneUnreferencedOutputs(metadata, typeAnalyzer),
+                columnPruningOptimizer,
                 new IterativeOptimizer(
                         ruleStats,
                         statsCalculator,
@@ -600,7 +609,7 @@ public class PlanOptimizers
                         ImmutableSet.of(new RemoveRedundantIdentityProjections())),
 
                 // Because ReorderJoins runs only once,
-                // PredicatePushDown, PruneUnreferencedOutputs and RemoveRedundantIdentityProjections
+                // PredicatePushDown, columnPruningOptimizer and RemoveRedundantIdentityProjections
                 // need to run beforehand in order to produce an optimal join order
                 // It also needs to run after EliminateCrossJoins so that its chosen order doesn't get undone.
                 new IterativeOptimizer(
@@ -692,7 +701,7 @@ public class PlanOptimizers
                 ImmutableSet.of(new PushPredicateIntoTableScan(metadata, typeAnalyzer)));
         builder.add(inlineProjections);
         builder.add(new UnaliasSymbolReferences(metadata)); // Run unalias after merging projections to simplify projections more efficiently
-        builder.add(new PruneUnreferencedOutputs(metadata, typeAnalyzer));
+        builder.add(columnPruningOptimizer);
 
         builder.add(new IterativeOptimizer(
                 ruleStats,
