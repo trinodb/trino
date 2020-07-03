@@ -56,8 +56,47 @@ public class TestHiveTransactionalTable
 {
     private static final Logger log = Logger.get(TestHiveTransactionalTable.class);
 
-    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = 10 * 60 * 1000)
-    public void testReadFullAcid(boolean isPartitioned, BucketingType bucketingType)
+    private static final int TEST_TIMEOUT = 10 * 60 * 1000;
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testReadFullAcid()
+    {
+        doTestReadFullAcid(false, BucketingType.NONE);
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testReadFullAcidBucketed()
+    {
+        doTestReadFullAcid(false, BucketingType.BUCKETED_DEFAULT);
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testReadFullAcidPartitioned()
+    {
+        doTestReadFullAcid(true, BucketingType.NONE);
+    }
+
+    // This test is in STORAGE_FORMATS group to ensure test coverage of transactional tables with various
+    // metastore and HDFS setups (kerberized or not, impersonation or not).
+    @Test(groups = {HIVE_TRANSACTIONAL, STORAGE_FORMATS}, timeOut = TEST_TIMEOUT)
+    public void testReadFullAcidPartitionedBucketed()
+    {
+        doTestReadFullAcid(true, BucketingType.BUCKETED_DEFAULT);
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testReadFullAcidBucketedV1()
+    {
+        doTestReadFullAcid(false, BucketingType.BUCKETED_V1);
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
+    public void testReadFullAcidBucketedV2()
+    {
+        doTestReadFullAcid(false, BucketingType.BUCKETED_V2);
+    }
+
+    private void doTestReadFullAcid(boolean isPartitioned, BucketingType bucketingType)
     {
         if (getHiveVersionMajor() < 3) {
             throw new SkipException("Presto Hive transactional tables are supported with Hive version 3 or above");
@@ -103,7 +142,7 @@ public class TestHiveTransactionalTable
         }
     }
 
-    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = 10 * 60 * 1000)
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
     public void testReadInsertOnly(boolean isPartitioned, BucketingType bucketingType)
     {
         if (getHiveVersionMajor() < 3) {
@@ -148,7 +187,7 @@ public class TestHiveTransactionalTable
         }
     }
 
-    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL})
+    @Test(groups = HIVE_TRANSACTIONAL)
     public void testFailAcidBeforeHive3()
     {
         if (getHiveVersionMajor() >= 3) {
@@ -171,11 +210,12 @@ public class TestHiveTransactionalTable
     @DataProvider
     public Object[][] partitioningAndBucketingTypeDataProvider()
     {
-        return Stream.of(BucketingType.values())
-                .flatMap(value -> Stream.of(
-                        new Object[] {false, value},
-                        new Object[] {true, value}))
-                .toArray(Object[][]::new);
+        return new Object[][] {
+                {false, BucketingType.NONE},
+                {false, BucketingType.BUCKETED_DEFAULT},
+                {true, BucketingType.NONE},
+                {true, BucketingType.BUCKETED_DEFAULT},
+        };
     }
 
     private static String hiveTableProperties(TransactionalTableType transactionalTableType, BucketingType bucketingType)
@@ -304,7 +344,8 @@ public class TestHiveTransactionalTable
                 row.get("type").equals(compactMode.name());
     }
 
-    public enum CompactionMode {
+    public enum CompactionMode
+    {
         MAJOR,
         MINOR,
         /**/;
