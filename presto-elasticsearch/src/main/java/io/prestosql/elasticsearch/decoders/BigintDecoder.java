@@ -44,6 +44,14 @@ public class BigintDecoder
         else if (value instanceof Number) {
             BIGINT.writeLong(output, ((Number) value).longValue());
         }
+        else if (value instanceof String) {
+            try {
+                BIGINT.writeLong(output, Long.parseLong((String) value));
+            }
+            catch (NumberFormatException e) {
+                throw new PrestoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as BIGINT: %s", path, value));
+            }
+        }
         else {
             throw new PrestoException(TYPE_MISMATCH, format("Expected a numeric value for field '%s' of type BIGINT: %s [%s]", path, value, value.getClass().getSimpleName()));
         }

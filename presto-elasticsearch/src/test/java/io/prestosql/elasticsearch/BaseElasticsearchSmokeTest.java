@@ -391,6 +391,47 @@ public abstract class BaseElasticsearchSmokeTest
     }
 
     @Test
+    public void testCoercions()
+            throws IOException
+    {
+        String indexName = "coercions";
+
+        @Language("JSON")
+        String mappings = "" +
+                "{" +
+                "  \"properties\": { " +
+                "    \"float_column\":     { \"type\": \"float\" }," +
+                "    \"double_column\":    { \"type\": \"double\" }," +
+                "    \"integer_column\":   { \"type\": \"integer\" }," +
+                "    \"long_column\":      { \"type\": \"long\" }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mappings);
+
+        index(indexName, ImmutableMap.<String, Object>builder()
+                .put("float_column", "1.0")
+                .put("double_column", "1.0")
+                .put("integer_column", "1")
+                .put("long_column", "1")
+                .build());
+
+        MaterializedResult rows = computeActual("" +
+                "SELECT " +
+                "float_column, " +
+                "double_column, " +
+                "integer_column, " +
+                "long_column " +
+                "FROM coercions");
+
+        MaterializedResult expected = resultBuilder(getSession(), rows.getTypes())
+                .row(1.0f, 1.0d, 1, 1L)
+                .build();
+
+        assertEquals(rows.getMaterializedRows(), expected.getMaterializedRows());
+    }
+
+    @Test
     public void testFilters()
             throws IOException
     {
