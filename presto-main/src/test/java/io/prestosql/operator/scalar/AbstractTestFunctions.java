@@ -23,9 +23,12 @@ import io.prestosql.spi.Plugin;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.DecimalParseResult;
 import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.SqlDecimal;
+import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.type.Timestamps;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
@@ -192,6 +195,16 @@ public abstract class AbstractTestFunctions
             unscaledValue = Decimals.decodeUnscaledValue((Slice) parseResult.getObject());
         }
         return new SqlDecimal(unscaledValue, parseResult.getType().getPrecision(), parseResult.getType().getScale());
+    }
+
+    protected static SqlTimestamp legacyTimestamp(int precision, String legacyTimestampValue)
+    {
+        Object timestamp = Timestamps.parseLegacyTimestamp(precision, TEST_SESSION.getTimeZoneKey(), legacyTimestampValue);
+        if (timestamp instanceof LongTimestamp) {
+            LongTimestamp longTimestamp = (LongTimestamp) timestamp;
+            return SqlTimestamp.newLegacyInstance(precision, longTimestamp.getEpochMicros(), longTimestamp.getPicosOfMicro(), TEST_SESSION.getTimeZoneKey());
+        }
+        return SqlTimestamp.legacyFromMillis(precision, (Long) timestamp, TEST_SESSION.getTimeZoneKey());
     }
 
     protected static SqlDecimal maxPrecisionDecimal(long value)

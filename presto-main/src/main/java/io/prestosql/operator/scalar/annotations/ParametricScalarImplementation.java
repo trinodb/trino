@@ -117,7 +117,6 @@ public class ParametricScalarImplementation
         this.returnNativeContainerType = requireNonNull(returnContainerType, "return native container type is null");
 
         for (Class<?> specializedJavaType : specializedTypeParameters.values()) {
-            checkArgument(specializedJavaType != Object.class, "specializedTypeParameter must not contain Object.class entries");
             checkArgument(!Primitives.isWrapperType(specializedJavaType), "specializedTypeParameter must not contain boxed primitive types");
         }
 
@@ -155,7 +154,7 @@ public class ParametricScalarImplementation
     {
         List<ScalarImplementationChoice> implementationChoices = new ArrayList<>();
         for (Map.Entry<String, Class<?>> entry : specializedTypeParameters.entrySet()) {
-            if (entry.getValue() != boundVariables.getTypeVariable(entry.getKey()).getJavaType()) {
+            if (!entry.getValue().isAssignableFrom(boundVariables.getTypeVariable(entry.getKey()).getJavaType())) {
                 return Optional.empty();
             }
         }

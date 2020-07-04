@@ -19,7 +19,6 @@ import io.airlift.slice.Slice;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.Signature;
-import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.function.TypeParameter;
@@ -195,14 +194,7 @@ public final class DynamicFilters
 
         @TypeParameter("T")
         @SqlType(BOOLEAN)
-        public static boolean dynamicFilter(@SqlType(VARCHAR) Slice id, @SqlType("T") Block input)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @TypeParameter("T")
-        @SqlType(BOOLEAN)
-        public static boolean dynamicFilter(@SqlType(VARCHAR) Slice id, @SqlType("T") Slice input)
+        public static boolean dynamicFilter(@SqlType(VARCHAR) Slice id, @SqlType("T") Object input)
         {
             throw new UnsupportedOperationException();
         }

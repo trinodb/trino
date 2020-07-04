@@ -29,13 +29,13 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.type.UnknownType;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
-import java.lang.invoke.MethodType;
 import java.util.List;
 import java.util.Optional;
 
@@ -48,6 +48,8 @@ import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConv
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.util.Reflection.methodHandle;
@@ -69,11 +71,6 @@ public final class ArrayJoin
             ConnectorSession.class,
             Block.class,
             Slice.class);
-
-    private static final MethodHandle GET_BOOLEAN = methodHandle(Type.class, "getBoolean", Block.class, int.class);
-    private static final MethodHandle GET_DOUBLE = methodHandle(Type.class, "getDouble", Block.class, int.class);
-    private static final MethodHandle GET_LONG = methodHandle(Type.class, "getLong", Block.class, int.class);
-    private static final MethodHandle GET_SLICE = methodHandle(Type.class, "getSlice", Block.class, int.class);
 
     private static final MethodHandle STATE_FACTORY = methodHandle(ArrayJoin.class, "createState");
 
@@ -169,38 +166,13 @@ public final class ArrayJoin
         else {
             try {
                 ResolvedFunction resolvedFunction = metadata.getCoercion(type, VARCHAR);
-                MethodHandle cast = metadata.getScalarFunctionInvoker(resolvedFunction, Optional.empty()).getMethodHandle();
-
-                MethodHandle getter;
-                Class<?> elementType = type.getJavaType();
-                if (elementType == boolean.class) {
-                    getter = GET_BOOLEAN;
-                }
-                else if (elementType == double.class) {
-                    getter = GET_DOUBLE;
-                }
-                else if (elementType == long.class) {
-                    getter = GET_LONG;
-                }
-                else if (elementType == Slice.class) {
-                    getter = GET_SLICE;
-                }
-                else {
-                    throw new UnsupportedOperationException("Unsupported type: " + elementType.getName());
-                }
+                InvocationConvention convention = new InvocationConvention(ImmutableList.of(BLOCK_POSITION), NULLABLE_RETURN, true, false);
+                MethodHandle cast = metadata.getScalarFunctionInvoker(resolvedFunction, Optional.of(convention)).getMethodHandle();
 
                 // if the cast doesn't take a ConnectorSession, create an adapter that drops the provided session
                 if (cast.type().parameterArray()[0] != ConnectorSession.class) {
                     cast = MethodHandles.dropArguments(cast, 0, ConnectorSession.class);
                 }
-
-                // Adapt a target cast that takes (ConnectorSession, ?) to one that takes (Block, int, ConnectorSession), which will be invoked by the implementation
-                // The first two arguments (Block, int) are filtered through the element type's getXXX method to produce the underlying value that needs to be passed to
-                // the cast.
-                cast = MethodHandles.permuteArguments(cast, MethodType.methodType(Slice.class, cast.type().parameterArray()[1], cast.type().parameterArray()[0]), 1, 0);
-                cast = MethodHandles.dropArguments(cast, 1, int.class);
-                cast = MethodHandles.dropArguments(cast, 1, Block.class);
-                cast = MethodHandles.foldArguments(cast, getter.bindTo(type));
 
                 MethodHandle target = MethodHandles.insertArguments(methodHandle, 0, cast);
                 return new ScalarFunctionImplementation(
@@ -242,19 +214,12 @@ public final class ArrayJoin
         int numElements = arrayBlock.getPositionCount();
         BlockBuilder blockBuilder = pageBuilder.getBlockBuilder(0);
 
+        boolean needsDelimiter = false;
         for (int i = 0; i < numElements; i++) {
-            if (arrayBlock.isNull(i)) {
-                if (nullReplacement != null) {
-                    blockBuilder.writeBytes(nullReplacement, 0, nullReplacement.length());
-                }
-                else {
-                    continue;
-                }
-            }
-            else {
+            Slice value = null;
+            if (!arrayBlock.isNull(i)) {
                 try {
-                    Slice slice = (Slice) castFunction.invokeExact(arrayBlock, i, session);
-                    blockBuilder.writeBytes(slice, 0, slice.length());
+                    value = (Slice) castFunction.invokeExact(session, arrayBlock, i);
                 }
                 catch (Throwable throwable) {
                     // Restore pageBuilder into a consistent state
@@ -264,9 +229,18 @@ public final class ArrayJoin
                 }
             }
 
-            if (i != numElements - 1) {
+            if (value == null) {
+                value = nullReplacement;
+                if (value == null) {
+                    continue;
+                }
+            }
+
+            if (needsDelimiter) {
                 blockBuilder.writeBytes(delimiter, 0, delimiter.length());
             }
+            blockBuilder.writeBytes(value, 0, value.length());
+            needsDelimiter = true;
         }
 
         blockBuilder.closeEntry();

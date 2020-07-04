@@ -48,7 +48,6 @@ public class MapSubscriptOperator
     private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(MapSubscriptOperator.class, "subscript", MissingKeyExceptionFactory.class, Type.class, Type.class, ConnectorSession.class, Block.class, boolean.class);
     private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(MapSubscriptOperator.class, "subscript", MissingKeyExceptionFactory.class, Type.class, Type.class, ConnectorSession.class, Block.class, long.class);
     private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(MapSubscriptOperator.class, "subscript", MissingKeyExceptionFactory.class, Type.class, Type.class, ConnectorSession.class, Block.class, double.class);
-    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(MapSubscriptOperator.class, "subscript", MissingKeyExceptionFactory.class, Type.class, Type.class, ConnectorSession.class, Block.class, Slice.class);
     private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(MapSubscriptOperator.class, "subscript", MissingKeyExceptionFactory.class, Type.class, Type.class, ConnectorSession.class, Block.class, Object.class);
 
     public MapSubscriptOperator()
@@ -76,9 +75,6 @@ public class MapSubscriptOperator
         }
         else if (keyType.getJavaType() == double.class) {
             methodHandle = METHOD_HANDLE_DOUBLE;
-        }
-        else if (keyType.getJavaType() == Slice.class) {
-            methodHandle = METHOD_HANDLE_SLICE;
         }
         else {
             methodHandle = METHOD_HANDLE_OBJECT;
@@ -129,21 +125,10 @@ public class MapSubscriptOperator
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(MissingKeyExceptionFactory missingKeyExceptionFactory, Type keyType, Type valueType, ConnectorSession session, Block map, Slice key)
-    {
-        SingleMapBlock mapBlock = (SingleMapBlock) map;
-        int valuePosition = mapBlock.seekKeyExact(key);
-        if (valuePosition == -1) {
-            throw missingKeyExceptionFactory.create(session, key);
-        }
-        return readNativeValue(valueType, mapBlock, valuePosition);
-    }
-
-    @UsedByGeneratedCode
     public static Object subscript(MissingKeyExceptionFactory missingKeyExceptionFactory, Type keyType, Type valueType, ConnectorSession session, Block map, Object key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
-        int valuePosition = mapBlock.seekKeyExact((Block) key);
+        int valuePosition = mapBlock.seekKeyExact(key);
         if (valuePosition == -1) {
             throw missingKeyExceptionFactory.create(session, key);
         }

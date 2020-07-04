@@ -520,6 +520,7 @@ public class TestMapOperators
                 createTimestampType(0),
                 sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0, TEST_SESSION));
         assertFunction("element_at(MAP(ARRAY [from_unixtime(1), from_unixtime(100)], ARRAY [1.0E0, 100.0E0]), from_unixtime(1))", DOUBLE, 1.0);
+        assertFunction("element_at(MAP(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '2222-05-10 12:34:56.123456789'], ARRAY [1, 2]), TIMESTAMP '2222-05-10 12:34:56.123456789')", INTEGER, 2);
     }
 
     @Test
@@ -551,6 +552,7 @@ public class TestMapOperators
         assertFunction("MAP(ARRAY[('a', 'b')], ARRAY[ARRAY[100, 200]])[('a', 'b')]", new ArrayType(INTEGER), ImmutableList.of(100, 200));
         assertFunction("MAP(ARRAY[1.0], ARRAY [2.2])[1.0]", createDecimalType(2, 1), decimal("2.2"));
         assertFunction("MAP(ARRAY[000000000000001.00000000000000], ARRAY [2.2])[000000000000001.00000000000000]", createDecimalType(2, 1), decimal("2.2"));
+        assertFunction("MAP(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '2222-05-10 12:34:56.123456789'], ARRAY [1, 2])[TIMESTAMP '2222-05-10 12:34:56.123456789']", INTEGER, 2);
     }
 
     @Test

@@ -31,6 +31,7 @@ import java.util.Optional;
 import static io.prestosql.spi.type.TypeUtils.checkElementNotNull;
 import static io.prestosql.spi.type.TypeUtils.hashPosition;
 import static java.lang.String.format;
+import static java.lang.invoke.MethodType.methodType;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
@@ -67,6 +68,11 @@ public class MapType
         requireNonNull(keyBlockNativeEquals, "keyBlockNativeEquals is null");
         requireNonNull(keyNativeHashCode, "keyNativeHashCode is null");
         requireNonNull(keyBlockHashCode, "keyBlockHashCode is null");
+        if (!keyType.getJavaType().isPrimitive()) {
+            // equals and hash code non-primitive types must be exactly Object
+            keyBlockNativeEquals = keyBlockNativeEquals.asType(methodType(Boolean.class, Block.class, int.class, Object.class));
+            keyNativeHashCode = keyNativeHashCode.asType(methodType(long.class, Object.class));
+        }
         this.keyBlockNativeEquals = keyBlockNativeEquals;
         this.keyNativeHashCode = keyNativeHashCode;
         this.keyBlockHashCode = keyBlockHashCode;
