@@ -21,7 +21,6 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static io.prestosql.plugin.password.salesforce.SalesforceConfig.MAX_EXPIRE;
 import static org.testng.Assert.assertEquals;
 
 public class TestSalesforceConfig
@@ -32,14 +31,10 @@ public class TestSalesforceConfig
     @Test
     public void testDefault()
     {
-        try {
-            assertRecordedDefaults(recordDefaults(SalesforceConfig.class)
-                    .setOrgs(null)
-                    .setCacheSize(defaultCacheSize)
-                    .setCacheExpireSeconds(defaultCacheExpireSeconds));
-        }
-        catch (RuntimeException e) {
-        }
+        assertRecordedDefaults(recordDefaults(SalesforceConfig.class)
+                .setOrgs(null)
+                .setCacheSize(defaultCacheSize)
+                .setCacheExpireSeconds(defaultCacheExpireSeconds));
     }
 
     // Test will only pass if config is created with properties that are different than the defaults.
@@ -62,13 +57,6 @@ public class TestSalesforceConfig
                 .setCacheExpireSeconds(Integer.valueOf(cacheExpire));
 
         assertFullMapping(properties, expected);
-    }
-
-    @Test(expectedExceptions = RuntimeException.class, description = "Try setting expiration too high.")
-    public void testExceededCacheExpire()
-    {
-        new SalesforceConfig()
-                .setCacheExpireSeconds(MAX_EXPIRE + 1);
     }
 
     @Test

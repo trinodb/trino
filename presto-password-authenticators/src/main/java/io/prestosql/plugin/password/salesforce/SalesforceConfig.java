@@ -17,6 +17,7 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 import io.airlift.log.Logger;
 
+import javax.validation.constraints.Max;
 import javax.validation.constraints.NotNull;
 
 import java.util.HashSet;
@@ -57,7 +58,7 @@ public class SalesforceConfig
     // and responses are English, and organization id is not in Japaneses characters (this is
     // also true of the organization id in the UI, even with other text showing in Japanese).
 
-    @NotNull
+    @NotNull(message = "Must set salesforce.org with one or more Salesforce 18 char OrgId's, or \"all\"")
     public String getOrgs()
     {
         return orgs;
@@ -82,9 +83,6 @@ public class SalesforceConfig
     public SalesforceConfig setOrgs(String orgs)
     {
         this.orgs = orgs;
-        if (orgs == null || orgs.length() == 0) {
-            throw new RuntimeException("Must set salesforce.org with one or more Salesforce 18 char OrgId's, or \"all\".");
-        }
         return this;
     }
 
@@ -101,6 +99,7 @@ public class SalesforceConfig
         return this;
     }
 
+    @Max(value = 3600, message = "The salesforce.cache-expire-seconds is set too high.  Maximum is " + MAX_EXPIRE + " seconds.")
     public int getCacheExpireSeconds()
     {
         return cacheExpireSeconds;
@@ -110,11 +109,6 @@ public class SalesforceConfig
     @ConfigDescription("Expire time in minutes for an entry in cache since last write.  Max is " + MAX_EXPIRE + ".")
     public SalesforceConfig setCacheExpireSeconds(int cacheExpireSeconds)
     {
-        if (cacheExpireSeconds > MAX_EXPIRE) {
-            throw new RuntimeException(String.format(
-                    "The salesforce.cache-expire-seconds of %d is set too high.  Maximum is %d seconds.",
-                    cacheExpireSeconds, MAX_EXPIRE));
-        }
         this.cacheExpireSeconds = cacheExpireSeconds;
         return this;
     }

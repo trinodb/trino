@@ -218,7 +218,7 @@ public class TestSalesforceBasicAuthenticator
 
     // Test a real login for a different org.
     @Test
-    void createAuthenticatedPrincipal_realNoOrg()
+    void createAuthenticatedPrincipal_realAllOrgs()
     {
         // Skip this test if SALESFORCE_TEST_FORREAL is not set to TRUE.
         if (!forReal) {
@@ -231,7 +231,8 @@ public class TestSalesforceBasicAuthenticator
             fail("Must set SALESFORCE_TEST_USERNAME and SALESFORCE_TEST_PASSWORD environment variables.");
         }
 
-        config = new SalesforceConfig();
+        config = new SalesforceConfig()
+                .setOrgs("all");
 
         testHttpClient = new JettyHttpClient();
         SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);
