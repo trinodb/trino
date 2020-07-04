@@ -40,12 +40,25 @@ public class RealDecoder
         Object value = getter.get();
         if (value == null) {
             output.appendNull();
+            return;
         }
-        else if (value instanceof Number) {
-            REAL.writeLong(output, Float.floatToRawIntBits(((Number) value).floatValue()));
+
+        float decoded;
+        if (value instanceof Number) {
+            decoded = ((Number) value).floatValue();
+        }
+        else if (value instanceof String) {
+            try {
+                decoded = Float.parseFloat((String) value);
+            }
+            catch (NumberFormatException e) {
+                throw new PrestoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as REAL: %s", path, value));
+            }
         }
         else {
             throw new PrestoException(TYPE_MISMATCH, format("Expected a numeric value for field %s of type REAL: %s [%s]", path, value, value.getClass().getSimpleName()));
         }
+
+        REAL.writeLong(output, Float.floatToRawIntBits(decoded));
     }
 }
