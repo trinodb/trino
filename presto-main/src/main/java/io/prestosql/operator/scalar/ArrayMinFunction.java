@@ -13,7 +13,6 @@
  */
 package io.prestosql.operator.scalar;
 
-import io.airlift.slice.Slice;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.OperatorDependency;
@@ -28,9 +27,8 @@ import java.lang.invoke.MethodHandle;
 import static io.prestosql.operator.scalar.ArrayMinMaxUtils.booleanArrayMinMax;
 import static io.prestosql.operator.scalar.ArrayMinMaxUtils.doubleArrayMinMax;
 import static io.prestosql.operator.scalar.ArrayMinMaxUtils.longArrayMinMax;
-import static io.prestosql.operator.scalar.ArrayMinMaxUtils.sliceArrayMinMax;
+import static io.prestosql.operator.scalar.ArrayMinMaxUtils.objectArrayMinMax;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
-import static io.prestosql.util.Failures.internalError;
 
 @ScalarFunction("array_min")
 @Description("Get minimum value of array")
@@ -74,42 +72,11 @@ public final class ArrayMinFunction
     @TypeParameter("T")
     @SqlType("T")
     @SqlNullable
-    public static Slice sliceArrayMin(
+    public static Object sliceArrayMin(
             @OperatorDependency(operator = LESS_THAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block block)
     {
-        return sliceArrayMinMax(compareMethodHandle, elementType, block);
-    }
-
-    @TypeParameter("T")
-    @SqlType("T")
-    @SqlNullable
-    public static Block blockArrayMin(
-            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"T", "T"}) MethodHandle compareMethodHandle,
-            @TypeParameter("T") Type elementType,
-            @SqlType("array(T)") Block block)
-    {
-        try {
-            if (block.getPositionCount() == 0) {
-                return null;
-            }
-
-            Block selectedValue = (Block) elementType.getObject(block, 0);
-            for (int i = 0; i < block.getPositionCount(); i++) {
-                if (block.isNull(i)) {
-                    return null;
-                }
-                Block value = (Block) elementType.getObject(block, i);
-                if ((boolean) compareMethodHandle.invokeExact(value, selectedValue)) {
-                    selectedValue = value;
-                }
-            }
-
-            return selectedValue;
-        }
-        catch (Throwable t) {
-            throw internalError(t);
-        }
+        return objectArrayMinMax(compareMethodHandle, elementType, block);
     }
 }

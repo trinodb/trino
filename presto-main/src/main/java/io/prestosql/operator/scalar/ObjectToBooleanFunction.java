@@ -13,12 +13,11 @@
  */
 package io.prestosql.operator.scalar;
 
-import io.airlift.slice.Slice;
 import io.prestosql.sql.gen.lambda.LambdaFunctionInterface;
 
 @FunctionalInterface
-public interface SliceToBooleanFunction
+public interface ObjectToBooleanFunction
         extends LambdaFunctionInterface
 {
-    Boolean apply(Slice value);
+    Boolean apply(Object value);
 }

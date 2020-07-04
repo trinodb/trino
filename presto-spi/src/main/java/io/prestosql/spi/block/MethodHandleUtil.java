@@ -14,7 +14,6 @@
 
 package io.prestosql.spi.block;
 
-import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.Type;
 
@@ -24,21 +23,13 @@ import java.lang.invoke.MethodType;
 
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.String.format;
-import static java.lang.invoke.MethodType.methodType;
 
 public final class MethodHandleUtil
 {
-    private static final MethodHandle GET_LONG = methodHandle(Type.class, "getLong", Block.class, int.class);
-    private static final MethodHandle GET_DOUBLE = methodHandle(Type.class, "getDouble", Block.class, int.class);
-    private static final MethodHandle GET_BOOLEAN = methodHandle(Type.class, "getBoolean", Block.class, int.class);
-    private static final MethodHandle GET_SLICE = methodHandle(Type.class, "getSlice", Block.class, int.class);
-    private static final MethodHandle GET_BLOCK = methodHandle(Type.class, "getObject", Block.class, int.class).asType(methodType(Block.class, Type.class, Block.class, int.class));
-
     private static final MethodHandle WRITE_LONG = methodHandle(Type.class, "writeLong", BlockBuilder.class, long.class);
     private static final MethodHandle WRITE_DOUBLE = methodHandle(Type.class, "writeDouble", BlockBuilder.class, double.class);
     private static final MethodHandle WRITE_BOOLEAN = methodHandle(Type.class, "writeBoolean", BlockBuilder.class, boolean.class);
-    private static final MethodHandle WRITE_SLICE = methodHandle(Type.class, "writeSlice", BlockBuilder.class, Slice.class);
-    private static final MethodHandle WRITE_BLOCK = methodHandle(Type.class, "writeObject", BlockBuilder.class, Object.class).asType(methodType(void.class, Type.class, BlockBuilder.class, Block.class));
+    private static final MethodHandle WRITE_OBJECT = methodHandle(Type.class, "writeObject", BlockBuilder.class, Object.class);
 
     private MethodHandleUtil()
     {
@@ -125,33 +116,6 @@ public final class MethodHandleUtil
         }
     }
 
-    public static MethodHandle nativeValueGetter(Type type)
-    {
-        Class<?> javaType = type.getJavaType();
-
-        MethodHandle methodHandle;
-        if (javaType == long.class) {
-            methodHandle = GET_LONG;
-        }
-        else if (javaType == double.class) {
-            methodHandle = GET_DOUBLE;
-        }
-        else if (javaType == boolean.class) {
-            methodHandle = GET_BOOLEAN;
-        }
-        else if (javaType == Slice.class) {
-            methodHandle = GET_SLICE;
-        }
-        else if (javaType == Block.class) {
-            methodHandle = GET_BLOCK;
-        }
-        else {
-            throw new IllegalArgumentException("Unknown java type " + javaType + " from type " + type);
-        }
-
-        return methodHandle.bindTo(type);
-    }
-
     public static MethodHandle nativeValueWriter(Type type)
     {
         Class<?> javaType = type.getJavaType();
@@ -166,11 +130,8 @@ public final class MethodHandleUtil
         else if (javaType == boolean.class) {
             methodHandle = WRITE_BOOLEAN;
         }
-        else if (javaType == Slice.class) {
-            methodHandle = WRITE_SLICE;
-        }
-        else if (javaType == Block.class) {
-            methodHandle = WRITE_BLOCK;
+        else if (!javaType.isPrimitive()) {
+            methodHandle = WRITE_OBJECT;
         }
         else {
             throw new IllegalArgumentException("Unknown java type " + javaType + " from type " + type);

@@ -14,7 +14,6 @@
 
 package io.prestosql.spi.block;
 
-import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
@@ -320,51 +319,7 @@ public class SingleMapBlock
         }
     }
 
-    public int seekKeyExact(Slice nativeValue)
-    {
-        if (positionCount == 0) {
-            return -1;
-        }
-
-        mapBlock.ensureHashTableLoaded();
-        int[] hashTable = mapBlock.getHashTables().get();
-
-        long hashCode;
-        try {
-            hashCode = (long) mapBlock.getMapType().getKeyNativeHashCode().invokeExact(nativeValue);
-        }
-        catch (Throwable throwable) {
-            throw handleThrowable(throwable);
-        }
-
-        int hashTableOffset = offset / 2 * HASH_MULTIPLIER;
-        int hashTableSize = positionCount / 2 * HASH_MULTIPLIER;
-        int position = computePosition(hashCode, hashTableSize);
-        while (true) {
-            int keyPosition = hashTable[hashTableOffset + position];
-            if (keyPosition == -1) {
-                return -1;
-            }
-            Boolean match;
-            try {
-                // assuming maps with indeterminate keys are not supported
-                match = (Boolean) mapBlock.getMapType().getKeyBlockNativeEquals().invokeExact(mapBlock.getRawKeyBlock(), offset / 2 + keyPosition, nativeValue);
-            }
-            catch (Throwable throwable) {
-                throw handleThrowable(throwable);
-            }
-            checkNotIndeterminate(match);
-            if (match) {
-                return keyPosition * 2 + 1;
-            }
-            position++;
-            if (position == hashTableSize) {
-                position = 0;
-            }
-        }
-    }
-
-    public int seekKeyExact(Block nativeValue)
+    public int seekKeyExact(Object nativeValue)
     {
         if (positionCount == 0) {
             return -1;
