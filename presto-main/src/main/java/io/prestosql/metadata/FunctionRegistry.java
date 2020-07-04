@@ -166,6 +166,7 @@ import io.prestosql.operator.scalar.timestamp.ExtractWeekOfYear;
 import io.prestosql.operator.scalar.timestamp.ExtractYear;
 import io.prestosql.operator.scalar.timestamp.ExtractYearOfWeek;
 import io.prestosql.operator.scalar.timestamp.FormatDateTime;
+import io.prestosql.operator.scalar.timestamp.HumanReadableSeconds;
 import io.prestosql.operator.scalar.timestamp.LastDayOfMonth;
 import io.prestosql.operator.scalar.timestamp.LocalTimestamp;
 import io.prestosql.operator.scalar.timestamp.SequenceIntervalDayToSecond;
@@ -674,6 +675,7 @@ public class FunctionRegistry
                 .scalar(LocalTimestamp.class)
                 .scalar(DateTrunc.class)
                 .scalar(ToUnixTime.class)
+                .scalar(HumanReadableSeconds.class)
                 .scalar(ToIso8601.class)
                 .scalar(WithTimeZone.class)
                 .scalar(FormatDateTime.class)
