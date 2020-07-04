@@ -13,7 +13,6 @@
  */
 package io.prestosql.operator.scalar;
 
-import io.airlift.slice.Slice;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.function.Description;
@@ -82,27 +81,6 @@ public final class RepeatFunction
         }
         for (int i = 0; i < count; i++) {
             type.writeLong(blockBuilder, element);
-        }
-        return blockBuilder.build();
-    }
-
-    @TypeParameter("T")
-    @SqlType("array(T)")
-    public static Block repeat(
-            @TypeParameter("T") Type type,
-            @SqlNullable @SqlType("T") Slice element,
-            @SqlType(StandardTypes.INTEGER) long count)
-    {
-        BlockBuilder blockBuilder = createBlockBuilder(type, count);
-        if (element == null) {
-            return repeatNullValues(blockBuilder, count);
-        }
-        if (count > 0) {
-            type.writeSlice(blockBuilder, element);
-            checkMaxSize(blockBuilder.getSizeInBytes(), count);
-        }
-        for (int i = 1; i < count; i++) {
-            type.writeSlice(blockBuilder, element);
         }
         return blockBuilder.build();
     }
