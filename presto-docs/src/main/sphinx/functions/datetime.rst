@@ -287,6 +287,16 @@ Unit    Description
         SELECT parse_duration('5m');
         -- 0 00:05:00.000
 
+.. function:: human_readable_seconds(double) -> varchar
+
+    Returns ``seconds`` expressed in terms of ``human readable interval``::
+
+        SELECT human_readable_seconds(56363463);
+        -- 93 weeks, 1 day, 8 hours, 31 minutes, 3 seconds
+
+        SELECT human_readable_seconds(61);
+        -- 1 minute, 1 second
+
 MySQL Date Functions
 --------------------
 
