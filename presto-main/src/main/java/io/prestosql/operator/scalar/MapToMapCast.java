@@ -14,7 +14,6 @@
 package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
@@ -27,6 +26,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
@@ -43,8 +43,10 @@ import static io.prestosql.operator.scalar.ScalarFunctionImplementation.Argument
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.block.MethodHandleUtil.compose;
-import static io.prestosql.spi.block.MethodHandleUtil.nativeValueGetter;
 import static io.prestosql.spi.block.MethodHandleUtil.nativeValueWriter;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.util.Failures.internalError;
@@ -112,27 +114,31 @@ public final class MapToMapCast
      */
     private MethodHandle buildProcessor(Metadata metadata, Type fromType, Type toType, boolean isKey)
     {
-        MethodHandle getter = nativeValueGetter(fromType);
-
-        // Adapt cast that takes ([ConnectorSession,] ?) to one that takes (?, ConnectorSession), where ? is the return type of getter.
+        // Get block position cast, with optional connector session
         ResolvedFunction resolvedFunction = metadata.getCoercion(fromType, toType);
         FunctionMetadata functionMetadata = metadata.getFunctionMetadata(resolvedFunction);
-        MethodHandle cast = metadata.getScalarFunctionInvoker(resolvedFunction, Optional.empty()).getMethodHandle();
+        InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(BLOCK_POSITION), functionMetadata.isNullable() ? NULLABLE_RETURN : FAIL_ON_NULL, true, false);
+        MethodHandle cast = metadata.getScalarFunctionInvoker(resolvedFunction, Optional.of(invocationConvention)).getMethodHandle();
+        // Normalize cast to have connector session as first argument
         if (cast.type().parameterArray()[0] != ConnectorSession.class) {
             cast = MethodHandles.dropArguments(cast, 0, ConnectorSession.class);
         }
-        cast = permuteArguments(cast, methodType(cast.type().returnType(), cast.type().parameterArray()[1], cast.type().parameterArray()[0]), 1, 0);
-        MethodHandle target = compose(cast, getter);
+        // Change cast signature to (Block.class, int.class, ConnectorSession.class):T
+        cast = permuteArguments(cast, methodType(cast.type().returnType(), Block.class, int.class, ConnectorSession.class), 2, 0, 1);
 
-        // If the key cast function is nullable, check the result is not null.
+        // If the key cast function is nullable, check the result is not null
         if (isKey && functionMetadata.isNullable()) {
-            target = compose(nullChecker(target.type().returnType()), target);
+            cast = compose(nullChecker(cast.type().returnType()), cast);
         }
 
+        // get write method with signature: (T, BlockBuilder.class):void
         MethodHandle writer = nativeValueWriter(toType);
-        writer = permuteArguments(writer, methodType(void.class, writer.type().parameterArray()[1], writer.type().parameterArray()[0]), 1, 0);
+        writer = permuteArguments(writer, methodType(void.class, writer.type().parameterArray()[1], BlockBuilder.class), 1, 0);
 
-        return compose(writer, target.asType(methodType(Primitives.unwrap(target.type().returnType()), target.type().parameterArray())));
+        // ensure cast returns type expected by the writer
+        cast = cast.asType(methodType(writer.type().parameterType(0), cast.type().parameterArray()));
+
+        return compose(writer, cast);
     }
 
     /**

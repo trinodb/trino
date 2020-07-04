@@ -14,6 +14,7 @@
 package io.prestosql.spi.type;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.OperatorType;
 
 import java.lang.invoke.MethodHandle;
@@ -65,7 +66,7 @@ public class TestingTypeManager
     }
 
     @Override
-    public MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    public MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes, InvocationConvention invocationConvention)
     {
         throw new UnsupportedOperationException();
     }

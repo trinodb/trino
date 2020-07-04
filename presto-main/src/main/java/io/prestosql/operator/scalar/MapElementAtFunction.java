@@ -15,7 +15,6 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
-import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
@@ -48,7 +47,6 @@ public class MapElementAtFunction
     private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(MapElementAtFunction.class, "elementAt", MethodHandle.class, Type.class, Type.class, Block.class, boolean.class);
     private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(MapElementAtFunction.class, "elementAt", MethodHandle.class, Type.class, Type.class, Block.class, long.class);
     private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(MapElementAtFunction.class, "elementAt", MethodHandle.class, Type.class, Type.class, Block.class, double.class);
-    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(MapElementAtFunction.class, "elementAt", MethodHandle.class, Type.class, Type.class, Block.class, Slice.class);
     private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(MapElementAtFunction.class, "elementAt", MethodHandle.class, Type.class, Type.class, Block.class, Object.class);
 
     protected MapElementAtFunction()
@@ -88,9 +86,6 @@ public class MapElementAtFunction
         }
         else if (keyType.getJavaType() == double.class) {
             methodHandle = METHOD_HANDLE_DOUBLE;
-        }
-        else if (keyType.getJavaType() == Slice.class) {
-            methodHandle = METHOD_HANDLE_SLICE;
         }
         else {
             methodHandle = METHOD_HANDLE_OBJECT;
@@ -140,21 +135,10 @@ public class MapElementAtFunction
     }
 
     @UsedByGeneratedCode
-    public static Object elementAt(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, Slice key)
-    {
-        SingleMapBlock mapBlock = (SingleMapBlock) map;
-        int valuePosition = mapBlock.seekKeyExact(key);
-        if (valuePosition == -1) {
-            return null;
-        }
-        return readNativeValue(valueType, mapBlock, valuePosition);
-    }
-
-    @UsedByGeneratedCode
     public static Object elementAt(MethodHandle keyEqualsMethod, Type keyType, Type valueType, Block map, Object key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
-        int valuePosition = mapBlock.seekKeyExact((Block) key);
+        int valuePosition = mapBlock.seekKeyExact(key);
         if (valuePosition == -1) {
             return null;
         }
