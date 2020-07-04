@@ -46,7 +46,7 @@ public class IntegerDecoder
             INTEGER.writeLong(output, toIntExact(((Number) value).longValue()));
         }
         else {
-            throw new PrestoException(TYPE_MISMATCH, format("Expected a string value for field '%s' of type INTEGER: %s [%s]", path, value, value.getClass().getSimpleName()));
+            throw new PrestoException(TYPE_MISMATCH, format("Expected a numeric value for field '%s' of type INTEGER: %s [%s]", path, value, value.getClass().getSimpleName()));
         }
     }
 }
