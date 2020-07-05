@@ -315,10 +315,10 @@ Specifier Description
 ``%M``    Month name (``January`` .. ``December``)
 ``%m``    Month, numeric (``01`` .. ``12``) [#z]_
 ``%p``    ``AM`` or ``PM``
-``%r``    Time, 12-hour (``hh:mm:ss`` followed by ``AM`` or ``PM``)
+``%r``    Time within hour, 12-hour (equivalent to ``%h:%i:%s %p``)
 ``%S``    Seconds (``00`` .. ``59``)
 ``%s``    Seconds (``00`` .. ``59``)
-``%T``    Time, 24-hour (``hh:mm:ss``)
+``%T``    Time within hour, 24-hour (equivalent to ``%H:%i:%s``)
 ``%U``    Week (``00`` .. ``53``), where Sunday is the first day of the week
 ``%u``    Week (``00`` .. ``53``), where Monday is the first day of the week
 ``%V``    Week (``01`` .. ``53``), where Sunday is the first day of the week; used with ``%X``
