@@ -29,6 +29,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 
 import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
@@ -67,7 +68,7 @@ public class TestOrcDeletedRows
 
         // page with deleted rows
         Page testPage = createTestPage(0, 10);
-        Block block = deletedRows.getMaskDeletedRowsFunction(testPage, Optional.empty()).apply(testPage.getBlock(0));
+        Block block = deletedRows.getMaskDeletedRowsFunction(testPage, OptionalLong.empty()).apply(testPage.getBlock(0));
         Set<Object> validRows = resultBuilder(SESSION, BIGINT)
                 .page(new Page(block))
                 .build()
@@ -78,7 +79,7 @@ public class TestOrcDeletedRows
 
         // page with no deleted rows
         testPage = createTestPage(10, 20);
-        block = deletedRows.getMaskDeletedRowsFunction(testPage, Optional.empty()).apply(testPage.getBlock(2));
+        block = deletedRows.getMaskDeletedRowsFunction(testPage, OptionalLong.empty()).apply(testPage.getBlock(2));
         assertEquals(block.getPositionCount(), 10);
     }
 
@@ -95,7 +96,7 @@ public class TestOrcDeletedRows
 
         // page with deleted rows
         Page testPage = createTestPage(0, 4);
-        Block block = deletedRows.getMaskDeletedRowsFunction(testPage, Optional.of(0L)).apply(testPage.getBlock(0));
+        Block block = deletedRows.getMaskDeletedRowsFunction(testPage, OptionalLong.of(0L)).apply(testPage.getBlock(0));
         Set<Object> validRows = resultBuilder(SESSION, BIGINT)
                 .page(new Page(block))
                 .build()
@@ -106,7 +107,7 @@ public class TestOrcDeletedRows
 
         // page with no deleted rows
         testPage = createTestPage(5, 9);
-        block = deletedRows.getMaskDeletedRowsFunction(testPage, Optional.empty()).apply(testPage.getBlock(2));
+        block = deletedRows.getMaskDeletedRowsFunction(testPage, OptionalLong.empty()).apply(testPage.getBlock(2));
         assertEquals(block.getPositionCount(), 4);
     }
 

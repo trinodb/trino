@@ -478,14 +478,17 @@ public class BackgroundHiveSplitLoader
             }
 
             // initialize original files status list if present
-            if (!directory.getOriginalFiles().isEmpty()) {
-                fileStatusOriginalFiles = directory.getOriginalFiles();
-            }
+            fileStatusOriginalFiles = directory.getOriginalFiles();
 
             for (HadoopShims.HdfsFileStatusWithId hdfsFileStatusWithId : fileStatusOriginalFiles) {
                 Path originalFilePath = new Path(hdfsFileStatusWithId.getFileStatus().getPath().toUri().getPath());
                 long originalFileLength = hdfsFileStatusWithId.getFileStatus().getLen();
-                int bucketId = getBucketId(configuration, hdfsFileStatusWithId.getFileStatus());
+
+                if (originalFileLength == 0) {
+                    continue;
+                }
+
+                int bucketId = getBucketNumber(originalFilePath.getName()).getAsInt();
                 acidInfoBuilder.addOriginalFile(originalFilePath, originalFileLength, bucketId);
             }
         }
@@ -526,7 +529,7 @@ public class BackgroundHiveSplitLoader
                 locatedFileStatuses.add((LocatedFileStatus) hdfsFileStatusWithId.getFileStatus());
                 lastResult = hiveSplitSource.addToQueue(getBucketedSplits(locatedFileStatuses, splitFactory, tableBucketInfo.get(), bucketConversion, splittable,
                         acidInfoBuilder
-                        .buildWithRequiredOriginalFiles(getBucketId(configuration, hdfsFileStatusWithId.getFileStatus()))));
+                        .buildWithRequiredOriginalFiles(getBucketNumber(hdfsFileStatusWithId.getFileStatus().getPath().getName()).getAsInt())));
             }
 
             return lastResult;
@@ -537,53 +540,17 @@ public class BackgroundHiveSplitLoader
         }
 
         if (!fileStatusOriginalFiles.isEmpty()) {
-            generateOriginalFilesSplits(configuration, fs, splitFactory, fileStatusOriginalFiles, Optional.of(acidInfoBuilder));
+            generateOriginalFilesSplits(fs, splitFactory, fileStatusOriginalFiles, acidInfoBuilder);
         }
 
         return COMPLETED_FUTURE;
     }
 
-    private int getBucketId(Configuration configuration, FileStatus fileStatus)
-    {
-        try {
-            return AcidUtils.parseBaseOrDeltaBucketFilename(fileStatus.getPath(), configuration).getBucketId();
-        }
-        catch (IOException e) {
-            throw new PrestoException(HIVE_UNKNOWN_ERROR, e);
-        }
-    }
-
-    private void generateOriginalFilesSplits(Configuration configuration, FileSystem fs, InternalHiveSplitFactory splitFactory,
-            List<HadoopShims.HdfsFileStatusWithId> originalFileLocations, Optional<AcidInfo.Builder> acidInfoBuilder)
-    {
-        if (originalFileLocations == null || originalFileLocations.isEmpty()) {
-            return;
-        }
-
-        // INSERT ONLY Tables case
-        if (!acidInfoBuilder.isPresent()) {
-            addOriginalFilesUtil(
-                    configuration,
-                    fs,
-                    originalFileLocations,
-                    splitFactory,
-                    Optional.empty());
-            return;
-        }
-
-        addOriginalFilesUtil(configuration,
-                fs,
-                originalFileLocations,
-                splitFactory,
-                acidInfoBuilder);
-    }
-
-    private void addOriginalFilesUtil(
-            Configuration configuration,
+    private void generateOriginalFilesSplits(
             FileSystem fs,
-            List<HadoopShims.HdfsFileStatusWithId> originalFileLocations,
             InternalHiveSplitFactory splitFactory,
-            Optional<AcidInfo.Builder> acidInfoBuilder)
+            List<HadoopShims.HdfsFileStatusWithId> originalFileLocations,
+            AcidInfo.Builder acidInfoBuilder)
     {
         fileIterators.addLast(
                 originalFileLocations.stream()
@@ -592,8 +559,7 @@ public class BackgroundHiveSplitLoader
                             try {
                                 return splitFactory.createInternalHiveSplit(fileStatus,
                                         hdfsEnvironment.doAs(hdfsContext.getIdentity().getUser(), () -> fs.getFileBlockLocations(fileStatus, 0, fileStatus.getLen())),
-                                        acidInfoBuilder.get()
-                                                .buildWithRequiredOriginalFiles(getBucketId(configuration, fileStatus)));
+                                        acidInfoBuilder.buildWithRequiredOriginalFiles(getBucketNumber(fileStatus.getPath().getName()).getAsInt()));
                             }
                             catch (IOException e) {
                                 throw new PrestoException(HIVE_BAD_DATA, e);

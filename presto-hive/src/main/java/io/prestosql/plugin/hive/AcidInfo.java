@@ -15,13 +15,12 @@ package io.prestosql.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ListMultimap;
 import org.apache.hadoop.fs.Path;
 
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
@@ -41,7 +40,8 @@ public class AcidInfo
     private final int bucketId;
 
     @JsonCreator
-    public AcidInfo(@JsonProperty("partitionLocation") String partitionLocation,
+    public AcidInfo(
+            @JsonProperty("partitionLocation") String partitionLocation,
             @JsonProperty("deleteDeltas") List<DeleteDeltaInfo> deleteDeltas,
             @JsonProperty("originalFiles") List<OriginalFileInfo> originalFiles,
             @JsonProperty("bucketId") int bucketId)
@@ -87,10 +87,10 @@ public class AcidInfo
             return false;
         }
         AcidInfo that = (AcidInfo) o;
-        return partitionLocation.equals(that.partitionLocation) &&
-                deleteDeltas.equals(that.deleteDeltas) &&
-                originalFiles.equals(that.originalFiles) &&
-                bucketId == (that.bucketId);
+        return bucketId == that.bucketId &&
+                Objects.equals(partitionLocation, that.partitionLocation) &&
+                Objects.equals(deleteDeltas, that.deleteDeltas) &&
+                Objects.equals(originalFiles, that.originalFiles);
     }
 
     @Override
@@ -179,21 +179,17 @@ public class AcidInfo
         }
     }
 
-    /**
-     * Stores original files related information.
-     * To calculate the correct starting row ID of an original file, OriginalFilesUtils needs OriginalFileInfo list.
-     */
     public static class OriginalFileInfo
     {
         private final String name;
         private final long fileSize;
 
         @JsonCreator
-        public OriginalFileInfo(@JsonProperty("name") String name,
+        public OriginalFileInfo(
+                @JsonProperty("name") String name,
                 @JsonProperty("fileSize") long fileSize)
         {
             this.name = requireNonNull(name, "name is null");
-            checkArgument(fileSize > 0, "fileSize should be > 0");
             this.fileSize = fileSize;
         }
 
@@ -253,8 +249,7 @@ public class AcidInfo
     {
         private final Path partitionLocation;
         private final ImmutableList.Builder<DeleteDeltaInfo> deleteDeltaInfoBuilder = ImmutableList.builder();
-        private final Map<Integer, List<OriginalFileInfo>> bucketIdToOriginalFileInfoMap = new HashMap<>();
-        private List<OriginalFileInfo> originalFileInfoList = new ArrayList<>();
+        private final ListMultimap<Integer, OriginalFileInfo> bucketIdToOriginalFileInfoMap = ArrayListMultimap.create();
 
         private Builder(Path partitionPath)
         {
@@ -290,9 +285,7 @@ public class AcidInfo
                     "Partition location in OriginalFile '%s' does not match stored location '%s'",
                     originalFilePath.getParent().toString(),
                     partitionLocation);*/
-            List<OriginalFileInfo> originalFileInfoList = bucketIdToOriginalFileInfoMap.getOrDefault(bucketId, new ArrayList<>());
-            originalFileInfoList.add(new OriginalFileInfo(originalFilePath.getName(), originalFileLength));
-            bucketIdToOriginalFileInfoMap.put(bucketId, originalFileInfoList);
+            bucketIdToOriginalFileInfoMap.put(bucketId, new OriginalFileInfo(originalFilePath.getName(), originalFileLength));
             return this;
         }
 
@@ -315,7 +308,7 @@ public class AcidInfo
             if (deleteDeltas.isEmpty()) {
                 return Optional.empty();
             }
-            return Optional.of(new AcidInfo(partitionLocation.toString(), deleteDeltas, originalFileInfoList, -1));
+            return Optional.of(new AcidInfo(partitionLocation.toString(), deleteDeltas, ImmutableList.of(), -1));
         }
     }
 }

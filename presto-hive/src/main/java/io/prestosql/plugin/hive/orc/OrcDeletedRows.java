@@ -34,7 +34,7 @@ import javax.annotation.concurrent.NotThreadSafe;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.util.Objects;
-import java.util.Optional;
+import java.util.OptionalLong;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -81,9 +81,9 @@ public class OrcDeletedRows
         this.acidInfo = requireNonNull(acidInfo, "acidInfo is null");
     }
 
-    public MaskDeletedRowsFunction getMaskDeletedRowsFunction(Page sourcePage, Optional<Long> startRowID)
+    public MaskDeletedRowsFunction getMaskDeletedRowsFunction(Page sourcePage, OptionalLong startRowId)
     {
-        return new MaskDeletedRows(sourcePage, startRowID);
+        return new MaskDeletedRows(sourcePage, startRowId);
     }
 
     public interface MaskDeletedRowsFunction
@@ -125,12 +125,12 @@ public class OrcDeletedRows
         private int positionCount;
         @Nullable
         private int[] validPositions;
-        private Optional<Long> startRowId;
+        private OptionalLong startRowId;
 
-        public MaskDeletedRows(Page sourcePage, Optional<Long> startRowId)
+        public MaskDeletedRows(Page sourcePage, OptionalLong startRowId)
         {
             this.sourcePage = requireNonNull(sourcePage, "sourcePage is null");
-            this.startRowId = startRowId;
+            this.startRowId = requireNonNull(startRowId, "startRowId is null");
         }
 
         @Override
@@ -161,7 +161,7 @@ public class OrcDeletedRows
         private void loadValidPositions()
         {
             verify(sourcePage != null, "sourcePage is null");
-            Set<OrcDeletedRows.RowId> deletedRows = getDeletedRows();
+            Set<RowId> deletedRows = getDeletedRows();
             if (deletedRows.isEmpty()) {
                 this.positionCount = sourcePage.getPositionCount();
                 this.sourcePage = null;
@@ -170,12 +170,11 @@ public class OrcDeletedRows
 
             int[] validPositions = new int[sourcePage.getPositionCount()];
             int validPositionsIndex = 0;
-            long rowId = startRowId.isPresent() ? startRowId.get() : 0;
             for (int position = 0; position < sourcePage.getPositionCount(); position++) {
                 RowId rowIdObj;
                 if (startRowId.isPresent()) {
                     // In case of original files, we only need to read and compare 'rowId' column
-                    rowIdObj = new OrcDeletedRows.RowId(-1, -1, rowId);
+                    rowIdObj = new OrcDeletedRows.RowId(-1, -1, startRowId.getAsLong() + position);
                 }
                 else {
                     long originalTransaction = BIGINT.getLong(sourcePage.getBlock(ORIGINAL_TRANSACTION_INDEX), position);
@@ -187,7 +186,6 @@ public class OrcDeletedRows
                 if (!deletedRows.contains(rowIdObj)) {
                     validPositions[validPositionsIndex++] = position;
                 }
-                rowId++;
             }
             this.positionCount = validPositionsIndex;
             this.validPositions = validPositions;
@@ -204,6 +202,7 @@ public class OrcDeletedRows
         ImmutableSet.Builder<RowId> deletedRowsBuilder = ImmutableSet.builder();
         for (AcidInfo.DeleteDeltaInfo deleteDeltaInfo : acidInfo.getDeleteDeltas()) {
             Path path = createPath(acidInfo, deleteDeltaInfo, sourceFileName);
+
             try {
                 FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
                 FileStatus fileStatus = hdfsEnvironment.doAs(sessionUser, () -> fileSystem.getFileStatus(path));
