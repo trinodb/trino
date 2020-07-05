@@ -45,3 +45,11 @@ which is configured with a carefully selected set of options. This behavior
 can be overridden by setting the environment variable ``PRESTO_PAGER`` to the
 name of a different program such as ``more`` or `pspg <https://github.com/okbob/pspg>`_,
 or it can be set to an empty value to completely disable pagination.
+
+Output Formats
+--------------
+
+The Presto CLI provides the option ``--output-format`` to control how the output is
+displayed when running in noninteractive mode. The available options are ``ALIGNED``,
+``VERTICAL``, ``CSV``, ``TSV``, ``CSV_HEADER``, ``TSV_HEADER``, and ``NULL``.
+The default value is ``CSV``.

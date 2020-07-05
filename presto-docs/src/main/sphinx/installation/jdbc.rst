@@ -3,7 +3,7 @@ JDBC Driver
 ===========
 
 Presto can be accessed from Java using the JDBC driver.
-Download :maven_download:`jdbc` and add it to the class path of your Java application.
+Download :maven_download:`jdbc` and add it to the classpath of your Java application.
 
 The driver is also available from Maven Central:
 
@@ -14,6 +14,11 @@ The driver is also available from Maven Central:
         <artifactId>presto-jdbc</artifactId>
         <version>\ |version|\ </version>
     </dependency>
+
+.. note::
+  If you’re familiar with the different implementations of JDBC drivers,
+  the Presto JDBC driver is a Type 4 driver. This means it talks to the
+  Presto native protocol.
 
 Requirements
 ------------
