@@ -38,7 +38,7 @@ public class SalesforceConfig
             "   xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n" +
             " <env:Header>\n" +
             "     <urn:CallOptions>\n" +
-            "       <urn:client>SfdcInsights</urn:client>\n" +
+            "       <urn:client>presto</urn:client>\n" +
             "     </urn:CallOptions>\n" +
             " </env:Header>\n" +
             " <env:Body>\n" +

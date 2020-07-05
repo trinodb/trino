@@ -59,15 +59,16 @@ import static java.nio.charset.StandardCharsets.UTF_8;
  * <br><br>
  * If your password is <code>foo</code> and token is <code>bar</code>, then your Presto password will be <code>foobar</code>.
  * <br><br>
- * Optionally, admins can configure a Salesforce Organization Id (18 char) via <code>salesforce.org</code> in <code>password-authenticator.properties</code>
- * to act as a single layer of authZ.  Essentially, if the user who logs in is not part of the configured org, their access will be denied.
+ * Admins can configure one or more Salesforce Organization Ids (18 char) via <code>salesforce.org</code> in <code>password-authenticator.properties</code>
+ * to act as a single layer of authZ.  Essentially, if the user who logs in is not part of the configured org, their access will be denied.  Alternatively,
+ * the admin can specify "all", rather than actual orgs.  This will allow any authenticated Salesforce user access to Presto.
  */
 public class SalesforceBasicAuthenticator
         implements PasswordAuthenticator
 {
     private static final Logger log = Logger.get(SalesforceBasicAuthenticator.class);
 
-    private Set<String> orgs;                                   // Comma separated list of Salesforce org, which users must belong to in order to authN.
+    private Set<String> orgs;                                   // Set of Salesforce orgs, which users must belong to in order to authN.
     private Map<String, String> responseMap = new HashMap<>();  // A flattened map of xml elements from the Salesforce login response.
     private String key = "";                                    // Will hold the xml element tag, we can add to the map with its text attribute.
     private final HttpClient httpClient;                        // An http client for posting to the Salesforce login endpoint.
@@ -163,7 +164,7 @@ public class SalesforceBasicAuthenticator
     }
 
     // This simply finds elements in the xml response, and adds them and their text values to the flattened map
-    // We will use this to find the organizationId and approved the authenticated user.
+    // We will use this to find the organizationId and approve the authenticated user.
     private void parse(Node node)
     {
         switch (node.getNodeType()) {
