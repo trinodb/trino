@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -113,15 +114,11 @@ public class OrcPageSource
             return null;
         }
 
-        // To compare row ID of an original file with delete delta, we need to calculate the overall startRowID of
-        // this page.
-        // originalFileRowId -> starting row ID of the current original file.
-        // recordReader.getFilePosition() -> returns the position in the current original file.
-        // startRowID -> {Total number of rows before this original file} + {Row number in current file}
-        Optional<Long> startRowID = originalFileRowId.map(fileRowId -> fileRowId + recordReader.getFilePosition());
+        OptionalLong startRowId = originalFileRowId.isPresent() ?
+                OptionalLong.of(originalFileRowId.get() + recordReader.getFilePosition()) : OptionalLong.empty();
 
         MaskDeletedRowsFunction maskDeletedRowsFunction = deletedRows
-                .map(deletedRows -> deletedRows.getMaskDeletedRowsFunction(page, startRowID))
+                .map(deletedRows -> deletedRows.getMaskDeletedRowsFunction(page, startRowId))
                 .orElseGet(() -> MaskDeletedRowsFunction.noMaskForPage(page));
         Block[] blocks = new Block[columnAdaptations.size()];
         for (int i = 0; i < columnAdaptations.size(); i++) {

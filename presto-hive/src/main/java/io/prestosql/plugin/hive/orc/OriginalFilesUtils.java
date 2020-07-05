@@ -26,7 +26,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
-import java.util.List;
+import java.util.Collection;
 
 import static io.prestosql.plugin.hive.AcidInfo.OriginalFileInfo;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
@@ -38,9 +38,10 @@ public class OriginalFilesUtils
     }
 
     /**
-     * Utility method to read the ORC footer and return number of rows present in the file.
+     * Returns number of rows present in the file, based on the ORC footer.
      */
-    private static Long getRowsInFile(Path splitPath,
+    private static Long getRowsInFile(
+            Path splitPath,
             HdfsEnvironment hdfsEnvironment,
             String sessionUser,
             OrcReaderOptions options,
@@ -76,13 +77,14 @@ public class OriginalFilesUtils
     /**
      * Returns total number of rows present before the given original file in the same bucket.
      * example: if bucket-1 has original files
-     *  000000_0 -> X0 rows
-     *  000000_0_copy1 -> X1 rows
-     *  000000_0_copy2 -> X2 rows
-     *
+     * 000000_0 -> X0 rows
+     * 000000_0_copy1 -> X1 rows
+     * 000000_0_copy2 -> X2 rows
+     * <p>
      * for 000000_0_copy2, it returns (X0+X1)
      */
-    public static long getRowCount(List<OriginalFileInfo> originalFileInfos,
+    public static long getRowCount(
+            Collection<OriginalFileInfo> originalFileInfos,
             Path splitPath,
             HdfsEnvironment hdfsEnvironment,
             String sessionUser,
@@ -98,6 +100,7 @@ public class OriginalFilesUtils
                 rowCount += getRowsInFile(path, hdfsEnvironment, sessionUser, options, configuration, stats, originalFileInfo.getFileSize());
             }
         }
+
         return rowCount;
     }
 }
