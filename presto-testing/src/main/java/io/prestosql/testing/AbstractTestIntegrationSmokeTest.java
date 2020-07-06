@@ -376,6 +376,19 @@ public abstract class AbstractTestIntegrationSmokeTest
                         "WHERE table_catalog = '" + catalog + "' AND table_schema LIKE '" + schema + "' AND table_name LIKE '%orders'",
                 "VALUES 'orders'");
         assertQuery("SELECT table_name FROM information_schema.tables WHERE table_catalog = 'something_else'", "SELECT '' WHERE false");
+
+        assertQuery(
+                "SELECT DISTINCT table_name FROM information_schema.tables WHERE table_schema = 'information_schema' OR rand() = 42 ORDER BY 1",
+                "VALUES " +
+                        "('applicable_roles'), " +
+                        "('columns'), " +
+                        "('enabled_roles'), " +
+                        "('role_authorization_descriptors'), " +
+                        "('roles'), " +
+                        "('schemata'), " +
+                        "('table_privileges'), " +
+                        "('tables'), " +
+                        "('views')");
     }
 
     @Test
@@ -413,6 +426,19 @@ public abstract class AbstractTestIntegrationSmokeTest
         assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE '_rders'", ordersTableWithColumns);
         assertQuerySucceeds("SELECT * FROM information_schema.columns WHERE table_catalog = '" + catalog + "' AND table_name LIKE '%'");
         assertQuery("SELECT column_name FROM information_schema.columns WHERE table_catalog = 'something_else'", "SELECT '' WHERE false");
+
+        assertQuery(
+                "SELECT DISTINCT table_name FROM information_schema.columns WHERE table_schema = 'information_schema' OR rand() = 42 ORDER BY 1",
+                "VALUES " +
+                        "('applicable_roles'), " +
+                        "('columns'), " +
+                        "('enabled_roles'), " +
+                        "('role_authorization_descriptors'), " +
+                        "('roles'), " +
+                        "('schemata'), " +
+                        "('table_privileges'), " +
+                        "('tables'), " +
+                        "('views')");
     }
 
     protected void assertPushedDown(String sql)

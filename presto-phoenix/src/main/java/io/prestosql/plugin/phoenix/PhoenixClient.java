@@ -157,7 +157,7 @@ public class PhoenixClient
             while (resultSet.next()) {
                 String schemaName = resultSet.getString("TABLE_SCHEM");
                 // skip internal schemas
-                if (schemaName != null && !schemaName.equalsIgnoreCase("information_schema")) {
+                if (filterSchema(schemaName)) {
                     schemaNames.add(schemaName);
                 }
             }

@@ -182,7 +182,7 @@ public abstract class BaseJdbcClient
             while (resultSet.next()) {
                 String schemaName = resultSet.getString("TABLE_SCHEM");
                 // skip internal schemas
-                if (!schemaName.equalsIgnoreCase("information_schema")) {
+                if (filterSchema(schemaName)) {
                     schemaNames.add(schemaName);
                 }
             }
@@ -193,17 +193,31 @@ public abstract class BaseJdbcClient
         }
     }
 
+    protected boolean filterSchema(String schemaName)
+    {
+        if (schemaName.equalsIgnoreCase("information_schema")) {
+            return false;
+        }
+        return true;
+    }
+
     @Override
     public List<SchemaTableName> getTableNames(JdbcIdentity identity, Optional<String> schema)
     {
         try (Connection connection = connectionFactory.openConnection(identity)) {
             Optional<String> remoteSchema = schema.map(schemaName -> toRemoteSchemaName(identity, connection, schemaName));
+            if (remoteSchema.isPresent() && !filterSchema(remoteSchema.get())) {
+                return ImmutableList.of();
+            }
+
             try (ResultSet resultSet = getTables(connection, remoteSchema, Optional.empty())) {
                 ImmutableList.Builder<SchemaTableName> list = ImmutableList.builder();
                 while (resultSet.next()) {
                     String tableSchema = getTableSchemaName(resultSet);
                     String tableName = resultSet.getString("TABLE_NAME");
-                    list.add(new SchemaTableName(tableSchema, tableName));
+                    if (filterSchema(tableSchema)) {
+                        list.add(new SchemaTableName(tableSchema, tableName));
+                    }
                 }
                 return list.build();
             }
