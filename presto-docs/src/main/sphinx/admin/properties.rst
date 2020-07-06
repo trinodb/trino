@@ -333,6 +333,19 @@ communication issues or improve network utilization.
     value adjusts the heuristic, which may increase concurrency and improve
     network utilization.
 
+``exchange.data-integrity-verification``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+    * **Type:** ``string``
+    * **Allowed values:** ``NONE``, ``ABORT``, ``RETRY``
+    * **Default value:** ``ABORT``
+
+    Configure the resulting behavior of data integrity issues. By default,
+    ``ABORT`` causes queries to be aborted when data integrity issues are
+    detected as part of the built-in verification. Setting the property to
+    ``NONE`` disables the verification. ``RETRY`` causes the data exchange to be
+    repeated when integrity issues are detected.
+
 ``exchange.max-buffer-size``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
