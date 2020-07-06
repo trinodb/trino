@@ -351,7 +351,7 @@ public class OrcPageSourceFactory
             Optional<OrcDeletedRows> deletedRows = acidInfo.map(AcidInfo::getDeleteDeltas).map(locations ->
                     new OrcDeletedRows(
                             path.getName(),
-                            new OrcDeleteDeltaPageSourceFactory(options, sessionUser, configuration, hdfsEnvironment, stats, originalFilesPresent),
+                            new OrcDeleteDeltaPageSourceFactory(options, sessionUser, configuration, hdfsEnvironment, stats),
                             sessionUser,
                             configuration,
                             hdfsEnvironment,

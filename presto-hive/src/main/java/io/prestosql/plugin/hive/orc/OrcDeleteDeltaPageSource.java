@@ -47,12 +47,10 @@ import static io.prestosql.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_MISSING_DATA;
 import static io.prestosql.plugin.hive.orc.OrcPageSource.handleException;
-import static io.prestosql.plugin.hive.orc.OrcPageSourceFactory.ACID_COLUMN_BUCKET;
 import static io.prestosql.plugin.hive.orc.OrcPageSourceFactory.ACID_COLUMN_ORIGINAL_TRANSACTION;
 import static io.prestosql.plugin.hive.orc.OrcPageSourceFactory.ACID_COLUMN_ROW_ID;
 import static io.prestosql.plugin.hive.orc.OrcPageSourceFactory.verifyAcidSchema;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -75,8 +73,7 @@ public class OrcDeleteDeltaPageSource
             String sessionUser,
             Configuration configuration,
             HdfsEnvironment hdfsEnvironment,
-            FileFormatDataSourceStats stats,
-            boolean originalFilesPresent)
+            FileFormatDataSourceStats stats)
     {
         this.stats = requireNonNull(stats, "stats is null");
 
@@ -107,20 +104,13 @@ public class OrcDeleteDeltaPageSource
                     orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH));
 
             List<OrcColumn> rowIdColumns;
-            if (originalFilesPresent) {
-                // When storing delete delta for original files, only need to read Row Id ACID column.
-                rowIdColumns = ImmutableList.of(acidColumns.get(ACID_COLUMN_ROW_ID.toLowerCase(ENGLISH)));
-            }
-            else {
-                rowIdColumns = ImmutableList.of(
-                        acidColumns.get(ACID_COLUMN_ORIGINAL_TRANSACTION.toLowerCase(ENGLISH)),
-                        acidColumns.get(ACID_COLUMN_BUCKET.toLowerCase(ENGLISH)),
-                        acidColumns.get(ACID_COLUMN_ROW_ID.toLowerCase(ENGLISH)));
-            }
+            rowIdColumns = ImmutableList.of(
+                    acidColumns.get(ACID_COLUMN_ORIGINAL_TRANSACTION.toLowerCase(ENGLISH)),
+                    acidColumns.get(ACID_COLUMN_ROW_ID.toLowerCase(ENGLISH)));
 
             recordReader = reader.createRecordReader(
                     rowIdColumns,
-                    originalFilesPresent ? ImmutableList.of(BIGINT) : ImmutableList.of(BIGINT, INTEGER, BIGINT),
+                    ImmutableList.of(BIGINT, BIGINT),
                     OrcPredicate.TRUE,
                     0,
                     fileSize,

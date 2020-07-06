@@ -43,8 +43,6 @@ import static io.prestosql.plugin.hive.BackgroundHiveSplitLoader.hasAttemptId;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.ql.io.AcidUtils.deleteDeltaSubdir;
 
@@ -172,16 +170,12 @@ public class OrcDeletedRows
             int validPositionsIndex = 0;
             for (int position = 0; position < sourcePage.getPositionCount(); position++) {
                 RowId rowIdObj;
-                if (startRowId.isPresent()) {
-                    // In case of original files, we only need to read and compare 'rowId' column
-                    rowIdObj = new OrcDeletedRows.RowId(-1, -1, startRowId.getAsLong() + position);
-                }
-                else {
-                    long originalTransaction = BIGINT.getLong(sourcePage.getBlock(ORIGINAL_TRANSACTION_INDEX), position);
-                    int bucket = toIntExact(INTEGER.getLong(sourcePage.getBlock(BUCKET_ID_INDEX), position));
-                    long row = BIGINT.getLong(sourcePage.getBlock(ROW_ID_INDEX), position);
-                    rowIdObj = new RowId(originalTransaction, bucket, row);
-                }
+
+                long originalTransaction = startRowId.isPresent() ? 0L :
+                        BIGINT.getLong(sourcePage.getBlock(ORIGINAL_TRANSACTION_INDEX), position);
+                long row = startRowId.isPresent() ? startRowId.getAsLong() + position :
+                        BIGINT.getLong(sourcePage.getBlock(ROW_ID_INDEX), position);
+                rowIdObj = new RowId(originalTransaction, -1, row);
 
                 if (!deletedRows.contains(rowIdObj)) {
                     validPositions[validPositionsIndex++] = position;
@@ -215,15 +209,8 @@ public class OrcDeletedRows
                                 long originalTransaction = -1;
                                 int bucket = -1;
                                 long row;
-                                // In case of original files, we only read row Id ACID column
-                                if (page.getChannelCount() == 1) {
-                                    row = BIGINT.getLong(page.getBlock(0), i);
-                                }
-                                else {
-                                    originalTransaction = BIGINT.getLong(page.getBlock(ORIGINAL_TRANSACTION_INDEX), i);
-                                    bucket = toIntExact(INTEGER.getLong(page.getBlock(BUCKET_ID_INDEX), i));
-                                    row = BIGINT.getLong(page.getBlock(ROW_ID_INDEX), i);
-                                }
+                                originalTransaction = BIGINT.getLong(page.getBlock(ORIGINAL_TRANSACTION_INDEX), i);
+                                row = BIGINT.getLong(page.getBlock(BUCKET_ID_INDEX), i);
                                 deletedRowsBuilder.add(new RowId(originalTransaction, bucket, row));
                             }
                         }
