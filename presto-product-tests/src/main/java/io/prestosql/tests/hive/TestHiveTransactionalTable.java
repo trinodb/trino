@@ -29,7 +29,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.OptionalLong;
+import java.util.Optional;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Stream;
 
@@ -245,10 +245,10 @@ public class TestHiveTransactionalTable
     private static void tryCompactingTable(CompactionMode compactMode, String tableName, String partitionString, Duration timeout)
             throws TimeoutException
     {
-        long beforeCompactionStart = Instant.now().getEpochSecond();
+        Instant beforeCompactionStart = Instant.now();
         onHive().executeQuery(format("ALTER TABLE %s %s COMPACT '%s'", tableName, partitionString, compactMode.name())).getRowsCount();
 
-        log.info("Started compactions: %s", getTableCompactions(compactMode, tableName, OptionalLong.empty()));
+        log.info("Started compactions after %s: %s", beforeCompactionStart, getTableCompactions(compactMode, tableName, Optional.empty()));
 
         long loopStart = System.nanoTime();
         while (true) {
@@ -263,7 +263,7 @@ public class TestHiveTransactionalTable
 
             // Since we disabled auto compaction for uniquely named table and every compaction is triggered in this test
             // we can expect that single compaction in given mode should complete before proceeding.
-            List<Map<String, String>> startedCompactions = getTableCompactions(compactMode, tableName, OptionalLong.of(beforeCompactionStart));
+            List<Map<String, String>> startedCompactions = getTableCompactions(compactMode, tableName, Optional.of(beforeCompactionStart));
             verify(startedCompactions.size() < 2, "Expected at most 1 compaction");
 
             if (startedCompactions.isEmpty()) {
@@ -290,14 +290,15 @@ public class TestHiveTransactionalTable
         }
     }
 
-    private static List<Map<String, String>> getTableCompactions(CompactionMode compactionMode, String tableName, OptionalLong startedAfter)
+    private static List<Map<String, String>> getTableCompactions(CompactionMode compactionMode, String tableName, Optional<Instant> startedAfter)
     {
         return Stream.of(onHive().executeQuery("SHOW COMPACTIONS")).flatMap(TestHiveTransactionalTable::mapRows)
                 .filter(row -> isCompactionForTable(compactionMode, tableName, row))
                 .filter(row -> {
                     if (startedAfter.isPresent()) {
                         try {
-                            return Long.parseLong(row.get("start time")) >= startedAfter.getAsLong();
+                            // start time is expressed in milliseconds
+                            return Long.parseLong(row.get("start time")) >= startedAfter.get().toEpochMilli();
                         }
                         catch (NumberFormatException ignored) {
                         }
