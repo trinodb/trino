@@ -57,8 +57,13 @@ public final class ContainerUtil
         ListNetworksCmd listNetworksCmd = filter.apply(dockerClient.listNetworksCmd());
         List<Network> networks = listNetworksCmd.exec();
         for (Network network : networks) {
-            dockerClient.removeNetworkCmd(network.getId())
-                    .exec();
+            try {
+                dockerClient.removeNetworkCmd(network.getId())
+                        .exec();
+            }
+            catch (NotFoundException ignore) {
+                // Possible when previous tests invocation leaves a network behind and it is being garbage collected by Ryuk in the background.
+            }
         }
     }
 
