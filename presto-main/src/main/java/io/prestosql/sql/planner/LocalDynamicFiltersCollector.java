@@ -33,7 +33,7 @@ class LocalDynamicFiltersCollector
      * (e.g. in case of co-located joins).
      */
     @GuardedBy("this")
-    private Map<Symbol, Domain> dynamicFilterDomainsResult = new HashMap<>();
+    private final Map<Symbol, Domain> dynamicFilterDomainsResult = new HashMap<>();
 
     public synchronized TupleDomain<Symbol> getDynamicFilter(Set<Symbol> probeSymbols)
     {
