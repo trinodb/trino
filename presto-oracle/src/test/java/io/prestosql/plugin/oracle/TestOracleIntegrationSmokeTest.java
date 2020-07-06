@@ -16,7 +16,6 @@ package io.prestosql.plugin.oracle;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
-import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
@@ -83,11 +82,5 @@ public class TestOracleIntegrationSmokeTest
                         "   shippriority decimal(10, 0),\n" +
                         "   comment varchar(79)\n" +
                         ")");
-    }
-
-    @Override
-    public void testSelectInformationSchemaColumns()
-    {
-        throw new SkipException("Test disabled until issue fixed"); // https://github.com/prestosql/presto/issues/3781
     }
 }

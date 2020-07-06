@@ -14,6 +14,7 @@
 package io.prestosql.plugin.oracle;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ColumnMapping;
@@ -54,6 +55,7 @@ import java.time.ZonedDateTime;
 import java.util.Calendar;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.TimeZone;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -111,7 +113,6 @@ import static java.util.concurrent.TimeUnit.DAYS;
 public class OracleClient
         extends BaseJdbcClient
 {
-    // single UTF char may require up to 4 bytes of storage
     private static final int MAX_BYTES_PER_CHAR = 4;
 
     private static final int ORACLE_VARCHAR2_MAX_BYTES = 4000;
@@ -121,6 +122,17 @@ public class OracleClient
     private static final int ORACLE_CHAR_MAX_CHARS = ORACLE_CHAR_MAX_BYTES / MAX_BYTES_PER_CHAR;
 
     private static final int PRECISION_OF_UNSPECIFIED_NUMBER = 127;
+
+    private static final Set<String> INTERNAL_SCHEMAS = ImmutableSet.<String>builder()
+            .add("ctxsys")
+            .add("flows_files")
+            .add("mdsys")
+            .add("outln")
+            .add("sys")
+            .add("system")
+            .add("xdb")
+            .add("xs$null")
+            .build();
 
     private final boolean synonymsEnabled;
 
@@ -168,6 +180,15 @@ public class OracleClient
                 escapeNamePattern(schemaName, escape).orElse(null),
                 escapeNamePattern(tableName, escape).orElse(null),
                 getTableTypes());
+    }
+
+    @Override
+    protected boolean filterSchema(String schemaName)
+    {
+        if (INTERNAL_SCHEMAS.contains(schemaName.toLowerCase(ENGLISH))) {
+            return false;
+        }
+        return super.filterSchema(schemaName);
     }
 
     @Override
