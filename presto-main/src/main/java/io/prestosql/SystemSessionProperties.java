@@ -128,6 +128,7 @@ public final class SystemSessionProperties
     public static final String REQUIRED_WORKERS_COUNT = "required_workers_count";
     public static final String REQUIRED_WORKERS_MAX_WAIT_TIME = "required_workers_max_wait_time";
     public static final String COST_ESTIMATION_WORKER_COUNT = "cost_estimation_worker_count";
+    public static final String OMIT_DATETIME_TYPE_PRECISION = "omit_datetime_type_precision";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -558,7 +559,12 @@ public final class SystemSessionProperties
                         COST_ESTIMATION_WORKER_COUNT,
                         "Set the estimate count of workers while planning",
                         null,
-                        true));
+                        true),
+                booleanProperty(
+                        OMIT_DATETIME_TYPE_PRECISION,
+                        "Omit precision when rendering datetime type names with default precision",
+                        featuresConfig.isOmitDateTimeTypePrecision(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -1002,5 +1008,10 @@ public final class SystemSessionProperties
     public static Integer getCostEstimationWorkerCount(Session session)
     {
         return session.getSystemProperty(COST_ESTIMATION_WORKER_COUNT, Integer.class);
+    }
+
+    public static boolean isOmitDateTimeTypePrecision(Session session)
+    {
+        return session.getSystemProperty(OMIT_DATETIME_TYPE_PRECISION, Boolean.class);
     }
 }

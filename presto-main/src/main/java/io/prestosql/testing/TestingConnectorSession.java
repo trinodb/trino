@@ -53,6 +53,7 @@ public class TestingConnectorSession
     private final Map<String, PropertyMetadata<?>> properties;
     private final Map<String, Object> propertyValues;
     private final boolean isLegacyTimestamp;
+    private final boolean omitTimestampPrecision;
 
     private TestingConnectorSession(
             ConnectorIdentity identity,
@@ -63,7 +64,8 @@ public class TestingConnectorSession
             Instant start,
             List<PropertyMetadata<?>> propertyMetadatas,
             Map<String, Object> propertyValues,
-            boolean isLegacyTimestamp)
+            boolean isLegacyTimestamp,
+            boolean omitTimestampPrecision)
     {
         this.identity = requireNonNull(identity, "identity is null");
         this.source = requireNonNull(source, "source is null");
@@ -74,6 +76,7 @@ public class TestingConnectorSession
         this.properties = Maps.uniqueIndex(propertyMetadatas, PropertyMetadata::getName);
         this.propertyValues = ImmutableMap.copyOf(propertyValues);
         this.isLegacyTimestamp = isLegacyTimestamp;
+        this.omitTimestampPrecision = omitTimestampPrecision;
     }
 
     @Override
@@ -125,6 +128,12 @@ public class TestingConnectorSession
     }
 
     @Override
+    public boolean isOmitDatetimeTypePrecision()
+    {
+        return omitTimestampPrecision;
+    }
+
+    @Override
     public <T> T getProperty(String name, Class<T> type)
     {
         PropertyMetadata<?> metadata = properties.get(name);
@@ -169,6 +178,7 @@ public class TestingConnectorSession
         private List<PropertyMetadata<?>> propertyMetadatas = ImmutableList.of();
         private Map<String, Object> propertyValues = ImmutableMap.of();
         private boolean isLegacyTimestamp = new FeaturesConfig().isLegacyTimestamp();
+        private boolean omitTimestampPrecision = new FeaturesConfig().isOmitDateTimeTypePrecision();
 
         public Builder setIdentity(ConnectorIdentity identity)
         {
@@ -208,6 +218,12 @@ public class TestingConnectorSession
             return this;
         }
 
+        public Builder setOmitTimestampPrecision(boolean value)
+        {
+            this.omitTimestampPrecision = value;
+            return this;
+        }
+
         public TestingConnectorSession build()
         {
             return new TestingConnectorSession(
@@ -219,7 +235,8 @@ public class TestingConnectorSession
                     start.orElse(Instant.now()),
                     propertyMetadatas,
                     propertyValues,
-                    isLegacyTimestamp);
+                    isLegacyTimestamp,
+                    omitTimestampPrecision);
         }
     }
 }

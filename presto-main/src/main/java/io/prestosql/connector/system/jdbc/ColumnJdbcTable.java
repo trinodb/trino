@@ -40,6 +40,9 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 
@@ -248,7 +251,7 @@ public class ColumnJdbcTable
             if ((schemaDomain.isAll() && tableDomain.isAll()) || (schemaFilter.isPresent() && tableFilter.isPresent())) {
                 QualifiedTablePrefix tablePrefix = tablePrefix(catalog, schemaFilter, tableFilter);
                 Map<SchemaTableName, List<ColumnMetadata>> tableColumns = listTableColumns(session, metadata, accessControl, tablePrefix);
-                addColumnsRow(table, catalog, tableColumns);
+                addColumnsRow(table, catalog, tableColumns, connectorSession.isOmitDatetimeTypePrecision());
             }
             else {
                 Collection<String> schemas = listSchemas(session, metadata, accessControl, catalog, schemaFilter);
@@ -268,7 +271,7 @@ public class ColumnJdbcTable
                         }
 
                         Map<SchemaTableName, List<ColumnMetadata>> tableColumns = listTableColumns(session, metadata, accessControl, new QualifiedTablePrefix(catalog, schema, tableName));
-                        addColumnsRow(table, catalog, tableColumns);
+                        addColumnsRow(table, catalog, tableColumns, connectorSession.isOmitDatetimeTypePrecision());
                     }
                 }
             }
@@ -276,19 +279,28 @@ public class ColumnJdbcTable
         return table.build().cursor();
     }
 
-    private static void addColumnsRow(Builder builder, String catalog, Map<SchemaTableName, List<ColumnMetadata>> columns)
+    private static void addColumnsRow(Builder builder, String catalog, Map<SchemaTableName, List<ColumnMetadata>> columns, boolean isOmitTimestampPrecision)
     {
         for (Entry<SchemaTableName, List<ColumnMetadata>> entry : columns.entrySet()) {
-            addColumnRows(builder, catalog, entry.getKey(), entry.getValue());
+            addColumnRows(builder, catalog, entry.getKey(), entry.getValue(), isOmitTimestampPrecision);
         }
     }
 
-    private static void addColumnRows(Builder builder, String catalog, SchemaTableName tableName, List<ColumnMetadata> columns)
+    private static void addColumnRows(Builder builder, String catalog, SchemaTableName tableName, List<ColumnMetadata> columns, boolean isOmitTimestampPrecision)
     {
         int ordinalPosition = 1;
         for (ColumnMetadata column : columns) {
             if (column.isHidden()) {
                 continue;
+            }
+            String type = column.getType().getDisplayName();
+            if (isOmitTimestampPrecision) {
+                if (column.getType() instanceof TimestampType && ((TimestampType) column.getType()).getPrecision() == TimestampType.DEFAULT_PRECISION) {
+                    type = StandardTypes.TIMESTAMP;
+                }
+                else if (column.getType() instanceof TimestampWithTimeZoneType && ((TimestampWithTimeZoneType) column.getType()).getPrecision() == TimestampWithTimeZoneType.DEFAULT_PRECISION) {
+                    type = StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
+                }
             }
             builder.addRow(
                     catalog,
@@ -296,7 +308,7 @@ public class ColumnJdbcTable
                     tableName.getTableName(),
                     column.getName(),
                     jdbcDataType(column.getType()),
-                    column.getType().getDisplayName(),
+                    type,
                     columnSize(column.getType()),
                     0,
                     decimalDigits(column.getType()),
