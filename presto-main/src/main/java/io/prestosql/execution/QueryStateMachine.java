@@ -354,6 +354,7 @@ public class QueryStateMachine
 
                 stageStats.getRawInputDataSize(),
                 stageStats.getRawInputPositions(),
+                stageStats.getPhysicalInputDataSize(),
 
                 stageStats.getCumulativeUserMemory(),
                 stageStats.getUserMemoryReservation(),
