@@ -37,11 +37,12 @@ public class TestJdbcSnowflakeIntegrationSmokeTest
                 .build();
     }
 
-    // currently the JDBC connector cannot read timestamps greater than 9999-12-31 23:59:59.999
     @Override
     @Test
     public void testTimestampWithTimezoneValues()
     {
+        // Snowflake's JDBC does not correctly represent datetimes with negative year
+        testTimestampWithTimezoneValues(false);
     }
 
     @Test

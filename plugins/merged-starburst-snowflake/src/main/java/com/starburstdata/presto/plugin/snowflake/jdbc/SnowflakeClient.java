@@ -106,7 +106,7 @@ public class SnowflakeClient
     public static final String IDENTIFIER_QUOTE = "\"";
 
     private static final LocalDate EPOCH_DAY = LocalDate.ofEpochDay(0);
-    private static final DateTimeFormatter SNOWFLAKE_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSSSSSSSXXX");
+    private static final DateTimeFormatter SNOWFLAKE_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("y-MM-dd'T'HH:mm:ss.SSSSSSSSSXXX");
     private static final int SNOWFLAKE_MAX_LIST_EXPRESSIONS = 1000;
     private static final UnaryOperator<Domain> SIMPLIFY_UNSUPPORTED_PUSHDOWN = domain -> {
         if (domain.getValues().getRanges().getRangeCount() <= SNOWFLAKE_MAX_LIST_EXPRESSIONS) {

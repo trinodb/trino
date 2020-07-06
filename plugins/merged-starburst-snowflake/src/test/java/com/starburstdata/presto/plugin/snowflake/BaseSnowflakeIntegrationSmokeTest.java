@@ -209,44 +209,60 @@ public abstract class BaseSnowflakeIntegrationSmokeTest
     @Test
     public void testTimestampWithTimezoneValues()
     {
+        testTimestampWithTimezoneValues(true);
+    }
+
+    protected void testTimestampWithTimezoneValues(boolean includeNegativeYear)
+    {
         String tableName = TEST_SCHEMA + ".test_tstz_";
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(ZoneOffset.UTC.getId()))
                 .setSystemProperty("legacy_timestamp", "false")
                 .build();
 
+        // Snowflake literals cannot have a 5-digit year, nor a negative year, so need to use DATEADD for some values
+        ImmutableList.Builder<String> data = ImmutableList.<String>builder()
+                .add("TO_TIMESTAMP_TZ('1970-01-01T00:00:00.000 +14:00')")
+                .add("TO_TIMESTAMP_TZ('1970-01-01T00:00:00.000 -13:00')")
+                .add("TO_TIMESTAMP_TZ('0001-01-01T00:00:00.000Z')")
+                .add("DATEADD(YEAR, 2, TO_TIMESTAMP_TZ('9999-12-31T23:59:59.999Z'))")
+                .add("DATEADD(YEAR, 70000, TO_TIMESTAMP_TZ('3326-09-11T20:14:45.247Z'))")
+                .add("DATEADD(YEAR, 70000, TO_TIMESTAMP_TZ('3326-09-11T07:14:45.247 -13:00'))");
+
+        if (includeNegativeYear) {
+            data
+                    .add("DATEADD(YEAR, -2, TO_TIMESTAMP_TZ('0001-01-01T00:00:00.000Z'))")
+                    .add("DATEADD(YEAR, -70000, TO_TIMESTAMP_TZ('613-04-22T03:45:14.753Z'))")
+                    .add("DATEADD(YEAR, -70000, TO_TIMESTAMP_TZ('613-04-22T17:45:14.753 +14:00'))");
+        }
+
+        MaterializedResult.Builder expected = MaterializedResult.resultBuilder(session, createTimestampWithTimeZoneType(3))
+                .row(LocalDateTime.of(1970, 1, 1, 0, 0).atZone(ZoneOffset.ofHoursMinutes(14, 0)))
+                .row(LocalDateTime.of(1970, 1, 1, 0, 0).atZone(ZoneOffset.ofHoursMinutes(-13, 0)))
+                .row(LocalDateTime.of(9999 + 2, 12, 31, 23, 59, 59, 999_000_000).atZone(ZoneId.of("UTC")))
+                .row(LocalDateTime.of(1, 1, 1, 0, 0, 0, 0).atZone(ZoneId.of("UTC")))
+                // 73326-09-11T20:14:45.247Z[UTC] is the timestamp with tz farthest in the future Presto can represent (for UTC)
+                .row(LocalDateTime.of(3326 + 70000, 9, 11, 20, 14, 45, 247_000_000).atZone(ZoneId.of("UTC")))
+                // same instant as above for the negative offset with highest absolute value Snowflake allows
+                .row(LocalDateTime.of(3326 + 70000, 9, 11, 7, 14, 45, 247_000_000).atZone(ZoneOffset.ofHoursMinutes(-13, 0)));
+
+        if (includeNegativeYear) {
+            expected
+                    .row(LocalDateTime.of(-1, 1, 1, 0, 0, 0, 0).atZone(ZoneId.of("UTC")))
+                    // -69387-04-22T03:45:14.753Z[UTC] is the timestamp with tz farthest in the past Presto can represent
+                    .row(LocalDateTime.of(613 - 70000, 4, 22, 3, 45, 14, 753_000_000).atZone(ZoneId.of("UTC")))
+                    // same instant as above for the max offset Snowflake allows
+                    .row(LocalDateTime.of(613 - 70000, 4, 22, 17, 45, 14, 753_000_000).atZone(ZoneOffset.ofHoursMinutes(14, 0)));
+        }
+
         try (TestTable testTable = new TestTable(
                 snowflakeExecutor,
                 tableName,
                 "(a TIMESTAMP_TZ)",
-                ImmutableList.of(
-                        "TO_TIMESTAMP_TZ('1970-01-01T00:00:00.000 +14:00')",
-                        "TO_TIMESTAMP_TZ('1970-01-01T00:00:00.000 -13:00')",
-                        "DATEADD(YEAR, 2, TO_TIMESTAMP_TZ('9999-12-31T23:59:59.999Z'))",
-                        "DATEADD(YEAR, -2, TO_TIMESTAMP_TZ('0001-01-01T00:00:00.000Z'))",
-                        // Snowflake literals cannot have a 5-digit year
-                        "DATEADD(YEAR, 70000, TO_TIMESTAMP_TZ('3326-09-11T20:14:45.247Z'))",
-                        "DATEADD(YEAR, 70000, TO_TIMESTAMP_TZ('3326-09-11T07:14:45.247 -13:00'))",
-                        // Snowflake literals cannot have a negative year
-                        "DATEADD(YEAR, -70000, TO_TIMESTAMP_TZ('613-04-22T03:45:14.753Z'))",
-                        "DATEADD(YEAR, -70000, TO_TIMESTAMP_TZ('613-04-22T17:45:14.753 +14:00'))"))) {
+                data.build())) {
             MaterializedResult actual = computeActual(session, "SELECT a FROM " + testTable.getName()).toTestTypes();
-            MaterializedResult expected = MaterializedResult.resultBuilder(session, createTimestampWithTimeZoneType(3))
-                    .row(LocalDateTime.of(1970, 1, 1, 0, 0).atZone(ZoneOffset.ofHoursMinutes(14, 0)))
-                    .row(LocalDateTime.of(1970, 1, 1, 0, 0).atZone(ZoneOffset.ofHoursMinutes(-13, 0)))
-                    .row(LocalDateTime.of(9999 + 2, 12, 31, 23, 59, 59, 999_000_000).atZone(ZoneId.of("UTC")))
-                    .row(LocalDateTime.of(-1, 1, 1, 0, 0, 0, 0).atZone(ZoneId.of("UTC")))
-                    // 73326-09-11T20:14:45.247Z[UTC] is the timestamp with tz farthest in the future Presto can represent (for UTC)
-                    .row(LocalDateTime.of(3326 + 70000, 9, 11, 20, 14, 45, 247_000_000).atZone(ZoneId.of("UTC")))
-                    // same instant as above for the negative offset with highest absolute value Snowflake allows
-                    .row(LocalDateTime.of(3326 + 70000, 9, 11, 7, 14, 45, 247_000_000).atZone(ZoneOffset.ofHoursMinutes(-13, 0)))
-                    // -69387-04-22T03:45:14.753Z[UTC] is the timestamp with tz farthest in the past Presto can represent
-                    .row(LocalDateTime.of(613 - 70000, 4, 22, 3, 45, 14, 753_000_000).atZone(ZoneId.of("UTC")))
-                    // same instant as above for the max offset Snowflake allows
-                    .row(LocalDateTime.of(613 - 70000, 4, 22, 17, 45, 14, 753_000_000).atZone(ZoneOffset.ofHoursMinutes(14, 0)))
-                    .build();
 
-            assertEqualsIgnoreOrder(actual, expected);
+            assertEqualsIgnoreOrder(actual, expected.build());
         }
     }
 
