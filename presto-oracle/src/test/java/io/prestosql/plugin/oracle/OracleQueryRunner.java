@@ -36,18 +36,6 @@ public final class OracleQueryRunner
 {
     private OracleQueryRunner() {}
 
-    public static DistributedQueryRunner createOracleQueryRunner(TestingOracleServer server)
-            throws Exception
-    {
-        return createOracleQueryRunner(server, ImmutableList.of());
-    }
-
-    public static DistributedQueryRunner createOracleQueryRunner(TestingOracleServer server, TpchTable<?>... tables)
-            throws Exception
-    {
-        return createOracleQueryRunner(server, ImmutableList.copyOf(tables));
-    }
-
     public static DistributedQueryRunner createOracleQueryRunner(TestingOracleServer server, Iterable<TpchTable<?>> tables)
             throws Exception
     {

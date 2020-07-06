@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.oracle;
 
+import com.google.common.collect.ImmutableList;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
@@ -37,7 +38,7 @@ public class TestOracleIntegrationSmokeTest
             throws Exception
     {
         oracleServer = new TestingOracleServer();
-        return OracleQueryRunner.createOracleQueryRunner(oracleServer, CUSTOMER, NATION, ORDERS, REGION);
+        return OracleQueryRunner.createOracleQueryRunner(oracleServer, ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION));
     }
 
     @AfterClass(alwaysRun = true)
