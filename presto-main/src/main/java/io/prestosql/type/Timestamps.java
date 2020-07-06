@@ -83,6 +83,10 @@ public final class Timestamps
     {
         checkArgument(factor > 0, "factor must be positive");
 
+        if (factor == 1) {
+            return value;
+        }
+
         if (value >= 0) {
             return (value + (factor / 2)) / factor;
         }
