@@ -14,13 +14,14 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
+        <dep.oracle.version>19.3.0.0</dep.oracle.version>
     </properties>
 
     <dependencies>
         <dependency>
             <groupId>com.oracle.ojdbc</groupId>
             <artifactId>ojdbc8</artifactId>
-            <version>19.3.0.0</version>
+            <version>${dep.oracle.version}</version>
         </dependency>
 
         <dependency>
