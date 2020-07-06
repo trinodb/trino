@@ -125,8 +125,7 @@ public class TestOrcDeletedRows
                 "test",
                 configuration,
                 HDFS_ENVIRONMENT,
-                new FileFormatDataSourceStats(),
-                acidInfo != null && acidInfo.isPresent() && acidInfo.get().getOriginalFiles().size() > 0);
+                new FileFormatDataSourceStats());
 
         return new OrcDeletedRows(
                 sourceFileName,
