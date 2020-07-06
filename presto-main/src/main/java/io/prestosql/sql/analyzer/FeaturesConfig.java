@@ -92,6 +92,7 @@ public class FeaturesConfig
     private boolean forceSingleNodeOutput = true;
     private boolean pagesIndexEagerCompactionEnabled;
     private boolean distributedSort = true;
+    private boolean omitDateTimeTypePrecision;
 
     private boolean dictionaryAggregation;
 
@@ -212,6 +213,18 @@ public class FeaturesConfig
     public FeaturesConfig setDistributedIndexJoinsEnabled(boolean distributedIndexJoinsEnabled)
     {
         this.distributedIndexJoinsEnabled = distributedIndexJoinsEnabled;
+        return this;
+    }
+
+    public boolean isOmitDateTimeTypePrecision()
+    {
+        return omitDateTimeTypePrecision;
+    }
+
+    @Config("deprecated.omit-datetime-type-precision")
+    public FeaturesConfig setOmitDateTimeTypePrecision(boolean value)
+    {
+        this.omitDateTimeTypePrecision = value;
         return this;
     }
 

@@ -30,7 +30,7 @@ public abstract class TimestampType
     public static final int MAX_PRECISION = 12;
 
     public static final int MAX_SHORT_PRECISION = 6;
-    private static final int DEFAULT_PRECISION = 3; // TODO: should be 6 per SQL spec
+    public static final int DEFAULT_PRECISION = 3; // TODO: should be 6 per SQL spec
 
     @Deprecated
     public static final TimestampType TIMESTAMP = new ShortTimestampType(DEFAULT_PRECISION);

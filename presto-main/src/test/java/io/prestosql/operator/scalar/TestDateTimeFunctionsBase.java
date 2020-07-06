@@ -49,6 +49,7 @@ import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.SystemSessionProperties.isLegacyTimestamp;
+import static io.prestosql.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.prestosql.operator.scalar.DateTimeFunctions.currentDate;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -171,6 +172,7 @@ public abstract class TestDateTimeFunctionsBase
                 .setStart(instant)
                 .setTimeZoneKey(timeZoneKey)
                 .setLegacyTimestamp(isLegacyTimestamp(session))
+                .setOmitTimestampPrecision(isOmitDateTimeTypePrecision(session))
                 .build();
         long dateTimeCalculation = currentDate(connectorSession);
         assertEquals(dateTimeCalculation, expectedDays);
