@@ -338,7 +338,6 @@ public class TestPostgreSqlIntegrationSmokeTest
     public void testAggregationPushdown()
             throws Exception
     {
-        // TODO support aggregation pushdown with GROUPING SETS
         // TODO support aggregation over expressions
 
         // SELECT DISTINCT
@@ -364,6 +363,10 @@ public class TestPostgreSqlIntegrationSmokeTest
         // GROUP BY and WHERE on varchar column
         // GROUP BY and WHERE on "other" (not aggregation key, not aggregation input)
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey")).isCorrectlyPushedDown();
+
+        // GROUPING SET
+        assertThat(query("SELECT regionkey, nationkey, sum(nationkey) FROM nation GROUP BY GROUPING SETS ((regionkey), (nationkey))")).isCorrectlyPushedDown();
+        assertThat(query("SELECT distinct regionkey, nationkey FROM nation GROUP BY GROUPING SETS ((regionkey), (nationkey))")).isCorrectlyPushedDown();
 
         // decimals
         try (AutoCloseable ignoreTable = withTable("tpch.test_aggregation_pushdown", "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {

@@ -74,7 +74,6 @@ public abstract class AbstractTestIntegrationSmokeTest
         assertQuery("SELECT DISTINCT regionkey FROM nation");
         assertQuery("SELECT regionkey FROM nation GROUP BY regionkey");
 
-        // TODO support aggregation pushdown with GROUPING SETS
         assertQuery(
                 "SELECT regionkey, nationkey FROM nation GROUP BY GROUPING SETS ((regionkey), (nationkey))",
                 "SELECT NULL, nationkey FROM nation " +
