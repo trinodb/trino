@@ -66,8 +66,7 @@ public class DateAdd
             return round(result, (int) (3 - precision));
         }
 
-        long epochMicros = scaleEpochMillisToMicros(result) + microFraction;
-        return round(epochMicros, (int) (6 - precision));
+        return scaleEpochMillisToMicros(result) + microFraction;
     }
 
     @LiteralParameters({"x", "p"})
