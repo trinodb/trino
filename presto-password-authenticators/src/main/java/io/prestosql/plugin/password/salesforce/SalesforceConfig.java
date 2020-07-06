@@ -99,14 +99,14 @@ public class SalesforceConfig
         return this;
     }
 
-    @Max(value = 3600, message = "The salesforce.cache-expire-seconds is set too high.  Maximum is " + MAX_EXPIRE + " seconds.")
+    @Max(value = MAX_EXPIRE, message = "The salesforce.cache-expire-seconds is set too high.  Maximum is " + MAX_EXPIRE + " seconds.")
     public int getCacheExpireSeconds()
     {
         return cacheExpireSeconds;
     }
 
     @Config("salesforce.cache-expire-seconds")
-    @ConfigDescription("Expire time in minutes for an entry in cache since last write.  Max is " + MAX_EXPIRE + ".")
+    @ConfigDescription("Expire time in seconds for an entry in cache since last write.  Max is " + MAX_EXPIRE + ".")
     public SalesforceConfig setCacheExpireSeconds(int cacheExpireSeconds)
     {
         this.cacheExpireSeconds = cacheExpireSeconds;
