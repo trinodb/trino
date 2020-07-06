@@ -67,6 +67,7 @@ public class TestingOracleServer
             statement.execute(format("CREATE USER %s IDENTIFIED BY %s DEFAULT TABLESPACE %s", TEST_USER, TEST_PASS, TEST_TABLESPACE));
             statement.execute(format("GRANT UNLIMITED TABLESPACE TO %s", TEST_USER));
             statement.execute(format("GRANT ALL PRIVILEGES TO %s", TEST_USER));
+            statement.execute("DROP USER apex_040000 CASCADE"); // Drop apex_040000 because it has 601 tables and leads to slow tests
         }
         catch (SQLException e) {
             throw new RuntimeException(e);
