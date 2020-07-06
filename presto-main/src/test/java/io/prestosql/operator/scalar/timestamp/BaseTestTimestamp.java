@@ -827,7 +827,7 @@ public abstract class BaseTestTimestamp
         assertThatThrownBy(() -> assertions.expression("CAST(TIMESTAMP '123001-05-01 12:34:56' AS TIMESTAMP WITH TIME ZONE)"))
                 .hasMessage("Out of range for timestamp with time zone: 3819379822496000");
         assertThatThrownBy(() -> assertions.expression("CAST(TIMESTAMP '-123001-05-01 12:34:56' AS TIMESTAMP WITH TIME ZONE)"))
-                .hasMessage("Out of range for timestamp with time zone: -3943693439887999");
+                .hasMessage("Out of range for timestamp with time zone: -3943693439888000");
     }
 
     @Test
@@ -1867,19 +1867,62 @@ public abstract class BaseTestTimestamp
     {
         assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56')")).matches("TIMESTAMP '2020-05-10 12:34:56'");
         assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.1')")).matches("TIMESTAMP '2020-05-10 12:34:56.1'");
-        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.10')")).matches("TIMESTAMP '2020-05-10 12:34:56.10'");
-        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.100')")).matches("TIMESTAMP '2020-05-10 12:34:56.101'");
-        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.1000')")).matches("TIMESTAMP '2020-05-10 12:34:56.1010'");
-        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.10000')")).matches("TIMESTAMP '2020-05-10 12:34:56.10100'");
-        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.100000')")).matches("TIMESTAMP '2020-05-10 12:34:56.101000'");
-        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.1000000')")).matches("TIMESTAMP '2020-05-10 12:34:56.1010000'");
-        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.10000000')")).matches("TIMESTAMP '2020-05-10 12:34:56.10100000'");
-        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.100000000')")).matches("TIMESTAMP '2020-05-10 12:34:56.101000000'");
-        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.1000000000')")).matches("TIMESTAMP '2020-05-10 12:34:56.1010000000'");
-        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.10000000000')")).matches("TIMESTAMP '2020-05-10 12:34:56.10100000000'");
-        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.100000000000')")).matches("TIMESTAMP '2020-05-10 12:34:56.101000000000'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.11')")).matches("TIMESTAMP '2020-05-10 12:34:56.11'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.111')")).matches("TIMESTAMP '2020-05-10 12:34:56.112'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.1111')")).matches("TIMESTAMP '2020-05-10 12:34:56.1121'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.11111')")).matches("TIMESTAMP '2020-05-10 12:34:56.11211'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.111111')")).matches("TIMESTAMP '2020-05-10 12:34:56.112111'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.1111111')")).matches("TIMESTAMP '2020-05-10 12:34:56.1121111'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.11111111')")).matches("TIMESTAMP '2020-05-10 12:34:56.11211111'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.111111111')")).matches("TIMESTAMP '2020-05-10 12:34:56.112111111'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.1111111111')")).matches("TIMESTAMP '2020-05-10 12:34:56.1121111111'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.11111111111')")).matches("TIMESTAMP '2020-05-10 12:34:56.11211111111'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.111111111111')")).matches("TIMESTAMP '2020-05-10 12:34:56.112111111111'");
+
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56')")).matches("TIMESTAMP '2020-05-10 12:34:56'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.5')")).matches("TIMESTAMP '2020-05-10 12:34:56.5'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.55')")).matches("TIMESTAMP '2020-05-10 12:34:56.55'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.555')")).matches("TIMESTAMP '2020-05-10 12:34:56.556'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.5555')")).matches("TIMESTAMP '2020-05-10 12:34:56.5565'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.55555')")).matches("TIMESTAMP '2020-05-10 12:34:56.55655'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.555555')")).matches("TIMESTAMP '2020-05-10 12:34:56.556555'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.5555555')")).matches("TIMESTAMP '2020-05-10 12:34:56.5565555'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.55555555')")).matches("TIMESTAMP '2020-05-10 12:34:56.55655555'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.555555555')")).matches("TIMESTAMP '2020-05-10 12:34:56.556555555'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.5555555555')")).matches("TIMESTAMP '2020-05-10 12:34:56.5565555555'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.55555555555')")).matches("TIMESTAMP '2020-05-10 12:34:56.55655555555'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '2020-05-10 12:34:56.555555555555')")).matches("TIMESTAMP '2020-05-10 12:34:56.556555555555'");
 
         assertThat(assertions.expression("date_add('millisecond', 1000, TIMESTAMP '2020-05-10 12:34:56')")).matches("TIMESTAMP '2020-05-10 12:34:57'");
+
+        // negative epoch
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56')")).matches("TIMESTAMP '1500-05-10 12:34:56'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.1')")).matches("TIMESTAMP '1500-05-10 12:34:56.1'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.11')")).matches("TIMESTAMP '1500-05-10 12:34:56.11'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.111')")).matches("TIMESTAMP '1500-05-10 12:34:56.112'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.1111')")).matches("TIMESTAMP '1500-05-10 12:34:56.1121'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.11111')")).matches("TIMESTAMP '1500-05-10 12:34:56.11211'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.111111')")).matches("TIMESTAMP '1500-05-10 12:34:56.112111'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.1111111')")).matches("TIMESTAMP '1500-05-10 12:34:56.1121111'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.11111111')")).matches("TIMESTAMP '1500-05-10 12:34:56.11211111'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.111111111')")).matches("TIMESTAMP '1500-05-10 12:34:56.112111111'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.1111111111')")).matches("TIMESTAMP '1500-05-10 12:34:56.1121111111'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.11111111111')")).matches("TIMESTAMP '1500-05-10 12:34:56.11211111111'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.111111111111')")).matches("TIMESTAMP '1500-05-10 12:34:56.112111111111'");
+
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56')")).matches("TIMESTAMP '1500-05-10 12:34:56'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.5')")).matches("TIMESTAMP '1500-05-10 12:34:56.5'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.55')")).matches("TIMESTAMP '1500-05-10 12:34:56.55'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.555')")).matches("TIMESTAMP '1500-05-10 12:34:56.556'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.5555')")).matches("TIMESTAMP '1500-05-10 12:34:56.5565'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.55555')")).matches("TIMESTAMP '1500-05-10 12:34:56.55655'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.555555')")).matches("TIMESTAMP '1500-05-10 12:34:56.556555'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.5555555')")).matches("TIMESTAMP '1500-05-10 12:34:56.5565555'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.55555555')")).matches("TIMESTAMP '1500-05-10 12:34:56.55655555'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.555555555')")).matches("TIMESTAMP '1500-05-10 12:34:56.556555555'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.5555555555')")).matches("TIMESTAMP '1500-05-10 12:34:56.5565555555'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.55555555555')")).matches("TIMESTAMP '1500-05-10 12:34:56.55655555555'");
+        assertThat(assertions.expression("date_add('millisecond', 1, TIMESTAMP '1500-05-10 12:34:56.555555555555')")).matches("TIMESTAMP '1500-05-10 12:34:56.556555555555'");
     }
 
     @Test
