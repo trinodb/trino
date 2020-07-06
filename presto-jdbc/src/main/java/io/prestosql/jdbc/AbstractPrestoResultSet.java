@@ -74,7 +74,7 @@ abstract class AbstractPrestoResultSet
         implements ResultSet
 {
     private static final Pattern DATETIME_PATTERN = Pattern.compile("" +
-            "(?<year>\\d\\d\\d\\d)-(?<month>\\d{1,2})-(?<day>\\d{1,2})" +
+            "(?<year>[-+]?\\d{4,})-(?<month>\\d{1,2})-(?<day>\\d{1,2})" +
             "(?: (?<hour>\\d{1,2}):(?<minute>\\d{1,2})(?::(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?)?)?" +
             "\\s*(?<timezone>.+)?");
 
