@@ -26,6 +26,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -298,7 +299,7 @@ public class TestHiveTransactionalTable
                     if (startedAfter.isPresent()) {
                         try {
                             // start time is expressed in milliseconds
-                            return Long.parseLong(row.get("start time")) >= startedAfter.get().toEpochMilli();
+                            return Long.parseLong(row.get("start time")) >= startedAfter.get().truncatedTo(ChronoUnit.SECONDS).toEpochMilli();
                         }
                         catch (NumberFormatException ignored) {
                         }
