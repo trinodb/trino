@@ -67,6 +67,7 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_RUN_TIME = "query_max_run_time";
     public static final String RESOURCE_OVERCOMMIT = "resource_overcommit";
     public static final String QUERY_MAX_CPU_TIME = "query_max_cpu_time";
+    public static final String QUERY_MAX_SCAN_PHYSICAL_BYTES = "query_max_scan_physical_bytes";
     public static final String QUERY_MAX_STAGE_COUNT = "query_max_stage_count";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
     public static final String USE_PREFERRED_WRITE_PARTITIONING = "use_preferred_write_partitioning";
@@ -264,6 +265,11 @@ public final class SystemSessionProperties
                         "Maximum amount of distributed total memory a query can use",
                         memoryManagerConfig.getMaxQueryTotalMemory(),
                         true),
+                dataSizeProperty(
+                        QUERY_MAX_SCAN_PHYSICAL_BYTES,
+                        "Maximum scan physical bytes of a query",
+                        queryManagerConfig.getQueryMaxScanPhysicalBytes().orElse(null),
+                        false),
                 booleanProperty(
                         RESOURCE_OVERCOMMIT,
                         "Use resources which are not guaranteed to be available to the query",
@@ -763,6 +769,11 @@ public final class SystemSessionProperties
     public static Duration getQueryMaxCpuTime(Session session)
     {
         return session.getSystemProperty(QUERY_MAX_CPU_TIME, Duration.class);
+    }
+
+    public static Optional<DataSize> getQueryMaxScanPhysicalBytes(Session session)
+    {
+        return Optional.ofNullable(session.getSystemProperty(QUERY_MAX_SCAN_PHYSICAL_BYTES, DataSize.class));
     }
 
     public static boolean isSpillEnabled(Session session)
