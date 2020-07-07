@@ -39,6 +39,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyDropTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
 import static io.prestosql.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantRoles;
+import static io.prestosql.spi.security.AccessDeniedException.denyGrantSchemaPrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
@@ -46,6 +47,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameView;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeRoles;
+import static io.prestosql.spi.security.AccessDeniedException.denyRevokeSchemaPrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
@@ -348,6 +350,21 @@ public interface ConnectorAccessControl
     default void checkCanSetCatalogSessionProperty(ConnectorSecurityContext context, String propertyName)
     {
         denySetCatalogSessionProperty(propertyName);
+    }
+
+    /**
+     * Check if identity is allowed to grant to any other user the specified privilege on the specified schema.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanGrantSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, PrestoPrincipal grantee, boolean grantOption)
+    {
+        denyGrantSchemaPrivilege(privilege.toString(), schemaName);
+    }
+
+    default void checkCanRevokeSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, PrestoPrincipal revokee, boolean grantOption)
+    {
+        denyRevokeSchemaPrivilege(privilege.toString(), schemaName);
     }
 
     /**

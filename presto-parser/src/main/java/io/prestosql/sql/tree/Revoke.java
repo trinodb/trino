@@ -27,28 +27,28 @@ public class Revoke
 {
     private final boolean grantOptionFor;
     private final Optional<List<String>> privileges; // missing means ALL PRIVILEGES
-    private final boolean table;
-    private final QualifiedName tableName;
+    private final Optional<GrantOnType> type;
+    private final QualifiedName name;
     private final PrincipalSpecification grantee;
 
-    public Revoke(boolean grantOptionFor, Optional<List<String>> privileges, boolean table, QualifiedName tableName, PrincipalSpecification grantee)
+    public Revoke(boolean grantOptionFor, Optional<List<String>> privileges, Optional<GrantOnType> type, QualifiedName name, PrincipalSpecification grantee)
     {
-        this(Optional.empty(), grantOptionFor, privileges, table, tableName, grantee);
+        this(Optional.empty(), grantOptionFor, privileges, type, name, grantee);
     }
 
-    public Revoke(NodeLocation location, boolean grantOptionFor, Optional<List<String>> privileges, boolean table, QualifiedName tableName, PrincipalSpecification grantee)
+    public Revoke(NodeLocation location, boolean grantOptionFor, Optional<List<String>> privileges, Optional<GrantOnType> type, QualifiedName name, PrincipalSpecification grantee)
     {
-        this(Optional.of(location), grantOptionFor, privileges, table, tableName, grantee);
+        this(Optional.of(location), grantOptionFor, privileges, type, name, grantee);
     }
 
-    private Revoke(Optional<NodeLocation> location, boolean grantOptionFor, Optional<List<String>> privileges, boolean table, QualifiedName tableName, PrincipalSpecification grantee)
+    private Revoke(Optional<NodeLocation> location, boolean grantOptionFor, Optional<List<String>> privileges, Optional<GrantOnType> type, QualifiedName name, PrincipalSpecification grantee)
     {
         super(location);
         this.grantOptionFor = grantOptionFor;
         requireNonNull(privileges, "privileges is null");
         this.privileges = privileges.map(ImmutableList::copyOf);
-        this.table = table;
-        this.tableName = requireNonNull(tableName, "tableName is null");
+        this.type = requireNonNull(type, "type is null");
+        this.name = requireNonNull(name, "name is null");
         this.grantee = requireNonNull(grantee, "grantee is null");
     }
 
@@ -62,14 +62,14 @@ public class Revoke
         return privileges;
     }
 
-    public boolean isTable()
+    public Optional<GrantOnType> getType()
     {
-        return table;
+        return type;
     }
 
-    public QualifiedName getTableName()
+    public QualifiedName getName()
     {
-        return tableName;
+        return name;
     }
 
     public PrincipalSpecification getGrantee()
@@ -92,7 +92,7 @@ public class Revoke
     @Override
     public int hashCode()
     {
-        return Objects.hash(grantOptionFor, privileges, table, tableName, grantee);
+        return Objects.hash(grantOptionFor, privileges, type, name, grantee);
     }
 
     @Override
@@ -107,8 +107,8 @@ public class Revoke
         Revoke o = (Revoke) obj;
         return Objects.equals(grantOptionFor, o.grantOptionFor) &&
                 Objects.equals(privileges, o.privileges) &&
-                Objects.equals(table, o.table) &&
-                Objects.equals(tableName, o.tableName) &&
+                Objects.equals(type, o.type) &&
+                Objects.equals(name, o.name) &&
                 Objects.equals(grantee, o.grantee);
     }
 
@@ -118,8 +118,8 @@ public class Revoke
         return toStringHelper(this)
                 .add("grantOptionFor", grantOptionFor)
                 .add("privileges", privileges)
-                .add("table", table)
-                .add("tableName", tableName)
+                .add("type", type)
+                .add("name", name)
                 .add("grantee", grantee)
                 .toString();
     }

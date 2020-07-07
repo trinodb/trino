@@ -70,6 +70,7 @@ import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.FunctionCall.NullTreatment;
 import io.prestosql.sql.tree.GenericLiteral;
 import io.prestosql.sql.tree.Grant;
+import io.prestosql.sql.tree.GrantOnType;
 import io.prestosql.sql.tree.GrantRoles;
 import io.prestosql.sql.tree.GrantorSpecification;
 import io.prestosql.sql.tree.GroupBy;
@@ -1654,30 +1655,38 @@ public class TestSqlParser
         assertStatement("GRANT INSERT, DELETE ON t TO u",
                 new Grant(
                         Optional.of(ImmutableList.of("INSERT", "DELETE")),
-                        false,
+                        Optional.empty(),
                         QualifiedName.of("t"),
                         new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("u")),
                         false));
         assertStatement("GRANT SELECT ON t TO ROLE PUBLIC WITH GRANT OPTION",
                 new Grant(
                         Optional.of(ImmutableList.of("SELECT")),
-                        false, QualifiedName.of("t"),
+                        Optional.empty(),
+                        QualifiedName.of("t"),
                         new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("PUBLIC")),
                         true));
         assertStatement("GRANT ALL PRIVILEGES ON TABLE t TO USER u",
                 new Grant(
                         Optional.empty(),
-                        true,
+                        Optional.of(GrantOnType.TABLE),
                         QualifiedName.of("t"),
                         new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("u")),
                         false));
         assertStatement("GRANT DELETE ON \"t\" TO ROLE \"public\" WITH GRANT OPTION",
                 new Grant(
                         Optional.of(ImmutableList.of("DELETE")),
-                        false,
+                        Optional.empty(),
                         QualifiedName.of("t"),
                         new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("public")),
                         true));
+        assertStatement("GRANT SELECT ON SCHEMA s TO USER u",
+                new Grant(
+                        Optional.of(ImmutableList.of("SELECT")),
+                        Optional.of(GrantOnType.SCHEMA),
+                        QualifiedName.of("s"),
+                        new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("u")),
+                        false));
     }
 
     @Test
@@ -1687,30 +1696,37 @@ public class TestSqlParser
                 new Revoke(
                         false,
                         Optional.of(ImmutableList.of("INSERT", "DELETE")),
-                        false,
+                        Optional.empty(),
                         QualifiedName.of("t"),
                         new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("u"))));
         assertStatement("REVOKE GRANT OPTION FOR SELECT ON t FROM ROLE PUBLIC",
                 new Revoke(
                         true,
                         Optional.of(ImmutableList.of("SELECT")),
-                        false,
+                        Optional.empty(),
                         QualifiedName.of("t"),
                         new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("PUBLIC"))));
         assertStatement("REVOKE ALL PRIVILEGES ON TABLE t FROM USER u",
                 new Revoke(
                         false,
                         Optional.empty(),
-                        true,
+                        Optional.of(GrantOnType.TABLE),
                         QualifiedName.of("t"),
                         new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("u"))));
         assertStatement("REVOKE DELETE ON TABLE \"t\" FROM \"u\"",
                 new Revoke(
                         false,
                         Optional.of(ImmutableList.of("DELETE")),
-                        true,
+                        Optional.of(GrantOnType.TABLE),
                         QualifiedName.of("t"),
                         new PrincipalSpecification(PrincipalSpecification.Type.UNSPECIFIED, new Identifier("u"))));
+        assertStatement("REVOKE SELECT ON SCHEMA s FROM USER u",
+                new Revoke(
+                        false,
+                        Optional.of(ImmutableList.of("SELECT")),
+                        Optional.of(GrantOnType.SCHEMA),
+                        QualifiedName.of("s"),
+                        new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("u"))));
     }
 
     @Test

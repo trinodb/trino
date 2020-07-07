@@ -8,7 +8,8 @@ Synopsis
 .. code-block:: none
 
     GRANT ( privilege [, ...] | ( ALL PRIVILEGES ) )
-    ON [ TABLE ] table_name TO ( user | USER user | ROLE role )
+    ON ( table_name | TABLE table_name | SCHEMA schema_name)
+    TO ( user | USER user | ROLE role )
     [ WITH GRANT OPTION ]
 
 Description
@@ -30,6 +31,10 @@ Examples
 Grant ``INSERT`` and ``SELECT`` privileges on the table ``orders`` to user ``alice``::
 
     GRANT INSERT, SELECT ON orders TO alice;
+
+Grant ``DELETE`` privilege on the schema ``finance`` to user ``bob``::
+
+    GRANT DELETE ON SCHEMA finance TO bob;
 
 Grant ``SELECT`` privilege on the table ``nation`` to user ``alice``, additionally allowing ``alice`` to grant ``SELECT`` privilege to others::
 

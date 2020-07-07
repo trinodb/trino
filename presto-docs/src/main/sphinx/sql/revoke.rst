@@ -9,7 +9,8 @@ Synopsis
 
     REVOKE [ GRANT OPTION FOR ]
     ( privilege [, ...] | ALL PRIVILEGES )
-    ON [ TABLE ] table_name FROM ( user | USER user | ROLE role )
+    ON ( table_name | TABLE table_name | SCHEMA schema_name )
+    FROM ( user | USER user | ROLE role )
 
 Description
 -----------
@@ -30,6 +31,10 @@ Examples
 Revoke ``INSERT`` and ``SELECT`` privileges on the table ``orders`` from user ``alice``::
 
     REVOKE INSERT, SELECT ON orders FROM alice;
+
+Revoke ``DELETE`` privilege on the schema ``finance`` from user ``bob``::
+
+    REVOKE DELETE ON SCHEMA finance FROM bob;
 
 Revoke ``SELECT`` privilege on the table ``nation`` from everyone, additionally revoking the privilege to grant ``SELECT`` privilege::
 

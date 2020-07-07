@@ -19,9 +19,11 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.security.AccessControl;
+import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.security.Privilege;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Grant;
+import io.prestosql.sql.tree.GrantOnType;
 import io.prestosql.transaction.TransactionManager;
 
 import java.util.EnumSet;
@@ -31,9 +33,11 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.prestosql.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.prestosql.metadata.MetadataUtil.createPrincipal;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.prestosql.spi.StandardErrorCode.INVALID_PRIVILEGE;
+import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 
@@ -49,13 +53,50 @@ public class GrantTask
     @Override
     public ListenableFuture<?> execute(Grant statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
-        Session session = stateMachine.getSession();
-        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTableName());
+        if (statement.getType().filter(GrantOnType.SCHEMA::equals).isPresent()) {
+            executeGrantOnSchema(stateMachine.getSession(), statement, metadata, accessControl);
+        }
+        else {
+            executeGrantOnTable(stateMachine.getSession(), statement, metadata, accessControl);
+        }
+        return immediateFuture(null);
+    }
+
+    private void executeGrantOnSchema(Session session, Grant statement, Metadata metadata, AccessControl accessControl)
+    {
+        CatalogSchemaName schemaName = createCatalogSchemaName(session, statement, Optional.of(statement.getName()));
+
+        if (!metadata.schemaExists(session, schemaName)) {
+            throw semanticException(SCHEMA_NOT_FOUND, statement, "Schema '%s' does not exist", schemaName);
+        }
+
+        Set<Privilege> privileges = parseStatementPrivileges(statement);
+        for (Privilege privilege : privileges) {
+            accessControl.checkCanGrantSchemaPrivilege(session.toSecurityContext(), privilege, schemaName, createPrincipal(statement.getGrantee()), statement.isWithGrantOption());
+        }
+
+        metadata.grantSchemaPrivileges(session, schemaName, privileges, createPrincipal(statement.getGrantee()), statement.isWithGrantOption());
+    }
+
+    private void executeGrantOnTable(Session session, Grant statement, Metadata metadata, AccessControl accessControl)
+    {
+        QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (tableHandle.isEmpty()) {
             throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
         }
 
+        Set<Privilege> privileges = parseStatementPrivileges(statement);
+
+        for (Privilege privilege : privileges) {
+            accessControl.checkCanGrantTablePrivilege(session.toSecurityContext(), privilege, tableName, createPrincipal(statement.getGrantee()), statement.isWithGrantOption());
+        }
+
+        metadata.grantTablePrivileges(session, tableName, privileges, createPrincipal(statement.getGrantee()), statement.isWithGrantOption());
+    }
+
+    private static Set<Privilege> parseStatementPrivileges(Grant statement)
+    {
         Set<Privilege> privileges;
         if (statement.getPrivileges().isPresent()) {
             privileges = statement.getPrivileges().get().stream()
@@ -66,14 +107,7 @@ public class GrantTask
             // All privileges
             privileges = EnumSet.allOf(Privilege.class);
         }
-
-        // verify current identity has permissions to grant permissions
-        for (Privilege privilege : privileges) {
-            accessControl.checkCanGrantTablePrivilege(session.toSecurityContext(), privilege, tableName, createPrincipal(statement.getGrantee()), statement.isWithGrantOption());
-        }
-
-        metadata.grantTablePrivileges(session, tableName, privileges, createPrincipal(statement.getGrantee()), statement.isWithGrantOption());
-        return immediateFuture(null);
+        return privileges;
     }
 
     private static Privilege parsePrivilege(Grant statement, String privilegeString)

@@ -64,6 +64,7 @@ public class MockConnectorFactory
     private final BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout;
     private final Supplier<Iterable<EventListener>> eventListeners;
     private final ListRoleGrants roleGrants;
+    private final MockConnectorAccessControl accessControl;
 
     private MockConnectorFactory(
             Function<ConnectorSession, List<String>> listSchemaNames,
@@ -76,7 +77,8 @@ public class MockConnectorFactory
             BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout,
             BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout,
             Supplier<Iterable<EventListener>> eventListeners,
-            ListRoleGrants roleGrants)
+            ListRoleGrants roleGrants,
+            MockConnectorAccessControl accessControl)
     {
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
@@ -89,6 +91,7 @@ public class MockConnectorFactory
         this.getNewTableLayout = requireNonNull(getNewTableLayout, "getNewTableLayout is null");
         this.eventListeners = requireNonNull(eventListeners, "eventListeners is null");
         this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     @Override
@@ -117,7 +120,8 @@ public class MockConnectorFactory
                 getInsertLayout,
                 getNewTableLayout,
                 eventListeners,
-                roleGrants);
+                roleGrants,
+                accessControl);
     }
 
     public static Builder builder()
@@ -156,6 +160,7 @@ public class MockConnectorFactory
         private Supplier<Iterable<EventListener>> eventListeners = ImmutableList::of;
         private ListRoleGrants roleGrants = defaultRoleAuthorizations();
         private ApplyTopN applyTopN = (session, handle, topNCount, sortItems, assignments) -> Optional.empty();
+        private Grants<String> schemaGrants = new AllowAllGrants<>();
 
         public Builder withListSchemaNames(Function<ConnectorSession, List<String>> listSchemaNames)
         {
@@ -233,6 +238,12 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withSchemaGrants(Grants<String> schemaGrants)
+        {
+            this.schemaGrants = schemaGrants;
+            return this;
+        }
+
         public MockConnectorFactory build()
         {
             return new MockConnectorFactory(
@@ -246,7 +257,8 @@ public class MockConnectorFactory
                     getInsertLayout,
                     getNewTableLayout,
                     eventListeners,
-                    roleGrants);
+                    roleGrants,
+                    new MockConnectorAccessControl(schemaGrants));
         }
 
         public static Function<ConnectorSession, List<String>> defaultListSchemaNames()
