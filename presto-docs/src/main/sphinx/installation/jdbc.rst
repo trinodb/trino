@@ -15,11 +15,6 @@ The driver is also available from Maven Central:
         <version>\ |version|\ </version>
     </dependency>
 
-.. note::
-  If you’re familiar with the different implementations of JDBC drivers,
-  the Presto JDBC driver is a Type 4 driver. This means it talks to the
-  Presto native protocol.
-
 Requirements
 ------------
 

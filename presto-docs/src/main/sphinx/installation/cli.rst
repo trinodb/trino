@@ -50,6 +50,84 @@ Output Formats
 --------------
 
 The Presto CLI provides the option ``--output-format`` to control how the output is
-displayed when running in noninteractive mode. The available options are ``ALIGNED``,
-``VERTICAL``, ``CSV``, ``TSV``, ``CSV_HEADER``, ``TSV_HEADER``, and ``NULL``.
-The default value is ``CSV``.
+displayed when running in noninteractive mode. The available options shown in the
+following table must be entered in uppercase. The default value is ``CSV``.
+
++---------------------+------------------------------------------------------------+
+| Option              | Description                                                |
++=============+=======+============================================================+
+| CSV                 | Comma-separated values, each value quoted. No header row.  |
++---------------------+------------------------------------------------------------+
+| CSV_HEADER          | Comma-separated values, quoted with header row.            |
++---------------------+------------------------------------------------------------+
+| CSV_UNQUOTED        | Comma-separated values without quotes.                     |
++---------------------+------------------------------------------------------------+
+| CSV_HEADER_UNQUOTED | Comma-separated values with header row but no quotes.      |
++---------------------+------------------------------------------------------------+
+| TSV                 | Tab-separated values.                                      |
++---------------------+------------------------------------------------------------+
+| TSV_HEADER          | Tab-separated values with header row.                      |
++---------------------+------------------------------------------------------------+
+| JSON                | Output rows emitted as JSON objects with name-value pairs. |
++---------------------+------------------------------------------------------------+
+| ALIGNED             | Output emitted as an ASCII character table with right-     |
+|                     | aligned numeric values and left-aligned string values.     |
++---------------------+------------------------------------------------------------+
+| VERTICAL            | Output emitted as record-oriented top-down lines, one per  |
+|                     | value, better parseable as a stream.                       |
++---------------------+------------------------------------------------------------+
+| NULL                | Suppresses normal query results. This can be useful during |
+|                     | development to test a query's shell return code or to see  |
+|                     | whether it results in error messages.                      |
++---------------------+------------------------------------------------------------+
+
+Examples
+^^^^^^^^
+
+Consider the following command run as shown, or with ``--output-format CSV``::
+
+   presto --execute 'SELECT nationkey, name, regionkey FROM tpch.sf1.nation LIMIT 3'
+
+The output is::
+
+  "0","ALGERIA","0"
+  "1","ARGENTINA","1"
+  "2","BRAZIL","1"
+
+With ``--output-format JSON``:
+
+.. code-block:: json
+
+  {"nationkey":0,"name":"ALGERIA","regionkey":0}
+  {"nationkey":1,"name":"ARGENTINA","regionkey":1}
+  {"nationkey":2,"name":"BRAZIL","regionkey":1}
+
+With ``--output-format ALIGNED``::
+
+   nationkey |   name    | regionkey
+   -----------+-----------+---------
+           0 | ALGERIA   |         0
+           1 | ARGENTINA |         1
+           2 | BRAZIL    |         1
+
+With ``--output-format VERTICAL``::
+
+  -[ RECORD 1 ]--------
+  nationkey | 0
+  name      | ALGERIA
+  regionkey | 0
+  -[ RECORD 2 ]--------
+  nationkey | 1
+  name      | ARGENTINA
+  regionkey | 1
+  -[ RECORD 3 ]--------
+  nationkey | 2
+  name      | BRAZIL
+  regionkey | 1
+
+With ``--output-format NULL``, the return value is 0 and no output is emitted. If you
+change ``regionkey`` to ``region``, the return value is 1 and the output is::
+
+  Query 20200707_170726_00030_2iup9 failed: line 1:25: Column 'region' cannot be resolved
+  SELECT nationkey, name, region FROM tpch.sf1.nation LIMIT 3
+
