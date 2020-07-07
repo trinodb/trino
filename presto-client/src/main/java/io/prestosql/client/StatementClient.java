@@ -28,6 +28,10 @@ public interface StatementClient
 
     ZoneId getTimeZone();
 
+    // TODO remove the fallback mechanism for JDBC temporal columns
+    @Deprecated
+    boolean useSessionTimeZone();
+
     boolean isRunning();
 
     boolean isClientAborted();

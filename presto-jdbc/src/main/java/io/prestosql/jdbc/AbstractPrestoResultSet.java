@@ -116,7 +116,7 @@ abstract class AbstractPrestoResultSet
             .toFormatter()
             .withOffsetParsed();
 
-    private final DateTimeZone sessionTimeZone;
+    private final DateTimeZone resultTimeZone;
     protected final Iterator<List<Object>> results;
     private final Map<String, Integer> fieldMap;
     private final List<ColumnInfo> columnInfoList;
@@ -125,10 +125,9 @@ abstract class AbstractPrestoResultSet
     private final AtomicBoolean wasNull = new AtomicBoolean();
     protected final AtomicBoolean closed = new AtomicBoolean();
 
-    AbstractPrestoResultSet(ZoneId sessionTimeZone, List<Column> columns, Iterator<List<Object>> results)
+    AbstractPrestoResultSet(ZoneId resultTimeZone, List<Column> columns, Iterator<List<Object>> results)
     {
-        requireNonNull(sessionTimeZone, "sessionTimeZone is null");
-        this.sessionTimeZone = DateTimeZone.forID(requireNonNull(sessionTimeZone, "sessionTimeZone is null").getId());
+        this.resultTimeZone = DateTimeZone.forID(requireNonNull(resultTimeZone, "resultTimeZone is null").getId());
 
         requireNonNull(columns, "columns is null");
         this.fieldMap = getFieldMap(columns);
@@ -246,7 +245,7 @@ abstract class AbstractPrestoResultSet
     public Date getDate(int columnIndex)
             throws SQLException
     {
-        return getDate(columnIndex, sessionTimeZone);
+        return getDate(columnIndex, resultTimeZone);
     }
 
     private Date getDate(int columnIndex, DateTimeZone localTimeZone)
@@ -269,7 +268,7 @@ abstract class AbstractPrestoResultSet
     public Time getTime(int columnIndex)
             throws SQLException
     {
-        return getTime(columnIndex, sessionTimeZone);
+        return getTime(columnIndex, resultTimeZone);
     }
 
     private Time getTime(int columnIndex, DateTimeZone localTimeZone)
@@ -306,7 +305,7 @@ abstract class AbstractPrestoResultSet
     public Timestamp getTimestamp(int columnIndex)
             throws SQLException
     {
-        return getTimestamp(columnIndex, sessionTimeZone);
+        return getTimestamp(columnIndex, resultTimeZone);
     }
 
     private Timestamp getTimestamp(int columnIndex, DateTimeZone localTimeZone)
