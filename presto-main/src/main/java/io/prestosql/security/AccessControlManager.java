@@ -665,6 +665,40 @@ public class AccessControlManager
     }
 
     @Override
+    public void checkCanGrantSchemaPrivilege(SecurityContext securityContext, Privilege privilege, CatalogSchemaName schemaName, PrestoPrincipal grantee, boolean grantOption)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(schemaName, "schemaName is null");
+        requireNonNull(privilege, "privilege is null");
+
+        checkCanAccessCatalog(securityContext, schemaName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanGrantSchemaPrivilege(securityContext.toSystemSecurityContext(), privilege, schemaName, grantee, grantOption));
+
+        catalogAuthorizationCheck(
+                schemaName.getCatalogName(),
+                securityContext,
+                (control, context) -> control.checkCanGrantSchemaPrivilege(context, privilege, schemaName.getSchemaName(), grantee, grantOption));
+    }
+
+    @Override
+    public void checkCanRevokeSchemaPrivilege(SecurityContext securityContext, Privilege privilege, CatalogSchemaName schemaName, PrestoPrincipal revokee, boolean grantOption)
+    {
+        requireNonNull(securityContext, "securityContext is null");
+        requireNonNull(schemaName, "schemaName is null");
+        requireNonNull(privilege, "privilege is null");
+
+        checkCanAccessCatalog(securityContext, schemaName.getCatalogName());
+
+        systemAuthorizationCheck(control -> control.checkCanRevokeSchemaPrivilege(securityContext.toSystemSecurityContext(), privilege, schemaName, revokee, grantOption));
+
+        catalogAuthorizationCheck(
+                schemaName.getCatalogName(),
+                securityContext,
+                (control, context) -> control.checkCanRevokeSchemaPrivilege(context, privilege, schemaName.getSchemaName(), revokee, grantOption));
+    }
+
+    @Override
     public void checkCanGrantTablePrivilege(SecurityContext securityContext, Privilege privilege, QualifiedObjectName tableName, PrestoPrincipal grantee, boolean grantOption)
     {
         requireNonNull(securityContext, "securityContext is null");

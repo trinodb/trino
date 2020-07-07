@@ -659,6 +659,22 @@ public class ClassLoaderSafeConnectorMetadata
     }
 
     @Override
+    public void grantSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.grantSchemaPrivileges(session, schemaName, privileges, grantee, grantOption);
+        }
+    }
+
+    @Override
+    public void revokeSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            delegate.revokeSchemaPrivileges(session, schemaName, privileges, grantee, grantOption);
+        }
+    }
+
+    @Override
     public void grantTablePrivileges(ConnectorSession session, SchemaTableName tableName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

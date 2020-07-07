@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.Connector;
+import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorInsertTableHandle;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.ConnectorNewTableLayout;
@@ -36,6 +37,7 @@ import io.prestosql.spi.connector.TopNApplicationResult;
 import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.security.PrestoPrincipal;
+import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.transaction.IsolationLevel;
 
@@ -66,6 +68,7 @@ public class MockConnector
     private final BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout;
     private final Supplier<Iterable<EventListener>> eventListeners;
     private final MockConnectorFactory.ListRoleGrants roleGrants;
+    private final MockConnectorAccessControl accessControl;
 
     MockConnector(
             Function<ConnectorSession, List<String>> listSchemaNames,
@@ -78,7 +81,8 @@ public class MockConnector
             BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout,
             BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout,
             Supplier<Iterable<EventListener>> eventListeners,
-            MockConnectorFactory.ListRoleGrants roleGrants)
+            MockConnectorFactory.ListRoleGrants roleGrants,
+            MockConnectorAccessControl accessControl)
     {
         this.listSchemaNames = requireNonNull(listSchemaNames, "listSchemaNames is null");
         this.listTables = requireNonNull(listTables, "listTables is null");
@@ -91,6 +95,7 @@ public class MockConnector
         this.getNewTableLayout = requireNonNull(getNewTableLayout, "getNewTableLayout is null");
         this.eventListeners = requireNonNull(eventListeners, "eventListeners is null");
         this.roleGrants = requireNonNull(roleGrants, "roleGrants is null");
+        this.accessControl = requireNonNull(accessControl, "accessControl is null");
     }
 
     @Override
@@ -115,6 +120,12 @@ public class MockConnector
     public Iterable<EventListener> getEventListeners()
     {
         return eventListeners.get();
+    }
+
+    @Override
+    public ConnectorAccessControl getAccessControl()
+    {
+        return accessControl;
     }
 
     private class MockConnectorMetadata
@@ -270,6 +281,18 @@ public class MockConnector
         public Set<String> listEnabledRoles(ConnectorSession session)
         {
             return listRoles(session);
+        }
+
+        @Override
+        public void grantSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, PrestoPrincipal grantee, boolean grantOption)
+        {
+            accessControl.grantSchemaPrivileges(schemaName, privileges, grantee, grantOption);
+        }
+
+        @Override
+        public void revokeSchemaPrivileges(ConnectorSession session, String schemaName, Set<Privilege> privileges, PrestoPrincipal revokee, boolean grantOption)
+        {
+            accessControl.revokeSchemaPrivileges(schemaName, privileges, revokee, grantOption);
         }
     }
 }
