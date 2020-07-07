@@ -25,6 +25,12 @@
         </dependency>
 
         <dependency>
+            <groupId>com.oracle.ojdbc</groupId>
+            <artifactId>ucp</artifactId>
+            <version>${dep.oracle.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-base-jdbc</artifactId>
         </dependency>

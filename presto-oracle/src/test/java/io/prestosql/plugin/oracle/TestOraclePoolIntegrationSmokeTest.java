@@ -16,12 +16,12 @@ package io.prestosql.plugin.oracle;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.tpch.TpchTable;
 
-public class TestOracleIntegrationSmokeTest
+public class TestOraclePoolIntegrationSmokeTest
         extends BaseOracleIntegrationSmokeTest
 {
     @Override
     protected QueryRunner createOracleQueryRunner(TestingOracleServer server, Iterable<TpchTable<?>> tables) throws Exception
     {
-        return OracleQueryRunner.createOracleQueryRunner(server, tables);
+        return OracleQueryRunner.createOraclePoolQueryRunner(server, tables);
     }
 }
