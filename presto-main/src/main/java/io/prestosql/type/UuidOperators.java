@@ -45,7 +45,9 @@ import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.type.UuidType.UUID;
+import static java.util.UUID.nameUUIDFromBytes;
 import static java.util.UUID.randomUUID;
+
 
 public final class UuidOperators
 {
@@ -57,6 +59,15 @@ public final class UuidOperators
     public static Slice uuid()
     {
         java.util.UUID uuid = randomUUID();
+        return wrappedLongArray(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits());
+    }
+
+    @Description("Generates a deterministic (type 3) UUID using the specified input name")
+    @ScalarFunction(deterministic = true)
+    @SqlType(StandardTypes.UUID)
+    public static Slice uuid3(@SqlType(StandardTypes.VARCHAR) Slice name)
+    {
+        java.util.UUID uuid = nameUUIDFromBytes(name.getBytes());
         return wrappedLongArray(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits());
     }
 

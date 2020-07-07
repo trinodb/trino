@@ -43,6 +43,7 @@ public class TestDeterminismEvaluator
         assertFalse(DeterminismEvaluator.isDeterministic(function("random"), metadata));
         assertFalse(DeterminismEvaluator.isDeterministic(function("shuffle", ImmutableList.of(new ArrayType(VARCHAR)), ImmutableList.of(new NullLiteral())), metadata));
         assertFalse(DeterminismEvaluator.isDeterministic(function("uuid"), metadata));
+        assertTrue(DeterminismEvaluator.isDeterministic(function("uuid3"), metadata));
         assertTrue(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(input("symbol"))), metadata));
         assertFalse(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(function("rand"))), metadata));
         assertTrue(DeterminismEvaluator.isDeterministic(

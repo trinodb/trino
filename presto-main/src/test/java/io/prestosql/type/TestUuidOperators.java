@@ -132,4 +132,13 @@ public class TestUuidOperators
         Block block = blockBuilder.build();
         return UUID.hash(block, 0);
     }
+
+    @Test
+    public void testUuid3(String name)
+    {
+        assertFunction("UUID3('presto')", UUID, "1e954771-8132-30da-9673-f51da7e4394c");
+        assertFunction("UUID3('p')", UUID, "83878c91-1713-3890-ae0f-e0fb97a8c47a");
+        assertFunction("UUID3('1')", UUID, "c4ca4238-a0b9-3382-8dcc-509a6f75849b");
+        assertFunction("UUID3('')", UUID, "d41d8cd9-8f00-3204-a980-0998ecf8427e");
+    }
 }
