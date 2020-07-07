@@ -84,11 +84,15 @@ following table must be entered in uppercase. The default value is ``CSV``.
 Examples
 ^^^^^^^^
 
-Consider the following command run as shown, or with ``--output-format CSV``::
+Consider the following command run as shown, or with ``--output-format CSV``:
+
+.. code-block:: none
 
    presto --execute 'SELECT nationkey, name, regionkey FROM tpch.sf1.nation LIMIT 3'
 
-The output is::
+The output is:
+
+.. code-block:: none
 
   "0","ALGERIA","0"
   "1","ARGENTINA","1"
@@ -102,7 +106,9 @@ With ``--output-format JSON``:
   {"nationkey":1,"name":"ARGENTINA","regionkey":1}
   {"nationkey":2,"name":"BRAZIL","regionkey":1}
 
-With ``--output-format ALIGNED``::
+With ``--output-format ALIGNED``:
+
+.. code-block:: none
 
    nationkey |   name    | regionkey
    -----------+-----------+---------
@@ -110,7 +116,9 @@ With ``--output-format ALIGNED``::
            1 | ARGENTINA |         1
            2 | BRAZIL    |         1
 
-With ``--output-format VERTICAL``::
+With ``--output-format VERTICAL``:
+
+.. code-block:: none
 
   -[ RECORD 1 ]--------
   nationkey | 0
@@ -126,7 +134,9 @@ With ``--output-format VERTICAL``::
   regionkey | 1
 
 With ``--output-format NULL``, the return value is 0 and no output is emitted. If you
-change ``regionkey`` to ``region``, the return value is 1 and the output is::
+change ``regionkey`` to ``region``, the return value is 1 and the output is:
+
+.. code-block:: none
 
   Query 20200707_170726_00030_2iup9 failed: line 1:25: Column 'region' cannot be resolved
   SELECT nationkey, name, region FROM tpch.sf1.nation LIMIT 3
