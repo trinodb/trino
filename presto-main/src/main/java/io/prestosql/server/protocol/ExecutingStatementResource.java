@@ -26,6 +26,7 @@ import io.prestosql.execution.QueryManager;
 import io.prestosql.memory.context.SimpleLocalMemoryContext;
 import io.prestosql.operator.ExchangeClient;
 import io.prestosql.operator.ExchangeClientSupplier;
+import io.prestosql.server.ExecutingStatementResourceConfig;
 import io.prestosql.server.ForStatementResource;
 import io.prestosql.server.security.ResourceSecurity;
 import io.prestosql.spi.QueryId;
@@ -53,6 +54,7 @@ import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.Map.Entry;
 import java.util.NoSuchElementException;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.ScheduledExecutorService;
@@ -90,7 +92,7 @@ public class ExecutingStatementResource
 
     private static final DataSize DEFAULT_TARGET_RESULT_SIZE = DataSize.of(1, MEGABYTE);
     private static final DataSize MAX_TARGET_RESULT_SIZE = DataSize.of(128, MEGABYTE);
-
+    private final DataSize defaultTargetResultSize;
     private final QueryManager queryManager;
     private final ExchangeClientSupplier exchangeClientSupplier;
     private final BlockEncodingSerde blockEncodingSerde;
@@ -106,13 +108,15 @@ public class ExecutingStatementResource
             ExchangeClientSupplier exchangeClientSupplier,
             BlockEncodingSerde blockEncodingSerde,
             @ForStatementResource BoundedExecutor responseExecutor,
-            @ForStatementResource ScheduledExecutorService timeoutExecutor)
+            @ForStatementResource ScheduledExecutorService timeoutExecutor,
+            ExecutingStatementResourceConfig executingStatementResourceConfig)
     {
         this.queryManager = requireNonNull(queryManager, "queryManager is null");
         this.exchangeClientSupplier = requireNonNull(exchangeClientSupplier, "exchangeClientSupplier is null");
         this.blockEncodingSerde = requireNonNull(blockEncodingSerde, "blockEncodingSerde is null");
         this.responseExecutor = requireNonNull(responseExecutor, "responseExecutor is null");
         this.timeoutExecutor = requireNonNull(timeoutExecutor, "timeoutExecutor is null");
+        this.defaultTargetResultSize = executingStatementResourceConfig.getServerTargetResultSize();
 
         queryPurger.scheduleWithFixedDelay(
                 () -> {
@@ -157,7 +161,8 @@ public class ExecutingStatementResource
             @Suspended AsyncResponse asyncResponse)
     {
         Query query = getQuery(queryId, slug, token);
-        asyncQueryResults(query, token, maxWait, targetResultSize, uriInfo, asyncResponse);
+        DataSize targetResultSizeToUse = Optional.ofNullable(targetResultSize).map(size -> Ordering.natural().min(size, MAX_TARGET_RESULT_SIZE)).orElseGet(() -> defaultTargetResultSize);
+        asyncQueryResults(query, token, maxWait, targetResultSizeToUse, uriInfo, asyncResponse);
     }
 
     protected Query getQuery(QueryId queryId, String slug, long token)
@@ -207,12 +212,6 @@ public class ExecutingStatementResource
             AsyncResponse asyncResponse)
     {
         Duration wait = WAIT_ORDERING.min(MAX_WAIT_TIME, maxWait);
-        if (targetResultSize == null) {
-            targetResultSize = DEFAULT_TARGET_RESULT_SIZE;
-        }
-        else {
-            targetResultSize = Ordering.natural().min(targetResultSize, MAX_TARGET_RESULT_SIZE);
-        }
         ListenableFuture<QueryResults> queryResultsFuture = query.waitForResults(token, uriInfo, wait, targetResultSize);
 
         ListenableFuture<Response> response = Futures.transform(queryResultsFuture, queryResults -> toResponse(query, queryResults), directExecutor());
