@@ -64,6 +64,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String> CLIENT_INFO = new ClientInfo();
     public static final ConnectionProperty<String> CLIENT_TAGS = new ClientTags();
     public static final ConnectionProperty<String> TRACE_TOKEN = new TraceToken();
+    public static final ConnectionProperty<Boolean> USE_SESSION_TIMEZONE = new UseSessionTimeZone();
     public static final ConnectionProperty<Map<String, String>> SESSION_PROPERTIES = new SessionProperties();
 
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
@@ -90,6 +91,7 @@ final class ConnectionProperties
             .add(CLIENT_INFO)
             .add(CLIENT_TAGS)
             .add(TRACE_TOKEN)
+            .add(USE_SESSION_TIMEZONE)
             .add(SESSION_PROPERTIES)
             .build();
 
@@ -364,6 +366,15 @@ final class ConnectionProperties
         public AccessToken()
         {
             super("accessToken", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class UseSessionTimeZone
+            extends AbstractConnectionProperty<Boolean>
+    {
+        public UseSessionTimeZone()
+        {
+            super("useSessionTimeZone", NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 

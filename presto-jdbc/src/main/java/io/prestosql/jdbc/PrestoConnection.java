@@ -81,6 +81,7 @@ public class PrestoConnection
     private final AtomicReference<String> schema = new AtomicReference<>();
     private final AtomicReference<String> path = new AtomicReference<>();
     private final AtomicReference<ZoneId> timeZoneId = new AtomicReference<>();
+    private final AtomicBoolean useSessionTimeZone = new AtomicBoolean();
     private final AtomicReference<Locale> locale = new AtomicReference<>();
     private final AtomicReference<Integer> networkTimeoutMillis = new AtomicReference<>(Ints.saturatedCast(MINUTES.toMillis(2)));
     private final AtomicReference<ServerInfo> serverInfo = new AtomicReference<>();
@@ -116,6 +117,7 @@ public class PrestoConnection
 
         roles.putAll(uri.getRoles());
         timeZoneId.set(ZoneId.systemDefault());
+        useSessionTimeZone.set(uri.useSessionTimezone().orElse(false));
         locale.set(Locale.getDefault());
         sessionProperties.putAll(uri.getSessionProperties());
     }
@@ -726,6 +728,7 @@ public class PrestoConnection
                 schema.get(),
                 path.get(),
                 timeZoneId.get(),
+                useSessionTimeZone.get(),
                 locale.get(),
                 ImmutableMap.of(),
                 ImmutableMap.copyOf(allProperties),
