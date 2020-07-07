@@ -20,6 +20,7 @@ import io.prestosql.client.QueryStatusInfo;
 import io.prestosql.client.StatementClient;
 
 import java.sql.SQLException;
+import java.time.ZoneId;
 import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -56,7 +57,7 @@ public class PrestoResultSet
             throws SQLException
     {
         super(
-                requireNonNull(client, "client is null").getTimeZone(),
+                getResultTimeZone(requireNonNull(client, "client is null")),
                 columns,
                 new AsyncIterator<>(flatten(new ResultsPageIterator(client, progressCallback, warningsManager), maxRows), client));
 
@@ -64,6 +65,14 @@ public class PrestoResultSet
         requireNonNull(progressCallback, "progressCallback is null");
 
         this.queryId = client.currentStatusInfo().getId();
+    }
+
+    private static ZoneId getResultTimeZone(StatementClient client)
+    {
+        if (client.useSessionTimeZone()) {
+            return client.getTimeZone();
+        }
+        return ZoneId.systemDefault();
     }
 
     public String getQueryId()

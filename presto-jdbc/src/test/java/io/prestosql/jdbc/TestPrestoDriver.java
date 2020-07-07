@@ -599,6 +599,26 @@ public class TestPrestoDriver
                     ResultSet rs = statement.executeQuery(sql)) {
                 assertTrue(rs.next());
                 assertEquals(rs.getString("zone"), "UTC");
+                // setting the session timezone has no effect on the interpretation of timestamps in the JDBC driver
+                assertEquals(rs.getTimestamp("ts"), new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, defaultZone).getMillis()));
+            }
+        }
+
+        // legacy mode
+        try (Connection connection = DriverManager.getConnection(format("jdbc:presto://%s?useSessionTimeZone=true", server.getAddress()), "test", null)) {
+            try (Statement statement = connection.createStatement();
+                    ResultSet rs = statement.executeQuery(sql)) {
+                assertTrue(rs.next());
+                assertEquals(rs.getString("zone"), defaultZoneKey.getId());
+                assertEquals(rs.getTimestamp("ts"), new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, defaultZone).getMillis()));
+            }
+
+            connection.unwrap(PrestoConnection.class).setTimeZoneId("UTC");
+            try (Statement statement = connection.createStatement();
+                    ResultSet rs = statement.executeQuery(sql)) {
+                assertTrue(rs.next());
+                assertEquals(rs.getString("zone"), "UTC");
+                // the session timezone is used
                 assertEquals(rs.getTimestamp("ts"), new Timestamp(new DateTime(2001, 2, 3, 3, 4, 5, DateTimeZone.UTC).getMillis()));
             }
         }
