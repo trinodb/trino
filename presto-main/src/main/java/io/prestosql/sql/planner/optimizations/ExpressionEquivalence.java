@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
-import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
@@ -285,8 +284,13 @@ public class ExpressionEquivalence
                 if (javaType == float.class || javaType == double.class) {
                     return Double.compare(((Number) leftValue).doubleValue(), ((Number) rightValue).doubleValue());
                 }
-                if (javaType == Slice.class) {
-                    return ((Slice) leftValue).compareTo((Slice) rightValue);
+                if (leftValue instanceof Comparable) {
+                    try {
+                        //noinspection unchecked,rawtypes
+                        return ((Comparable) leftValue).compareTo(rightValue);
+                    }
+                    catch (RuntimeException ignored) {
+                    }
                 }
 
                 // value is some random type (say regex), so we just randomly choose a greater value

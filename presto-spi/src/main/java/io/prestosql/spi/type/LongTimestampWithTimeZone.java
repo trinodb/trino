@@ -13,9 +13,12 @@
  */
 package io.prestosql.spi.type;
 
+import java.util.Objects;
+
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 
 public final class LongTimestampWithTimeZone
+        implements Comparable<LongTimestampWithTimeZone>
 {
     private final long epochMillis;
     private final int picosOfMilli; // number of picoSeconds of the millisecond corresponding to epochMillis
@@ -65,5 +68,35 @@ public final class LongTimestampWithTimeZone
     public short getTimeZoneKey()
     {
         return timeZoneKey;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        LongTimestampWithTimeZone that = (LongTimestampWithTimeZone) o;
+        return epochMillis == that.epochMillis &&
+                picosOfMilli == that.picosOfMilli;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(epochMillis, picosOfMilli);
+    }
+
+    @Override
+    public int compareTo(LongTimestampWithTimeZone other)
+    {
+        int value = Long.compare(epochMillis, other.epochMillis);
+        if (value != 0) {
+            return value;
+        }
+        return Integer.compareUnsigned(picosOfMilli, other.picosOfMilli);
     }
 }
