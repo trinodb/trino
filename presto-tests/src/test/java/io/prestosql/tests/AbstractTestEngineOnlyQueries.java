@@ -804,6 +804,34 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testDescribeOutputDateTimeTypes()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty("omit_datetime_type_precision", "true")
+                .addPreparedStatement("my_query", "SELECT localtimestamp a, current_timestamp b")
+                .build();
+
+        MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
+        MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
+                .row("a", "", "", "", "timestamp", 8, true)
+                .row("b", "", "", "", "timestamp with time zone", 8, true)
+                .build();
+        assertEqualsIgnoreOrder(actual, expected);
+
+        session = Session.builder(getSession())
+                .setSystemProperty("omit_datetime_type_precision", "false")
+                .addPreparedStatement("my_query", "SELECT localtimestamp a, current_timestamp b")
+                .build();
+
+        actual = computeActual(session, "DESCRIBE OUTPUT my_query");
+        expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
+                .row("a", "", "", "", "timestamp(3)", 8, true)
+                .row("b", "", "", "", "timestamp(3) with time zone", 8, true)
+                .build();
+        assertEqualsIgnoreOrder(actual, expected);
+    }
+
+    @Test
     public void testDescribeOutputNamedAndUnnamed()
     {
         Session session = Session.builder(getSession())
