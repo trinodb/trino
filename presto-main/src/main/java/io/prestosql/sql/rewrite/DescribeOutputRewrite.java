@@ -20,6 +20,9 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.security.AccessControl;
 import io.prestosql.spi.type.FixedWidthType;
+import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.sql.analyzer.Analysis;
 import io.prestosql.sql.analyzer.Analyzer;
 import io.prestosql.sql.analyzer.Field;
@@ -43,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.prestosql.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.prestosql.sql.ParsingUtil.createParsingOptions;
 import static io.prestosql.sql.QueryUtil.aliased;
 import static io.prestosql.sql.QueryUtil.identifier;
@@ -139,7 +143,7 @@ final class DescribeOutputRewrite
                     limit);
         }
 
-        private static Row createDescribeOutputRow(Field field, Analysis analysis)
+        private Row createDescribeOutputRow(Field field, Analysis analysis)
         {
             LongLiteral typeSize = new LongLiteral("0");
             if (field.getType() instanceof FixedWidthType) {
@@ -157,12 +161,22 @@ final class DescribeOutputRewrite
 
             Optional<QualifiedObjectName> originTable = field.getOriginTable();
 
+            String type = field.getType().getDisplayName();
+            if (isOmitDateTimeTypePrecision(session)) {
+                if (field.getType() instanceof TimestampType && ((TimestampType) field.getType()).getPrecision() == TimestampType.DEFAULT_PRECISION) {
+                    type = StandardTypes.TIMESTAMP;
+                }
+                else if (field.getType() instanceof TimestampWithTimeZoneType && ((TimestampWithTimeZoneType) field.getType()).getPrecision() == TimestampWithTimeZoneType.DEFAULT_PRECISION) {
+                    type = StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
+                }
+            }
+
             return row(
                     new StringLiteral(columnName),
                     new StringLiteral(originTable.map(QualifiedObjectName::getCatalogName).orElse("")),
                     new StringLiteral(originTable.map(QualifiedObjectName::getSchemaName).orElse("")),
                     new StringLiteral(originTable.map(QualifiedObjectName::getObjectName).orElse("")),
-                    new StringLiteral(field.getType().getDisplayName()),
+                    new StringLiteral(type),
                     typeSize,
                     new BooleanLiteral(String.valueOf(field.isAliased())));
         }
