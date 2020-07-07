@@ -363,6 +363,26 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Cannot select from view %s%s", viewName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyGrantSchemaPrivilege(String privilege, String schemaName)
+    {
+        denyGrantSchemaPrivilege(privilege, schemaName, null);
+    }
+
+    public static void denyGrantSchemaPrivilege(String privilege, String schemaName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot grant privilege %s on schema %s%s", privilege, schemaName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyRevokeSchemaPrivilege(String privilege, String schemaName)
+    {
+        denyRevokeSchemaPrivilege(privilege, schemaName, null);
+    }
+
+    public static void denyRevokeSchemaPrivilege(String privilege, String schemaName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot revoke privilege %s on schema %s%s", privilege, schemaName, formatExtraInfo(extraInfo)));
+    }
+
     public static void denyGrantTablePrivilege(String privilege, String tableName)
     {
         denyGrantTablePrivilege(privilege, tableName, null);

@@ -1409,10 +1409,11 @@ public final class SqlFormatter
             }
 
             builder.append(" ON ");
-            if (node.isTable()) {
-                builder.append("TABLE ");
+            if (node.getType().isPresent()) {
+                builder.append(node.getType().get());
+                builder.append(" ");
             }
-            builder.append(node.getTableName())
+            builder.append(node.getName())
                     .append(" TO ")
                     .append(formatPrincipal(node.getGrantee()));
             if (node.isWithGrantOption()) {
@@ -1440,10 +1441,11 @@ public final class SqlFormatter
             }
 
             builder.append(" ON ");
-            if (node.isTable()) {
-                builder.append("TABLE ");
+            if (node.getType().isPresent()) {
+                builder.append(node.getType().get());
+                builder.append(" ");
             }
-            builder.append(node.getTableName())
+            builder.append(node.getName())
                     .append(" FROM ")
                     .append(formatPrincipal(node.getGrantee()));
 

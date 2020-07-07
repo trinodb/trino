@@ -94,12 +94,14 @@ statement
     | SET ROLE (ALL | NONE | role=identifier)                          #setRole
     | GRANT
         (privilege (',' privilege)* | ALL PRIVILEGES)
-        ON TABLE? qualifiedName TO grantee=principal
+        ON (SCHEMA | TABLE)? qualifiedName
+        TO grantee=principal
         (WITH GRANT OPTION)?                                           #grant
     | REVOKE
         (GRANT OPTION FOR)?
         (privilege (',' privilege)* | ALL PRIVILEGES)
-        ON TABLE? qualifiedName FROM grantee=principal                 #revoke
+        ON (SCHEMA | TABLE)? qualifiedName
+        FROM grantee=principal                                         #revoke
     | SHOW GRANTS
         (ON TABLE? qualifiedName)?                                     #showGrants
     | EXPLAIN ANALYZE? VERBOSE?

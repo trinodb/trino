@@ -28,11 +28,15 @@ import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.type.VarcharType;
 import org.testng.Assert.ThrowingRunnable;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.util.EnumSet;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Stream;
 
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
@@ -177,6 +181,60 @@ public class TestFileBasedAccessControl
         assertDenied(() -> accessControl.checkCanShowCreateSchema(CHARLIE, "staff"));
         accessControl.checkCanShowCreateSchema(CHARLIE, "authenticated");
         assertDenied(() -> accessControl.checkCanShowCreateSchema(CHARLIE, "test"));
+    }
+
+    @Test(dataProvider = "privilegeGrantOption")
+    public void testGrantSchemaPrivilege(Privilege privilege, boolean grantOption)
+    {
+        ConnectorAccessControl accessControl = createAccessControl("schema.json");
+        PrestoPrincipal grantee = new PrestoPrincipal(PrincipalType.USER, "alice");
+
+        accessControl.checkCanGrantSchemaPrivilege(ADMIN, privilege, "bob", grantee, grantOption);
+        accessControl.checkCanGrantSchemaPrivilege(ADMIN, privilege, "staff", grantee, grantOption);
+        accessControl.checkCanGrantSchemaPrivilege(ADMIN, privilege, "authenticated", grantee, grantOption);
+        accessControl.checkCanGrantSchemaPrivilege(ADMIN, privilege, "test", grantee, grantOption);
+
+        accessControl.checkCanGrantSchemaPrivilege(BOB, privilege, "bob", grantee, grantOption);
+        accessControl.checkCanGrantSchemaPrivilege(BOB, privilege, "staff", grantee, grantOption);
+        accessControl.checkCanGrantSchemaPrivilege(BOB, privilege, "authenticated", grantee, grantOption);
+        assertDenied(() -> accessControl.checkCanGrantSchemaPrivilege(BOB, privilege, "test", grantee, grantOption));
+
+        assertDenied(() -> accessControl.checkCanGrantSchemaPrivilege(CHARLIE, privilege, "bob", grantee, grantOption));
+        assertDenied(() -> accessControl.checkCanGrantSchemaPrivilege(CHARLIE, privilege, "staff", grantee, grantOption));
+        accessControl.checkCanGrantSchemaPrivilege(CHARLIE, privilege, "authenticated", grantee, grantOption);
+        assertDenied(() -> accessControl.checkCanGrantSchemaPrivilege(CHARLIE, privilege, "test", grantee, grantOption));
+    }
+
+    @Test(dataProvider = "privilegeGrantOption")
+    public void testRevokeSchemaPrivilege(Privilege privilege, boolean grantOption)
+    {
+        ConnectorAccessControl accessControl = createAccessControl("schema.json");
+        PrestoPrincipal grantee = new PrestoPrincipal(PrincipalType.USER, "alice");
+
+        accessControl.checkCanRevokeSchemaPrivilege(ADMIN, privilege, "bob", grantee, grantOption);
+        accessControl.checkCanRevokeSchemaPrivilege(ADMIN, privilege, "staff", grantee, grantOption);
+        accessControl.checkCanRevokeSchemaPrivilege(ADMIN, privilege, "authenticated", grantee, grantOption);
+        accessControl.checkCanRevokeSchemaPrivilege(ADMIN, privilege, "test", grantee, grantOption);
+
+        accessControl.checkCanRevokeSchemaPrivilege(BOB, privilege, "bob", grantee, grantOption);
+        accessControl.checkCanRevokeSchemaPrivilege(BOB, privilege, "staff", grantee, grantOption);
+        accessControl.checkCanRevokeSchemaPrivilege(BOB, privilege, "authenticated", grantee, grantOption);
+        assertDenied(() -> accessControl.checkCanRevokeSchemaPrivilege(BOB, privilege, "test", grantee, grantOption));
+
+        assertDenied(() -> accessControl.checkCanRevokeSchemaPrivilege(CHARLIE, privilege, "bob", grantee, grantOption));
+        assertDenied(() -> accessControl.checkCanRevokeSchemaPrivilege(CHARLIE, privilege, "staff", grantee, grantOption));
+        accessControl.checkCanRevokeSchemaPrivilege(CHARLIE, privilege, "authenticated", grantee, grantOption);
+        assertDenied(() -> accessControl.checkCanRevokeSchemaPrivilege(CHARLIE, privilege, "test", grantee, grantOption));
+    }
+
+    @DataProvider(name = "privilegeGrantOption")
+    public Object[][] privilegeGrantOption()
+    {
+        return EnumSet.allOf(Privilege.class)
+                .stream()
+                .flatMap(privilege -> Stream.of(true, false).map(grantOption -> new Object[] {privilege, grantOption}))
+                .collect(toImmutableList())
+                .toArray(new Object[0][0]);
     }
 
     @Test

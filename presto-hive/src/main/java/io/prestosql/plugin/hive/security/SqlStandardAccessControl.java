@@ -21,6 +21,7 @@ import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSecurityContext;
@@ -54,6 +55,7 @@ import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isRo
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listApplicableRoles;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listApplicableTablePrivileges;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.listEnabledPrincipals;
+import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
@@ -329,6 +331,18 @@ public class SqlStandardAccessControl
         if (!isAdmin(context)) {
             denySetCatalogSessionProperty(catalogName, propertyName);
         }
+    }
+
+    @Override
+    public void checkCanGrantSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, PrestoPrincipal grantee, boolean grantOption)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support grants on schemas");
+    }
+
+    @Override
+    public void checkCanRevokeSchemaPrivilege(ConnectorSecurityContext context, Privilege privilege, String schemaName, PrestoPrincipal revokee, boolean grantOption)
+    {
+        throw new PrestoException(NOT_SUPPORTED, "This connector does not support revokes on schemas");
     }
 
     @Override
