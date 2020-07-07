@@ -16,6 +16,8 @@ package io.prestosql.plugin.kafka.encoder;
 import com.google.inject.Binder;
 import com.google.inject.Module;
 import com.google.inject.multibindings.MapBinder;
+import io.prestosql.plugin.kafka.encoder.csv.CsvRowEncoder;
+import io.prestosql.plugin.kafka.encoder.csv.CsvRowEncoderFactory;
 
 import static com.google.inject.Scopes.SINGLETON;
 
@@ -26,6 +28,8 @@ public class EncoderModule
     public void configure(Binder binder)
     {
         MapBinder<String, RowEncoderFactory> encoderFactoriesByName = MapBinder.newMapBinder(binder, String.class, RowEncoderFactory.class);
+
+        encoderFactoriesByName.addBinding(CsvRowEncoder.NAME).to(CsvRowEncoderFactory.class).in(SINGLETON);
 
         binder.bind(DispatchingRowEncoderFactory.class).in(SINGLETON);
     }
