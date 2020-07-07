@@ -74,7 +74,7 @@ following table must be entered in uppercase. The default value is ``CSV``.
 |                     | aligned numeric values and left-aligned string values.     |
 +---------------------+------------------------------------------------------------+
 | VERTICAL            | Output emitted as record-oriented top-down lines, one per  |
-|                     | value, better parseable as a stream.                       |
+|                     | value.                                                     |
 +---------------------+------------------------------------------------------------+
 | NULL                | Suppresses normal query results. This can be useful during |
 |                     | development to test a query's shell return code or to see  |
