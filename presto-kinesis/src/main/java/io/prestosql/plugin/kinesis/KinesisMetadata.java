@@ -160,14 +160,12 @@ public class KinesisMetadata
             tableNames = ImmutableList.of(new SchemaTableName(prefix.getSchema().get(), prefix.getTable().get()));
         }
         else {
-            tableNames = listTables(session, null);
+            tableNames = listTables(session, Optional.empty());
         }
 
         for (SchemaTableName tableName : tableNames) {
             ConnectorTableMetadata tableMetadata = getTableMetadata(tableName);
-            if (tableMetadata != null) {
-                columns.put(tableName, tableMetadata.getColumns());
-            }
+            columns.put(tableName, tableMetadata.getColumns());
         }
         return columns.build();
     }

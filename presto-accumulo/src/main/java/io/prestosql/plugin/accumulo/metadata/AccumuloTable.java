@@ -65,7 +65,7 @@ public class AccumuloTable
         this.table = requireNonNull(table, "table is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns are null"));
         this.serializerClassName = requireNonNull(serializerClassName, "serializerClassName is null");
-        this.scanAuthorizations = scanAuthorizations;
+        this.scanAuthorizations = requireNonNull(scanAuthorizations, "scanAuthorizations is null");
 
         boolean indexed = false;
         Optional<Integer> rowIdOrdinal = Optional.empty();

@@ -67,7 +67,7 @@ public class ResourceGroupSpecBuilder
         this.jmxExport = requireNonNull(jmxExport, "jmxExport is null");
         this.softCpuLimit = requireNonNull(softCpuLimit, "softCpuLimit is null").map(Duration::valueOf);
         this.hardCpuLimit = requireNonNull(hardCpuLimit, "hardCpuLimit is null").map(Duration::valueOf);
-        this.parentId = parentId;
+        this.parentId = requireNonNull(parentId, "parentId is null");
     }
 
     public long getId()
