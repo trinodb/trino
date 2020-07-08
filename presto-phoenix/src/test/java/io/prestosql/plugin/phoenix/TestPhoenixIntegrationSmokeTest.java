@@ -128,9 +128,22 @@ public class TestPhoenixIntegrationSmokeTest
     @Test
     public void testCreateTableWithProperties()
     {
-        assertUpdate("CREATE TABLE test_create_table_with_properties (created_date date, a bigint, b double, c varchar(10), d varchar(10)) WITH(rowkeys = 'created_date row_timestamp,a,b,c', salt_buckets=10)");
+        assertUpdate("CREATE TABLE test_create_table_with_properties (created_date date, a bigint, b double, c varchar(10), d varchar(10)) WITH(rowkeys = 'created_date row_timestamp, a,b,c', salt_buckets=10)");
         assertTrue(getQueryRunner().tableExists(getSession(), "test_create_table_with_properties"));
         assertTableColumnNames("test_create_table_with_properties", "created_date", "a", "b", "c", "d");
+        assertThat(computeActual("SHOW CREATE TABLE test_create_table_with_properties").getOnlyValue())
+                .isEqualTo("CREATE TABLE phoenix.tpch.test_create_table_with_properties (\n" +
+                           "   created_date date,\n" +
+                           "   a bigint NOT NULL,\n" +
+                           "   b double NOT NULL,\n" +
+                           "   c varchar(10) NOT NULL,\n" +
+                           "   d varchar(10)\n" +
+                           ")\n" +
+                           "WITH (\n" +
+                           "   rowkeys = 'A,B,C',\n" +
+                           "   salt_buckets = 10\n" +
+                           ")");
+
         assertUpdate("DROP TABLE test_create_table_with_properties");
     }
 
