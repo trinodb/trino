@@ -15,7 +15,6 @@ package io.prestosql.sql.query;
 
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.SqlTime;
 import io.prestosql.spi.type.SqlTimeWithTimeZone;
 import io.prestosql.spi.type.SqlTimestamp;
@@ -31,7 +30,6 @@ import io.prestosql.testing.QueryRunner;
 import org.assertj.core.api.AbstractAssert;
 import org.assertj.core.api.AssertProvider;
 import org.assertj.core.api.ListAssert;
-import org.assertj.core.api.ThrowableAssert;
 import org.assertj.core.presentation.Representation;
 import org.assertj.core.presentation.StandardRepresentation;
 import org.intellij.lang.annotations.Language;
@@ -46,7 +44,6 @@ import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
 import static io.prestosql.sql.query.QueryAssertions.ExpressionAssert.newExpressionAssert;
 import static io.prestosql.sql.query.QueryAssertions.QueryAssert.newQueryAssert;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -105,72 +102,15 @@ public class QueryAssertions
         return newExpressionAssert(expression, runner, session);
     }
 
-    /**
-     * @deprecated use {@link org.assertj.core.api.Assertions#assertThatThrownBy(ThrowableAssert.ThrowingCallable)}:
-     * <pre>
-     * assertThatThrownBy(() -> assertions.execute(sql))<br>
-     *      .hasMessage(...)
-     * </pre>
-     */
-    public void assertFails(@Language("SQL") String sql, @Language("RegExp") String expectedMessageRegExp)
-    {
-        try {
-            runner.execute(runner.getDefaultSession(), sql).toTestTypes();
-            fail(format("Expected query to fail: %s", sql));
-        }
-        catch (RuntimeException exception) {
-            exception.addSuppressed(new Exception("Query: " + sql));
-            assertThat(exception)
-                    .isInstanceOf(PrestoException.class)
-                    .hasMessageMatching(expectedMessageRegExp);
-        }
-    }
-
     public void assertQueryAndPlan(
             @Language("SQL") String actual,
             @Language("SQL") String expected,
             PlanMatchPattern pattern)
     {
-        assertQuery(actual, expected);
+        assertQuery(runner.getDefaultSession(), actual, expected, false);
 
         Plan plan = runner.executeWithPlan(runner.getDefaultSession(), actual, WarningCollector.NOOP).getQueryPlan();
         PlanAssert.assertPlan(runner.getDefaultSession(), runner.getMetadata(), runner.getStatsCalculator(), plan, pattern);
-    }
-
-    /**
-     * @deprecated use {@link org.assertj.core.api.Assertions#assertThat} with {@link #query(String)}
-     */
-    @Deprecated
-    public void assertQuery(@Language("SQL") String actual, @Language("SQL") String expected)
-    {
-        assertQuery(runner.getDefaultSession(), actual, expected, false);
-    }
-
-    /**
-     * @deprecated <p>use {@link org.assertj.core.api.Assertions#assertThat} with {@link #query(String, Session)}:
-     * <pre>
-     * assertThat(assertions.query(actual, session))<br>
-     *     .matches(expected)
-     * </pre>
-     */
-    @Deprecated
-    public void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected)
-    {
-        assertQuery(session, actual, expected, false);
-    }
-
-    /**
-     * @deprecated use {@link org.assertj.core.api.Assertions#assertThat} with {@link #query(String)}:
-     * <pre>
-     * assertThat(assertions.query(actual))<br>
-     *     .ordered()<br>
-     *     .matches(expected)
-     * </pre>
-     */
-    @Deprecated
-    public void assertQueryOrdered(@Language("SQL") String actual, @Language("SQL") String expected)
-    {
-        assertQuery(runner.getDefaultSession(), actual, expected, true);
     }
 
     private void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected, boolean ensureOrdering)
