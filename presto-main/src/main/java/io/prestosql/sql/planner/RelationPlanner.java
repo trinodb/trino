@@ -409,7 +409,7 @@ class RelationPlanner
 
         if (node.getType() != INNER) {
             for (Expression complexExpression : complexJoinExpressions) {
-                Set<QualifiedName> dependencies = SymbolsExtractor.extractNames(complexExpression, analysis.getColumnReferences());
+                Set<QualifiedName> dependencies = SymbolsExtractor.extractNamesNoSubqueries(complexExpression, analysis.getColumnReferences());
 
                 // This is for handling uncorreled subqueries. Correlated subqueries are not currently supported and are dealt with
                 // during analysis.
