@@ -84,9 +84,9 @@ public class IcebergOrcFileWriter
     }
 
     @Override
-    public Optional<Metrics> getMetrics()
+    public Metrics getMetrics()
     {
-        return Optional.of(computeMetrics(icebergSchema, orcColumns, orcWriter.getFileRowCount(), orcWriter.getFileStats()));
+        return computeMetrics(icebergSchema, orcColumns, orcWriter.getFileRowCount(), orcWriter.getFileStats());
     }
 
     private static Metrics computeMetrics(Schema icebergSchema, ColumnMetadata<OrcType> orcColumns, long fileRowCount, Optional<ColumnMetadata<ColumnStatistics>> columnStatistics)

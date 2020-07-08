@@ -39,6 +39,12 @@ public final class IcebergQueryRunner
     public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties)
             throws Exception
     {
+        return createIcebergQueryRunner(extraProperties, true);
+    }
+
+    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, boolean createTpchTables)
+            throws Exception
+    {
         Session session = testSessionBuilder()
                 .setCatalog(ICEBERG_CATALOG)
                 .setSchema("tpch")
@@ -63,7 +69,9 @@ public final class IcebergQueryRunner
 
         queryRunner.execute("CREATE SCHEMA tpch");
 
-        copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, TpchTable.getTables());
+        if (createTpchTables) {
+            copyTpchTables(queryRunner, "tpch", TINY_SCHEMA_NAME, session, TpchTable.getTables());
+        }
 
         return queryRunner;
     }
