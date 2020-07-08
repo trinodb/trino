@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.execution.StageId;
 import io.prestosql.execution.StageState;
 import io.prestosql.execution.TaskId;
-import io.prestosql.execution.TaskManagerConfig;
 import io.prestosql.server.DynamicFilterService.StageDynamicFilters;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.DynamicFilter;
@@ -27,6 +26,7 @@ import io.prestosql.spi.connector.TestingColumnHandle;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.DynamicFilters;
+import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.tree.Expression;
@@ -56,7 +56,7 @@ public class TestDynamicFilterService
     @Test
     public void testDynamicFilterSummaryCompletion()
     {
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(new TaskManagerConfig());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(new FeaturesConfig());
         DynamicFilterId filterId = new DynamicFilterId("df");
         QueryId queryId = new QueryId("query");
         StageId stageId = new StageId(queryId, 0);
@@ -101,7 +101,7 @@ public class TestDynamicFilterService
     @Test
     public void testDynamicFilter()
     {
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(new TaskManagerConfig());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(new FeaturesConfig());
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
         DynamicFilterId filterId2 = new DynamicFilterId("df2");
         DynamicFilterId filterId3 = new DynamicFilterId("df3");
@@ -257,7 +257,7 @@ public class TestDynamicFilterService
     @Test
     public void testReplicatedDynamicFilter()
     {
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(new TaskManagerConfig());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(new FeaturesConfig());
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
         Expression df1 = expression("DF_SYMBOL1");
         QueryId queryId = new QueryId("query");
