@@ -10,6 +10,8 @@ may be used to tune Presto or alter its behavior when required.
     :backlinks: none
     :depth: 1
 
+.. _general-properties:
+
 General Properties
 ------------------
 
@@ -116,6 +118,8 @@ Memory Management Properties
     This is the amount of memory set aside as headroom/buffer in the JVM heap
     for allocations that are not tracked by Presto.
 
+
+.. _query-management-properties:
 
 Query Management Properties
 ---------------------------
@@ -295,6 +299,7 @@ Spilling Properties
     Enables using a randomly generated secret key (per spill file) to encrypt and decrypt
     data spilled to disk.
 
+.. _exchange-properties:
 
 Exchange Properties
 -------------------
@@ -492,6 +497,8 @@ Task Properties
     to become overloaded due to excessive resource utilization. This can also be specified on
     a per-query basis using the ``task_writer_count`` session property.
 
+.. _writer-scaling-properties:
+
 Writer Scaling Properties
 -------------------------
 
@@ -639,6 +646,8 @@ Node Scheduler Properties
     Controls how often the network topology file is reloaded.  To use this option,
     ``node-scheduler.network-topology.type`` must be set to ``file``.
 
+.. _optimizer-properties:
+
 Optimizer Properties
 --------------------
 
@@ -746,6 +755,8 @@ Optimizer Properties
     .. warning:: The number of possible join orders scales factorially with the number of relations,
                  so increasing this value can cause serious performance issues.
 
+.. _regular-expression-function-properties:
+
 Regular Expression Function Properties
 --------------------------------------
 
@@ -793,6 +804,7 @@ The following properties allow tuning the :doc:`/functions/regexp`.
     correct algorithm from the beginning so as not to waste time and resources.
     The more rows you are processing, the larger this value should be.
 
+.. _logging-properties:
 
 Logging Properties
 ------------------
