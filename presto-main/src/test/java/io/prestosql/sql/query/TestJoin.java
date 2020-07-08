@@ -66,6 +66,16 @@ public class TestJoin
     @Test
     public void testInPredicateInJoinCriteria()
     {
+        // IN with subquery containing column references
+        assertThat(assertions.query("" +
+                "WITH " +
+                "    t(x, y) AS (VALUES (1, 10), (2, 20)), " +
+                "    u(x) AS (VALUES 1, 2), " +
+                "    w(z) AS (VALUES 10, 20) " +
+                "SELECT *\n" +
+                "FROM t LEFT JOIN u ON t.x = u.x AND t.y IN (SELECT z FROM w)"))
+                .matches("VALUES (2, 20, 2), (1, 10, 1)");
+
         assertThat(assertions.query("SELECT * FROM (VALUES 1, 2, NULL) t(x) JOIN (VALUES 1, 3, NULL) u(x) ON t.x IN (VALUES 1)"))
                 .matches("VALUES (1, 1), (1, 3), (1, NULL)");
 
