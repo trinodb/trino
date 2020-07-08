@@ -310,10 +310,10 @@ public class TestHiveBucketedTables
 
     private String hiveTableProperties(BucketingType bucketingType)
     {
-        if (bucketingType.getHiveTableProperties().isEmpty()) {
-            return "";
-        }
-        return "TBLPROPERTIES(" + join(",", bucketingType.getHiveTableProperties()) + ")";
+        ImmutableList.Builder<String> tableProperties = ImmutableList.builder();
+        tableProperties.add("'transactional'='false'");
+        tableProperties.addAll(bucketingType.getHiveTableProperties());
+        return "TBLPROPERTIES(" + join(",", tableProperties.build()) + ")";
     }
 
     private static void populateRowToHiveTable(String destination, List<String> values, Optional<String> partition)
