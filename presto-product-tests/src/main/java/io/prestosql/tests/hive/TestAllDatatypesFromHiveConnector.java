@@ -416,7 +416,7 @@ public class TestAllDatatypesFromHiveConnector
         // https://issues.apache.org/jira/browse/HIVE-21002
         return getHiveVersionMajor() == 3 &&
                 getHiveVersionMinor() == 1 &&
-                (getHivePatchVersion() == 0 || getHivePatchVersion() == 1);
+                (getHiveVersionPatch() == 0 || getHiveVersionPatch() == 1);
     }
 
     private static TableInstance<?> mutableTableInstanceOf(TableDefinition tableDefinition)
