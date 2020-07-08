@@ -24,12 +24,14 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.spi.type.Type;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
+import org.apache.parquet.schema.MessageType;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.Callable;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -50,8 +52,9 @@ public class ParquetFileWriter
     public ParquetFileWriter(
             OutputStream outputStream,
             Callable<Void> rollbackAction,
-            List<String> columnNames,
             List<Type> fileColumnTypes,
+            MessageType messageType,
+            Map<List<String>, Type> primitiveTypes,
             ParquetWriterOptions parquetWriterOptions,
             int[] fileInputColumnIndexes,
             CompressionCodecName compressionCodecName)
@@ -60,8 +63,8 @@ public class ParquetFileWriter
 
         this.parquetWriter = new ParquetWriter(
                 outputStream,
-                columnNames,
-                fileColumnTypes,
+                messageType,
+                primitiveTypes,
                 parquetWriterOptions,
                 compressionCodecName);
 

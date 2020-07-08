@@ -23,6 +23,7 @@ import io.prestosql.parquet.writer.valuewriter.DoubleValueWriter;
 import io.prestosql.parquet.writer.valuewriter.IntegerValueWriter;
 import io.prestosql.parquet.writer.valuewriter.PrimitiveValueWriter;
 import io.prestosql.parquet.writer.valuewriter.RealValueWriter;
+import io.prestosql.parquet.writer.valuewriter.TimestampValueWriter;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
@@ -159,14 +160,17 @@ class ParquetWriters
         if (INTEGER.equals(type) || SMALLINT.equals(type) || TINYINT.equals(type)) {
             return new IntegerValueWriter(valuesWriter, type, parquetType);
         }
+        if (BIGINT.equals(type)) {
+            return new BigintValueWriter(valuesWriter, type, parquetType);
+        }
         if (type instanceof DecimalType) {
             return new DecimalValueWriter(valuesWriter, type, parquetType);
         }
         if (DATE.equals(type)) {
             return new DateValueWriter(valuesWriter, parquetType);
         }
-        if (BIGINT.equals(type) || TIMESTAMP.equals(type)) {
-            return new BigintValueWriter(valuesWriter, type, parquetType);
+        if (TIMESTAMP.equals(type)) {
+            return new TimestampValueWriter(valuesWriter, type, parquetType);
         }
         if (DOUBLE.equals(type)) {
             return new DoubleValueWriter(valuesWriter, parquetType);
