@@ -102,20 +102,32 @@ public class TestIcebergSmoke
     @Test
     public void testDecimal()
     {
-        for (int precision = 1; precision <= 38; precision++) {
-            testDecimalWithPrecisionAndScale(precision, precision - 1);
-        }
-
-        for (int scale = 1; scale < 37; scale++) {
-            testDecimalWithPrecisionAndScale(38, scale);
-        }
-
-        for (int scale = 1; scale < 17; scale++) {
-            testDecimalWithPrecisionAndScale(18, scale);
-        }
+        testWithAllFileFormats((session, format) -> testDecimalForFormat(session, format));
     }
 
-    private void testDecimalWithPrecisionAndScale(int precision, int scale)
+    private void testDecimalForFormat(Session session, FileFormat format)
+    {
+        testDecimalWithPrecisionAndScale(session, format, 1, 0);
+        testDecimalWithPrecisionAndScale(session, format, 8, 6);
+        testDecimalWithPrecisionAndScale(session, format, 9, 8);
+        testDecimalWithPrecisionAndScale(session, format, 10, 8);
+
+        testDecimalWithPrecisionAndScale(session, format, 18, 1);
+        testDecimalWithPrecisionAndScale(session, format, 18, 8);
+        testDecimalWithPrecisionAndScale(session, format, 18, 17);
+
+        testDecimalWithPrecisionAndScale(session, format, 17, 16);
+        testDecimalWithPrecisionAndScale(session, format, 18, 17);
+        testDecimalWithPrecisionAndScale(session, format, 24, 10);
+        testDecimalWithPrecisionAndScale(session, format, 30, 10);
+        testDecimalWithPrecisionAndScale(session, format, 37, 26);
+        testDecimalWithPrecisionAndScale(session, format, 38, 37);
+
+        testDecimalWithPrecisionAndScale(session, format, 38, 17);
+        testDecimalWithPrecisionAndScale(session, format, 38, 37);
+    }
+
+    private void testDecimalWithPrecisionAndScale(Session session, FileFormat format, int precision, int scale)
     {
         checkArgument(precision >= 1 && precision <= 38, "Decimal precision (%s) must be between 1 and 38 inclusive", precision);
         checkArgument(scale < precision && scale >= 0, "Decimal scale (%s) must be less than the precision (%s) and non-negative", scale, precision);
@@ -126,27 +138,66 @@ public class TestIcebergSmoke
         String afterTheDecimalPoint = "09876543210987654321098765432109876543".substring(0, scale);
         String decimalValue = format("%s.%s", beforeTheDecimalPoint, afterTheDecimalPoint);
 
-        assertUpdate(format("CREATE TABLE %s (x %s)", tableName, decimalType));
-        assertUpdate(format("INSERT INTO %s (x) VALUES (CAST('%s' AS %s))", tableName, decimalValue, decimalType), 1);
-        assertQuery(format("SELECT * FROM %s", tableName), format("SELECT CAST('%s' AS %s)", decimalValue, decimalType));
-        dropTable(getSession(), tableName);
+        assertUpdate(session, format("CREATE TABLE %s (x %s) WITH (format = '%s')", tableName, decimalType, format.name()));
+        assertUpdate(session, format("INSERT INTO %s (x) VALUES (CAST('%s' AS %s))", tableName, decimalValue, decimalType), 1);
+        assertQuery(session, format("SELECT * FROM %s", tableName), format("SELECT CAST('%s' AS %s)", decimalValue, decimalType));
+        dropTable(session, tableName);
     }
 
     @Test
-    public void testTimestamp()
+    public void testParquetPartitionByTimestamp()
     {
-        assertUpdate("CREATE TABLE test_timestamp (x timestamp)");
-        assertUpdate("INSERT INTO test_timestamp VALUES (timestamp '2017-05-01 10:12:34')", 1);
-        assertQuery("SELECT * FROM test_timestamp", "SELECT CAST('2017-05-01 10:12:34' AS TIMESTAMP)");
-        dropTable(getSession(), "test_timestamp");
+        assertUpdate("CREATE TABLE test_parquet_partitioned_by_timestamp (_timestamp timestamp) " +
+                "WITH (format = 'PARQUET', partitioning = ARRAY['_timestamp'])");
+        testSelectOrPartitionedByTimestamp("test_parquet_partitioned_by_timestamp");
+    }
+
+    @Test
+    public void testParquetSelectByTimestamp()
+    {
+        assertUpdate("CREATE TABLE test_parquet_select_by_timestamp (_timestamp timestamp) WITH (format = 'PARQUET')");
+        testSelectOrPartitionedByTimestamp("test_parquet_select_by_timestamp");
+    }
+
+    @Test
+    public void testOrcPartitionByTimestamp()
+    {
+        assertUpdate("CREATE TABLE test_orc_partitioned_by_timestamp (_timestamp timestamp) " +
+                "WITH (format = 'ORC', partitioning = ARRAY['_timestamp'])");
+        testSelectOrPartitionedByTimestamp("test_orc_partitioned_by_timestamp");
+    }
+
+    @Test
+    public void testOrcSelectByTimestamp()
+    {
+        assertUpdate("CREATE TABLE test_orc_select_by_timestamp (_timestamp timestamp) " +
+                "WITH (format = 'ORC')");
+        testSelectOrPartitionedByTimestamp("test_orc_select_by_timestamp");
+    }
+
+    private void testSelectOrPartitionedByTimestamp(String tableName)
+    {
+        String select1 = "SELECT CAST('2017-05-01 10:12:34' AS TIMESTAMP) _timestamp";
+        assertUpdate(format("INSERT INTO %s ", tableName) + select1, 1);
+        String select2 = "SELECT CAST('2017-10-01 10:12:34' AS TIMESTAMP) _timestamp";
+        assertUpdate(format("INSERT INTO %s " + select2, tableName), 1);
+        String select3 = "SELECT CAST('2018-05-01 10:12:34' AS TIMESTAMP) _timestamp";
+        assertUpdate(format("INSERT INTO %s " + select3, tableName), 1);
+        assertQuery(format("SELECT COUNT(*) from %s", tableName), "SELECT 3");
+        MaterializedResult result = computeActual("SELECT * FROM " + tableName);
+        assertQuery(format("SELECT * from %s WHERE _timestamp = CAST('2017-05-01 10:12:34' AS TIMESTAMP)", tableName), select1);
+        assertQuery(format("SELECT * from %s WHERE _timestamp < CAST('2017-06-01 10:12:34' AS TIMESTAMP)", tableName), select1);
+        assertQuery(format("SELECT * from %s WHERE _timestamp = CAST('2017-10-01 10:12:34' AS TIMESTAMP)", tableName), select2);
+        assertQuery(format("SELECT * from %s WHERE _timestamp > CAST('2017-06-01 10:12:34' AS TIMESTAMP) AND _timestamp < CAST('2018-05-01 10:12:34' AS TIMESTAMP)", tableName), select2);
+        assertQuery(format("SELECT * from %s WHERE _timestamp = CAST('2018-05-01 10:12:34' AS TIMESTAMP)", tableName), select3);
+        assertQuery(format("SELECT * from %s WHERE _timestamp > CAST('2018-01-01 10:12:34' AS TIMESTAMP)", tableName), select3);
+        dropTable(getSession(), tableName);
     }
 
     @Test
     public void testCreatePartitionedTable()
     {
         testWithAllFileFormats(this::testCreatePartitionedTable);
-        testWithAllFileFormats(this::testCreatePartitionedTableWithNestedTypes);
-        testWithAllFileFormats(this::testPartitionedTableWithNullValues);
     }
 
     private void testCreatePartitionedTable(Session session, FileFormat fileFormat)
@@ -159,10 +210,9 @@ public class TestIcebergSmoke
                 ", _real REAL" +
                 ", _double DOUBLE" +
                 ", _boolean BOOLEAN" +
-                returnSqlIfFormatSupportsDecimalsAndTimestamps(fileFormat, "" +
-                        ", _decimal_short DECIMAL(3,2)" +
-                        ", _decimal_long DECIMAL(30,10)" +
-                        ", _timestamp TIMESTAMP") +
+                ", _decimal_short DECIMAL(3,2)" +
+                ", _decimal_long DECIMAL(30,10)" +
+                ", _timestamp TIMESTAMP" +
                 ", _date DATE" +
                 ") " +
                 "WITH (" +
@@ -174,10 +224,9 @@ public class TestIcebergSmoke
                 "  '_boolean'," +
                 "  '_real'," +
                 "  '_double'," +
-                returnSqlIfFormatSupportsDecimalsAndTimestamps(FileFormat.PARQUET, "" +
-                        "  '_decimal_short', " +
-                        "  '_decimal_long'," +
-                        "  '_timestamp',") +
+                "  '_decimal_short', " +
+                "  '_decimal_long'," +
+                "  '_timestamp'," +
                 "  '_date']" +
                 ")";
 
@@ -194,10 +243,9 @@ public class TestIcebergSmoke
                 ", CAST('123.45' AS REAL) _real" +
                 ", CAST('3.14' AS DOUBLE) _double" +
                 ", true _boolean" +
-                returnSqlIfFormatSupportsDecimalsAndTimestamps(fileFormat, "" +
-                        ", CAST('3.14' AS DECIMAL(3,2)) _decimal_short" +
-                        ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _decimal_long" +
-                        ", CAST('2017-05-01 10:12:34' AS TIMESTAMP) _timestamp") +
+                ", CAST('3.14' AS DECIMAL(3,2)) _decimal_short" +
+                ", CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) _decimal_long" +
+                ", CAST('2017-05-01 10:12:34' AS TIMESTAMP) _timestamp" +
                 ", CAST('2017-05-01' AS DATE) _date";
 
         assertUpdate(session, "INSERT INTO test_partitioned_table " + select, 1);
@@ -208,14 +256,19 @@ public class TestIcebergSmoke
                         " AND 456 = _integer" +
                         " AND CAST(123 AS BIGINT) = _bigint" +
                         " AND true = _boolean" +
-                        returnSqlIfFormatSupportsDecimalsAndTimestamps(fileFormat, "" +
-                                " AND CAST('3.14' AS DECIMAL(3,2)) = _decimal_short" +
-                                " AND CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) = _decimal_long" +
-                                " AND CAST('2017-05-01 10:12:34' AS TIMESTAMP) = _timestamp") +
+                        " AND CAST('3.14' AS DECIMAL(3,2)) = _decimal_short" +
+                        " AND CAST('12345678901234567890.0123456789' AS DECIMAL(30,10)) = _decimal_long" +
+                        " AND CAST('2017-05-01 10:12:34' AS TIMESTAMP) = _timestamp" +
                         " AND CAST('2017-05-01' AS DATE) = _date",
                 select);
 
         dropTable(session, "test_partitioned_table");
+    }
+
+    @Test
+    public void testCreatePartitionedTableWithNestedTypes()
+    {
+        testWithAllFileFormats(this::testCreatePartitionedTableWithNestedTypes);
     }
 
     private void testCreatePartitionedTableWithNestedTypes(Session session, FileFormat fileFormat)
@@ -236,20 +289,25 @@ public class TestIcebergSmoke
         dropTable(session, "test_partitioned_table_nested_type");
     }
 
+    @Test
+    public void testPartitionedTableWithNullValues()
+    {
+        testWithAllFileFormats(this::testPartitionedTableWithNullValues);
+    }
+
     private void testPartitionedTableWithNullValues(Session session, FileFormat fileFormat)
     {
         @Language("SQL") String createTable = "" +
-                "CREATE TABLE test_partitioned_table (" +
+                "CREATE TABLE test_partitioned_table_with_null_values (" +
                 "  _string VARCHAR" +
                 ", _bigint BIGINT" +
                 ", _integer INTEGER" +
                 ", _real REAL" +
                 ", _double DOUBLE" +
                 ", _boolean BOOLEAN" +
-                returnSqlIfFormatSupportsDecimalsAndTimestamps(fileFormat, "" +
-                        ", _decimal_short DECIMAL(3,2)" +
-                        ", _decimal_long DECIMAL(30,10)" +
-                        ", _timestamp TIMESTAMP") +
+                ", _decimal_short DECIMAL(3,2)" +
+                ", _decimal_long DECIMAL(30,10)" +
+                ", _timestamp TIMESTAMP" +
                 ", _date DATE" +
                 ") " +
                 "WITH (" +
@@ -261,16 +319,15 @@ public class TestIcebergSmoke
                 "  '_boolean'," +
                 "  '_real'," +
                 "  '_double'," +
-                returnSqlIfFormatSupportsDecimalsAndTimestamps(fileFormat, "" +
-                        "  '_decimal_short', " +
-                        "  '_decimal_long'," +
-                        "  '_timestamp',") +
+                "  '_decimal_short', " +
+                "  '_decimal_long'," +
+                "  '_timestamp'," +
                 "  '_date']" +
                 ")";
 
         assertUpdate(session, createTable);
 
-        MaterializedResult result = computeActual("SELECT * from test_partitioned_table");
+        MaterializedResult result = computeActual("SELECT * from test_partitioned_table_with_null_values");
         assertEquals(result.getRowCount(), 0);
 
         @Language("SQL") String select = "" +
@@ -281,15 +338,14 @@ public class TestIcebergSmoke
                 ", null _real" +
                 ", null _double" +
                 ", null _boolean" +
-                returnSqlIfFormatSupportsDecimalsAndTimestamps(fileFormat, "" +
-                        ", null _decimal_short" +
-                        ", null _decimal_long" +
-                        ", null _timestamp") +
+                ", null _decimal_short" +
+                ", null _decimal_long" +
+                ", null _timestamp" +
                 ", null _date";
 
-        assertUpdate(session, "INSERT INTO test_partitioned_table " + select, 1);
-        assertQuery(session, "SELECT * from test_partitioned_table", select);
-        dropTable(session, "test_partitioned_table");
+        assertUpdate(session, "INSERT INTO test_partitioned_table_with_null_values " + select, 1);
+        assertQuery(session, "SELECT * from test_partitioned_table_with_null_values", select);
+        dropTable(session, "test_partitioned_table_with_null_values");
     }
 
     @Test
@@ -414,13 +470,6 @@ public class TestIcebergSmoke
     }
 
     @Test
-    public void testSchemaEvolution()
-    {
-        // Schema evolution should be id based
-        testWithAllFileFormats(this::testSchemaEvolution);
-    }
-
-    @Test
     public void testInsertIntoNotNullColumn()
     {
         assertUpdate("CREATE TABLE test_not_null_table (c1 INTEGER, c2 INTEGER NOT NULL)");
@@ -436,6 +485,19 @@ public class TestIcebergSmoke
         assertUpdate("DROP TABLE IF EXISTS test_commuted_not_null_table");
     }
 
+    @Test
+    public void testSchemaEvolution()
+    {
+        // Schema evolution should be id based
+        testWithAllFileFormats(this::testSchemaEvolution);
+    }
+
+    @Test
+    public void testSchemaEvolutionParquet()
+    {
+        testSchemaEvolution(getSession(), FileFormat.PARQUET);
+    }
+
     private void testSchemaEvolution(Session session, FileFormat fileFormat)
     {
         assertUpdate(session, "CREATE TABLE test_schema_evolution_drop_end (col0 INTEGER, col1 INTEGER, col2 INTEGER) WITH (format = '" + fileFormat + "')");
@@ -444,6 +506,7 @@ public class TestIcebergSmoke
         assertUpdate(session, "ALTER TABLE test_schema_evolution_drop_end DROP COLUMN col2");
         assertQuery(session, "SELECT * FROM test_schema_evolution_drop_end", "VALUES(0, 1)");
         assertUpdate(session, "ALTER TABLE test_schema_evolution_drop_end ADD COLUMN col2 INTEGER");
+        assertQuery(session, "SELECT * FROM test_schema_evolution_drop_end", "VALUES(0, 1, NULL)");
         assertUpdate(session, "INSERT INTO test_schema_evolution_drop_end VALUES (3, 4, 5)", 1);
         assertQuery(session, "SELECT * FROM test_schema_evolution_drop_end", "VALUES(0, 1, NULL), (3, 4, 5)");
         dropTable(session, "test_schema_evolution_drop_end");
@@ -534,12 +597,6 @@ public class TestIcebergSmoke
     {
         test.accept(getSession(), FileFormat.PARQUET);
         test.accept(getSession(), FileFormat.ORC);
-    }
-
-    // TODO: Remove and eliminate callers once we correctly handle Parquet decimals and timestamps
-    private String returnSqlIfFormatSupportsDecimalsAndTimestamps(FileFormat fileFormat, String sql)
-    {
-        return fileFormat == FileFormat.ORC ? sql : "";
     }
 
     private void dropTable(Session session, String table)

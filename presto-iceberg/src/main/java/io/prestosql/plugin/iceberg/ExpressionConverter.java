@@ -29,6 +29,7 @@ import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
@@ -38,6 +39,7 @@ import java.math.BigDecimal;
 import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -196,6 +198,10 @@ public final class ExpressionConverter
             }
             checkArgument(value instanceof Slice, "A long decimal should be represented by a Slice value but was %s", value.getClass().getName());
             return new BigDecimal(Decimals.decodeUnscaledValue((Slice) value), decimalType.getScale());
+        }
+
+        if (type instanceof TimestampType) {
+            return TimeUnit.MILLISECONDS.toMicros((long) marker.getValue());
         }
 
         return marker.getValue();
