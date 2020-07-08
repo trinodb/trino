@@ -70,8 +70,9 @@ following table must be entered in uppercase. The default value is ``CSV``.
 +---------------------+------------------------------------------------------------+
 | JSON                | Output rows emitted as JSON objects with name-value pairs. |
 +---------------------+------------------------------------------------------------+
-| ALIGNED             | Output emitted as an ASCII character table with right-     |
-|                     | aligned numeric values and left-aligned string values.     |
+| ALIGNED             | Output emitted as an ASCII character table with            |
+|                     | right-aligned numeric values and left-aligned string       |
+|                     | values.                                                    |
 +---------------------+------------------------------------------------------------+
 | VERTICAL            | Output emitted as record-oriented top-down lines, one per  |
 |                     | value.                                                     |
