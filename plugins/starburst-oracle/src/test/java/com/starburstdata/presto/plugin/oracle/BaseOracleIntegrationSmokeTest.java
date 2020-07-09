@@ -241,6 +241,81 @@ public abstract class BaseOracleIntegrationSmokeTest
     }
 
     @Test
+    public void testStddevPushdown()
+    {
+        try (TestTable testTable = new TestTable(inOracle(), getSession().getSchema().orElseThrow() + ".test_stddev_pushdown",
+                "(t_double DOUBLE PRECISION)")) {
+            assertPushedDown("SELECT stddev_pop(t_double) FROM " + testTable.getName(), "SELECT null");
+            assertPushedDown("SELECT stddev(t_double) FROM " + testTable.getName(), "SELECT null");
+            assertPushedDown("SELECT stddev_samp(t_double) FROM " + testTable.getName(), "SELECT null");
+
+            executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (1)");
+
+            assertPushedDown("SELECT stddev_pop(t_double) FROM " + testTable.getName(), "SELECT 0.0");
+            assertPushedDown("SELECT stddev(t_double) FROM " + testTable.getName(), "SELECT null");
+            assertPushedDown("SELECT stddev_samp(t_double) FROM " + testTable.getName(), "SELECT null");
+
+            executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (3)");
+            assertPushedDown("SELECT stddev_pop(t_double) FROM " + testTable.getName(), "SELECT 1.0");
+
+            executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (5)");
+            assertPushedDown("SELECT stddev(t_double) FROM " + testTable.getName(), "SELECT 2");
+            assertPushedDown("SELECT stddev_samp(t_double) FROM " + testTable.getName(), "SELECT 2");
+        }
+
+        try (TestTable testTable = new TestTable(inOracle(), getSession().getSchema().orElseThrow() + ".test_stddev_pushdown",
+                "(t_double DOUBLE PRECISION)")) {
+            // Test non-whole number results
+            executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (1)");
+            executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (2)");
+            executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (4)");
+            executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (5)");
+
+            assertPushedDown("SELECT stddev_pop(t_double) FROM " + testTable.getName(), "SELECT 1.58113883");
+            assertPushedDown("SELECT stddev(t_double) FROM " + testTable.getName(), "SELECT 1.825741858");
+            assertPushedDown("SELECT stddev_samp(t_double) FROM " + testTable.getName(), "SELECT 1.825741858");
+        }
+    }
+
+    @Test
+    public void testVariancePushdown()
+    {
+        try (TestTable testTable = new TestTable(inOracle(), getSession().getSchema().orElseThrow() + ".test_variance_pushdown",
+                "(t_double DOUBLE PRECISION)")) {
+            assertPushedDown("SELECT var_pop(t_double) FROM " + testTable.getName(), "SELECT null");
+            assertPushedDown("SELECT variance(t_double) FROM " + testTable.getName(), "SELECT null");
+            assertPushedDown("SELECT var_samp(t_double) FROM " + testTable.getName(), "SELECT null");
+
+            executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (1)");
+
+            assertPushedDown("SELECT var_pop(t_double) FROM " + testTable.getName(), "SELECT 0.0");
+            assertPushedDown("SELECT variance(t_double) FROM " + testTable.getName(), "SELECT null");
+            assertPushedDown("SELECT var_samp(t_double) FROM " + testTable.getName(), "SELECT null");
+
+            executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (3)");
+            assertPushedDown("SELECT var_pop(t_double) FROM " + testTable.getName(), "SELECT 1.0");
+
+            executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (5)");
+            assertPushedDown("SELECT variance(t_double) FROM " + testTable.getName(), "SELECT 4");
+            assertPushedDown("SELECT var_samp(t_double) FROM " + testTable.getName(), "SELECT 4");
+        }
+
+        try (TestTable testTable = new TestTable(inOracle(), getSession().getSchema().orElseThrow() + ".test_variance_pushdown",
+                "(t_double DOUBLE PRECISION)")) {
+            // Test non-whole number results
+            executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (1)");
+            executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (2)");
+            executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (3)");
+            executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (4)");
+            executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (5)");
+
+            assertPushedDown("SELECT var_pop(t_double) FROM " + testTable.getName(), "SELECT 2.0");
+            assertPushedDown("SELECT variance(t_double) FROM " + testTable.getName(), "SELECT 2.5");
+            assertPushedDown("SELECT var_samp(t_double) FROM " + testTable.getName(), "SELECT 2.5");
+        }
+    }
+
+    @Test
     @Override
     public void testShowCreateTable()
     {

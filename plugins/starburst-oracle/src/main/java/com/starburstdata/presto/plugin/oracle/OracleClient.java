@@ -209,6 +209,10 @@ public class OracleClient
                         .add(new ImplementSum(OracleClient::toTypeHandle))
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgDecimal())
+                        .add(new ImplementOracleStddev())
+                        .add(new ImplementOracleStddevPop())
+                        .add(new ImplementOracleVariance())
+                        .add(new ImplementOracleVariancePop())
                         .build());
         tableStatisticsClient = new TableStatisticsClient(this::readTableStatistics, statisticsConfig);
     }
