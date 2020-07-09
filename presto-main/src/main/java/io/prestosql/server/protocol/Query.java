@@ -614,7 +614,7 @@ class Query
         if (type instanceof DateTimeDataType) {
             DateTimeDataType dataTimeType = (DateTimeDataType) type;
             if (dataTimeType.getType() == DateTimeDataType.Type.TIMESTAMP && !supportsParametricDateTime) {
-                if (!dataTimeType.isWithTimeZone()) {
+                if (dataTimeType.isWithTimeZone()) {
                     return TIMESTAMP_WITH_TIME_ZONE;
                 }
                 else {
