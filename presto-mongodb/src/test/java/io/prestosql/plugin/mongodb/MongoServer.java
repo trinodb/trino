@@ -14,7 +14,7 @@
 package io.prestosql.plugin.mongodb;
 
 import com.google.common.net.HostAndPort;
-import org.testcontainers.containers.GenericContainer;
+import org.testcontainers.containers.MongoDBContainer;
 
 import java.io.Closeable;
 
@@ -23,12 +23,11 @@ public class MongoServer
 {
     private static final int MONGO_PORT = 27017;
 
-    private final GenericContainer<?> dockerContainer;
+    private final MongoDBContainer dockerContainer;
 
     public MongoServer()
     {
-        this.dockerContainer = new GenericContainer<>("mongo:3.4.0")
-                .withExposedPorts(MONGO_PORT)
+        this.dockerContainer = new MongoDBContainer("mongo:3.4.0")
                 .withEnv("MONGO_INITDB_DATABASE", "tpch")
                 .withCommand("--bind_ip 0.0.0.0");
         this.dockerContainer.start();
