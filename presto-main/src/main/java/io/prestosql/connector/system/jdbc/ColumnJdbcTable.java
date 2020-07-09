@@ -40,6 +40,8 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 
@@ -47,6 +49,7 @@ import javax.inject.Inject;
 
 import java.sql.DatabaseMetaData;
 import java.sql.Types;
+import java.time.ZoneId;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -77,13 +80,12 @@ import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static io.prestosql.type.TypeUtils.getDisplayLabel;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnJdbcTable
@@ -92,6 +94,10 @@ public class ColumnJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "columns");
 
     private static final int MAX_DOMAIN_SIZE = 100;
+    private static final int MAX_TIMEZONE_LENGTH = ZoneId.getAvailableZoneIds().stream()
+            .map(String::length)
+            .max(Integer::compareTo)
+            .get();
 
     private static final ColumnHandle TABLE_CATALOG_COLUMN = new SystemColumnHandle("table_cat");
     private static final ColumnHandle TABLE_SCHEMA_COLUMN = new SystemColumnHandle("table_schem");
@@ -361,10 +367,10 @@ public class ColumnJdbcTable
         if (type.equals(TIME_WITH_TIME_ZONE)) {
             return Types.TIME_WITH_TIMEZONE;
         }
-        if (type.equals(TIMESTAMP)) {
+        if (type instanceof TimestampType) {
             return Types.TIMESTAMP;
         }
-        if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+        if (type instanceof TimestampWithTimeZoneType) {
             return Types.TIMESTAMP_WITH_TIMEZONE;
         }
         if (type.equals(DATE)) {
@@ -417,11 +423,25 @@ public class ColumnJdbcTable
         if (type.equals(DATE)) {
             return 14; // +5881580-07-11 (2**31-1 days)
         }
-        if (type.equals(TIMESTAMP)) {
-            return 15 + 8;
+        if (type instanceof TimestampType) {
+            // 1 digit for year sign
+            // 5 digits for year
+            // 15 characters for "-MM-DD HH:MM:SS"
+            // min(p, 1) for the fractional second period (i.e., no period if p == 0)
+            // p for the fractional digits
+            int precision = ((TimestampType) type).getPrecision();
+            return 1 + 5 + 15 + min(precision, 1) + precision;
         }
-        if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
-            return 15 + 8 + 6;
+        if (type instanceof TimestampWithTimeZoneType) {
+            // 1 digit for year sign
+            // 6 digits for year
+            // 15 characters for "-MM-DD HH:MM:SS"
+            // min(p, 1) for the fractional second period (i.e., no period if p == 0)
+            // p for the fractional digits
+            // 1 for space after timestamp
+            // MAX_TIMEZONE_LENGTH for timezone
+            int precision = ((TimestampWithTimeZoneType) type).getPrecision();
+            return 1 + 6 + 15 + min(precision, 1) + precision + 1 + MAX_TIMEZONE_LENGTH;
         }
         return null;
     }
