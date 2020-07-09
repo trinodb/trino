@@ -153,6 +153,12 @@ public class TestKafkaIntegrationSmokeTest
                         ImmutableList.of(
                                 ImmutableList.of(100000, 1000, 100, 10, 1000.001, true, "'test'"),
                                 ImmutableList.of(123456, 1234, 123, 12, 12345.123, false, "'abcd'"))))
+                .add(new RoundTripTestCase(
+                        "all_datatypes_raw",
+                        ImmutableList.of("kafka_key", "f_varchar", "f_bigint", "f_int", "f_smallint", "f_tinyint", "f_double", "f_boolean"),
+                        ImmutableList.of(
+                                ImmutableList.of(1, "'test'", 100000, 1000, 100, 10, 1000.001, true),
+                                ImmutableList.of(1, "'abcd'", 123456, 1234, 123, 12, 12345.123, false))))
                 .build();
     }
 
