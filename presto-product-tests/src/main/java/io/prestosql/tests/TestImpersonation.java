@@ -21,6 +21,10 @@ import io.prestosql.tempto.hadoop.hdfs.HdfsClient;
 import io.prestosql.tempto.query.QueryExecutor;
 import org.testng.annotations.Test;
 
+import java.net.URI;
+import java.net.URISyntaxException;
+
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.tests.TestGroups.HDFS_IMPERSONATION;
 import static io.prestosql.tests.TestGroups.HDFS_NO_IMPERSONATION;
 import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
@@ -47,10 +51,6 @@ public class TestImpersonation
     @Named("databases.presto.configured_hdfs_user")
     private String configuredHdfsUser;
 
-    @Inject
-    @Named("databases.hive.warehouse_directory_path")
-    private String warehouseDirectoryPath;
-
     @BeforeTestWithContext
     public void setup()
     {
@@ -71,16 +71,26 @@ public class TestImpersonation
         checkTableOwner(tableName, aliceJdbcUser, aliceExecutor);
     }
 
-    private String getTableLocation(String tableName)
+    private static String getTableLocation(QueryExecutor executor, String tableName)
     {
-        return warehouseDirectoryPath + '/' + tableName;
+        String location = getOnlyElement(executor.executeQuery(format("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM %s", tableName)).column(1));
+        if (location.startsWith("hdfs://")) {
+            try {
+                URI uri = new URI(location);
+                return uri.getPath();
+            }
+            catch (URISyntaxException e) {
+                throw new RuntimeException(e);
+            }
+        }
+        return location;
     }
 
     private void checkTableOwner(String tableName, String expectedOwner, QueryExecutor executor)
     {
         executor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
         executor.executeQuery(format("CREATE TABLE %s AS SELECT 'abc' c", tableName));
-        String tableLocation = getTableLocation(tableName);
+        String tableLocation = getTableLocation(executor, tableName);
         String owner = hdfsClient.getOwner(tableLocation);
         assertEquals(owner, expectedOwner);
         executor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
