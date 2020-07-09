@@ -37,9 +37,14 @@ import org.apache.parquet.schema.OriginalType;
 
 import java.io.IOException;
 import java.util.Optional;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.parquet.ParquetReaderUtils.toInputStream;
 import static io.prestosql.parquet.ParquetTypeUtils.createDecimalType;
 import static io.prestosql.parquet.ValuesType.DEFINITION_LEVEL;
@@ -67,6 +72,8 @@ public abstract class PrimitiveColumnReader
     private DataPage page;
     private int remainingValueCountInPage;
     private int readOffset;
+    private static final ExecutorService prefetchPageService = Executors.newFixedThreadPool(4, daemonThreadsNamed("parquet-fetch-page-%s"));
+    private Future<DataPage> nextPageFuture;
 
     protected abstract void readValue(BlockBuilder blockBuilder, Type type);
 
@@ -140,6 +147,7 @@ public abstract class PrimitiveColumnReader
         }
         checkArgument(pageReader.getTotalValueCount() > 0, "page is empty");
         totalValueCount = pageReader.getTotalValueCount();
+        prefetchNextPage();
     }
 
     public void prepareNextRead(int batchSize)
@@ -231,7 +239,17 @@ public abstract class PrimitiveColumnReader
     private boolean readNextPage()
     {
         verify(page == null, "readNextPage has to be called when page is null");
-        page = pageReader.readPage();
+        try {
+            page = nextPageFuture.get();
+            prefetchNextPage();
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Thread reading the next parquet page was interrupted", e);
+        }
+        catch (ExecutionException e) {
+            throw new RuntimeException("Error in reading the next parquet page", e);
+        }
         if (page == null) {
             // we have read all pages
             return false;
@@ -244,6 +262,11 @@ public abstract class PrimitiveColumnReader
             valuesReader = readPageV2((DataPageV2) page);
         }
         return true;
+    }
+
+    private void prefetchNextPage()
+    {
+        nextPageFuture = prefetchPageService.submit(() -> pageReader.readPage());
     }
 
     private void updateValueCounts(int valuesRead)
