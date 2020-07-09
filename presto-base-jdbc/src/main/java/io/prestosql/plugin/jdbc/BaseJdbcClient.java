@@ -363,7 +363,7 @@ public abstract class BaseJdbcClient
     @Override
     public ConnectorSplitSource getSplits(ConnectorSession session, JdbcTableHandle tableHandle)
     {
-        return new FixedSplitSource(ImmutableList.of(new JdbcSplit(Optional.empty())));
+        return new FixedSplitSource(ImmutableList.of(new JdbcSplit()));
     }
 
     @Override
@@ -394,7 +394,7 @@ public abstract class BaseJdbcClient
                 table.getTableName(),
                 table.getGroupingSets(),
                 columns,
-                table.getConstraint(),
+                table.getConstraint().intersect(split.getAdditionalConstraint()),
                 split.getAdditionalPredicate(),
                 tryApplyLimit(table.getLimit()));
     }

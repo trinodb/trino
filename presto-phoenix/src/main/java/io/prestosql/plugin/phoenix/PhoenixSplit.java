@@ -40,7 +40,7 @@ public class PhoenixSplit
             @JsonProperty("phoenixInputSplit") WrappedPhoenixInputSplit wrappedPhoenixInputSplit,
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint)
     {
-        super(Optional.empty());
+        super();
         this.addresses = requireNonNull(addresses, "addresses is null");
         this.phoenixInputSplit = requireNonNull(wrappedPhoenixInputSplit, "wrappedPhoenixInputSplit is null");
         this.constraint = requireNonNull(constraint, "constraint is null");
