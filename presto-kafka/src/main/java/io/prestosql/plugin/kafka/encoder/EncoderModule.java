@@ -20,6 +20,8 @@ import io.prestosql.plugin.kafka.encoder.avro.AvroRowEncoder;
 import io.prestosql.plugin.kafka.encoder.avro.AvroRowEncoderFactory;
 import io.prestosql.plugin.kafka.encoder.csv.CsvRowEncoder;
 import io.prestosql.plugin.kafka.encoder.csv.CsvRowEncoderFactory;
+import io.prestosql.plugin.kafka.encoder.json.JsonRowEncoder;
+import io.prestosql.plugin.kafka.encoder.json.JsonRowEncoderFactory;
 import io.prestosql.plugin.kafka.encoder.raw.RawRowEncoder;
 import io.prestosql.plugin.kafka.encoder.raw.RawRowEncoderFactory;
 
@@ -36,6 +38,7 @@ public class EncoderModule
         encoderFactoriesByName.addBinding(AvroRowEncoder.NAME).to(AvroRowEncoderFactory.class).in(SINGLETON);
         encoderFactoriesByName.addBinding(CsvRowEncoder.NAME).to(CsvRowEncoderFactory.class).in(SINGLETON);
         encoderFactoriesByName.addBinding(RawRowEncoder.NAME).to(RawRowEncoderFactory.class).in(SINGLETON);
+        encoderFactoriesByName.addBinding(JsonRowEncoder.NAME).to(JsonRowEncoderFactory.class).in(SINGLETON);
 
         binder.bind(DispatchingRowEncoderFactory.class).in(SINGLETON);
     }
