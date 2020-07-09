@@ -1664,10 +1664,10 @@ public class TestSqlParser
                         false, QualifiedName.of("t"),
                         new PrincipalSpecification(PrincipalSpecification.Type.ROLE, new Identifier("PUBLIC")),
                         true));
-        assertStatement("GRANT ALL PRIVILEGES ON t TO USER u",
+        assertStatement("GRANT ALL PRIVILEGES ON TABLE t TO USER u",
                 new Grant(
                         Optional.empty(),
-                        false,
+                        true,
                         QualifiedName.of("t"),
                         new PrincipalSpecification(PrincipalSpecification.Type.USER, new Identifier("u")),
                         false));
