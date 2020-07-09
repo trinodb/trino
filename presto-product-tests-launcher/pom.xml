@@ -18,18 +18,6 @@
 
     <dependencies>
         <dependency>
-            <!-- TODO (https://github.com/prestosql/presto/issues/3816) remove -->
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-testing</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>io.prestosql</groupId>
-                    <artifactId>presto-main</artifactId>
-                </exclusion>
-            </exclusions>
-        </dependency>
-
-        <dependency>
             <groupId>javax.annotation</groupId>
             <artifactId>javax.annotation-api</artifactId>
         </dependency>
@@ -84,18 +72,6 @@
             <groupId>com.google.code.findbugs</groupId>
             <artifactId>jsr305</artifactId>
             <optional>true</optional>
-        </dependency>
-
-        <!-- used by tests but also needed transitively -->
-        <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
-        </dependency>
-
-        <!-- used by tests but also needed transitively -->
-        <dependency>
-            <groupId>org.assertj</groupId>
-            <artifactId>assertj-core</artifactId>
         </dependency>
     </dependencies>
 
