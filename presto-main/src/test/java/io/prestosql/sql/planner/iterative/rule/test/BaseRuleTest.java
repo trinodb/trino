@@ -24,6 +24,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static io.prestosql.SystemSessionProperties.OPTIMIZED_NULLS_IN_JOIN;
 import static io.prestosql.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
 
 public abstract class BaseRuleTest
@@ -46,7 +47,7 @@ public abstract class BaseRuleTest
             tester = new RuleTester(localQueryRunner.get());
         }
         else {
-            tester = defaultRuleTester(plugins, ImmutableMap.of(), Optional.empty());
+            tester = defaultRuleTester(plugins, ImmutableMap.of(OPTIMIZED_NULLS_IN_JOIN, "true"), Optional.empty());
         }
     }
 
