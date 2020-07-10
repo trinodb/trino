@@ -983,9 +983,7 @@ public final class PlanMatchPattern
                 .map(PlanNodeMatcher.class::cast)
                 .findFirst();
 
-        if (planNodeMatcher.isPresent()) {
-            builder.append("(").append(planNodeMatcher.get().getNodeClass().getSimpleName()).append(")");
-        }
+        planNodeMatcher.ifPresent(nodeMatcher -> builder.append("(").append(nodeMatcher.getNodeClass().getSimpleName()).append(")"));
 
         builder.append("\n");
 
