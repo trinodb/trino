@@ -45,3 +45,26 @@ which is configured with a carefully selected set of options. This behavior
 can be overridden by setting the environment variable ``PRESTO_PAGER`` to the
 name of a different program such as ``more`` or `pspg <https://github.com/okbob/pspg>`_,
 or it can be set to an empty value to completely disable pagination.
+
+Diagnostics
+-----------
+
+Use the ``--debug`` option to review debug information when running queries:
+
+.. code-block:: none
+
+ 	$ presto --debug 
+ 	presto:sf1> SELECT count(*) FROM foo; 
+ 	Query 20181103_201856_00022_te3wy failed: 
+ 	line 1:22: Table tpch.sf1.foo does not exist io.prestosql.sql.analyzer.SemanticException: 
+ 	line 1:22: Table tpch.sf1.foo does not exist 
+ 	... 
+ 	at java.lang.Thread.run(Thread.java:748)
+
+History
+-------
+
+The CLI keeps a history of your previously used commands. You can access your history by scrolling or searching. Use the up and down arrows to scroll and Ctrl-S and Ctrl-R to search. To execute a query again, press **Enter**.
+
+By default, you can locate the Presto history file in *~/.presto_history*.
+Use the ``PRESTO_HISTORY_FILE`` environment variable to change the default.
