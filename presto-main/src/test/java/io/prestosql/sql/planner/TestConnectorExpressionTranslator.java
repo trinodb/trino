@@ -92,10 +92,8 @@ public class TestConnectorExpressionTranslator
     private void assertTranslationToConnectorExpression(Expression expression, Optional<ConnectorExpression> connectorExpression)
     {
         Optional<ConnectorExpression> translation = translate(TEST_SESSION, expression, TYPE_ANALYZER, TYPE_PROVIDER);
-        if (translation.isPresent()) {
-            assertEquals(translation.get(), connectorExpression.get());
-        }
         assertEquals(connectorExpression.isPresent(), translation.isPresent());
+        translation.ifPresent(value -> assertEquals(value, connectorExpression.get()));
     }
 
     private void assertTranslationFromConnectorExpression(ConnectorExpression connectorExpression, Expression expected)
