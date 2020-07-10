@@ -29,7 +29,6 @@ import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.JoinNode;
 import org.testng.annotations.Test;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -257,7 +256,7 @@ public class TestLocalDynamicFilterConsumer
                 .getBuildChannels()
                 .entrySet()
                 .stream()
-                .sorted(Comparator.comparing(Map.Entry::getValue))
+                .sorted(Map.Entry.comparingByValue())
                 .map(Map.Entry::getKey)
                 .collect(toImmutableList());
         filter.getTupleDomainConsumer().accept(TupleDomain.withColumnDomains(ImmutableMap.of(
