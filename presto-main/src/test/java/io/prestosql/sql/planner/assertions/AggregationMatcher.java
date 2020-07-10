@@ -91,7 +91,7 @@ public class AggregationMatcher
         }
 
         for (Symbol symbol : aggregationsWithMask) {
-            if (!masks.keySet().contains(symbol)) {
+            if (!masks.containsKey(symbol)) {
                 return NO_MATCH;
             }
         }
