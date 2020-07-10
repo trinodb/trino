@@ -40,7 +40,6 @@ import static io.prestosql.spi.type.RowType.rowType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.sql.planner.ConnectorExpressionTranslator.translate;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestConnectorExpressionTranslator
 {
@@ -93,10 +92,10 @@ public class TestConnectorExpressionTranslator
     private void assertTranslationToConnectorExpression(Expression expression, Optional<ConnectorExpression> connectorExpression)
     {
         Optional<ConnectorExpression> translation = translate(TEST_SESSION, expression, TYPE_ANALYZER, TYPE_PROVIDER);
-        assertTrue(translation.isPresent() == connectorExpression.isPresent());
         if (translation.isPresent()) {
             assertEquals(translation.get(), connectorExpression.get());
         }
+        assertEquals(connectorExpression.isPresent(), translation.isPresent());
     }
 
     private void assertTranslationFromConnectorExpression(ConnectorExpression connectorExpression, Expression expected)
