@@ -26,4 +26,10 @@ public class TestDynamicFiltering
                 .withAdditionalProperties(impersonationDisabled())
                 .build();
     }
+
+    @Override
+    protected boolean isAssertNumberOfSplits()
+    {
+        return true;
+    }
 }
