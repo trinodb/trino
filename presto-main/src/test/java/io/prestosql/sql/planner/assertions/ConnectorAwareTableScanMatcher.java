@@ -55,11 +55,10 @@ public class ConnectorAwareTableScanMatcher
         TableScanNode tableScanNode = (TableScanNode) node;
 
         TupleDomain<ColumnHandle> actual = tableScanNode.getEnforcedConstraint();
-        TupleDomain<Predicate<ColumnHandle>> expected = expectedEnforcedConstraint;
 
         boolean tableMatches = expectedTable.test(tableScanNode.getTable().getConnectorHandle());
 
-        return new MatchResult(tableMatches && domainsMatch(expected, actual));
+        return new MatchResult(tableMatches && domainsMatch(expectedEnforcedConstraint, actual));
     }
 
     public static PlanMatchPattern create(Predicate<ConnectorTableHandle> table, TupleDomain<Predicate<ColumnHandle>> constraints)
