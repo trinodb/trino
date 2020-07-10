@@ -862,7 +862,7 @@
             <dependency>
                 <groupId>org.alluxio</groupId>
                 <artifactId>alluxio-shaded-client</artifactId>
-                <version>2.1.2</version>
+                <version>2.3.0</version>
                 <exclusions>
                     <exclusion>
                         <groupId>org.slf4j</groupId>
