@@ -471,7 +471,7 @@ class QueryPlanner
                             })
                             .collect(toImmutableList()),
                     function.isDistinct(),
-                    function.getFilter().map(coercions::apply),
+                    function.getFilter().map(coercions),
                     function.getOrderBy().map(orderBy -> translateOrderingScheme(orderBy.getSortItems(), coercions)),
                     Optional.empty());
 
@@ -527,7 +527,7 @@ class QueryPlanner
     {
         List<Symbol> symbols = items.stream()
                 .map(SortItem::getSortKey)
-                .map(coercions::apply)
+                .map(coercions)
                 .collect(toImmutableList());
 
         ImmutableMap.Builder<Symbol, SortOrder> orders = ImmutableMap.builder();
