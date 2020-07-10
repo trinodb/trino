@@ -227,6 +227,36 @@ public class TestMySqlIntegrationSmokeTest
     }
 
     @Test
+    public void testAggregationPushdown()
+            throws Exception
+    {
+        // TODO support aggregation pushdown with GROUPING SETS
+        // TODO support aggregation over expressions
+
+        assertThat(query("SELECT count(*) FROM nation")).isCorrectlyPushedDown();
+        assertThat(query("SELECT count(nationkey) FROM nation")).isCorrectlyPushedDown();
+        assertThat(query("SELECT count(1) FROM nation")).isCorrectlyPushedDown();
+        assertThat(query("SELECT count() FROM nation")).isCorrectlyPushedDown();
+        assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
+        assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
+        assertThat(query("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
+
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 GROUP BY regionkey")).isCorrectlyPushedDown();
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey")).isNotFullyPushedDown(FilterNode.class);
+
+        try (AutoCloseable ignoreTable = withTable("tpch.test_aggregation_pushdown", "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
+            execute("INSERT INTO tpch.test_aggregation_pushdown VALUES (100.000, 100000000.000000000)");
+            execute("INSERT INTO tpch.test_aggregation_pushdown VALUES (123.321, 123456789.987654321)");
+
+            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM test_aggregation_pushdown")).isCorrectlyPushedDown();
+            assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM test_aggregation_pushdown")).isCorrectlyPushedDown();
+            assertThat(query("SELECT sum(short_decimal), sum(long_decimal) FROM test_aggregation_pushdown")).isCorrectlyPushedDown();
+            assertThat(query("SELECT avg(short_decimal), avg(long_decimal) FROM test_aggregation_pushdown")).isCorrectlyPushedDown();
+        }
+    }
+
+    @Test
     public void testColumnComment()
     {
         execute("CREATE TABLE tpch.test_column_comment (col1 bigint COMMENT 'test comment', col2 bigint COMMENT '', col3 bigint)");
@@ -270,6 +300,20 @@ public class TestMySqlIntegrationSmokeTest
         assertThat(query("SELECT orderkey FROM orders WHERE orderdate = DATE '1992-09-29'"))
                 .matches("VALUES BIGINT '1250', 34406, 38436, 57570")
                 .isCorrectlyPushedDown();
+    }
+
+    private AutoCloseable withTable(String tableName, String tableDefinition)
+            throws Exception
+    {
+        execute(format("CREATE TABLE %s%s", tableName, tableDefinition));
+        return () -> {
+            try {
+                execute(format("DROP TABLE %s", tableName));
+            }
+            catch (RuntimeException e) {
+                throw new RuntimeException(e);
+            }
+        };
     }
 
     private void execute(String sql)
