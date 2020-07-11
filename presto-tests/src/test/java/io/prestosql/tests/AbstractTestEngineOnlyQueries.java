@@ -735,6 +735,7 @@ public abstract class AbstractTestEngineOnlyQueries
         assertEqualsIgnoreOrder(actual, expected);
 
         session = Session.builder(getSession())
+                .setSystemProperty("omit_datetime_type_precision", "false")
                 .addPreparedStatement(
                         "my_query",
                         "SELECT 1 " +
@@ -750,6 +751,20 @@ public abstract class AbstractTestEngineOnlyQueries
                 .row(0, "char(2)")
                 .row(1, "varchar")
                 .row(2, "timestamp(3)")
+                .row(3, "timestamp(6)")
+                .row(4, "decimal(3,2)")
+                .build();
+        assertEqualsIgnoreOrder(actual, expected);
+
+        session = Session.builder(session)
+                .setSystemProperty("omit_datetime_type_precision", "true")
+                .build();
+
+        actual = computeActual(session, "DESCRIBE INPUT my_query");
+        expected = resultBuilder(session, BIGINT, VARCHAR)
+                .row(0, "char(2)")
+                .row(1, "varchar")
+                .row(2, "timestamp")
                 .row(3, "timestamp(6)")
                 .row(4, "decimal(3,2)")
                 .build();
