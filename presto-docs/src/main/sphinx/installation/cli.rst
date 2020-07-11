@@ -50,9 +50,9 @@ or it can be set to an empty value to completely disable pagination.
 History
 -------
 
-The CLI keeps a history of your previously used commands. You can access your history by scrolling or searching. Use the up and down arrows to scroll and Ctrl-S and Ctrl-R to search. To execute a query again, press **Enter**.
+The CLI keeps a history of your previously used commands. Access your history by scrolling or searching. Scroll using the up or down arrows and search using **Ctrl-S** and **Ctrl-R**. To execute a query again, press **Enter**.
 
-By default, you can locate the Presto history file in *~/.presto_history*.
+By default, you can locate the Presto history file in ``~/.presto_history``.
 Use the ``PRESTO_HISTORY_FILE`` environment variable to change the default.
 
 Troubleshooting
