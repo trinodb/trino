@@ -50,6 +50,7 @@ import static io.prestosql.sql.QueryUtil.row;
 import static io.prestosql.sql.QueryUtil.selectList;
 import static io.prestosql.sql.QueryUtil.simpleQuery;
 import static io.prestosql.sql.QueryUtil.values;
+import static io.prestosql.type.TypeUtils.getDisplayLabel;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
 
@@ -117,7 +118,7 @@ final class DescribeInputRewrite
             List<Parameter> parameters = getParameters(statement);
 
             // return the positions and types of all parameters
-            Row[] rows = parameters.stream().map(parameter -> createDescribeInputRow(parameter, analysis)).toArray(Row[]::new);
+            Row[] rows = parameters.stream().map(parameter -> createDescribeInputRow(session, parameter, analysis)).toArray(Row[]::new);
             Optional<Node> limit = Optional.empty();
             if (rows.length == 0) {
                 rows = new Row[] {row(new NullLiteral(), new NullLiteral())};
@@ -138,7 +139,7 @@ final class DescribeInputRewrite
                     limit);
         }
 
-        private static Row createDescribeInputRow(Parameter parameter, Analysis queryAnalysis)
+        private static Row createDescribeInputRow(Session session, Parameter parameter, Analysis queryAnalysis)
         {
             Type type = queryAnalysis.getCoercion(parameter);
             if (type == null) {
@@ -147,7 +148,7 @@ final class DescribeInputRewrite
 
             return row(
                     new LongLiteral(Integer.toString(parameter.getPosition())),
-                    new StringLiteral(type.getDisplayName()));
+                    new StringLiteral(getDisplayLabel(type, session)));
         }
 
         @Override
