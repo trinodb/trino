@@ -25,13 +25,10 @@ import java.sql.SQLException;
 import java.util.Optional;
 import java.util.Properties;
 
-import static com.google.common.base.Preconditions.checkArgument;
-
 public class OraclePoolConnectorFactory
         implements ConnectionFactory
 {
     private final PoolDataSource dataSource;
-    private final CredentialProvider credentialProvider;
 
     public OraclePoolConnectorFactory(
             String connectionUrl,
@@ -41,7 +38,6 @@ public class OraclePoolConnectorFactory
             int connectionPoolMaxSize)
             throws SQLException
     {
-        this.credentialProvider = credentialProvider;
         this.dataSource = PoolDataSourceFactory.getPoolDataSource();
 
         //Setting connection properties of the data source
@@ -54,18 +50,30 @@ public class OraclePoolConnectorFactory
         this.dataSource.setMaxPoolSize(connectionPoolMaxSize);
         this.dataSource.setValidateConnectionOnBorrow(true);
         this.dataSource.setConnectionProperties(connectionProperties);
+        credentialProvider.getConnectionUser(Optional.empty())
+                .ifPresent(user -> {
+                    try {
+                        dataSource.setUser(user);
+                    }
+                    catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
+        credentialProvider.getConnectionPassword(Optional.empty())
+                .ifPresent(password -> {
+                    try {
+                        dataSource.setPassword(password);
+                    }
+                    catch (SQLException e) {
+                        throw new RuntimeException(e);
+                    }
+                });
     }
 
     @Override
     public Connection openConnection(JdbcIdentity identity)
             throws SQLException
     {
-        Optional<String> user = credentialProvider.getConnectionUser(Optional.of(identity));
-        Optional<String> password = credentialProvider.getConnectionPassword(Optional.of(identity));
-
-        checkArgument(user.isPresent(), "Credentials returned null user");
-        checkArgument(password.isPresent(), "Credentials returned null password");
-
-        return dataSource.getConnection(user.get(), password.get());
+        return dataSource.getConnection();
     }
 }
