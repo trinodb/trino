@@ -35,6 +35,7 @@ import java.util.OptionalDouble;
 
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.execution.QueryState.RUNNING;
+import static io.prestosql.server.DynamicFilterService.DynamicFiltersStats;
 import static org.testng.Assert.assertEquals;
 
 public class TestBasicQueryInfo
@@ -111,6 +112,7 @@ public class TestBasicQueryInfo
                                         105,
                                         106,
                                         107)),
+                                DynamicFiltersStats.EMPTY,
                                 ImmutableList.of()),
                         Optional.empty(),
                         Optional.empty(),
