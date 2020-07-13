@@ -21,6 +21,7 @@ databases:
     warehouse_directory_path: /user/hive/warehouse
     inject_stats_for_immutable_tables: true
     inject_stats_for_mutable_tables: true
+    enforce_non_transactional_tables: false
     metastore:
       host: ${databases.hive.host}
       port: 9083
