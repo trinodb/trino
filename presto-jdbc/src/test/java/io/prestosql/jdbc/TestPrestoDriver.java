@@ -832,7 +832,6 @@ public class TestPrestoDriver
             throws Exception
     {
         CountDownLatch queryFinished = new CountDownLatch(1);
-        AtomicReference<String> queryId = new AtomicReference<>();
         AtomicReference<Throwable> queryFailure = new AtomicReference<>();
         String queryUuid = "/* " + UUID.randomUUID().toString() + " */";
 
