@@ -37,6 +37,7 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.execution.QueryState.QUEUED;
 import static io.prestosql.operator.BlockedReason.WAITING_FOR_MEMORY;
+import static io.prestosql.server.DynamicFilterService.DynamicFiltersStats;
 import static io.prestosql.server.QueryStateInfo.createQueuedQueryStateInfo;
 import static io.prestosql.spi.resourcegroups.SchedulingPolicy.WEIGHTED;
 import static org.testng.Assert.assertEquals;
@@ -155,6 +156,7 @@ public class TestQueryStateInfo
                         32,
                         DataSize.valueOf("33GB"),
                         ImmutableList.of(),
+                        DynamicFiltersStats.EMPTY,
                         ImmutableList.of()),
                 Optional.empty(),
                 Optional.empty(),
