@@ -44,8 +44,8 @@ Finally, you can access the ``account`` table::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``salesforce`` in the above examples.
 
-Redshift Connector Limitations
-------------------------------
+Salesforce Connector Limitations
+--------------------------------
 
 At this time this connector is read-only. Furthermore, it fetches data
 using the Salesforce synchronous API, which offers limited performance.
