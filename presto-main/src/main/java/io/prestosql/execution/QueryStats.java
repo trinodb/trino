@@ -33,6 +33,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.prestosql.server.DynamicFilterService.DynamicFiltersStats;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
@@ -102,6 +103,8 @@ public class QueryStats
 
     private final List<StageGcStatistics> stageGcStatistics;
 
+    private final DynamicFiltersStats dynamicFiltersStats;
+
     private final List<OperatorStats> operatorSummaries;
 
     @JsonCreator
@@ -168,6 +171,8 @@ public class QueryStats
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
 
             @JsonProperty("stageGcStatistics") List<StageGcStatistics> stageGcStatistics,
+
+            @JsonProperty("dynamicFiltersStats") DynamicFiltersStats dynamicFiltersStats,
 
             @JsonProperty("operatorSummaries") List<OperatorStats> operatorSummaries)
     {
@@ -245,6 +250,8 @@ public class QueryStats
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
 
         this.stageGcStatistics = ImmutableList.copyOf(requireNonNull(stageGcStatistics, "stageGcStatistics is null"));
+
+        this.dynamicFiltersStats = requireNonNull(dynamicFiltersStats, "dynamicFiltersStats is null");
 
         this.operatorSummaries = ImmutableList.copyOf(requireNonNull(operatorSummaries, "operatorSummaries is null"));
     }
@@ -567,6 +574,12 @@ public class QueryStats
     public List<StageGcStatistics> getStageGcStatistics()
     {
         return stageGcStatistics;
+    }
+
+    @JsonProperty
+    public DynamicFiltersStats getDynamicFiltersStats()
+    {
+        return dynamicFiltersStats;
     }
 
     @JsonProperty
