@@ -62,7 +62,7 @@ import java.util.stream.Stream;
 public class ForcePreparedStatement
         implements PreparedStatement
 {
-    private static final DateFormat SF_DATETIME_FORMATTER = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSXXX");
+    private static final DateFormat SF_DATETIME_FORMATTER = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ssXXX");
     private static Map<Class<?>, Function<Object, String>> paramConverters = new HashMap<>();
     private String soqlQuery;
     private QueryResult queryResult;
