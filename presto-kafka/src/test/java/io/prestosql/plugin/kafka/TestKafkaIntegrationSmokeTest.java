@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.kafka.util.TestingKafka;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.BigintType;
+import io.prestosql.spi.type.BooleanType;
+import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
@@ -30,6 +32,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -38,6 +41,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.TestngUtils.toDataProvider;
 import static java.util.Objects.requireNonNull;
 import static org.apache.kafka.clients.producer.ProducerConfig.ACKS_CONFIG;
@@ -61,7 +65,17 @@ public class TestKafkaIntegrationSmokeTest
                 .put(new SchemaTableName("default", rawFormatTopic),
                         createDescription(rawFormatTopic, "default", rawFormatTopic,
                                 createFieldGroup("raw", ImmutableList.of(
-                                        createOneFieldDescription("id", BigintType.BIGINT, "0", "LONG")))))
+                                        createOneFieldDescription("bigint_long", BigintType.BIGINT, "0", "LONG"),
+                                        createOneFieldDescription("bigint_int", BigintType.BIGINT, "8", "INT"),
+                                        createOneFieldDescription("bigint_short", BigintType.BIGINT, "12", "SHORT"),
+                                        createOneFieldDescription("bigint_byte", BigintType.BIGINT, "14", "BYTE"),
+                                        createOneFieldDescription("double_double", DoubleType.DOUBLE, "15", "DOUBLE"),
+                                        createOneFieldDescription("double_float", DoubleType.DOUBLE, "23", "FLOAT"),
+                                        createOneFieldDescription("varchar_byte", createVarcharType(6), "27:33", "BYTE"),
+                                        createOneFieldDescription("boolean_long", BooleanType.BOOLEAN, "33", "LONG"),
+                                        createOneFieldDescription("boolean_int", BooleanType.BOOLEAN, "41", "INT"),
+                                        createOneFieldDescription("boolean_short", BooleanType.BOOLEAN, "45", "SHORT"),
+                                        createOneFieldDescription("boolean_byte", BooleanType.BOOLEAN, "47", "BYTE")))))
                 .build();
 
         QueryRunner queryRunner = KafkaQueryRunner.builder(testingKafka)
@@ -78,13 +92,39 @@ public class TestKafkaIntegrationSmokeTest
     @Test
     public void testColumnReferencedTwice()
     {
-        ByteBuffer buf = ByteBuffer.allocate(8);
-        buf.putLong(0, 1);
+        ByteBuffer buf = ByteBuffer.allocate(48);
+        buf.putLong(1234567890123L); // 0-8
+        buf.putInt(123456789); // 8-12
+        buf.putShort((short) 12345); // 12-14
+        buf.put((byte) 127); // 14
+        buf.putDouble(123456789.123); // 15-23
+        buf.putFloat(123456.789f); // 23-27
+        buf.put("abcdef".getBytes(StandardCharsets.UTF_8)); // 27-33
+        buf.putLong(1234567890123L); // 33-41
+        buf.putInt(123456789); // 41-45
+        buf.putShort((short) 12345); // 45-47
+        buf.put((byte) 127); // 47
 
         insertData(buf.array());
 
-        assertQuery("SELECT id FROM default." + rawFormatTopic + " WHERE id = 1", "VALUES (1)");
-        assertQuery("SELECT id FROM default." + rawFormatTopic + " WHERE id < 2", "VALUES (1)");
+        assertQuery("SELECT " +
+                          "bigint_long, bigint_int, bigint_short, bigint_byte, " +
+                          "double_double, double_float, varchar_byte, " +
+                          "boolean_long, boolean_int, boolean_short, boolean_byte " +
+                        "FROM default." + rawFormatTopic + " WHERE " +
+                          "bigint_long = 1234567890123 AND bigint_int = 123456789 AND bigint_short = 12345 AND bigint_byte = 127 AND " +
+                          "double_double = 123456789.123 AND double_float != 1.0 AND varchar_byte = 'abcdef' AND " +
+                          "boolean_long = TRUE AND boolean_int = TRUE AND boolean_short = TRUE AND boolean_byte = TRUE",
+                "VALUES (1234567890123, 123456789, 12345, 127, 123456789.123, 123456.789, 'abcdef', TRUE, TRUE, TRUE, TRUE)");
+        assertQuery("SELECT " +
+                          "bigint_long, bigint_int, bigint_short, bigint_byte, " +
+                          "double_double, double_float, varchar_byte, " +
+                          "boolean_long, boolean_int, boolean_short, boolean_byte " +
+                        "FROM default." + rawFormatTopic + " WHERE " +
+                          "bigint_long < 1234567890124 AND bigint_int < 123456790 AND bigint_short < 12346 AND bigint_byte < 128 AND " +
+                          "double_double < 123456789.124 AND double_float > 2 AND varchar_byte <= 'abcdef' AND " +
+                          "boolean_long != FALSE AND boolean_int != FALSE AND boolean_short != FALSE AND boolean_byte != FALSE",
+                "VALUES (1234567890123, 123456789, 12345, 127, 123456789.123, 123456.789, 'abcdef', TRUE, TRUE, TRUE, TRUE)");
     }
 
     private void insertData(byte[] data)
