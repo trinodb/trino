@@ -13,6 +13,8 @@
  */
 package io.prestosql.server;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -20,12 +22,15 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
+import io.prestosql.Session;
 import io.prestosql.execution.SqlQueryExecution;
 import io.prestosql.execution.StageState;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.DynamicFilter;
+import io.prestosql.spi.predicate.DiscreteValues;
 import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.Ranges;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.analyzer.FeaturesConfig;
@@ -42,6 +47,7 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -55,6 +61,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.airlift.concurrent.MoreFutures.getDone;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
@@ -154,6 +161,39 @@ public class DynamicFilterService
             queryRepartitionedDynamicFilters.put(queryId, repartitionedDynamicFilters);
             queryReplicatedDynamicFilters.put(queryId, replicatedDynamicFilters);
         }
+    }
+
+    public DynamicFiltersStats getDynamicFilteringStats(QueryId queryId, Session session)
+    {
+        Map<DynamicFilterId, SettableFuture<Domain>> dynamicFilterFutures = dynamicFilterSummaries.getOrDefault(queryId, ImmutableMap.of());
+        int numRepartitionedFilters = queryRepartitionedDynamicFilters.getOrDefault(queryId, ImmutableSet.of()).size();
+        int numReplicatedFilters = queryReplicatedDynamicFilters.getOrDefault(queryId, ImmutableSet.of()).size();
+        int numTotalDynamicFilters = dynamicFilterFutures.size();
+
+        List<DynamicFilterDomainStats> dynamicFilterDomainStats = dynamicFilterFutures.entrySet().stream()
+                .filter(entry -> entry.getValue().isDone())
+                .map(entry -> {
+                    DynamicFilterId dynamicFilterId = entry.getKey();
+                    Domain domain = getDone(entry.getValue());
+                    // simplify for readability
+                    String simplifiedDomain = domain.simplify(1).toString(session.toConnectorSession());
+                    int rangeCount = domain.getValues().getValuesProcessor().transform(
+                            Ranges::getRangeCount,
+                            discreteValues -> 0,
+                            allOrNone -> 0);
+                    int discreteValuesCount = domain.getValues().getValuesProcessor().transform(
+                            ranges -> 0,
+                            DiscreteValues::getValuesCount,
+                            allOrNone -> 0);
+                    return new DynamicFilterDomainStats(dynamicFilterId, simplifiedDomain, rangeCount, discreteValuesCount);
+                })
+                .collect(toImmutableList());
+        return new DynamicFiltersStats(
+                dynamicFilterDomainStats,
+                numRepartitionedFilters,
+                numReplicatedFilters,
+                numTotalDynamicFilters,
+                dynamicFilterDomainStats.size());
     }
 
     public synchronized void removeQuery(QueryId queryId)
@@ -348,6 +388,152 @@ public class DynamicFilterService
         private List<Map<DynamicFilterId, Domain>> getTaskDynamicFilters()
         {
             return taskDynamicFilters;
+        }
+    }
+
+    public static class DynamicFiltersStats
+    {
+        public static final DynamicFiltersStats EMPTY = new DynamicFiltersStats(ImmutableList.of(), 0, 0, 0, 0);
+
+        private final List<DynamicFilterDomainStats> dynamicFilterDomainStats;
+        private final int numRepartitionedDynamicFilters;
+        private final int numReplicatedDynamicFilters;
+        private final int numTotalDynamicFilters;
+        private final int numDynamicFiltersCompleted;
+
+        @JsonCreator
+        public DynamicFiltersStats(
+                @JsonProperty("dynamicFilterDomainStats") List<DynamicFilterDomainStats> dynamicFilterDomainStats,
+                @JsonProperty("numRepartitionedDynamicFilters") int numRepartitionedDynamicFilters,
+                @JsonProperty("numReplicatedDynamicFilters") int numReplicatedDynamicFilters,
+                @JsonProperty("numTotalDynamicFilters") int numTotalDynamicFilters,
+                @JsonProperty("numDynamicFiltersCompleted") int numDynamicFiltersCompleted)
+        {
+            this.dynamicFilterDomainStats = dynamicFilterDomainStats;
+            this.numRepartitionedDynamicFilters = numRepartitionedDynamicFilters;
+            this.numReplicatedDynamicFilters = numReplicatedDynamicFilters;
+            this.numTotalDynamicFilters = numTotalDynamicFilters;
+            this.numDynamicFiltersCompleted = numDynamicFiltersCompleted;
+        }
+
+        @JsonProperty
+        public List<DynamicFilterDomainStats> getDynamicFilterDomainStats()
+        {
+            return dynamicFilterDomainStats;
+        }
+
+        @JsonProperty
+        public int getNumRepartitionedDynamicFilters()
+        {
+            return numRepartitionedDynamicFilters;
+        }
+
+        @JsonProperty
+        public int getNumReplicatedDynamicFilters()
+        {
+            return numReplicatedDynamicFilters;
+        }
+
+        @JsonProperty
+        public int getNumTotalDynamicFilters()
+        {
+            return numTotalDynamicFilters;
+        }
+
+        @JsonProperty
+        public int getNumDynamicFiltersCompleted()
+        {
+            return numDynamicFiltersCompleted;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            DynamicFiltersStats that = (DynamicFiltersStats) o;
+            return numRepartitionedDynamicFilters == that.numRepartitionedDynamicFilters &&
+                    numReplicatedDynamicFilters == that.numReplicatedDynamicFilters &&
+                    numTotalDynamicFilters == that.numTotalDynamicFilters &&
+                    numDynamicFiltersCompleted == that.numDynamicFiltersCompleted &&
+                    Objects.equals(dynamicFilterDomainStats, that.dynamicFilterDomainStats);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(dynamicFilterDomainStats, numRepartitionedDynamicFilters, numReplicatedDynamicFilters, numTotalDynamicFilters, numDynamicFiltersCompleted);
+        }
+    }
+
+    public static class DynamicFilterDomainStats
+    {
+        private final DynamicFilterId dynamicFilterId;
+        private final String simplifiedDomain;
+        private final int rangeCount;
+        private final int discreteValuesCount;
+
+        @JsonCreator
+        public DynamicFilterDomainStats(
+                @JsonProperty("dynamicFilterId") DynamicFilterId dynamicFilterId,
+                @JsonProperty("simplifiedDomain") String simplifiedDomain,
+                @JsonProperty("rangeCount") int rangeCount,
+                @JsonProperty("discreteValuesCount") int discreteValuesCount)
+        {
+            this.dynamicFilterId = dynamicFilterId;
+            this.simplifiedDomain = simplifiedDomain;
+            this.rangeCount = rangeCount;
+            this.discreteValuesCount = discreteValuesCount;
+        }
+
+        @JsonProperty
+        public DynamicFilterId getDynamicFilterId()
+        {
+            return dynamicFilterId;
+        }
+
+        @JsonProperty
+        public String getSimplifiedDomain()
+        {
+            return simplifiedDomain;
+        }
+
+        @JsonProperty
+        public int getRangeCount()
+        {
+            return rangeCount;
+        }
+
+        @JsonProperty
+        public int getDiscreteValuesCount()
+        {
+            return discreteValuesCount;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            DynamicFilterDomainStats that = (DynamicFilterDomainStats) o;
+            return rangeCount == that.rangeCount &&
+                    discreteValuesCount == that.discreteValuesCount &&
+                    Objects.equals(dynamicFilterId, that.dynamicFilterId) &&
+                    Objects.equals(simplifiedDomain, that.simplifiedDomain);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(dynamicFilterId, simplifiedDomain, rangeCount, discreteValuesCount);
         }
     }
 }

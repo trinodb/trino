@@ -70,6 +70,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -88,6 +89,7 @@ import static io.prestosql.execution.QueryState.TERMINAL_QUERY_STATES;
 import static io.prestosql.execution.QueryState.WAITING_FOR_RESOURCES;
 import static io.prestosql.execution.StageInfo.getAllStages;
 import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
+import static io.prestosql.server.DynamicFilterService.DynamicFiltersStats;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.USER_CANCELED;
 import static io.prestosql.util.Failures.toFailure;
@@ -159,6 +161,10 @@ public class QueryStateMachine
     private final WarningCollector warningCollector;
 
     private final Optional<QueryType> queryType;
+
+    @GuardedBy("dynamicFiltersStatsSupplierLock")
+    private Supplier<DynamicFiltersStats> dynamicFiltersStatsSupplier = () -> DynamicFiltersStats.EMPTY;
+    private final Object dynamicFiltersStatsSupplierLock = new Object();
 
     private QueryStateMachine(
             String query,
@@ -614,6 +620,8 @@ public class QueryStateMachine
 
                 stageGcStatistics.build(),
 
+                getDynamicFiltersStats(),
+
                 operatorStatsSummary.build());
     }
 
@@ -664,6 +672,20 @@ public class QueryStateMachine
     {
         requireNonNull(routines, "routines is null");
         this.routines.set(ImmutableList.copyOf(routines));
+    }
+
+    private DynamicFiltersStats getDynamicFiltersStats()
+    {
+        synchronized (dynamicFiltersStatsSupplierLock) {
+            return dynamicFiltersStatsSupplier.get();
+        }
+    }
+
+    public void setDynamicFiltersStatsSupplier(Supplier<DynamicFiltersStats> dynamicFiltersStatsSupplier)
+    {
+        synchronized (dynamicFiltersStatsSupplierLock) {
+            this.dynamicFiltersStatsSupplier = requireNonNull(dynamicFiltersStatsSupplier, "dynamicFiltersStatsSupplier is null");
+        }
     }
 
     public Map<String, String> getSetSessionProperties()
@@ -1131,6 +1153,7 @@ public class QueryStateMachine
                 queryStats.getOutputPositions(),
                 queryStats.getPhysicalWrittenDataSize(),
                 queryStats.getStageGcStatistics(),
+                queryStats.getDynamicFiltersStats(),
                 ImmutableList.of()); // Remove the operator summaries as OperatorInfo (especially ExchangeClientStatus) can hold onto a large amount of memory
     }
 

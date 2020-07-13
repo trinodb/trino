@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.units.DataSize.succinctBytes;
+import static io.prestosql.server.DynamicFilterService.DynamicFiltersStats;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
@@ -226,6 +227,8 @@ public class TestQueryStats
                     106,
                     107)),
 
+            DynamicFiltersStats.EMPTY,
+
             operatorSummaries);
 
     @Test
@@ -311,5 +314,7 @@ public class TestQueryStats
 
         assertEquals(420, actual.getWrittenPositions());
         assertEquals(58, actual.getLogicalWrittenDataSize().toBytes());
+
+        assertEquals(DynamicFiltersStats.EMPTY, actual.getDynamicFiltersStats());
     }
 }
