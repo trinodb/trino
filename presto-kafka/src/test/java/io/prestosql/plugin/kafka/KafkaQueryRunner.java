@@ -139,6 +139,7 @@ public final class KafkaQueryRunner
             Map<SchemaTableName, KafkaTopicDescription> tpchTopicDescriptions = createTpchTopicDescriptions(queryRunner.getCoordinator().getMetadata(), tables);
 
             List<String> tableNames = new ArrayList<>(4);
+            tableNames.add("all_datatypes_avro");
             tableNames.add("all_datatypes_csv");
 
             JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec = new CodecSupplier<>(KafkaTopicDescription.class, queryRunner.getMetadata()).get();
