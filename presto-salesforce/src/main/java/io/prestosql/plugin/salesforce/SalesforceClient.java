@@ -15,16 +15,17 @@ package io.prestosql.plugin.salesforce;
 
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
-import io.prestosql.plugin.jdbc.BlockReadFunction;
-import io.prestosql.plugin.jdbc.BlockWriteFunction;
 import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcSplit;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
+import io.prestosql.plugin.jdbc.ObjectReadFunction;
+import io.prestosql.plugin.jdbc.ObjectWriteFunction;
 import io.prestosql.plugin.jdbc.SliceReadFunction;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.ArrayType;
@@ -43,7 +44,7 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.plugin.jdbc.ColumnMapping.blockMapping;
+import static io.prestosql.plugin.jdbc.ColumnMapping.objectMapping;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
@@ -83,12 +84,6 @@ public class SalesforceClient
     }
 
     @Override
-    public boolean isLimitGuaranteed()
-    {
-        return true;
-    }
-
-    @Override
     protected String getTableSchemaName(ResultSet resultSet)
             throws SQLException
     {
@@ -115,7 +110,7 @@ public class SalesforceClient
                 type = createUnboundedVarcharType();
             }
 
-            return Optional.of(blockMapping(new ArrayType(type), multiPicklistReadFunction(type), multiPicklistWriteFunction(type)));
+            return Optional.of(objectMapping(new ArrayType(type), multiPicklistReadFunction(type), multiPicklistWriteFunction(type)));
         }
 
         switch (typeHandle.getJdbcType()) {
@@ -144,9 +139,9 @@ public class SalesforceClient
         return new SoqlQueryBuilder(identifierQuote).buildSql(this, session, connection, table.getCatalogName(), table.getSchemaName(), table.getTableName(), columns, table.getConstraint(), split.getAdditionalPredicate(), tryApplyLimit(table.getLimit()));
     }
 
-    private static BlockReadFunction multiPicklistReadFunction(Type type)
+    private static ObjectReadFunction multiPicklistReadFunction(Type type)
     {
-        return (resultSet, columnIndex) -> {
+        return ObjectReadFunction.of(Block.class, (resultSet, columnIndex) -> {
             BlockBuilder builder = createUnboundedVarcharType().createBlockBuilder(null, 1);
 
             for (String value : resultSet.getString(columnIndex).split(";")) {
@@ -154,14 +149,14 @@ public class SalesforceClient
             }
 
             return builder.build();
-        };
+        });
     }
 
-    private static BlockWriteFunction multiPicklistWriteFunction(Type type)
+    private static ObjectWriteFunction multiPicklistWriteFunction(Type type)
     {
-        return (statement, index, value) -> {
+        return ObjectWriteFunction.of(Block.class, (statement, index, block) -> {
             // Not implemented
-        };
+        });
     }
 
     public static SliceReadFunction otherReadFunction()

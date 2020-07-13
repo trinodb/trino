@@ -18,16 +18,15 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
-import io.prestosql.plugin.jdbc.BlockWriteFunction;
 import io.prestosql.plugin.jdbc.BooleanWriteFunction;
 import io.prestosql.plugin.jdbc.DoubleWriteFunction;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.LongWriteFunction;
+import io.prestosql.plugin.jdbc.ObjectWriteFunction;
 import io.prestosql.plugin.jdbc.SliceWriteFunction;
 import io.prestosql.plugin.jdbc.WriteFunction;
-import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.predicate.Domain;
@@ -169,11 +168,8 @@ public class SoqlQueryBuilder
             else if (javaType == Slice.class) {
                 ((SliceWriteFunction) writeFunction).set(statement, parameterIndex, (Slice) value);
             }
-            else if (javaType == Block.class) {
-                ((BlockWriteFunction) writeFunction).set(statement, parameterIndex, (Block) value);
-            }
             else {
-                throw new VerifyException(format("Unexpected type %s with java type %s", type, javaType.getName()));
+                ((ObjectWriteFunction) writeFunction).set(statement, parameterIndex, value);
             }
         }
 
