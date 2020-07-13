@@ -86,6 +86,7 @@ jobs:
       - name: Maven Tests
         run: ./mvnw test -B -fae -Dair.check.skip-all -pl ${{ matrix.modules }}
       - name: Test Report
+        if: ${{ always() }}
         uses: scacap/action-surefire-report@v1
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
