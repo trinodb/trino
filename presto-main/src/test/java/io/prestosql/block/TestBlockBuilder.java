@@ -48,7 +48,7 @@ public class TestBlockBuilder
         assertTrue(block.isNull(0));
         assertEquals(BIGINT.getLong(block, 1), 42L);
         assertTrue(block.isNull(2));
-        assertEquals(BIGINT.getLong(block, 3), 42L);
+        assertEquals(BIGINT.getLong(block, 3), 43L);
     }
 
     @Test
