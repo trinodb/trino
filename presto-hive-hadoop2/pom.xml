@@ -27,6 +27,11 @@
             <artifactId>guava</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.qubole.rubix</groupId>
+            <artifactId>rubix-presto-shaded</artifactId>
+        </dependency>
+
         <!-- used by tests but also needed transitively -->
         <dependency>
             <groupId>io.prestosql.hadoop</groupId>
