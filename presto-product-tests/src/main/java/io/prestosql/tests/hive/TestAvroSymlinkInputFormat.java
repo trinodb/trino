@@ -13,6 +13,7 @@
  */
 package io.prestosql.tests.hive;
 
+import com.google.inject.name.Named;
 import io.prestosql.tempto.AfterTestWithContext;
 import io.prestosql.tempto.BeforeTestWithContext;
 import io.prestosql.tempto.ProductTest;
@@ -40,18 +41,22 @@ public class TestAvroSymlinkInputFormat
     @Inject
     private HdfsClient hdfsClient;
 
+    @Inject
+    @Named("databases.hive.warehouse_directory_path")
+    private String warehouseDirectory;
+
     @BeforeTestWithContext
     public void setup()
             throws Exception
     {
-        hdfsClient.createDirectory("/user/hive/warehouse/TestAvroSymlinkInputFormat/data");
-        saveResourceOnHdfs("avro/original_data.avro", "/user/hive/warehouse/TestAvroSymlinkInputFormat/data/original_data.avro");
+        hdfsClient.createDirectory(warehouseDirectory + "/TestAvroSymlinkInputFormat/data");
+        saveResourceOnHdfs("avro/original_data.avro", warehouseDirectory + "/TestAvroSymlinkInputFormat/data/original_data.avro");
     }
 
     @AfterTestWithContext
     public void cleanup()
     {
-        hdfsClient.delete("/user/hive/warehouse/TestAvroSymlinkInputFormat");
+        hdfsClient.delete(warehouseDirectory + "/TestAvroSymlinkInputFormat");
     }
 
     private void saveResourceOnHdfs(String resource, String location)
@@ -68,7 +73,7 @@ public class TestAvroSymlinkInputFormat
     {
         onHive().executeQuery("DROP TABLE IF EXISTS test_avro_symlink");
 
-        onHive().executeQuery(format("" +
+        onHive().executeQuery("" +
                 "CREATE TABLE test_avro_symlink " +
                 "ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.avro.AvroSerDe' " +
                 "WITH SERDEPROPERTIES ('avro.schema.literal'='{" +
@@ -81,10 +86,10 @@ public class TestAvroSymlinkInputFormat
                 "]}') " +
                 "STORED AS " +
                 "INPUTFORMAT 'org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat' " +
-                "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'"));
+                "OUTPUTFORMAT 'org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat'");
 
-        hdfsClient.delete("/user/hive/warehouse/test_avro_schema_symlink/symlink.txt");
-        hdfsClient.saveFile("/user/hive/warehouse/test_avro_symlink/symlink.txt", "hdfs:///user/hive/warehouse/TestAvroSymlinkInputFormat/data/original_data.avro");
+        hdfsClient.delete(warehouseDirectory + "/test_avro_schema_symlink/symlink.txt");
+        hdfsClient.saveFile(warehouseDirectory + "/test_avro_symlink/symlink.txt", format("hdfs://%s/TestAvroSymlinkInputFormat/data/original_data.avro", warehouseDirectory));
 
         assertThat(onPresto().executeQuery("SELECT * FROM test_avro_symlink"))
                 .containsExactly(row("someValue", 1));
