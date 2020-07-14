@@ -10,6 +10,7 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import com.github.dockerjava.api.model.Ulimit;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.testcontainers.containers.OracleContainer;
 
@@ -21,6 +22,7 @@ import java.util.Map;
 import java.util.function.Consumer;
 
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 
 public final class TestingOracleServer
@@ -39,7 +41,7 @@ public final class TestingOracleServer
             // Recommended ulimits for running Oracle on Linux
             // https://docs.oracle.com/en/database/oracle/oracle-database/12.2/ladbi/checking-resource-limits-for-oracle-software-installation-users.html
             .withCreateContainerCmdModifier(cmd ->
-                    cmd.withUlimits(new Ulimit("nofile", 1024, 65536)));
+                    requireNonNull(cmd.getHostConfig()).withUlimits(ImmutableList.of(new Ulimit("nofile", 1024L, 65536L))));
 
     static {
         CONTAINER.start();
