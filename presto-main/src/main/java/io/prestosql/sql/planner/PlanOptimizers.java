@@ -427,7 +427,8 @@ public class PlanOptimizers
                                         new MergeLimitWithDistinct(),
                                         new PruneCountAggregationOverScalar(metadata),
                                         new PruneOrderByInAggregation(metadata),
-                                        new RewriteSpatialPartitioningAggregation(metadata)))
+                                        new RewriteSpatialPartitioningAggregation(metadata),
+                                        new SimplifyCountOverConstant(metadata)))
                                 .build()),
                 new IterativeOptimizer(
                         ruleStats,
@@ -552,11 +553,6 @@ public class PlanOptimizers
                 new UnaliasSymbolReferences(metadata), // Run again because predicate pushdown and projection pushdown might add more projections
                 columnPruningOptimizer, // Make sure to run this before index join. Filtered projections may not have all the columns.
                 new IndexJoinOptimizer(metadata), // Run this after projections and filters have been fully simplified and pushed down
-                new IterativeOptimizer(
-                        ruleStats,
-                        statsCalculator,
-                        estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new SimplifyCountOverConstant(metadata))),
                 new LimitPushDown(), // Run LimitPushDown before WindowFilterPushDown
                 new WindowFilterPushDown(metadata), // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
                 new IterativeOptimizer(
