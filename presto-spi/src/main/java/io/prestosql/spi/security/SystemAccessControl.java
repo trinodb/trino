@@ -66,6 +66,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyShowTables;
 import static io.prestosql.spi.security.AccessDeniedException.denyViewQuery;
 import static java.lang.String.format;
 import static java.util.Collections.emptySet;
+import static java.util.stream.Collectors.toSet;
 
 public interface SystemAccessControl
 {
@@ -387,13 +388,21 @@ public interface SystemAccessControl
     }
 
     /**
-     * Check if identity is allowed to select from the specified columns in a relation.  The column set can be empty.
-     *
-     * @throws AccessDeniedException if not allowed
+     * @deprecated replaced with {@link #checkCanSelectFromColumnsWithMetadata(SystemSecurityContext, CatalogSchemaTableName, Set)}
      */
     default void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
         denySelectColumns(table.toString(), columns);
+    }
+
+    /**
+     * Check if identity is allowed to select from the specified columns in a relation.  The column set can be empty.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSelectFromColumnsWithMetadata(SystemSecurityContext context, CatalogSchemaTableName table, Set<ColumnMetadata> columns)
+    {
+        checkCanSelectFromColumns(context, table, columns.stream().map(ColumnMetadata::getName).collect(toSet()));
     }
 
     /**
@@ -447,13 +456,21 @@ public interface SystemAccessControl
     }
 
     /**
-     * Check if identity is allowed to create a view that selects from the specified columns in a relation.
-     *
-     * @throws AccessDeniedException if not allowed
+     * @deprecated replaced with {@link #checkCanCreateViewWithSelectFromColumnsWithMetadata(SystemSecurityContext, CatalogSchemaTableName, Set)}
      */
     default void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
         denyCreateViewWithSelect(table.toString(), context.getIdentity());
+    }
+
+    /**
+     * Check if identity is allowed to create a view that selects from the specified columns in a relation.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanCreateViewWithSelectFromColumnsWithMetadata(SystemSecurityContext context, CatalogSchemaTableName table, Set<ColumnMetadata> columns)
+    {
+        checkCanCreateViewWithSelectFromColumns(context, table, columns.stream().map(ColumnMetadata::getName).collect(toSet()));
     }
 
     /**

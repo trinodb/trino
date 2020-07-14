@@ -40,6 +40,7 @@ import java.util.Set;
 import static com.google.common.io.Files.copy;
 import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
 import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
+import static io.prestosql.spi.connector.ColumnTestingUtil.column;
 import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
 import static java.lang.Thread.sleep;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -174,14 +175,14 @@ public class TestFileBasedSystemAccessControl
     {
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
 
-        accessControl.checkCanSelectFromColumns(ALICE, new CatalogSchemaTableName("some-catalog", "test", "test"), ImmutableSet.of());
-        accessControl.checkCanSelectFromColumns(ALICE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableSet.of());
-        accessControl.checkCanSelectFromColumns(ALICE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableSet.of("bobcolumn"));
-        accessControl.checkCanSelectFromColumns(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableSet.of());
-        accessControl.checkCanSelectFromColumns(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableSet.of("bobcolumn"));
-        accessControl.checkCanSelectFromColumns(JOE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableSet.of());
-        assertAccessDenied(() -> accessControl.checkCanSelectFromColumns(ADMIN, new CatalogSchemaTableName("some-catalog", "secret", "secret"), ImmutableSet.of()), SELECT_TABLE_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanSelectFromColumns(JOE, new CatalogSchemaTableName("some-catalog", "secret", "secret"), ImmutableSet.of()), SELECT_TABLE_ACCESS_DENIED_MESSAGE);
+        accessControl.checkCanSelectFromColumnsWithMetadata(ALICE, new CatalogSchemaTableName("some-catalog", "test", "test"), ImmutableSet.of());
+        accessControl.checkCanSelectFromColumnsWithMetadata(ALICE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableSet.of());
+        accessControl.checkCanSelectFromColumnsWithMetadata(ALICE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableSet.of(column("bobcolumn")));
+        accessControl.checkCanSelectFromColumnsWithMetadata(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableSet.of());
+        accessControl.checkCanSelectFromColumnsWithMetadata(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableSet.of(column("bobcolumn")));
+        accessControl.checkCanSelectFromColumnsWithMetadata(JOE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableSet.of());
+        assertAccessDenied(() -> accessControl.checkCanSelectFromColumnsWithMetadata(ADMIN, new CatalogSchemaTableName("some-catalog", "secret", "secret"), ImmutableSet.of()), SELECT_TABLE_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(() -> accessControl.checkCanSelectFromColumnsWithMetadata(JOE, new CatalogSchemaTableName("some-catalog", "secret", "secret"), ImmutableSet.of()), SELECT_TABLE_ACCESS_DENIED_MESSAGE);
     }
 
     @Test
@@ -585,8 +586,5 @@ public class TestFileBasedSystemAccessControl
                 .hasMessageMatching(expectedMessage);
     }
 
-    private static ColumnMetadata column(String columnName)
-    {
-        return new ColumnMetadata(columnName, VarcharType.VARCHAR);
-    }
+
 }

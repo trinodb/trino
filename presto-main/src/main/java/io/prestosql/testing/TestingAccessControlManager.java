@@ -21,6 +21,7 @@ import io.prestosql.security.AccessControlManager;
 import io.prestosql.security.SecurityContext;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
+import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.ViewExpression;
@@ -43,6 +44,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -457,13 +459,13 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<ColumnMetadata> columns)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.getObjectName(), CREATE_VIEW_WITH_SELECT_COLUMNS)) {
             denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
         }
         if (denyPrivileges.isEmpty()) {
-            super.checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames);
+            super.checkCanCreateViewWithSelectFromColumns(context, tableName, columns);
         }
     }
 
@@ -501,14 +503,14 @@ public class TestingAccessControlManager
     }
 
     @Override
-    public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columns)
+    public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<ColumnMetadata> columns)
     {
         if (shouldDenyPrivilege(context.getIdentity().getUser(), tableName.getObjectName(), SELECT_COLUMN)) {
-            denySelectColumns(tableName.toString(), columns);
+            denySelectColumns(tableName.toString(), columns.stream().map(ColumnMetadata::getName).collect(Collectors.toSet()));
         }
-        for (String column : columns) {
-            if (shouldDenyPrivilege(context.getIdentity().getUser(), column, SELECT_COLUMN)) {
-                denySelectColumns(tableName.toString(), columns);
+        for (ColumnMetadata column : columns) {
+            if (shouldDenyPrivilege(context.getIdentity().getUser(), column.getName(), SELECT_COLUMN)) {
+                denySelectColumns(tableName.toString(), columns.stream().map(ColumnMetadata::getName).collect(Collectors.toSet()));
             }
         }
         if (denyPrivileges.isEmpty()) {

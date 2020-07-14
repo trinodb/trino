@@ -206,7 +206,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<ColumnMetadata> columns)
     {
     }
 
@@ -236,7 +236,7 @@ public class AllowAllAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<ColumnMetadata> columns)
     {
     }
 

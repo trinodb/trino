@@ -285,7 +285,7 @@ public interface AccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames);
+    void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<ColumnMetadata> columns);
 
     /**
      * Check if identity is allowed to create a view that executes the function.
@@ -327,7 +327,7 @@ public interface AccessControl
      *
      * @throws AccessDeniedException if not allowed
      */
-    void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames);
+    void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<ColumnMetadata> columns);
 
     /**
      * Check if identity is allowed to create the specified role.

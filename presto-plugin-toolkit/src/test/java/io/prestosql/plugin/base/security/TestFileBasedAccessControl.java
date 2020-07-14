@@ -137,25 +137,25 @@ public class TestFileBasedAccessControl
     public void testTableRules()
     {
         ConnectorAccessControl accessControl = createAccessControl("table.json");
-        accessControl.checkCanSelectFromColumns(ALICE, new SchemaTableName("test", "test"), ImmutableSet.of());
-        accessControl.checkCanSelectFromColumns(ALICE, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
-        accessControl.checkCanSelectFromColumns(ALICE, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of("bobcolumn"));
+        accessControl.checkCanSelectFromColumnsWithMetadata(ALICE, new SchemaTableName("test", "test"), ImmutableSet.of());
+        accessControl.checkCanSelectFromColumnsWithMetadata(ALICE, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
+        accessControl.checkCanSelectFromColumnsWithMetadata(ALICE, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of(column("bobcolumn")));
         accessControl.checkCanShowColumns(ALICE, new SchemaTableName("bobschema", "bobtable"));
         assertEquals(
                 accessControl.filterColumns(ALICE, new SchemaTableName("bobschema", "bobtable"), ImmutableList.of(column("a"))),
                 ImmutableList.of(column("a")));
-        accessControl.checkCanSelectFromColumns(BOB, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
+        accessControl.checkCanSelectFromColumnsWithMetadata(BOB, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
         accessControl.checkCanShowColumns(BOB, new SchemaTableName("bobschema", "bobtable"));
         assertEquals(
                 accessControl.filterColumns(BOB, new SchemaTableName("bobschema", "bobtable"), ImmutableList.of(column("a"))),
                 ImmutableList.of(column("a")));
         accessControl.checkCanInsertIntoTable(BOB, new SchemaTableName("bobschema", "bobtable"));
         accessControl.checkCanDeleteFromTable(BOB, new SchemaTableName("bobschema", "bobtable"));
-        accessControl.checkCanSelectFromColumns(CHARLIE, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
-        accessControl.checkCanSelectFromColumns(CHARLIE, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of("bobcolumn"));
+        accessControl.checkCanSelectFromColumnsWithMetadata(CHARLIE, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
+        accessControl.checkCanSelectFromColumnsWithMetadata(CHARLIE, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of(column("bobcolumn")));
         accessControl.checkCanInsertIntoTable(CHARLIE, new SchemaTableName("bobschema", "bobtable"));
-        accessControl.checkCanSelectFromColumns(JOE, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
-        accessControl.checkCanCreateViewWithSelectFromColumns(BOB, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
+        accessControl.checkCanSelectFromColumnsWithMetadata(JOE, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
+        accessControl.checkCanCreateViewWithSelectFromColumnsWithMetadata(BOB, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of());
         accessControl.checkCanDropTable(ADMIN, new SchemaTableName("bobschema", "bobtable"));
         accessControl.checkCanRenameTable(ADMIN, new SchemaTableName("bobschema", "bobtable"), new SchemaTableName("aliceschema", "newbobtable"));
         accessControl.checkCanRenameTable(ALICE, new SchemaTableName("aliceschema", "alicetable"), new SchemaTableName("aliceschema", "newalicetable"));
@@ -166,9 +166,9 @@ public class TestFileBasedAccessControl
         assertDenied(() -> accessControl.checkCanRenameTable(BOB, new SchemaTableName("bobschema", "bobtable"), new SchemaTableName("bobschema", "newbobtable")));
         assertDenied(() -> accessControl.checkCanRenameTable(ALICE, new SchemaTableName("aliceschema", "alicetable"), new SchemaTableName("bobschema", "newalicetable")));
         assertDenied(() -> accessControl.checkCanInsertIntoTable(BOB, new SchemaTableName("test", "test")));
-        assertDenied(() -> accessControl.checkCanSelectFromColumns(ADMIN, new SchemaTableName("secret", "secret"), ImmutableSet.of()));
-        assertDenied(() -> accessControl.checkCanSelectFromColumns(JOE, new SchemaTableName("secret", "secret"), ImmutableSet.of()));
-        assertDenied(() -> accessControl.checkCanCreateViewWithSelectFromColumns(JOE, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of()));
+        assertDenied(() -> accessControl.checkCanSelectFromColumnsWithMetadata(ADMIN, new SchemaTableName("secret", "secret"), ImmutableSet.of()));
+        assertDenied(() -> accessControl.checkCanSelectFromColumnsWithMetadata(JOE, new SchemaTableName("secret", "secret"), ImmutableSet.of()));
+        assertDenied(() -> accessControl.checkCanCreateViewWithSelectFromColumnsWithMetadata(JOE, new SchemaTableName("bobschema", "bobtable"), ImmutableSet.of()));
         assertDenied(() -> accessControl.checkCanRenameView(BOB, new SchemaTableName("bobschema", "bobview"), new SchemaTableName("bobschema", "newbobview")));
         assertDenied(() -> accessControl.checkCanRenameView(ALICE, new SchemaTableName("aliceschema", "alicetable"), new SchemaTableName("bobschema", "newalicetable")));
     }

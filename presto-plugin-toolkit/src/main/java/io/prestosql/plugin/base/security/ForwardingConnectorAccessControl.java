@@ -169,9 +169,9 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumnsWithMetadata(ConnectorSecurityContext context, SchemaTableName tableName, Set<ColumnMetadata> columns)
     {
-        delegate().checkCanSelectFromColumns(context, tableName, columnNames);
+        delegate().checkCanSelectFromColumnsWithMetadata(context, tableName, columns);
     }
 
     @Override
@@ -205,9 +205,9 @@ public abstract class ForwardingConnectorAccessControl
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanCreateViewWithSelectFromColumnsWithMetadata(ConnectorSecurityContext context, SchemaTableName tableName, Set<ColumnMetadata> columns)
     {
-        delegate().checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames);
+        delegate().checkCanCreateViewWithSelectFromColumnsWithMetadata(context, tableName, columns);
     }
 
     @Override

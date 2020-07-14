@@ -61,6 +61,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyShowRoles;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowTables;
 import static java.util.Collections.emptySet;
+import static java.util.stream.Collectors.toSet;
 
 public interface ConnectorAccessControl
 {
@@ -271,13 +272,21 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to select from the specified columns in a relation.  The column set can be empty.
-     *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @deprecated replaced with {@link #checkCanSelectFromColumnsWithMetadata(ConnectorSecurityContext, SchemaTableName, Set)}
      */
     default void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         denySelectColumns(tableName.toString(), columnNames);
+    }
+
+    /**
+     * Check if identity is allowed to select from the specified columns in a relation.  The column set can be empty.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanSelectFromColumnsWithMetadata(ConnectorSecurityContext context, SchemaTableName tableName, Set<ColumnMetadata> columns)
+    {
+        checkCanSelectFromColumns(context, tableName, columns.stream().map(ColumnMetadata::getName).collect(toSet()));
     }
 
     /**
@@ -331,13 +340,21 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to create a view that selects from the specified columns in a relation.
-     *
-     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     * @deprecated replaced with {@link #checkCanSelectFromColumnsWithMetadata(ConnectorSecurityContext, SchemaTableName, Set)}
      */
     default void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
+    }
+
+    /**
+     * Check if identity is allowed to create a view that selects from the specified columns in a relation.
+     *
+     * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
+     */
+    default void checkCanCreateViewWithSelectFromColumnsWithMetadata(ConnectorSecurityContext context, SchemaTableName tableName, Set<ColumnMetadata> columns)
+    {
+        checkCanCreateViewWithSelectFromColumns(context, tableName, columns.stream().map(ColumnMetadata::getName).collect(toSet()));
     }
 
     /**

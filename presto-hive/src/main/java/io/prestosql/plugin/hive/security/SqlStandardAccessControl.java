@@ -264,7 +264,7 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumnsWithMetadata(ConnectorSecurityContext context, SchemaTableName tableName, Set<ColumnMetadata> columns)
     {
         // TODO: Implement column level access control
         if (!checkTablePermission(context, tableName, SELECT, false)) {
@@ -313,9 +313,9 @@ public class SqlStandardAccessControl
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanCreateViewWithSelectFromColumnsWithMetadata(ConnectorSecurityContext context, SchemaTableName tableName, Set<ColumnMetadata> columns)
     {
-        checkCanSelectFromColumns(context, tableName, columnNames);
+        checkCanSelectFromColumnsWithMetadata(context, tableName, columns);
 
         // TODO implement column level access control
         if (!checkTablePermission(context, tableName, SELECT, true)) {

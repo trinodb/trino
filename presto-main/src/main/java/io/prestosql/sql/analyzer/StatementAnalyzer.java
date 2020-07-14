@@ -247,6 +247,7 @@ import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toSet;
 
 class StatementAnalyzer
 {
@@ -556,13 +557,16 @@ class StatementAnalyzer
                     accessControl, analysis.getParameters());
             TableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session, tableName, analyzeProperties)
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", tableName));
+            Set<ColumnMetadata> columns = metadata.getColumnHandles(session, tableHandle).values().stream()
+                        .map(columnHandle -> metadata.getColumnMetadata(session, tableHandle, columnHandle)).collect(toSet());
+
 
             // user must have read and insert permission in order to analyze stats of a table
             analysis.addTableColumnReferences(
                     accessControl,
                     session.getIdentity(),
-                    ImmutableMultimap.<QualifiedObjectName, String>builder()
-                            .putAll(tableName, metadata.getColumnHandles(session, tableHandle).keySet())
+                    ImmutableMultimap.<QualifiedObjectName, ColumnMetadata>builder()
+                            .putAll(tableName, columns)
                             .build());
             try {
                 accessControl.checkCanInsertIntoTable(session.toSecurityContext(), tableName);

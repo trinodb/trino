@@ -637,16 +637,16 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(SecurityContext securityContext, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanCreateViewWithSelectFromColumns(SecurityContext securityContext, QualifiedObjectName tableName, Set<ColumnMetadata> columns)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(tableName, "tableName is null");
 
         checkCanAccessCatalog(securityContext, tableName.getCatalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanCreateViewWithSelectFromColumns(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), columnNames));
+        systemAuthorizationCheck(control -> control.checkCanCreateViewWithSelectFromColumnsWithMetadata(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), columns));
 
-        catalogAuthorizationCheck(tableName.getCatalogName(), securityContext, (control, context) -> control.checkCanCreateViewWithSelectFromColumns(context, tableName.asSchemaTableName(), columnNames));
+        catalogAuthorizationCheck(tableName.getCatalogName(), securityContext, (control, context) -> control.checkCanCreateViewWithSelectFromColumnsWithMetadata(context, tableName.asSchemaTableName(), columns));
     }
 
     @Override
@@ -714,17 +714,17 @@ public class AccessControlManager
     }
 
     @Override
-    public void checkCanSelectFromColumns(SecurityContext securityContext, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(SecurityContext securityContext, QualifiedObjectName tableName, Set<ColumnMetadata> columns)
     {
         requireNonNull(securityContext, "securityContext is null");
         requireNonNull(tableName, "tableName is null");
-        requireNonNull(columnNames, "columnNames is null");
+        requireNonNull(columns, "columns is null");
 
         checkCanAccessCatalog(securityContext, tableName.getCatalogName());
 
-        systemAuthorizationCheck(control -> control.checkCanSelectFromColumns(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), columnNames));
+        systemAuthorizationCheck(control -> control.checkCanSelectFromColumnsWithMetadata(securityContext.toSystemSecurityContext(), tableName.asCatalogSchemaTableName(), columns));
 
-        catalogAuthorizationCheck(tableName.getCatalogName(), securityContext, (control, context) -> control.checkCanSelectFromColumns(context, tableName.asSchemaTableName(), columnNames));
+        catalogAuthorizationCheck(tableName.getCatalogName(), securityContext, (control, context) -> control.checkCanSelectFromColumnsWithMetadata(context, tableName.asSchemaTableName(), columns));
     }
 
     @Override

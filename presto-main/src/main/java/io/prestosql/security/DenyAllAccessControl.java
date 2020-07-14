@@ -28,6 +28,7 @@ import java.security.Principal;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentColumn;
@@ -76,6 +77,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyShowSchemas;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowTables;
 import static io.prestosql.spi.security.AccessDeniedException.denyViewQuery;
 import static io.prestosql.spi.security.AccessDeniedException.denyWriteSystemInformationAccess;
+import static java.util.stream.Collectors.toSet;
 
 public class DenyAllAccessControl
         implements AccessControl
@@ -285,7 +287,7 @@ public class DenyAllAccessControl
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<ColumnMetadata> columns)
     {
         denyCreateViewWithSelect(tableName.toString(), context.getIdentity());
     }
@@ -321,9 +323,9 @@ public class DenyAllAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<ColumnMetadata> columns)
     {
-        denySelectColumns(tableName.toString(), columnNames);
+        denySelectColumns(tableName.toString(), columns.stream().map(ColumnMetadata::getName).collect(toSet()));
     }
 
     @Override

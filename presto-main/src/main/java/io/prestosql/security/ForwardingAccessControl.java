@@ -256,9 +256,9 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<ColumnMetadata> columns)
     {
-        delegate().checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames);
+        delegate().checkCanCreateViewWithSelectFromColumns(context, tableName, columns);
     }
 
     @Override
@@ -292,9 +292,9 @@ public abstract class ForwardingAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<ColumnMetadata> columns)
     {
-        delegate().checkCanSelectFromColumns(context, tableName, columnNames);
+        delegate().checkCanSelectFromColumns(context, tableName, columns);
     }
 
     @Override

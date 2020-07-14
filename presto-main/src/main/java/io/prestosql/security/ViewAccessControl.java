@@ -14,6 +14,7 @@
 package io.prestosql.security;
 
 import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.ViewExpression;
 import io.prestosql.spi.type.Type;
@@ -36,19 +37,19 @@ public class ViewAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<ColumnMetadata> columns)
     {
         // This is intentional and matches the SQL standard for view security.
         // In SQL, views are special in that they execute with permissions of the owner.
         // This means that the owner of the view is effectively granting permissions to the user running the query,
         // and thus must have the equivalent of the SQL standard "GRANT ... WITH GRANT OPTION".
-        delegate.checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames);
+        delegate.checkCanCreateViewWithSelectFromColumns(context, tableName, columns);
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<String> columnNames)
+    public void checkCanCreateViewWithSelectFromColumns(SecurityContext context, QualifiedObjectName tableName, Set<ColumnMetadata> columns)
     {
-        delegate.checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames);
+        delegate.checkCanCreateViewWithSelectFromColumns(context, tableName, columns);
     }
 
     @Override

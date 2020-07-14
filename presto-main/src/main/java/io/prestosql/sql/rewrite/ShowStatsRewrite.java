@@ -71,6 +71,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -149,7 +150,8 @@ public class ShowStatsRewrite
             Set<String> columnNames = extractStatsColumns(tableMetadata, specification.getSelect().getSelectItems());
 
             try {
-                accessControl.checkCanSelectFromColumns(session.toSecurityContext(), tableName, columnNames);
+                Set<ColumnMetadata> columns = columnNames.stream().map(tableMetadata::getColumn).collect(Collectors.toSet());
+                accessControl.checkCanSelectFromColumns(session.toSecurityContext(), tableName, columns);
             }
             catch (AccessDeniedException e) {
                 throw rewriteAccessDeniedException(e);
