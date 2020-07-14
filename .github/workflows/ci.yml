@@ -191,13 +191,18 @@ jobs:
           - suite-6-non-generic
           - suite-7-non-generic
           - suite-8-non-generic
+          - suite-tpcds
         exclude:
+          - config: config-hdp3
+            suite: suite-tpcds
           - config: config-hdp3
             suite: suite-6-non-generic
           - config: config-hdp3
             suite: suite-7-non-generic
           - config: config-hdp3
             suite: suite-8-non-generic
+          - config: config-cdh5
+            suite: suite-tpcds
           - config: config-cdh5
             suite: suite-6-non-generic
           - config: config-cdh5
