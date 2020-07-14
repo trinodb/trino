@@ -177,7 +177,7 @@ jobs:
         uses: scacap/action-surefire-report@v1
         with:
           check_name: Test Report ${{matrix.modules}}
-          github_token: ${{ secrets.GITHUB_TOKEN }}
+          github_token: ${{ github.token }}
 
   pt:
     runs-on: ubuntu-latest
