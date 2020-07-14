@@ -20,6 +20,7 @@ import com.google.common.io.Files;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
+import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.execution.QueryInfo;
@@ -129,6 +130,7 @@ import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeT
 import static io.prestosql.testing.TestingAccessControlManager.privilege;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.prestosql.testing.assertions.Assert.assertEventually;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
@@ -138,6 +140,8 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -4129,10 +4133,19 @@ public class TestHiveIntegrationSmokeTest
                 "SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t > TIMESTAMP '2012-10-31 01:00'");
         assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
 
-        queryResult = queryRunner.executeWithQueryId(
-                getSession(),
-                "SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t = TIMESTAMP '2012-10-31 01:00'");
-        assertThat(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes()).isGreaterThan(0);
+        // TODO: replace this with a simple query stats check once we find a way to wait until all pending updates to query stats have been applied
+        ExponentialSleeper sleeper = new ExponentialSleeper(
+                new Duration(0, SECONDS),
+                new Duration(5, SECONDS),
+                new Duration(100, MILLISECONDS),
+                2.0);
+        assertEventually(new Duration(30, SECONDS), () -> {
+            ResultWithQueryId<MaterializedResult> result = queryRunner.executeWithQueryId(
+                    getSession(),
+                    "SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t = TIMESTAMP '2012-10-31 01:00'");
+            sleeper.sleep();
+            assertThat(getQueryInfo(queryRunner, result).getQueryStats().getProcessedInputDataSize().toBytes()).isGreaterThan(0);
+        });
     }
 
     private QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, ResultWithQueryId<MaterializedResult> queryResult)
@@ -7054,6 +7067,41 @@ public class TestHiveIntegrationSmokeTest
         {
             this.type = requireNonNull(type, "type is null");
             this.estimate = requireNonNull(estimate, "estimate is null");
+        }
+    }
+
+    private static class ExponentialSleeper
+    {
+        private Duration nextSleepTime;
+        private final Duration maxSleepTime;
+        private final Duration minSleepIncrement;
+        private final double sleepIncrementFactor;
+
+        ExponentialSleeper(Duration minSleepTime, Duration maxSleepTime, Duration minSleepIncrement, double sleepIncrementFactor)
+        {
+            this.nextSleepTime = minSleepTime;
+            this.maxSleepTime = maxSleepTime;
+            this.minSleepIncrement = minSleepIncrement;
+            this.sleepIncrementFactor = sleepIncrementFactor;
+        }
+
+        public void sleep()
+        {
+            try {
+                Thread.sleep(nextSleepTime.toMillis());
+                long incrementMillis = (long) (nextSleepTime.toMillis() * sleepIncrementFactor - nextSleepTime.toMillis());
+                if (incrementMillis < minSleepIncrement.toMillis()) {
+                    incrementMillis = minSleepIncrement.toMillis();
+                }
+                nextSleepTime = new Duration(nextSleepTime.toMillis() + incrementMillis, MILLISECONDS);
+                if (nextSleepTime.compareTo(maxSleepTime) > 0) {
+                    nextSleepTime = maxSleepTime;
+                }
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
         }
     }
 }
