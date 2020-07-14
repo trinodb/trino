@@ -297,6 +297,8 @@ public class TestPostgreSqlIntegrationSmokeTest
 
         assertAggregationPushedDown("SELECT count(*) FROM nation");
         assertAggregationPushedDown("SELECT count(nationkey) FROM nation");
+        assertAggregationPushedDown("SELECT count(1) FROM nation");
+        assertAggregationPushedDown("SELECT count() FROM nation");
         assertAggregationPushedDown("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey");
         assertAggregationPushedDown("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey");
         assertAggregationPushedDown("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey");
