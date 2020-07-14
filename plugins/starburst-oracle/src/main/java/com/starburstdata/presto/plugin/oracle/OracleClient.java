@@ -506,16 +506,12 @@ public class OracleClient
 
     private static WriteMapping oracleBooleanWriteMapping()
     {
-        return WriteMapping.booleanMapping("number(1)", (statement, index, value) -> {
-            statement.setInt(index, value ? 1 : 0);
-        });
+        return WriteMapping.booleanMapping("number(1)", (statement, index, value) -> statement.setInt(index, value ? 1 : 0));
     }
 
     private SliceWriteFunction oracleCharWriteFunction(CharType charType)
     {
-        return (statement, index, value) -> {
-            statement.setString(index, Chars.padSpaces(value, charType).toStringUtf8());
-        };
+        return (statement, index, value) -> statement.setString(index, Chars.padSpaces(value, charType).toStringUtf8());
     }
 
     public static ColumnMapping oracleTimestampColumnMapping(ConnectorSession session)
@@ -587,9 +583,7 @@ public class OracleClient
                 statement.setObject(index, new oracle.sql.TIMESTAMP(new Timestamp(dateTimeAsUtcMillis), Calendar.getInstance(TimeZone.getTimeZone("UTC"))));
             };
         }
-        return (statement, index, utcMillis) -> {
-            statement.setObject(index, new oracle.sql.TIMESTAMP(new Timestamp(utcMillis), Calendar.getInstance(TimeZone.getTimeZone("UTC"))));
-        };
+        return (statement, index, utcMillis) -> statement.setObject(index, new oracle.sql.TIMESTAMP(new Timestamp(utcMillis), Calendar.getInstance(TimeZone.getTimeZone("UTC"))));
     }
 
     @Override
