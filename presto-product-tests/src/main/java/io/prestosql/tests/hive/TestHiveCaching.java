@@ -121,8 +121,11 @@ public class TestHiveCaching
 
     private QueryResult getCacheStats()
     {
-        return query("SELECT sum(cachedreads) as cachedreads, sum(remotereads) as remotereads, sum(nonlocalreads) as nonlocalreads FROM " +
-                "jmx.current.\"rubix:catalog=hive,name=stats\"");
+        return query("SELECT " +
+                "  sum(Cached_rrc_requests) as cachedreads, " +
+                "  sum(Remote_rrc_requests + Direct_rrc_requests) as remotereads, " +
+                "  sum(Nonlocal_rrc_requests) as nonlocalreads " +
+                "FROM jmx.current.\"rubix:catalog=hive,type=detailed,name=stats\";");
     }
 
     private long getCachedReads(QueryResult queryResult)

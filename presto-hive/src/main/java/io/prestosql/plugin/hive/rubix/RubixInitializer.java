@@ -243,7 +243,7 @@ public class RubixInitializer
         BookKeeper bookKeeper = bookKeeperServer.startServer(configuration, metricRegistry);
         LocalDataTransferServer.startServer(configuration, metricRegistry, bookKeeper);
 
-        CachingFileSystem.setLocalBookKeeper(bookKeeper, "catalog=" + catalogName);
+        CachingFileSystem.setLocalBookKeeper(configuration, bookKeeper, "catalog=" + catalogName);
         PrestoClusterManager.setNodeManager(nodeManager);
         log.info("Rubix initialized successfully");
         cacheReady = true;
@@ -253,7 +253,7 @@ public class RubixInitializer
     {
         Configuration configuration = getRubixServerConfiguration();
         new BookKeeperServer().setupServer(configuration, new MetricRegistry());
-        CachingFileSystem.setLocalBookKeeper(new DummyBookKeeper(), "catalog=" + catalogName);
+        CachingFileSystem.setLocalBookKeeper(configuration, new DummyBookKeeper(), "catalog=" + catalogName);
         PrestoClusterManager.setNodeManager(nodeManager);
     }
 

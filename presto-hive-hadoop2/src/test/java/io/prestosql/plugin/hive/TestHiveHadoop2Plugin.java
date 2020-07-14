@@ -15,11 +15,14 @@ package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import com.qubole.rubix.core.CachingFileSystem;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.testing.TestingConnectorContext;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -47,6 +50,14 @@ public class TestHiveHadoop2Plugin
             throws IOException
     {
         deleteRecursively(tempDirectory, ALLOW_INSECURE);
+    }
+
+    @AfterMethod
+    @BeforeMethod
+    public void deinitializeRubix()
+    {
+        // revert static rubix initialization done by other tests
+        CachingFileSystem.deinitialize();
     }
 
     @Test
