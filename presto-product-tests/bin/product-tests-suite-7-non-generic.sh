@@ -33,7 +33,7 @@ presto-product-tests-launcher/bin/run-launcher test run \
 # Environment not set up on CDH. (TODO run on HDP 2.6 and HDP 3.1)
 presto-product-tests-launcher/bin/run-launcher test run \
     --environment singlenode-kerberos-hdfs-impersonation-cross-realm \
-    -- -g storage_formats,cli,hdfs_impersonation -x iceberg \
+    -- -g storage_formats,cli,hdfs_impersonation \
     || suite_exit_code=1
 
 presto-product-tests-launcher/bin/run-launcher test run \
