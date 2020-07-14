@@ -15,7 +15,7 @@ package io.prestosql.spi.connector;
 
 import io.prestosql.spi.type.VarcharType;
 
-public class ColumnTestingUtil
+public final class ColumnTestingUtil
 {
     private ColumnTestingUtil() {}
 
