@@ -54,6 +54,7 @@ import org.apache.hadoop.fs.Path;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -129,6 +130,14 @@ public class TestRubixCaching
                 "test");
 
         nonCachingFileSystem = getNonCachingFileSystem();
+    }
+
+    @AfterMethod
+    @BeforeMethod
+    public void deinitializeRubix()
+    {
+        // revert static rubix initialization done by other tests
+        CachingFileSystem.deinitialize();
     }
 
     private FileSystem getNonCachingFileSystem()
@@ -245,8 +254,6 @@ public class TestRubixCaching
             });
             closer.register(() -> {
                 if (cachingFileSystem != null) {
-                    // reset cluster manager
-                    unwrapCachingFileSystem(cachingFileSystem).setClusterManager(null);
                     cachingFileSystem.close();
                     cachingFileSystem = null;
                 }
@@ -555,7 +562,9 @@ public class TestRubixCaching
     private long getRemoteReadsCount()
     {
         try {
-            return (long) BEAN_SERVER.getAttribute(new ObjectName("rubix:name=stats,catalog=catalog"), "RemoteReads");
+            long directRemoteReads = (long) BEAN_SERVER.getAttribute(new ObjectName("rubix:name=stats,type=detailed,catalog=catalog"), "Direct_rrc_requests");
+            long remoteReads = (long) BEAN_SERVER.getAttribute(new ObjectName("rubix:name=stats,type=detailed,catalog=catalog"), "Remote_rrc_requests");
+            return directRemoteReads + remoteReads;
         }
         catch (Exception exception) {
             throw new RuntimeException(exception);
@@ -565,7 +574,7 @@ public class TestRubixCaching
     private long getCachedReadsCount()
     {
         try {
-            return (long) BEAN_SERVER.getAttribute(new ObjectName("rubix:name=stats,catalog=catalog"), "CachedReads");
+            return (long) BEAN_SERVER.getAttribute(new ObjectName("rubix:name=stats,type=detailed,catalog=catalog"), "Cached_rrc_requests");
         }
         catch (Exception exception) {
             throw new RuntimeException(exception);
