@@ -27,14 +27,12 @@ import io.prestosql.metadata.OperatorNotFoundException;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.Signature;
-import io.prestosql.metadata.TableHandle;
 import io.prestosql.operator.scalar.FormatFunction;
 import io.prestosql.security.AccessControl;
 import io.prestosql.security.SecurityContext;
 import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.PrestoWarning;
-import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalParseResult;
@@ -204,7 +202,7 @@ public class ExpressionAnalyzer
     // For lambda argument references, maps each QualifiedNameReference to the referenced LambdaArgumentDeclaration
     private final Map<NodeRef<Identifier>, LambdaArgumentDeclaration> lambdaArgumentReferences = new LinkedHashMap<>();
     private final Set<NodeRef<FunctionCall>> windowFunctions = new LinkedHashSet<>();
-    private final Multimap<QualifiedObjectName, ColumnMetadata> tableColumnReferences = HashMultimap.create();
+    private final Multimap<QualifiedObjectName, String> tableColumnReferences = HashMultimap.create();
 
     // Track referenced fields from source relation node
     private final Multimap<NodeRef<Node>, Field> referencedFields = HashMultimap.create();
@@ -324,7 +322,7 @@ public class ExpressionAnalyzer
         return unmodifiableSet(windowFunctions);
     }
 
-    public Multimap<QualifiedObjectName, ColumnMetadata> getTableColumnReferences()
+    public Multimap<QualifiedObjectName, String> getTableColumnReferences()
     {
         return tableColumnReferences;
     }
@@ -450,10 +448,7 @@ public class ExpressionAnalyzer
             }
 
             if (field.getOriginTable().isPresent() && field.getOriginColumnName().isPresent()) {
-                TableHandle tableHandle = metadata.getTableHandle(session, field.getOriginTable().get()).orElseThrow();
-                ColumnMetadata column = metadata.getColumnMetadata(session, tableHandle,
-                        metadata.getColumnHandles(session, tableHandle).get(field.getOriginColumnName().get()));
-                tableColumnReferences.put(field.getOriginTable().get(), column);
+                tableColumnReferences.put(field.getOriginTable().get(), field.getOriginColumnName().get());
             }
 
             fieldId.getRelationId()

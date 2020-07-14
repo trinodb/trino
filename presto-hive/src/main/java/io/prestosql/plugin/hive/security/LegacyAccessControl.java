@@ -208,7 +208,7 @@ public class LegacyAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumnsWithMetadata(ConnectorSecurityContext context, SchemaTableName tableName, Set<ColumnMetadata> columns)
     {
     }
 
@@ -238,7 +238,7 @@ public class LegacyAccessControl
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanCreateViewWithSelectFromColumnsWithMetadata(ConnectorSecurityContext context, SchemaTableName tableName, Set<ColumnMetadata> columns)
     {
     }
 

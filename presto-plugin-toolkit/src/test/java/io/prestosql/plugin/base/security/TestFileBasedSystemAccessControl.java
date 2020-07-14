@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
-import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.Identity;
 import io.prestosql.spi.security.PrestoPrincipal;
@@ -27,7 +26,6 @@ import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.SystemAccessControl;
 import io.prestosql.spi.security.SystemSecurityContext;
-import io.prestosql.spi.type.VarcharType;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.testng.annotations.Test;
 
@@ -585,6 +583,4 @@ public class TestFileBasedSystemAccessControl
                 .isInstanceOf(AccessDeniedException.class)
                 .hasMessageMatching(expectedMessage);
     }
-
-
 }

@@ -254,10 +254,10 @@ public class ClassLoaderSafeConnectorAccessControl
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanCreateViewWithSelectFromColumnsWithMetadata(ConnectorSecurityContext context, SchemaTableName tableName, Set<ColumnMetadata> columns)
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            delegate.checkCanCreateViewWithSelectFromColumns(context, tableName, columnNames);
+            delegate.checkCanCreateViewWithSelectFromColumnsWithMetadata(context, tableName, columns);
         }
     }
 

@@ -390,6 +390,7 @@ public interface SystemAccessControl
     /**
      * @deprecated replaced with {@link #checkCanSelectFromColumnsWithMetadata(SystemSecurityContext, CatalogSchemaTableName, Set)}
      */
+    @Deprecated
     default void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
         denySelectColumns(table.toString(), columns);
@@ -458,6 +459,7 @@ public interface SystemAccessControl
     /**
      * @deprecated replaced with {@link #checkCanCreateViewWithSelectFromColumnsWithMetadata(SystemSecurityContext, CatalogSchemaTableName, Set)}
      */
+    @Deprecated
     default void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
     {
         denyCreateViewWithSelect(table.toString(), context.getIdentity());

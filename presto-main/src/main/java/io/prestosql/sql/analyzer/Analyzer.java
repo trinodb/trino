@@ -18,7 +18,9 @@ import com.google.common.collect.Iterables;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.TableHandle;
 import io.prestosql.security.AccessControl;
+import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.rewrite.StatementRewrite;
 import io.prestosql.sql.tree.Expression;
@@ -38,6 +40,7 @@ import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractExpressions;
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractWindowFunctions;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toSet;
 
 public class Analyzer
 {
@@ -84,12 +87,22 @@ public class Analyzer
 
         // check column access permissions for each table
         analysis.getTableColumnReferences().forEach((accessControlInfo, tableColumnReferences) ->
-                tableColumnReferences.forEach((tableName, columns) ->
-                        accessControlInfo.getAccessControl().checkCanSelectFromColumns(
-                                accessControlInfo.getSecurityContext(session.getRequiredTransactionId(), session.getQueryId()),
-                                tableName,
-                                columns)));
+                tableColumnReferences.forEach((tableName, columns) -> {
+                    // TODO why getTableHandle sometimes gives empty()? (eg in TestAnalyzer.testExistingRecursiveView)
+                    metadata.getTableHandle(session, tableName).ifPresent(tableHandle ->
+                            accessControlInfo.getAccessControl().checkCanSelectFromColumns(
+                                    accessControlInfo.getSecurityContext(session.getRequiredTransactionId(), session.getQueryId()),
+                                    tableName,
+                                    columns.stream().flatMap(columnName -> getColumnMetadata(tableHandle, columnName).stream()).collect(toSet())));
+                }));
         return analysis;
+    }
+
+    private Optional<ColumnMetadata> getColumnMetadata(TableHandle tableHandle, String columnName)
+    {
+        // TODO why sometimes .get(columnName) gives null? (eg in TestRowFilter.testView)
+        return Optional.ofNullable(metadata.getColumnHandles(session, tableHandle).get(columnName))
+                .map(columnHandle -> metadata.getColumnMetadata(session, tableHandle, columnHandle));
     }
 
     static void verifyNoAggregateWindowOrGroupingFunctions(Metadata metadata, Expression predicate, String clause)

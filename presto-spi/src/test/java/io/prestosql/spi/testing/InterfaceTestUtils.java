@@ -47,6 +47,10 @@ public final class InterfaceTestUtils
             if (method.getDeclaringClass() == Object.class) {
                 continue;
             }
+            if (method.getAnnotation(Deprecated.class) != null) {
+                // deprecated methods in interfaces exist for backwards compatibility only; they don't have to be implemented
+                continue;
+            }
             try {
                 Method override = clazz.getDeclaredMethod(method.getName(), method.getParameterTypes());
                 if (!method.getReturnType().isAssignableFrom(override.getReturnType())) {
@@ -67,6 +71,10 @@ public final class InterfaceTestUtils
     public static <I, C extends I> void assertProperForwardingMethodsAreCalled(Class<I> iface, Function<I, C> forwardingInstanceFactory, Set<Method> exclusions)
     {
         for (Method actualMethod : difference(ImmutableSet.copyOf(iface.getDeclaredMethods()), exclusions)) {
+            if (actualMethod.getAnnotation(Deprecated.class) != null) {
+                // deprecated methods in interfaces exist for backwards compatibility only; they don't have to be forwarded
+                continue;
+            }
             Object[] actualArguments = new Object[actualMethod.getParameterCount()];
             for (int i = 0; i < actualArguments.length; i++) {
                 if (actualMethod.getParameterTypes()[i].isPrimitive()) {

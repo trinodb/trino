@@ -30,7 +30,6 @@ import io.prestosql.security.AccessControl;
 import io.prestosql.security.SecurityContext;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.eventlistener.ColumnInfo;
 import io.prestosql.spi.eventlistener.RoutineInfo;
@@ -111,7 +110,7 @@ public class Analysis
     private final Map<NodeRef<Expression>, ResolvedField> columnReferences = new LinkedHashMap<>();
 
     // a map of users to the columns per table that they access
-    private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<ColumnMetadata>>> tableColumnReferences = new LinkedHashMap<>();
+    private final Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> tableColumnReferences = new LinkedHashMap<>();
 
     // Track referenced fields from source relation node
     private final Multimap<NodeRef<? extends Node>, Field> referencedFields = HashMultimap.create();
@@ -683,10 +682,10 @@ public class Analysis
         return unnestAnalysis.get(NodeRef.of(node));
     }
 
-    public void addTableColumnReferences(AccessControl accessControl, Identity identity, Multimap<QualifiedObjectName, ColumnMetadata> tableColumnMap)
+    public void addTableColumnReferences(AccessControl accessControl, Identity identity, Multimap<QualifiedObjectName, String> tableColumnMap)
     {
         AccessControlInfo accessControlInfo = new AccessControlInfo(accessControl, identity);
-        Map<QualifiedObjectName, Set<ColumnMetadata>> references = tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>());
+        Map<QualifiedObjectName, Set<String>> references = tableColumnReferences.computeIfAbsent(accessControlInfo, k -> new LinkedHashMap<>());
         tableColumnMap.asMap()
                 .forEach((key, value) -> references.computeIfAbsent(key, k -> new HashSet<>()).addAll(value));
     }
@@ -702,7 +701,7 @@ public class Analysis
         referencedFields.putAll(references);
     }
 
-    public Map<AccessControlInfo, Map<QualifiedObjectName, Set<ColumnMetadata>>> getTableColumnReferences()
+    public Map<AccessControlInfo, Map<QualifiedObjectName, Set<String>>> getTableColumnReferences()
     {
         return tableColumnReferences;
     }

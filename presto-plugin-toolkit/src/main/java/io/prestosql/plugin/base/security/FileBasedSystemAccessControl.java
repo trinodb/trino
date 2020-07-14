@@ -580,7 +580,7 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
+    public void checkCanSelectFromColumnsWithMetadata(SystemSecurityContext context, CatalogSchemaTableName table, Set<ColumnMetadata> columns)
     {
         if (!checkTablePermission(context, table.getSchemaTableName(), SELECT)) {
             denySelectTable(table.getSchemaTableName().getTableName());
@@ -636,7 +636,7 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
+    public void checkCanCreateViewWithSelectFromColumnsWithMetadata(SystemSecurityContext context, CatalogSchemaTableName table, Set<ColumnMetadata> columns)
     {
         if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
             denyCreateViewWithSelect(table.toString(), context.getIdentity());

@@ -274,6 +274,7 @@ public interface ConnectorAccessControl
     /**
      * @deprecated replaced with {@link #checkCanSelectFromColumnsWithMetadata(ConnectorSecurityContext, SchemaTableName, Set)}
      */
+    @Deprecated
     default void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         denySelectColumns(tableName.toString(), columnNames);
@@ -342,6 +343,7 @@ public interface ConnectorAccessControl
     /**
      * @deprecated replaced with {@link #checkCanSelectFromColumnsWithMetadata(ConnectorSecurityContext, SchemaTableName, Set)}
      */
+    @Deprecated
     default void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
     {
         denyCreateViewWithSelect(tableName.toString(), context.getIdentity());

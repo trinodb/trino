@@ -28,7 +28,6 @@ import java.security.Principal;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentColumn;

@@ -135,7 +135,7 @@ public class ReadOnlyAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanSelectFromColumnsWithMetadata(ConnectorSecurityContext context, SchemaTableName tableName, Set<ColumnMetadata> columns)
     {
         // allow
     }
@@ -171,7 +171,7 @@ public class ReadOnlyAccessControl
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(ConnectorSecurityContext context, SchemaTableName tableName, Set<String> columnNames)
+    public void checkCanCreateViewWithSelectFromColumnsWithMetadata(ConnectorSecurityContext context, SchemaTableName tableName, Set<ColumnMetadata> columns)
     {
         // allow
     }

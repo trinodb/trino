@@ -88,7 +88,7 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
-    public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
+    public void checkCanSelectFromColumnsWithMetadata(SystemSecurityContext context, CatalogSchemaTableName table, Set<ColumnMetadata> columns)
     {
     }
 
@@ -98,7 +98,7 @@ public class ReadOnlySystemAccessControl
     }
 
     @Override
-    public void checkCanCreateViewWithSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
+    public void checkCanCreateViewWithSelectFromColumnsWithMetadata(SystemSecurityContext context, CatalogSchemaTableName table, Set<ColumnMetadata> columns)
     {
     }
 

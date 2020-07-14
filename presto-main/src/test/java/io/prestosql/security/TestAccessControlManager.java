@@ -33,6 +33,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.CatalogSchemaName;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
+import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorAccessControl;
 import io.prestosql.spi.connector.ConnectorSecurityContext;
@@ -543,7 +544,7 @@ public class TestAccessControlManager
                 }
 
                 @Override
-                public void checkCanSelectFromColumns(SystemSecurityContext context, CatalogSchemaTableName table, Set<String> columns)
+                public void checkCanSelectFromColumnsWithMetadata(SystemSecurityContext context, CatalogSchemaTableName table, Set<ColumnMetadata> columns)
                 {
                     if (table.getCatalogName().equals("secured_catalog")) {
                         denySelectTable(table.toString());
