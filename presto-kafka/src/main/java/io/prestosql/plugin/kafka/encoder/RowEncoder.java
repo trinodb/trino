@@ -15,7 +15,10 @@ package io.prestosql.plugin.kafka.encoder;
 
 import io.prestosql.spi.block.Block;
 
+import java.io.Closeable;
+
 public interface RowEncoder
+        extends Closeable
 {
     /**
      * Adds the value from the given block/position to the row being encoded
