@@ -48,7 +48,7 @@ import static java.util.Objects.requireNonNull;
 
 /**
  * Manages the Kafka connector specific metadata information. The Connector provides an additional set of columns
- * for each table that are created as hidden columns. See {@link KafkaInternalFieldDescription} for a list
+ * for each table that are created as hidden columns. See {@link KafkaInternalFieldManager} for a list
  * of per-topic additional columns.
  */
 public class KafkaMetadata
@@ -56,15 +56,18 @@ public class KafkaMetadata
 {
     private final boolean hideInternalColumns;
     private final Set<TableDescriptionSupplier> tableDescriptions;
+    private final KafkaInternalFieldManager kafkaInternalFieldManager;
 
     @Inject
     public KafkaMetadata(
             KafkaConfig kafkaConfig,
-            Set<TableDescriptionSupplier> tableDescriptions)
+            Set<TableDescriptionSupplier> tableDescriptions,
+            KafkaInternalFieldManager kafkaInternalFieldManager)
     {
         requireNonNull(kafkaConfig, "kafkaConfig is null");
         this.hideInternalColumns = kafkaConfig.isHideInternalColumns();
         this.tableDescriptions = requireNonNull(tableDescriptions, "tableDescriptions is null");
+        this.kafkaInternalFieldManager = requireNonNull(kafkaInternalFieldManager, "kafkaInternalFieldDescription is null");
     }
 
     @Override
@@ -149,8 +152,8 @@ public class KafkaMetadata
             }
         });
 
-        for (KafkaInternalFieldDescription kafkaInternalFieldDescription : KafkaInternalFieldDescription.values()) {
-            columnHandles.put(kafkaInternalFieldDescription.getColumnName(), kafkaInternalFieldDescription.getColumnHandle(index.getAndIncrement(), hideInternalColumns));
+        for (KafkaInternalFieldManager.InternalField kafkaInternalField : kafkaInternalFieldManager.getInternalFields().values()) {
+            columnHandles.put(kafkaInternalField.getColumnName(), kafkaInternalField.getColumnHandle(index.getAndIncrement(), hideInternalColumns));
         }
 
         return columnHandles.build();
@@ -213,7 +216,7 @@ public class KafkaMetadata
             }
         });
 
-        for (KafkaInternalFieldDescription fieldDescription : KafkaInternalFieldDescription.values()) {
+        for (KafkaInternalFieldManager.InternalField fieldDescription : kafkaInternalFieldManager.getInternalFields().values()) {
             builder.add(fieldDescription.getColumnMetadata(hideInternalColumns));
         }
 

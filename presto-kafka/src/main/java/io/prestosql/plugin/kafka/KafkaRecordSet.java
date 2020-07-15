@@ -37,6 +37,14 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.decoder.FieldValueProviders.booleanValueProvider;
 import static io.prestosql.decoder.FieldValueProviders.bytesValueProvider;
 import static io.prestosql.decoder.FieldValueProviders.longValueProvider;
+import static io.prestosql.plugin.kafka.KafkaInternalFieldManager.KEY_CORRUPT_FIELD;
+import static io.prestosql.plugin.kafka.KafkaInternalFieldManager.KEY_FIELD;
+import static io.prestosql.plugin.kafka.KafkaInternalFieldManager.KEY_LENGTH_FIELD;
+import static io.prestosql.plugin.kafka.KafkaInternalFieldManager.MESSAGE_CORRUPT_FIELD;
+import static io.prestosql.plugin.kafka.KafkaInternalFieldManager.MESSAGE_FIELD;
+import static io.prestosql.plugin.kafka.KafkaInternalFieldManager.MESSAGE_LENGTH_FIELD;
+import static io.prestosql.plugin.kafka.KafkaInternalFieldManager.PARTITION_ID_FIELD;
+import static io.prestosql.plugin.kafka.KafkaInternalFieldManager.PARTITION_OFFSET_FIELD;
 import static java.lang.Math.max;
 import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
@@ -170,8 +178,7 @@ public class KafkaRecordSet
 
             for (DecoderColumnHandle columnHandle : columnHandles) {
                 if (columnHandle.isInternal()) {
-                    KafkaInternalFieldDescription fieldDescription = KafkaInternalFieldDescription.forColumnName(columnHandle.getName());
-                    switch (fieldDescription) {
+                    switch (columnHandle.getName()) {
                         case PARTITION_OFFSET_FIELD:
                             currentRowValuesMap.put(columnHandle, longValueProvider(message.offset()));
                             break;
@@ -197,7 +204,7 @@ public class KafkaRecordSet
                             currentRowValuesMap.put(columnHandle, longValueProvider(message.partition()));
                             break;
                         default:
-                            throw new IllegalArgumentException("unknown internal field " + fieldDescription);
+                            throw new IllegalArgumentException("unknown internal field " + columnHandle.getName());
                     }
                 }
             }
