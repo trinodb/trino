@@ -55,6 +55,7 @@
         <dep.tempto.version>179</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.4.0</dep.errorprone.version>
+        <dep.joda.version>2.10.6</dep.joda.version>
         <rubix.version>0.3.12</rubix.version>
 
         <!--
