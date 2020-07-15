@@ -64,8 +64,10 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_TOO_MANY_OPEN_PARTITIONS;
 import static io.prestosql.plugin.iceberg.PartitionTransforms.getColumnTransform;
+import static io.prestosql.plugin.iceberg.TypeConverter.TIME_MICROS;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.Decimals.readBigDecimal;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -360,6 +362,9 @@ public class IcebergPageSink
         }
         if (type instanceof DoubleType) {
             return type.getDouble(block, position);
+        }
+        if (type.equals(TIME_MICROS)) {
+            return type.getLong(block, position) / PICOSECONDS_PER_MICROSECOND;
         }
         if (type instanceof TimestampType) {
             return MILLISECONDS.toMicros(type.getLong(block, position));
