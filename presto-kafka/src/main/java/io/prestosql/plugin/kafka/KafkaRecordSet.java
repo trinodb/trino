@@ -13,20 +13,31 @@
  */
 package io.prestosql.plugin.kafka;
 
+import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Multimap;
 import io.airlift.slice.Slice;
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.FieldValueProvider;
 import io.prestosql.decoder.RowDecoder;
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.MapBlockBuilder;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordSet;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarbinaryType;
+import io.prestosql.spi.type.VarcharType;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.header.Header;
+import org.apache.kafka.common.header.Headers;
 
+import java.lang.invoke.MethodHandles;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -37,6 +48,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.decoder.FieldValueProviders.booleanValueProvider;
 import static io.prestosql.decoder.FieldValueProviders.bytesValueProvider;
 import static io.prestosql.decoder.FieldValueProviders.longValueProvider;
+import static io.prestosql.plugin.kafka.KafkaInternalFieldManager.HEADERS_FIELD;
 import static io.prestosql.plugin.kafka.KafkaInternalFieldManager.KEY_CORRUPT_FIELD;
 import static io.prestosql.plugin.kafka.KafkaInternalFieldManager.KEY_FIELD;
 import static io.prestosql.plugin.kafka.KafkaInternalFieldManager.KEY_LENGTH_FIELD;
@@ -45,7 +57,9 @@ import static io.prestosql.plugin.kafka.KafkaInternalFieldManager.MESSAGE_FIELD;
 import static io.prestosql.plugin.kafka.KafkaInternalFieldManager.MESSAGE_LENGTH_FIELD;
 import static io.prestosql.plugin.kafka.KafkaInternalFieldManager.PARTITION_ID_FIELD;
 import static io.prestosql.plugin.kafka.KafkaInternalFieldManager.PARTITION_OFFSET_FIELD;
+import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.max;
+import static java.lang.invoke.MethodType.methodType;
 import static java.util.Collections.emptyIterator;
 import static java.util.Objects.requireNonNull;
 
@@ -54,6 +68,7 @@ public class KafkaRecordSet
 {
     private static final byte[] EMPTY_BYTE_ARRAY = new byte[0];
     private static final int CONSUMER_POLL_TIMEOUT = 100;
+    private static final FieldValueProvider EMPTY_HEADERS_FIELD_PROVIDER = createEmptyHeadersFieldProvider();
 
     private final KafkaSplit split;
 
@@ -197,6 +212,9 @@ public class KafkaRecordSet
                         case KEY_CORRUPT_FIELD:
                             currentRowValuesMap.put(columnHandle, booleanValueProvider(decodedKey.isEmpty()));
                             break;
+                        case HEADERS_FIELD:
+                            currentRowValuesMap.put(columnHandle, headerMapValueProvider((MapType) columnHandle.getType(), message.headers()));
+                            break;
                         case MESSAGE_CORRUPT_FIELD:
                             currentRowValuesMap.put(columnHandle, booleanValueProvider(decodedValue.isEmpty()));
                             break;
@@ -275,5 +293,76 @@ public class KafkaRecordSet
         {
             kafkaConsumer.close();
         }
+    }
+
+    private static FieldValueProvider createEmptyHeadersFieldProvider()
+    {
+        MapType mapType = new MapType(VarcharType.VARCHAR, new ArrayType(VarbinaryType.VARBINARY),
+                MethodHandles.empty(methodType(Boolean.class, Block.class, int.class, long.class)),
+                MethodHandles.empty(methodType(Boolean.class, Block.class, int.class, Block.class, int.class)),
+                MethodHandles.empty(methodType(long.class, Object.class)),
+                MethodHandles.empty(methodType(long.class, Object.class)));
+        BlockBuilder mapBlockBuilder = new MapBlockBuilder(mapType, null, 0);
+        mapBlockBuilder.beginBlockEntry();
+        mapBlockBuilder.closeEntry();
+        Block emptyMapBlock = mapType.getObject(mapBlockBuilder, 0);
+        return new FieldValueProvider() {
+            @Override
+            public boolean isNull()
+            {
+                return false;
+            }
+
+            @Override
+            public Block getBlock()
+            {
+                return emptyMapBlock;
+            }
+        };
+    }
+
+    public static FieldValueProvider headerMapValueProvider(MapType varcharMapType, Headers headers)
+    {
+        if (!headers.iterator().hasNext()) {
+            return EMPTY_HEADERS_FIELD_PROVIDER;
+        }
+
+        Type keyType = varcharMapType.getTypeParameters().get(0);
+        Type valueArrayType = varcharMapType.getTypeParameters().get(1);
+        Type valueType = valueArrayType.getTypeParameters().get(0);
+
+        BlockBuilder mapBlockBuilder = varcharMapType.createBlockBuilder(null, 1);
+        BlockBuilder builder = mapBlockBuilder.beginBlockEntry();
+
+        // Group by keys and collect values as array.
+        Multimap<String, byte[]> headerMap = ArrayListMultimap.create();
+        for (Header header : headers) {
+            headerMap.put(header.key(), header.value());
+        }
+
+        for (String headerKey : headerMap.keySet()) {
+            writeNativeValue(keyType, builder, headerKey);
+            BlockBuilder arrayBuilder = builder.beginBlockEntry();
+            for (byte[] value : headerMap.get(headerKey)) {
+                writeNativeValue(valueType, arrayBuilder, value);
+            }
+            builder.closeEntry();
+        }
+
+        mapBlockBuilder.closeEntry();
+
+        return new FieldValueProvider() {
+            @Override
+            public boolean isNull()
+            {
+                return false;
+            }
+
+            @Override
+            public Block getBlock()
+            {
+                return varcharMapType.getObject(mapBlockBuilder, 0);
+            }
+        };
     }
 }
