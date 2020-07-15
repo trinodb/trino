@@ -216,6 +216,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 
+@Deprecated
 public class LocalQueryRunner
         implements QueryRunner
 {
