@@ -4561,6 +4561,24 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testParquetNaNStatistics()
+    {
+        String tableName = "test_parquet_nan_statistics";
+
+        assertUpdate("CREATE TABLE " + tableName + " (c_double DOUBLE, c_real REAL, c_string VARCHAR) WITH (format = 'PARQUET')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (nan(), cast(nan() as REAL), 'all nan')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (nan(), null, 'null real'), (null, nan(), 'null double')", 2);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (nan(), 4.2, '4.2 real'), (4.2, nan(), '4.2 double')", 2);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (0.1, 0.1, 'both 0.1')", 1);
+
+        // These assertions are intended to make sure we are handling NaN values in Parquet statistics,
+        // however Parquet file stats created in Presto don't include such values; the test is here mainly to prevent
+        // regressions, should a new writer start recording such stats
+        assertQuery("SELECT c_string FROM " + tableName + " WHERE c_double > 4", "VALUES ('4.2 double')");
+        assertQuery("SELECT c_string FROM " + tableName + " WHERE c_real > 4", "VALUES ('4.2 real')");
+    }
+
+    @Test
     public void testMismatchedBucketing()
     {
         try {
