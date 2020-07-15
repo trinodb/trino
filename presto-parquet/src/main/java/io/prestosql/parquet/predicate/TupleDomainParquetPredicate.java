@@ -191,11 +191,13 @@ public class TupleDomainParquetPredicate
                 failWithCorruptionException(failOnCorruptedParquetStatistics, column, id, floatStatistics);
                 return Domain.create(ValueSet.all(type), hasNullValue);
             }
+            if (floatStatistics.genericGetMin().isNaN() || floatStatistics.genericGetMax().isNaN()) {
+                return Domain.create(ValueSet.all(type), hasNullValue);
+            }
 
             ParquetIntegerStatistics parquetStatistics = new ParquetIntegerStatistics(
                     (long) floatToRawIntBits(floatStatistics.getMin()),
                     (long) floatToRawIntBits(floatStatistics.getMax()));
-
             return createDomain(type, hasNullValue, parquetStatistics);
         }
 
@@ -205,6 +207,10 @@ public class TupleDomainParquetPredicate
                 failWithCorruptionException(failOnCorruptedParquetStatistics, column, id, doubleStatistics);
                 return Domain.create(ValueSet.all(type), hasNullValue);
             }
+            if (doubleStatistics.genericGetMin().isNaN() || doubleStatistics.genericGetMax().isNaN()) {
+                return Domain.create(ValueSet.all(type), hasNullValue);
+            }
+
             ParquetDoubleStatistics parquetDoubleStatistics = new ParquetDoubleStatistics(doubleStatistics.genericGetMin(), doubleStatistics.genericGetMax());
             return createDomain(type, hasNullValue, parquetDoubleStatistics);
         }
@@ -316,7 +322,11 @@ public class TupleDomainParquetPredicate
         if (type.equals(DOUBLE) && columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == PrimitiveTypeName.DOUBLE) {
             List<Domain> domains = new ArrayList<>();
             for (int i = 0; i < dictionarySize; i++) {
-                domains.add(Domain.singleValue(type, dictionary.decodeToDouble(i)));
+                double value = dictionary.decodeToDouble(i);
+                if (Double.isNaN(value)) {
+                    return Domain.all(type);
+                }
+                domains.add(Domain.singleValue(type, value));
             }
             domains.add(Domain.onlyNull(type));
             return Domain.union(domains);
@@ -325,7 +335,11 @@ public class TupleDomainParquetPredicate
         if (type.equals(DOUBLE) && columnDescriptor.getPrimitiveType().getPrimitiveTypeName() == PrimitiveTypeName.FLOAT) {
             List<Domain> domains = new ArrayList<>();
             for (int i = 0; i < dictionarySize; i++) {
-                domains.add(Domain.singleValue(type, (double) dictionary.decodeToFloat(i)));
+                float value = dictionary.decodeToFloat(i);
+                if (Float.isNaN(value)) {
+                    return Domain.all(type);
+                }
+                domains.add(Domain.singleValue(type, (double) value));
             }
             domains.add(Domain.onlyNull(type));
             return Domain.union(domains);
