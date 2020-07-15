@@ -86,6 +86,9 @@ public abstract class PrimitiveColumnReader
             case INT32:
                 return createDecimalColumnReader(descriptor).orElse(new IntColumnReader(descriptor));
             case INT64:
+                if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.TIME_MICROS) {
+                    return new TimeMicrosColumnReader(descriptor);
+                }
                 if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.TIMESTAMP_MICROS) {
                     return new TimestampMicrosColumnReader(descriptor);
                 }

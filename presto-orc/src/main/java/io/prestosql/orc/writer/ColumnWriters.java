@@ -26,10 +26,13 @@ import io.prestosql.orc.metadata.statistics.DoubleStatisticsBuilder;
 import io.prestosql.orc.metadata.statistics.IntegerStatisticsBuilder;
 import io.prestosql.orc.metadata.statistics.StringStatisticsBuilder;
 import io.prestosql.orc.metadata.statistics.TimestampStatisticsBuilder;
+import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.Type;
 
 import java.util.function.Supplier;
 
+import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.orc.metadata.OrcType.OrcTypeKind.LONG;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -48,6 +51,13 @@ public final class ColumnWriters
     {
         requireNonNull(type, "type is null");
         OrcType orcType = orcTypes.get(columnId);
+        if (type instanceof TimeType) {
+            TimeType timeType = (TimeType) type;
+            checkArgument(timeType.getPrecision() == 6, "%s not supported for ORC writer", type);
+            checkArgument(orcType.getOrcTypeKind() == LONG, "wrong ORC type %s for type %s", orcType, type);
+            checkArgument("TIME".equals(orcType.getAttributes().get("iceberg.long-type")), "wrong attributes %s for type %s", orcType.getAttributes(), type);
+            return new TimeColumnWriter(columnId, type, compression, bufferSize, () -> new IntegerStatisticsBuilder(bloomFilterBuilder.get()));
+        }
         switch (orcType.getOrcTypeKind()) {
             case BOOLEAN:
                 return new BooleanColumnWriter(columnId, type, compression, bufferSize);
