@@ -167,6 +167,23 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    public void testRegisterPartitionWithDefaultPartitionLocation()
+    {
+        createPartitionedTable(FIRST_TABLE);
+        dropPartition(FIRST_TABLE, "col", "a");
+        dropPartition(FIRST_TABLE, "col", "c");
+
+        assertThat(getTableCount(FIRST_TABLE)).isEqualTo(1L);
+        assertThat(getPartitionValues(FIRST_TABLE)).containsOnly("b");
+
+        // Re-register partition using it's default location
+        addPartition(FIRST_TABLE, "col", "c");
+
+        assertThat(getTableCount(FIRST_TABLE)).isEqualTo(2L);
+        assertThat(getPartitionValues(FIRST_TABLE)).containsOnly("b", "c");
+    }
+
+    @Test(groups = {HIVE_PARTITIONING, SMOKE})
     public void testRegisterPartition()
             throws URISyntaxException
     {
@@ -223,6 +240,16 @@ public class TestHivePartitionProcedures
                         "    partition_values => ARRAY['%s'],\n" +
                         "    location => '%s')",
                 "default", tableName, partitionCol, partition, location));
+    }
+
+    private QueryResult addPartition(String tableName, String partitionCol, String partition)
+    {
+        return query(format("CALL system.register_partition(\n" +
+                        "    schema_name => '%s',\n" +
+                        "    table_name => '%s',\n" +
+                        "    partition_columns => ARRAY['%s'],\n" +
+                        "    partition_values => ARRAY['%s'])",
+                "default", tableName, partitionCol, partition));
     }
 
     private void createDanglingLocationWithData(String path, String tableName)
