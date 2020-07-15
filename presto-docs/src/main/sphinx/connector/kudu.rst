@@ -64,6 +64,22 @@ replacing the properties as appropriate:
        ## Disable Kudu client's collection of statistics.
        #kudu.client.disable-statistics = false
 
+       #######################
+       ### Advanced Kudu Kerberos authentication configuration
+       #######################
+
+       ## Whether to enable kerberos authentication, default is false
+       #kudu.kerberos-auth.enabled=true
+
+       # whether to output kerberos debug information, default is false
+       #kudu.kerberos-auth.debug.enabled=true
+
+       # The Kerberos principal that Presto will use when connecting to Kudu
+       #kudu.kerberos-auth.principal=xxx
+
+       # Kudu client keytab location
+       #kudu.kerberos-auth.keytab=xxx.keytab
+
 
 Querying Data
 -------------
@@ -625,4 +641,3 @@ Known limitations
 -----------------
 
 -  Only lower case table and column names in Kudu are supported.
--  Using a secured Kudu cluster has not been tested.
