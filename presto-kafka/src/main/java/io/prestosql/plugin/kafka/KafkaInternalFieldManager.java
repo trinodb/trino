@@ -24,6 +24,10 @@ import io.prestosql.spi.type.TypeManager;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.prestosql.spi.type.TypeSignature.arrayType;
+import static io.prestosql.spi.type.TypeSignature.mapType;
+import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
@@ -53,6 +57,11 @@ public class KafkaInternalFieldManager
      * <tt>_message_length</tt> - length in bytes of the message.
      */
     public static final String MESSAGE_LENGTH_FIELD = "_message_length";
+
+    /**
+     * <tt>_headers</tt> - The header fields of the Kafka message. Key is a UTF-8 String and values an array of byte[].
+     */
+    public static final String HEADERS_FIELD = "_headers";
 
     /**
      * <tt>_key_corrupt</tt> - True if the row converter could not read the a key. May be null if the row converter does not set a value (e.g. the dummy row converter does not).
@@ -121,6 +130,8 @@ public class KafkaInternalFieldManager
     @Inject
     public KafkaInternalFieldManager(TypeManager typeManager)
     {
+        Type varcharMapType = typeManager.getType(mapType(VARCHAR.getTypeSignature(), arrayType(VARBINARY.getTypeSignature())));
+
         internalFields = new ImmutableMap.Builder<String, InternalField>()
                 .put(PARTITION_ID_FIELD, new InternalField(
                         PARTITION_ID_FIELD,
@@ -138,6 +149,10 @@ public class KafkaInternalFieldManager
                         MESSAGE_FIELD,
                         "Message text",
                         createUnboundedVarcharType()))
+                .put(HEADERS_FIELD, new InternalField(
+                        HEADERS_FIELD,
+                        "Headers of the message as map",
+                        varcharMapType))
                 .put(MESSAGE_LENGTH_FIELD, new InternalField(
                         MESSAGE_LENGTH_FIELD,
                         "Total number of message bytes",

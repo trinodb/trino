@@ -147,6 +147,7 @@ Column name             Type                            Description
 ``_message_corrupt``    BOOLEAN                         True if the decoder could not decode the message for this row. When true, data columns mapped from the message should be treated as invalid.
 ``_message``            VARCHAR                         Message bytes as an UTF-8 encoded string. This is only useful for a text topic.
 ``_message_length``     BIGINT                          Number of bytes in the message.
+``_headers``            map(VARCHAR, array(VARBINARY))  Headers of the message where values with the same key are grouped as array.
 ``_key_corrupt``        BOOLEAN                         True if the key decoder could not decode the key for this row. When true, data columns mapped from the key should be treated as invalid.
 ``_key``                VARCHAR                         Key bytes as an UTF-8 encoded string. This is only useful for textual keys.
 ``_key_length``         BIGINT                          Number of bytes in the key.
