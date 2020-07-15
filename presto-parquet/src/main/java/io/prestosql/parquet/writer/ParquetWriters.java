@@ -23,6 +23,7 @@ import io.prestosql.parquet.writer.valuewriter.DoubleValueWriter;
 import io.prestosql.parquet.writer.valuewriter.IntegerValueWriter;
 import io.prestosql.parquet.writer.valuewriter.PrimitiveValueWriter;
 import io.prestosql.parquet.writer.valuewriter.RealValueWriter;
+import io.prestosql.parquet.writer.valuewriter.TimeMicrosValueWriter;
 import io.prestosql.parquet.writer.valuewriter.TimestampValueWriter;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.CharType;
@@ -54,6 +55,7 @@ import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.parquet.schema.OriginalType.TIME_MICROS;
 
 class ParquetWriters
 {
@@ -154,6 +156,9 @@ class ParquetWriters
 
     private static PrimitiveValueWriter getValueWriter(ValuesWriter valuesWriter, io.prestosql.spi.type.Type type, PrimitiveType parquetType)
     {
+        if (parquetType.getOriginalType() != null && parquetType.getOriginalType() == TIME_MICROS) {
+            return new TimeMicrosValueWriter(valuesWriter, type, parquetType);
+        }
         if (BOOLEAN.equals(type)) {
             return new BooleanValueWriter(valuesWriter, parquetType);
         }

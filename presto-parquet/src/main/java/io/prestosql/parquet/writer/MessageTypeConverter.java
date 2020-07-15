@@ -145,6 +145,8 @@ class MessageTypeConverter
                 return ConvertedType.DECIMAL;
             case DATE:
                 return ConvertedType.DATE;
+            case TIME_MICROS:
+                return ConvertedType.TIME_MICROS;
             case TIME_MILLIS:
                 return ConvertedType.TIME_MILLIS;
             case TIMESTAMP_MILLIS:

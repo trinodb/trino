@@ -77,6 +77,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TimeType.createTimeType;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
@@ -93,6 +94,8 @@ public final class TypeConverter
 {
     public static final String ORC_ICEBERG_ID_KEY = "iceberg.id";
     public static final String ORC_ICEBERG_REQUIRED_KEY = "iceberg.required";
+    public static final String ICEBERG_LONG_TYPE = "iceberg.long-type";
+    public static final TimeType TIME_MICROS = createTimeType(6);
 
     private static final Map<Class<? extends Type>, org.apache.iceberg.types.Type> PRESTO_TO_ICEBERG = ImmutableMap.<Class<? extends Type>, org.apache.iceberg.types.Type>builder()
             .put(BooleanType.class, Types.BooleanType.get())
@@ -131,7 +134,7 @@ public final class TypeConverter
             case INTEGER:
                 return IntegerType.INTEGER;
             case TIME:
-                return TimeType.TIME;
+                return TIME_MICROS;
             case TIMESTAMP:
                 Types.TimestampType timestampType = (Types.TimestampType) type;
                 if (timestampType.shouldAdjustToUTC()) {
@@ -176,8 +179,14 @@ public final class TypeConverter
         if (type instanceof MapType) {
             return fromMap((MapType) type);
         }
+        if (type.equals(TIME_MICROS)) {
+            return Types.TimeType.get();
+        }
         if (type.equals(TIMESTAMP)) {
             return Types.TimestampType.withoutZone();
+        }
+        if (type instanceof TimeType) {
+            throw new PrestoException(NOT_SUPPORTED, format("Time precision (%s) not supported for Iceberg. Use \"time(6)\" instead.", ((TimeType) type).getPrecision()));
         }
         throw new PrestoException(NOT_SUPPORTED, "Type not supported for Iceberg: " + type.getDisplayName());
     }
@@ -261,6 +270,9 @@ public final class TypeConverter
         if (DATE.equals(type)) {
             return HIVE_DATE.getTypeInfo();
         }
+        if (TIME_MICROS.equals(type)) {
+            return HIVE_LONG.getTypeInfo();
+        }
         if (TIMESTAMP.equals(type)) {
             return HIVE_TIMESTAMP.getTypeInfo();
         }
@@ -323,7 +335,11 @@ public final class TypeConverter
             case DATE:
                 return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.DATE, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case TIME:
-                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.INT, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
+                attributes = ImmutableMap.<String, String>builder()
+                        .putAll(attributes)
+                        .put(ICEBERG_LONG_TYPE, "TIME")
+                        .build();
+                return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.LONG, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case TIMESTAMP:
                 return ImmutableList.of(new OrcType(OrcType.OrcTypeKind.TIMESTAMP, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case STRING:
