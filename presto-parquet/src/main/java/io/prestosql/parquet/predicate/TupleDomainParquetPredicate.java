@@ -46,9 +46,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 import static io.prestosql.parquet.ParquetTimestampUtils.getTimestampMillis;
+import static io.prestosql.parquet.ParquetTimestampUtils.parquetTimestampRepresentationUnit;
+import static io.prestosql.parquet.ParquetTimestampUtils.prestoTimestampRepresentationUnit;
 import static io.prestosql.parquet.predicate.PredicateUtils.isStatisticsOverflow;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -258,6 +261,25 @@ public class TupleDomainParquetPredicate
                 return Domain.create(ValueSet.all(type), hasNullValue);
             }
             ParquetTimestampStatistics parquetTimestampStatistics = new ParquetTimestampStatistics(min, max);
+            return createDomain(type, hasNullValue, parquetTimestampStatistics);
+        }
+
+        if (type instanceof TimestampType && statistics instanceof LongStatistics) {
+            TimestampType timestampType = (TimestampType) type;
+            LongStatistics longStatistics = (LongStatistics) statistics;
+
+            long min = longStatistics.getMin();
+            long max = longStatistics.getMax();
+            if (min > max) {
+                failWithCorruptionException(failOnCorruptedParquetStatistics, column, id, longStatistics);
+                return Domain.create(ValueSet.all(type), hasNullValue);
+            }
+
+            TimeUnit prestoTimestampRepresentationUnit = prestoTimestampRepresentationUnit(timestampType);
+            TimeUnit parquetTimestampRepresentationUnit = parquetTimestampRepresentationUnit(statistics.type().getOriginalType());
+            ParquetTimestampStatistics parquetTimestampStatistics = new ParquetTimestampStatistics(
+                    prestoTimestampRepresentationUnit.convert(longStatistics.getMin(), parquetTimestampRepresentationUnit),
+                    prestoTimestampRepresentationUnit.convert(longStatistics.getMax(), parquetTimestampRepresentationUnit));
             return createDomain(type, hasNullValue, parquetTimestampStatistics);
         }
 
