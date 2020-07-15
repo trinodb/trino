@@ -22,6 +22,7 @@ import io.prestosql.client.Column;
 import io.prestosql.client.QueryError;
 import io.prestosql.client.QueryStatusInfo;
 import io.prestosql.client.StatementClient;
+import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.MetadataUtil;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.QualifiedTablePrefix;
@@ -126,6 +127,11 @@ public abstract class AbstractTestingPrestoClient<T>
         ImmutableMap.Builder<String, String> properties = ImmutableMap.builder();
         properties.putAll(session.getSystemProperties());
         for (Entry<String, Map<String, String>> connectorProperties : session.getUnprocessedCatalogProperties().entrySet()) {
+            for (Entry<String, String> entry : connectorProperties.getValue().entrySet()) {
+                properties.put(connectorProperties.getKey() + "." + entry.getKey(), entry.getValue());
+            }
+        }
+        for (Entry<CatalogName, Map<String, String>> connectorProperties : session.getConnectorProperties().entrySet()) {
             for (Entry<String, String> entry : connectorProperties.getValue().entrySet()) {
                 properties.put(connectorProperties.getKey() + "." + entry.getKey(), entry.getValue());
             }
