@@ -59,6 +59,7 @@ import static io.prestosql.plugin.iceberg.IcebergUtil.getTableScan;
 import static io.prestosql.plugin.iceberg.TypeConverter.toPrestoType;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
@@ -292,6 +293,9 @@ public class PartitionTable
                 return packDateTimeWithZone(utcMillis, TimeZoneKey.UTC_KEY);
             }
             return utcMillis;
+        }
+        if (type instanceof Types.TimeType) {
+            return ((Long) value) * PICOSECONDS_PER_MICROSECOND;
         }
         if (type instanceof Types.FloatType) {
             return Float.floatToIntBits((Float) value);

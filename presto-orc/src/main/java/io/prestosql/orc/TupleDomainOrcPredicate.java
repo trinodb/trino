@@ -27,7 +27,9 @@ import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.Timestamps;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
@@ -189,6 +191,10 @@ public class TupleDomainOrcPredicate
 
         boolean hasNullValue = columnStatistics.getNumberOfValues() != rowCount;
 
+        if (type instanceof TimeType && columnStatistics.getIntegerStatistics() != null) {
+            // This is the representation of TIME used by Iceberg
+            return createDomain(type, hasNullValue, columnStatistics.getIntegerStatistics(), value -> ((long) value) * Timestamps.PICOSECONDS_PER_MICROSECOND);
+        }
         if (type.getJavaType() == boolean.class && columnStatistics.getBooleanStatistics() != null) {
             BooleanStatistics booleanStatistics = columnStatistics.getBooleanStatistics();
 

@@ -173,7 +173,36 @@ public abstract class AbstractTestIcebergSmoke
     }
 
     @Test
-    public void testPartitionByTimestamp()
+    public void testTime()
+    {
+        testSelectOrPartitionedByTime(false);
+    }
+
+    @Test
+    public void testPartitionedByTime()
+    {
+        testSelectOrPartitionedByTime(true);
+    }
+
+    private void testSelectOrPartitionedByTime(boolean partitioned)
+    {
+        String tableName = format("test_%s_by_time", partitioned ? "partitioned" : "selected");
+        String partitioning = partitioned ? ", partitioning = ARRAY['x']" : "";
+        assertUpdate(format("CREATE TABLE %s (x TIME, y BIGINT) WITH (format = '%s'%s)", tableName, format, partitioning));
+        assertUpdate(format("INSERT INTO %s VALUES (TIME '10:12:34', 12345)", tableName), 1);
+        assertQuery(format("SELECT COUNT(*) FROM %s", tableName), "SELECT 1");
+        assertQuery(format("SELECT x FROM %s", tableName), "SELECT CAST('10:12:34' AS TIME)");
+        assertUpdate(format("INSERT INTO %s VALUES (TIME '9:00:00', 67890)", tableName), 1);
+        assertQuery(format("SELECT COUNT(*) FROM %s", tableName), "SELECT 2");
+        assertQuery(format("SELECT x FROM %s WHERE x = TIME '10:12:34'", tableName), "SELECT CAST('10:12:34' AS TIME)");
+        assertQuery(format("SELECT x FROM %s WHERE x = TIME '9:00:00'", tableName), "SELECT CAST('9:00:00' AS TIME)");
+        assertQuery(format("SELECT x FROM %s WHERE y = 12345", tableName), "SELECT CAST('10:12:34' AS TIME)");
+        assertQuery(format("SELECT x FROM %s WHERE y = 67890", tableName), "SELECT CAST('9:00:00' AS TIME)");
+        dropTable(tableName);
+    }
+
+    @Test
+    public void testParquetPartitionByTimestamp()
     {
         testSelectOrPartitionedByTimestamp(true);
     }

@@ -133,6 +133,7 @@ public class PartitionData
                 return partitionValue.asInt();
             case LONG:
             case TIMESTAMP:
+            case TIME:
                 return partitionValue.asLong();
             case FLOAT:
                 return partitionValue.floatValue();
