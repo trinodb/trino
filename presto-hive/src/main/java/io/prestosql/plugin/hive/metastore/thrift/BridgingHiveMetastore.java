@@ -49,6 +49,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.isAvroTableWithSchemaSet;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
+import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.csvSchemaFields;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiDatabase;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.fromMetastoreApiTable;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isAvroTableWithSchemaSet;
@@ -86,8 +87,11 @@ public class BridgingHiveMetastore
     public Optional<Table> getTable(HiveIdentity identity, String databaseName, String tableName)
     {
         return delegate.getTable(identity, databaseName, tableName).map(table -> {
-            if (isAvroTableWithSchemaSet(table) || isCsvTable(table)) {
+            if (isAvroTableWithSchemaSet(table)) {
                 return fromMetastoreApiTable(table, delegate.getFields(identity, databaseName, tableName).get());
+            }
+            if (isCsvTable(table)) {
+                return fromMetastoreApiTable(table, csvSchemaFields(table.getSd().getCols()));
             }
             return fromMetastoreApiTable(table);
         });

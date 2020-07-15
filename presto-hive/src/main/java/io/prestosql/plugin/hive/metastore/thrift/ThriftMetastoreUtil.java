@@ -446,6 +446,13 @@ public final class ThriftMetastoreUtil
         return CSV.getSerDe().equals(getSerdeInfo(table).getSerializationLib());
     }
 
+    public static List<FieldSchema> csvSchemaFields(List<FieldSchema> schemas)
+    {
+        return schemas.stream()
+                .map(schema -> new FieldSchema(schema.getName(), HiveType.HIVE_STRING.toString(), schema.getComment()))
+                .collect(toImmutableList());
+    }
+
     private static SerDeInfo getSerdeInfo(org.apache.hadoop.hive.metastore.api.Table table)
     {
         StorageDescriptor storageDescriptor = table.getSd();
