@@ -88,7 +88,7 @@ public class CreateTableTask
     }
 
     @VisibleForTesting
-    public ListenableFuture<?> internalExecute(CreateTable statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters)
+    ListenableFuture<?> internalExecute(CreateTable statement, Metadata metadata, AccessControl accessControl, Session session, List<Expression> parameters)
     {
         checkArgument(!statement.getElements().isEmpty(), "no columns for table");
 
