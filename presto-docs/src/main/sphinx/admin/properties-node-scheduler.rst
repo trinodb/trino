@@ -95,9 +95,9 @@ network location, separated by whitespace. Network location must begin with a le
 
 .. code-block:: none
 
-192.168.0.1 /region1/rack1/machine1
-192.168.0.2 /region1/rack1/machine2
-hdfs01.example.com /region2/rack2/machine3
+    192.168.0.1 /region1/rack1/machine1
+    192.168.0.2 /region1/rack1/machine2
+    hdfs01.example.com /region2/rack2/machine3
 
 ``node-scheduler.network-topology.refresh-period``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
