@@ -55,10 +55,10 @@ The following file types are supported for the Hive connector:
 * CSV (using ``org.apache.hadoop.hive.serde2.OpenCSVSerde``)
 * TextFile
 
-Metastore Configuration for Avro and CSV
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Metastore Configuration for Avro
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-In order to enable first-class support for Avro tables and CSV files when using
+In order to enable first-class support for Avro tables when using
 Hive 3.x, you need to add the following property definition to the Hive metastore
 configuration file ``hive-site.xml`` (and restart the metastore service):
 
