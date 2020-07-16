@@ -62,7 +62,7 @@ def get_version():
 
 needs_sphinx = '1.1'
 
-extensions = ['backquote', 'download', 'issue', 'sitemap']
+extensions = ['backquote', 'download', 'issue']
 
 templates_path = ['templates']
 
@@ -100,4 +100,8 @@ html_show_sphinx = False
 
 html_sidebars = {
     "**": ['logo-text.html', 'globaltoc.html', 'localtoc.html', 'searchbox.html']
+}
+
+html_theme_options = {
+    'base_url': '/',
 }
