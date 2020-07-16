@@ -13,6 +13,8 @@
  */
 package io.prestosql.spi.connector;
 
+import com.google.errorprone.annotations.Immutable;
+
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -22,6 +24,7 @@ import java.util.Optional;
 import static java.util.Collections.emptyMap;
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class ConnectorTableMetadata
 {
     private final SchemaTableName table;

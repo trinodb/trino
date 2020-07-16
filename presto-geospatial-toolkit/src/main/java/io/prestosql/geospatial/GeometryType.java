@@ -20,18 +20,18 @@ import static java.util.Objects.requireNonNull;
 
 public enum GeometryType
 {
-    POINT(false, utf8Slice("ST_Point")),
-    MULTI_POINT(true, utf8Slice("ST_MultiPoint")),
-    LINE_STRING(false, utf8Slice("ST_LineString")),
-    MULTI_LINE_STRING(true, utf8Slice("ST_MultiLineString")),
-    POLYGON(false, utf8Slice("ST_Polygon")),
-    MULTI_POLYGON(true, utf8Slice("ST_MultiPolygon")),
-    GEOMETRY_COLLECTION(true, utf8Slice("ST_GeomCollection"));
+    POINT(false, "ST_Point"),
+    MULTI_POINT(true, "ST_MultiPoint"),
+    LINE_STRING(false, "ST_LineString"),
+    MULTI_LINE_STRING(true, "ST_MultiLineString"),
+    POLYGON(false, "ST_Polygon"),
+    MULTI_POLYGON(true, "ST_MultiPolygon"),
+    GEOMETRY_COLLECTION(true, "ST_GeomCollection");
 
     private final boolean multitype;
-    private final Slice standardName;
+    private final String standardName;
 
-    GeometryType(boolean multitype, Slice standardName)
+    GeometryType(boolean multitype, String standardName)
     {
         this.multitype = multitype;
         this.standardName = standardName;
@@ -44,7 +44,7 @@ public enum GeometryType
 
     public Slice standardName()
     {
-        return standardName;
+        return utf8Slice(standardName);
     }
 
     public static GeometryType getForEsriGeometryType(String type)

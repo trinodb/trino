@@ -25,6 +25,7 @@ public enum ReadPreferenceType
     SECONDARY_PREFERRED(ReadPreference.secondaryPreferred()),
     NEAREST(ReadPreference.nearest());
 
+    @SuppressWarnings("ImmutableEnumChecker")
     private final ReadPreference readPreference;
 
     ReadPreferenceType(ReadPreference readPreference)

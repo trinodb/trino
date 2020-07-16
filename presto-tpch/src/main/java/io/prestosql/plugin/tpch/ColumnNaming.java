@@ -16,22 +16,22 @@ package io.prestosql.plugin.tpch;
 import io.prestosql.tpch.TpchColumn;
 import io.prestosql.tpch.TpchEntity;
 
-import java.util.function.Function;
-
 public enum ColumnNaming
 {
-    STANDARD(TpchColumn::getColumnName),
-    SIMPLIFIED(TpchColumn::getSimplifiedColumnName);
+    STANDARD {
+        @Override
+        public String getName(TpchColumn<? extends TpchEntity> tpchColumn)
+        {
+            return tpchColumn.getColumnName();
+        }
+    },
+    SIMPLIFIED {
+        @Override
+        public String getName(TpchColumn<? extends TpchEntity> tpchColumn)
+        {
+            return tpchColumn.getSimplifiedColumnName();
+        }
+    };
 
-    private final Function<TpchColumn<?>, String> columnNameGetter;
-
-    ColumnNaming(Function<TpchColumn<?>, String> columnNameGetter)
-    {
-        this.columnNameGetter = columnNameGetter;
-    }
-
-    public String getName(TpchColumn<? extends TpchEntity> tpchColumn)
-    {
-        return columnNameGetter.apply(tpchColumn);
-    }
+    public abstract String getName(TpchColumn<? extends TpchEntity> tpchColumn);
 }

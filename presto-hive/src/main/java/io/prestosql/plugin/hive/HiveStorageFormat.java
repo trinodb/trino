@@ -99,6 +99,7 @@ public enum HiveStorageFormat
     private final String serde;
     private final String inputFormat;
     private final String outputFormat;
+    @SuppressWarnings("ImmutableEnumChecker")
     private final DataSize estimatedWriterSystemMemoryUsage;
 
     HiveStorageFormat(String serde, String inputFormat, String outputFormat, DataSize estimatedWriterSystemMemoryUsage)

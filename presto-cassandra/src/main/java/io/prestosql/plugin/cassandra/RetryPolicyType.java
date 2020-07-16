@@ -27,6 +27,7 @@ public enum RetryPolicyType
     DOWNGRADING_CONSISTENCY(DowngradingConsistencyRetryPolicy.INSTANCE),
     FALLTHROUGH(FallthroughRetryPolicy.INSTANCE);
 
+    @SuppressWarnings("ImmutableEnumChecker")
     private final RetryPolicy policy;
 
     RetryPolicyType(RetryPolicy policy)

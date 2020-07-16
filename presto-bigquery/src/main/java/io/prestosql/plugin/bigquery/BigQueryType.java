@@ -14,6 +14,7 @@
 package io.prestosql.plugin.bigquery;
 
 import com.google.cloud.bigquery.Field;
+import com.google.errorprone.annotations.Immutable;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.BigintType;
@@ -219,6 +220,7 @@ public enum BigQueryType
         }
     }
 
+    @Immutable
     @FunctionalInterface
     interface ToStringConverter
     {

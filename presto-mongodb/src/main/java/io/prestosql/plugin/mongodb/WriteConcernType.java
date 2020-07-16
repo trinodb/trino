@@ -31,6 +31,7 @@ public enum WriteConcernType
     SAFE(WriteConcern.SAFE),
     UNACKNOWLEDGED(WriteConcern.UNACKNOWLEDGED);
 
+    @SuppressWarnings("ImmutableEnumChecker")
     private final WriteConcern writeConcern;
 
     WriteConcernType(WriteConcern writeConcern)

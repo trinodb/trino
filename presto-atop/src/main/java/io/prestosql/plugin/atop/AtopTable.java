@@ -14,6 +14,8 @@
 package io.prestosql.plugin.atop;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.errorprone.annotations.Immutable;
 import io.airlift.slice.Slices;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -22,10 +24,9 @@ import io.prestosql.spi.type.TypeSignature;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.Map;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.plugin.atop.AtopTable.AtopColumn.END_TIME;
 import static io.prestosql.plugin.atop.AtopTable.AtopColumn.HOST_IP;
 import static io.prestosql.plugin.atop.AtopTable.AtopColumn.START_TIME;
@@ -70,15 +71,15 @@ public enum AtopTable
 
     private final String name;
     private final String atopLabel;
-    private final List<AtopColumn> columns;
-    private final Map<String, AtopColumn> columnIndex;
+    private final ImmutableList<AtopColumn> columns;
+    private final ImmutableMap<String, AtopColumn> columnIndex;
 
     AtopTable(String name, String atopLabel, List<AtopColumn> columns)
     {
         this.atopLabel = atopLabel;
         this.name = requireNonNull(name, "name is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
-        columnIndex = this.columns.stream().collect(Collectors.toMap(AtopColumn::getName, Function.identity()));
+        columnIndex = this.columns.stream().collect(toImmutableMap(AtopColumn::getName, Function.identity()));
     }
 
     private static List<AtopColumn> baseColumnsAnd(AtopColumn... additionalColumns)
@@ -117,6 +118,7 @@ public enum AtopTable
         return columns;
     }
 
+    @Immutable
     public static class AtopColumn
     {
         public static final AtopColumn HOST_IP = new AtopColumn("host_ip", VARCHAR.getTypeSignature(), (fields, type, builder, session) -> { throw new UnsupportedOperationException(); });
