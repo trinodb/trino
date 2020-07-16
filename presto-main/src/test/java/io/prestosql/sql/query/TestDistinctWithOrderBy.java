@@ -18,6 +18,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestDistinctWithOrderBy
 {
@@ -81,5 +82,18 @@ public class TestDistinctWithOrderBy
     {
         assertThat(assertions.query("SELECT DISTINCT t.r.* AS (a, b) FROM (VALUES ROW(CAST(ROW(1,1) AS ROW(a BIGINT, b BIGINT)))) t(r) ORDER BY a"))
                 .matches("VALUES (BIGINT '1', BIGINT '1')");
+    }
+
+    @Test
+    public void testColumnAliasing()
+    {
+        assertThatThrownBy(() -> assertions.query("SELECT DISTINCT 1 AS a, a + b FROM (VALUES (1, 2)) t(a, b) ORDER BY a + b"))
+                .hasMessage("line 1:1: For SELECT DISTINCT, ORDER BY expressions must appear in select list");
+
+        assertThatThrownBy(() -> assertions.query("SELECT DISTINCT -a AS a, a + b FROM (VALUES (1, 2)) t(a, b) ORDER BY a + b"))
+                .hasMessage("line 1:1: For SELECT DISTINCT, ORDER BY expressions must appear in select list");
+
+        assertThatThrownBy(() -> assertions.query("SELECT DISTINCT a, a + b FROM (VALUES (1, 2)) t(a, b) ORDER BY a + b"))
+                .hasMessage("line 1:1: For SELECT DISTINCT, ORDER BY expressions must appear in select list");
     }
 }
