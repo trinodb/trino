@@ -13,6 +13,7 @@
  */
 package io.prestosql.spi.type;
 
+import com.google.errorprone.annotations.Immutable;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.spi.PrestoException;
@@ -28,6 +29,7 @@ import static io.prestosql.spi.type.Chars.padSpaces;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 
+@Immutable
 public final class CharType
         extends AbstractVariableWidthType
 {

@@ -13,6 +13,7 @@
  */
 package io.prestosql.spi.type;
 
+import com.google.errorprone.annotations.Immutable;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.BlockBuilderStatus;
@@ -32,6 +33,7 @@ import static java.lang.String.format;
  * in the first long and the fractional increment in the remaining integer, as a number of picoseconds
  * additional to the epoch millisecond.
  */
+@Immutable
 class LongTimestampWithTimeZoneType
         extends TimestampWithTimeZoneType
 {

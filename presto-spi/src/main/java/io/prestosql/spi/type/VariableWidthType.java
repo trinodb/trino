@@ -13,9 +13,12 @@
  */
 package io.prestosql.spi.type;
 
+import com.google.errorprone.annotations.Immutable;
+
 /**
  * VariableWidthType is a type that can have a different size for every value.
  */
+@Immutable
 public interface VariableWidthType
         extends Type
 {

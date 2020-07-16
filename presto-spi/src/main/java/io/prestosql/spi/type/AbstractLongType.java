@@ -13,6 +13,7 @@
  */
 package io.prestosql.spi.type;
 
+import com.google.errorprone.annotations.Immutable;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
@@ -22,6 +23,7 @@ import io.prestosql.spi.block.PageBuilderStatus;
 
 import static java.lang.Long.rotateLeft;
 
+@Immutable
 public abstract class AbstractLongType
         extends AbstractType
         implements FixedWidthType

@@ -13,6 +13,7 @@
  */
 package io.prestosql.spi.type;
 
+import com.google.errorprone.annotations.Immutable;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.spi.block.Block;
@@ -29,6 +30,7 @@ import static io.prestosql.spi.type.Decimals.decodeUnscaledValue;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.UNSCALED_DECIMAL_128_SLICE_LENGTH;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.compare;
 
+@Immutable
 final class LongDecimalType
         extends DecimalType
 {

@@ -14,6 +14,7 @@
 package io.prestosql.spi.type;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.google.errorprone.annotations.Immutable;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
@@ -21,6 +22,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 
 import static io.prestosql.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 
+@Immutable
 public class P4HyperLogLogType
         extends AbstractVariableWidthType
 {

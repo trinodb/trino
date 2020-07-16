@@ -13,6 +13,7 @@
  */
 package io.prestosql.spi.type;
 
+import com.google.errorprone.annotations.Immutable;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.block.AbstractArrayBlock;
 import io.prestosql.spi.block.ArrayBlockBuilder;
@@ -31,6 +32,7 @@ import static io.prestosql.spi.type.TypeUtils.hashPosition;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
 
+@Immutable
 public class ArrayType
         extends AbstractType
 {

@@ -13,11 +13,13 @@
  */
 package io.prestosql.spi.type;
 
+import com.google.errorprone.annotations.Immutable;
 import io.prestosql.spi.PrestoException;
 
 import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static java.lang.String.format;
 
+@Immutable
 public abstract class TimestampWithTimeZoneType
         extends AbstractType
         implements FixedWidthType

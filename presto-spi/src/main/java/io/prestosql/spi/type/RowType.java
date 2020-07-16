@@ -13,6 +13,7 @@
  */
 package io.prestosql.spi.type;
 
+import com.google.errorprone.annotations.Immutable;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.block.Block;
@@ -34,10 +35,13 @@ import static java.util.Objects.requireNonNull;
 /**
  * As defined in ISO/IEC FCD 9075-2 (SQL 2011), section 4.8
  */
+@Immutable
 public class RowType
         extends AbstractType
 {
+    @SuppressWarnings("Immutable")
     private final List<Field> fields;
+    @SuppressWarnings("Immutable")
     private final List<Type> fieldTypes;
 
     private RowType(TypeSignature typeSignature, List<Field> fields)

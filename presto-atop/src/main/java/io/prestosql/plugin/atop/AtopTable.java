@@ -162,6 +162,7 @@ public enum AtopTable
         }
     }
 
+    @Immutable
     public interface AtopColumnParser
     {
         void parse(List<String> fields, Type type, BlockBuilder builder, ConnectorSession session);

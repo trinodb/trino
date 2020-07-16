@@ -29,6 +29,7 @@ import java.util.List;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
+@SuppressWarnings("Immutable")
 public class FunctionType
         implements Type
 {

@@ -13,6 +13,7 @@
  */
 package io.prestosql.spi.type;
 
+import com.google.errorprone.annotations.Immutable;
 import io.prestosql.spi.PrestoException;
 
 import java.util.List;
@@ -22,6 +23,7 @@ import static io.prestosql.spi.type.Decimals.MAX_PRECISION;
 import static io.prestosql.spi.type.Decimals.MAX_SHORT_PRECISION;
 import static io.prestosql.spi.type.TypeSignatureParameter.numericParameter;
 
+@Immutable
 public abstract class DecimalType
         extends AbstractType
         implements FixedWidthType

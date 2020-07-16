@@ -13,6 +13,7 @@
  */
 package io.prestosql.spi.type;
 
+import com.google.errorprone.annotations.Immutable;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
@@ -26,6 +27,7 @@ import java.util.Optional;
 import static java.lang.Character.MAX_CODE_POINT;
 import static java.util.Collections.singletonList;
 
+@Immutable
 public final class VarcharType
         extends AbstractVariableWidthType
 {

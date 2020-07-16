@@ -13,6 +13,7 @@
  */
 package io.prestosql.spi.type;
 
+import com.google.errorprone.annotations.Immutable;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
@@ -25,6 +26,7 @@ import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static java.lang.Long.rotateLeft;
 import static java.lang.String.format;
 
+@Immutable
 public abstract class AbstractIntType
         extends AbstractType
         implements FixedWidthType

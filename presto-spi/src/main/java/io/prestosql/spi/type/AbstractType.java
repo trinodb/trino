@@ -13,12 +13,14 @@
  */
 package io.prestosql.spi.type;
 
+import com.google.errorprone.annotations.Immutable;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 
 import java.util.List;
 
+@Immutable
 public abstract class AbstractType
         implements Type
 {

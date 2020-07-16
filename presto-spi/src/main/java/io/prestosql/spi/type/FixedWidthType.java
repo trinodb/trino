@@ -13,11 +13,13 @@
  */
 package io.prestosql.spi.type;
 
+import com.google.errorprone.annotations.Immutable;
 import io.prestosql.spi.block.BlockBuilder;
 
 /**
  * FixedWidthType is a type that has a fixed size for every value.
  */
+@Immutable
 public interface FixedWidthType
         extends Type
 {

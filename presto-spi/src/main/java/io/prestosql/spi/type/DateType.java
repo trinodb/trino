@@ -13,6 +13,7 @@
  */
 package io.prestosql.spi.type;
 
+import com.google.errorprone.annotations.Immutable;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 
@@ -24,6 +25,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 // the local time zone.  This mean when converting between a java.sql.Date and this
 // type, the time zone offset must be added or removed to keep the time at midnight in UTC.
 //
+@Immutable
 public final class DateType
         extends AbstractIntType
 {

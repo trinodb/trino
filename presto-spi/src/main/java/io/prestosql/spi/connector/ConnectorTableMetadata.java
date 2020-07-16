@@ -29,7 +29,9 @@ public class ConnectorTableMetadata
 {
     private final SchemaTableName table;
     private final Optional<String> comment;
+    @SuppressWarnings("Immutable")
     private final List<ColumnMetadata> columns;
+    @SuppressWarnings("Immutable")
     private final Map<String, Object> properties;
 
     public ConnectorTableMetadata(SchemaTableName table, List<ColumnMetadata> columns)

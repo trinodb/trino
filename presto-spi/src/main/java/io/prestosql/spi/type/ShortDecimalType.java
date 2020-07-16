@@ -13,6 +13,7 @@
  */
 package io.prestosql.spi.type;
 
+import com.google.errorprone.annotations.Immutable;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.BlockBuilderStatus;
@@ -25,6 +26,7 @@ import java.math.BigInteger;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.prestosql.spi.type.Decimals.MAX_SHORT_PRECISION;
 
+@Immutable
 final class ShortDecimalType
         extends DecimalType
 {

@@ -13,6 +13,7 @@
  */
 package io.prestosql.spi.type;
 
+import com.google.errorprone.annotations.Immutable;
 import io.prestosql.spi.PrestoException;
 
 import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
@@ -23,6 +24,7 @@ import static java.lang.String.format;
  * In legacy timestamp semantics, timestamp is stored as milliseconds from 1970-01-01T00:00:00 UTC and is to be
  * interpreted in session time zone.
  */
+@Immutable
 public abstract class TimestampType
         extends AbstractType
         implements FixedWidthType

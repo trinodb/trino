@@ -13,11 +13,13 @@
  */
 package io.prestosql.spi.type;
 
+import com.google.errorprone.annotations.Immutable;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 
 import java.util.Optional;
 
+@Immutable
 public final class BigintType
         extends AbstractLongType
 {

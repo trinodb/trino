@@ -14,6 +14,7 @@
 package io.prestosql.spi.type;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.google.errorprone.annotations.Immutable;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
@@ -23,6 +24,7 @@ import java.util.List;
 
 import static java.util.Collections.singletonList;
 
+@Immutable
 public class QuantileDigestType
         extends AbstractVariableWidthType
 {

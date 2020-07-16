@@ -13,6 +13,7 @@
  */
 package io.prestosql.spi.type;
 
+import com.google.errorprone.annotations.Immutable;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.BlockBuilderStatus;
 import io.prestosql.spi.block.PageBuilderStatus;
@@ -20,6 +21,7 @@ import io.prestosql.spi.block.VariableWidthBlockBuilder;
 
 import static java.lang.Math.min;
 
+@Immutable
 public abstract class AbstractVariableWidthType
         extends AbstractType
         implements VariableWidthType

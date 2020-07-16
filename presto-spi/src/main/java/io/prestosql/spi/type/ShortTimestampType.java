@@ -13,6 +13,7 @@
  */
 package io.prestosql.spi.type;
 
+import com.google.errorprone.annotations.Immutable;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.BlockBuilderStatus;
@@ -30,6 +31,7 @@ import static java.lang.String.format;
  * For 0 <= p <= 3, the value is encoded as milliseconds from the 1970-01-01 00:00:00 epoch.
  * For 3 < p <= 6, the value is encoded as microseconds from the 1970-01-01 00:00:00 epoch.
  */
+@Immutable
 class ShortTimestampType
         extends TimestampType
 {

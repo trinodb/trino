@@ -15,12 +15,14 @@ package io.prestosql.spi.connector;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.errorprone.annotations.Immutable;
 
 import java.util.Objects;
 
 import static io.prestosql.spi.connector.SchemaUtil.checkNotEmpty;
 import static java.util.Locale.ENGLISH;
 
+@Immutable
 public class SchemaTableName
 {
     private final String schemaName;

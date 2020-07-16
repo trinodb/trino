@@ -13,11 +13,13 @@
  */
 package io.prestosql.spi.type;
 
+import com.google.errorprone.annotations.Immutable;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 
+@Immutable
 public final class TimeWithTimeZoneType
         extends AbstractLongType
 {

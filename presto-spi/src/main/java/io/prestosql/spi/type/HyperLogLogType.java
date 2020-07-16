@@ -14,6 +14,7 @@
 package io.prestosql.spi.type;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.google.errorprone.annotations.Immutable;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
@@ -22,6 +23,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 // Layout is <size>:<hll>, where
 //   size: is a short describing the length of the hll bytes
 //   hll: is the serialized hll
+@Immutable
 public class HyperLogLogType
         extends AbstractVariableWidthType
 {
