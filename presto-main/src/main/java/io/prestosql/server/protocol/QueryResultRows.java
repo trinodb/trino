@@ -24,6 +24,9 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.TimestampType;
@@ -37,6 +40,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -45,6 +49,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.spi.StandardErrorCode.SERIALIZATION_ERROR;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -163,16 +168,12 @@ public class QueryResultRows
             Block block = currentPage.getBlock(channel);
 
             try {
-                Object value = type.getObjectValue(session, block, inPageIndex);
-                if (value != null && !supportsParametricDateTime) {
-                    if (type instanceof TimestampType) {
-                        value = ((SqlTimestamp) value).roundTo(3);
-                    }
-                    else if (type instanceof TimestampWithTimeZoneType) {
-                        value = ((SqlTimestampWithTimeZone) value).roundTo(3);
-                    }
+                if (supportsParametricDateTime) {
+                    row.add(channel, type.getObjectValue(session, block, inPageIndex));
                 }
-                row.add(channel, value);
+                else {
+                    row.add(channel, getLegacyValue(type.getObjectValue(session, block, inPageIndex), type));
+                }
             }
             catch (Throwable throwable) {
                 propagateException(rowPosition, column, throwable);
@@ -182,6 +183,71 @@ public class QueryResultRows
         }
 
         return Optional.of(unmodifiableList(row));
+    }
+
+    private Object getLegacyValue(Object value, Type type)
+    {
+        if (value == null) {
+            return null;
+        }
+
+        if (!supportsParametricDateTime) {
+            // for legacy clients we need to round timestamp and timestamp with timezone to default precision (3)
+
+            if (type instanceof TimestampType) {
+                return ((SqlTimestamp) value).roundTo(3);
+            }
+
+            if (type instanceof TimestampWithTimeZoneType) {
+                return ((SqlTimestampWithTimeZone) value).roundTo(3);
+            }
+        }
+
+        if (type instanceof ArrayType) {
+            Type elementType = ((ArrayType) type).getElementType();
+
+            if (!(elementType instanceof TimestampType || elementType instanceof TimestampWithTimeZoneType)) {
+                return value;
+            }
+
+            return ((List<Object>) value).stream()
+                    .map(element -> getLegacyValue(value, elementType))
+                    .collect(toImmutableList());
+        }
+
+        if (type instanceof MapType) {
+            Type keyType = ((MapType) type).getKeyType();
+            Type valueType = ((MapType) type).getValueType();
+
+            return ((Map<Object, Object>) value).entrySet().stream()
+                    .collect(toImmutableMap(entry -> getLegacyValue(entry.getKey(), keyType), entry -> getLegacyValue(entry.getValue(), valueType)));
+        }
+
+        if (type instanceof RowType) {
+            List<RowType.Field> fields = ((RowType) type).getFields();
+
+            if (value instanceof Map) {
+                Map<String, Object> values = (Map<String, Object>) value;
+
+                return fields.stream()
+                        .collect(toImmutableMap(field -> field.getName().orElseThrow(), field -> getLegacyValue(values.get(field.getName()), field.getType())));
+            }
+
+            if (value instanceof List) {
+                List<Object> values = (List<Object>) value;
+                List<Type> types = fields.stream()
+                        .map(RowType.Field::getType)
+                        .collect(toImmutableList());
+
+                ImmutableList.Builder<Object> result = ImmutableList.builder();
+                for (int i = 0; i < values.size(); i++) {
+                    result.add(getLegacyValue(values.get(i), types.get(i)));
+                }
+                return result.build();
+            }
+        }
+
+        return value;
     }
 
     private void propagateException(int row, ColumnAndType column, Throwable cause)

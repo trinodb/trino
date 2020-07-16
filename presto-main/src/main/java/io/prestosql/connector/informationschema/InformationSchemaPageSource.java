@@ -31,9 +31,6 @@ import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.GrantInfo;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.RoleGrant;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.TimestampType;
-import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 
 import java.util.ArrayDeque;
@@ -53,7 +50,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.union;
-import static io.prestosql.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.prestosql.connector.informationschema.InformationSchemaMetadata.defaultPrefixes;
 import static io.prestosql.connector.informationschema.InformationSchemaMetadata.isTablesEnumeratingTable;
 import static io.prestosql.metadata.MetadataListing.getViews;
@@ -64,6 +60,7 @@ import static io.prestosql.metadata.MetadataListing.listTables;
 import static io.prestosql.metadata.MetadataListing.listViews;
 import static io.prestosql.spi.security.PrincipalType.USER;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
+import static io.prestosql.type.TypeUtils.getDisplayLabel;
 import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaPageSource
@@ -258,15 +255,6 @@ public class InformationSchemaPageSource
                 if (column.isHidden()) {
                     continue;
                 }
-                String type = column.getType().getDisplayName();
-                if (isOmitDateTimeTypePrecision(session)) {
-                    if (column.getType() instanceof TimestampType && ((TimestampType) column.getType()).getPrecision() == TimestampType.DEFAULT_PRECISION) {
-                        type = StandardTypes.TIMESTAMP;
-                    }
-                    else if (column.getType() instanceof TimestampWithTimeZoneType && ((TimestampWithTimeZoneType) column.getType()).getPrecision() == TimestampWithTimeZoneType.DEFAULT_PRECISION) {
-                        type = StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
-                    }
-                }
                 addRecord(
                         prefix.getCatalogName(),
                         tableName.getSchemaName(),
@@ -275,7 +263,7 @@ public class InformationSchemaPageSource
                         ordinalPosition,
                         null,
                         "YES",
-                        type,
+                        getDisplayLabel(column.getType(), session),
                         column.getComment(),
                         column.getExtraInfo(),
                         column.getComment());
