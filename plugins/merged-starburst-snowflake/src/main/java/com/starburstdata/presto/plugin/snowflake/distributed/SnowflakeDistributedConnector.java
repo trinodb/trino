@@ -151,7 +151,7 @@ public class SnowflakeDistributedConnector
     @Override
     public List<PropertyMetadata<?>> getSessionProperties()
     {
-        ImmutableList.Builder builder = ImmutableList.<PropertyMetadata<?>>builder();
+        var builder = ImmutableList.<PropertyMetadata<?>>builder();
         this.sessionProperties.forEach(sessionPropertiesProvider -> builder.addAll(sessionPropertiesProvider.getSessionProperties()));
         return builder.build();
     }
