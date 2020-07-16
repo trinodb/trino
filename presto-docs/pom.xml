@@ -26,7 +26,6 @@
                         <excludes combine.children="append">
                             <exclude>**/*.conf</exclude>
                             <exclude>**/*.css</exclude>
-                            <exclude>src/main/sphinx/ext/sitemap.py</exclude>
                         </excludes>
                     </configuration>
                 </plugin>
