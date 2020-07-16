@@ -13,6 +13,7 @@
  */
 package io.prestosql.type;
 
+import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
@@ -22,7 +23,10 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.FixedWidthType;
+import io.prestosql.spi.type.MapType;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
@@ -33,9 +37,14 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.StandardTypes.ARRAY;
+import static io.prestosql.spi.type.StandardTypes.MAP;
+import static io.prestosql.spi.type.StandardTypes.ROW;
+import static java.lang.String.format;
 
 public final class TypeUtils
 {
@@ -151,13 +160,46 @@ public final class TypeUtils
     public static String getDisplayLabel(Type type, Session session)
     {
         if (isOmitDateTimeTypePrecision(session)) {
-            if (type instanceof TimestampType && ((TimestampType) type).getPrecision() == TimestampType.DEFAULT_PRECISION) {
-                return StandardTypes.TIMESTAMP;
-            }
-            else if (type instanceof TimestampWithTimeZoneType && ((TimestampWithTimeZoneType) type).getPrecision() == TimestampWithTimeZoneType.DEFAULT_PRECISION) {
-                return StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
-            }
+            return getDisplayLabelForLegacyClients(type);
         }
         return type.getDisplayName();
+    }
+
+    private static String getDisplayLabelForLegacyClients(Type type)
+    {
+        if (type instanceof TimestampType && ((TimestampType) type).getPrecision() == TimestampType.DEFAULT_PRECISION) {
+            return StandardTypes.TIMESTAMP;
+        }
+        if (type instanceof TimestampWithTimeZoneType && ((TimestampWithTimeZoneType) type).getPrecision() == TimestampWithTimeZoneType.DEFAULT_PRECISION) {
+            return StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
+        }
+        if (type instanceof ArrayType) {
+            return ARRAY + "(" + getDisplayLabelForLegacyClients(((ArrayType) type).getElementType()) + ")";
+        }
+        if (type instanceof MapType) {
+            return MAP + "(" + getDisplayLabelForLegacyClients(((MapType) type).getKeyType()) + ", " + getDisplayLabelForLegacyClients(((MapType) type).getValueType()) + ")";
+        }
+        if (type instanceof RowType) {
+            return getRowDisplayLabelForLegacyClients((RowType) type);
+        }
+
+        return type.getDisplayName();
+    }
+
+    private static String getRowDisplayLabelForLegacyClients(RowType type)
+    {
+        List<String> fields = type.getFields().stream()
+                .map(field -> {
+                    String typeDisplayName = getDisplayLabelForLegacyClients(field.getType());
+                    if (field.getName().isPresent()) {
+                        return field.getName().get() + ' ' + typeDisplayName;
+                    }
+                    else {
+                        return typeDisplayName;
+                    }
+                })
+                .collect(toImmutableList());
+
+        return format("%s(%s)", ROW, Joiner.on(", ").join(fields));
     }
 }
