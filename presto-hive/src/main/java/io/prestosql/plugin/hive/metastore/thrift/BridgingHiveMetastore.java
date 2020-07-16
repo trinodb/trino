@@ -88,7 +88,7 @@ public class BridgingHiveMetastore
     {
         return delegate.getTable(identity, databaseName, tableName).map(table -> {
             if (isAvroTableWithSchemaSet(table)) {
-                return fromMetastoreApiTable(table, delegate.getFields(identity, databaseName, tableName).get());
+                return fromMetastoreApiTable(table, delegate.getFields(identity, databaseName, tableName).orElseThrow());
             }
             if (isCsvTable(table)) {
                 return fromMetastoreApiTable(table, csvSchemaFields(table.getSd().getCols()));
