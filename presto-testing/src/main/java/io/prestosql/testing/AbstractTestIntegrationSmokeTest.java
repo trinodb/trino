@@ -442,7 +442,7 @@ public abstract class AbstractTestIntegrationSmokeTest
                         "('views')");
     }
 
-    protected void assertPushedDown(@Language("SQL") String sql)
+    protected void assertAggregationPushedDown(@Language("SQL") String sql)
     {
         String catalog = getSession().getCatalog().orElseThrow();
         Session withoutPushdown = Session.builder(getSession())
