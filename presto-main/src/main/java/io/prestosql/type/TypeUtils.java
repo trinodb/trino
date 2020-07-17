@@ -16,7 +16,6 @@ package io.prestosql.type;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.prestosql.Session;
 import io.prestosql.operator.HashGenerator;
 import io.prestosql.operator.InterpretedHashGenerator;
 import io.prestosql.spi.Page;
@@ -38,7 +37,6 @@ import java.util.List;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.StandardTypes.ARRAY;
@@ -157,9 +155,9 @@ public final class TypeUtils
         }
     }
 
-    public static String getDisplayLabel(Type type, Session session)
+    public static String getDisplayLabel(Type type, boolean legacy)
     {
-        if (isOmitDateTimeTypePrecision(session)) {
+        if (legacy) {
             return getDisplayLabelForLegacyClients(type);
         }
         return type.getDisplayName();

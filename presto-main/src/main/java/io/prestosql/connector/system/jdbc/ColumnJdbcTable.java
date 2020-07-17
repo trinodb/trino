@@ -40,9 +40,6 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.TimestampType;
-import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 
@@ -86,6 +83,7 @@ import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
+import static io.prestosql.type.TypeUtils.getDisplayLabel;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnJdbcTable
@@ -293,22 +291,13 @@ public class ColumnJdbcTable
             if (column.isHidden()) {
                 continue;
             }
-            String type = column.getType().getDisplayName();
-            if (isOmitTimestampPrecision) {
-                if (column.getType() instanceof TimestampType && ((TimestampType) column.getType()).getPrecision() == TimestampType.DEFAULT_PRECISION) {
-                    type = StandardTypes.TIMESTAMP;
-                }
-                else if (column.getType() instanceof TimestampWithTimeZoneType && ((TimestampWithTimeZoneType) column.getType()).getPrecision() == TimestampWithTimeZoneType.DEFAULT_PRECISION) {
-                    type = StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
-                }
-            }
             builder.addRow(
                     catalog,
                     tableName.getSchemaName(),
                     tableName.getTableName(),
                     column.getName(),
                     jdbcDataType(column.getType()),
-                    type,
+                    getDisplayLabel(column.getType(), isOmitTimestampPrecision),
                     columnSize(column.getType()),
                     0,
                     decimalDigits(column.getType()),

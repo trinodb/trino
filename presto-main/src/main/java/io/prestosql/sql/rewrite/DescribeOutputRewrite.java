@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.prestosql.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.prestosql.sql.ParsingUtil.createParsingOptions;
 import static io.prestosql.sql.QueryUtil.aliased;
 import static io.prestosql.sql.QueryUtil.identifier;
@@ -163,7 +164,7 @@ final class DescribeOutputRewrite
                     new StringLiteral(originTable.map(QualifiedObjectName::getCatalogName).orElse("")),
                     new StringLiteral(originTable.map(QualifiedObjectName::getSchemaName).orElse("")),
                     new StringLiteral(originTable.map(QualifiedObjectName::getObjectName).orElse("")),
-                    new StringLiteral(getDisplayLabel(field.getType(), session)),
+                    new StringLiteral(getDisplayLabel(field.getType(), isOmitDateTimeTypePrecision(session))),
                     typeSize,
                     new BooleanLiteral(String.valueOf(field.isAliased())));
         }
