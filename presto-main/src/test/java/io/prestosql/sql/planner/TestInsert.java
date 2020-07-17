@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.connector.MockConnectorFactory;
-import io.prestosql.connector.MockConnectorFactory.MockConnectorTableHandle;
+import io.prestosql.connector.MockConnectorTableHandle;
 import io.prestosql.plugin.tpch.TpchPartitioningHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
 import io.prestosql.spi.connector.ConnectorNewTableLayout;
