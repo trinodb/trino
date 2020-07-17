@@ -24,6 +24,7 @@ import io.prestosql.execution.QueryStats;
 import io.prestosql.execution.resourcegroups.InternalResourceGroup;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.memory.MemoryPoolId;
+import io.prestosql.spi.resourcegroups.QueryType;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
@@ -175,6 +176,7 @@ public class TestQueryStateInfo
                 ImmutableList.of(),
                 ImmutableList.of(),
                 false,
-                Optional.empty());
+                Optional.empty(),
+                Optional.of(QueryType.SELECT));
     }
 }

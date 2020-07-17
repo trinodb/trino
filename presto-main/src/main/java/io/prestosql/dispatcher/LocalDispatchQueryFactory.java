@@ -33,6 +33,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.sql.tree.Statement;
 import io.prestosql.transaction.TransactionManager;
+import io.prestosql.util.StatementUtils;
 
 import javax.inject.Inject;
 
@@ -107,7 +108,8 @@ public class LocalDispatchQueryFactory
                 accessControl,
                 executor,
                 metadata,
-                warningCollector);
+                warningCollector,
+                StatementUtils.getQueryType(preparedQuery.getStatement().getClass()));
 
         queryMonitor.queryCreatedEvent(stateMachine.getBasicQueryInfo(Optional.empty()));
 
