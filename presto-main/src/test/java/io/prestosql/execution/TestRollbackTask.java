@@ -124,7 +124,8 @@ public class TestRollbackTask
                 new AllowAllAccessControl(),
                 executor,
                 metadata,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                Optional.empty());
     }
 
     private static SessionBuilder sessionBuilder()

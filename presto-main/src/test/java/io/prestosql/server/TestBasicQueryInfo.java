@@ -25,6 +25,7 @@ import io.prestosql.spi.QueryId;
 import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.eventlistener.StageGcStatistics;
 import io.prestosql.spi.memory.MemoryPoolId;
+import io.prestosql.spi.resourcegroups.QueryType;
 import org.joda.time.DateTime;
 import org.testng.annotations.Test;
 
@@ -131,13 +132,15 @@ public class TestBasicQueryInfo
                         ImmutableList.of(),
                         ImmutableList.of(),
                         false,
-                        Optional.empty()));
+                        Optional.empty(),
+                        Optional.of(QueryType.SELECT)));
 
         assertEquals(basicInfo.getQueryId().getId(), "0");
         assertEquals(basicInfo.getState(), RUNNING);
         assertEquals(basicInfo.getMemoryPool().getId(), "reserved");
         assertEquals(basicInfo.isScheduled(), false);
         assertEquals(basicInfo.getQuery(), "SELECT 4");
+        assertEquals(basicInfo.getQueryType().get(), QueryType.SELECT);
 
         assertEquals(basicInfo.getQueryStats().getCreateTime(), DateTime.parse("1991-09-06T05:00-05:30"));
         assertEquals(basicInfo.getQueryStats().getEndTime(), DateTime.parse("1991-09-06T06:00-05:30"));

@@ -235,7 +235,8 @@ public class FailedDispatchQuery
                 ImmutableList.of(),
                 ImmutableList.of(),
                 true,
-                resourceGroupId);
+                resourceGroupId,
+                Optional.empty());
 
         return queryInfo;
     }
