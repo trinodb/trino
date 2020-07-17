@@ -70,7 +70,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertContains;
-import static io.prestosql.jdbc.TestPrestoDriver.closeQuietly;
 import static io.prestosql.jdbc.TestPrestoDriver.waitForNodeRefresh;
 import static io.prestosql.spi.type.CharType.createCharType;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
@@ -157,8 +156,9 @@ public class TestPrestoDatabaseMetaData
 
     @AfterMethod(alwaysRun = true)
     public void tearDown()
+            throws Exception
     {
-        closeQuietly(connection);
+        connection.close();
     }
 
     @Test
