@@ -131,7 +131,8 @@ public class TestCommitTask
                 new AccessControlManager(transactionManager, emptyEventListenerManager(), new AccessControlConfig()),
                 executor,
                 metadata,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                Optional.empty());
     }
 
     private static SessionBuilder sessionBuilder()
