@@ -36,7 +36,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
-import static io.prestosql.jdbc.TestPrestoDriver.closeQuietly;
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.concurrent.TimeUnit.HOURS;
@@ -63,8 +62,9 @@ public class TestJdbcResultSet
 
     @AfterClass(alwaysRun = true)
     public void tearDownServer()
+            throws Exception
     {
-        closeQuietly(server);
+        server.close();
     }
 
     @SuppressWarnings("JDBCResourceOpenedButNotSafelyClosed")
@@ -78,9 +78,10 @@ public class TestJdbcResultSet
 
     @AfterMethod(alwaysRun = true)
     public void teardown()
+            throws Exception
     {
-        closeQuietly(statement);
-        closeQuietly(connection);
+        statement.close();
+        connection.close();
     }
 
     @Test
