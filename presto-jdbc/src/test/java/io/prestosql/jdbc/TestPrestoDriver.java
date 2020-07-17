@@ -130,9 +130,10 @@ public class TestPrestoDriver
 
     @AfterClass(alwaysRun = true)
     public void teardown()
+            throws Exception
     {
-        closeQuietly(server);
         executorService.shutdownNow();
+        server.close();
     }
 
     @Test
@@ -1006,14 +1007,5 @@ public class TestPrestoDriver
     {
         String url = format("jdbc:presto://%s/%s/%s", server.getAddress(), catalog, schema);
         return DriverManager.getConnection(url, "test", null);
-    }
-
-    static void closeQuietly(AutoCloseable closeable)
-    {
-        try {
-            closeable.close();
-        }
-        catch (Exception ignored) {
-        }
     }
 }
