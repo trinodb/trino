@@ -572,7 +572,7 @@ public class RecordingHiveMetastore
                 @JsonProperty("partitionsByNames") List<Pair<Set<HivePartitionName>, Map<String, Optional<Partition>>>> partitionsByNames,
                 @JsonProperty("tablePrivileges") List<Pair<UserTableKey, Set<HivePrivilegeInfo>>> tablePrivileges,
                 @JsonProperty("roleGrants") List<Pair<HivePrincipal, Set<RoleGrant>>> roleGrants,
-                @JsonProperty("grantedPincipals") List<Pair<String, Set<RoleGrant>>> grantedPrincipals)
+                @JsonProperty("grantedPrincipals") List<Pair<String, Set<RoleGrant>>> grantedPrincipals)
         {
             this.allDatabases = allDatabases;
             this.allRoles = allRoles;
