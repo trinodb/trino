@@ -211,7 +211,7 @@ public class QueryResultRows
             }
 
             return ((List<Object>) value).stream()
-                    .map(element -> getLegacyValue(value, elementType))
+                    .map(element -> getLegacyValue(element, elementType))
                     .collect(toImmutableList());
         }
 
@@ -230,7 +230,7 @@ public class QueryResultRows
                 Map<String, Object> values = (Map<String, Object>) value;
 
                 return fields.stream()
-                        .collect(toImmutableMap(field -> field.getName().orElseThrow(), field -> getLegacyValue(values.get(field.getName()), field.getType())));
+                        .collect(toImmutableMap(field -> field.getName().orElseThrow(), field -> getLegacyValue(values.get(field.getName().orElseThrow()), field.getType())));
             }
 
             if (value instanceof List) {
