@@ -50,6 +50,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.union;
+import static io.prestosql.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.prestosql.connector.informationschema.InformationSchemaMetadata.defaultPrefixes;
 import static io.prestosql.connector.informationschema.InformationSchemaMetadata.isTablesEnumeratingTable;
 import static io.prestosql.metadata.MetadataListing.getViews;
@@ -263,7 +264,7 @@ public class InformationSchemaPageSource
                         ordinalPosition,
                         null,
                         "YES",
-                        getDisplayLabel(column.getType(), session),
+                        getDisplayLabel(column.getType(), isOmitDateTimeTypePrecision(session)),
                         column.getComment(),
                         column.getExtraInfo(),
                         column.getComment());
