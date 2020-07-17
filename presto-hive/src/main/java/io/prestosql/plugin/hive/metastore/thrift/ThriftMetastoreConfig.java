@@ -43,6 +43,7 @@ public class ThriftMetastoreConfig
     private long delegationTokenCacheMaximumSize = 1000;
     private boolean deleteFilesOnDrop;
     private Duration maxWaitForTransactionLock = new Duration(10, TimeUnit.MINUTES);
+    private boolean connectionPoolEnabled;
 
     private boolean tlsEnabled;
     private File keystorePath;
@@ -208,6 +209,19 @@ public class ThriftMetastoreConfig
     public ThriftMetastoreConfig setMaxWaitForTransactionLock(Duration maxWaitForTransactionLock)
     {
         this.maxWaitForTransactionLock = maxWaitForTransactionLock;
+        return this;
+    }
+
+    public boolean isConnectionPoolEnabled()
+    {
+        return connectionPoolEnabled;
+    }
+
+    @Config("hive.metastore.thrift.client.connection-pool.enabled")
+    @ConfigDescription("Whether connection pool is enabled")
+    public ThriftMetastoreConfig setConnectionPoolEnabled(boolean connectionPoolEnabled)
+    {
+        this.connectionPoolEnabled = connectionPoolEnabled;
         return this;
     }
 

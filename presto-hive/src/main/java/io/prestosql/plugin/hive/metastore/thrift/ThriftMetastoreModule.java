@@ -28,6 +28,7 @@ import io.prestosql.spi.procedure.Procedure;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
@@ -72,5 +73,20 @@ public class ThriftMetastoreModule
         binder.install(new CachingHiveMetastoreModule());
 
         install(new ThriftMetastoreAuthenticationModule());
+
+        install(installModuleIf(
+                ThriftMetastoreConfig.class,
+                ThriftMetastoreConfig::isConnectionPoolEnabled,
+                this::usePooledHiveMetastoreClientFactory));
+    }
+
+    private void usePooledHiveMetastoreClientFactory(Binder binder)
+    {
+        newOptionalBinder(binder, ThriftMetastoreClientFactory.class)
+                .setBinding().to(PooledHiveMetastoreClientFactory.class).in(Scopes.SINGLETON);
+        binder.bind(ThriftMetastoreClientFactory.class)
+                .annotatedWith(PooledHiveMetastoreClientFactory.ForPooledMetastore.class)
+                .to(DefaultThriftMetastoreClientFactory.class)
+                .in(Scopes.SINGLETON);
     }
 }
