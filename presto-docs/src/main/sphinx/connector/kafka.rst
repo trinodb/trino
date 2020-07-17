@@ -136,21 +136,21 @@ Internal Columns
 
 For each defined table, the connector maintains the following columns:
 
-======================= ========= =============================
-Column name             Type      Description
-======================= ========= =============================
-``_partition_id``       BIGINT    ID of the Kafka partition which contains this row.
-``_partition_offset``   BIGINT    Offset within the Kafka partition for this row.
-``_segment_start``      BIGINT    Lowest offset in the segment (inclusive) which contains this row. This offset is partition specific.
-``_segment_end``        BIGINT    Highest offset in the segment (exclusive) which contains this row. The offset is partition specific. This is the same value as ``_segment_start`` of the next segment (if it exists).
-``_segment_count``      BIGINT    Running count for the current row within the segment. For an uncompacted topic, ``_segment_start + _segment_count`` is equal to ``_partition_offset``.
-``_message_corrupt``    BOOLEAN   True if the decoder could not decode the message for this row. When true, data columns mapped from the message should be treated as invalid.
-``_message``            VARCHAR   Message bytes as an UTF-8 encoded string. This is only useful for a text topic.
-``_message_length``     BIGINT    Number of bytes in the message.
-``_key_corrupt``        BOOLEAN   True if the key decoder could not decode the key for this row. When true, data columns mapped from the key should be treated as invalid.
-``_key``                VARCHAR   Key bytes as an UTF-8 encoded string. This is only useful for textual keys.
-``_key_length``         BIGINT    Number of bytes in the key.
-======================= ========= =============================
+======================= =============================== =============================
+Column name             Type                            Description
+======================= =============================== =============================
+``_partition_id``       BIGINT                          ID of the Kafka partition which contains this row.
+``_partition_offset``   BIGINT                          Offset within the Kafka partition for this row.
+``_segment_start``      BIGINT                          Lowest offset in the segment (inclusive) which contains this row. This offset is partition specific.
+``_segment_end``        BIGINT                          Highest offset in the segment (exclusive) which contains this row. The offset is partition specific. This is the same value as ``_segment_start`` of the next segment (if it exists).
+``_segment_count``      BIGINT                          Running count for the current row within the segment. For an uncompacted topic, ``_segment_start + _segment_count`` is equal to ``_partition_offset``.
+``_message_corrupt``    BOOLEAN                         True if the decoder could not decode the message for this row. When true, data columns mapped from the message should be treated as invalid.
+``_message``            VARCHAR                         Message bytes as an UTF-8 encoded string. This is only useful for a text topic.
+``_message_length``     BIGINT                          Number of bytes in the message.
+``_key_corrupt``        BOOLEAN                         True if the key decoder could not decode the key for this row. When true, data columns mapped from the key should be treated as invalid.
+``_key``                VARCHAR                         Key bytes as an UTF-8 encoded string. This is only useful for textual keys.
+``_key_length``         BIGINT                          Number of bytes in the key.
+======================= =============================== =============================
 
 For tables without a table definition file, the ``_key_corrupt`` and
 ``_message_corrupt`` columns will always be ``false``.
