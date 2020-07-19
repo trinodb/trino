@@ -3,6 +3,11 @@ JDBC Driver
 ===========
 
 Presto can be accessed from Java using the JDBC driver.
+JDBC is a standard API that provides the necessary methods such as querying, 
+inserting, deleting, and updating data in a relational database. Many client and server-side 
+applications running on the JVM implement features for database management, reporting, and 
+other aspects and are using JDBC to access the underlying database. All of these applications 
+can use Presto with the JDBC driver.
 Download :maven_download:`jdbc` and add it to the class path of your Java application.
 
 The driver is also available from Maven Central:
