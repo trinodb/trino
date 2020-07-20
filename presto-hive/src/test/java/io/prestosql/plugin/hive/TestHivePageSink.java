@@ -267,6 +267,7 @@ public class TestHivePageSink
                 Optional.empty(),
                 "test",
                 ImmutableMap.of(),
+                false,
                 false);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         HivePageSinkProvider provider = new HivePageSinkProvider(

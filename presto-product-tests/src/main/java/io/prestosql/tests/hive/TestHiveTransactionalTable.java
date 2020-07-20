@@ -296,6 +296,58 @@ public class TestHiveTransactionalTable
         };
     }
 
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "testCreateAcidTableDataProvider")
+    public void testCtasAcidTable(boolean isPartitioned, BucketingType bucketingType)
+    {
+        if (getHiveVersionMajor() < 3) {
+            throw new SkipException("Hive transactional tables are supported with Hive version 3 or above");
+        }
+
+        try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable(format("ctas_transactional_%s", randomTableSuffix()))) {
+            String tableName = table.getName();
+            query("CREATE TABLE " + tableName + " " +
+                    prestoTableProperties(ACID, isPartitioned, bucketingType) +
+                    " AS SELECT * FROM (VALUES (21, 1, 1), (22, 1, 2), (23, 2, 2)) t(col, fcol, partcol)");
+
+            // can we query from Presto
+            assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE partcol = 2 ORDER BY col"))
+                    .containsOnly(row(22, 1), row(23, 2));
+
+            // can we query from Hive
+            assertThat(onHive().executeQuery("SELECT col, fcol FROM " + tableName + " WHERE partcol = 2 ORDER BY col"))
+                    .containsOnly(row(22, 1), row(23, 2));
+        }
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "testCreateAcidTableDataProvider")
+    public void testCreateAcidTable(boolean isPartitioned, BucketingType bucketingType)
+    {
+        if (getHiveVersionMajor() < 3) {
+            throw new SkipException("Hive transactional tables are supported with Hive version 3 or above");
+        }
+
+        try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable(format("create_transactional_%s", randomTableSuffix()))) {
+            String tableName = table.getName();
+            query("CREATE TABLE " + tableName + " (col INTEGER, fcol INTEGER, partcol INTEGER)" +
+                    prestoTableProperties(ACID, isPartitioned, bucketingType));
+
+            assertThat(() -> query("INSERT INTO " + tableName + " VALUES (1,2,3)")).failsWithMessageMatching(".*Writes to Hive transactional tables are not supported.*");
+        }
+    }
+
+    @DataProvider
+    public Object[][] testCreateAcidTableDataProvider()
+    {
+        return new Object[][] {
+                {false, BucketingType.NONE},
+                {false, BucketingType.BUCKETED_DEFAULT},
+                {false, BucketingType.BUCKETED_V1},
+                {false, BucketingType.BUCKETED_V2},
+                {true, BucketingType.NONE},
+                {true, BucketingType.BUCKETED_DEFAULT},
+        };
+    }
+
     private static String hiveTableProperties(TransactionalTableType transactionalTableType, BucketingType bucketingType)
     {
         ImmutableList.Builder<String> tableProperties = ImmutableList.builder();
@@ -303,6 +355,17 @@ public class TestHiveTransactionalTable
         tableProperties.addAll(bucketingType.getHiveTableProperties());
         tableProperties.add("'NO_AUTO_COMPACTION'='true'");
         return tableProperties.build().stream().collect(joining(",", "TBLPROPERTIES (", ")"));
+    }
+
+    private static String prestoTableProperties(TransactionalTableType transactionalTableType, boolean isPartitioned, BucketingType bucketingType)
+    {
+        ImmutableList.Builder<String> tableProperties = ImmutableList.builder();
+        tableProperties.addAll(transactionalTableType.getPrestoTableProperties());
+        tableProperties.addAll(bucketingType.getPrestoTableProperties("fcol", 4));
+        if (isPartitioned) {
+            tableProperties.add("partitioned_by = ARRAY['partcol']");
+        }
+        return tableProperties.build().stream().collect(joining(",", "WITH (", ")"));
     }
 
     private static void compactTableAndWait(CompactionMode compactMode, String tableName, String partitionString, Duration timeout)
