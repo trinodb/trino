@@ -24,10 +24,10 @@ import io.prestosql.spi.type.BigintType;
 import java.util.List;
 import java.util.Optional;
 
+import static com.google.common.base.Verify.verify;
 import static io.prestosql.plugin.jdbc.expression.AggregateFunctionPatterns.basicAggregation;
 import static io.prestosql.plugin.jdbc.expression.AggregateFunctionPatterns.functionName;
 import static io.prestosql.plugin.jdbc.expression.AggregateFunctionPatterns.inputs;
-import static io.prestosql.plugin.jdbc.expression.AggregateFunctionPatterns.outputType;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
@@ -52,13 +52,13 @@ public class ImplementCountAll
     {
         return basicAggregation()
                 .with(functionName().equalTo("count"))
-                .with(outputType().equalTo(BIGINT))
                 .with(inputs().equalTo(List.of()));
     }
 
     @Override
     public Optional<JdbcExpression> rewrite(AggregateFunction aggregateFunction, Captures captures, RewriteContext context)
     {
+        verify(aggregateFunction.getOutputType() == BIGINT);
         return Optional.of(new JdbcExpression("count(*)", bigintTypeHandle));
     }
 }
