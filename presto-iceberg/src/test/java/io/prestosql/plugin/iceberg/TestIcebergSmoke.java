@@ -33,6 +33,7 @@ import static io.prestosql.plugin.iceberg.IcebergQueryRunner.createIcebergQueryR
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -130,6 +131,23 @@ public class TestIcebergSmoke
         assertUpdate(format("INSERT INTO %s (x) VALUES (CAST('%s' AS %s))", tableName, decimalValue, decimalType), 1);
         assertQuery(format("SELECT * FROM %s", tableName), format("SELECT CAST('%s' AS %s)", decimalValue, decimalType));
         dropTable(getSession(), tableName);
+    }
+
+    @Test
+    public void testBigDecimalPartitionValue()
+    {
+        testWithAllFileFormats(this::testBigDecimalPartitionValueForFormat);
+    }
+
+    private void testBigDecimalPartitionValueForFormat(Session session, FileFormat fileFormat)
+    {
+        String tableName = format("test_%s_big_decimal_partition_value", fileFormat.name().toLowerCase(ENGLISH));
+        assertUpdate(session, format("CREATE TABLE %s (col1 BIGINT, col2 DECIMAL(30, 10)) WITH (partitioning = ARRAY['col2'])", tableName));
+        String castDecimal = "CAST('12345678901234567890.0123456789' AS DECIMAL(30,10))";
+        assertUpdate(session, format("INSERT INTO %s VALUES(12345, %s)", tableName, castDecimal), 1);
+        assertQuery(session, format("SELECT col1 FROM %s WHERE col2 = %s", tableName, castDecimal), "SELECT 12345");
+        assertQuery(session, format("SELECT col2 FROM %s WHERE col2 = %s", tableName, castDecimal), format("SELECT %s", castDecimal));
+        dropTable(session, tableName);
     }
 
     @Test

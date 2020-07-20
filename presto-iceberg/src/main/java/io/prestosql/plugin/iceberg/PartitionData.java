@@ -26,6 +26,7 @@ import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.Arrays;
 
+import static com.fasterxml.jackson.databind.DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -34,7 +35,7 @@ public class PartitionData
 {
     private static final String PARTITION_VALUES_FIELD = "partitionValues";
     private static final JsonFactory FACTORY = new JsonFactory();
-    private static final ObjectMapper MAPPER = new ObjectMapper(FACTORY);
+    private static final ObjectMapper MAPPER = new ObjectMapper(FACTORY).configure(USE_BIG_DECIMAL_FOR_FLOATS, true);
 
     private final Object[] partitionValues;
 
