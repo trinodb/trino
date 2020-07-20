@@ -26,11 +26,11 @@ import io.prestosql.spi.type.BigintType;
 
 import java.util.Optional;
 
+import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static io.prestosql.matching.Capture.newCapture;
 import static io.prestosql.plugin.jdbc.expression.AggregateFunctionPatterns.basicAggregation;
 import static io.prestosql.plugin.jdbc.expression.AggregateFunctionPatterns.functionName;
-import static io.prestosql.plugin.jdbc.expression.AggregateFunctionPatterns.outputType;
 import static io.prestosql.plugin.jdbc.expression.AggregateFunctionPatterns.singleInput;
 import static io.prestosql.plugin.jdbc.expression.AggregateFunctionPatterns.variable;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -60,7 +60,6 @@ public class ImplementCount
     {
         return basicAggregation()
                 .with(functionName().equalTo("count"))
-                .with(outputType().equalTo(BIGINT))
                 .with(singleInput().matching(variable().capturedAs(INPUT)));
     }
 
@@ -70,6 +69,7 @@ public class ImplementCount
         Variable input = captures.get(INPUT);
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) context.getAssignments().get(input.getName());
         verifyNotNull(columnHandle, "Unbound variable: %s", input);
+        verify(aggregateFunction.getOutputType() == BIGINT);
 
         return Optional.of(new JdbcExpression(
                 format("count(%s)", columnHandle.toSqlExpression(context.getIdentifierQuote())),
