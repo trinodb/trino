@@ -26,11 +26,11 @@ import io.prestosql.operator.aggregation.ApproximateDoublePercentileAggregations
 import io.prestosql.operator.aggregation.ApproximateDoublePercentileArrayAggregations;
 import io.prestosql.operator.aggregation.ApproximateLongPercentileAggregations;
 import io.prestosql.operator.aggregation.ApproximateLongPercentileArrayAggregations;
-import io.prestosql.operator.aggregation.ApproximateMostFrequentFunction;
 import io.prestosql.operator.aggregation.ApproximateRealPercentileAggregations;
 import io.prestosql.operator.aggregation.ApproximateRealPercentileArrayAggregations;
 import io.prestosql.operator.aggregation.ApproximateSetAggregation;
 import io.prestosql.operator.aggregation.AverageAggregations;
+import io.prestosql.operator.aggregation.BigintApproximateMostFrequent;
 import io.prestosql.operator.aggregation.BitwiseAndAggregation;
 import io.prestosql.operator.aggregation.BitwiseOrAggregation;
 import io.prestosql.operator.aggregation.BooleanAndAggregation;
@@ -61,6 +61,7 @@ import io.prestosql.operator.aggregation.RealHistogramAggregation;
 import io.prestosql.operator.aggregation.RealRegressionAggregation;
 import io.prestosql.operator.aggregation.RealSumAggregation;
 import io.prestosql.operator.aggregation.SumDataSizeForStats;
+import io.prestosql.operator.aggregation.VarcharApproximateMostFrequent;
 import io.prestosql.operator.aggregation.VarianceAggregation;
 import io.prestosql.operator.aggregation.arrayagg.ArrayAggregationFunction;
 import io.prestosql.operator.aggregation.histogram.Histogram;
@@ -640,7 +641,8 @@ public class FunctionRegistry
                 .scalars(SetDigestFunctions.class)
                 .scalars(SetDigestOperators.class)
                 .scalars(WilsonInterval.class)
-                .aggregate(ApproximateMostFrequentFunction.class);
+                .aggregate(BigintApproximateMostFrequent.class)
+                .aggregate(VarcharApproximateMostFrequent.class);
 
         // timestamp operators and functions
         builder

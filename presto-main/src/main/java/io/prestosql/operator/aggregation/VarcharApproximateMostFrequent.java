@@ -23,12 +23,12 @@ import io.prestosql.spi.function.CombineFunction;
 import io.prestosql.spi.function.InputFunction;
 import io.prestosql.spi.function.OutputFunction;
 import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.function.TypeParameter;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.VarcharType;
 
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.StandardTypes.BIGINT;
+import static io.prestosql.spi.type.StandardTypes.VARCHAR;
 import static io.prestosql.util.Failures.checkCondition;
 import static java.lang.Math.toIntExact;
 
@@ -46,54 +46,26 @@ import static java.lang.Math.toIntExact;
  * </p>
  */
 @AggregationFunction("approx_most_frequent")
-public final class ApproximateMostFrequentFunction
+public final class VarcharApproximateMostFrequent
 {
-    private ApproximateMostFrequentFunction() {}
-
-    public interface State<K>
-            extends AccumulatorState
-    {
-        ApproximateMostFrequentHistogram<K> get();
-
-        void set(ApproximateMostFrequentHistogram<K> value);
-    }
-
-    @AccumulatorStateMetadata(stateSerializerClass = LongApproximateMostFrequentStateSerializer.class, stateFactoryClass = LongApproximateMostFrequentStateFactory.class)
-    public interface LongState
-            extends State<Long>
-    {}
+    private VarcharApproximateMostFrequent() {}
 
     @AccumulatorStateMetadata(stateSerializerClass = StringApproximateMostFrequentStateSerializer.class, stateFactoryClass = StringApproximateMostFrequentStateFactory.class)
-    public interface StringState
-            extends State<Slice>
-    {}
-
-    @InputFunction
-    @TypeParameter("T")
-    public static void input(@AggregationState LongState state, @SqlType(BIGINT) long buckets, @SqlType("T") long value, @SqlType(BIGINT) long capacity)
+    public interface State
+            extends AccumulatorState
     {
-        ApproximateMostFrequentHistogram<Long> histogram = state.get();
-        if (histogram == null) {
-            checkCondition(buckets >= 2, INVALID_FUNCTION_ARGUMENT, "approx_most_frequent bucket count must be greater than one");
-            histogram = new ApproximateMostFrequentHistogram<Long>(
-                    toIntExact(buckets),
-                    toIntExact(capacity),
-                    LongApproximateMostFrequentStateSerializer::serializeBucket,
-                    LongApproximateMostFrequentStateSerializer::deserializeBucket);
-            state.set(histogram);
-        }
+        ApproximateMostFrequentHistogram<Slice> get();
 
-        histogram.add(value);
+        void set(ApproximateMostFrequentHistogram<Slice> value);
     }
 
     @InputFunction
-    @TypeParameter("T")
-    public static void input(@AggregationState StringState state, @SqlType(BIGINT) long buckets, @SqlType("T") Slice value, @SqlType(BIGINT) long capacity)
+    public static void input(@AggregationState State state, @SqlType(BIGINT) long buckets, @SqlType(VARCHAR) Slice value, @SqlType(BIGINT) long capacity)
     {
         ApproximateMostFrequentHistogram<Slice> histogram = state.get();
         if (histogram == null) {
             checkCondition(buckets >= 2, INVALID_FUNCTION_ARGUMENT, "approx_most_frequent bucket count must be greater than one");
-            histogram = new ApproximateMostFrequentHistogram<Slice>(
+            histogram = new ApproximateMostFrequentHistogram<>(
                     toIntExact(buckets),
                     toIntExact(capacity),
                     StringApproximateMostFrequentStateSerializer::serializeBucket,
@@ -105,21 +77,7 @@ public final class ApproximateMostFrequentFunction
     }
 
     @CombineFunction
-    public static void combine(@AggregationState LongState state, @AggregationState LongState otherState)
-    {
-        ApproximateMostFrequentHistogram<Long> otherHistogram = otherState.get();
-
-        ApproximateMostFrequentHistogram<Long> histogram = state.get();
-        if (histogram == null) {
-            state.set(otherHistogram);
-        }
-        else {
-            histogram.merge(otherHistogram);
-        }
-    }
-
-    @CombineFunction
-    public static void combine(@AggregationState StringState state, @AggregationState StringState otherState)
+    public static void combine(@AggregationState State state, @AggregationState State otherState)
     {
         ApproximateMostFrequentHistogram<Slice> otherHistogram = otherState.get();
 
@@ -132,24 +90,8 @@ public final class ApproximateMostFrequentFunction
         }
     }
 
-    @OutputFunction("map(T,bigint)")
-    public static void output(@AggregationState LongState state, BlockBuilder out)
-    {
-        if (state.get() == null) {
-            out.appendNull();
-        }
-        else {
-            BlockBuilder entryBuilder = out.beginBlockEntry();
-            state.get().forEachBucket((key, value) -> {
-                BigintType.BIGINT.writeLong(entryBuilder, key);
-                BigintType.BIGINT.writeLong(entryBuilder, value);
-            });
-            out.closeEntry();
-        }
-    }
-
-    @OutputFunction("map(T,bigint)")
-    public static void output(@AggregationState StringState state, BlockBuilder out)
+    @OutputFunction("map(varchar,bigint)")
+    public static void output(@AggregationState State state, BlockBuilder out)
     {
         if (state.get() == null) {
             out.appendNull();
