@@ -36,6 +36,7 @@ import static io.prestosql.plugin.hive.metastore.SortingColumn.Order.DESCENDING;
 import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V1;
 import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKETING_V2;
 import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
+import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
 import static io.prestosql.spi.session.PropertyMetadata.doubleProperty;
 import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
@@ -69,6 +70,7 @@ public class HiveTableProperties
     public static final String CSV_SEPARATOR = "csv_separator";
     public static final String CSV_QUOTE = "csv_quote";
     public static final String CSV_ESCAPE = "csv_escape";
+    public static final String TRANSACTIONAL = "transactional";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -153,7 +155,8 @@ public class HiveTableProperties
                 stringProperty(NULL_FORMAT_PROPERTY, "Serialization format for NULL value", null, false),
                 stringProperty(CSV_SEPARATOR, "CSV separator character", null, false),
                 stringProperty(CSV_QUOTE, "CSV quote character", null, false),
-                stringProperty(CSV_ESCAPE, "CSV escape character", null, false));
+                stringProperty(CSV_ESCAPE, "CSV escape character", null, false),
+                booleanProperty(TRANSACTIONAL, "Table is transactional", null, false));
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
@@ -290,5 +293,10 @@ public class HiveTableProperties
     private static String sortingColumnToString(SortingColumn column)
     {
         return column.getColumnName() + ((column.getOrder() == DESCENDING) ? " DESC" : "");
+    }
+
+    public static Optional<Boolean> isTransactional(Map<String, Object> tableProperties)
+    {
+        return Optional.ofNullable((Boolean) tableProperties.get(TRANSACTIONAL));
     }
 }

@@ -64,6 +64,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Properties;
 import java.util.Set;
+import java.util.UUID;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -117,6 +118,7 @@ public class HiveWriterFactory
     private final LocationHandle locationHandle;
     private final LocationService locationService;
     private final String queryId;
+    private final boolean isCreateTransactionalTable;
 
     private final HivePageSinkMetadataProvider pageSinkMetadataProvider;
     private final TypeManager typeManager;
@@ -145,6 +147,7 @@ public class HiveWriterFactory
             String schemaName,
             String tableName,
             boolean isCreateTable,
+            boolean isTransactional,
             List<HiveColumnHandle> inputColumns,
             HiveStorageFormat tableStorageFormat,
             HiveStorageFormat partitionStorageFormat,
@@ -210,6 +213,7 @@ public class HiveWriterFactory
         this.partitionColumnNames = partitionColumnNames.build();
         this.partitionColumnTypes = partitionColumnTypes.build();
         this.dataColumns = dataColumns.build();
+        this.isCreateTransactionalTable = isCreateTable && isTransactional;
 
         Path writePath;
         if (isCreateTable) {
@@ -268,13 +272,7 @@ public class HiveWriterFactory
             checkArgument(bucketNumber.isEmpty(), "Bucket number provided by for table that is not bucketed");
         }
 
-        String fileName;
-        if (bucketNumber.isPresent()) {
-            fileName = computeBucketedFileName(queryId, bucketNumber.getAsInt());
-        }
-        else {
-            fileName = queryId + "_" + randomUUID();
-        }
+        String fileName = computeFileName(bucketNumber);
 
         List<String> partitionValues = createPartitionValues(partitionColumnTypes, partitionColumns, position);
 
@@ -595,10 +593,40 @@ public class HiveWriterFactory
         }
     }
 
-    public static String computeBucketedFileName(String queryId, int bucket)
+    private String computeFileName(OptionalInt bucketNumber)
+    {
+        // Currently CTAS for transactional tables in Presto creates non-transactional ("original") files.
+        // Hive requires "original" files of transactional tables to conform to the following naming pattern:
+        //
+        // For bucketed tables we drop query id from file names and just leave <bucketId>_0
+        // For non bucketed tables we use 000000_<uuid_as_number>
+
+        if (bucketNumber.isPresent()) {
+            if (isCreateTransactionalTable) {
+                return computeBucketedFileName(Optional.empty(), bucketNumber.getAsInt());
+            }
+            return computeBucketedFileName(Optional.of(queryId), bucketNumber.getAsInt());
+        }
+
+        if (isCreateTransactionalTable) {
+            String paddedBucket = Strings.padStart("0", BUCKET_NUMBER_PADDING, '0');
+            UUID uuid = randomUUID();
+            return format("0%s_%s%s",
+                    paddedBucket,
+                    Long.toUnsignedString(uuid.getLeastSignificantBits()),
+                    Long.toUnsignedString(uuid.getMostSignificantBits()));
+        }
+
+        return queryId + "_" + randomUUID();
+    }
+
+    public static String computeBucketedFileName(Optional<String> queryId, int bucket)
     {
         String paddedBucket = Strings.padStart(Integer.toString(bucket), BUCKET_NUMBER_PADDING, '0');
-        return format("0%s_0_%s", paddedBucket, queryId);
+        if (queryId.isPresent()) {
+            return format("0%s_0_%s", paddedBucket, queryId.get());
+        }
+        return format("0%s_0", paddedBucket);
     }
 
     public static String getFileExtension(JobConf conf, StorageFormat storageFormat)

@@ -3259,7 +3259,8 @@ public class TestHiveIntegrationSmokeTest
                         "   orc_bloom_filter_columns = ARRAY['c1','c2'],\n" +
                         "   orc_bloom_filter_fpp = 7E-1,\n" +
                         "   partitioned_by = ARRAY['c5'],\n" +
-                        "   sorted_by = ARRAY['c1','c 2 DESC']\n" +
+                        "   sorted_by = ARRAY['c1','c 2 DESC'],\n" +
+                        "   transactional = true\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
