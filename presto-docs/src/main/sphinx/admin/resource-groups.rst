@@ -10,16 +10,102 @@ it does not cause running queries to fail; instead new queries become queued.
 A resource group may have sub-groups or may accept queries, but may not do both.
 
 The resource groups and associated selection rules are configured by a manager, which is pluggable.
-Add an ``etc/resource-groups.properties`` file with the following contents to enable
-the built-in manager that reads a JSON config file:
+
+There are two built-in managers: file-based and database-based. Add an ``etc/resource-groups.properties``
+file with the appropriate configurations to enable one of the two managers.
+
+File Resource Group Manager
+---------------------------
+
+This manager reads the resource group configuration from a JSON config file.
 
 .. code-block:: none
 
     resource-groups.configuration-manager=file
     resource-groups.config-file=etc/resource-groups.json
 
-Change the value of ``resource-groups.config-file`` to point to a JSON config file,
-which can be an absolute path, or a path relative to the Presto data directory.
+* ``resource-groups.config-file``: a JSON file storing the configurations, which can be an absolute
+  path, or a path relative to the Presto data directory.
+
+Db Resource Group Manager
+-------------------------
+
+This manager periodically loads the resource group configuration from a database.
+
+.. code-block:: none
+
+    resource-groups.configuration-manager=db
+    resource-groups.config-db-url=jdbc:mysql://localhost:3306/config_db?user=presto_admin
+    resource-groups.max-refresh-interval=1m
+    resource-groups.exact-match-selector-enabled=true
+
+* ``resource-groups.config-db-url`` (required): Database URL to load configuration from.
+* ``resource-groups.max-refresh-interval``: Time period for which the cluster will continue to accept
+  queries after refresh failures cause configuration to become stale. The default is ``1h``.
+* ``resource-groups.exact-match-selector-enabled``: Boolean flag to enable usage of a selector requiring
+  an exact match of environment, source and query type.
+
+The configuration is loaded every second from the following tables under the specified db url. If the
+configuration ``resource-groups.exact-match-selector-enabled`` is set to ``true``, an additional table
+is used for loading exact-match based selectors. If any of the tables do not exist, Presto creates them
+on server startup.
+
++---------------------+-------------------------------------------------------+---------------------------------+
+| Table Name          | Schema                                                | Purpose                         |
++=====================+=======================================================+=================================+
+| resource\_groups\_  | .. code-block:: sql                                   |Store properties listed in       |
+| global\_properties  |                                                       |:ref:`global-properties`         |
+|                     |     name VARCHAR(128) NOT NULL PRIMARY KEY,           |                                 |
+|                     |     value VARCHAR(512) NULL,                          |                                 |
+|                     |     CHECK (name in ('cpu_quota_period'))              |                                 |
++---------------------+-------------------------------------------------------+---------------------------------+
+| resource\_groups    | .. code-block:: sql                                   |Store resource group             |
+|                     |                                                       |configuration described in       |
+|                     |     resource_group_id BIGINT NOT NULL AUTO_INCREMENT, |:ref:`resource-group-properties`.|
+|                     |     name VARCHAR(250) NOT NULL,                       |                                 |
+|                     |     soft_memory_limit VARCHAR(128) NOT NULL,          |                                 |
+|                     |     max_queued INT NOT NULL,                          |                                 |
+|                     |     soft_concurrency_limit INT NULL,                  |                                 |
+|                     |     hard_concurrency_limit INT NOT NULL,              |                                 |
+|                     |     scheduling_policy VARCHAR(128) NULL,              |                                 |
+|                     |     scheduling_weight INT NULL,                       |                                 |
+|                     |     jmx_export BOOLEAN NULL,                          |                                 |
+|                     |     soft_cpu_limit VARCHAR(128) NULL,                 |                                 |
+|                     |     hard_cpu_limit VARCHAR(128) NULL,                 |                                 |
+|                     |     parent BIGINT NULL,                               |                                 |
+|                     |     environment VARCHAR(128) NULL,                    |                                 |
+|                     |     PRIMARY KEY (resource_group_id),                  |                                 |
+|                     |     FOREIGN KEY (parent) REFERENCES                   |                                 |
+|                     |         resource_groups (resource_group_id)           |                                 |
++---------------------+-------------------------------------------------------+---------------------------------+
+|   selectors         | .. code-block:: sql                                   |Store selector rules             |
+|                     |                                                       |to match input queries           |
+|                     |     resource_group_id BIGINT NOT NULL,                |against resource groups, refer   |
+|                     |     priority BIGINT NOT NULL,                         |to :ref:`selector-rules`.        |
+|                     |     user_regex VARCHAR(512),                          |If there are multiple matches    |
+|                     |     source_regex VARCHAR(512),                        |for a query, the one with the    |
+|                     |     query_type VARCHAR(512),                          |highest priority is selected.    |
+|                     |     client_tags VARCHAR(512),                         |                                 |
+|                     |     selector_resource_estimate VARCHAR(1024),         |                                 |
+|                     |     FOREIGN KEY (resource_group_id) REFERENCES        |                                 |
+|                     |         resource_groups (resource_group_id)           |                                 |
++---------------------+-------------------------------------------------------+---------------------------------+
+| exact\_match\_      | .. code-block:: sql                                   |Store selector rules             |
+| source\_selectors   |                                                       |for an exact match of source,    |
+|                     |     environment VARCHAR(128),                         |environment and query type.      |
+|                     |     source VARCHAR(512) NOT NULL,                     |``NULL`` values for query_type   |
+|                     |     query_type VARCHAR(512),                          |and environment are treated as   |
+|                     |     update_time DATETIME NOT NULL,                    |wildcards, and have a lower      |
+|                     |     resource_group_id VARCHAR(256) NOT NULL,          |priority than exact matches.     |
+|                     |     PRIMARY KEY (environment, source, query_type),    |                                 |
+|                     |     UNIQUE (                                          |                                 |
+|                     |         source,                                       |                                 |
+|                     |         environment,                                  |                                 |
+|                     |         query_type,                                   |                                 |
+|                     |         resource_group_id)                            |                                 |
++---------------------+-------------------------------------------------------+---------------------------------+
+
+.. _resource-group-properties:
 
 Resource Group Properties
 -------------------------
@@ -72,6 +158,8 @@ Resource Group Properties
 
 * ``subGroups`` (optional): list of sub-groups.
 
+.. _selector-rules:
+
 Selector Rules
 --------------
 
@@ -98,25 +186,12 @@ Selector Rules
 
 Selectors are processed sequentially and the first one that matches will be used.
 
+.. _global-properties:
+
 Global Properties
 -----------------
 
 * ``cpuQuotaPeriod`` (optional): the period in which cpu quotas are enforced.
-
-Providing Selector Properties
------------------------------
-
-The source name can be set as follows:
-
-* CLI: use the ``--source`` option.
-
-* JDBC: set the ``ApplicationName`` client info property on the ``Connection`` instance.
-
-Client tags can be set as follows:
-
-* CLI: use the ``--client-tags`` option.
-
-* JDBC: set the ``ClientTags`` client info property on the ``Connection`` instance.
 
 Example
 -------
@@ -174,3 +249,18 @@ For the remaining users:
 
 .. literalinclude:: resource-groups-example.json
     :language: json
+
+Providing Selector Properties
+-----------------------------
+
+The source name can be set as follows:
+
+* CLI: use the ``--source`` option.
+
+* JDBC: set the ``ApplicationName`` client info property on the ``Connection`` instance.
+
+Client tags can be set as follows:
+
+* CLI: use the ``--client-tags`` option.
+
+* JDBC: set the ``ClientTags`` client info property on the ``Connection`` instance.
