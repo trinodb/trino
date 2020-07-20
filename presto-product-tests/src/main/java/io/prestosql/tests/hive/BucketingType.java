@@ -34,6 +34,12 @@ public enum BucketingType
         {
             return ImmutableList.of();
         }
+
+        @Override
+        public List<String> getPrestoTableProperties(String columnName, int buckets)
+        {
+            return ImmutableList.of();
+        }
     },
 
     BUCKETED_DEFAULT {
@@ -47,6 +53,14 @@ public enum BucketingType
         public List<String> getHiveTableProperties()
         {
             return ImmutableList.of();
+        }
+
+        @Override
+        public List<String> getPrestoTableProperties(String columnName, int buckets)
+        {
+            return ImmutableList.of(
+                    "bucketed_by = ARRAY['" + columnName + "']",
+                    "bucket_count = " + buckets);
         }
     },
 
@@ -62,6 +76,15 @@ public enum BucketingType
         {
             return ImmutableList.of("'bucketing_version'='1'");
         }
+
+        @Override
+        public List<String> getPrestoTableProperties(String columnName, int buckets)
+        {
+            return ImmutableList.of(
+                    "bucketing_version = 1",
+                    "bucketed_by = ARRAY['" + columnName + "']",
+                    "bucket_count = " + buckets);
+        }
     },
 
     BUCKETED_V2 {
@@ -76,12 +99,23 @@ public enum BucketingType
         {
             return ImmutableList.of("'bucketing_version'='2'");
         }
+
+        @Override
+        public List<String> getPrestoTableProperties(String columnName, int buckets)
+        {
+            return ImmutableList.of(
+                    "bucketing_version = 2",
+                    "bucketed_by = ARRAY['" + columnName + "']",
+                    "bucket_count = " + buckets);
+        }
     },
     /**/;
 
     public abstract String getHiveClustering(String columnNames, int buckets);
 
     public abstract List<String> getHiveTableProperties();
+
+    public abstract List<String> getPrestoTableProperties(String columnName, int buckets);
 
     private static String defaultHiveClustering(String columnName, int buckets)
     {

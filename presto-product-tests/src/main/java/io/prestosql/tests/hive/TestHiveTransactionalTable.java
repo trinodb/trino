@@ -299,6 +299,29 @@ public class TestHiveTransactionalTable
         }
     }
 
+    @Test(dataProvider = "partitioningAndBucketingTypeDataProvider")
+    public void testCtasAcidTable(boolean isPartitioned, BucketingType bucketingType)
+    {
+        if (getHiveVersionMajor() < 3) {
+            throw new SkipException("Presto Hive transactional tables are supported with Hive version 3 or above");
+        }
+
+        try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable(format("ctas_transactional_%s", randomTableSuffix()))) {
+            String tableName = table.getName();
+            query("CREATE TABLE " + tableName + " " +
+                    prestoTableProperties(ACID, isPartitioned, bucketingType) +
+                    " AS SELECT * FROM (VALUES (21, 1, 1), (22, 1, 2), (23, 2, 2)) t(col, fcol, partcol)");
+
+            // can we query from Presto
+            assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE partcol = 2 ORDER BY col"))
+                    .containsOnly(row(22, 1), row(23, 2));
+
+            // can we query from Hive
+            assertThat(onHive().executeQuery("SELECT col, fcol FROM " + tableName + " WHERE partcol = 2 ORDER BY col"))
+                    .containsOnly(row(22, 1), row(23, 2));
+        }
+    }
+
     @DataProvider
     public Object[][] partitioningAndBucketingTypeDataProvider()
     {
@@ -317,6 +340,17 @@ public class TestHiveTransactionalTable
         tableProperties.addAll(bucketingType.getHiveTableProperties());
         tableProperties.add("'NO_AUTO_COMPACTION'='true'");
         return tableProperties.build().stream().collect(joining(",", "TBLPROPERTIES (", ")"));
+    }
+
+    private static String prestoTableProperties(TransactionalTableType transactionalTableType, boolean isPartitioned, BucketingType bucketingType)
+    {
+        ImmutableList.Builder<String> tableProperties = ImmutableList.builder();
+        tableProperties.addAll(transactionalTableType.getPrestoTableProperties());
+        tableProperties.addAll(bucketingType.getPrestoTableProperties("fcol", 4));
+        if (isPartitioned) {
+            tableProperties.add("partitioned_by = ARRAY['partcol']");
+        }
+        return tableProperties.build().stream().collect(joining(",", "WITH (", ")"));
     }
 
     private static void compactTableAndWait(CompactionMode compactMode, String tableName, String partitionString, Duration timeout)

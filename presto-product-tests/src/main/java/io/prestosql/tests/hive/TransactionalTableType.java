@@ -25,12 +25,24 @@ public enum TransactionalTableType
         {
             return ImmutableList.of("'transactional'='true'");
         }
+
+        @Override
+        List<String> getPrestoTableProperties()
+        {
+            return ImmutableList.of("transactional = true");
+        }
     },
     INSERT_ONLY {
         @Override
         List<String> getHiveTableProperties()
         {
             return ImmutableList.of("'transactional'='true'", "'transactional_properties'='insert_only'");
+        }
+
+        @Override
+        List<String> getPrestoTableProperties()
+        {
+            throw new RuntimeException("insert_only tables not supported");
         }
     },
     NON_ACID {
@@ -43,4 +55,6 @@ public enum TransactionalTableType
     /**/;
 
     abstract List<String> getHiveTableProperties();
+
+    abstract List<String> getPrestoTableProperties();
 }
