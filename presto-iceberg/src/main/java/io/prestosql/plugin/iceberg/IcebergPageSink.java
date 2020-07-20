@@ -83,6 +83,8 @@ public class IcebergPageSink
 
     @SuppressWarnings({"FieldCanBeLocal", "FieldMayBeStatic"})
     private final int maxOpenWriters = 100;  // TODO: make this configurable
+    private final String schemaName;
+    private final String tableName;
     private final Schema outputSchema;
     private final PartitionSpec partitionSpec;
     private final String outputPath;
@@ -102,6 +104,8 @@ public class IcebergPageSink
     private long validationCpuNanos;
 
     public IcebergPageSink(
+            String schemaName,
+            String tableName,
             Schema outputSchema,
             PartitionSpec partitionSpec,
             String outputPath,
@@ -114,6 +118,8 @@ public class IcebergPageSink
             ConnectorSession session,
             FileFormat fileFormat)
     {
+        this.schemaName = requireNonNull(schemaName, "schemaName is null");
+        this.tableName = requireNonNull(tableName, "tableName is null");
         requireNonNull(inputColumns, "inputColumns is null");
         this.outputSchema = requireNonNull(outputSchema, "outputSchema is null");
         this.partitionSpec = requireNonNull(partitionSpec, "partitionSpec is null");
@@ -307,6 +313,8 @@ public class IcebergPageSink
         outputPath = new Path(fileFormat.addExtension(outputPath.toString()));
 
         IcebergFileWriter writer = fileWriterFactory.createFileWriter(
+                schemaName,
+                tableName,
                 outputPath,
                 outputSchema,
                 jobConf,

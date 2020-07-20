@@ -71,6 +71,8 @@ public class IcebergPageSinkProvider
         Schema schema = SchemaParser.fromJson(tableHandle.getSchemaAsJson());
         PartitionSpec partitionSpec = PartitionSpecParser.fromJson(schema, tableHandle.getPartitionSpecAsJson());
         return new IcebergPageSink(
+                tableHandle.getSchemaName(),
+                tableHandle.getTableName(),
                 schema,
                 partitionSpec,
                 tableHandle.getOutputPath(),

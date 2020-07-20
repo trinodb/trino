@@ -46,7 +46,7 @@ public class TestSparkCompatibility
     @DataProvider(name = "storage_formats")
     public static Object[][] storageFormats()
     {
-        return new String[][] {{"ORC"}, {"PARQUET"}};
+        return new String[][] {{"ORC"}, {"PARQUET"}, {"AVRO"}};
     }
 
     @Test(dataProvider = "storage_formats", groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
