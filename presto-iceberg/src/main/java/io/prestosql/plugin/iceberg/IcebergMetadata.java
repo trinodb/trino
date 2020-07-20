@@ -382,7 +382,7 @@ public class IcebergMetadata
 
         TableMetadata metadata = newTableMetadata(operations, schema, partitionSpec, targetPath, propertiesBuilder.build());
 
-        transaction = createTableTransaction(operations, metadata);
+        transaction = createTableTransaction(tableName, operations, metadata);
 
         return new IcebergWritableTableHandle(
                 schemaName,
