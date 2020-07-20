@@ -80,6 +80,7 @@ public class TestSqlServerDistributedQueries
     }
 
     @Override
+    @Test(enabled = false)
     public void testCommentTable()
     {
         // SQLServer connector currently does not support comment on table
@@ -87,6 +88,7 @@ public class TestSqlServerDistributedQueries
     }
 
     @Override
+    @Test(enabled = false)
     public void testDelete()
     {
         // delete is not supported

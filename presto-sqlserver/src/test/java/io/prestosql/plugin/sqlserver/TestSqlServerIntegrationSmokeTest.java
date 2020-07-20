@@ -47,7 +47,7 @@ public class TestSqlServerIntegrationSmokeTest
         sqlServer.close();
     }
 
-    @Test
+    @Test(enabled = false)
     public void testInsert()
     {
         sqlServer.execute("CREATE TABLE test_insert (x bigint, y varchar(100))");
@@ -56,7 +56,7 @@ public class TestSqlServerIntegrationSmokeTest
         assertUpdate("DROP TABLE test_insert");
     }
 
-    @Test
+    @Test(enabled = false)
     public void testInsertInPresenceOfNotSupportedColumn()
     {
         sqlServer.execute("CREATE TABLE test_insert_not_supported_column_present(x bigint, y sql_variant, z varchar(10))");
@@ -67,7 +67,7 @@ public class TestSqlServerIntegrationSmokeTest
         assertUpdate("DROP TABLE test_insert_not_supported_column_present");
     }
 
-    @Test
+    @Test(enabled = false)
     public void testView()
     {
         sqlServer.execute("CREATE VIEW test_view AS SELECT * FROM orders");
@@ -77,6 +77,34 @@ public class TestSqlServerIntegrationSmokeTest
     }
 
     @Test
+    public void testAggregationPushdown()
+            throws Exception
+    {
+        // TODO support aggregation pushdown with GROUPING SETS
+        // TODO support aggregation over expressions
+
+        assertPushedDown("SELECT count(*) FROM orders");
+        assertPushedDown("SELECT count(nationkey) FROM nation");
+        assertPushedDown("SELECT min(totalprice) FROM orders");
+        assertPushedDown("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey");
+        assertPushedDown("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey");
+
+        assertPushedDown(
+                "SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey",
+                "SELECT regionkey, avg(CAST(nationkey AS double)) FROM nation GROUP BY regionkey");
+
+        try (AutoCloseable ignoreTable = withTable("test_aggregation_pushdown2", "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
+            sqlServer.execute("INSERT INTO test_aggregation_pushdown2 VALUES (100.000, 100000000.000000000)");
+            sqlServer.execute("INSERT INTO test_aggregation_pushdown2 VALUES (123.321, 123456789.987654321)");
+
+            assertPushedDown("SELECT min(short_decimal), min(long_decimal) FROM test_aggregation_pushdown2", "SELECT 100.000, 100000000.000000000");
+            assertPushedDown("SELECT max(short_decimal), max(long_decimal) FROM test_aggregation_pushdown2", "SELECT 123.321, 123456789.987654321");
+            assertPushedDown("SELECT sum(short_decimal), sum(long_decimal) FROM test_aggregation_pushdown2", "SELECT 223.321, 223456789.987654321");
+            assertPushedDown("SELECT avg(short_decimal), avg(long_decimal) FROM test_aggregation_pushdown2", "SELECT 223.321 / 2, 223456789.987654321 / 2");
+        }
+    }
+
+    @Test(enabled = false)
     public void testColumnComment()
             throws Exception
     {
@@ -96,7 +124,7 @@ public class TestSqlServerIntegrationSmokeTest
         }
     }
 
-    @Test
+    @Test(enabled = false)
     public void testDecimalPredicatePushdown()
             throws Exception
     {

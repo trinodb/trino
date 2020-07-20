@@ -103,14 +103,14 @@ public abstract class AbstractTestDistributedQueries
      * Ensure the tests are run with {@link DistributedQueryRunner}. E.g. {@link LocalQueryRunner} takes some
      * shortcuts, not exercising certain aspects.
      */
-    @Test
+    @Test(enabled = false)
     public void ensureDistributedQueryRunner()
     {
         assertThat(getQueryRunner().getNodeCount()).as("query runner node count")
                 .isGreaterThanOrEqualTo(3);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testSetSession()
     {
         MaterializedResult result = computeActual("SET SESSION test_string = 'bar'");
@@ -146,7 +146,7 @@ public abstract class AbstractTestDistributedQueries
         assertEquals(result.getSetSessionProperties(), ImmutableMap.of(TESTING_CATALOG + ".connector_double", "11.1"));
     }
 
-    @Test
+    @Test(enabled = false)
     public void testResetSession()
     {
         MaterializedResult result = computeActual(getSession(), "RESET SESSION test_string");
@@ -158,7 +158,7 @@ public abstract class AbstractTestDistributedQueries
         assertEquals(result.getResetSessionProperties(), ImmutableSet.of(TESTING_CATALOG + ".connector_string"));
     }
 
-    @Test
+    @Test(enabled = false)
     public void testCreateTable()
     {
         String tableName = "test_create_" + randomTableSuffix();
@@ -202,7 +202,7 @@ public abstract class AbstractTestDistributedQueries
         assertFalse(getQueryRunner().tableExists(getSession(), tableNameLike));
     }
 
-    @Test
+    @Test(enabled = false)
     public void testCreateTableAsSelect()
     {
         String tableName = "test_ctas" + randomTableSuffix();
@@ -303,7 +303,7 @@ public abstract class AbstractTestDistributedQueries
         assertFalse(getQueryRunner().tableExists(session, table));
     }
 
-    @Test
+    @Test(enabled = false)
     public void testRenameTable()
     {
         String tableName = "test_rename_" + randomTableSuffix();
@@ -325,7 +325,7 @@ public abstract class AbstractTestDistributedQueries
         assertFalse(getQueryRunner().tableExists(getSession(), renamedTable));
     }
 
-    @Test
+    @Test(enabled = false)
     public void testCommentTable()
     {
         String tableName = "test_comment_" + randomTableSuffix();
@@ -346,7 +346,7 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testCommentColumn()
     {
         skipTestUnless(supportsCommentOnColumn());
@@ -368,7 +368,7 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DROP TABLE test_comment_column");
     }
 
-    @Test
+    @Test(enabled = false)
     public void testRenameColumn()
     {
         String tableName = "test_rename_column_" + randomTableSuffix();
@@ -388,7 +388,7 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testDropColumn()
     {
         String tableName = "test_drop_column_" + randomTableSuffix();
@@ -400,7 +400,7 @@ public abstract class AbstractTestDistributedQueries
         assertQueryFails("ALTER TABLE " + tableName + " DROP COLUMN a", ".* Cannot drop the only column in a table");
     }
 
-    @Test
+    @Test(enabled = false)
     public void testAddColumn()
     {
         String tableName = "test_add_column_" + randomTableSuffix();
@@ -425,7 +425,7 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testInsert()
     {
         @Language("SQL") String query = "SELECT orderdate, orderkey, totalprice FROM orders";
@@ -465,7 +465,7 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testInsertWithCoercion()
     {
         String tableName = "test_insert_with_coercion_" + randomTableSuffix();
@@ -502,7 +502,7 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testInsertUnicode()
     {
         String tableName = "test_insert_unicode_" + randomTableSuffix();
@@ -532,7 +532,7 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testInsertArray()
     {
         skipTestUnless(supportsArrays());
@@ -548,7 +548,7 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testDelete()
     {
         // delete half the table, then delete the rest
@@ -675,7 +675,7 @@ public abstract class AbstractTestDistributedQueries
         assertAccessAllowed("DELETE FROM " + tableName, privilege("orders", SELECT_COLUMN));
     }
 
-    @Test
+    @Test(enabled = false)
     public void testDropTableIfExists()
     {
         assertFalse(getQueryRunner().tableExists(getSession(), "test_drop_if_exists"));
@@ -683,7 +683,7 @@ public abstract class AbstractTestDistributedQueries
         assertFalse(getQueryRunner().tableExists(getSession(), "test_drop_if_exists"));
     }
 
-    @Test
+    @Test(enabled = false)
     public void testView()
     {
         skipTestUnless(supportsViews());
@@ -717,7 +717,7 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DROP VIEW " + testViewWithComment);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testViewCaseSensitivity()
     {
         skipTestUnless(supportsViews());
@@ -734,7 +734,7 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DROP VIEW " + mixedCaseView);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testCompatibleTypeChangeForView()
     {
         skipTestUnless(supportsViews());
@@ -757,7 +757,7 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testCompatibleTypeChangeForView2()
     {
         skipTestUnless(supportsViews());
@@ -780,7 +780,7 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testViewMetadata()
     {
         skipTestUnless(supportsViews());
@@ -860,7 +860,7 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DROP VIEW " + viewName);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testShowCreateView()
     {
         skipTestUnless(supportsViews());
@@ -888,7 +888,7 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DROP VIEW " + viewName);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testQueryLoggingCount()
     {
         QueryManager queryManager = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getQueryManager();
@@ -956,14 +956,14 @@ public abstract class AbstractTestDistributedQueries
         }
     }
 
-    @Test
+    @Test(enabled = false)
     public void testShowSchemasFromOther()
     {
         MaterializedResult result = computeActual("SHOW SCHEMAS FROM tpch");
         assertTrue(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of(INFORMATION_SCHEMA, "tiny", "sf1")));
     }
 
-    @Test
+    @Test(enabled = false)
     public void testSymbolAliasing()
     {
         String tableName = "test_symbol_aliasing" + randomTableSuffix();
@@ -972,7 +972,7 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testNonQueryAccessControl()
     {
         skipTestUnless(supportsViews());
@@ -999,7 +999,7 @@ public abstract class AbstractTestDistributedQueries
         }
     }
 
-    @Test
+    @Test(enabled = false)
     public void testViewColumnAccessControl()
     {
         skipTestUnless(supportsViews());
@@ -1089,7 +1089,7 @@ public abstract class AbstractTestDistributedQueries
         assertAccessAllowed(viewOwnerSession, "DROP VIEW " + invokerViewName);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testViewFunctionAccessControl()
     {
         skipTestUnless(supportsViews());
@@ -1137,7 +1137,7 @@ public abstract class AbstractTestDistributedQueries
         assertAccessAllowed(viewOwnerSession, "DROP VIEW " + invokerFunctionAccessViewName);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testWrittenStats()
     {
         String tableName = "test_written_stats_" + randomTableSuffix();
@@ -1161,7 +1161,7 @@ public abstract class AbstractTestDistributedQueries
         assertUpdate("DROP TABLE " + tableName);
     }
 
-    @Test
+    @Test(enabled = false)
     public void testCreateSchema()
     {
         String schemaName = "test_schema_create_" + randomTableSuffix();
@@ -1173,7 +1173,7 @@ public abstract class AbstractTestDistributedQueries
         assertQueryFails("DROP SCHEMA " + schemaName, format("line 1:1: Schema '.*\\.%s' does not exist", schemaName));
     }
 
-    @Test
+    @Test(enabled = false)
     public void testInsertForDefaultColumn()
     {
         try (TestTable testTable = createTableWithDefaultColumns()) {
@@ -1188,7 +1188,7 @@ public abstract class AbstractTestDistributedQueries
 
     protected abstract TestTable createTableWithDefaultColumns();
 
-    @Test(dataProvider = "testColumnNameDataProvider")
+    @Test(enabled = false, dataProvider = "testColumnNameDataProvider")
     public void testColumnName(String columnName)
     {
         if (!requiresDelimiting(columnName)) {
@@ -1273,7 +1273,7 @@ public abstract class AbstractTestDistributedQueries
         return "test_data_mapping_smoke_" + prestoTypeName.replaceAll("[^a-zA-Z0-9]", "_") + "_" + randomTableSuffix();
     }
 
-    @Test(dataProvider = "testDataMappingSmokeTestDataProvider")
+    @Test(enabled = false, dataProvider = "testDataMappingSmokeTestDataProvider")
     public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
     {
         String prestoTypeName = dataMappingTestSetup.getPrestoTypeName();
