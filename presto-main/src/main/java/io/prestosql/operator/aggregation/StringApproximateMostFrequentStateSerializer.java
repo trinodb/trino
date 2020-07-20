@@ -24,7 +24,7 @@ import io.prestosql.spi.type.Type;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 
 public class StringApproximateMostFrequentStateSerializer
-        implements AccumulatorStateSerializer<ApproximateMostFrequentFunction.StringState>
+        implements AccumulatorStateSerializer<VarcharApproximateMostFrequent.State>
 {
     public static void serializeBucket(Slice key, Long count, DynamicSliceOutput output)
     {
@@ -48,7 +48,7 @@ public class StringApproximateMostFrequentStateSerializer
     }
 
     @Override
-    public void serialize(ApproximateMostFrequentFunction.StringState state, BlockBuilder out)
+    public void serialize(VarcharApproximateMostFrequent.State state, BlockBuilder out)
     {
         if (state.get() == null) {
             out.appendNull();
@@ -59,7 +59,7 @@ public class StringApproximateMostFrequentStateSerializer
     }
 
     @Override
-    public void deserialize(Block block, int index, ApproximateMostFrequentFunction.StringState state)
+    public void deserialize(Block block, int index, VarcharApproximateMostFrequent.State state)
     {
         state.set(new ApproximateMostFrequentHistogram<Slice>(
                 VARBINARY.getSlice(block, index),

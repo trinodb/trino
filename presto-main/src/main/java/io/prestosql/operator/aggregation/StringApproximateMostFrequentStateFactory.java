@@ -19,34 +19,34 @@ import io.prestosql.operator.aggregation.state.AbstractGroupedAccumulatorState;
 import io.prestosql.spi.function.AccumulatorStateFactory;
 
 public class StringApproximateMostFrequentStateFactory
-        implements AccumulatorStateFactory<ApproximateMostFrequentFunction.StringState>
+        implements AccumulatorStateFactory<VarcharApproximateMostFrequent.State>
 {
     @Override
-    public ApproximateMostFrequentFunction.StringState createSingleState()
+    public VarcharApproximateMostFrequent.State createSingleState()
     {
         return new StringApproximateMostFrequentStateFactory.SingleLongApproximateMostFrequentState();
     }
 
     @Override
-    public Class<? extends ApproximateMostFrequentFunction.StringState> getSingleStateClass()
+    public Class<? extends VarcharApproximateMostFrequent.State> getSingleStateClass()
     {
         return StringApproximateMostFrequentStateFactory.SingleLongApproximateMostFrequentState.class;
     }
 
     @Override
-    public ApproximateMostFrequentFunction.StringState createGroupedState()
+    public VarcharApproximateMostFrequent.State createGroupedState()
     {
         return new StringApproximateMostFrequentStateFactory.GroupedLongApproximateMostFrequentState();
     }
 
     @Override
-    public Class<? extends ApproximateMostFrequentFunction.StringState> getGroupedStateClass()
+    public Class<? extends VarcharApproximateMostFrequent.State> getGroupedStateClass()
     {
         return StringApproximateMostFrequentStateFactory.GroupedLongApproximateMostFrequentState.class;
     }
 
     public static class SingleLongApproximateMostFrequentState
-            implements ApproximateMostFrequentFunction.StringState
+            implements VarcharApproximateMostFrequent.State
     {
         private ApproximateMostFrequentHistogram<Slice> histogram;
         private long size;
@@ -73,7 +73,7 @@ public class StringApproximateMostFrequentStateFactory
 
     public static class GroupedLongApproximateMostFrequentState
             extends AbstractGroupedAccumulatorState
-            implements ApproximateMostFrequentFunction.StringState
+            implements VarcharApproximateMostFrequent.State
     {
         private final ObjectBigArray<ApproximateMostFrequentHistogram<Slice>> histograms = new ObjectBigArray<>();
         private long size;
