@@ -98,6 +98,7 @@ with some modifications.
 Enable the following inspections:
 
 - ``Java | Internationalization | Implicit usage of platform's default charset``,
+- ``Java | Control flow issues | Redundant 'else'`` (including ``Report when there are no more statements after the 'if' statement`` option),
 - ``Java | Class structure | Utility class is not 'final'``,
 - ``Java | Class structure | Utility class with 'public' constructor``,
 - ``Java | Class structure | Utility class without 'private' constructor``.
