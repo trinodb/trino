@@ -14,6 +14,7 @@
 package io.prestosql.plugin.password.salesforce;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -21,40 +22,40 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 
 public class TestSalesforceConfig
 {
     private final int defaultCacheSize = 4096;
-    private final int defaultCacheExpireSeconds = 120;
+    private final Duration defaultCacheExpireSeconds = Duration.succinctDuration(120, SECONDS);
 
     @Test
     public void testDefault()
     {
         assertRecordedDefaults(recordDefaults(SalesforceConfig.class)
-                .setOrgs(null)
+                .setAllowedOrganizations(null)
                 .setCacheSize(defaultCacheSize)
                 .setCacheExpireSeconds(defaultCacheExpireSeconds));
     }
 
-    // Test will only pass if config is created with properties that are different than the defaults.
     @Test
     public void testExplicitConfig()
     {
         String org = "my18CharOrgId";
-        String cacheSize = "128";
-        String cacheExpire = "3600";
+        String cacheSize = "111";
+        String cacheExpire = "3333s";
 
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
-                .put("salesforce.org", org)
+                .put("salesforce.allowed-organizations", org)
                 .put("salesforce.cache-size", cacheSize)
                 .put("salesforce.cache-expire-seconds", cacheExpire)
                 .build();
 
         SalesforceConfig expected = new SalesforceConfig()
-                .setOrgs(org)
+                .setAllowedOrganizations(org)
                 .setCacheSize(Integer.valueOf(cacheSize))
-                .setCacheExpireSeconds(Integer.valueOf(cacheExpire));
+                .setCacheExpireSeconds(Duration.valueOf(cacheExpire));
 
         assertFullMapping(properties, expected);
     }
@@ -65,7 +66,7 @@ public class TestSalesforceConfig
         String orgs = "my18CharOrgId,your18CharOrgId, his18CharOrgId ,her18CharOrgId";
         int expected = (int) orgs.chars().filter(sep -> sep == ',').count() + 1;
         int actual = (new SalesforceConfig()
-                .setOrgs(orgs)).getOrgSet().size();
+                .setAllowedOrganizations(orgs)).getOrgSet().size();
         assertEquals(expected, actual);
     }
 }
