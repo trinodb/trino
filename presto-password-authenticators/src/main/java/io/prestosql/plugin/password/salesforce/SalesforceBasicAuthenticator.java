@@ -16,42 +16,39 @@ package io.prestosql.plugin.password.salesforce;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
-import io.airlift.http.client.StaticBodyGenerator;
 import io.airlift.http.client.StringResponseHandler;
 import io.airlift.log.Logger;
 import io.prestosql.plugin.password.Credential;
-import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.BasicPrincipal;
 import io.prestosql.spi.security.PasswordAuthenticator;
 import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
-import org.w3c.dom.Text;
 import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
 import javax.inject.Inject;
 import javax.xml.parsers.DocumentBuilder;
 import javax.xml.parsers.DocumentBuilderFactory;
+import javax.xml.parsers.ParserConfigurationException;
 
+import java.io.IOException;
 import java.io.StringReader;
 import java.net.URI;
 import java.security.Principal;
-import java.util.HashMap;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static io.prestosql.plugin.password.salesforce.SalesforceConfig.APIVERSION;
-import static io.prestosql.plugin.password.salesforce.SalesforceConfig.LOGINURL;
-import static io.prestosql.plugin.password.salesforce.SalesforceConfig.LOGIN_SOAP_MESSAGE;
+import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 /**
  * Allows users to authenticate to Presto using their Salesforce username and password + security token concatenation.  You can learn about
@@ -68,32 +65,27 @@ public class SalesforceBasicAuthenticator
 {
     private static final Logger log = Logger.get(SalesforceBasicAuthenticator.class);
 
-    private Set<String> orgs;                                   // Set of Salesforce orgs, which users must belong to in order to authN.
-    private Map<String, String> responseMap = new HashMap<>();  // A flattened map of xml elements from the Salesforce login response.
-    private String key = "";                                    // Will hold the xml element tag, we can add to the map with its text attribute.
-    private final HttpClient httpClient;                        // An http client for posting to the Salesforce login endpoint.
+    // Set of Salesforce orgs, which users must belong to in order to authN.
+    private final Set<String> allowedOrganizations;
+    private final HttpClient httpClient;
     private final LoadingCache<Credential, Principal> userCache;
-
-    private final Locale locale = Locale.US;                    // Tested API request and response for user with Japanese locale and language preference,
-    // and responses are English, and organization id is not in Japaneses characters (this is
-    // also true of the organization id in the UI, even with other text showing in Japanese).
 
     @Inject
     public SalesforceBasicAuthenticator(SalesforceConfig config, @SalesforceAuthenticationClient HttpClient httpClient)
     {
-        this.orgs = config.getOrgSet();
-        this.httpClient = httpClient;
+        this.allowedOrganizations = ImmutableSet.copyOf(config.getOrgSet());
+        this.httpClient = requireNonNull(httpClient, "httpClient is null");
 
         this.userCache = CacheBuilder.newBuilder()
                 .maximumSize(config.getCacheSize())
-                .expireAfterWrite(config.getCacheExpireSeconds(), TimeUnit.SECONDS)
+                .expireAfterWrite(config.getCacheExpireSeconds().toMillis(), MILLISECONDS)
                 .build(CacheLoader.from(this::doLogin));
     }
 
     @Override
     public Principal createAuthenticatedPrincipal(String username, String password)
     {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(getClass().getClassLoader())) {
+        try {
             return userCache.getUnchecked(new Credential(username, password));
         }
         catch (UncheckedExecutionException e) {
@@ -105,57 +97,67 @@ public class SalesforceBasicAuthenticator
     // This does the work of logging into Salesforce.
     private Principal doLogin(Credential credential)
     {
-        log.info("Logging into Salesforce.");
+        log.debug("Logging into Salesforce.");
         String username = credential.getUser();
         String password = credential.getPassword();
 
         // Login requests must be POSTs
+        String loginSoapMessage = "<?xml version=\"1.0\" encoding=\"utf-8\" ?>\n" +
+                "<env:Envelope xmlns:xsd=\"http://www.w3.org/2001/XMLSchema\"\n" +
+                "xmlns:urn=\"urn:enterprise.soap.sforce.com\"\n" +
+                "   xmlns:xsi=\"http://www.w3.org/2001/XMLSchema-instance\"\n" +
+                "   xmlns:env=\"http://schemas.xmlsoap.org/soap/envelope/\">\n" +
+                " <env:Header>\n" +
+                "     <urn:CallOptions>\n" +
+                "       <urn:client>presto</urn:client>\n" +
+                "     </urn:CallOptions>\n" +
+                " </env:Header>\n" +
+                " <env:Body>\n" +
+                "   <n1:login xmlns:n1=\"urn:partner.soap.sforce.com\">\n" +
+                "     <n1:username>%s</n1:username>\n" +
+                "     <n1:password>%s</n1:password>\n" +
+                "   </n1:login>\n" +
+                " </env:Body>\n" +
+                "</env:Envelope>\n";
+        String apiVersion = "46.0";
+        String loginUrl = "https://login.salesforce.com/services/Soap/u/";
         Request request = new Request.Builder()
-                .setUri(URI.create(LOGINURL + APIVERSION))
+                .setUri(URI.create(loginUrl + apiVersion))
                 .setHeader("Content-Type", "text/xml;charset=UTF-8")
                 .setHeader("SOAPAction", "login")
                 .setMethod("POST")
-                .setBodyGenerator(StaticBodyGenerator.createStaticBodyGenerator(String.format(LOGIN_SOAP_MESSAGE, username, password), UTF_8))
+                .setBodyGenerator(createStaticBodyGenerator(String.format(loginSoapMessage, username, password), UTF_8))
                 .build();
 
         StringResponseHandler.StringResponse response = httpClient.execute(request, StringResponseHandler.createStringResponseHandler());
 
-        final int statusCode = response.getStatusCode();
-        if (statusCode < 200 || statusCode >= 300) {
-            throw new AccessDeniedException(String.format("Invalid response for login [%s]: %s. %s",
-                    statusCode,
-                    response.getBody(),
-                    response.getHeaders()));
+        if (response.getStatusCode() != 200) {
+            throw new AccessDeniedException(String.format("Invalid response for login\n.%s",
+                    response.getBody()));
         }
 
         Document xmlResponse;
-        DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-        DocumentBuilder builder;
         try {
-            builder = factory.newDocumentBuilder();
+            DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
+            DocumentBuilder builder = factory.newDocumentBuilder();
             xmlResponse = builder.parse(new InputSource(new StringReader(
                     response.getBody())));
         }
-        catch (Exception e) {
+        catch (ParserConfigurationException | SAXException | IOException e) {
             throw new RuntimeException(String.format("Error parsing response: %s\n\tReceived error message: %s",
                     response.getBody(),
                     e.getMessage()));
         }
 
-        // Parse the response into a flattened map.
-        parse((Node) xmlResponse);
-        String sessionId = responseMap.get("sessionId");
-        if (sessionId == null || sessionId.length() == 0) {
-            throw new RuntimeException("Can't find accessToken in Salesforce login response.");
-        }
+        // Make sure a Session Id has been returned.
+        getElementValue(xmlResponse, "sessionId");
 
         // We want the organizationId from the response to compare it to the configured org from password-authenticator.properties.
-        String returnedOrg = responseMap.get("organizationId");
-        if (returnedOrg == null || returnedOrg.length() == 0) {
-            throw new RuntimeException("Can't find organizationId in Salesforce login response.");
-        }
+        String returnedOrg = getElementValue(xmlResponse, "organizationId");
         // If the only entry in the set is "all", don't bother to check, otherwise make sure the returned org is in the set.
-        if (!(orgs.size() == 1 && orgs.contains("all")) && !orgs.contains(returnedOrg.toLowerCase(locale))) {
+        // The organizationId is always in Locale.US, regardless of the user's locale and language.
+        if (!(allowedOrganizations.size() == 1 && allowedOrganizations.contains("all"))
+                && !allowedOrganizations.contains(returnedOrg.toLowerCase(Locale.US))) {
             throw new AccessDeniedException(String.format(
                     "Login successful, but for wrong Salesforce org.  Got %s, but expected a different org.",
                     returnedOrg));
@@ -163,25 +165,21 @@ public class SalesforceBasicAuthenticator
         return new BasicPrincipal(username);
     }
 
-    // This simply finds elements in the xml response, and adds them and their text values to the flattened map
+    // Finds the text value of an element, which must appear only once in an XML document.
     // We will use this to find the organizationId and approve the authenticated user.
-    private void parse(Node node)
+    private static String getElementValue(Document document, String elementName)
     {
-        switch (node.getNodeType()) {
-            case Node.ELEMENT_NODE:
-                key = ((Element) node).getTagName();
-                break;
-            case Node.TEXT_NODE:
-                if (key.length() > 0) {
-                    responseMap.put(key, ((Text) node).getData());
-                }
-                break;
-            default:
-                key = "";
+        NodeList nodeList = document.getElementsByTagName(elementName);
+        if (nodeList.getLength() == 0) {
+            throw new RuntimeException(String.format("Salesforce login response does not contain a '%s' entry", elementName));
         }
-        NodeList list = node.getChildNodes();
-        for (int i = 0; i < list.getLength(); i++) {
-            parse(list.item(i));
+        if (nodeList.getLength() > 1) {
+            throw new RuntimeException(String.format("Salesforce login response contains multiple '%s' entries", elementName));
         }
+        String content = emptyToNull(nodeList.item(0).getTextContent());
+        if (content == null) {
+            throw new RuntimeException(String.format("Salesforce login response contains an empty '%s' entry", elementName));
+        }
+        return content;
     }
 }
