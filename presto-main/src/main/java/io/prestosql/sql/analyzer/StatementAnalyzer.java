@@ -551,7 +551,8 @@ class StatementAnalyzer
                     mapFromProperties(node.getProperties()),
                     session,
                     metadata,
-                    accessControl, analysis.getParameters());
+                    accessControl,
+                    analysis.getParameters());
             TableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session, tableName, analyzeProperties)
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", tableName));
 
@@ -633,7 +634,8 @@ class StatementAnalyzer
                     mapFromProperties(node.getProperties()),
                     session,
                     metadata,
-                    accessControl, analysis.getParameters());
+                    accessControl,
+                    analysis.getParameters());
 
             ConnectorTableMetadata tableMetadata = new ConnectorTableMetadata(targetTable.asSchemaTableName(), columns.build(), properties, node.getComment());
 
