@@ -61,6 +61,8 @@ public class TestTimeZoneKey
         assertSame(TimeZoneKey.getTimeZoneKey("GMT-00:00"), UTC_KEY);
         assertSame(TimeZoneKey.getTimeZoneKey("+00:00"), UTC_KEY);
         assertSame(TimeZoneKey.getTimeZoneKey("-00:00"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("+0000"), UTC_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("-0000"), UTC_KEY);
         assertSame(TimeZoneKey.getTimeZoneKey("etc/utc"), UTC_KEY);
         assertSame(TimeZoneKey.getTimeZoneKey("etc/gmt"), UTC_KEY);
         assertSame(TimeZoneKey.getTimeZoneKey("etc/gmt+0"), UTC_KEY);
@@ -140,6 +142,19 @@ public class TestTimeZoneKey
         assertSame(TimeZoneKey.getTimeZoneKey("Etc/UTC-7"), MINUS_7_KEY);
         assertSame(TimeZoneKey.getTimeZoneKey("Etc/UTC+7"), PLUS_7_KEY);
         assertSame(TimeZoneKey.getTimeZoneKey("Etc/UTC-7"), MINUS_7_KEY);
+
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/UTC-7:00"), MINUS_7_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/UTC-07:00"), MINUS_7_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/UTC+7:00"), PLUS_7_KEY);
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/UTC+07:00"), PLUS_7_KEY);
+
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/UTC-7:35"), TimeZoneKey.getTimeZoneKeyForOffset(-(7 * 60 + 35)));
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/UTC-07:35"), TimeZoneKey.getTimeZoneKeyForOffset(-(7 * 60 + 35)));
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/UTC+7:35"), TimeZoneKey.getTimeZoneKeyForOffset(7 * 60 + 35));
+        assertSame(TimeZoneKey.getTimeZoneKey("Etc/UTC+07:35"), TimeZoneKey.getTimeZoneKeyForOffset(7 * 60 + 35));
+
+        assertSame(TimeZoneKey.getTimeZoneKey("+0735"), TimeZoneKey.getTimeZoneKeyForOffset(7 * 60 + 35));
+        assertSame(TimeZoneKey.getTimeZoneKey("-0735"), TimeZoneKey.getTimeZoneKeyForOffset(-(7 * 60 + 35)));
     }
 
     @Test
