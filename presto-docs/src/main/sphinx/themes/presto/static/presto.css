@@ -1,3 +1,7 @@
+html {
+    scroll-behavior: smooth;
+}
+
 div.highlight {
     background-color: #f5f5f5;
 }
