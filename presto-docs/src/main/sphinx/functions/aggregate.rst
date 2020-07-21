@@ -140,6 +140,15 @@ General Aggregate Functions
 
     Returns the geometric mean of all input values.
 
+.. function:: max(x) -> [same as input]
+
+    Returns the maximum value of all input values.
+
+.. function:: max(x, n) -> array<[same as x]>
+    :noindex:
+
+    Returns ``n`` largest values of all input values of ``x``.
+
 .. function:: max_by(x, y) -> [same as x]
 
     Returns the value of ``x`` associated with the maximum value of ``y`` over all input values.
@@ -150,6 +159,15 @@ General Aggregate Functions
     Returns ``n`` values of ``x`` associated with the ``n`` largest of all input values of ``y``
     in descending order of ``y``.
 
+.. function:: min(x) -> [same as input]
+
+    Returns the minimum value of all input values.
+
+.. function:: min(x, n) -> array<[same as x]>
+    :noindex:
+
+    Returns ``n`` smallest values of all input values of ``x``.
+
 .. function:: min_by(x, y) -> [same as x]
 
     Returns the value of ``x`` associated with the minimum value of ``y`` over all input values.
@@ -159,24 +177,6 @@ General Aggregate Functions
 
     Returns ``n`` values of ``x`` associated with the ``n`` smallest of all input values of ``y``
     in ascending order of ``y``.
-
-.. function:: max(x) -> [same as input]
-
-    Returns the maximum value of all input values.
-
-.. function:: max(x, n) -> array<[same as x]>
-    :noindex:
-
-    Returns ``n`` largest values of all input values of ``x``.
-
-.. function:: min(x) -> [same as input]
-
-    Returns the minimum value of all input values.
-
-.. function:: min(x, n) -> array<[same as x]>
-    :noindex:
-
-    Returns ``n`` smallest values of all input values of ``x``.
 
 .. function:: sum(x) -> [same as input]
 
@@ -241,6 +241,27 @@ Approximate Aggregate Functions
     for any specific input set. The current implementation of this function
     requires that ``e`` be in the range of ``[0.0040625, 0.26000]``.
 
+.. function:: approx_most_frequent(buckets, value, capacity) -> map<[same as value], bigint>
+
+    Computes the top frequent values up to ``buckets`` elements approximately.
+    Approximate estimation of the function enables us to pick up the frequent
+    values with less memory. Larger ``capacity`` improves the accuracy of
+    underlying algorithm with sacrificing the memory capacity. The returned
+    value is a map containing the top elements with corresponding estimated
+    frequency.
+
+    The error of the function depends on the permutation of the values and its
+    cardinality. We can set the capacity same as the cardinality of the
+    underlying data to achieve the least error.
+
+    ``buckets`` and ``capacity`` must be ``bigint``. ``value`` can be numeric
+    or string type.
+
+    The function uses the stream summary data structure proposed in the paper
+    `Efficient Computation of Frequent and Top-k Elements in Data Streams
+    <https://www.cse.ust.hk/~raywong/comp5331/References/EfficientComputationOfFrequentAndTop-kElementsInDataStreams.pdf>`_
+    by A. Metwalley, D. Agrawl and A. Abbadi.
+
 .. function:: approx_percentile(x, percentage) -> [same as x]
 
     Returns the approximate percentile for all input values of ``x`` at the
@@ -299,20 +320,12 @@ Approximate Aggregate Functions
 
     See :doc:`qdigest`.
 
-.. function:: qdigest_agg(x) -> qdigest<[same as x]>
+.. function:: numeric_histogram(buckets, value) -> map<double, double>
     :noindex:
 
-    See :doc:`qdigest`.
-
-.. function:: qdigest_agg(x, w) -> qdigest<[same as x]>
-    :noindex:
-
-    See :doc:`qdigest`.
-
-.. function:: qdigest_agg(x, w, accuracy) -> qdigest<[same as x]>
-    :noindex:
-
-    See :doc:`qdigest`.
+    Computes an approximate histogram with up to ``buckets`` number of buckets
+    for all ``value``\ s. This function is equivalent to the variant of
+    :func:`numeric_histogram` that takes a ``weight``, with a per-item weight of ``1``.
 
 .. function:: numeric_histogram(buckets, value, weight) -> map<double, double>
 
@@ -327,31 +340,20 @@ Approximate Aggregate Functions
 
     ``buckets`` must be a ``bigint``. ``value`` and ``weight`` must be numeric.
 
-.. function:: numeric_histogram(buckets, value) -> map<double, double>
+.. function:: qdigest_agg(x) -> qdigest<[same as x]>
     :noindex:
 
-    Computes an approximate histogram with up to ``buckets`` number of buckets
-    for all ``value``\ s. This function is equivalent to the variant of
-    :func:`numeric_histogram` that takes a ``weight``, with a per-item weight of ``1``.
+    See :doc:`qdigest`.
 
-.. function:: approx_most_frequent(buckets, value, capacity) -> map<[same as value], bigint>
+.. function:: qdigest_agg(x, w) -> qdigest<[same as x]>
+    :noindex:
 
-    Computes the top frequent values up to ``buckets`` elements approximately.
-    Approximate estimation of the function enables us to pick up the frequent
-    values with less memory. Larger ``capacity`` improves the accuracy of
-    underlying algorithm with sacrificing the memory capacity. The returned
-    value is a map containing the top elements with corresponding estimated
-    frequency.
+    See :doc:`qdigest`.
 
-    The error of the function depends on the permutation of the values and its
-    cardinality. We can set the capacity same as the cardinality of the
-    underlying data to achieve the least error.
+.. function:: qdigest_agg(x, w, accuracy) -> qdigest<[same as x]>
+    :noindex:
 
-    ``buckets`` and ``capacity`` must be ``bigint``. ``value`` can be numeric
-    or string type.
-
-    The function uses the stream summary data structure proposed in the paper
-    `Efficient computation of frequent and top-k elements in data streams <https://www.cse.ust.hk/~raywong/comp5331/References/EfficientComputationOfFrequentAndTop-kElementsInDataStreams.pdf>`_ by A.Metwalley, D.Agrawl and A.Abbadi.
+    See :doc:`qdigest`.
 
 Statistical Aggregate Functions
 -------------------------------
