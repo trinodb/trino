@@ -84,6 +84,7 @@ import io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.DiscretePredicates;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordPageSource;
@@ -1374,7 +1375,7 @@ public abstract class AbstractTestHive
             metadata.beginQuery(session);
 
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tablePartitionFormat);
-            ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle, UNGROUPED_SCHEDULING);
+            ConnectorSplitSource splitSource = getSplits(splitManager, transaction, session, tableHandle);
 
             assertEquals(getSplitCount(splitSource), tablePartitionFormatPartitions.size());
         }
@@ -1389,7 +1390,7 @@ public abstract class AbstractTestHive
             metadata.beginQuery(session);
 
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableUnpartitioned);
-            ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle, UNGROUPED_SCHEDULING);
+            ConnectorSplitSource splitSource = getSplits(splitManager, transaction, session, tableHandle);
 
             assertEquals(getSplitCount(splitSource), 1);
         }
@@ -1399,7 +1400,7 @@ public abstract class AbstractTestHive
     public void testGetPartitionSplitsBatchInvalidTable()
     {
         try (Transaction transaction = newTransaction()) {
-            splitManager.getSplits(transaction.getTransactionHandle(), newSession(), invalidTableHandle, UNGROUPED_SCHEDULING);
+            getSplits(splitManager, transaction, newSession(), invalidTableHandle);
         }
     }
 
@@ -1437,7 +1438,7 @@ public abstract class AbstractTestHive
             tableHandle = applyFilter(metadata, tableHandle, new Constraint(tupleDomain));
 
             try {
-                getSplitCount(splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle, UNGROUPED_SCHEDULING));
+                getSplitCount(getSplits(splitManager, transaction, session, tableHandle));
                 fail("Expected PartitionOfflineException");
             }
             catch (PartitionOfflineException e) {
@@ -1458,7 +1459,7 @@ public abstract class AbstractTestHive
             assertNotNull(tableHandle);
 
             try {
-                getSplitCount(splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle, UNGROUPED_SCHEDULING));
+                getSplitCount(getSplits(splitManager, transaction, session, tableHandle));
                 fail("Expected HiveNotReadableException");
             }
             catch (HiveNotReadableException e) {
@@ -1945,7 +1946,7 @@ public abstract class AbstractTestHive
             HivePartition partition = getOnlyElement(((HiveTableHandle) table).getPartitions().orElseThrow(AssertionError::new));
             assertEquals(getPartitionId(partition), "t_boolean=0");
 
-            ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, table, UNGROUPED_SCHEDULING);
+            ConnectorSplitSource splitSource = getSplits(splitManager, transaction, session, table);
             ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
 
             ImmutableList<ColumnHandle> columnHandles = ImmutableList.of(column);
@@ -4391,7 +4392,7 @@ public abstract class AbstractTestHive
             throws Exception
     {
         tableHandle = applyFilter(transaction.getMetadata(), tableHandle, new Constraint(tupleDomain));
-        List<ConnectorSplit> splits = getAllSplits(splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle, UNGROUPED_SCHEDULING));
+        List<ConnectorSplit> splits = getAllSplits(getSplits(splitManager, transaction, session, tableHandle));
         if (expectedSplitCount.isPresent()) {
             assertEquals(splits.size(), expectedSplitCount.getAsInt());
         }
@@ -4428,7 +4429,7 @@ public abstract class AbstractTestHive
 
     private List<ConnectorSplit> getAllSplits(ConnectorTableHandle tableHandle, Transaction transaction, ConnectorSession session)
     {
-        return getAllSplits(splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle, UNGROUPED_SCHEDULING));
+        return getAllSplits(getSplits(splitManager, transaction, session, tableHandle));
     }
 
     protected static List<ConnectorSplit> getAllSplits(ConnectorSplitSource splitSource)
@@ -4438,6 +4439,11 @@ public abstract class AbstractTestHive
             splits.addAll(getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
         }
         return splits.build();
+    }
+
+    protected static ConnectorSplitSource getSplits(ConnectorSplitManager splitManager, Transaction transaction, ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle, UNGROUPED_SCHEDULING, DynamicFilter.EMPTY);
     }
 
     protected String getPartitionId(Object partition)
