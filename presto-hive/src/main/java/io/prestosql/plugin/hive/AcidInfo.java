@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ListMultimap;
 import org.apache.hadoop.fs.Path;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
@@ -48,7 +49,6 @@ public class AcidInfo
     {
         this.partitionLocation = requireNonNull(partitionLocation, "partitionLocation is null");
         this.deleteDeltas = ImmutableList.copyOf(requireNonNull(deleteDeltas, "deleteDeltas is null"));
-        checkArgument(!deleteDeltas.isEmpty(), "deleteDeltas is empty");
         this.originalFiles = ImmutableList.copyOf(requireNonNull(originalFiles, "originalFiles is null"));
         this.bucketId = bucketId;
     }
@@ -248,7 +248,7 @@ public class AcidInfo
     public static class Builder
     {
         private final Path partitionLocation;
-        private final ImmutableList.Builder<DeleteDeltaInfo> deleteDeltaInfoBuilder = ImmutableList.builder();
+        private final List<DeleteDeltaInfo> deleteDeltaInfos = new ArrayList<>();
         private final ListMultimap<Integer, OriginalFileInfo> bucketIdToOriginalFileInfoMap = ArrayListMultimap.create();
 
         private Builder(Path partitionPath)
@@ -259,7 +259,7 @@ public class AcidInfo
         private Builder(AcidInfo acidInfo)
         {
             partitionLocation = new Path(acidInfo.getPartitionLocation());
-            deleteDeltaInfoBuilder.addAll(acidInfo.deleteDeltas);
+            deleteDeltaInfos.addAll(acidInfo.deleteDeltas);
         }
 
         public Builder addDeleteDelta(Path deleteDeltaPath, long minWriteId, long maxWriteId, int statementId)
@@ -272,19 +272,20 @@ public class AcidInfo
                     deleteDeltaPath.getParent().toString(),
                     partitionLocation);
 
-            deleteDeltaInfoBuilder.add(new DeleteDeltaInfo(minWriteId, maxWriteId, statementId));
+            deleteDeltaInfos.add(new DeleteDeltaInfo(minWriteId, maxWriteId, statementId));
             return this;
         }
 
         public Builder addOriginalFile(Path originalFilePath, long originalFileLength, int bucketId)
         {
             requireNonNull(originalFilePath, "originalFilePath is null");
-/*            Path partitionPathFromOriginalPath = originalFilePath.getParent();
+            Path partitionPathFromOriginalPath = originalFilePath.getParent();
+            // originalFilePath has scheme in the prefix (i.e. scheme://<path>), extract path from uri and compare.
             checkArgument(
-                    partitionLocation.equals(partitionPathFromOriginalPath),
+                    partitionLocation.toUri().getPath().equals(partitionPathFromOriginalPath.toUri().getPath()),
                     "Partition location in OriginalFile '%s' does not match stored location '%s'",
                     originalFilePath.getParent().toString(),
-                    partitionLocation);*/
+                    partitionLocation);
             bucketIdToOriginalFileInfoMap.put(bucketId, new OriginalFileInfo(originalFilePath.getName(), originalFileLength));
             return this;
         }
@@ -295,16 +296,13 @@ public class AcidInfo
             // 2. Build AcidInfo
             checkState(bucketId > -1 && bucketIdToOriginalFileInfoMap.containsKey(bucketId), "Bucket Id to OriginalFileInfo map should have " +
                     "entry for requested bucket Id");
-            List<DeleteDeltaInfo> deleteDeltas = deleteDeltaInfoBuilder.build();
-            if (deleteDeltas.isEmpty()) {
-                return Optional.empty();
-            }
+            List<DeleteDeltaInfo> deleteDeltas = ImmutableList.copyOf(deleteDeltaInfos);
             return Optional.of(new AcidInfo(partitionLocation.toString(), deleteDeltas, bucketIdToOriginalFileInfoMap.get(bucketId), bucketId));
         }
 
         public Optional<AcidInfo> build()
         {
-            List<DeleteDeltaInfo> deleteDeltas = deleteDeltaInfoBuilder.build();
+            List<DeleteDeltaInfo> deleteDeltas = ImmutableList.copyOf(deleteDeltaInfos);
             if (deleteDeltas.isEmpty()) {
                 return Optional.empty();
             }

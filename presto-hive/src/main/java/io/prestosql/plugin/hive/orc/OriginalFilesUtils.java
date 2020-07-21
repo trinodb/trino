@@ -33,9 +33,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 
 public class OriginalFilesUtils
 {
-    private OriginalFilesUtils()
-    {
-    }
+    private OriginalFilesUtils() {}
 
     /**
      * Returns number of rows present in the file, based on the ORC footer.
