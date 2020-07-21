@@ -11,8 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive;
+package io.prestosql.plugin.hive.util;
 
+import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
@@ -21,8 +22,6 @@ import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector.Category;
 import org.apache.hadoop.hive.serde2.typeinfo.ListTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.StructTypeInfo;
-
-import javax.inject.Inject;
 
 import java.util.List;
 
@@ -36,19 +35,21 @@ import static io.prestosql.plugin.hive.util.HiveUtil.extractStructFieldTypes;
 import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
-public class HiveCoercionPolicy
-        implements CoercionPolicy
+public final class HiveCoercionPolicy
 {
     private final TypeManager typeManager;
 
-    @Inject
-    public HiveCoercionPolicy(TypeManager typeManager)
+    private HiveCoercionPolicy(TypeManager typeManager)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
-    @Override
-    public boolean canCoerce(HiveType fromHiveType, HiveType toHiveType)
+    public static boolean canCoerce(TypeManager typeManager, HiveType fromHiveType, HiveType toHiveType)
+    {
+        return new HiveCoercionPolicy(typeManager).canCoerce(fromHiveType, toHiveType);
+    }
+
+    private boolean canCoerce(HiveType fromHiveType, HiveType toHiveType)
     {
         Type fromType = typeManager.getType(fromHiveType.getTypeSignature());
         Type toType = typeManager.getType(toHiveType.getTypeSignature());

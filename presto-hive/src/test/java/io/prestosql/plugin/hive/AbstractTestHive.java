@@ -776,7 +776,6 @@ public abstract class AbstractTestHive
                 hdfsEnvironment,
                 new CachingDirectoryLister(new HiveConfig()),
                 directExecutor(),
-                new HiveCoercionPolicy(TYPE_MANAGER),
                 new CounterStat(),
                 100,
                 hiveConfig.getMaxOutstandingSplitsSize(),
