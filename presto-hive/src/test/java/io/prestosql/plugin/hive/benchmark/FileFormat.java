@@ -77,6 +77,7 @@ import static io.prestosql.plugin.hive.HiveTestUtils.createGenericHiveRecordCurs
 import static io.prestosql.plugin.hive.HiveType.toHiveType;
 import static io.prestosql.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.prestosql.plugin.hive.util.CompressionConfigUtil.configureCompression;
+import static java.lang.String.join;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
@@ -411,8 +412,7 @@ public enum FileFormat
         TypeTranslator typeTranslator = new HiveTypeTranslator();
         schema.setProperty(SERIALIZATION_LIB, format.getSerDe());
         schema.setProperty(FILE_INPUT_FORMAT, format.getInputFormat());
-        schema.setProperty(META_TABLE_COLUMNS, columnNames.stream()
-                .collect(joining(",")));
+        schema.setProperty(META_TABLE_COLUMNS, join(",", columnNames));
         schema.setProperty(META_TABLE_COLUMN_TYPES, columnTypes.stream()
                 .map(type -> toHiveType(typeTranslator, type))
                 .map(HiveType::getHiveTypeName)
