@@ -29,7 +29,6 @@ import io.prestosql.plugin.hive.HiveColumnProjectionInfo;
 import io.prestosql.plugin.hive.HiveHdfsConfiguration;
 import io.prestosql.plugin.hive.HiveTableHandle;
 import io.prestosql.plugin.hive.HiveTransactionHandle;
-import io.prestosql.plugin.hive.HiveTypeTranslator;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.Database;
@@ -131,12 +130,12 @@ public class TestConnectorPushdownRulesWithHive
         HiveColumnHandle partialColumn = new HiveColumnHandle(
                 "struct_of_int",
                 0,
-                toHiveType(new HiveTypeTranslator(), baseType),
+                toHiveType(baseType),
                 baseType,
                 Optional.of(new HiveColumnProjectionInfo(
                         ImmutableList.of(0),
                         ImmutableList.of("a"),
-                        toHiveType(new HiveTypeTranslator(), BIGINT),
+                        toHiveType(BIGINT),
                         BIGINT)),
                 REGULAR,
                 Optional.empty());

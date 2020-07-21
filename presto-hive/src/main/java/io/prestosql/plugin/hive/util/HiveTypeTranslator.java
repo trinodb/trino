@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive;
+package io.prestosql.plugin.hive.util;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.PrestoException;
@@ -53,18 +53,20 @@ import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getCharTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getListTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getMapTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getStructTypeInfo;
 import static org.apache.hadoop.hive.serde2.typeinfo.TypeInfoFactory.getVarcharTypeInfo;
 
-public class HiveTypeTranslator
-        implements TypeTranslator
+public final class HiveTypeTranslator
 {
-    @Override
-    public TypeInfo translate(Type type)
+    private HiveTypeTranslator() {}
+
+    public static TypeInfo translate(Type type)
     {
+        requireNonNull(type, "type is null");
         if (BOOLEAN.equals(type)) {
             return HIVE_BOOLEAN.getTypeInfo();
         }
@@ -142,7 +144,7 @@ public class HiveTypeTranslator
             return getStructTypeInfo(
                     fieldNames.build(),
                     type.getTypeParameters().stream()
-                            .map(this::translate)
+                            .map(HiveTypeTranslator::translate)
                             .collect(toImmutableList()));
         }
         throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));

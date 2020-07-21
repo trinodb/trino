@@ -196,7 +196,6 @@ public abstract class AbstractTestHiveFileSystem
                 TYPE_MANAGER,
                 locationService,
                 partitionUpdateCodec,
-                new HiveTypeTranslator(),
                 new NodeVersion("test_version"),
                 SqlStandardAccessControlMetadata::new);
         transactionManager = new HiveTransactionManager();
