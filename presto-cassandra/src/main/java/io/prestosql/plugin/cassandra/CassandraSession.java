@@ -426,9 +426,9 @@ public class CassandraSession
         return partitions.build();
     }
 
-    public ResultSet execute(String cql, Object... values)
+    public ResultSet execute(String cql)
     {
-        return executeWithSession(session -> session.execute(cql, values));
+        return executeWithSession(session -> session.execute(cql));
     }
 
     public PreparedStatement prepare(RegularStatement statement)
