@@ -73,6 +73,7 @@ import static io.prestosql.plugin.hive.TableToPartitionMapping.mapColumnsByIndex
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getProtectMode;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.makePartitionName;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyOnline;
+import static io.prestosql.plugin.hive.util.HiveCoercionPolicy.canCoerce;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.SERVER_SHUTTING_DOWN;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.GROUPED_SCHEDULING;
@@ -93,7 +94,6 @@ public class HiveSplitManager
     private final HdfsEnvironment hdfsEnvironment;
     private final DirectoryLister directoryLister;
     private final Executor executor;
-    private final CoercionPolicy coercionPolicy;
     private final int maxOutstandingSplits;
     private final DataSize maxOutstandingSplitsSize;
     private final int minPartitionBatchSize;
@@ -115,7 +115,6 @@ public class HiveSplitManager
             DirectoryLister directoryLister,
             ExecutorService executorService,
             VersionEmbedder versionEmbedder,
-            CoercionPolicy coercionPolicy,
             TypeManager typeManager)
     {
         this(
@@ -125,7 +124,6 @@ public class HiveSplitManager
                 hdfsEnvironment,
                 directoryLister,
                 versionEmbedder.embedVersion(new BoundedExecutor(executorService, hiveConfig.getMaxSplitIteratorThreads())),
-                coercionPolicy,
                 new CounterStat(),
                 hiveConfig.getMaxOutstandingSplits(),
                 hiveConfig.getMaxOutstandingSplitsSize(),
@@ -145,7 +143,6 @@ public class HiveSplitManager
             HdfsEnvironment hdfsEnvironment,
             DirectoryLister directoryLister,
             Executor executor,
-            CoercionPolicy coercionPolicy,
             CounterStat highMemorySplitSourceCounter,
             int maxOutstandingSplits,
             DataSize maxOutstandingSplitsSize,
@@ -163,7 +160,6 @@ public class HiveSplitManager
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.directoryLister = requireNonNull(directoryLister, "directoryLister is null");
         this.executor = new ErrorCodedExecutor(executor);
-        this.coercionPolicy = requireNonNull(coercionPolicy, "coercionPolicy is null");
         this.highMemorySplitSourceCounter = requireNonNull(highMemorySplitSourceCounter, "highMemorySplitSourceCounter is null");
         checkArgument(maxOutstandingSplits >= 1, "maxOutstandingSplits must be at least 1");
         this.maxOutstandingSplits = maxOutstandingSplits;
@@ -395,7 +391,7 @@ public class HiveSplitManager
             HiveType tableType = tableColumns.get(i).getType();
             HiveType partitionType = partitionColumns.get(i).getType();
             if (!tableType.equals(partitionType)) {
-                if (!coercionPolicy.canCoerce(partitionType, tableType)) {
+                if (!canCoerce(typeManager, partitionType, tableType)) {
                     throw tablePartitionColumnMismatchException(tableName, partName, tableColumns.get(i).getName(), tableType, partitionColumns.get(i).getName(), partitionType);
                 }
                 columnCoercions.put(i, partitionType.getHiveTypeName());
@@ -425,7 +421,7 @@ public class HiveSplitManager
             Column partitionColumn = partitionColumns.get(partitionColumnIndex);
             HiveType partitionType = partitionColumn.getType();
             if (!tableType.equals(partitionType)) {
-                if (!coercionPolicy.canCoerce(partitionType, tableType)) {
+                if (!canCoerce(typeManager, partitionType, tableType)) {
                     throw tablePartitionColumnMismatchException(tableName, partName, tableColumn.getName(), tableType, partitionColumn.getName(), partitionType);
                 }
                 columnCoercions.put(partitionColumnIndex, partitionType.getHiveTypeName());
