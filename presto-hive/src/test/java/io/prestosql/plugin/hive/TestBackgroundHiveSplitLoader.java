@@ -157,7 +157,8 @@ public class TestBackgroundHiveSplitLoader
             throws Exception
     {
         assertSplitCount(CSV, ImmutableMap.of(), 33);
-        assertSplitCount(CSV, ImmutableMap.of("skip.header.line.count", "1"), 1);
+        assertSplitCount(CSV, ImmutableMap.of("skip.header.line.count", "1"), 33);
+        assertSplitCount(CSV, ImmutableMap.of("skip.header.line.count", "2"), 1);
         assertSplitCount(CSV, ImmutableMap.of("skip.footer.line.count", "1"), 1);
         assertSplitCount(CSV, ImmutableMap.of("skip.header.line.count", "1", "skip.footer.line.count", "1"), 1);
     }
