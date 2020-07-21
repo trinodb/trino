@@ -892,7 +892,7 @@ public class HiveMetadata
         // behind the scenes. In particular, this won't work with CTAS.
         // TODO (https://github.com/prestosql/presto/issues/1956) convert this into normal table property
 
-        boolean transactional = HiveTableProperties.isTransactional(tableMetadata.getProperties()).orElseGet(() -> false);
+        boolean transactional = HiveTableProperties.isTransactional(tableMetadata.getProperties()).orElse(false);
         tableProperties.put(TRANSACTIONAL, String.valueOf(transactional));
 
         bucketProperty.ifPresent(hiveBucketProperty ->
@@ -2363,6 +2363,10 @@ public class HiveMetadata
     public TableStatisticsMetadata getStatisticsCollectionMetadataForWrite(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
         if (!isCollectColumnStatisticsOnWrite(session)) {
+            return TableStatisticsMetadata.empty();
+        }
+        if (isTransactional(tableMetadata.getProperties()).orElse(false)) {
+            // TODO(https://github.com/prestosql/presto/issues/1956) updating table statistics for trasactional not supported right now.
             return TableStatisticsMetadata.empty();
         }
         List<String> partitionedBy = firstNonNull(getPartitionedBy(tableMetadata.getProperties()), ImmutableList.of());

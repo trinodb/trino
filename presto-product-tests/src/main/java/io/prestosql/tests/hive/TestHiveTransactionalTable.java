@@ -299,11 +299,22 @@ public class TestHiveTransactionalTable
         }
     }
 
-    @Test(dataProvider = "partitioningAndBucketingTypeDataProvider")
+    @DataProvider
+    public Object[][] partitioningAndBucketingTypeDataProvider()
+    {
+        return new Object[][] {
+                {false, BucketingType.NONE},
+                {false, BucketingType.BUCKETED_DEFAULT},
+                {true, BucketingType.NONE},
+                {true, BucketingType.BUCKETED_DEFAULT},
+        };
+    }
+
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "testCreateAcidTableDataProvider")
     public void testCtasAcidTable(boolean isPartitioned, BucketingType bucketingType)
     {
         if (getHiveVersionMajor() < 3) {
-            throw new SkipException("Presto Hive transactional tables are supported with Hive version 3 or above");
+            throw new SkipException("Hive transactional tables are supported with Hive version 3 or above");
         }
 
         try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable(format("ctas_transactional_%s", randomTableSuffix()))) {
@@ -322,12 +333,30 @@ public class TestHiveTransactionalTable
         }
     }
 
+    @Test(groups = HIVE_TRANSACTIONAL, dataProvider = "testCreateAcidTableDataProvider")
+    public void testCreateAcidTable(boolean isPartitioned, BucketingType bucketingType)
+    {
+        if (getHiveVersionMajor() < 3) {
+            throw new SkipException("Hive transactional tables are supported with Hive version 3 or above");
+        }
+
+        try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable(format("create_transactional_%s", randomTableSuffix()))) {
+            String tableName = table.getName();
+            query("CREATE TABLE " + tableName + " (col INTEGER, fcol INTEGER, partcol INTEGER)" +
+                    prestoTableProperties(ACID, isPartitioned, bucketingType));
+
+            assertThat(() -> query("INSERT INTO " + tableName + " VALUES (1,2,3)")).failsWithMessageMatching(".*Writes to Hive transactional tables are not supported.*");
+        }
+    }
+
     @DataProvider
-    public Object[][] partitioningAndBucketingTypeDataProvider()
+    public Object[][] testCreateAcidTableDataProvider()
     {
         return new Object[][] {
                 {false, BucketingType.NONE},
                 {false, BucketingType.BUCKETED_DEFAULT},
+                {false, BucketingType.BUCKETED_V1},
+                {false, BucketingType.BUCKETED_V2},
                 {true, BucketingType.NONE},
                 {true, BucketingType.BUCKETED_DEFAULT},
         };
