@@ -289,6 +289,14 @@ public class OrcMetadataReader
             minAverageValueBytes = 0;
         }
 
+        // To handle an existing issue of Hive writer during minor compaction (HIVE-20604):
+        // After minor compaction, stripe stats don't have column statistics and bit field of numberOfValues
+        // is set to 1, but the value is wrongly set to default 0 which implies there is something wrong with
+        // the stats. Drop the column statistics altogether.
+        if (statistics.hasHasNull() && statistics.getNumberOfValues() == 0 && !statistics.getHasNull()) {
+            return new ColumnStatistics(null, 0, null, null, null, null, null, null, null, null, null);
+        }
+
         return new ColumnStatistics(
                 statistics.getNumberOfValues(),
                 minAverageValueBytes,

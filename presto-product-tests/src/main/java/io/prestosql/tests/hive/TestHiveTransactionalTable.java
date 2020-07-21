@@ -129,6 +129,9 @@ public class TestHiveTransactionalTable
 
             // test minor compacted data read
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (20, 3)");
+
+            assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE col=20")).containsExactly(row(20, 3));
+
             compactTableAndWait(MINOR, tableName, hivePartitionString, Duration.valueOf("3m"));
             assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(20, 3), row(21, 1), row(22, 2));
 
@@ -136,10 +139,14 @@ public class TestHiveTransactionalTable
             onHive().executeQuery("DELETE FROM " + tableName + " WHERE fcol=2");
             assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(20, 3), row(21, 1));
 
+            assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE col=20")).containsExactly(row(20, 3));
+
             // update the existing row
             String predicate = "fcol = 1" + (isPartitioned ? " AND part_col = 2 " : "");
             onHive().executeQuery("UPDATE " + tableName + " SET col = 23 WHERE " + predicate);
             assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(20, 3), row(23, 1));
+
+            assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE col=20")).containsExactly(row(20, 3));
 
             // test major compaction
             compactTableAndWait(MAJOR, tableName, hivePartitionString, Duration.valueOf("3m"));
@@ -173,9 +180,12 @@ public class TestHiveTransactionalTable
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " SELECT 2");
             assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(1), row(2));
 
+            assertThat(query("SELECT col FROM " + tableName + " WHERE col=2")).containsExactly(row(2));
+
             // test minor compacted data read
             compactTableAndWait(MINOR, tableName, hivePartitionString, Duration.valueOf("3m"));
             assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(1), row(2));
+            assertThat(query("SELECT col FROM " + tableName + " WHERE col=2")).containsExactly(row(2));
 
             onHive().executeQuery("INSERT OVERWRITE TABLE " + tableName + hivePartitionString + " SELECT 3");
             assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(3));
