@@ -289,8 +289,19 @@ public class OrcMetadataReader
             minAverageValueBytes = 0;
         }
 
+        Long numberOfValues = statistics.getNumberOfValues();
+        // To handle special case of Hive writer issue during minor compaction (HIVE-20604):
+        // After minor compaction, stripe stats don't have column statistics and bit field of numberOfValues
+        // is set to 1, but the value is wrongly set to default 0.
+        // If row count is 0, then set number of values to be null.
+        //
+        // NOTE: Presto orc writer doesn't write 'hasNull' field, added this check to skip in case of Presto.
+        if (statistics.hasHasNull() && statistics.getNumberOfValues() == 0 && !statistics.getHasNull()) {
+            numberOfValues = null;
+        }
+
         return new ColumnStatistics(
-                statistics.getNumberOfValues(),
+                numberOfValues,
                 minAverageValueBytes,
                 statistics.hasBucketStatistics() ? toBooleanStatistics(statistics.getBucketStatistics()) : null,
                 statistics.hasIntStatistics() ? toIntegerStatistics(statistics.getIntStatistics()) : null,
