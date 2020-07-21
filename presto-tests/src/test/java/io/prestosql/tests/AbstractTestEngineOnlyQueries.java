@@ -721,6 +721,20 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testParameterInParameter()
+    {
+        String query = "SELECT a FROM (VALUES 1) t(a) where a = ?";
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", query)
+                .build();
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING ?",
+                "\\Qline 1:24: No value provided for parameter\\E");
+    }
+
+    @Test
     public void testDescribeInput()
     {
         Session session = Session.builder(getSession())
