@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
+import io.prestosql.plugin.hive.util.HiveTypeTranslator;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.NamedTypeSignature;
 import io.prestosql.spi.type.RowFieldName;
@@ -209,11 +210,9 @@ public final class HiveType
         return new HiveType(typeInfo);
     }
 
-    public static HiveType toHiveType(TypeTranslator typeTranslator, Type type)
+    public static HiveType toHiveType(Type type)
     {
-        requireNonNull(typeTranslator, "typeTranslator is null");
-        requireNonNull(type, "type is null");
-        return new HiveType(typeTranslator.translate(type));
+        return new HiveType(HiveTypeTranslator.translate(type));
     }
 
     private static TypeSignature getTypeSignature(TypeInfo typeInfo)

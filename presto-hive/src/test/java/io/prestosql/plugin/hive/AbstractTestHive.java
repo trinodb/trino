@@ -766,7 +766,6 @@ public abstract class AbstractTestHive
                 partitionUpdateCodec,
                 newFixedThreadPool(2),
                 heartbeatService,
-                new HiveTypeTranslator(),
                 TEST_SERVER_VERSION,
                 SqlStandardAccessControlMetadata::new);
         transactionManager = new HiveTransactionManager();
@@ -1108,10 +1107,9 @@ public abstract class AbstractTestHive
             ConnectorSession session = newSession();
             PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(session);
             Table oldTable = transaction.getMetastore().getTable(new HiveIdentity(session), schemaName, tableName).get();
-            HiveTypeTranslator hiveTypeTranslator = new HiveTypeTranslator();
             List<Column> dataColumns = tableAfter.stream()
                     .filter(columnMetadata -> !columnMetadata.getName().equals("ds"))
-                    .map(columnMetadata -> new Column(columnMetadata.getName(), toHiveType(hiveTypeTranslator, columnMetadata.getType()), Optional.empty()))
+                    .map(columnMetadata -> new Column(columnMetadata.getName(), toHiveType(columnMetadata.getType()), Optional.empty()))
                     .collect(toList());
             Table.Builder newTable = Table.builder(oldTable)
                     .setDataColumns(dataColumns);
