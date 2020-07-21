@@ -43,7 +43,6 @@ public class ClientSession
     private final String schema;
     private final String path;
     private final ZoneId timeZone;
-    private final boolean useSessionTimeZone;
     private final Locale locale;
     private final Map<String, String> resourceEstimates;
     private final Map<String, String> properties;
@@ -76,7 +75,6 @@ public class ClientSession
             String schema,
             String path,
             ZoneId timeZone,
-            boolean useSessionTimeZone,
             Locale locale,
             Map<String, String> resourceEstimates,
             Map<String, String> properties,
@@ -97,7 +95,6 @@ public class ClientSession
         this.path = path;
         this.locale = locale;
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
-        this.useSessionTimeZone = useSessionTimeZone;
         this.transactionId = transactionId;
         this.resourceEstimates = ImmutableMap.copyOf(requireNonNull(resourceEstimates, "resourceEstimates is null"));
         this.properties = ImmutableMap.copyOf(requireNonNull(properties, "properties is null"));
@@ -185,13 +182,6 @@ public class ClientSession
         return timeZone;
     }
 
-    // TODO remove the fallback mechanism for JDBC temporal columns
-    @Deprecated
-    public boolean useSessionTimeZone()
-    {
-        return useSessionTimeZone;
-    }
-
     public Locale getLocale()
     {
         return locale;
@@ -253,7 +243,6 @@ public class ClientSession
                 .add("path", path)
                 .add("traceToken", traceToken.orElse(null))
                 .add("timeZone", timeZone)
-                .add("useSessionTimeZone", useSessionTimeZone)
                 .add("locale", locale)
                 .add("properties", properties)
                 .add("transactionId", transactionId)
@@ -273,7 +262,6 @@ public class ClientSession
         private String schema;
         private String path;
         private ZoneId timeZone;
-        private boolean useSessionTimeZone;
         private Locale locale;
         private Map<String, String> resourceEstimates;
         private Map<String, String> properties;
@@ -296,7 +284,6 @@ public class ClientSession
             schema = clientSession.getSchema();
             path = clientSession.getPath();
             timeZone = clientSession.getTimeZone();
-            useSessionTimeZone = clientSession.useSessionTimeZone();
             locale = clientSession.getLocale();
             resourceEstimates = clientSession.getResourceEstimates();
             properties = clientSession.getProperties();
@@ -361,14 +348,6 @@ public class ClientSession
             return this;
         }
 
-        // TODO remove the fallback mechanism for JDBC temporal columns
-        @Deprecated
-        public Builder withUseSessionTimeZone(boolean useSessionTimeZone)
-        {
-            this.useSessionTimeZone = useSessionTimeZone;
-            return this;
-        }
-
         public ClientSession build()
         {
             return new ClientSession(
@@ -382,7 +361,6 @@ public class ClientSession
                     schema,
                     path,
                     timeZone,
-                    useSessionTimeZone,
                     locale,
                     resourceEstimates,
                     properties,

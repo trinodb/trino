@@ -108,7 +108,6 @@ class StatementClientV1
     private final AtomicReference<String> startedTransactionId = new AtomicReference<>();
     private final AtomicBoolean clearTransactionId = new AtomicBoolean();
     private final ZoneId timeZone;
-    private final boolean useSessionTimeZone;
     private final Duration requestTimeoutNanos;
     private final String user;
     private final String clientCapabilities;
@@ -123,7 +122,6 @@ class StatementClientV1
 
         this.httpClient = httpClient;
         this.timeZone = session.getTimeZone();
-        this.useSessionTimeZone = session.useSessionTimeZone();
         this.query = query;
         this.requestTimeoutNanos = session.getClientRequestTimeout();
         this.user = session.getUser();
@@ -219,12 +217,6 @@ class StatementClientV1
     public ZoneId getTimeZone()
     {
         return timeZone;
-    }
-
-    @Override
-    public boolean useSessionTimeZone()
-    {
-        return useSessionTimeZone;
     }
 
     @Override

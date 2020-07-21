@@ -147,9 +147,6 @@ Name                                   Description
 ``KerberosConfigPath``                 Kerberos configuration file.
 ``KerberosKeytabPath``                 Kerberos keytab file.
 ``KerberosCredentialCachePath``        Kerberos credential cache.
-``useSessionTimeZone``                 Should dates and timestamps use the session time zone (default: false).
-                                       Note that this property only exists for backward compatibility with the
-                                       previous behavior and will be removed in the future.
 ``extraCredentials``                   Extra credentials for connecting to external services,
                                        specified as a list of key-value pairs. For example,
                                        ``foo:bar;abc:xyz`` creates the credential named ``abc``
