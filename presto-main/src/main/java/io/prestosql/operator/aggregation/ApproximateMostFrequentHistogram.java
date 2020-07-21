@@ -127,7 +127,7 @@ public class ApproximateMostFrequentHistogram<K>
 
     public void merge(ApproximateMostFrequentHistogram<K> other)
     {
-        List<Counter<K>> counters = other.streamSummary.topK(maxBuckets);
+        List<Counter<K>> counters = other.streamSummary.topK(capacity);
         for (Counter<K> counter : counters) {
             add(counter.getItem(), counter.getCount());
         }
