@@ -1108,7 +1108,11 @@ public class ExpressionAnalyzer
                 throw semanticException(INVALID_PARAMETER_USAGE, node, "Invalid parameter index %s, max value is %s", node.getPosition(), parameters.size() - 1);
             }
 
-            Type resultType = process(parameters.get(NodeRef.of(node)), context);
+            Expression providedValue = parameters.get(NodeRef.of(node));
+            if (providedValue == null) {
+                throw semanticException(INVALID_PARAMETER_USAGE, node, "No value provided for parameter");
+            }
+            Type resultType = process(providedValue, context);
             return setExpressionType(node, resultType);
         }
 
