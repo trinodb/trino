@@ -32,6 +32,7 @@ A
 - :ref:`ANY <quantified_comparison_predicates>`
 - :func:`any_match`
 - :func:`approx_distinct`
+- :func:`approx_most_frequent`
 - :func:`approx_percentile`
 - :func:`approx_set`
 - :func:`arbitrary`
@@ -454,6 +455,7 @@ T
 - :func:`transform`
 - :func:`transform_keys`
 - :func:`transform_values`
+- :func:`translate`
 - :func:`trim`
 - :func:`truncate`
 - :ref:`try <try_function>`
