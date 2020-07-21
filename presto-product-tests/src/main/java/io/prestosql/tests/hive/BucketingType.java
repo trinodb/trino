@@ -24,7 +24,7 @@ public enum BucketingType
 {
     NONE {
         @Override
-        public String getHiveClustering(String columnNames, int buckets)
+        public String getHiveClustering(String columnName, int buckets)
         {
             return "";
         }
@@ -38,9 +38,9 @@ public enum BucketingType
 
     BUCKETED_DEFAULT {
         @Override
-        public String getHiveClustering(String columnNames, int buckets)
+        public String getHiveClustering(String columnName, int buckets)
         {
-            return defaultHiveClustering(columnNames, buckets);
+            return defaultHiveClustering(columnName, buckets);
         }
 
         @Override
@@ -52,9 +52,9 @@ public enum BucketingType
 
     BUCKETED_V1 {
         @Override
-        public String getHiveClustering(String columnNames, int buckets)
+        public String getHiveClustering(String columnName, int buckets)
         {
-            return defaultHiveClustering(columnNames, buckets);
+            return defaultHiveClustering(columnName, buckets);
         }
 
         @Override
@@ -66,9 +66,9 @@ public enum BucketingType
 
     BUCKETED_V2 {
         @Override
-        public String getHiveClustering(String columnNames, int buckets)
+        public String getHiveClustering(String columnName, int buckets)
         {
-            return defaultHiveClustering(columnNames, buckets);
+            return defaultHiveClustering(columnName, buckets);
         }
 
         @Override
@@ -83,9 +83,9 @@ public enum BucketingType
 
     public abstract List<String> getHiveTableProperties();
 
-    private static String defaultHiveClustering(String columnNames, int buckets)
+    private static String defaultHiveClustering(String columnName, int buckets)
     {
-        requireNonNull(columnNames, "columnNames is null");
-        return format("CLUSTERED BY(%s) INTO %s BUCKETS", columnNames, buckets);
+        requireNonNull(columnName, "columnName is null");
+        return format("CLUSTERED BY(%s) INTO %s BUCKETS", columnName, buckets);
     }
 }
