@@ -127,10 +127,10 @@ abstract class AbstractPrestoResultSet
     protected final AtomicBoolean closed = new AtomicBoolean();
     private final Optional<Statement> statement;
 
-    AbstractPrestoResultSet(Optional<Statement> statement, ZoneId resultTimeZone, List<Column> columns, Iterator<List<Object>> results)
+    AbstractPrestoResultSet(Optional<Statement> statement, List<Column> columns, Iterator<List<Object>> results)
     {
         this.statement = requireNonNull(statement, "statement is null");
-        this.resultTimeZone = DateTimeZone.forID(requireNonNull(resultTimeZone, "resultTimeZone is null").getId());
+        this.resultTimeZone = DateTimeZone.forID(ZoneId.systemDefault().getId());
 
         requireNonNull(columns, "columns is null");
         this.fieldMap = getFieldMap(columns);

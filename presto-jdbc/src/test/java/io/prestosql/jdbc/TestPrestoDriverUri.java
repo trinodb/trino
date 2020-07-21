@@ -17,7 +17,6 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.sql.SQLException;
-import java.util.Optional;
 import java.util.Properties;
 
 import static io.prestosql.jdbc.ConnectionProperties.CLIENT_TAGS;
@@ -30,7 +29,6 @@ import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestPrestoDriverUri
@@ -252,14 +250,6 @@ public class TestPrestoDriverUri
         PrestoDriverUri parameters = createDriverUri("presto://localhost:8080?clientTags=" + clientTags);
         Properties properties = parameters.getProperties();
         assertEquals(properties.getProperty(CLIENT_TAGS.getKey()), clientTags);
-    }
-
-    @Test
-    public void testUriWithUseSessionTimeZone()
-            throws SQLException
-    {
-        Optional<Boolean> property = createDriverUri("presto://localhost:8080?useSessionTimeZone=true").useSessionTimezone();
-        assertTrue(property.isPresent() && property.get());
     }
 
     private static void assertUriPortScheme(PrestoDriverUri parameters, int port, String scheme)

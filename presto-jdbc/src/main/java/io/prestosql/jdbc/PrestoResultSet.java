@@ -21,7 +21,6 @@ import io.prestosql.client.StatementClient;
 
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.time.ZoneId;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
@@ -60,22 +59,13 @@ public class PrestoResultSet
     {
         super(
                 Optional.of(requireNonNull(statement, "statement is null")),
-                getResultTimeZone(requireNonNull(client, "client is null")),
                 columns,
-                new AsyncIterator<>(flatten(new ResultsPageIterator(client, progressCallback, warningsManager), maxRows), client));
+                new AsyncIterator<>(flatten(new ResultsPageIterator(requireNonNull(client, "client is null"), progressCallback, warningsManager), maxRows), client));
 
         this.client = requireNonNull(client, "client is null");
         requireNonNull(progressCallback, "progressCallback is null");
 
         this.queryId = client.currentStatusInfo().getId();
-    }
-
-    private static ZoneId getResultTimeZone(StatementClient client)
-    {
-        if (client.useSessionTimeZone()) {
-            return client.getTimeZone();
-        }
-        return ZoneId.systemDefault();
     }
 
     public String getQueryId()
