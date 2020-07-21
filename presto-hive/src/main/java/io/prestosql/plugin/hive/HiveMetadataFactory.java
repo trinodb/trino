@@ -56,7 +56,6 @@ public class HiveMetadataFactory
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
     private final BoundedExecutor renameExecution;
     private final BoundedExecutor dropExecutor;
-    private final TypeTranslator typeTranslator;
     private final String prestoVersion;
     private final AccessControlMetadataFactory accessControlMetadataFactory;
     private final Optional<Duration> hiveTransactionHeartbeatInterval;
@@ -75,7 +74,6 @@ public class HiveMetadataFactory
             TypeManager typeManager,
             LocationService locationService,
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
-            TypeTranslator typeTranslator,
             NodeVersion nodeVersion,
             AccessControlMetadataFactory accessControlMetadataFactory)
     {
@@ -100,7 +98,6 @@ public class HiveMetadataFactory
                 partitionUpdateCodec,
                 executorService,
                 heartbeatService,
-                typeTranslator,
                 nodeVersion.toString(),
                 accessControlMetadataFactory);
     }
@@ -126,7 +123,6 @@ public class HiveMetadataFactory
             JsonCodec<PartitionUpdate> partitionUpdateCodec,
             ExecutorService executorService,
             ScheduledExecutorService heartbeatService,
-            TypeTranslator typeTranslator,
             String prestoVersion,
             AccessControlMetadataFactory accessControlMetadataFactory)
     {
@@ -146,7 +142,6 @@ public class HiveMetadataFactory
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
-        this.typeTranslator = requireNonNull(typeTranslator, "typeTranslator is null");
         this.prestoVersion = requireNonNull(prestoVersion, "prestoVersion is null");
         this.accessControlMetadataFactory = requireNonNull(accessControlMetadataFactory, "accessControlMetadataFactory is null");
         this.hiveTransactionHeartbeatInterval = requireNonNull(hiveTransactionHeartbeatInterval, "hiveTransactionHeartbeatInterval is null");
@@ -189,7 +184,6 @@ public class HiveMetadataFactory
                 typeManager,
                 locationService,
                 partitionUpdateCodec,
-                typeTranslator,
                 prestoVersion,
                 new MetastoreHiveStatisticsProvider(metastore),
                 accessControlMetadataFactory.create(metastore));

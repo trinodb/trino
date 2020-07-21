@@ -21,7 +21,6 @@ import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
 import io.prestosql.plugin.hive.HivePageSourceFactory.ReaderPageSourceWithProjections;
-import io.prestosql.plugin.hive.HiveTypeTranslator;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.predicate.Domain;
@@ -267,7 +266,7 @@ public class TestOrcPageSourceFactory
         return createBaseColumn(
                 nationColumn.getColumnName(),
                 hiveColumnIndex,
-                toHiveType(new HiveTypeTranslator(), prestoType),
+                toHiveType(prestoType),
                 prestoType,
                 REGULAR,
                 Optional.empty());
