@@ -100,7 +100,7 @@ public class TestHiveTransactionalTable
     private void doTestReadFullAcid(boolean isPartitioned, BucketingType bucketingType)
     {
         if (getHiveVersionMajor() < 3) {
-            throw new SkipException("Presto Hive transactional tables are supported with Hive version 3 or above");
+            throw new SkipException("Hive transactional tables are supported with Hive version 3 or above");
         }
 
         try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable(tableName("read_full_acid", isPartitioned, bucketingType))) {
@@ -147,7 +147,7 @@ public class TestHiveTransactionalTable
     public void testReadInsertOnly(boolean isPartitioned, BucketingType bucketingType)
     {
         if (getHiveVersionMajor() < 3) {
-            throw new SkipException("Presto Hive transactional tables are supported with Hive version 3 or above");
+            throw new SkipException("Hive transactional tables are supported with Hive version 3 or above");
         }
 
         try (TemporaryHiveTable table = TemporaryHiveTable.temporaryHiveTable(tableName("insert_only", isPartitioned, bucketingType))) {
