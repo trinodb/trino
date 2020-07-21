@@ -1061,7 +1061,13 @@ standard rules for nulls. The subquery must produce exactly one column::
 
     SELECT name
     FROM nation
-    WHERE regionkey IN (SELECT regionkey FROM region)
+    WHERE regionkey IN (SELECT regionkey FROM region WHERE name = 'AMERICA' OR name = 'AFRICA')
+ 
+The ``IN`` predicate can also test against a static list of values::
+ 
+    SELECT name
+    FROM nation
+    WHERE regionkey IN (1, 3)
 
 Scalar Subquery
 ^^^^^^^^^^^^^^^
