@@ -60,9 +60,9 @@ def get_version():
 
 # -- General configuration -----------------------------------------------------
 
-needs_sphinx = '1.1'
+needs_sphinx = '2.0'
 
-extensions = ['backquote', 'download', 'issue']
+extensions = ['myst_parser', 'backquote', 'download', 'issue']
 
 templates_path = ['templates']
 

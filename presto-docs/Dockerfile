@@ -1,3 +1,5 @@
-FROM sphinxdoc/sphinx:3.1.2
+FROM sphinxdoc/sphinx:2.4.4
 
-RUN pip3 install sphinx-material==0.0.30
+WORKDIR /docs
+ADD requirements.txt /docs
+RUN pip3 install -r requirements.txt
