@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive;
 
+import com.google.common.io.Resources;
 import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.plugin.hive.orc.OriginalFilesUtils;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -32,15 +33,15 @@ import static org.testng.Assert.assertTrue;
 
 public class TestOriginalFilesUtils
 {
-    private static final String tablePath = Thread.currentThread().getContextClassLoader().getResource("dummy_id_data_orc").getPath();
-
-    private static final Configuration config = new JobConf(new Configuration(false));
-
-    private static final ConnectorSession SESSION = new TestingConnectorSession.Builder().build();
+    private String tablePath;
+    private Configuration config;
+    private final ConnectorSession session = TestingConnectorSession.SESSION;
 
     @BeforeClass
     public void setup()
     {
+        tablePath = Resources.getResource(("dummy_id_data_orc")).getPath();
+        config = new JobConf(new Configuration(false));
         config.set("fs.file.impl", "org.apache.hadoop.fs.RawLocalFileSystem");
     }
 
@@ -53,7 +54,7 @@ public class TestOriginalFilesUtils
         long rowCountResult = OriginalFilesUtils.getRowCount(originalFileInfoList,
                 new Path(tablePath + "/000001_0"),
                 HDFS_ENVIRONMENT,
-                SESSION.getUser(),
+                session.getUser(),
                 new OrcReaderOptions(),
                 config,
                 new FileFormatDataSourceStats());
@@ -72,7 +73,7 @@ public class TestOriginalFilesUtils
         long rowCountResult = OriginalFilesUtils.getRowCount(originalFileInfos,
                 new Path(tablePath + "/000002_0_copy_2"),
                 HDFS_ENVIRONMENT,
-                SESSION.getUser(),
+                session.getUser(),
                 new OrcReaderOptions(),
                 config,
                 new FileFormatDataSourceStats());

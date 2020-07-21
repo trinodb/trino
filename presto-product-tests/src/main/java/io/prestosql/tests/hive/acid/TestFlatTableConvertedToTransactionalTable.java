@@ -29,7 +29,7 @@ public class TestFlatTableConvertedToTransactionalTable
         extends HiveProductTest
 {
     @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL})
-    public void testReadingFullAcidConvertedTable()
+    public void testReadFullAcidWithOriginalFiles()
     {
         if (getHiveVersionMajor() < 3) {
             throw new SkipException("Presto Hive transactional tables are supported with Hive version 3 or above");
@@ -76,7 +76,7 @@ public class TestFlatTableConvertedToTransactionalTable
     }
 
     @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL})
-    public void testReadingInsertOnlyAcidConvertedTable()
+    public void testReadInsertOnlyAcidWithOriginalFiles()
     {
         if (getHiveVersionMajor() < 3) {
             throw new SkipException("Presto Hive transactional tables are supported with Hive version 3 or above");

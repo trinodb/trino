@@ -102,9 +102,7 @@ public class OrcDeleteDeltaPageSource
             Map<String, OrcColumn> acidColumns = uniqueIndex(
                     reader.getRootColumn().getNestedColumns(),
                     orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH));
-
-            List<OrcColumn> rowIdColumns;
-            rowIdColumns = ImmutableList.of(
+            List<OrcColumn> rowIdColumns = ImmutableList.of(
                     acidColumns.get(ACID_COLUMN_ORIGINAL_TRANSACTION.toLowerCase(ENGLISH)),
                     acidColumns.get(ACID_COLUMN_ROW_ID.toLowerCase(ENGLISH)));
 

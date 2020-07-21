@@ -435,7 +435,7 @@ public class BackgroundHiveSplitLoader
         }
 
         List<Path> readPaths;
-        List<HadoopShims.HdfsFileStatusWithId> fileStatusOriginalFiles = new ArrayList<>();
+        List<HadoopShims.HdfsFileStatusWithId> fileStatusOriginalFiles = ImmutableList.of();
         AcidInfo.Builder acidInfoBuilder = AcidInfo.builder(path);
         if (AcidUtils.isTransactionalTable(table.getParameters())) {
             AcidUtils.Directory directory = hdfsEnvironment.doAs(hdfsContext.getIdentity().getUser(), () -> AcidUtils.getAcidState(
@@ -481,7 +481,7 @@ public class BackgroundHiveSplitLoader
             fileStatusOriginalFiles = directory.getOriginalFiles();
 
             for (HadoopShims.HdfsFileStatusWithId hdfsFileStatusWithId : fileStatusOriginalFiles) {
-                Path originalFilePath = new Path(hdfsFileStatusWithId.getFileStatus().getPath().toUri().getPath());
+                Path originalFilePath = hdfsFileStatusWithId.getFileStatus().getPath();
                 long originalFileLength = hdfsFileStatusWithId.getFileStatus().getLen();
 
                 if (originalFileLength == 0) {
@@ -506,10 +506,9 @@ public class BackgroundHiveSplitLoader
             ListenableFuture<?> lastResult = immediateFuture(null); // TODO document in addToQueue() that it is sufficient to hold on to last returned future
             for (Path readPath : readPaths) {
                 int tableBucketCount = tableBucketInfo.get().getTableBucketCount();
-                int partitionBucketCount = bucketConversion.map(BucketConversion::getPartitionBucketCount).orElse(tableBucketCount);
 
                 // list all files in the partition
-                List<LocatedFileStatus> files = new ArrayList<>(partitionBucketCount);
+                List<LocatedFileStatus> files = new ArrayList<>();
                 try {
                     Iterators.addAll(files, new HiveFileIterator(table, readPath, fs, directoryLister, namenodeStats, FAIL, ignoreAbsentPartitions));
                 }
@@ -525,8 +524,7 @@ public class BackgroundHiveSplitLoader
             }
 
             for (HadoopShims.HdfsFileStatusWithId hdfsFileStatusWithId : fileStatusOriginalFiles) {
-                List<LocatedFileStatus> locatedFileStatuses = new ArrayList<>();
-                locatedFileStatuses.add((LocatedFileStatus) hdfsFileStatusWithId.getFileStatus());
+                List<LocatedFileStatus> locatedFileStatuses = ImmutableList.of((LocatedFileStatus) hdfsFileStatusWithId.getFileStatus());
                 lastResult = hiveSplitSource.addToQueue(getBucketedSplits(locatedFileStatuses, splitFactory, tableBucketInfo.get(), bucketConversion, splittable,
                         acidInfoBuilder
                         .buildWithRequiredOriginalFiles(getBucketNumber(hdfsFileStatusWithId.getFileStatus().getPath().getName()).getAsInt())));
@@ -557,7 +555,8 @@ public class BackgroundHiveSplitLoader
                         .map(file -> file.getFileStatus())
                         .map(fileStatus -> {
                             try {
-                                return splitFactory.createInternalHiveSplit(fileStatus,
+                                return splitFactory.createInternalHiveSplit(
+                                        fileStatus,
                                         hdfsEnvironment.doAs(hdfsContext.getIdentity().getUser(), () -> fs.getFileBlockLocations(fileStatus, 0, fileStatus.getLen())),
                                         acidInfoBuilder.buildWithRequiredOriginalFiles(getBucketNumber(fileStatus.getPath().getName()).getAsInt()));
                             }
@@ -565,8 +564,7 @@ public class BackgroundHiveSplitLoader
                                 throw new PrestoException(HIVE_BAD_DATA, e);
                             }
                         })
-                        .filter(Optional::isPresent)
-                        .map(Optional::get)
+                        .map(Optional::orElseThrow)
                         .iterator());
     }
 

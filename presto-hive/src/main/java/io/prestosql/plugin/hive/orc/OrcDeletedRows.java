@@ -206,10 +206,9 @@ public class OrcDeletedRows
                         Page page = pageSource.getNextPage();
                         if (page != null) {
                             for (int i = 0; i < page.getPositionCount(); i++) {
-                                long originalTransaction = -1;
                                 int bucket = -1;
                                 long row;
-                                originalTransaction = BIGINT.getLong(page.getBlock(ORIGINAL_TRANSACTION_INDEX), i);
+                                long originalTransaction = BIGINT.getLong(page.getBlock(ORIGINAL_TRANSACTION_INDEX), i);
                                 row = BIGINT.getLong(page.getBlock(BUCKET_ID_INDEX), i);
                                 deletedRowsBuilder.add(new RowId(originalTransaction, bucket, row));
                             }
@@ -248,9 +247,7 @@ public class OrcDeletedRows
         }
 
         if (acidInfo != null && acidInfo.getOriginalFiles().size() > 0) {
-            /**
-             * construct delete delta file path from bucket ID.
-             */
+            // Original file format is different from delete delta, construct delete delta file path from bucket ID of original file.
             return AcidUtils.createBucketFile(directory, acidInfo.getBucketId());
         }
         return new Path(directory, fileName);
