@@ -1381,7 +1381,7 @@ public class PrestoDatabaseMetaData
                             null));
                 });
 
-        return new InMemoryPrestoResultSet(connection.getTimeZone(), columns.build(), results.build());
+        return new InMemoryPrestoResultSet(columns.build(), results.build());
     }
 
     @Override
