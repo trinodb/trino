@@ -1561,26 +1561,26 @@ public final class MetadataManager
     @Override
     public AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction)
     {
-        return functions.getAggregationFunctionMetadata(this, resolvedFunction);
+        return functions.getAggregationFunctionMetadata(this, toFunctionBinding(resolvedFunction));
     }
 
     @Override
     public WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)
     {
-        return functions.getWindowFunctionImplementation(this, resolvedFunction);
+        return functions.getWindowFunctionImplementation(this, toFunctionBinding(resolvedFunction));
     }
 
     @Override
     public InternalAggregationFunction getAggregateFunctionImplementation(ResolvedFunction resolvedFunction)
     {
-        return functions.getAggregateFunctionImplementation(this, resolvedFunction);
+        return functions.getAggregateFunctionImplementation(this, toFunctionBinding(resolvedFunction));
     }
 
     @Override
     public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, Optional<InvocationConvention> invocationConvention)
     {
         InvocationConvention expectedConvention = invocationConvention.orElseGet(() -> getDefaultCallingConvention(resolvedFunction));
-        return functions.getScalarFunctionInvoker(this, resolvedFunction, expectedConvention);
+        return functions.getScalarFunctionInvoker(this, toFunctionBinding(resolvedFunction), expectedConvention);
     }
 
     /**
@@ -1600,6 +1600,15 @@ public final class MetadataManager
                 returnConvention,
                 true,
                 false);
+    }
+
+    private FunctionBinding toFunctionBinding(ResolvedFunction resolvedFunction)
+    {
+        return SignatureBinder.bindFunction(
+                this,
+                resolvedFunction.getFunctionId(),
+                functions.get(resolvedFunction.getFunctionId()).getSignature(),
+                resolvedFunction.getSignature());
     }
 
     @Override
