@@ -41,7 +41,7 @@ public class TestParametricScalarImplementationValidation
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 validFunctionMethodHandle);
-        assertEquals(validFunction.getMethodHandle(), validFunctionMethodHandle);
+        assertEquals(validFunction.getChoices().get(0).getMethodHandle(), validFunctionMethodHandle);
 
         try {
             ScalarFunctionImplementation invalidFunction = new ScalarFunctionImplementation(
@@ -65,7 +65,7 @@ public class TestParametricScalarImplementationValidation
                         valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
                 validFunctionWithInstanceFactoryMethodHandle,
                 Optional.of(STATE_FACTORY));
-        assertEquals(validFunctionWithInstanceFactory.getMethodHandle(), validFunctionWithInstanceFactoryMethodHandle);
+        assertEquals(validFunctionWithInstanceFactory.getChoices().get(0).getMethodHandle(), validFunctionWithInstanceFactoryMethodHandle);
 
         try {
             ScalarFunctionImplementation invalidFunctionWithInstanceFactory = new ScalarFunctionImplementation(

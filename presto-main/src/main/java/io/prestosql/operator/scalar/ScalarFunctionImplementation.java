@@ -15,6 +15,8 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.InvocationConvention;
+import io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -23,8 +25,16 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentType.FUNCTION_TYPE;
 import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentType.VALUE_TYPE;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -68,38 +78,17 @@ public final class ScalarFunctionImplementation
         this.choices = ImmutableList.copyOf(choices);
     }
 
-    public ArgumentProperty getArgumentProperty(int argumentIndex)
-    {
-        return getArgumentProperties().get(argumentIndex);
-    }
-
-    public List<ArgumentProperty> getArgumentProperties()
-    {
-        return choices.get(0).argumentProperties;
-    }
-
-    public MethodHandle getMethodHandle()
-    {
-        return choices.get(0).methodHandle;
-    }
-
-    public Optional<MethodHandle> getInstanceFactory()
-    {
-        return choices.get(0).instanceFactory;
-    }
-
-    public List<ScalarImplementationChoice> getAllChoices()
+    public List<ScalarImplementationChoice> getChoices()
     {
         return choices;
     }
 
     public static class ScalarImplementationChoice
     {
-        private final boolean nullable;
-        private final List<ArgumentProperty> argumentProperties;
         private final MethodHandle methodHandle;
         private final Optional<MethodHandle> instanceFactory;
-        private final boolean hasSession;
+        private final InvocationConvention invocationConvention;
+        private final List<Optional<Class<?>>> lambdaInterfaces;
 
         public ScalarImplementationChoice(
                 boolean nullable,
@@ -107,8 +96,6 @@ public final class ScalarFunctionImplementation
                 MethodHandle methodHandle,
                 Optional<MethodHandle> instanceFactory)
         {
-            this.nullable = nullable;
-            this.argumentProperties = ImmutableList.copyOf(requireNonNull(argumentProperties, "argumentProperties is null"));
             this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
             this.instanceFactory = requireNonNull(instanceFactory, "instanceFactory is null");
 
@@ -130,22 +117,36 @@ public final class ScalarFunctionImplementation
                 }
                 hasSession = true;
             }
-            this.hasSession = hasSession;
+
+            lambdaInterfaces = argumentProperties.stream()
+                    .map(ArgumentProperty::getLambdaInterface)
+                    .collect(toImmutableList());
+            invocationConvention = new InvocationConvention(
+                    argumentProperties.stream()
+                            .map(ScalarImplementationChoice::toArgumentConvention)
+                            .collect(toImmutableList()),
+                    nullable ? NULLABLE_RETURN : FAIL_ON_NULL,
+                    hasSession,
+                    instanceFactory.isPresent());
         }
 
-        public boolean isNullable()
+        private static InvocationArgumentConvention toArgumentConvention(ArgumentProperty argumentProperty)
         {
-            return nullable;
-        }
-
-        public List<ArgumentProperty> getArgumentProperties()
-        {
-            return argumentProperties;
-        }
-
-        public ArgumentProperty getArgumentProperty(int argumentIndex)
-        {
-            return argumentProperties.get(argumentIndex);
+            if (argumentProperty.getArgumentType() == FUNCTION_TYPE) {
+                return FUNCTION;
+            }
+            switch (argumentProperty.getNullConvention()) {
+                case RETURN_NULL_ON_NULL:
+                    return NEVER_NULL;
+                case USE_BOXED_TYPE:
+                    return BOXED_NULLABLE;
+                case USE_NULL_FLAG:
+                    return NULL_FLAG;
+                case BLOCK_AND_POSITION:
+                    return BLOCK_POSITION;
+                default:
+                    throw new IllegalArgumentException("Unsupported null convention: " + argumentProperty.getNullConvention());
+            }
         }
 
         public MethodHandle getMethodHandle()
@@ -158,9 +159,14 @@ public final class ScalarFunctionImplementation
             return instanceFactory;
         }
 
-        public boolean hasSession()
+        public ImmutableList<Optional<Class<?>>> getLambdaInterfaces()
         {
-            return hasSession;
+            return lambdaInterfaces;
+        }
+
+        public InvocationConvention getInvocationConvention()
+        {
+            return invocationConvention;
         }
     }
 

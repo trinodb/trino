@@ -14,6 +14,9 @@
 package io.prestosql.spi.function;
 
 import java.util.List;
+import java.util.Objects;
+
+import static java.util.Objects.requireNonNull;
 
 public class InvocationConvention
 {
@@ -28,7 +31,7 @@ public class InvocationConvention
             boolean supportsSession,
             boolean supportsInstanceFactory)
     {
-        this.argumentConventionList = argumentConventionList;
+        this.argumentConventionList = List.copyOf(requireNonNull(argumentConventionList, "argumentConventionList is null"));
         this.returnConvention = returnConvention;
         this.supportsSession = supportsSession;
         this.supportsInstanceFactory = supportsInstanceFactory;
@@ -63,6 +66,28 @@ public class InvocationConvention
     public String toString()
     {
         return "(" + argumentConventionList.toString() + ")" + returnConvention;
+    }
+
+    @Override
+    public boolean equals(Object o)
+    {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+        InvocationConvention that = (InvocationConvention) o;
+        return supportsSession == that.supportsSession &&
+                supportsInstanceFactory == that.supportsInstanceFactory &&
+                Objects.equals(argumentConventionList, that.argumentConventionList) &&
+                returnConvention == that.returnConvention;
+    }
+
+    @Override
+    public int hashCode()
+    {
+        return Objects.hash(argumentConventionList, returnConvention, supportsSession, supportsInstanceFactory);
     }
 
     public enum InvocationArgumentConvention
