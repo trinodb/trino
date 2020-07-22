@@ -1299,6 +1299,15 @@
                     <artifactId>maven-enforcer-plugin</artifactId>
                     <configuration>
                         <rules>
+                            <compound implementation="com.github.ferstl.maven.pomenforcers.CompoundPedanticEnforcer">
+                                <enforcers>POM_SECTION_ORDER,MODULE_ORDER,DEPENDENCY_MANAGEMENT_ORDER,DEPENDENCY_ORDER</enforcers>
+                                <pomSectionPriorities>modelVersion,parent,groupId,artifactId,version,name,description,packaging,url,inceptionYear,licenses,scm,properties,modules</pomSectionPriorities>
+                                <dependenciesGroupIdPriorities>io.prestosql,io.airlift</dependenciesGroupIdPriorities>
+                                <dependenciesOrderBy>scope,groupId,artifactId</dependenciesOrderBy>
+                                <dependenciesScopePriorities>compile,runtime,provided,test</dependenciesScopePriorities>
+                                <dependencyManagementOrderBy>groupId,artifactId</dependencyManagementOrderBy>
+                                <dependencyManagementGroupIdPriorities>io.prestosql,io.airlift</dependencyManagementGroupIdPriorities>
+                            </compound>
                             <requireUpperBoundDeps>
                                 <excludes combine.children="append">
                                     <!-- TODO: fix this in Airlift resolver -->
@@ -1310,6 +1319,13 @@
                             </requireUpperBoundDeps>
                         </rules>
                     </configuration>
+                    <dependencies>
+                        <dependency>
+                            <groupId>com.github.ferstl</groupId>
+                            <artifactId>pedantic-pom-enforcers</artifactId>
+                            <version>1.3.2</version>
+                        </dependency>
+                    </dependencies>
                 </plugin>
 
                 <plugin>
