@@ -89,6 +89,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static io.prestosql.plugin.hive.HivePartitionManager.partitionMatches;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isForceLocalScheduling;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getPartitionLocation;
@@ -375,6 +376,7 @@ public class BackgroundHiveSplitLoader
                         partitionMatchSupplier,
                         partition.getTableToPartitionMapping(),
                         Optional.empty(),
+                        getMaxInitialSplitSize(session),
                         isForceLocalScheduling(session),
                         s3SelectPushdownEnabled);
                 lastResult = addSplitsToSource(targetSplits, splitFactory);
@@ -413,6 +415,7 @@ public class BackgroundHiveSplitLoader
                 partitionMatchSupplier,
                 partition.getTableToPartitionMapping(),
                 bucketConversionRequiresWorkerParticipation ? bucketConversion : Optional.empty(),
+                getMaxInitialSplitSize(session),
                 isForceLocalScheduling(session),
                 s3SelectPushdownEnabled);
 
