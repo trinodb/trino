@@ -43,7 +43,6 @@ public final class GenericLongFunction
         super(new FunctionMetadata(
                 new Signature(
                         "generic_long_" + requireNonNull(suffix, "suffix is null"),
-                        SCALAR,
                         BIGINT.getTypeSignature(),
                         BIGINT.getTypeSignature()),
                 false,

@@ -21,7 +21,6 @@ import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.type.DecimalConversions;
 import io.prestosql.spi.type.DecimalType;
 
-import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.Decimals.longTenToNth;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
@@ -29,7 +28,6 @@ import static io.prestosql.sql.analyzer.TypeSignatureTranslator.parseTypeSignatu
 public final class DecimalToDecimalCasts
 {
     public static final Signature SIGNATURE = Signature.builder()
-            .kind(SCALAR)
             .operatorType(CAST)
             .argumentTypes(parseTypeSignature("decimal(from_precision,from_scale)", ImmutableSet.of("from_precision", "from_scale")))
             .returnType(parseTypeSignature("decimal(to_precision,to_scale)", ImmutableSet.of("to_precision", "to_scale")))
