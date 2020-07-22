@@ -13,7 +13,6 @@
  */
 package io.prestosql.operator.annotations;
 
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionDependencies;
 import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
@@ -59,9 +58,8 @@ public final class CastImplementationDependency
     @Override
     protected FunctionInvoker getInvoker(FunctionBinding functionBinding, FunctionDependencies functionDependencies, Optional<InvocationConvention> invocationConvention)
     {
-        BoundVariables boundVariables = new BoundVariables(functionBinding.getTypeVariables(), functionBinding.getLongVariables());
-        TypeSignature from = applyBoundVariables(fromType, boundVariables);
-        TypeSignature to = applyBoundVariables(toType, boundVariables);
+        TypeSignature from = applyBoundVariables(fromType, functionBinding);
+        TypeSignature to = applyBoundVariables(toType, functionBinding);
         return functionDependencies.getCastSignatureInvoker(from, to, invocationConvention);
     }
 
