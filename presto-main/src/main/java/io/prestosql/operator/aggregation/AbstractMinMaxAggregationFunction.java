@@ -16,8 +16,8 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
@@ -104,9 +104,9 @@ public abstract class AbstractMinMaxAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    public InternalAggregationFunction specialize(FunctionBinding functionBinding, Metadata metadata)
     {
-        Type type = boundVariables.getTypeVariable("E");
+        Type type = functionBinding.getTypeVariable("E");
         ResolvedFunction resolvedFunction = metadata.resolveOperator(operatorType, ImmutableList.of(type, type));
         MethodHandle compareMethodHandle = metadata.getScalarFunctionInvoker(resolvedFunction, Optional.empty()).getMethodHandle();
         return generateAggregation(type, compareMethodHandle);

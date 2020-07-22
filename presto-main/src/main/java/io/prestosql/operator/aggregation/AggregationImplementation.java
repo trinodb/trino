@@ -15,10 +15,9 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.BoundSignature;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.LongVariableConstraint;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.TypeVariableConstraint;
 import io.prestosql.operator.ParametricImplementation;
@@ -221,13 +220,13 @@ public class AggregationImplementation
         return inputParameterMetadataTypes;
     }
 
-    public boolean areTypesAssignable(Signature boundSignature, BoundVariables variables, Metadata metadata)
+    public boolean areTypesAssignable(BoundSignature boundSignature)
     {
         checkState(argumentNativeContainerTypes.size() == boundSignature.getArgumentTypes().size(), "Number of argument assigned to AggregationImplementation is different than number parsed from annotations.");
 
         // TODO specialized functions variants support is missing here
         for (int i = 0; i < boundSignature.getArgumentTypes().size(); i++) {
-            Class<?> argumentType = metadata.getType(boundSignature.getArgumentTypes().get(i)).getJavaType();
+            Class<?> argumentType = boundSignature.getArgumentTypes().get(i).getJavaType();
             Class<?> methodDeclaredType = argumentNativeContainerTypes.get(i).getJavaType();
             boolean isCurrentBlockPosition = argumentNativeContainerTypes.get(i).isBlockPosition();
 
