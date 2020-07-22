@@ -68,8 +68,8 @@ import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.scalar.BenchmarkArrayFilter.ExactArrayFilterFunction.EXACT_ARRAY_FILTER_FUNCTION;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -230,10 +230,8 @@ public class BenchmarkArrayFilter
         {
             Type type = boundVariables.getTypeVariable("T");
             return new ScalarFunctionImplementation(
-                    false,
-                    ImmutableList.of(
-                            valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
-                            valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                    FAIL_ON_NULL,
+                    ImmutableList.of(NEVER_NULL, NEVER_NULL),
                     METHOD_HANDLE.bindTo(type));
         }
 

@@ -22,20 +22,18 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
-import java.util.List;
 import java.util.Optional;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.castableToTypeParameter;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static java.lang.invoke.MethodHandles.catchException;
 import static java.lang.invoke.MethodHandles.constant;
 import static java.lang.invoke.MethodHandles.dropArguments;
@@ -80,8 +78,10 @@ public class TryCastFunction
         MethodHandle exceptionHandler = dropArguments(constant(returnType, null), 0, RuntimeException.class);
         MethodHandle tryCastHandle = catchException(coercion, RuntimeException.class, exceptionHandler);
 
-        boolean nullable = metadata.getFunctionMetadata(resolvedFunction).getArgumentDefinitions().get(0).isNullable();
-        List<ArgumentProperty> argumentProperties = ImmutableList.of(nullable ? valueTypeArgumentProperty(USE_BOXED_TYPE) : valueTypeArgumentProperty(RETURN_NULL_ON_NULL));
-        return new ScalarFunctionImplementation(true, argumentProperties, tryCastHandle);
+        boolean nullableArgument = metadata.getFunctionMetadata(resolvedFunction).getArgumentDefinitions().get(0).isNullable();
+        return new ScalarFunctionImplementation(
+                NULLABLE_RETURN,
+                ImmutableList.of(nullableArgument ? BOXED_NULLABLE : NEVER_NULL),
+                tryCastHandle);
     }
 }
