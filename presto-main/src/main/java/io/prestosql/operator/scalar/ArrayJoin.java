@@ -16,8 +16,8 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
@@ -109,9 +109,9 @@ public final class ArrayJoin
         }
 
         @Override
-        public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+        public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, Metadata metadata)
         {
-            return specializeArrayJoin(boundVariables, metadata, ImmutableList.of(false, false, false), METHOD_HANDLE);
+            return specializeArrayJoin(functionBinding, metadata, ImmutableList.of(false, false, false), METHOD_HANDLE);
         }
     }
 
@@ -142,14 +142,14 @@ public final class ArrayJoin
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, Metadata metadata)
     {
-        return specializeArrayJoin(boundVariables, metadata, ImmutableList.of(false, false), METHOD_HANDLE);
+        return specializeArrayJoin(functionBinding, metadata, ImmutableList.of(false, false), METHOD_HANDLE);
     }
 
-    private static ScalarFunctionImplementation specializeArrayJoin(BoundVariables types, Metadata metadata, List<Boolean> nullableArguments, MethodHandle methodHandle)
+    private static ScalarFunctionImplementation specializeArrayJoin(FunctionBinding functionBinding, Metadata metadata, List<Boolean> nullableArguments, MethodHandle methodHandle)
     {
-        Type type = types.getTypeVariable("T");
+        Type type = functionBinding.getTypeVariable("T");
         List<InvocationArgumentConvention> argumentConventions = nullableArguments.stream()
                 .map(nullable -> nullable ? BOXED_NULLABLE : NEVER_NULL)
                 .collect(toImmutableList());

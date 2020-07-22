@@ -14,8 +14,10 @@
 package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
-import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.BoundSignature;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
@@ -94,7 +96,12 @@ public class TestAnnotationEngineForScalars
 
         assertImplementationCount(scalar, 1, 0, 0);
 
-        ScalarFunctionImplementation specialized = scalar.specialize(BoundVariables.builder().build(), 1, METADATA);
+        FunctionBinding functionBinding = new FunctionBinding(
+                functionMetadata.getFunctionId(),
+                new BoundSignature(expectedSignature.getName(), DOUBLE, ImmutableList.of(DOUBLE)),
+                ImmutableMap.of(),
+                ImmutableMap.of());
+        ScalarFunctionImplementation specialized = scalar.specialize(functionBinding, METADATA);
         assertFalse(specialized.getChoices().get(0).getInstanceFactory().isPresent());
     }
 
@@ -178,7 +185,12 @@ public class TestAnnotationEngineForScalars
         assertFalse(functionMetadata.getArgumentDefinitions().get(0).isNullable());
         assertTrue(functionMetadata.getArgumentDefinitions().get(1).isNullable());
 
-        ScalarFunctionImplementation specialized = scalar.specialize(BoundVariables.builder().build(), 2, METADATA);
+        FunctionBinding functionBinding = new FunctionBinding(
+                functionMetadata.getFunctionId(),
+                new BoundSignature(expectedSignature.getName(), DOUBLE, ImmutableList.of(DOUBLE, DOUBLE)),
+                ImmutableMap.of(),
+                ImmutableMap.of());
+        ScalarFunctionImplementation specialized = scalar.specialize(functionBinding, METADATA);
         assertFalse(specialized.getChoices().get(0).getInstanceFactory().isPresent());
     }
 
@@ -215,7 +227,12 @@ public class TestAnnotationEngineForScalars
         assertFalse(functionMetadata.getArgumentDefinitions().get(0).isNullable());
         assertTrue(functionMetadata.getArgumentDefinitions().get(1).isNullable());
 
-        ScalarFunctionImplementation specialized = scalar.specialize(BoundVariables.builder().build(), 2, METADATA);
+        FunctionBinding functionBinding = new FunctionBinding(
+                functionMetadata.getFunctionId(),
+                new BoundSignature(expectedSignature.getName(), DOUBLE, ImmutableList.of(DOUBLE, DOUBLE)),
+                ImmutableMap.of(),
+                ImmutableMap.of());
+        ScalarFunctionImplementation specialized = scalar.specialize(functionBinding, METADATA);
         assertFalse(specialized.getChoices().get(0).getInstanceFactory().isPresent());
     }
 

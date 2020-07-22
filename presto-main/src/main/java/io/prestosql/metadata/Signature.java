@@ -125,7 +125,7 @@ public class Signature
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, variableArity);
+        return Objects.hash(name.toLowerCase(Locale.US), typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, variableArity);
     }
 
     @Override
@@ -138,7 +138,7 @@ public class Signature
             return false;
         }
         Signature other = (Signature) obj;
-        return Objects.equals(this.name, other.name) &&
+        return name.equalsIgnoreCase(other.name) &&
                 Objects.equals(this.typeVariableConstraints, other.typeVariableConstraints) &&
                 Objects.equals(this.longVariableConstraints, other.longVariableConstraints) &&
                 Objects.equals(this.returnType, other.returnType) &&

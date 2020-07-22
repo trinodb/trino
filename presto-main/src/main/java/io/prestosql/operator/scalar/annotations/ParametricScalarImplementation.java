@@ -18,8 +18,10 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
+import io.prestosql.metadata.BoundSignature;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.LongVariableConstraint;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
@@ -151,21 +153,22 @@ public class ParametricScalarImplementation
         return argumentDefinitions;
     }
 
-    public Optional<ScalarFunctionImplementation> specialize(Signature boundSignature, BoundVariables boundVariables, Metadata metadata)
+    public Optional<ScalarFunctionImplementation> specialize(FunctionBinding functionBinding, Metadata metadata)
     {
         List<ScalarImplementationChoice> implementationChoices = new ArrayList<>();
         for (Map.Entry<String, Class<?>> entry : specializedTypeParameters.entrySet()) {
-            if (!entry.getValue().isAssignableFrom(boundVariables.getTypeVariable(entry.getKey()).getJavaType())) {
+            if (!entry.getValue().isAssignableFrom(functionBinding.getTypeVariable(entry.getKey()).getJavaType())) {
                 return Optional.empty();
             }
         }
 
-        if (returnNativeContainerType != Object.class && returnNativeContainerType != metadata.getType(boundSignature.getReturnType()).getJavaType()) {
+        BoundSignature boundSignature = functionBinding.getBoundSignature();
+        if (returnNativeContainerType != Object.class && returnNativeContainerType != boundSignature.getReturnType().getJavaType()) {
             return Optional.empty();
         }
 
         for (int i = 0; i < boundSignature.getArgumentTypes().size(); i++) {
-            if (boundSignature.getArgumentTypes().get(i).getBase().equals(FunctionType.NAME)) {
+            if (boundSignature.getArgumentTypes().get(i) instanceof FunctionType) {
                 if (argumentNativeContainerTypes.get(i).isPresent()) {
                     return Optional.empty();
                 }
@@ -175,7 +178,7 @@ public class ParametricScalarImplementation
                     return Optional.empty();
                 }
 
-                Class<?> argumentType = metadata.getType(boundSignature.getArgumentTypes().get(i)).getJavaType();
+                Class<?> argumentType = boundSignature.getArgumentTypes().get(i).getJavaType();
                 Class<?> argumentNativeContainerType = argumentNativeContainerTypes.get(i).get();
                 if (argumentNativeContainerType != Object.class && argumentNativeContainerType != argumentType) {
                     return Optional.empty();
@@ -183,6 +186,7 @@ public class ParametricScalarImplementation
             }
         }
 
+        BoundVariables boundVariables = new BoundVariables(functionBinding.getTypeVariables(), functionBinding.getLongVariables());
         for (ParametricScalarImplementationChoice choice : choices) {
             MethodHandle boundMethodHandle = bindDependencies(choice.getMethodHandle(), choice.getDependencies(), boundVariables, metadata);
             Optional<MethodHandle> boundConstructor = choice.getConstructor().map(constructor -> {
@@ -199,7 +203,7 @@ public class ParametricScalarImplementation
                     choice.getReturnConvention(),
                     choice.getArgumentConventions(),
                     choice.getLambdaInterfaces(),
-                    boundMethodHandle.asType(javaMethodType(choice, boundSignature, metadata)),
+                    boundMethodHandle.asType(javaMethodType(choice, boundSignature)),
                     boundConstructor));
         }
         return Optional.of(new ScalarFunctionImplementation(implementationChoices));
@@ -223,7 +227,7 @@ public class ParametricScalarImplementation
         return choices;
     }
 
-    private static MethodType javaMethodType(ParametricScalarImplementationChoice choice, Signature signature, Metadata metadata)
+    private static MethodType javaMethodType(ParametricScalarImplementationChoice choice, BoundSignature signature)
     {
         // This method accomplishes two purposes:
         // * Assert that the method signature is as expected.
@@ -240,7 +244,7 @@ public class ParametricScalarImplementation
         List<InvocationArgumentConvention> argumentConventions = choice.getArgumentConventions();
         for (int i = 0; i < argumentConventions.size(); i++) {
             InvocationArgumentConvention argumentConvention = argumentConventions.get(i);
-            Type signatureType = metadata.getType(signature.getArgumentTypes().get(i));
+            Type signatureType = signature.getArgumentTypes().get(i);
             switch (argumentConvention) {
                 case NEVER_NULL:
                     methodHandleParameterTypes.add(signatureType.getJavaType());
@@ -264,7 +268,7 @@ public class ParametricScalarImplementation
             }
         }
 
-        Class<?> methodHandleReturnType = metadata.getType(signature.getReturnType()).getJavaType();
+        Class<?> methodHandleReturnType = signature.getReturnType().getJavaType();
         if (choice.getReturnConvention().isNullable()) {
             methodHandleReturnType = Primitives.wrap(methodHandleReturnType);
         }
