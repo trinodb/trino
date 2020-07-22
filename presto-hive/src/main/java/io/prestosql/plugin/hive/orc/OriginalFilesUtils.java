@@ -36,6 +36,36 @@ public final class OriginalFilesUtils
     private OriginalFilesUtils() {}
 
     /**
+     * Returns total number of rows present before the given original file in the same bucket.
+     * example: if bucket-1 has original files
+     * 000000_0 -> X0 rows
+     * 000000_0_copy1 -> X1 rows
+     * 000000_0_copy2 -> X2 rows
+     * <p>
+     * for 000000_0_copy2, it returns (X0+X1)
+     */
+    public static long getRowCount(
+            Collection<OriginalFileInfo> originalFileInfos,
+            Path splitPath,
+            HdfsEnvironment hdfsEnvironment,
+            String sessionUser,
+            OrcReaderOptions options,
+            Configuration configuration,
+            FileFormatDataSourceStats stats)
+    {
+        long rowCount = 0;
+        for (OriginalFileInfo originalFileInfo : originalFileInfos) {
+            Path path = new Path(splitPath.getParent() + "/" + originalFileInfo.getName());
+            // Check if the file belongs to the same bucket and comes before 'reqPath' in lexicographic order.
+            if (path.compareTo(splitPath) < 0) {
+                rowCount += getRowsInFile(path, hdfsEnvironment, sessionUser, options, configuration, stats, originalFileInfo.getFileSize());
+            }
+        }
+
+        return rowCount;
+    }
+
+    /**
      * Returns number of rows present in the file, based on the ORC footer.
      */
     private static Long getRowsInFile(
@@ -70,35 +100,5 @@ public final class OriginalFilesUtils
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, "Could not create ORC reader for file: " + splitPath.getName(), e);
         }
         return reader.getFooter().getNumberOfRows();
-    }
-
-    /**
-     * Returns total number of rows present before the given original file in the same bucket.
-     * example: if bucket-1 has original files
-     * 000000_0 -> X0 rows
-     * 000000_0_copy1 -> X1 rows
-     * 000000_0_copy2 -> X2 rows
-     * <p>
-     * for 000000_0_copy2, it returns (X0+X1)
-     */
-    public static long getRowCount(
-            Collection<OriginalFileInfo> originalFileInfos,
-            Path splitPath,
-            HdfsEnvironment hdfsEnvironment,
-            String sessionUser,
-            OrcReaderOptions options,
-            Configuration configuration,
-            FileFormatDataSourceStats stats)
-    {
-        long rowCount = 0;
-        for (OriginalFileInfo originalFileInfo : originalFileInfos) {
-            Path path = new Path(splitPath.getParent() + "/" + originalFileInfo.getName());
-            // Check if the file belongs to the same bucket and comes before 'reqPath' in lexicographic order.
-            if (path.compareTo(splitPath) < 0) {
-                rowCount += getRowsInFile(path, hdfsEnvironment, sessionUser, options, configuration, stats, originalFileInfo.getFileSize());
-            }
-        }
-
-        return rowCount;
     }
 }
