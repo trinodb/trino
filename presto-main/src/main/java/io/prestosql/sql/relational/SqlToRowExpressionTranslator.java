@@ -19,6 +19,7 @@ import com.google.common.collect.Lists;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.type.DecimalParseResult;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.RowType;
@@ -84,6 +85,10 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SliceUtf8.countCodePoints;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.function.OperatorType.HASH_CODE;
+import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.NEGATION;
 import static io.prestosql.spi.function.OperatorType.SUBSCRIPT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -525,22 +530,30 @@ public final class SqlToRowExpressionTranslator
         {
             ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
 
-            arguments.add(process(node.getOperand(), context));
+            RowExpression value = process(node.getOperand(), context);
+            arguments.add(value);
 
+            ImmutableList.Builder<ResolvedFunction> functionDependencies = ImmutableList.builder();
             for (WhenClause clause : node.getWhenClauses()) {
-                arguments.add(new SpecialForm(WHEN,
+                RowExpression operand = process(clause.getOperand(), context);
+                RowExpression result = process(clause.getResult(), context);
+
+                functionDependencies.add(metadata.resolveOperator(EQUAL, ImmutableList.of(value.getType(), operand.getType())));
+
+                arguments.add(new SpecialForm(
+                        WHEN,
                         getType(clause),
-                        process(clause.getOperand(), context),
-                        process(clause.getResult(), context)));
+                        operand,
+                        result));
             }
 
             Type returnType = getType(node);
 
             arguments.add(node.getDefaultValue()
-                    .map((value) -> process(value, context))
+                    .map(defaultValue -> process(defaultValue, context))
                     .orElse(constantNull(returnType)));
 
-            return new SpecialForm(SWITCH, returnType, arguments.build());
+            return new SpecialForm(SWITCH, returnType, arguments.build(), functionDependencies.build());
         }
 
         @Override
@@ -624,13 +637,20 @@ public final class SqlToRowExpressionTranslator
         protected RowExpression visitInPredicate(InPredicate node, Void context)
         {
             ImmutableList.Builder<RowExpression> arguments = ImmutableList.builder();
-            arguments.add(process(node.getValue(), context));
+            RowExpression value = process(node.getValue(), context);
+            arguments.add(value);
             InListExpression values = (InListExpression) node.getValueList();
-            for (Expression value : values.getValues()) {
-                arguments.add(process(value, context));
+            for (Expression testValue : values.getValues()) {
+                arguments.add(process(testValue, context));
             }
 
-            return new SpecialForm(IN, BOOLEAN, arguments.build());
+            List<ResolvedFunction> functionDependencies = ImmutableList.<ResolvedFunction>builder()
+                    .add(metadata.resolveOperator(EQUAL, ImmutableList.of(value.getType(), value.getType())))
+                    .add(metadata.resolveOperator(HASH_CODE, ImmutableList.of(value.getType())))
+                    .add(metadata.resolveOperator(INDETERMINATE, ImmutableList.of(value.getType())))
+                    .build();
+
+            return new SpecialForm(IN, BOOLEAN, arguments.build(), functionDependencies);
         }
 
         @Override
@@ -668,11 +688,18 @@ public final class SqlToRowExpressionTranslator
             RowExpression first = process(node.getFirst(), context);
             RowExpression second = process(node.getSecond(), context);
 
+            ResolvedFunction resolvedFunction = metadata.resolveOperator(EQUAL, ImmutableList.of(first.getType(), second.getType()));
+            List<ResolvedFunction> functionDependencies = ImmutableList.<ResolvedFunction>builder()
+                    .add(resolvedFunction)
+                    .add(metadata.getCoercion(first.getType(), resolvedFunction.getSignature().getArgumentTypes().get(0)))
+                    .add(metadata.getCoercion(second.getType(), resolvedFunction.getSignature().getArgumentTypes().get(0)))
+                    .build();
+
             return new SpecialForm(
                     NULL_IF,
                     getType(node),
-                    first,
-                    second);
+                    ImmutableList.of(first, second),
+                    functionDependencies);
         }
 
         @Override
@@ -682,12 +709,15 @@ public final class SqlToRowExpressionTranslator
             RowExpression min = process(node.getMin(), context);
             RowExpression max = process(node.getMax(), context);
 
+            List<ResolvedFunction> functionDependencies = ImmutableList.<ResolvedFunction>builder()
+                    .add(metadata.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(value.getType(), max.getType())))
+                    .build();
+
             return new SpecialForm(
                     BETWEEN,
                     BOOLEAN,
-                    value,
-                    min,
-                    max);
+                    ImmutableList.of(value, min, max),
+                    functionDependencies);
         }
 
         @Override
