@@ -96,20 +96,6 @@ public class InternalHiveSplitFactory
         return partitionName;
     }
 
-    public Optional<InternalHiveSplit> createInternalHiveSplit(FileStatus status, BlockLocation[] blockLocations, Optional<AcidInfo> acidInfo)
-    {
-        return createInternalHiveSplit(
-                status.getPath(),
-                blockLocations,
-                0,
-                status.getLen(),
-                status.getLen(),
-                status.getModificationTime(),
-                OptionalInt.empty(),
-                true,
-                acidInfo);
-    }
-
     public Optional<InternalHiveSplit> createInternalHiveSplit(LocatedFileStatus status, OptionalInt bucketNumber, boolean splittable, Optional<AcidInfo> acidInfo)
     {
         splittable = splittable && isSplittable(inputFormat, fileSystem, status.getPath());

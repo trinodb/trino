@@ -534,32 +534,28 @@ public class BackgroundHiveSplitLoader
         }
 
         if (!fileStatusOriginalFiles.isEmpty()) {
-            generateOriginalFilesSplits(fs, splitFactory, fileStatusOriginalFiles, acidInfoBuilder);
+            generateOriginalFilesSplits(splitFactory, fileStatusOriginalFiles, splittable, acidInfoBuilder);
         }
 
         return COMPLETED_FUTURE;
     }
 
     private void generateOriginalFilesSplits(
-            FileSystem fs,
             InternalHiveSplitFactory splitFactory,
             List<HdfsFileStatusWithId> originalFileLocations,
+            boolean splittable,
             AcidInfo.Builder acidInfoBuilder)
     {
         fileIterators.addLast(
                 originalFileLocations.stream()
                         .map(HdfsFileStatusWithId::getFileStatus)
                         .map(fileStatus -> {
-                            try {
-                                Optional<AcidInfo> acidInfo = Optional.of(acidInfoBuilder.buildWithRequiredOriginalFiles(getRequiredBucketNumber(fileStatus.getPath())));
-                                return splitFactory.createInternalHiveSplit(
-                                        fileStatus,
-                                        hdfsEnvironment.doAs(hdfsContext.getIdentity().getUser(), () -> fs.getFileBlockLocations(fileStatus, 0, fileStatus.getLen())),
-                                        acidInfo);
-                            }
-                            catch (IOException e) {
-                                throw new PrestoException(HIVE_BAD_DATA, e);
-                            }
+                            Optional<AcidInfo> acidInfo = Optional.of(acidInfoBuilder.buildWithRequiredOriginalFiles(getRequiredBucketNumber(fileStatus.getPath())));
+                            return splitFactory.createInternalHiveSplit(
+                                    (LocatedFileStatus) fileStatus,
+                                    OptionalInt.empty(),
+                                    splittable,
+                                    acidInfo);
                         })
                         .map(Optional::orElseThrow)
                         .iterator());
