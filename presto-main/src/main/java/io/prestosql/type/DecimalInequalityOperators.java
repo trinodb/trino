@@ -30,7 +30,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
-import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.PolymorphicScalarFunctionBuilder.constant;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
@@ -109,7 +108,6 @@ public final class DecimalInequalityOperators
     private static PolymorphicScalarFunctionBuilder makeBinaryOperatorFunctionBuilder(OperatorType operatorType)
     {
         Signature signature = Signature.builder()
-                .kind(SCALAR)
                 .operatorType(operatorType)
                 .argumentTypes(DECIMAL_SIGNATURE, DECIMAL_SIGNATURE)
                 .returnType(BOOLEAN.getTypeSignature())

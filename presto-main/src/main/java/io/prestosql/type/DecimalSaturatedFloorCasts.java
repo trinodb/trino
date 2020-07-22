@@ -25,7 +25,6 @@ import io.prestosql.spi.type.TypeSignature;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
-import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.Decimals.bigIntegerTenToNth;
@@ -45,7 +44,6 @@ public final class DecimalSaturatedFloorCasts
 
     public static final SqlScalarFunction DECIMAL_TO_DECIMAL_SATURATED_FLOOR_CAST = new PolymorphicScalarFunctionBuilder(DecimalSaturatedFloorCasts.class)
             .signature(Signature.builder()
-                    .kind(SCALAR)
                     .operatorType(SATURATED_FLOOR_CAST)
                     .argumentTypes(new TypeSignature("decimal", typeVariable("source_precision"), typeVariable("source_scale")))
                     .returnType(new TypeSignature("decimal", typeVariable("result_precision"), typeVariable("result_scale")))
@@ -116,7 +114,6 @@ public final class DecimalSaturatedFloorCasts
     {
         return new PolymorphicScalarFunctionBuilder(DecimalSaturatedFloorCasts.class)
                 .signature(Signature.builder()
-                        .kind(SCALAR)
                         .operatorType(SATURATED_FLOOR_CAST)
                         .argumentTypes(new TypeSignature("decimal", typeVariable("source_precision"), typeVariable("source_scale")))
                         .returnType(type.getTypeSignature())
@@ -166,7 +163,6 @@ public final class DecimalSaturatedFloorCasts
     {
         return new PolymorphicScalarFunctionBuilder(DecimalSaturatedFloorCasts.class)
                 .signature(Signature.builder()
-                        .kind(SCALAR)
                         .operatorType(SATURATED_FLOOR_CAST)
                         .argumentTypes(integerType.getTypeSignature())
                         .returnType(new TypeSignature("decimal", typeVariable("result_precision"), typeVariable("result_scale")))
