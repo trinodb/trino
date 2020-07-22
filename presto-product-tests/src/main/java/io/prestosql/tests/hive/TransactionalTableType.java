@@ -33,13 +33,6 @@ public enum TransactionalTableType
             return ImmutableList.of("'transactional'='true'", "'transactional_properties'='insert_only'");
         }
     },
-    NON_ACID {
-        @Override
-        List<String> getHiveTableProperties()
-        {
-            return ImmutableList.of("'transactional'='false'");
-        }
-    },
     /**/;
 
     abstract List<String> getHiveTableProperties();

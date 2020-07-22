@@ -45,7 +45,6 @@ import static io.prestosql.tests.hive.TestHiveTransactionalTable.CompactionMode.
 import static io.prestosql.tests.hive.TestHiveTransactionalTable.CompactionMode.MINOR;
 import static io.prestosql.tests.hive.TransactionalTableType.ACID;
 import static io.prestosql.tests.hive.TransactionalTableType.INSERT_ONLY;
-import static io.prestosql.tests.hive.TransactionalTableType.NON_ACID;
 import static io.prestosql.tests.hive.util.TemporaryHiveTable.randomTableSuffix;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static java.lang.String.format;
@@ -198,18 +197,18 @@ public class TestHiveTransactionalTable
 
         String tableName = "test_full_acid_acid_converted_table_read";
         onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
-        String createTable = "CREATE TABLE " + tableName + " (col INT, fcol INT) " +
+        verify(bucketingType.getHiveTableProperties().isEmpty());
+        onHive().executeQuery("CREATE TABLE " + tableName + " (col INT, fcol INT) " +
                 (isPartitioned ? "PARTITIONED BY (part_col INT) " : "") +
                 bucketingType.getHiveClustering("fcol", 4) + " " +
                 "STORED AS ORC " +
-                hiveTableProperties(NON_ACID, bucketingType);
-        onHive().executeQuery(createTable);
+                "TBLPROPERTIES ('transactional'='false')");
 
         try {
             String hivePartitionString = isPartitioned ? " PARTITION (part_col=2) " : "";
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (21, 1)");
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (22, 2)");
-            onHive().executeQuery("ALTER TABLE " + tableName + " SET TBLPROPERTIES ('transactional'='true')");
+            onHive().executeQuery("ALTER TABLE " + tableName + " SET " + hiveTableProperties(ACID, bucketingType));
 
             // read with original files
             assertThat(query("SELECT col, fcol FROM " + tableName)).containsOnly(row(21, 1), row(22, 2));
@@ -241,17 +240,18 @@ public class TestHiveTransactionalTable
 
         String tableName = "test_insert_only_acid_converted_table_read";
         onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
+        verify(bucketingType.getHiveTableProperties().isEmpty());
         onHive().executeQuery("CREATE TABLE " + tableName + " (col INT) " +
                 (isPartitioned ? "PARTITIONED BY (part_col INT) " : "") +
                 bucketingType.getHiveClustering("col", 4) + " " +
                 "STORED AS ORC " +
-                hiveTableProperties(NON_ACID, bucketingType));
+                "TBLPROPERTIES ('transactional'='false')");
         try {
             String hivePartitionString = isPartitioned ? " PARTITION (part_col=2) " : "";
 
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (1)");
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (2)");
-            onHive().executeQuery("ALTER TABLE " + tableName + " SET TBLPROPERTIES ('transactional'='true', 'transactional_properties'='insert_only')");
+            onHive().executeQuery("ALTER TABLE " + tableName + " SET " + hiveTableProperties(INSERT_ONLY, bucketingType));
 
             // read with original files
             assertThat(query("SELECT col FROM " + tableName + (isPartitioned ? " WHERE part_col = 2 " : ""))).containsOnly(row(1), row(2));
