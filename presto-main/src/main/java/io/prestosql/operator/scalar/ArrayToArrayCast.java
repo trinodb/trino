@@ -75,10 +75,10 @@ public class ArrayToArrayCast
     }
 
     @Override
-    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    public FunctionDependencyDeclaration getFunctionDependencies()
     {
         return FunctionDependencyDeclaration.builder()
-                .addCast(functionBinding.getTypeVariable("F"), functionBinding.getTypeVariable("T"))
+                .addCastSignature(new TypeSignature("F"), new TypeSignature("T"))
                 .build();
     }
 

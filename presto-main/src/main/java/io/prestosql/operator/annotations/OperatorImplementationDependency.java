@@ -58,10 +58,9 @@ public final class OperatorImplementationDependency
     }
 
     @Override
-    public void declareDependencies(FunctionBinding functionBinding, FunctionDependencyDeclarationBuilder builder)
+    public void declareDependencies(FunctionDependencyDeclarationBuilder builder)
     {
-        BoundVariables boundVariables = new BoundVariables(functionBinding.getTypeVariables(), functionBinding.getLongVariables());
-        builder.addOperatorSignature(operator, applyBoundVariables(argumentTypes, boundVariables));
+        builder.addOperatorSignature(operator, argumentTypes);
     }
 
     @Override

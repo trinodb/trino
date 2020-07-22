@@ -94,14 +94,12 @@ public final class MapConstructor
     }
 
     @Override
-    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    public FunctionDependencyDeclaration getFunctionDependencies()
     {
-        Type keyType = functionBinding.getTypeVariable("K");
-
         return FunctionDependencyDeclaration.builder()
-                .addOperator(HASH_CODE, ImmutableList.of(keyType))
-                .addOperator(EQUAL, ImmutableList.of(keyType, keyType))
-                .addOperator(INDETERMINATE, ImmutableList.of(keyType))
+                .addOperatorSignature(HASH_CODE, ImmutableList.of(new TypeSignature("K")))
+                .addOperatorSignature(EQUAL, ImmutableList.of(new TypeSignature("K"), new TypeSignature("K")))
+                .addOperatorSignature(INDETERMINATE, ImmutableList.of(new TypeSignature("K")))
                 .build();
     }
 

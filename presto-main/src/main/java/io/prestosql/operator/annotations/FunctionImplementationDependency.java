@@ -43,10 +43,9 @@ public final class FunctionImplementationDependency
     }
 
     @Override
-    public void declareDependencies(FunctionBinding functionBinding, FunctionDependencyDeclarationBuilder builder)
+    public void declareDependencies(FunctionDependencyDeclarationBuilder builder)
     {
-        BoundVariables boundVariables = new BoundVariables(functionBinding.getTypeVariables(), functionBinding.getLongVariables());
-        builder.addFunctionSignature(name, applyBoundVariables(argumentTypes, boundVariables));
+        builder.addFunctionSignature(name, argumentTypes);
     }
 
     @Override

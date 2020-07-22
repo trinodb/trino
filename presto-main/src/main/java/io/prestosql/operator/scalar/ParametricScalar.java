@@ -68,24 +68,25 @@ public class ParametricScalar
     }
 
     @Override
-    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    public FunctionDependencyDeclaration getFunctionDependencies()
     {
         FunctionDependencyDeclarationBuilder builder = FunctionDependencyDeclaration.builder();
-        declareDependencies(functionBinding, builder, implementations.getExactImplementations().values());
-        declareDependencies(functionBinding, builder, implementations.getSpecializedImplementations());
-        declareDependencies(functionBinding, builder, implementations.getGenericImplementations());
+        declareDependencies(builder, implementations.getExactImplementations().values());
+        declareDependencies(builder, implementations.getSpecializedImplementations());
+        declareDependencies(builder, implementations.getGenericImplementations());
         return builder.build();
     }
 
-    private static void declareDependencies(FunctionBinding functionBinding, FunctionDependencyDeclarationBuilder builder, Collection<ParametricScalarImplementation> implementations)
+    private static void declareDependencies(FunctionDependencyDeclarationBuilder builder,
+            Collection<ParametricScalarImplementation> implementations)
     {
         for (ParametricScalarImplementation implementation : implementations) {
             for (ParametricScalarImplementationChoice choice : implementation.getChoices()) {
                 for (ImplementationDependency dependency : choice.getDependencies()) {
-                    dependency.declareDependencies(functionBinding, builder);
+                    dependency.declareDependencies(builder);
                 }
                 for (ImplementationDependency dependency : choice.getConstructorDependencies()) {
-                    dependency.declareDependencies(functionBinding, builder);
+                    dependency.declareDependencies(builder);
                 }
             }
         }

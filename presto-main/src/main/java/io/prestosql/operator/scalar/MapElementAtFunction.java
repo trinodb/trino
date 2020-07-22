@@ -71,11 +71,10 @@ public class MapElementAtFunction
     }
 
     @Override
-    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    public FunctionDependencyDeclaration getFunctionDependencies()
     {
-        Type keyType = functionBinding.getTypeVariable("K");
         return FunctionDependencyDeclaration.builder()
-                .addOperator(EQUAL, ImmutableList.of(keyType, keyType))
+                .addOperatorSignature(EQUAL, ImmutableList.of(new TypeSignature("K"), new TypeSignature("K")))
                 .build();
     }
 

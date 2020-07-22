@@ -64,11 +64,10 @@ public class MapSubscriptOperator
     }
 
     @Override
-    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    public FunctionDependencyDeclaration getFunctionDependencies()
     {
-        Type keyType = functionBinding.getTypeVariable("K");
         return FunctionDependencyDeclaration.builder()
-                .addOptionalCast(keyType, VARCHAR)
+                .addOptionalCastSignature(new TypeSignature("K"), VARCHAR.getTypeSignature())
                 .build();
     }
 
