@@ -44,7 +44,7 @@ import java.util.OptionalLong;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.IntPredicate;
+import java.util.function.LongPredicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -146,8 +146,7 @@ public class TestOrcPageSourceFactory
                 "Deleted row shouldn't be present in the result");
     }
 
-    private static void assertRead(Set<NationColumn> columns, OptionalLong nationKeyPredicate, Optional<AcidInfo> acidInfo, IntPredicate deletedRows)
-            throws Exception
+    private static void assertRead(Set<NationColumn> columns, OptionalLong nationKeyPredicate, Optional<AcidInfo> acidInfo, LongPredicate deletedRows)
     {
         List<Nation> actual = readFile(columns, nationKeyPredicate, acidInfo);
 
@@ -156,14 +155,14 @@ public class TestOrcPageSourceFactory
         assertEqualsByColumns(columns, actual, expected);
     }
 
-    private static List<Nation> expectedResult(OptionalLong nationKeyPredicate, IntPredicate deletedRows, int replicationFactor)
+    private static List<Nation> expectedResult(OptionalLong nationKeyPredicate, LongPredicate deletedRows, int replicationFactor)
     {
         List<Nation> expected = new ArrayList<>();
         for (Nation nation : ImmutableList.copyOf(new NationGenerator().iterator())) {
             if (nationKeyPredicate.isPresent() && nationKeyPredicate.getAsLong() != nation.getNationKey()) {
                 continue;
             }
-            if (deletedRows.test((int) nation.getNationKey())) {
+            if (deletedRows.test(nation.getNationKey())) {
                 continue;
             }
             expected.addAll(nCopies(replicationFactor, nation));
@@ -270,7 +269,6 @@ public class TestOrcPageSourceFactory
                 hiveColumnIndex,
                 toHiveType(new HiveTypeTranslator(), prestoType),
                 prestoType,
-
                 REGULAR,
                 Optional.empty());
     }
