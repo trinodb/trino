@@ -114,7 +114,7 @@ public final class DecimalInequalityOperators
                 .argumentTypes(DECIMAL_SIGNATURE, DECIMAL_SIGNATURE)
                 .returnType(BOOLEAN.getTypeSignature())
                 .build();
-        return SqlScalarFunction.builder(DecimalInequalityOperators.class)
+        return new PolymorphicScalarFunctionBuilder(DecimalInequalityOperators.class)
                 .signature(signature)
                 .deterministic(true);
     }
