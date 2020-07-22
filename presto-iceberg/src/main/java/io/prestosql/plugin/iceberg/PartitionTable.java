@@ -38,7 +38,6 @@ import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableIterable;
-import org.apache.iceberg.types.Comparators;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
@@ -48,14 +47,12 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.ByteBuffer;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -174,7 +171,10 @@ public class PartitionTable
                 StructLikeWrapper partitionWrapper = StructLikeWrapper.wrap(partitionStruct);
 
                 if (!partitions.containsKey(partitionWrapper)) {
-                    Partition partition = new Partition(partitionStruct,
+                    Partition partition = new Partition(
+                            idToTypeMapping,
+                            nonPartitionPrimitiveColumns,
+                            partitionStruct,
                             dataFile.recordCount(),
                             dataFile.fileSizeInBytes(),
                             toMap(dataFile.lowerBounds()),
@@ -210,7 +210,7 @@ public class PartitionTable
 
         ImmutableList.Builder<List<Object>> records = ImmutableList.builder();
 
-        for (PartitionTable.Partition partition : partitions.values()) {
+        for (Partition partition : partitions.values()) {
             List<Object> row = new ArrayList<>(columnCounts);
 
             // add data for partition columns
@@ -304,171 +304,5 @@ public class PartitionTable
             return Float.floatToIntBits((Float) value);
         }
         return value;
-    }
-
-    private class Partition
-    {
-        private final StructLike values;
-        private long recordCount;
-        private long fileCount;
-        private long size;
-        private final Map<Integer, Object> minValues;
-        private final Map<Integer, Object> maxValues;
-        private final Map<Integer, Long> nullCounts;
-        private final Set<Integer> corruptedStats;
-        private boolean hasValidColumnMetrics;
-
-        public Partition(
-                StructLike values,
-                long recordCount,
-                long size,
-                Map<Integer, Object> minValues,
-                Map<Integer, Object> maxValues,
-                Map<Integer, Long> nullCounts)
-        {
-            this.values = requireNonNull(values, "values is null");
-            this.recordCount = recordCount;
-            this.fileCount = 1;
-            this.size = size;
-            if (minValues == null || maxValues == null || nullCounts == null) {
-                this.minValues = null;
-                this.maxValues = null;
-                this.nullCounts = null;
-                corruptedStats = null;
-            }
-            else {
-                this.minValues = new HashMap<>(minValues);
-                this.maxValues = new HashMap<>(maxValues);
-                // we are assuming if minValues is not present, max will be not be present either.
-                this.corruptedStats = nonPartitionPrimitiveColumns.stream()
-                        .map(Types.NestedField::fieldId)
-                        .filter(id -> !minValues.containsKey(id) && (!nullCounts.containsKey(id) || nullCounts.get(id) != recordCount))
-                        .collect(toSet());
-                this.nullCounts = new HashMap<>(nullCounts);
-                hasValidColumnMetrics = true;
-            }
-        }
-
-        public StructLike getValues()
-        {
-            return values;
-        }
-
-        public long getRecordCount()
-        {
-            return recordCount;
-        }
-
-        public long getFileCount()
-        {
-            return fileCount;
-        }
-
-        public long getSize()
-        {
-            return size;
-        }
-
-        public Map<Integer, Object> getMinValues()
-        {
-            return minValues;
-        }
-
-        public Map<Integer, Object> getMaxValues()
-        {
-            return maxValues;
-        }
-
-        public Map<Integer, Long> getNullCounts()
-        {
-            return nullCounts;
-        }
-
-        public boolean hasValidColumnMetrics()
-        {
-            return hasValidColumnMetrics;
-        }
-
-        public void incrementRecordCount(long count)
-        {
-            this.recordCount += count;
-        }
-
-        public void incrementFileCount()
-        {
-            this.fileCount++;
-        }
-
-        public void incrementSize(long numberOfBytes)
-        {
-            this.size += numberOfBytes;
-        }
-
-        /**
-         * The update logic is built with the following rules:
-         * bounds is null => if any file has a missing bound for a column, that bound will not be reported
-         * bounds is missing id => not reported in Parquet => that bound will not be reported
-         * bound value is null => not an expected case
-         * bound value is present => this is the normal case and bounds will be reported correctly
-         */
-        public void updateMin(Map<Integer, Object> lowerBounds, Map<Integer, Long> nullCounts, long recordCount)
-        {
-            updateStats(this.minValues, lowerBounds, nullCounts, recordCount, i -> (i > 0));
-        }
-
-        public void updateMax(Map<Integer, Object> upperBounds, Map<Integer, Long> nullCounts, long recordCount)
-        {
-            updateStats(this.maxValues, upperBounds, nullCounts, recordCount, i -> (i < 0));
-        }
-
-        private void updateStats(Map<Integer, Object> current, Map<Integer, Object> newStat, Map<Integer, Long> nullCounts, long recordCount, Predicate<Integer> predicate)
-        {
-            if (!hasValidColumnMetrics) {
-                return;
-            }
-            if (newStat == null || nullCounts == null) {
-                hasValidColumnMetrics = false;
-                return;
-            }
-            for (Types.NestedField column : nonPartitionPrimitiveColumns) {
-                int id = column.fieldId();
-
-                if (corruptedStats.contains(id)) {
-                    continue;
-                }
-
-                Object newValue = newStat.get(id);
-                // it is expected to not have min/max if all values are null for a column in the datafile and it is not a case of corrupted stats.
-                if (newValue == null) {
-                    Long nullCount = nullCounts.get(id);
-                    if ((nullCount == null) || (nullCount != recordCount)) {
-                        current.remove(id);
-                        corruptedStats.add(id);
-                    }
-                    continue;
-                }
-
-                Object oldValue = current.putIfAbsent(id, newValue);
-                if (oldValue != null) {
-                    Comparator<Object> comparator = Comparators.forType(idToTypeMapping.get(id));
-                    if (predicate.test(comparator.compare(oldValue, newValue))) {
-                        current.put(id, newValue);
-                    }
-                }
-            }
-        }
-
-        public void updateNullCount(Map<Integer, Long> nullCounts)
-        {
-            if (!hasValidColumnMetrics) {
-                return;
-            }
-            if (nullCounts == null) {
-                hasValidColumnMetrics = false;
-                return;
-            }
-            nullCounts.forEach((key, counts) ->
-                    this.nullCounts.merge(key, counts, Long::sum));
-        }
     }
 }
