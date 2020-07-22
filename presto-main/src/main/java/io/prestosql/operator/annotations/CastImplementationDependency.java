@@ -18,8 +18,6 @@ import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionDependencies;
 import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.prestosql.metadata.FunctionInvoker;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.TypeSignature;
 
@@ -59,14 +57,6 @@ public final class CastImplementationDependency
         builder.addCastSignature(
                 applyBoundVariables(fromType, boundVariables),
                 applyBoundVariables(toType, boundVariables));
-    }
-
-    @Override
-    protected ResolvedFunction getResolvedFunction(BoundVariables boundVariables, Metadata metadata)
-    {
-        return metadata.getCoercion(
-                metadata.getType(applyBoundVariables(fromType, boundVariables)),
-                metadata.getType(applyBoundVariables(toType, boundVariables)));
     }
 
     @Override

@@ -18,8 +18,6 @@ import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionDependencies;
 import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.prestosql.metadata.FunctionInvoker;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.tree.QualifiedName;
@@ -29,7 +27,6 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static java.util.Objects.requireNonNull;
 
 public final class FunctionImplementationDependency
@@ -50,12 +47,6 @@ public final class FunctionImplementationDependency
     {
         BoundVariables boundVariables = new BoundVariables(functionBinding.getTypeVariables(), functionBinding.getLongVariables());
         builder.addFunctionSignature(name, applyBoundVariables(argumentTypes, boundVariables));
-    }
-
-    @Override
-    protected ResolvedFunction getResolvedFunction(BoundVariables boundVariables, Metadata metadata)
-    {
-        return metadata.resolveFunction(name, fromTypeSignatures(applyBoundVariables(argumentTypes, boundVariables)));
     }
 
     @Override
