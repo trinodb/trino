@@ -52,15 +52,11 @@ public class FunctionResolver
 
     FunctionBinding resolveCoercion(Collection<FunctionMetadata> allCandidates, Signature signature)
     {
-        List<TypeSignatureProvider> argumentTypeSignatureProviders = fromTypeSignatures(signature.getArgumentTypes());
-
         List<FunctionMetadata> exactCandidates = allCandidates.stream()
                 .filter(function -> possibleExactCastMatch(signature, function.getSignature()))
                 .collect(Collectors.toList());
         for (FunctionMetadata candidate : exactCandidates) {
-            Optional<BoundVariables> boundVariables = new SignatureBinder(metadata, candidate.getSignature(), false)
-                    .bindVariables(argumentTypeSignatureProviders, signature.getReturnType());
-            if (boundVariables.isPresent()) {
+            if (canBindSignature(candidate.getSignature(), signature)) {
                 return toFunctionBinding(candidate, signature);
             }
         }
@@ -70,14 +66,18 @@ public class FunctionResolver
                 .filter(function -> !function.getSignature().getTypeVariableConstraints().isEmpty())
                 .collect(Collectors.toList());
         for (FunctionMetadata candidate : genericCandidates) {
-            Optional<BoundVariables> boundVariables = new SignatureBinder(metadata, candidate.getSignature(), false)
-                    .bindVariables(argumentTypeSignatureProviders, signature.getReturnType());
-            if (boundVariables.isPresent()) {
+            if (canBindSignature(candidate.getSignature(), signature)) {
                 return toFunctionBinding(candidate, signature);
             }
         }
 
         throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", signature));
+    }
+
+    private boolean canBindSignature(Signature declaredSignature, Signature actualSignature)
+    {
+        return new SignatureBinder(metadata, declaredSignature, false)
+                .canBind(fromTypeSignatures(actualSignature.getArgumentTypes()), actualSignature.getReturnType());
     }
 
     private FunctionBinding toFunctionBinding(FunctionMetadata functionMetadata, Signature signature)
@@ -344,9 +344,8 @@ public class FunctionResolver
     private boolean isMoreSpecificThan(ApplicableFunction left, ApplicableFunction right)
     {
         List<TypeSignatureProvider> resolvedTypes = fromTypeSignatures(left.getBoundSignature().getArgumentTypes());
-        Optional<BoundVariables> boundVariables = new SignatureBinder(metadata, right.getDeclaredSignature(), true)
-                .bindVariables(resolvedTypes);
-        return boundVariables.isPresent();
+        return new SignatureBinder(metadata, right.getDeclaredSignature(), true)
+                .canBind(resolvedTypes);
     }
 
     private static class ApplicableFunction
