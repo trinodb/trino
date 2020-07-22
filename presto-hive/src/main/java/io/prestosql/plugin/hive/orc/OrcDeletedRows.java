@@ -50,7 +50,7 @@ import static org.apache.hadoop.hive.ql.io.AcidUtils.deleteDeltaSubdir;
 public class OrcDeletedRows
 {
     private static final int ORIGINAL_TRANSACTION_INDEX = 0;
-    private static final int ROW_ID_INDEX = 1;
+    private static final int ROW_ID_INDEX = 2;
 
     private final String sourceFileName;
     private final OrcDeleteDeltaPageSourceFactory pageSourceFactory;
@@ -173,7 +173,8 @@ public class OrcDeletedRows
                 if (startRowId.isPresent()) {
                     originalTransaction = 0;
                     row = startRowId.getAsLong() + position;
-                } else {
+                }
+                else {
                     originalTransaction = BIGINT.getLong(sourcePage.getBlock(ORIGINAL_TRANSACTION_INDEX), position);
                     row = BIGINT.getLong(sourcePage.getBlock(ROW_ID_INDEX), position);
                 }
