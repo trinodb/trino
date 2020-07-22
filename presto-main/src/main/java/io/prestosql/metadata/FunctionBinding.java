@@ -63,11 +63,6 @@ public class FunctionBinding
         return containsValue(typeVariables, variableName);
     }
 
-    public Map<String, Type> getTypeVariables()
-    {
-        return typeVariables;
-    }
-
     public Long getLongVariable(String variableName)
     {
         return getValue(longVariables, variableName);
@@ -76,11 +71,6 @@ public class FunctionBinding
     public boolean containsLongVariable(String variableName)
     {
         return containsValue(longVariables, variableName);
-    }
-
-    public Map<String, Long> getLongVariables()
-    {
-        return longVariables;
     }
 
     private static <T> T getValue(Map<String, T> map, String variableName)
