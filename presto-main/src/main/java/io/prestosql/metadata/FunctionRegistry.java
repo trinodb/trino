@@ -248,7 +248,6 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ExecutionException;
 import java.util.function.Supplier;
 
@@ -793,18 +792,13 @@ public class FunctionRegistry
         return functions.get(functionId).getFunctionMetadata();
     }
 
-    public AggregationFunctionMetadata getAggregationFunctionMetadata(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public AggregationFunctionMetadata getAggregationFunctionMetadata(FunctionBinding functionBinding)
     {
         SqlFunction function = functions.get(functionBinding.getFunctionId());
         checkArgument(function instanceof SqlAggregationFunction, "%s is not an aggregation function", functionBinding.getBoundSignature());
 
         SqlAggregationFunction aggregationFunction = (SqlAggregationFunction) function;
-        if (!aggregationFunction.isDecomposable()) {
-            return new AggregationFunctionMetadata(aggregationFunction.isOrderSensitive(), Optional.empty());
-        }
-
-        InternalAggregationFunction implementation = getAggregateFunctionImplementation(functionBinding, functionDependencies);
-        return new AggregationFunctionMetadata(aggregationFunction.isOrderSensitive(), Optional.of(implementation.getIntermediateType().getTypeSignature()));
+        return aggregationFunction.getAggregationMetadata(functionBinding);
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionBinding functionBinding, FunctionDependencies functionDependencies)

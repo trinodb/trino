@@ -76,6 +76,13 @@ public class MapUnionAggregation
     }
 
     @Override
+    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
+    {
+        MapType outputType = (MapType) functionBinding.getBoundSignature().getReturnType();
+        return ImmutableList.of(new KeyValuePairStateSerializer(outputType).getSerializedType().getTypeSignature());
+    }
+
+    @Override
     public InternalAggregationFunction specialize(FunctionBinding functionBinding)
     {
         Type keyType = functionBinding.getTypeVariable("K");
