@@ -13,6 +13,7 @@
  */
 package io.prestosql.metadata;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
@@ -116,7 +117,13 @@ public class SignatureBinder
         return Optional.of(applyBoundVariables(declaredSignature, boundVariables.get(), actualArgumentTypes.size()));
     }
 
-    public Optional<BoundVariables> bindVariables(List<? extends TypeSignatureProvider> actualArgumentTypes)
+    public boolean canBind(List<? extends TypeSignatureProvider> actualArgumentTypes)
+    {
+        return bindVariables(actualArgumentTypes).isPresent();
+    }
+
+    @VisibleForTesting
+    Optional<BoundVariables> bindVariables(List<? extends TypeSignatureProvider> actualArgumentTypes)
     {
         ImmutableList.Builder<TypeConstraintSolver> constraintSolvers = ImmutableList.builder();
         if (!appendConstraintSolversForArguments(constraintSolvers, actualArgumentTypes)) {
@@ -126,7 +133,13 @@ public class SignatureBinder
         return iterativeSolve(constraintSolvers.build());
     }
 
-    public Optional<BoundVariables> bindVariables(List<? extends TypeSignatureProvider> actualArgumentTypes, TypeSignature actualReturnType)
+    public boolean canBind(List<? extends TypeSignatureProvider> actualArgumentTypes, TypeSignature actualReturnType)
+    {
+        return bindVariables(actualArgumentTypes, actualReturnType).isPresent();
+    }
+
+    @VisibleForTesting
+    Optional<BoundVariables> bindVariables(List<? extends TypeSignatureProvider> actualArgumentTypes, TypeSignature actualReturnType)
     {
         ImmutableList.Builder<TypeConstraintSolver> constraintSolvers = ImmutableList.builder();
         if (!appendConstraintSolversForReturnValue(constraintSolvers, new TypeSignatureProvider(actualReturnType))) {
