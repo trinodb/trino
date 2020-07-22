@@ -107,7 +107,7 @@ public class ParametricScalar
         for (ParametricScalarImplementation implementation : implementations.getSpecializedImplementations()) {
             Optional<ScalarFunctionImplementation> scalarFunctionImplementation = implementation.specialize(functionBinding, functionDependencies);
             if (scalarFunctionImplementation.isPresent()) {
-                checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getFunctionMetadata().getSignature(), functionBinding.getTypeVariables());
+                checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getFunctionMetadata().getSignature(), functionBinding.getBoundSignature());
                 selectedImplementation = scalarFunctionImplementation.get();
             }
         }
@@ -117,7 +117,7 @@ public class ParametricScalar
         for (ParametricScalarImplementation implementation : implementations.getGenericImplementations()) {
             Optional<ScalarFunctionImplementation> scalarFunctionImplementation = implementation.specialize(functionBinding, functionDependencies);
             if (scalarFunctionImplementation.isPresent()) {
-                checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getFunctionMetadata().getSignature(), functionBinding.getTypeVariables());
+                checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", getFunctionMetadata().getSignature(), functionBinding.getBoundSignature());
                 selectedImplementation = scalarFunctionImplementation.get();
             }
         }
@@ -125,6 +125,6 @@ public class ParametricScalar
             return selectedImplementation;
         }
 
-        throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported type parameters (%s) for %s", functionBinding.getTypeVariables(), getFunctionMetadata().getSignature()));
+        throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported binding %s for signature %s", functionBinding.getBoundSignature(), getFunctionMetadata().getSignature()));
     }
 }
