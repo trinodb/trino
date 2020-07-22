@@ -30,6 +30,7 @@ import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.operator.scalar.FormatFunction;
 import io.prestosql.security.AccessControl;
 import io.prestosql.security.SecurityContext;
+import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.PrestoWarning;
@@ -130,6 +131,7 @@ import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
 import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.StandardErrorCode.TYPE_NOT_FOUND;
@@ -157,6 +159,7 @@ import static io.prestosql.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupi
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static io.prestosql.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.prestosql.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static io.prestosql.sql.tree.CurrentTime.Function.LOCALTIMESTAMP;
@@ -1082,11 +1085,12 @@ public class ExpressionAnalyzer
 
             for (int i = 1; i < arguments.size(); i++) {
                 try {
-                    FormatFunction.validateType(metadata, arguments.get(i));
+                    metadata.resolveFunction(QualifiedName.of(FormatFunction.NAME), fromTypes(arguments.get(0), RowType.anonymous(arguments.subList(1, arguments.size()))));
                 }
                 catch (PrestoException e) {
-                    if (e.getErrorCode().equals(NOT_SUPPORTED.toErrorCode())) {
-                        throw semanticException(NOT_SUPPORTED, node.getArguments().get(i), "%s", e.getRawMessage());
+                    ErrorCode errorCode = e.getErrorCode();
+                    if (errorCode.equals(NOT_SUPPORTED.toErrorCode()) || errorCode.equals(OPERATOR_NOT_FOUND.toErrorCode())) {
+                        throw semanticException(NOT_SUPPORTED, node.getArguments().get(i), "Type not supported for formatting: %s", arguments.get(i));
                     }
                     throw e;
                 }

@@ -16,7 +16,8 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
@@ -51,13 +52,25 @@ public class MapHashCodeOperator
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, Metadata metadata)
+    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
     {
         Type keyType = functionBinding.getTypeVariable("K");
         Type valueType = functionBinding.getTypeVariable("V");
 
-        MethodHandle keyHashCodeFunction = metadata.getScalarFunctionInvoker(metadata.resolveOperator(HASH_CODE, ImmutableList.of(keyType)), Optional.empty()).getMethodHandle();
-        MethodHandle valueHashCodeFunction = metadata.getScalarFunctionInvoker(metadata.resolveOperator(HASH_CODE, ImmutableList.of(valueType)), Optional.empty()).getMethodHandle();
+        return FunctionDependencyDeclaration.builder()
+                .addOperator(HASH_CODE, ImmutableList.of(keyType))
+                .addOperator(HASH_CODE, ImmutableList.of(valueType))
+                .build();
+    }
+
+    @Override
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    {
+        Type keyType = functionBinding.getTypeVariable("K");
+        Type valueType = functionBinding.getTypeVariable("V");
+
+        MethodHandle keyHashCodeFunction = functionDependencies.getOperatorInvoker(HASH_CODE, ImmutableList.of(keyType), Optional.empty()).getMethodHandle();
+        MethodHandle valueHashCodeFunction = functionDependencies.getOperatorInvoker(HASH_CODE, ImmutableList.of(valueType), Optional.empty()).getMethodHandle();
 
         MethodHandle method = METHOD_HANDLE.bindTo(keyHashCodeFunction).bindTo(valueHashCodeFunction).bindTo(keyType).bindTo(valueType);
         return new ScalarFunctionImplementation(

@@ -17,9 +17,9 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.type.Type;
@@ -63,7 +63,17 @@ public class TryCastFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, Metadata metadata)
+    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    {
+        Type fromType = functionBinding.getTypeVariable("F");
+        Type toType = functionBinding.getTypeVariable("T");
+        return FunctionDependencyDeclaration.builder()
+                .addCast(fromType, toType)
+                .build();
+    }
+
+    @Override
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         Type fromType = functionBinding.getTypeVariable("F");
         Type toType = functionBinding.getTypeVariable("T");
@@ -71,14 +81,13 @@ public class TryCastFunction
         Class<?> returnType = Primitives.wrap(toType.getJavaType());
 
         // the resulting method needs to return a boxed type
-        ResolvedFunction resolvedFunction = metadata.getCoercion(fromType, toType);
-        MethodHandle coercion = metadata.getScalarFunctionInvoker(resolvedFunction, Optional.empty()).getMethodHandle();
+        MethodHandle coercion = functionDependencies.getCastInvoker(fromType, toType, Optional.empty()).getMethodHandle();
         coercion = coercion.asType(methodType(returnType, coercion.type()));
 
         MethodHandle exceptionHandler = dropArguments(constant(returnType, null), 0, RuntimeException.class);
         MethodHandle tryCastHandle = catchException(coercion, RuntimeException.class, exceptionHandler);
 
-        boolean nullableArgument = metadata.getFunctionMetadata(resolvedFunction).getArgumentDefinitions().get(0).isNullable();
+        boolean nullableArgument = functionDependencies.getCastMetadata(fromType, toType).getArgumentDefinitions().get(0).isNullable();
         return new ScalarFunctionImplementation(
                 NULLABLE_RETURN,
                 ImmutableList.of(nullableArgument ? BOXED_NULLABLE : NEVER_NULL),

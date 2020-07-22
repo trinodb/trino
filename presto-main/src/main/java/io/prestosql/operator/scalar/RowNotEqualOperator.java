@@ -16,7 +16,9 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
+import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.RowType;
@@ -28,6 +30,7 @@ import java.util.List;
 import static io.prestosql.metadata.Signature.comparableWithVariadicBound;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.util.Reflection.methodHandle;
@@ -49,7 +52,17 @@ public class RowNotEqualOperator
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, Metadata metadata)
+    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    {
+        RowType rowType = (RowType) functionBinding.getTypeVariable("T");
+        FunctionDependencyDeclarationBuilder builder = FunctionDependencyDeclaration.builder();
+        rowType.getTypeParameters()
+                .forEach(type -> builder.addOperator(EQUAL, ImmutableList.of(type, type)));
+        return builder.build();
+    }
+
+    @Override
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         RowType type = (RowType) functionBinding.getTypeVariable("T");
         return new ScalarFunctionImplementation(
@@ -57,7 +70,7 @@ public class RowNotEqualOperator
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 METHOD_HANDLE
                         .bindTo(type)
-                        .bindTo(RowEqualOperator.resolveFieldEqualOperators(type, metadata)));
+                        .bindTo(RowEqualOperator.resolveFieldEqualOperators(type, functionDependencies)));
     }
 
     @UsedByGeneratedCode

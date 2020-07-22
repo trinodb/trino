@@ -15,7 +15,8 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
@@ -40,13 +41,19 @@ public final class RowLessThanOperator
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, Metadata metadata)
+    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    {
+        return getFunctionDependencies((RowType) functionBinding.getTypeVariable("T"), LESS_THAN);
+    }
+
+    @Override
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         Type type = functionBinding.getTypeVariable("T");
         return new ScalarFunctionImplementation(
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
-                METHOD_HANDLE.bindTo(type).bindTo(getMethodHandles((RowType) type, metadata, LESS_THAN)));
+                METHOD_HANDLE.bindTo(type).bindTo(getMethodHandles((RowType) type, functionDependencies, LESS_THAN)));
     }
 
     public static boolean less(

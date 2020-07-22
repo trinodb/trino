@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.compress.zstd.ZstdCompressor;
 import io.airlift.compress.zstd.ZstdDecompressor;
 import io.airlift.json.JsonCodec;
@@ -28,10 +29,13 @@ import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.type.TypeDeserializer;
 import io.prestosql.type.TypeSignatureDeserializer;
+import io.prestosql.type.TypeSignatureKeyDeserializer;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -46,14 +50,20 @@ public class ResolvedFunction
     private static final String PREFIX = "@";
     private final BoundSignature signature;
     private final FunctionId functionId;
+    private final Map<TypeSignature, Type> typeDependencies;
+    private final Set<ResolvedFunction> functionDependencies;
 
     @JsonCreator
     public ResolvedFunction(
             @JsonProperty("signature") BoundSignature signature,
-            @JsonProperty("id") FunctionId functionId)
+            @JsonProperty("id") FunctionId functionId,
+            @JsonProperty("typeDependencies") Map<TypeSignature, Type> typeDependencies,
+            @JsonProperty("functionDependencies") Set<ResolvedFunction> functionDependencies)
     {
         this.signature = requireNonNull(signature, "signature is null");
         this.functionId = requireNonNull(functionId, "functionId is null");
+        this.typeDependencies = ImmutableMap.copyOf(requireNonNull(typeDependencies, "typeDependencies is null"));
+        this.functionDependencies = ImmutableSet.copyOf(requireNonNull(functionDependencies, "functionDependencies is null"));
     }
 
     @JsonProperty
@@ -66,6 +76,18 @@ public class ResolvedFunction
     public FunctionId getFunctionId()
     {
         return functionId;
+    }
+
+    @JsonProperty
+    public Map<TypeSignature, Type> getTypeDependencies()
+    {
+        return typeDependencies;
+    }
+
+    @JsonProperty
+    public Set<ResolvedFunction> getFunctionDependencies()
+    {
+        return functionDependencies;
     }
 
     public static boolean isResolved(QualifiedName name)
@@ -110,13 +132,15 @@ public class ResolvedFunction
         }
         ResolvedFunction that = (ResolvedFunction) o;
         return Objects.equals(signature, that.signature) &&
-                Objects.equals(functionId, that.functionId);
+                Objects.equals(functionId, that.functionId) &&
+                Objects.equals(typeDependencies, that.typeDependencies) &&
+                Objects.equals(functionDependencies, that.functionDependencies);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(signature, functionId);
+        return Objects.hash(signature, functionId, typeDependencies, functionDependencies);
     }
 
     @Override
@@ -135,6 +159,8 @@ public class ResolvedFunction
             objectMapperProvider.setJsonDeserializers(ImmutableMap.of(
                     Type.class, new TypeDeserializer(typeLoader),
                     TypeSignature.class, new TypeSignatureDeserializer()));
+            objectMapperProvider.setKeyDeserializers(ImmutableMap.of(
+                    TypeSignature.class, new TypeSignatureKeyDeserializer()));
             jsonCodec = new JsonCodecFactory(objectMapperProvider).jsonCodec(ResolvedFunction.class);
         }
 

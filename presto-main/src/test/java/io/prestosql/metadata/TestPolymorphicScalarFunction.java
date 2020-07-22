@@ -15,6 +15,7 @@ package io.prestosql.metadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
@@ -114,7 +115,7 @@ public class TestPolymorphicScalarFunction
                 new BoundSignature(signature.getName(), BOOLEAN, ImmutableList.of(SHORT_DECIMAL_BOUND_TYPE, SHORT_DECIMAL_BOUND_TYPE)),
                 ImmutableMap.of(),
                 SHORT_DECIMAL_LONG_VARIABLES);
-        ScalarFunctionImplementation functionImplementation = function.specialize(shortDecimalFunctionBinding, METADATA);
+        ScalarFunctionImplementation functionImplementation = function.specialize(shortDecimalFunctionBinding, new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of()));
 
         assertEquals(functionImplementation.getChoices().size(), 2);
         assertEquals(
@@ -132,7 +133,7 @@ public class TestPolymorphicScalarFunction
                 new BoundSignature(signature.getName(), BOOLEAN, ImmutableList.of(LONG_DECIMAL_BOUND_TYPE, LONG_DECIMAL_BOUND_TYPE)),
                 ImmutableMap.of(),
                 LONG_DECIMAL_LONG_VARIABLES);
-        functionImplementation = function.specialize(longDecimalFunctionBinding, METADATA);
+        functionImplementation = function.specialize(longDecimalFunctionBinding, new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of()));
         assertTrue((boolean) functionImplementation.getChoices().get(1).getMethodHandle().invoke(block1, 0, block2, 0));
     }
 
@@ -155,7 +156,7 @@ public class TestPolymorphicScalarFunction
                 BOUND_SIGNATURE,
                 VARCHAR_TYPE_VARIABLES,
                 VARCHAR_LONG_VARIABLES);
-        ScalarFunctionImplementation functionImplementation = function.specialize(functionBinding, METADATA);
+        ScalarFunctionImplementation functionImplementation = function.specialize(functionBinding, new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of()));
         assertEquals(functionImplementation.getChoices().get(0).getMethodHandle().invoke(INPUT_SLICE), (long) INPUT_VARCHAR_LENGTH);
     }
 
@@ -178,7 +179,7 @@ public class TestPolymorphicScalarFunction
                 BOUND_SIGNATURE,
                 VARCHAR_TYPE_VARIABLES,
                 VARCHAR_LONG_VARIABLES);
-        ScalarFunctionImplementation functionImplementation = function.specialize(functionBinding, METADATA);
+        ScalarFunctionImplementation functionImplementation = function.specialize(functionBinding, new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of()));
 
         assertEquals(functionImplementation.getChoices().get(0).getMethodHandle().invoke(INPUT_SLICE), VARCHAR_TO_BIGINT_RETURN_VALUE);
     }
@@ -207,7 +208,7 @@ public class TestPolymorphicScalarFunction
                 VARCHAR_TYPE_VARIABLES,
                 VARCHAR_LONG_VARIABLES);
 
-        ScalarFunctionImplementation functionImplementation = function.specialize(functionBinding, METADATA);
+        ScalarFunctionImplementation functionImplementation = function.specialize(functionBinding, new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of()));
         Slice slice = (Slice) functionImplementation.getChoices().get(0).getMethodHandle().invoke(INPUT_SLICE);
         assertEquals(slice, VARCHAR_TO_VARCHAR_RETURN_VALUE);
     }
@@ -237,7 +238,7 @@ public class TestPolymorphicScalarFunction
                 VARCHAR_TYPE_VARIABLES,
                 VARCHAR_LONG_VARIABLES);
 
-        ScalarFunctionImplementation functionImplementation = function.specialize(functionBinding, METADATA);
+        ScalarFunctionImplementation functionImplementation = function.specialize(functionBinding, new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of()));
         Slice slice = (Slice) functionImplementation.getChoices().get(0).getMethodHandle().invoke(INPUT_SLICE);
         assertEquals(slice, VARCHAR_TO_VARCHAR_RETURN_VALUE);
     }
@@ -265,7 +266,7 @@ public class TestPolymorphicScalarFunction
                 VARCHAR_TYPE_VARIABLES,
                 VARCHAR_LONG_VARIABLES);
 
-        function.specialize(functionBinding, METADATA);
+        function.specialize(functionBinding, new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of()));
     }
 
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "method foo was not found in class io.prestosql.metadata.TestPolymorphicScalarFunction\\$TestMethods")
@@ -308,7 +309,7 @@ public class TestPolymorphicScalarFunction
                 BOUND_SIGNATURE,
                 VARCHAR_TYPE_VARIABLES,
                 VARCHAR_LONG_VARIABLES);
-        function.specialize(functionBinding, METADATA);
+        function.specialize(functionBinding, new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of()));
     }
 
     public static final class TestMethods

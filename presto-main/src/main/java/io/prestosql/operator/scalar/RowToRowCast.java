@@ -27,8 +27,11 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
+import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
+import io.prestosql.metadata.FunctionInvoker;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.metadata.TypeVariableConstraint;
 import io.prestosql.spi.PrestoException;
@@ -37,6 +40,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.BlockBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.gen.CachedInstanceBinder;
@@ -44,6 +48,8 @@ import io.prestosql.sql.gen.CallSiteBinder;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
+import java.util.Optional;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.Access.FINAL;
@@ -86,7 +92,22 @@ public class RowToRowCast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, Metadata metadata)
+    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    {
+        List<Type> toTypes = functionBinding.getTypeVariable("T").getTypeParameters();
+        List<Type> fromTypes = functionBinding.getTypeVariable("F").getTypeParameters();
+
+        FunctionDependencyDeclarationBuilder builder = FunctionDependencyDeclaration.builder();
+        for (int i = 0; i < toTypes.size(); i++) {
+            Type fromElementType = fromTypes.get(i);
+            Type toElementType = toTypes.get(i);
+            builder.addCast(fromElementType, toElementType);
+        }
+        return builder.build();
+    }
+
+    @Override
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         checkArgument(functionBinding.getArity() == 1, "Expected arity to be 1");
         Type fromType = functionBinding.getTypeVariable("F");
@@ -94,7 +115,7 @@ public class RowToRowCast
         if (fromType.getTypeParameters().size() != toType.getTypeParameters().size()) {
             throw new PrestoException(StandardErrorCode.INVALID_FUNCTION_ARGUMENT, "the size of fromType and toType must match");
         }
-        Class<?> castOperatorClass = generateRowCast(fromType, toType, metadata);
+        Class<?> castOperatorClass = generateRowCast(fromType, toType, functionDependencies);
         MethodHandle methodHandle = methodHandle(castOperatorClass, "castRow", ConnectorSession.class, Block.class);
         return new ScalarFunctionImplementation(
                 FAIL_ON_NULL,
@@ -102,7 +123,7 @@ public class RowToRowCast
                 methodHandle);
     }
 
-    private static Class<?> generateRowCast(Type fromType, Type toType, Metadata metadata)
+    private static Class<?> generateRowCast(Type fromType, Type toType, FunctionDependencies functionDependencies)
     {
         List<Type> toTypes = toType.getTypeParameters();
         List<Type> fromTypes = fromType.getTypeParameters();
@@ -150,19 +171,24 @@ public class RowToRowCast
 
         // loop through to append member blocks
         for (int i = 0; i < toTypes.size(); i++) {
-            ResolvedFunction resolvedFunction = metadata.getCoercion(fromTypes.get(i), toTypes.get(i));
-            Type currentFromType = fromTypes.get(i);
+            Type fromElementType = fromTypes.get(i);
+            Type toElementType = toTypes.get(i);
+            FunctionMetadata castMetadata = functionDependencies.getCastMetadata(fromElementType, toElementType);
+            Function<InvocationConvention, FunctionInvoker> castInvokerProvider = invocationConvention ->
+                    functionDependencies.getCastInvoker(fromElementType, toElementType, Optional.of(invocationConvention));
+
+            Type currentFromType = fromElementType;
             if (currentFromType.equals(UNKNOWN)) {
                 body.append(singleRowBlockWriter.invoke("appendNull", BlockBuilder.class).pop());
                 continue;
             }
             BytecodeExpression fromElement = constantType(binder, currentFromType).getValue(value, constantInt(i));
-            BytecodeExpression toElement = invokeFunction(scope, cachedInstanceBinder, resolvedFunction, metadata, fromElement);
+            BytecodeExpression toElement = invokeFunction(scope, cachedInstanceBinder, toElementType, castMetadata, castInvokerProvider, fromElement);
             IfStatement ifElementNull = new IfStatement("if the element in the row type is null...");
 
             ifElementNull.condition(value.invoke("isNull", boolean.class, constantInt(i)))
                     .ifTrue(singleRowBlockWriter.invoke("appendNull", BlockBuilder.class).pop())
-                    .ifFalse(constantType(binder, toTypes.get(i)).writeValue(singleRowBlockWriter, toElement));
+                    .ifFalse(constantType(binder, toElementType).writeValue(singleRowBlockWriter, toElement));
 
             body.append(ifElementNull);
         }

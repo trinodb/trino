@@ -20,15 +20,12 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
@@ -71,14 +68,12 @@ public class MapToJsonCast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, Metadata metadata)
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
         checkArgument(functionBinding.getArity() == 1, "Expected arity to be 1");
         Type keyType = functionBinding.getTypeVariable("K");
         Type valueType = functionBinding.getTypeVariable("V");
-        Type mapType = metadata.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
-                TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
-                TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
+        Type mapType = functionBinding.getBoundSignature().getArgumentTypes().get(0);
         checkCondition(canCastToJson(mapType), INVALID_CAST_ARGUMENT, "Cannot cast %s to JSON", mapType);
 
         ObjectKeyProvider provider = ObjectKeyProvider.createObjectKeyProvider(keyType);

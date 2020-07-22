@@ -28,7 +28,6 @@ import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.PageBuilder;
@@ -102,7 +101,7 @@ public final class MapFilterFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, Metadata metadata)
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
         MapType mapType = (MapType) functionBinding.getBoundSignature().getReturnType();
         return new ScalarFunctionImplementation(

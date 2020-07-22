@@ -19,6 +19,7 @@ import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.VarcharType;
@@ -26,6 +27,7 @@ import io.prestosql.spi.type.VarcharType;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.block.BlockSerdeUtil.READ_BLOCK;
@@ -45,7 +47,9 @@ public class LiteralFunction
     public static final String LITERAL_FUNCTION_NAME = "$literal$";
     private static final Set<Class<?>> SUPPORTED_LITERAL_TYPES = ImmutableSet.of(long.class, double.class, Slice.class, boolean.class);
 
-    public LiteralFunction()
+    private final Supplier<BlockEncodingSerde> blockEncodingSerdeSupplier;
+
+    public LiteralFunction(Supplier<BlockEncodingSerde> blockEncodingSerdeSupplier)
     {
         super(new FunctionMetadata(
                 new Signature(
@@ -61,10 +65,11 @@ public class LiteralFunction
                 true,
                 "literal",
                 SCALAR));
+        this.blockEncodingSerdeSupplier = blockEncodingSerdeSupplier;
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, Metadata metadata)
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
         Type parameterType = functionBinding.getTypeVariable("F");
         Type type = functionBinding.getTypeVariable("T");
@@ -76,10 +81,10 @@ public class LiteralFunction
 
         if (parameterType.getJavaType() == Slice.class) {
             if (type.getJavaType() == Block.class) {
-                methodHandle = READ_BLOCK.bindTo(metadata.getBlockEncodingSerde());
+                methodHandle = READ_BLOCK.bindTo(blockEncodingSerdeSupplier.get());
             }
             else if (type.getJavaType() != Slice.class) {
-                methodHandle = READ_BLOCK_VALUE.bindTo(metadata.getBlockEncodingSerde()).bindTo(type);
+                methodHandle = READ_BLOCK_VALUE.bindTo(blockEncodingSerdeSupplier.get()).bindTo(type);
             }
         }
 

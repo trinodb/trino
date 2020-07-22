@@ -38,6 +38,7 @@ import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.WindowFrame;
 import io.prestosql.type.TypeDeserializer;
 import io.prestosql.type.TypeSignatureDeserializer;
+import io.prestosql.type.TypeSignatureKeyDeserializer;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -75,6 +76,8 @@ public class TestWindowNode
                 Slice.class, new SliceDeserializer(),
                 Expression.class, new ExpressionDeserializer(sqlParser),
                 TypeSignature.class, new TypeSignatureDeserializer()));
+        provider.setKeyDeserializers(ImmutableMap.of(
+                TypeSignature.class, new TypeSignatureKeyDeserializer()));
         objectMapper = provider.get();
     }
 
