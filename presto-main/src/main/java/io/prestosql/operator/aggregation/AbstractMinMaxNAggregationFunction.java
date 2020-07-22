@@ -88,6 +88,13 @@ public abstract class AbstractMinMaxNAggregationFunction
     }
 
     @Override
+    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
+    {
+        Type type = functionBinding.getTypeVariable("E");
+        return ImmutableList.of(new MinMaxNStateSerializer(typeToComparator.apply(type), type).getSerializedType().getTypeSignature());
+    }
+
+    @Override
     public InternalAggregationFunction specialize(FunctionBinding functionBinding)
     {
         Type type = functionBinding.getTypeVariable("E");

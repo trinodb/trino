@@ -28,6 +28,7 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.function.AccumulatorState;
 import io.prestosql.spi.function.AccumulatorStateSerializer;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -75,6 +76,14 @@ public class RealAverageAggregation
                         AGGREGATE),
                 true,
                 false);
+    }
+
+    @Override
+    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
+    {
+        return ImmutableList.of(
+                StateCompiler.getSerializedType(LongState.class).getTypeSignature(),
+                StateCompiler.getSerializedType(DoubleState.class).getTypeSignature());
     }
 
     @Override

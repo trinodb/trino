@@ -94,6 +94,12 @@ public class ReduceAggregationFunction
     }
 
     @Override
+    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
+    {
+        return ImmutableList.of(functionBinding.getTypeVariable("S").getTypeSignature());
+    }
+
+    @Override
     public InternalAggregationFunction specialize(FunctionBinding functionBinding)
     {
         Type inputType = functionBinding.getTypeVariable("T");

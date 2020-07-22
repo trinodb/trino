@@ -1540,6 +1540,12 @@ public final class MetadataManager
     {
         FunctionDependencyDeclaration declaration = functions.getFunctionDependencies(functionBinding);
 
+        return resolve(functionBinding.getFunctionId(), functionBinding.getBoundSignature(), declaration);
+    }
+
+    @VisibleForTesting
+    public ResolvedFunction resolve(FunctionId functionId, BoundSignature boundSignature, FunctionDependencyDeclaration declaration)
+    {
         Map<TypeSignature, Type> types = declaration.getTypeDependencies().stream()
                 .collect(toImmutableMap(Function.identity(), this::getType));
 
@@ -1591,7 +1597,7 @@ public final class MetadataManager
                 .filter(Objects::nonNull)
                 .forEach(functions::add);
 
-        return new ResolvedFunction(functionBinding.getBoundSignature(), functionBinding.getFunctionId(), types, functions.build());
+        return new ResolvedFunction(boundSignature, functionId, types, functions.build());
     }
 
     @Override
@@ -1635,8 +1641,7 @@ public final class MetadataManager
     @Override
     public AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction)
     {
-        FunctionDependencies functionDependencies = new FunctionDependencies(this, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
-        return functions.getAggregationFunctionMetadata(toFunctionBinding(resolvedFunction), functionDependencies);
+        return functions.getAggregationFunctionMetadata(toFunctionBinding(resolvedFunction));
     }
 
     @Override
@@ -1682,11 +1687,18 @@ public final class MetadataManager
 
     private FunctionBinding toFunctionBinding(ResolvedFunction resolvedFunction)
     {
+        Signature functionSignature = functions.get(resolvedFunction.getFunctionId()).getSignature();
+        return toFunctionBinding(resolvedFunction.getFunctionId(), resolvedFunction.getSignature(), functionSignature);
+    }
+
+    @VisibleForTesting
+    public FunctionBinding toFunctionBinding(FunctionId functionId, BoundSignature boundSignature, Signature functionSignature)
+    {
         return SignatureBinder.bindFunction(
                 this,
-                resolvedFunction.getFunctionId(),
-                functions.get(resolvedFunction.getFunctionId()).getSignature(),
-                resolvedFunction.getSignature());
+                functionId,
+                functionSignature,
+                boundSignature);
     }
 
     @Override

@@ -77,6 +77,12 @@ public class CountColumn
     }
 
     @Override
+    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
+    {
+        return ImmutableList.of(StateCompiler.getSerializedType(LongState.class).getTypeSignature());
+    }
+
+    @Override
     public InternalAggregationFunction specialize(FunctionBinding functionBinding)
     {
         Type type = functionBinding.getTypeVariable("T");

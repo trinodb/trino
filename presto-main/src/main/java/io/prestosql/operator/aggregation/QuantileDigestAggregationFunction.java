@@ -94,6 +94,13 @@ public final class QuantileDigestAggregationFunction
     }
 
     @Override
+    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
+    {
+        Type valueType = functionBinding.getTypeVariable("V");
+        return ImmutableList.of(new QuantileDigestType(valueType).getTypeSignature());
+    }
+
+    @Override
     public InternalAggregationFunction specialize(FunctionBinding functionBinding)
     {
         Type valueType = functionBinding.getTypeVariable("V");
