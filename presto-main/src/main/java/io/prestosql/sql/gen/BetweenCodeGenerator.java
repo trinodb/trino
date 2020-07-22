@@ -17,8 +17,6 @@ import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.instruction.LabelNode;
-import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.spi.type.Type;
 import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.sql.relational.SpecialForm;
 import io.prestosql.sql.relational.StandardFunctionResolution;
@@ -27,22 +25,34 @@ import io.prestosql.sql.tree.ComparisonExpression.Operator;
 
 import java.util.List;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
 import static io.prestosql.sql.gen.RowExpressionCompiler.createTempVariableReferenceExpression;
 import static io.prestosql.sql.relational.Expressions.call;
 import static io.prestosql.sql.relational.SpecialForm.Form.AND;
+import static java.util.Objects.requireNonNull;
 
 public class BetweenCodeGenerator
         implements BytecodeGenerator
 {
-    @Override
-    public BytecodeNode generateExpression(ResolvedFunction resolvedFunction, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments)
-    {
-        RowExpression value = arguments.get(0);
-        RowExpression min = arguments.get(1);
-        RowExpression max = arguments.get(2);
+    private final RowExpression value;
+    private final RowExpression min;
+    private final RowExpression max;
 
+    public BetweenCodeGenerator(SpecialForm specialForm)
+    {
+        requireNonNull(specialForm, "specialForm is null");
+        List<RowExpression> arguments = specialForm.getArguments();
+        checkArgument(arguments.size() == 3);
+        value = arguments.get(0);
+        min = arguments.get(1);
+        max = arguments.get(2);
+    }
+
+    @Override
+    public BytecodeNode generateExpression(BytecodeGeneratorContext context)
+    {
         Variable firstValue = context.getScope().createTempVariable(value.getType().getJavaType());
         VariableReferenceExpression valueReference = createTempVariableReferenceExpression(firstValue, value.getType());
 
