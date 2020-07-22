@@ -28,7 +28,6 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.metadata.Signature.castableFromTypeParameter;
 import static io.prestosql.metadata.Signature.castableToTypeParameter;
@@ -1181,9 +1180,7 @@ public class TestSignatureBinder
 
     private static SignatureBuilder functionSignature()
     {
-        return new SignatureBuilder()
-                .name("function")
-                .kind(SCALAR);
+        return Signature.builder().name("function");
     }
 
     private Type type(TypeSignature signature)

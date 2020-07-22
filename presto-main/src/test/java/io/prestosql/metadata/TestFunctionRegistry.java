@@ -285,8 +285,7 @@ public class TestFunctionRegistry
         return new SignatureBuilder()
                 .returnType(parseTypeSignature(returnType, literalParameters))
                 .argumentTypes(argumentSignatures)
-                .typeVariableConstraints(typeVariableConstraints)
-                .kind(SCALAR);
+                .typeVariableConstraints(typeVariableConstraints);
     }
 
     private static ResolveFunctionAssertion assertThatResolveFunction()

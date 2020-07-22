@@ -38,7 +38,6 @@ import java.math.BigDecimal;
 import java.math.BigInteger;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.operator.scalar.JsonOperators.JSON_FACTORY;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -100,7 +99,6 @@ public final class DecimalCasts
     private static SqlScalarFunction castFunctionFromDecimalTo(TypeSignature to, String... methodNames)
     {
         Signature signature = Signature.builder()
-                .kind(SCALAR)
                 .operatorType(CAST)
                 .argumentTypes(new TypeSignature("decimal", typeVariable("precision"), typeVariable("scale")))
                 .returnType(to)
@@ -134,7 +132,6 @@ public final class DecimalCasts
     private static SqlScalarFunction castFunctionToDecimalFromBuilder(TypeSignature from, boolean nullableResult, String... methodNames)
     {
         Signature signature = Signature.builder()
-                .kind(SCALAR)
                 .operatorType(CAST)
                 .argumentTypes(from)
                 .returnType(new TypeSignature("decimal", typeVariable("precision"), typeVariable("scale")))

@@ -30,7 +30,6 @@ import org.testng.annotations.Test;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.metadata.Signature.comparableWithVariadicBound;
 import static io.prestosql.metadata.TestPolymorphicScalarFunction.TestMethods.VARCHAR_TO_BIGINT_RETURN_VALUE;
@@ -56,7 +55,6 @@ public class TestPolymorphicScalarFunction
     private static final Metadata METADATA = createTestMetadataManager();
     private static final Signature SIGNATURE = Signature.builder()
             .name("foo")
-            .kind(SCALAR)
             .returnType(BIGINT.getTypeSignature())
             .argumentTypes(new TypeSignature("varchar", typeVariable("x")))
             .build();
@@ -85,7 +83,6 @@ public class TestPolymorphicScalarFunction
             throws Throwable
     {
         Signature signature = Signature.builder()
-                .kind(SCALAR)
                 .operatorType(IS_DISTINCT_FROM)
                 .argumentTypes(DECIMAL_SIGNATURE, DECIMAL_SIGNATURE)
                 .returnType(BOOLEAN.getTypeSignature())
@@ -190,7 +187,6 @@ public class TestPolymorphicScalarFunction
     {
         Signature signature = Signature.builder()
                 .name("foo")
-                .kind(SCALAR)
                 .returnType(new TypeSignature("varchar", typeVariable("x")))
                 .argumentTypes(new TypeSignature("varchar", typeVariable("x")))
                 .build();
@@ -219,7 +215,6 @@ public class TestPolymorphicScalarFunction
     {
         Signature signature = Signature.builder()
                 .name("foo")
-                .kind(SCALAR)
                 .typeVariableConstraints(comparableWithVariadicBound("V", "ROW"))
                 .returnType(new TypeSignature("V"))
                 .argumentTypes(new TypeSignature("V"))
@@ -248,7 +243,6 @@ public class TestPolymorphicScalarFunction
     {
         Signature signature = Signature.builder()
                 .operatorType(ADD)
-                .kind(SCALAR)
                 .returnType(new TypeSignature("varchar", typeVariable("x")))
                 .argumentTypes(new TypeSignature("varchar", typeVariable("x")))
                 .build();

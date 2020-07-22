@@ -64,7 +64,7 @@ public class Signature
         this.variableArity = variableArity;
     }
 
-    public Signature(String name, FunctionKind kind, TypeSignature returnType, TypeSignature... argumentTypes)
+    public Signature(String name, TypeSignature returnType, TypeSignature... argumentTypes)
     {
         this(name, returnType, ImmutableList.copyOf(argumentTypes));
     }
