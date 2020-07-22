@@ -61,6 +61,11 @@ public class InterpretedFunctionInvoker
     {
         FunctionMetadata functionMetadata = metadata.getFunctionMetadata(function);
         FunctionInvoker invoker = metadata.getScalarFunctionInvoker(function, Optional.of(getInvocationConvention(function, functionMetadata)));
+        return invoke(functionMetadata, invoker, session, arguments);
+    }
+
+    public static Object invoke(FunctionMetadata functionMetadata, FunctionInvoker invoker, ConnectorSession session, List<Object> arguments)
+    {
         MethodHandle method = invoker.getMethodHandle();
 
         List<Object> actualArguments = new ArrayList<>();

@@ -17,8 +17,9 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.PageBuilder;
@@ -46,9 +47,7 @@ import static io.prestosql.spi.function.InvocationConvention.InvocationReturnCon
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
-import static io.prestosql.spi.type.StandardTypes.MAP;
 import static io.prestosql.spi.type.TypeSignature.arrayType;
-import static io.prestosql.spi.type.TypeSignatureParameter.typeParameter;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.util.Failures.checkCondition;
 import static io.prestosql.util.Failures.internalError;
@@ -95,16 +94,28 @@ public final class MapConstructor
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, Metadata metadata)
+    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
     {
         Type keyType = functionBinding.getTypeVariable("K");
-        Type valueType = functionBinding.getTypeVariable("V");
 
-        Type mapType = metadata.getParameterizedType(MAP, ImmutableList.of(typeParameter(keyType.getTypeSignature()), typeParameter(valueType.getTypeSignature())));
-        MethodHandle keyHashCode = metadata.getScalarFunctionInvoker(metadata.resolveOperator(HASH_CODE, ImmutableList.of(keyType)), Optional.empty()).getMethodHandle();
-        MethodHandle keyEqual = metadata.getScalarFunctionInvoker(metadata.resolveOperator(EQUAL, ImmutableList.of(keyType, keyType)), Optional.empty()).getMethodHandle();
+        return FunctionDependencyDeclaration.builder()
+                .addOperator(HASH_CODE, ImmutableList.of(keyType))
+                .addOperator(EQUAL, ImmutableList.of(keyType, keyType))
+                .addOperator(INDETERMINATE, ImmutableList.of(keyType))
+                .build();
+    }
+
+    @Override
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    {
+        Type keyType = functionBinding.getTypeVariable("K");
+
+        MethodHandle keyHashCode = functionDependencies.getOperatorInvoker(HASH_CODE, ImmutableList.of(keyType), Optional.empty()).getMethodHandle();
+        MethodHandle keyEqual = functionDependencies.getOperatorInvoker(EQUAL, ImmutableList.of(keyType, keyType), Optional.empty()).getMethodHandle();
         InvocationConvention indeterminateCallingConvention = new InvocationConvention(ImmutableList.of(NULL_FLAG), FAIL_ON_NULL, false, false);
-        MethodHandle keyIndeterminate = metadata.getScalarFunctionInvoker(metadata.resolveOperator(INDETERMINATE, ImmutableList.of(keyType)), Optional.of(indeterminateCallingConvention)).getMethodHandle();
+        MethodHandle keyIndeterminate = functionDependencies.getOperatorInvoker(INDETERMINATE, ImmutableList.of(keyType), Optional.of(indeterminateCallingConvention)).getMethodHandle();
+
+        Type mapType = functionBinding.getBoundSignature().getReturnType();
         MethodHandle instanceFactory = constructorMethodHandle(State.class, MapType.class).bindTo(mapType);
 
         return new ScalarFunctionImplementation(

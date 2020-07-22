@@ -15,6 +15,9 @@ package io.prestosql.operator.annotations;
 
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
@@ -36,9 +39,22 @@ public final class TypeImplementationDependency
     }
 
     @Override
+    public void declareDependencies(FunctionBinding functionBinding, FunctionDependencyDeclarationBuilder builder)
+    {
+        BoundVariables boundVariables = new BoundVariables(functionBinding.getTypeVariables(), functionBinding.getLongVariables());
+        builder.addType(applyBoundVariables(signature, boundVariables));
+    }
+
+    @Override
     public Type resolve(BoundVariables boundVariables, Metadata metadata)
     {
         return metadata.getType(applyBoundVariables(signature, boundVariables));
+    }
+
+    @Override
+    public Object resolve(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    {
+        return functionDependencies.getType(applyBoundVariables(signature, new BoundVariables(functionBinding.getTypeVariables(), functionBinding.getLongVariables())));
     }
 
     @Override

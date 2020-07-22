@@ -18,9 +18,9 @@ import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.PageBuilder;
@@ -36,17 +36,17 @@ import io.prestosql.type.UnknownType;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.metadata.FunctionDependencyDeclaration.NO_DEPENDENCIES;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.castableToTypeParameter;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -109,13 +109,19 @@ public final class ArrayJoin
         }
 
         @Override
-        public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, Metadata metadata)
+        public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
         {
-            return specializeArrayJoin(functionBinding, metadata, ImmutableList.of(false, false, false), METHOD_HANDLE);
+            return arrayJoinFunctionDependencies(functionBinding);
+        }
+
+        @Override
+        public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+        {
+            return specializeArrayJoin(functionBinding, functionDependencies, METHOD_HANDLE);
         }
     }
 
-    public ArrayJoin()
+    private ArrayJoin()
     {
         super(new FunctionMetadata(
                 new Signature(
@@ -142,18 +148,36 @@ public final class ArrayJoin
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, Metadata metadata)
+    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
     {
-        return specializeArrayJoin(functionBinding, metadata, ImmutableList.of(false, false), METHOD_HANDLE);
+        return arrayJoinFunctionDependencies(functionBinding);
     }
 
-    private static ScalarFunctionImplementation specializeArrayJoin(FunctionBinding functionBinding, Metadata metadata, List<Boolean> nullableArguments, MethodHandle methodHandle)
+    private static FunctionDependencyDeclaration arrayJoinFunctionDependencies(FunctionBinding functionBinding)
     {
         Type type = functionBinding.getTypeVariable("T");
-        List<InvocationArgumentConvention> argumentConventions = nullableArguments.stream()
-                .map(nullable -> nullable ? BOXED_NULLABLE : NEVER_NULL)
-                .collect(toImmutableList());
+        if (type instanceof UnknownType) {
+            return NO_DEPENDENCIES;
+        }
+        return FunctionDependencyDeclaration.builder()
+                .addCast(type, VARCHAR)
+                .build();
+    }
 
+    @Override
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    {
+        return specializeArrayJoin(functionBinding, functionDependencies, METHOD_HANDLE);
+    }
+
+    private static ScalarFunctionImplementation specializeArrayJoin(
+            FunctionBinding functionBinding,
+            FunctionDependencies functionDependencies,
+            MethodHandle methodHandle)
+    {
+        List<InvocationArgumentConvention> argumentConventions = Collections.nCopies(functionBinding.getArity(), NEVER_NULL);
+
+        Type type = functionBinding.getTypeVariable("T");
         if (type instanceof UnknownType) {
             return new ScalarFunctionImplementation(
                     FAIL_ON_NULL,
@@ -163,9 +187,8 @@ public final class ArrayJoin
         }
         else {
             try {
-                ResolvedFunction resolvedFunction = metadata.getCoercion(type, VARCHAR);
                 InvocationConvention convention = new InvocationConvention(ImmutableList.of(BLOCK_POSITION), NULLABLE_RETURN, true, false);
-                MethodHandle cast = metadata.getScalarFunctionInvoker(resolvedFunction, Optional.of(convention)).getMethodHandle();
+                MethodHandle cast = functionDependencies.getCastInvoker(type, VARCHAR, Optional.of(convention)).getMethodHandle();
 
                 // if the cast doesn't take a ConnectorSession, create an adapter that drops the provided session
                 if (cast.type().parameterArray()[0] != ConnectorSession.class) {

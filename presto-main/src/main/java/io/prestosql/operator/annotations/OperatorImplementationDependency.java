@@ -15,6 +15,10 @@ package io.prestosql.operator.annotations;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
+import io.prestosql.metadata.FunctionInvoker;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.function.InvocationConvention;
@@ -58,12 +62,27 @@ public final class OperatorImplementationDependency
     }
 
     @Override
+    public void declareDependencies(FunctionBinding functionBinding, FunctionDependencyDeclarationBuilder builder)
+    {
+        BoundVariables boundVariables = new BoundVariables(functionBinding.getTypeVariables(), functionBinding.getLongVariables());
+        builder.addOperatorSignature(operator, applyBoundVariables(argumentTypes, boundVariables));
+    }
+
+    @Override
     protected ResolvedFunction getResolvedFunction(BoundVariables boundVariables, Metadata metadata)
     {
         List<Type> argumentTypes = applyBoundVariables(this.argumentTypes, boundVariables).stream()
                 .map(metadata::getType)
                 .collect(toImmutableList());
         return metadata.resolveOperator(operator, argumentTypes);
+    }
+
+    @Override
+    protected FunctionInvoker getInvoker(FunctionBinding functionBinding, FunctionDependencies functionDependencies, Optional<InvocationConvention> invocationConvention)
+    {
+        BoundVariables boundVariables = new BoundVariables(functionBinding.getTypeVariables(), functionBinding.getLongVariables());
+        List<TypeSignature> types = applyBoundVariables(argumentTypes, boundVariables);
+        return functionDependencies.getOperatorSignatureInvoker(operator, types, invocationConvention);
     }
 
     @Override

@@ -1172,7 +1172,7 @@ public class TestEffectivePredicateExtractor
     private static ResolvedFunction fakeFunction(String name)
     {
         BoundSignature boundSignature = new BoundSignature(name, UNKNOWN, ImmutableList.of());
-        return new ResolvedFunction(boundSignature, toFunctionId(boundSignature.toSignature()));
+        return new ResolvedFunction(boundSignature, toFunctionId(boundSignature.toSignature()), ImmutableMap.of(), ImmutableSet.of());
     }
 
     private Set<Expression> normalizeConjuncts(Expression... conjuncts)

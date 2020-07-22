@@ -129,6 +129,7 @@ import io.prestosql.sql.tree.Expression;
 import io.prestosql.transaction.TransactionManagerConfig;
 import io.prestosql.type.TypeDeserializer;
 import io.prestosql.type.TypeSignatureDeserializer;
+import io.prestosql.type.TypeSignatureKeyDeserializer;
 import io.prestosql.util.FinalizerService;
 import io.prestosql.version.EmbedVersion;
 
@@ -351,6 +352,7 @@ public class ServerMainModule
         binder.bind(TypeAnalyzer.class).in(Scopes.SINGLETON);
         jsonBinder(binder).addDeserializerBinding(Type.class).to(TypeDeserializer.class);
         jsonBinder(binder).addDeserializerBinding(TypeSignature.class).to(TypeSignatureDeserializer.class);
+        jsonBinder(binder).addKeyDeserializerBinding(TypeSignature.class).to(TypeSignatureKeyDeserializer.class);
         newSetBinder(binder, Type.class);
 
         // split manager

@@ -16,8 +16,9 @@ package io.prestosql.sql.gen;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.expression.BytecodeExpression;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
+import io.prestosql.metadata.FunctionInvoker;
+import io.prestosql.metadata.FunctionMetadata;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.Type;
 
 import java.util.function.Function;
@@ -34,8 +35,8 @@ public final class ArrayGeneratorUtils
             Type fromElementType,
             Type toElementType,
             Variable array,
-            ResolvedFunction elementFunction,
-            Metadata metadata)
+            FunctionMetadata functionMetadata,
+            Function<InvocationConvention, FunctionInvoker> functionInvokerProvider)
     {
         return map(
                 scope,
@@ -43,7 +44,7 @@ public final class ArrayGeneratorUtils
                 fromElementType,
                 toElementType,
                 array,
-                element -> invokeFunction(scope, cachedInstanceBinder, elementFunction, metadata, element));
+                element -> invokeFunction(scope, cachedInstanceBinder, toElementType, functionMetadata, functionInvokerProvider, element));
     }
 
     public static ArrayMapBytecodeExpression map(

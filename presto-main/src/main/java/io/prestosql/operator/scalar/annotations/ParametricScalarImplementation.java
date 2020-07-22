@@ -19,11 +19,10 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.primitives.Primitives;
 import io.prestosql.metadata.BoundSignature;
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
 import io.prestosql.metadata.LongVariableConstraint;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.operator.ParametricImplementation;
 import io.prestosql.operator.annotations.FunctionsParserHelper;
@@ -153,7 +152,7 @@ public class ParametricScalarImplementation
         return argumentDefinitions;
     }
 
-    public Optional<ScalarFunctionImplementation> specialize(FunctionBinding functionBinding, Metadata metadata)
+    public Optional<ScalarFunctionImplementation> specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         List<ScalarImplementationChoice> implementationChoices = new ArrayList<>();
         for (Map.Entry<String, Class<?>> entry : specializedTypeParameters.entrySet()) {
@@ -186,11 +185,10 @@ public class ParametricScalarImplementation
             }
         }
 
-        BoundVariables boundVariables = new BoundVariables(functionBinding.getTypeVariables(), functionBinding.getLongVariables());
         for (ParametricScalarImplementationChoice choice : choices) {
-            MethodHandle boundMethodHandle = bindDependencies(choice.getMethodHandle(), choice.getDependencies(), boundVariables, metadata);
+            MethodHandle boundMethodHandle = bindDependencies(choice.getMethodHandle(), choice.getDependencies(), functionBinding, functionDependencies);
             Optional<MethodHandle> boundConstructor = choice.getConstructor().map(constructor -> {
-                MethodHandle result = bindDependencies(constructor, choice.getConstructorDependencies(), boundVariables, metadata);
+                MethodHandle result = bindDependencies(constructor, choice.getConstructorDependencies(), functionBinding, functionDependencies);
                 checkCondition(
                         result.type().parameterList().isEmpty(),
                         FUNCTION_IMPLEMENTATION_ERROR,

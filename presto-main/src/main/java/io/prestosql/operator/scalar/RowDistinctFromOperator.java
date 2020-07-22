@@ -15,9 +15,10 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
+import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.prestosql.metadata.FunctionInvoker;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
 import io.prestosql.spi.block.Block;
@@ -58,14 +59,25 @@ public class RowDistinctFromOperator
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, Metadata metadata)
+    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    {
+        FunctionDependencyDeclarationBuilder builder = FunctionDependencyDeclaration.builder();
+        Type type = functionBinding.getTypeVariable("T");
+        for (Type parameterType : type.getTypeParameters()) {
+            builder.addOperator(IS_DISTINCT_FROM, ImmutableList.of(parameterType, parameterType));
+        }
+        return builder.build();
+    }
+
+    @Override
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         ImmutableList.Builder<MethodHandle> argumentMethods = ImmutableList.builder();
         Type type = functionBinding.getTypeVariable("T");
         for (Type parameterType : type.getTypeParameters()) {
-            ResolvedFunction resolvedFunction = metadata.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(parameterType, parameterType));
-            FunctionInvoker functionInvoker = metadata.getScalarFunctionInvoker(
-                    resolvedFunction,
+            FunctionInvoker functionInvoker = functionDependencies.getOperatorInvoker(
+                    IS_DISTINCT_FROM,
+                    ImmutableList.of(parameterType, parameterType),
                     Optional.of(new InvocationConvention(
                             ImmutableList.of(NULL_FLAG, NULL_FLAG),
                             FAIL_ON_NULL,

@@ -14,6 +14,7 @@
 package io.prestosql.metadata;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.metadata.ResolvedFunction.ResolvedFunctionDecoder;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeId;
@@ -21,9 +22,11 @@ import io.prestosql.spi.type.TypeSignature;
 import org.testng.annotations.Test;
 
 import java.util.Optional;
+import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static java.lang.Integer.parseInt;
 import static org.testng.Assert.assertEquals;
@@ -36,22 +39,25 @@ public class TestResolvedFunction
     @Test
     public void test()
     {
-        ResolvedFunction resolvedFunction = createResolvedFunction("top");
+        ResolvedFunction resolvedFunction = createResolvedFunction("top", 3);
         ResolvedFunctionDecoder decoder = new ResolvedFunctionDecoder(TestResolvedFunction::varcharTypeLoader);
         Optional<ResolvedFunction> copy = decoder.fromQualifiedName(resolvedFunction.toQualifiedName());
         assertTrue(copy.isPresent());
         assertEquals(copy.get(), resolvedFunction);
     }
 
-    private static ResolvedFunction createResolvedFunction(String name)
+    private static ResolvedFunction createResolvedFunction(String name, int depth)
     {
         return new ResolvedFunction(
-                new BoundSignature(name, createVarcharType(10), ImmutableList.of(createVarcharType(20), createVarcharType(30))),
+                new BoundSignature(name + "_" + depth, createVarcharType(10 + depth), ImmutableList.of(createVarcharType(20 + depth), createVarcharType(30 + depth))),
                 FunctionId.toFunctionId(Signature.builder()
                         .name(name)
                         .returnType(new TypeSignature("x"))
                         .argumentTypes(new TypeSignature("y"), new TypeSignature("z"))
-                        .build()));
+                        .build()),
+                ImmutableSet.of(createVarcharType(11), createVarcharType(12), createVarcharType(13)).stream()
+                        .collect(toImmutableMap(Type::getTypeSignature, Function.identity())),
+                depth == 0 ? ImmutableSet.of() : ImmutableSet.of(createResolvedFunction("left", depth - 1), createResolvedFunction("right", depth - 1)));
     }
 
     private static Type varcharTypeLoader(TypeId typeId)

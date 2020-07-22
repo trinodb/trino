@@ -13,14 +13,15 @@
  */
 package io.prestosql.metadata;
 
-import static io.prestosql.metadata.FunctionDependencyDeclaration.NO_DEPENDENCIES;
+import io.prestosql.spi.PrestoException;
 
-public interface SqlFunction
+import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
+
+public class UndeclaredDependencyException
+        extends PrestoException
 {
-    FunctionMetadata getFunctionMetadata();
-
-    default FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    public UndeclaredDependencyException(String dependency)
     {
-        return NO_DEPENDENCIES;
+        super(FUNCTION_IMPLEMENTATION_ERROR, "Undeclared function dependency: " + dependency);
     }
 }

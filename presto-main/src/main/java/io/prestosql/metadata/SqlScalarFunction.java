@@ -31,7 +31,7 @@ public abstract class SqlScalarFunction
         return functionMetadata;
     }
 
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, Metadata metadata)
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         return specialize(functionBinding);
     }

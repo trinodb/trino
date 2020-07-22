@@ -15,8 +15,9 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
+import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.RowType;
@@ -54,7 +55,17 @@ public class RowEqualOperator
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, Metadata metadata)
+    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    {
+        RowType rowType = (RowType) functionBinding.getTypeVariable("T");
+        FunctionDependencyDeclarationBuilder builder = FunctionDependencyDeclaration.builder();
+        rowType.getTypeParameters()
+                .forEach(type -> builder.addOperator(EQUAL, ImmutableList.of(type, type)));
+        return builder.build();
+    }
+
+    @Override
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         RowType type = (RowType) functionBinding.getTypeVariable("T");
         return new ScalarFunctionImplementation(
@@ -62,20 +73,19 @@ public class RowEqualOperator
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 METHOD_HANDLE
                         .bindTo(type)
-                        .bindTo(resolveFieldEqualOperators(type, metadata)));
+                        .bindTo(resolveFieldEqualOperators(type, functionDependencies)));
     }
 
-    public static List<MethodHandle> resolveFieldEqualOperators(RowType rowType, Metadata metadata)
+    public static List<MethodHandle> resolveFieldEqualOperators(RowType rowType, FunctionDependencies functionDependencies)
     {
         return rowType.getTypeParameters().stream()
-                .map(type -> resolveEqualOperator(type, metadata))
+                .map(type -> resolveEqualOperator(type, functionDependencies))
                 .collect(toImmutableList());
     }
 
-    private static MethodHandle resolveEqualOperator(Type type, Metadata metadata)
+    private static MethodHandle resolveEqualOperator(Type type, FunctionDependencies functionDependencies)
     {
-        ResolvedFunction operator = metadata.resolveOperator(EQUAL, ImmutableList.of(type, type));
-        return metadata.getScalarFunctionInvoker(operator, Optional.empty()).getMethodHandle();
+        return functionDependencies.getOperatorInvoker(EQUAL, ImmutableList.of(type, type), Optional.empty()).getMethodHandle();
     }
 
     public static Boolean equals(RowType rowType, List<MethodHandle> fieldEqualOperators, Block leftRow, Block rightRow)

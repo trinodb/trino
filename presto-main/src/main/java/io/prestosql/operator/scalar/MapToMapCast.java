@@ -17,9 +17,9 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.operator.aggregation.TypedSet;
 import io.prestosql.spi.PrestoException;
@@ -29,7 +29,6 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -88,21 +87,26 @@ public final class MapToMapCast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, Metadata metadata)
+    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    {
+        return FunctionDependencyDeclaration.builder()
+                .addCast(functionBinding.getTypeVariable("FK"), functionBinding.getTypeVariable("TK"))
+                .addCast(functionBinding.getTypeVariable("FV"), functionBinding.getTypeVariable("TV"))
+                .build();
+    }
+
+    @Override
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         checkArgument(functionBinding.getArity() == 1, "Expected arity to be 1");
         Type fromKeyType = functionBinding.getTypeVariable("FK");
         Type fromValueType = functionBinding.getTypeVariable("FV");
         Type toKeyType = functionBinding.getTypeVariable("TK");
         Type toValueType = functionBinding.getTypeVariable("TV");
-        Type toMapType = metadata.getParameterizedType(
-                "map",
-                ImmutableList.of(
-                        TypeSignatureParameter.typeParameter(toKeyType.getTypeSignature()),
-                        TypeSignatureParameter.typeParameter(toValueType.getTypeSignature())));
+        Type toMapType = functionBinding.getBoundSignature().getReturnType();
 
-        MethodHandle keyProcessor = buildProcessor(metadata, fromKeyType, toKeyType, true);
-        MethodHandle valueProcessor = buildProcessor(metadata, fromValueType, toValueType, false);
+        MethodHandle keyProcessor = buildProcessor(functionDependencies, fromKeyType, toKeyType, true);
+        MethodHandle valueProcessor = buildProcessor(functionDependencies, fromValueType, toValueType, false);
         MethodHandle target = MethodHandles.insertArguments(METHOD_HANDLE, 0, keyProcessor, valueProcessor, toMapType);
         return new ScalarFunctionImplementation(NULLABLE_RETURN, ImmutableList.of(NEVER_NULL), target);
     }
@@ -111,13 +115,12 @@ public final class MapToMapCast
      * The signature of the returned MethodHandle is (Block fromMap, int position, ConnectorSession session, BlockBuilder mapBlockBuilder)void.
      * The processor will get the value from fromMap, cast it and write to toBlock.
      */
-    private MethodHandle buildProcessor(Metadata metadata, Type fromType, Type toType, boolean isKey)
+    private MethodHandle buildProcessor(FunctionDependencies functionDependencies, Type fromType, Type toType, boolean isKey)
     {
         // Get block position cast, with optional connector session
-        ResolvedFunction resolvedFunction = metadata.getCoercion(fromType, toType);
-        FunctionMetadata functionMetadata = metadata.getFunctionMetadata(resolvedFunction);
+        FunctionMetadata functionMetadata = functionDependencies.getCastMetadata(fromType, toType);
         InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(BLOCK_POSITION), functionMetadata.isNullable() ? NULLABLE_RETURN : FAIL_ON_NULL, true, false);
-        MethodHandle cast = metadata.getScalarFunctionInvoker(resolvedFunction, Optional.of(invocationConvention)).getMethodHandle();
+        MethodHandle cast = functionDependencies.getCastInvoker(fromType, toType, Optional.of(invocationConvention)).getMethodHandle();
         // Normalize cast to have connector session as first argument
         if (cast.type().parameterArray()[0] != ConnectorSession.class) {
             cast = MethodHandles.dropArguments(cast, 0, ConnectorSession.class);

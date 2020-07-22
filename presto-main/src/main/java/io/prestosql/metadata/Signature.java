@@ -74,6 +74,11 @@ public class Signature
         this(name, ImmutableList.of(), ImmutableList.of(), returnType, argumentTypes, false);
     }
 
+    public static boolean isOperatorName(String mangledName)
+    {
+        return mangledName.startsWith(OPERATOR_PREFIX);
+    }
+
     public static String mangleOperatorName(OperatorType operatorType)
     {
         return OPERATOR_PREFIX + operatorType.name();

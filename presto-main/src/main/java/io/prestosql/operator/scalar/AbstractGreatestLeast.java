@@ -25,9 +25,9 @@ import io.airlift.bytecode.control.IfStatement;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.PrestoException;
@@ -94,13 +94,21 @@ public abstract class AbstractGreatestLeast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, Metadata metadata)
+    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    {
+        Type type = functionBinding.getTypeVariable("E");
+        return FunctionDependencyDeclaration.builder()
+                .addOperator(operatorType, ImmutableList.of(type, type))
+                .build();
+    }
+
+    @Override
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         Type type = functionBinding.getTypeVariable("E");
         checkArgument(type.isOrderable(), "Type must be orderable");
 
-        ResolvedFunction resolvedFunction = metadata.resolveOperator(operatorType, ImmutableList.of(type, type));
-        MethodHandle compareMethod = metadata.getScalarFunctionInvoker(resolvedFunction, Optional.empty()).getMethodHandle();
+        MethodHandle compareMethod = functionDependencies.getOperatorInvoker(operatorType, ImmutableList.of(type, type), Optional.empty()).getMethodHandle();
 
         List<Class<?>> javaTypes = IntStream.range(0, functionBinding.getArity())
                 .mapToObj(i -> type.getJavaType())

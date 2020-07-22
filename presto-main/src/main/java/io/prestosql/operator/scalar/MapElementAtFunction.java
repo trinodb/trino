@@ -18,8 +18,9 @@ import com.google.common.primitives.Primitives;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.block.Block;
@@ -70,12 +71,21 @@ public class MapElementAtFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, Metadata metadata)
+    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    {
+        Type keyType = functionBinding.getTypeVariable("K");
+        return FunctionDependencyDeclaration.builder()
+                .addOperator(EQUAL, ImmutableList.of(keyType, keyType))
+                .build();
+    }
+
+    @Override
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         Type keyType = functionBinding.getTypeVariable("K");
         Type valueType = functionBinding.getTypeVariable("V");
 
-        MethodHandle keyEqualsMethod = metadata.getScalarFunctionInvoker(metadata.resolveOperator(EQUAL, ImmutableList.of(keyType, keyType)), Optional.empty()).getMethodHandle();
+        MethodHandle keyEqualsMethod = functionDependencies.getOperatorInvoker(EQUAL, ImmutableList.of(keyType, keyType), Optional.empty()).getMethodHandle();
 
         MethodHandle methodHandle;
         if (keyType.getJavaType() == boolean.class) {

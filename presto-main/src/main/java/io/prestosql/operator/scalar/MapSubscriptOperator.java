@@ -18,8 +18,10 @@ import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
+import io.prestosql.metadata.FunctionInvoker;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
@@ -30,6 +32,7 @@ import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.InterpretedFunctionInvoker;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
@@ -61,7 +64,16 @@ public class MapSubscriptOperator
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, Metadata metadata)
+    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    {
+        Type keyType = functionBinding.getTypeVariable("K");
+        return FunctionDependencyDeclaration.builder()
+                .addOptionalCast(keyType, VARCHAR)
+                .build();
+    }
+
+    @Override
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         Type keyType = functionBinding.getTypeVariable("K");
         Type valueType = functionBinding.getTypeVariable("V");
@@ -79,7 +91,7 @@ public class MapSubscriptOperator
         else {
             methodHandle = METHOD_HANDLE_OBJECT;
         }
-        MissingKeyExceptionFactory missingKeyExceptionFactory = new MissingKeyExceptionFactory(metadata, keyType);
+        MissingKeyExceptionFactory missingKeyExceptionFactory = new MissingKeyExceptionFactory(functionDependencies, keyType);
         methodHandle = methodHandle.bindTo(missingKeyExceptionFactory).bindTo(keyType).bindTo(valueType);
         methodHandle = methodHandle.asType(methodHandle.type().changeReturnType(Primitives.wrap(valueType.getJavaType())));
 
@@ -135,19 +147,20 @@ public class MapSubscriptOperator
 
     private static class MissingKeyExceptionFactory
     {
-        private final InterpretedFunctionInvoker functionInvoker;
-        private final ResolvedFunction castFunction;
+        private final FunctionMetadata castMetadata;
+        private final FunctionInvoker castFunction;
 
-        public MissingKeyExceptionFactory(Metadata metadata, Type keyType)
+        public MissingKeyExceptionFactory(FunctionDependencies functionDependencies, Type keyType)
         {
-            functionInvoker = new InterpretedFunctionInvoker(metadata);
-
-            ResolvedFunction castFunction = null;
+            FunctionMetadata castMetadata = null;
+            FunctionInvoker castFunction = null;
             try {
-                castFunction = metadata.getCoercion(keyType, VARCHAR);
+                castMetadata = functionDependencies.getCastMetadata(keyType, VARCHAR);
+                castFunction = functionDependencies.getCastInvoker(keyType, VARCHAR, Optional.empty());
             }
             catch (PrestoException ignored) {
             }
+            this.castMetadata = castMetadata;
             this.castFunction = castFunction;
         }
 
@@ -155,8 +168,9 @@ public class MapSubscriptOperator
         {
             if (castFunction != null) {
                 try {
-                    Slice varcharValue = (Slice) functionInvoker.invoke(castFunction, session, value);
-                    return new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Key not present in map: %s", varcharValue.toStringUtf8()));
+                    Slice varcharValue = (Slice) InterpretedFunctionInvoker.invoke(castMetadata, castFunction, session, ImmutableList.of(value));
+
+                    return new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Key not present in map: %s", varcharValue == null ? "NULL" : varcharValue.toStringUtf8()));
                 }
                 catch (RuntimeException ignored) {
                 }
