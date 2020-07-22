@@ -40,8 +40,8 @@ import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.metadata.Signature.mangleOperatorName;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.metadata.Signature.unmangleOperator;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.HyperLogLogType.HYPER_LOG_LOG;
@@ -371,8 +371,8 @@ public class TestFunctionRegistry
                     public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
                     {
                         return new ScalarFunctionImplementation(
-                                false,
-                                nCopies(arity, valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                                FAIL_ON_NULL,
+                                nCopies(arity, NEVER_NULL),
                                 MethodHandles.identity(Void.class));
                     }
                 });

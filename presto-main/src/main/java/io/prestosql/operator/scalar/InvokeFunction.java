@@ -27,10 +27,12 @@ import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.gen.lambda.LambdaFunctionInterface;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.type.TypeSignature.functionType;
 import static io.prestosql.util.Reflection.methodHandle;
 
@@ -67,11 +69,13 @@ public final class InvokeFunction
     {
         Type returnType = boundVariables.getTypeVariable("T");
         return new ScalarFunctionImplementation(
-                true,
-                ImmutableList.of(functionTypeArgumentProperty(InvokeLambda.class)),
+                NULLABLE_RETURN,
+                ImmutableList.of(FUNCTION),
+                ImmutableList.of(Optional.of(InvokeLambda.class)),
                 METHOD_HANDLE.asType(
                         METHOD_HANDLE.type()
-                                .changeReturnType(Primitives.wrap(returnType.getJavaType()))));
+                                .changeReturnType(Primitives.wrap(returnType.getJavaType()))),
+                Optional.empty());
     }
 
     public static Object invoke(InvokeLambda function)

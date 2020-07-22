@@ -70,10 +70,10 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.subtract;
 import static io.airlift.bytecode.instruction.VariableInstruction.incrementVariable;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.type.TypeSignature.functionType;
 import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.sql.gen.SqlTypeBytecodeExpression.constantType;
@@ -120,10 +120,9 @@ public final class MapTransformValuesFunction
                 TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
                 TypeSignatureParameter.typeParameter(transformedValueType.getTypeSignature())));
         return new ScalarFunctionImplementation(
-                false,
-                ImmutableList.of(
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
-                        functionTypeArgumentProperty(BinaryFunctionInterface.class)),
+                FAIL_ON_NULL,
+                ImmutableList.of(NEVER_NULL, FUNCTION),
+                ImmutableList.of(Optional.empty(), Optional.of(BinaryFunctionInterface.class)),
                 generateTransform(keyType, valueType, transformedValueType, resultMapType),
                 Optional.of(STATE_FACTORY.bindTo(resultMapType)));
     }

@@ -25,8 +25,8 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 
 public class IdentityCast
         extends SqlOperator
@@ -49,8 +49,8 @@ public class IdentityCast
         Type type = boundVariables.getTypeVariable("T");
         MethodHandle identity = MethodHandles.identity(type.getJavaType());
         return new ScalarFunctionImplementation(
-                false,
-                ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                FAIL_ON_NULL,
+                ImmutableList.of(NEVER_NULL),
                 identity);
     }
 }

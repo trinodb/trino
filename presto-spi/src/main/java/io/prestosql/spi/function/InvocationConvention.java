@@ -95,30 +95,61 @@ public class InvocationConvention
         /**
          * Argument must not be a boxed type. Argument will never be null.
          */
-        NEVER_NULL,
+        NEVER_NULL(false, 1),
         /**
          * Argument is always an object type. A SQL null will be passed a Java null.
          */
-        BOXED_NULLABLE,
+        BOXED_NULLABLE(true, 1),
         /**
          * Argument must not be a boxed type, and is always followed with a boolean argument
          * to indicate if the sql value is null.
          */
-        NULL_FLAG,
+        NULL_FLAG(true, 2),
         /**
          * Argument is passed a Block followed by the integer position in the block.  The
          * sql value may be null.
          */
-        BLOCK_POSITION,
+        BLOCK_POSITION(true, 2),
         /**
          * Argument is a lambda function.
          */
-        FUNCTION
+        FUNCTION(false, 1);
+
+        private final boolean nullable;
+        private final int parameterCount;
+
+        InvocationArgumentConvention(boolean nullable, int parameterCount)
+        {
+            this.nullable = nullable;
+            this.parameterCount = parameterCount;
+        }
+
+        public boolean isNullable()
+        {
+            return nullable;
+        }
+
+        public int getParameterCount()
+        {
+            return parameterCount;
+        }
     }
 
     public enum InvocationReturnConvention
     {
-        FAIL_ON_NULL,
-        NULLABLE_RETURN
+        FAIL_ON_NULL(false),
+        NULLABLE_RETURN(true);
+
+        private final boolean nullable;
+
+        InvocationReturnConvention(boolean nullable)
+        {
+            this.nullable = nullable;
+        }
+
+        public boolean isNullable()
+        {
+            return nullable;
+        }
     }
 }

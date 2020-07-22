@@ -29,8 +29,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.util.Reflection.constructorMethodHandle;
@@ -69,8 +69,8 @@ public class StatefulSleepingSum
     {
         int args = 4;
         return new ScalarFunctionImplementation(
-                false,
-                nCopies(args, valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                FAIL_ON_NULL,
+                nCopies(args, NEVER_NULL),
                 methodHandle(StatefulSleepingSum.class, "statefulSleepingSum", State.class, double.class, long.class, long.class, long.class),
                 Optional.of(constructorMethodHandle(State.class)));
     }

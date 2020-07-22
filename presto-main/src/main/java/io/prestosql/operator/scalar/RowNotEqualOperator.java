@@ -26,8 +26,8 @@ import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static io.prestosql.metadata.Signature.comparableWithVariadicBound;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.util.Reflection.methodHandle;
@@ -53,10 +53,8 @@ public class RowNotEqualOperator
     {
         RowType type = (RowType) boundVariables.getTypeVariable("T");
         return new ScalarFunctionImplementation(
-                true,
-                ImmutableList.of(
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                NULLABLE_RETURN,
+                ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 METHOD_HANDLE
                         .bindTo(type)
                         .bindTo(RowEqualOperator.resolveFieldEqualOperators(type, metadata)));

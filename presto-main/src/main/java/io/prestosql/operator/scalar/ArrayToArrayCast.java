@@ -47,8 +47,8 @@ import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantBoolean;
 import static io.prestosql.metadata.Signature.castableToTypeParameter;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.util.CompilerUtils.defineClass;
@@ -81,8 +81,8 @@ public class ArrayToArrayCast
         Class<?> castOperatorClass = generateArrayCast(metadata, resolvedFunction);
         MethodHandle methodHandle = methodHandle(castOperatorClass, "castArray", ConnectorSession.class, Block.class);
         return new ScalarFunctionImplementation(
-                false,
-                ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                FAIL_ON_NULL,
+                ImmutableList.of(NEVER_NULL),
                 methodHandle);
     }
 

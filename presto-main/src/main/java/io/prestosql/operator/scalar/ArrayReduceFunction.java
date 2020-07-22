@@ -28,13 +28,14 @@ import io.prestosql.sql.gen.lambda.BinaryFunctionInterface;
 import io.prestosql.sql.gen.lambda.UnaryFunctionInterface;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.spi.type.TypeSignature.functionType;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
@@ -81,16 +82,18 @@ public final class ArrayReduceFunction
         Type outputType = boundVariables.getTypeVariable("R");
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(inputType);
         return new ScalarFunctionImplementation(
-                true,
+                NULLABLE_RETURN,
+                ImmutableList.of(NEVER_NULL, BOXED_NULLABLE, FUNCTION, FUNCTION),
                 ImmutableList.of(
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
-                        valueTypeArgumentProperty(USE_BOXED_TYPE),
-                        functionTypeArgumentProperty(BinaryFunctionInterface.class),
-                        functionTypeArgumentProperty(UnaryFunctionInterface.class)),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(BinaryFunctionInterface.class),
+                        Optional.of(UnaryFunctionInterface.class)),
                 methodHandle.asType(
                         methodHandle.type()
                                 .changeParameterType(1, Primitives.wrap(intermediateType.getJavaType()))
-                                .changeReturnType(Primitives.wrap(outputType.getJavaType()))));
+                                .changeReturnType(Primitives.wrap(outputType.getJavaType()))),
+                Optional.empty());
     }
 
     public static Object reduce(

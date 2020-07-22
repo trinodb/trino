@@ -24,8 +24,8 @@ import io.prestosql.spi.type.TypeSignature;
 import java.lang.invoke.MethodHandle;
 
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static io.prestosql.util.Reflection.methodHandle;
@@ -52,8 +52,8 @@ public final class CastFromUnknownOperator
         Type toType = boundVariables.getTypeVariable("E");
         MethodHandle methodHandle = METHOD_HANDLE_NON_NULL.asType(METHOD_HANDLE_NON_NULL.type().changeReturnType(toType.getJavaType()));
         return new ScalarFunctionImplementation(
-                false,
-                ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                FAIL_ON_NULL,
+                ImmutableList.of(NEVER_NULL),
                 methodHandle);
     }
 
