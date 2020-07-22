@@ -55,10 +55,6 @@ public class TestHiveSplit
         AcidInfo.Builder acidInfoBuilder = AcidInfo.builder(new Path("file:///data/fullacid"));
         acidInfoBuilder.addDeleteDelta(new Path("file:///data/fullacid/delete_delta_0000004_0000004_0000"), 4L, 4L, 0);
         acidInfoBuilder.addDeleteDelta(new Path("file:///data/fullacid/delete_delta_0000007_0000007_0000"), 7L, 7L, 0);
-
-        acidInfoBuilder.addOriginalFile(new Path("file:///data/fullacid/000000_0"), 120, 0);
-        acidInfoBuilder.addOriginalFile(new Path("file:///data/fullacid/000001_0"), 125, 0);
-
         AcidInfo acidInfo = acidInfoBuilder.build().get();
 
         HiveSplit expected = new HiveSplit(

@@ -189,7 +189,7 @@ public class TestHiveTransactionalTable
         }
     }
 
-    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = 5 * 60 * 1000)
+    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
     public void testReadFullAcidWithOriginalFiles(boolean isPartitioned, BucketingType bucketingType)
     {
         if (getHiveVersionMajor() < 3) {
@@ -207,44 +207,33 @@ public class TestHiveTransactionalTable
 
         try {
             String hivePartitionString = isPartitioned ? " PARTITION (part_col=2) " : "";
-            onHive().executeQuery("INSERT OVERWRITE TABLE " + tableName + hivePartitionString + " VALUES (21, 1)");
-
-            String selectFromOnePartitionsSql = "SELECT col, fcol FROM " + tableName + " ORDER BY col";
-            assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(21, 1));
-
+            onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (21, 1)");
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (22, 2)");
-            assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(21, 1), row(22, 2));
+            onHive().executeQuery("ALTER TABLE " + tableName + " SET TBLPROPERTIES ('transactional'='true')");
 
-            onHive().executeQuery(
-                    "ALTER TABLE  " + tableName + " SET TBLPROPERTIES ('transactional'='true')");
+            // read with original files
+            assertThat(query("SELECT col, fcol FROM " + tableName)).containsOnly(row(21, 1), row(22, 2));
+            assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE fcol = 1")).containsOnly(row(21, 1));
 
-            // test filtering
-            assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE fcol = 1 ORDER BY col")).containsOnly(row(21, 1));
-
-            // test minor compacted data read
+            // read with original files and insert delta
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (20, 3)");
-            assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(20, 3), row(21, 1), row(22, 2));
+            assertThat(query("SELECT col, fcol FROM " + tableName)).containsOnly(row(20, 3), row(21, 1), row(22, 2));
 
-            // delete a row
-            onHive().executeQuery("DELETE FROM " + tableName + " WHERE fcol=2");
-            assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(20, 3), row(21, 1));
+            // read with original files and delete delta
+            onHive().executeQuery("DELETE FROM " + tableName + " WHERE fcol = 2");
+            assertThat(query("SELECT col, fcol FROM " + tableName)).containsExactly(row(20, 3), row(21, 1));
 
-            // update the existing row
-            String predicate = "fcol = 1" + (isPartitioned ? " AND part_col = 2 " : "");
-            onHive().executeQuery("UPDATE " + tableName + " SET col = 23 WHERE " + predicate);
-            assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(20, 3), row(23, 1));
-
-            // test major compaction
-            compactTableAndWait(MAJOR, tableName, hivePartitionString, Duration.valueOf("5m"));
-            assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(20, 3), row(23, 1));
+            // read with original files and insert+delete delta (UPDATE)
+            onHive().executeQuery("UPDATE " + tableName + " SET col = 23 WHERE fcol = 1" + (isPartitioned ? " AND part_col = 2 " : ""));
+            assertThat(query("SELECT col, fcol FROM " + tableName + " ORDER BY col")).containsExactly(row(20, 3), row(23, 1));
         }
         finally {
             onHive().executeQuery("DROP TABLE " + tableName);
         }
     }
 
-    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = 5 * 60 * 1000)
-    public void testReadInsertOnlyAcidWithOriginalFiles(boolean isPartitioned, BucketingType bucketingType)
+    @Test(groups = {STORAGE_FORMATS, HIVE_TRANSACTIONAL}, dataProvider = "partitioningAndBucketingTypeDataProvider", timeOut = TEST_TIMEOUT)
+    public void testReadInsertOnlyWithOriginalFiles(boolean isPartitioned, BucketingType bucketingType)
     {
         if (getHiveVersionMajor() < 3) {
             throw new SkipException("Presto Hive transactional tables are supported with Hive version 3 or above");
@@ -259,20 +248,17 @@ public class TestHiveTransactionalTable
                 hiveTableProperties(NON_ACID, bucketingType));
         try {
             String hivePartitionString = isPartitioned ? " PARTITION (part_col=2) " : "";
-            String predicate = isPartitioned ? " WHERE part_col = 2 " : "";
 
-            onHive().executeQuery("INSERT OVERWRITE TABLE " + tableName + hivePartitionString + " SELECT 1");
-            String selectFromOnePartitionsSql = "SELECT col FROM " + tableName + predicate + " ORDER BY COL";
-            assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(1));
+            onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (1)");
+            onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (2)");
+            onHive().executeQuery("ALTER TABLE " + tableName + " SET TBLPROPERTIES ('transactional'='true', 'transactional_properties'='insert_only')");
 
-            onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " SELECT 2");
-            assertThat(query(selectFromOnePartitionsSql)).containsExactly(row(1), row(2));
+            // read with original files
+            assertThat(query("SELECT col FROM " + tableName + (isPartitioned ? " WHERE part_col = 2 " : ""))).containsOnly(row(1), row(2));
 
-            onHive().executeQuery(
-                    "ALTER TABLE  " + tableName + " SET TBLPROPERTIES ('transactional'='true','transactional_properties'='insert_only')");
-
-            onHive().executeQuery("INSERT OVERWRITE TABLE " + tableName + hivePartitionString + " SELECT 3");
-            assertThat(query(selectFromOnePartitionsSql)).containsOnly(row(3));
+            // read with original files and delta
+            onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (3)");
+            assertThat(query("SELECT col FROM " + tableName + (isPartitioned ? " WHERE part_col = 2 " : ""))).containsOnly(row(1), row(2), row(3));
         }
         finally {
             onHive().executeQuery("DROP TABLE " + tableName);

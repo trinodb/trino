@@ -16,33 +16,32 @@ package io.prestosql.plugin.hive;
 import com.google.common.io.Resources;
 import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.plugin.hive.orc.OriginalFilesUtils;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.testing.TestingConnectorSession;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
 import static io.prestosql.plugin.hive.AcidInfo.OriginalFileInfo;
 import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
-import static org.testng.Assert.assertTrue;
+import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static org.testng.Assert.assertEquals;
 
 public class TestOriginalFilesUtils
 {
     private String tablePath;
     private Configuration config;
-    private final ConnectorSession session = TestingConnectorSession.SESSION;
 
     @BeforeClass
     public void setup()
+            throws Exception
     {
-        tablePath = Resources.getResource(("dummy_id_data_orc")).getPath();
+        tablePath = new File(Resources.getResource(("dummy_id_data_orc")).toURI()).getPath();
         config = new JobConf(new Configuration(false));
-        config.set("fs.file.impl", "org.apache.hadoop.fs.RawLocalFileSystem");
     }
 
     @Test
@@ -51,14 +50,15 @@ public class TestOriginalFilesUtils
         List<OriginalFileInfo> originalFileInfoList = new ArrayList<>();
         originalFileInfoList.add(new OriginalFileInfo("000001_0", 730));
 
-        long rowCountResult = OriginalFilesUtils.getRowCount(originalFileInfoList,
+        long rowCountResult = OriginalFilesUtils.getRowCount(
+                originalFileInfoList,
                 new Path(tablePath + "/000001_0"),
                 HDFS_ENVIRONMENT,
-                session.getUser(),
+                SESSION.getUser(),
                 new OrcReaderOptions(),
                 config,
                 new FileFormatDataSourceStats());
-        assertTrue(rowCountResult == 0, "Original file should have 0 as the starting row count");
+        assertEquals(rowCountResult, 0, "Original file should have 0 as the starting row count");
     }
 
     @Test
@@ -70,15 +70,16 @@ public class TestOriginalFilesUtils
         originalFileInfos.add(new OriginalFileInfo("000002_0_copy_1", 768));
         originalFileInfos.add(new OriginalFileInfo("000002_0_copy_2", 743));
 
-        long rowCountResult = OriginalFilesUtils.getRowCount(originalFileInfos,
+        long rowCountResult = OriginalFilesUtils.getRowCount(
+                originalFileInfos,
                 new Path(tablePath + "/000002_0_copy_2"),
                 HDFS_ENVIRONMENT,
-                session.getUser(),
+                SESSION.getUser(),
                 new OrcReaderOptions(),
                 config,
                 new FileFormatDataSourceStats());
         // Bucket-2 has original files: 000002_0, 000002_0_copy_1. Each file original file has 4 rows.
         // So, starting row ID of 000002_0_copy_2 = row count of original files in Bucket-2 before it in lexicographic order.
-        assertTrue(rowCountResult == 8, "Original file 000002_0_copy_2 should have 8 as the starting row count");
+        assertEquals(rowCountResult, 8, "Original file 000002_0_copy_2 should have 8 as the starting row count");
     }
 }

@@ -31,7 +31,7 @@ import java.util.Collection;
 import static io.prestosql.plugin.hive.AcidInfo.OriginalFileInfo;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CANNOT_OPEN_SPLIT;
 
-public class OriginalFilesUtils
+public final class OriginalFilesUtils
 {
     private OriginalFilesUtils() {}
 
