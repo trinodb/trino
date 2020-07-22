@@ -91,6 +91,23 @@ public class ArbitraryAggregationFunction
     }
 
     @Override
+    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
+    {
+        Type type = functionBinding.getTypeVariable("T");
+        if (type.getJavaType() == long.class) {
+            return ImmutableList.of(StateCompiler.getSerializedType(NullableLongState.class).getTypeSignature());
+        }
+        if (type.getJavaType() == double.class) {
+            return ImmutableList.of(StateCompiler.getSerializedType(NullableDoubleState.class).getTypeSignature());
+        }
+        if (type.getJavaType() == boolean.class) {
+            return ImmutableList.of(StateCompiler.getSerializedType(NullableBooleanState.class).getTypeSignature());
+        }
+        // native container type is Slice or Block
+        return ImmutableList.of(new BlockPositionStateSerializer(type).getSerializedType().getTypeSignature());
+    }
+
+    @Override
     public InternalAggregationFunction specialize(FunctionBinding functionBinding)
     {
         Type valueType = functionBinding.getTypeVariable("T");

@@ -83,6 +83,13 @@ public final class MergeQuantileDigestFunction
     }
 
     @Override
+    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
+    {
+        Type valueType = functionBinding.getTypeVariable("T");
+        return ImmutableList.of(new QuantileDigestStateSerializer(valueType).getSerializedType().getTypeSignature());
+    }
+
+    @Override
     public InternalAggregationFunction specialize(FunctionBinding functionBinding)
     {
         Type valueType = functionBinding.getTypeVariable("T");

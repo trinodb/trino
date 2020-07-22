@@ -113,6 +113,23 @@ public abstract class AbstractMinMaxAggregationFunction
     }
 
     @Override
+    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
+    {
+        Type type = functionBinding.getTypeVariable("E");
+        if (type.getJavaType() == long.class) {
+            return ImmutableList.of(StateCompiler.getSerializedType(NullableLongState.class).getTypeSignature());
+        }
+        if (type.getJavaType() == double.class) {
+            return ImmutableList.of(StateCompiler.getSerializedType(NullableDoubleState.class).getTypeSignature());
+        }
+        if (type.getJavaType() == boolean.class) {
+            return ImmutableList.of(StateCompiler.getSerializedType(NullableBooleanState.class).getTypeSignature());
+        }
+        // native container type is Slice or Block
+        return ImmutableList.of(new BlockPositionStateSerializer(type).getSerializedType().getTypeSignature());
+    }
+
+    @Override
     public InternalAggregationFunction specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         Type type = functionBinding.getTypeVariable("E");

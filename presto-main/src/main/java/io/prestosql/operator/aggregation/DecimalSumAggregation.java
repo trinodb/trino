@@ -22,6 +22,7 @@ import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
+import io.prestosql.operator.aggregation.state.LongDecimalWithOverflowAndLongStateSerializer;
 import io.prestosql.operator.aggregation.state.LongDecimalWithOverflowState;
 import io.prestosql.operator.aggregation.state.LongDecimalWithOverflowStateFactory;
 import io.prestosql.operator.aggregation.state.LongDecimalWithOverflowStateSerializer;
@@ -82,6 +83,12 @@ public class DecimalSumAggregation
                         AGGREGATE),
                 true,
                 false);
+    }
+
+    @Override
+    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
+    {
+        return ImmutableList.of(new LongDecimalWithOverflowAndLongStateSerializer().getSerializedType().getTypeSignature());
     }
 
     @Override

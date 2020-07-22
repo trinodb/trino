@@ -82,6 +82,13 @@ public class ArrayAggregationFunction
     }
 
     @Override
+    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
+    {
+        Type type = functionBinding.getTypeVariable("T");
+        return ImmutableList.of(new ArrayAggregationStateSerializer(type).getSerializedType().getTypeSignature());
+    }
+
+    @Override
     public InternalAggregationFunction specialize(FunctionBinding functionBinding)
     {
         Type type = functionBinding.getTypeVariable("T");

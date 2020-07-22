@@ -47,6 +47,7 @@ import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.operator.ParametricFunctionHelpers.bindDependencies;
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.prestosql.operator.aggregation.state.StateCompiler.generateStateSerializer;
+import static io.prestosql.operator.aggregation.state.StateCompiler.getSerializedType;
 import static io.prestosql.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static java.lang.String.format;
@@ -103,6 +104,17 @@ public class ParametricAggregation
                 dependency.declareDependencies(functionBinding, builder);
             }
         }
+    }
+
+    @Override
+    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
+    {
+        // Find implementation matching arguments
+        AggregationImplementation concreteImplementation = findMatchingImplementation(functionBinding.getBoundSignature());
+
+        // Use state compiler to extract intermediate types
+        Type serializedType = getSerializedType(concreteImplementation.getStateClass());
+        return ImmutableList.of(serializedType.getTypeSignature());
     }
 
     @Override
