@@ -14,7 +14,6 @@
 package io.prestosql.operator.annotations;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionDependencies;
 import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
@@ -66,8 +65,7 @@ public final class OperatorImplementationDependency
     @Override
     protected FunctionInvoker getInvoker(FunctionBinding functionBinding, FunctionDependencies functionDependencies, Optional<InvocationConvention> invocationConvention)
     {
-        BoundVariables boundVariables = new BoundVariables(functionBinding.getTypeVariables(), functionBinding.getLongVariables());
-        List<TypeSignature> types = applyBoundVariables(argumentTypes, boundVariables);
+        List<TypeSignature> types = applyBoundVariables(argumentTypes, functionBinding);
         return functionDependencies.getOperatorSignatureInvoker(operator, types, invocationConvention);
     }
 

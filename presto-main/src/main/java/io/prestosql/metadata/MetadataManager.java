@@ -1546,17 +1546,15 @@ public final class MetadataManager
     @VisibleForTesting
     public ResolvedFunction resolve(FunctionBinding functionBinding, FunctionDependencyDeclaration declaration)
     {
-        BoundVariables boundVariables = new BoundVariables(functionBinding.getTypeVariables(), functionBinding.getLongVariables());
-
         Map<TypeSignature, Type> dependentTypes = declaration.getTypeDependencies().stream()
-                .map(typeSignature -> applyBoundVariables(typeSignature, boundVariables))
-                .collect(toImmutableMap(Function.identity(), this::getType));
+                .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding))
+                .collect(toImmutableMap(Function.identity(), this::getType, (left, right) -> left));
 
         ImmutableSet.Builder<ResolvedFunction> functions = ImmutableSet.builder();
         declaration.getFunctionDependencies().stream()
                 .map(functionDependency -> {
                     try {
-                        List<TypeSignature> argumentTypes = applyBoundVariables(functionDependency.getArgumentTypes(), boundVariables);
+                        List<TypeSignature> argumentTypes = applyBoundVariables(functionDependency.getArgumentTypes(), functionBinding);
                         return resolveFunction(functionDependency.getName(), fromTypeSignatures(argumentTypes));
                     }
                     catch (PrestoException e) {
@@ -1572,7 +1570,7 @@ public final class MetadataManager
         declaration.getOperatorDependencies().stream()
                 .map(operatorDependency -> {
                     try {
-                        List<TypeSignature> argumentTypes = applyBoundVariables(operatorDependency.getArgumentTypes(), boundVariables);
+                        List<TypeSignature> argumentTypes = applyBoundVariables(operatorDependency.getArgumentTypes(), functionBinding);
                         return resolveFunction(QualifiedName.of(mangleOperatorName(operatorDependency.getOperatorType())), fromTypeSignatures(argumentTypes));
                     }
                     catch (PrestoException e) {
@@ -1588,8 +1586,8 @@ public final class MetadataManager
         declaration.getCastDependencies().stream()
                 .map(castDependency -> {
                     try {
-                        Type fromType = getType(applyBoundVariables(castDependency.getFromType(), boundVariables));
-                        Type toType = getType(applyBoundVariables(castDependency.getToType(), boundVariables));
+                        Type fromType = getType(applyBoundVariables(castDependency.getFromType(), functionBinding));
+                        Type toType = getType(applyBoundVariables(castDependency.getToType(), functionBinding));
                         return getCoercion(fromType, toType);
                     }
                     catch (PrestoException e) {
