@@ -17,7 +17,8 @@ Java Runtime Environment
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 * 64-bit required
-* version 11 recommended (higher versions are less tested)
+* version 11 recommended (lower versions not supported, higher versions less
+  tested)
 * Azul Zulu recommended (most tested)
 
 Python
