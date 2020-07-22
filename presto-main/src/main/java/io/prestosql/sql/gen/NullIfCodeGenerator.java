@@ -24,22 +24,32 @@ import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.sql.relational.SpecialForm;
 
-import java.util.List;
-
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.prestosql.sql.gen.BytecodeUtils.ifWasNullPopAndGoto;
+import static java.util.Objects.requireNonNull;
 
 public class NullIfCodeGenerator
         implements BytecodeGenerator
 {
+    private final RowExpression first;
+    private final RowExpression second;
+
+    public NullIfCodeGenerator(SpecialForm specialForm)
+    {
+        requireNonNull(specialForm, "specialForm is null");
+        checkArgument(specialForm.getArguments().size() == 2);
+
+        first = specialForm.getArguments().get(0);
+        second = specialForm.getArguments().get(1);
+    }
+
     @Override
-    public BytecodeNode generateExpression(ResolvedFunction resolvedFunction, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(BytecodeGeneratorContext generatorContext)
     {
         Scope scope = generatorContext.getScope();
-
-        RowExpression first = arguments.get(0);
-        RowExpression second = arguments.get(1);
 
         LabelNode notMatch = new LabelNode("notMatch");
 
