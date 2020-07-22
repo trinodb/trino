@@ -40,7 +40,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.metadata.FunctionDependencyDeclaration.NO_DEPENDENCIES;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.castableToTypeParameter;
 import static io.prestosql.metadata.Signature.typeVariable;
@@ -109,9 +108,9 @@ public final class ArrayJoin
         }
 
         @Override
-        public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+        public FunctionDependencyDeclaration getFunctionDependencies()
         {
-            return arrayJoinFunctionDependencies(functionBinding);
+            return arrayJoinFunctionDependencies();
         }
 
         @Override
@@ -148,19 +147,15 @@ public final class ArrayJoin
     }
 
     @Override
-    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    public FunctionDependencyDeclaration getFunctionDependencies()
     {
-        return arrayJoinFunctionDependencies(functionBinding);
+        return arrayJoinFunctionDependencies();
     }
 
-    private static FunctionDependencyDeclaration arrayJoinFunctionDependencies(FunctionBinding functionBinding)
+    private static FunctionDependencyDeclaration arrayJoinFunctionDependencies()
     {
-        Type type = functionBinding.getTypeVariable("T");
-        if (type instanceof UnknownType) {
-            return NO_DEPENDENCIES;
-        }
         return FunctionDependencyDeclaration.builder()
-                .addCast(type, VARCHAR)
+                .addCastSignature(new TypeSignature("T"), VARCHAR.getTypeSignature())
                 .build();
     }
 

@@ -46,7 +46,7 @@ import static io.prestosql.sql.analyzer.TypeSignatureTranslator.parseTypeSignatu
 
 public interface ImplementationDependency
 {
-    void declareDependencies(FunctionBinding functionBinding, FunctionDependencyDeclarationBuilder builder);
+    void declareDependencies(FunctionDependencyDeclarationBuilder builder);
 
     Object resolve(FunctionBinding functionBinding, FunctionDependencies functionDependencies);
 

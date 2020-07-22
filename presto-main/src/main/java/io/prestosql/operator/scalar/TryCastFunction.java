@@ -63,12 +63,10 @@ public class TryCastFunction
     }
 
     @Override
-    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    public FunctionDependencyDeclaration getFunctionDependencies()
     {
-        Type fromType = functionBinding.getTypeVariable("F");
-        Type toType = functionBinding.getTypeVariable("T");
         return FunctionDependencyDeclaration.builder()
-                .addCast(fromType, toType)
+                .addCastSignature(new TypeSignature("F"), new TypeSignature("T"))
                 .build();
     }
 

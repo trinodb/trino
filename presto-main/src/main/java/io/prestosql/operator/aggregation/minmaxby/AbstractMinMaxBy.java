@@ -116,11 +116,10 @@ public abstract class AbstractMinMaxBy
     }
 
     @Override
-    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    public FunctionDependencyDeclaration getFunctionDependencies()
     {
-        Type keyType = functionBinding.getTypeVariable("K");
         return FunctionDependencyDeclaration.builder()
-                .addOperator(min ? LESS_THAN : GREATER_THAN, ImmutableList.of(keyType, keyType))
+                .addOperatorSignature(min ? LESS_THAN : GREATER_THAN, ImmutableList.of(new TypeSignature("K"), new TypeSignature("K")))
                 .build();
     }
 

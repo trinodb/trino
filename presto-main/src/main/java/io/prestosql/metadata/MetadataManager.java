@@ -133,6 +133,7 @@ import static io.prestosql.metadata.FunctionId.toFunctionId;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static io.prestosql.metadata.Signature.mangleOperatorName;
+import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.INVALID_VIEW;
@@ -1539,21 +1540,24 @@ public final class MetadataManager
     private ResolvedFunction resolve(FunctionBinding functionBinding)
     {
         FunctionDependencyDeclaration declaration = functions.getFunctionDependencies(functionBinding);
-
-        return resolve(functionBinding.getFunctionId(), functionBinding.getBoundSignature(), declaration);
+        return resolve(functionBinding, declaration);
     }
 
     @VisibleForTesting
-    public ResolvedFunction resolve(FunctionId functionId, BoundSignature boundSignature, FunctionDependencyDeclaration declaration)
+    public ResolvedFunction resolve(FunctionBinding functionBinding, FunctionDependencyDeclaration declaration)
     {
-        Map<TypeSignature, Type> types = declaration.getTypeDependencies().stream()
+        BoundVariables boundVariables = new BoundVariables(functionBinding.getTypeVariables(), functionBinding.getLongVariables());
+
+        Map<TypeSignature, Type> dependentTypes = declaration.getTypeDependencies().stream()
+                .map(typeSignature -> applyBoundVariables(typeSignature, boundVariables))
                 .collect(toImmutableMap(Function.identity(), this::getType));
 
         ImmutableSet.Builder<ResolvedFunction> functions = ImmutableSet.builder();
         declaration.getFunctionDependencies().stream()
                 .map(functionDependency -> {
                     try {
-                        return resolveFunction(functionDependency.getName(), fromTypeSignatures(functionDependency.getArgumentTypes()));
+                        List<TypeSignature> argumentTypes = applyBoundVariables(functionDependency.getArgumentTypes(), boundVariables);
+                        return resolveFunction(functionDependency.getName(), fromTypeSignatures(argumentTypes));
                     }
                     catch (PrestoException e) {
                         if (functionDependency.isOptional()) {
@@ -1568,9 +1572,8 @@ public final class MetadataManager
         declaration.getOperatorDependencies().stream()
                 .map(operatorDependency -> {
                     try {
-                        return resolveOperator(operatorDependency.getOperatorType(), operatorDependency.getArgumentTypes().stream()
-                                .map(this::getType)
-                                .collect(toImmutableList()));
+                        List<TypeSignature> argumentTypes = applyBoundVariables(operatorDependency.getArgumentTypes(), boundVariables);
+                        return resolveFunction(QualifiedName.of(mangleOperatorName(operatorDependency.getOperatorType())), fromTypeSignatures(argumentTypes));
                     }
                     catch (PrestoException e) {
                         if (operatorDependency.isOptional()) {
@@ -1585,7 +1588,9 @@ public final class MetadataManager
         declaration.getCastDependencies().stream()
                 .map(castDependency -> {
                     try {
-                        return getCoercion(getType(castDependency.getFromType()), getType(castDependency.getToType()));
+                        Type fromType = getType(applyBoundVariables(castDependency.getFromType(), boundVariables));
+                        Type toType = getType(applyBoundVariables(castDependency.getToType(), boundVariables));
+                        return getCoercion(fromType, toType);
                     }
                     catch (PrestoException e) {
                         if (castDependency.isOptional()) {
@@ -1597,7 +1602,11 @@ public final class MetadataManager
                 .filter(Objects::nonNull)
                 .forEach(functions::add);
 
-        return new ResolvedFunction(boundSignature, functionId, types, functions.build());
+        return new ResolvedFunction(
+                functionBinding.getBoundSignature(),
+                functionBinding.getFunctionId(),
+                dependentTypes,
+                functions.build());
     }
 
     @Override

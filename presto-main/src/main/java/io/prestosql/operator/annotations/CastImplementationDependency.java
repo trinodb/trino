@@ -51,12 +51,9 @@ public final class CastImplementationDependency
     }
 
     @Override
-    public void declareDependencies(FunctionBinding functionBinding, FunctionDependencyDeclarationBuilder builder)
+    public void declareDependencies(FunctionDependencyDeclarationBuilder builder)
     {
-        BoundVariables boundVariables = new BoundVariables(functionBinding.getTypeVariables(), functionBinding.getLongVariables());
-        builder.addCastSignature(
-                applyBoundVariables(fromType, boundVariables),
-                applyBoundVariables(toType, boundVariables));
+        builder.addCastSignature(fromType, toType);
     }
 
     @Override

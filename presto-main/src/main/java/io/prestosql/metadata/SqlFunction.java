@@ -21,6 +21,11 @@ public interface SqlFunction
 
     default FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
     {
+        return getFunctionDependencies();
+    }
+
+    default FunctionDependencyDeclaration getFunctionDependencies()
+    {
         return NO_DEPENDENCIES;
     }
 }
