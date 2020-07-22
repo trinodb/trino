@@ -844,19 +844,10 @@ public class FunctionRegistry
     private InternalAggregationFunction specializedAggregation(Metadata metadata, FunctionBinding functionBinding)
     {
         SqlAggregationFunction function = (SqlAggregationFunction) functions.get(functionBinding.getFunctionId());
-        InternalAggregationFunction implementation = function.specialize(
+        return function.specialize(
                 new BoundVariables(functionBinding.getTypeVariables(), functionBinding.getLongVariables()),
                 functionBinding.getBoundSignature().getArgumentTypes().size(),
                 metadata);
-        checkArgument(
-                function.isOrderSensitive() == implementation.isOrderSensitive(),
-                "implementation order sensitivity doesn't match for: %s",
-                function.getFunctionMetadata().getSignature());
-        checkArgument(
-                function.isDecomposable() == implementation.isDecomposable(),
-                "implementation decomposable doesn't match for: %s",
-                function.getFunctionMetadata().getSignature());
-        return implementation;
     }
 
     public FunctionInvoker getScalarFunctionInvoker(Metadata metadata, FunctionBinding functionBinding, InvocationConvention invocationConvention)

@@ -165,8 +165,6 @@ public class ReduceAggregationFunction
                 ImmutableList.of(inputType),
                 ImmutableList.of(stateType),
                 stateType,
-                true,
-                false,
                 factory,
                 ImmutableList.of(BinaryFunctionInterface.class, BinaryFunctionInterface.class));
     }

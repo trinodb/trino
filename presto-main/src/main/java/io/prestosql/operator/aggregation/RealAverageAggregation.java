@@ -113,8 +113,6 @@ public class RealAverageAggregation
                         longStateSerializer.getSerializedType(),
                         doubleStateSerializer.getSerializedType()),
                 REAL,
-                true,
-                false,
                 factory);
     }
 

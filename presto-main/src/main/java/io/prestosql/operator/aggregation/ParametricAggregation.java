@@ -132,8 +132,6 @@ public class ParametricAggregation
                 inputTypes,
                 ImmutableList.of(stateSerializer.getSerializedType()),
                 outputType,
-                isDecomposable(),
-                isOrderSensitive(),
                 new LazyAccumulatorFactoryBinder(aggregationMetadata, classLoader));
     }
 
