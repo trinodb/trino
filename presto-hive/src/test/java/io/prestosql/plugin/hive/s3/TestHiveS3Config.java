@@ -66,7 +66,8 @@ public class TestHiveS3Config
                 .setS3UserAgentPrefix("")
                 .setS3AclType(PrestoS3AclType.PRIVATE)
                 .setSkipGlacierObjects(false)
-                .setRequesterPaysEnabled(false));
+                .setRequesterPaysEnabled(false)
+                .setS3CsvComments("\uFDD0"));
     }
 
     @Test
@@ -106,6 +107,7 @@ public class TestHiveS3Config
                 .put("hive.s3.upload-acl-type", "PUBLIC_READ")
                 .put("hive.s3.skip-glacier-objects", "true")
                 .put("hive.s3.requester-pays.enabled", "true")
+                .put("hive.s3.csv-comments", "#")
                 .build();
 
         HiveS3Config expected = new HiveS3Config()
@@ -138,7 +140,8 @@ public class TestHiveS3Config
                 .setS3UserAgentPrefix("user-agent-prefix")
                 .setS3AclType(PrestoS3AclType.PUBLIC_READ)
                 .setSkipGlacierObjects(true)
-                .setRequesterPaysEnabled(true);
+                .setRequesterPaysEnabled(true)
+                .setS3CsvComments("#");
 
         assertFullMapping(properties, expected);
     }

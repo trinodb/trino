@@ -25,6 +25,7 @@ import java.io.File;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ACCESS_KEY;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ACL_TYPE;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_CONNECT_TIMEOUT;
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_CSV_COMMENTS;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ENCRYPTION_MATERIALS_PROVIDER;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ENDPOINT;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_EXTERNAL_ID;
@@ -86,6 +87,7 @@ public class PrestoS3ConfigurationInitializer
     private final String signerClass;
     private final boolean requesterPaysEnabled;
     private final boolean skipGlacierObjects;
+    private final String s3CsvComments;
 
     @Inject
     public PrestoS3ConfigurationInitializer(HiveS3Config config)
@@ -120,6 +122,7 @@ public class PrestoS3ConfigurationInitializer
         this.aclType = config.getS3AclType();
         this.skipGlacierObjects = config.isSkipGlacierObjects();
         this.requesterPaysEnabled = config.isRequesterPaysEnabled();
+        this.s3CsvComments = config.getS3CsvComments();
     }
 
     @Override
@@ -180,5 +183,6 @@ public class PrestoS3ConfigurationInitializer
         config.set(S3_ACL_TYPE, aclType.name());
         config.setBoolean(S3_SKIP_GLACIER_OBJECTS, skipGlacierObjects);
         config.setBoolean(S3_REQUESTER_PAYS_ENABLED, requesterPaysEnabled);
+        config.set(S3_CSV_COMMENTS, s3CsvComments);
     }
 }
