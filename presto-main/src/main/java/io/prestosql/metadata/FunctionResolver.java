@@ -61,7 +61,7 @@ public class FunctionResolver
             Optional<BoundVariables> boundVariables = new SignatureBinder(metadata, candidate.getSignature(), false)
                     .bindVariables(argumentTypeSignatureProviders, signature.getReturnType());
             if (boundVariables.isPresent()) {
-                return new ResolvedFunction(signature, candidate.getFunctionId());
+                return new ResolvedFunction(toBoundSignature(signature), candidate.getFunctionId());
             }
         }
 
@@ -73,11 +73,21 @@ public class FunctionResolver
             Optional<BoundVariables> boundVariables = new SignatureBinder(metadata, candidate.getSignature(), false)
                     .bindVariables(argumentTypeSignatureProviders, signature.getReturnType());
             if (boundVariables.isPresent()) {
-                return new ResolvedFunction(signature, candidate.getFunctionId());
+                return new ResolvedFunction(toBoundSignature(signature), candidate.getFunctionId());
             }
         }
 
         throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", signature));
+    }
+
+    private BoundSignature toBoundSignature(Signature signature)
+    {
+        return new BoundSignature(
+                signature.getName(),
+                metadata.getType(signature.getReturnType()),
+                signature.getArgumentTypes().stream()
+                        .map(metadata::getType)
+                        .collect(toImmutableList()));
     }
 
     private static boolean possibleExactCastMatch(Signature signature, Signature declaredSignature)
@@ -159,7 +169,8 @@ public class FunctionResolver
         }
 
         if (applicableFunctions.size() == 1) {
-            return Optional.of(getOnlyElement(applicableFunctions).getResolvedFunction());
+            ApplicableFunction applicableFunction = getOnlyElement(applicableFunctions);
+            return Optional.of(new ResolvedFunction(toBoundSignature(applicableFunction.getBoundSignature()), applicableFunction.getFunction().getFunctionId()));
         }
 
         StringBuilder errorMessageBuilder = new StringBuilder();
@@ -337,6 +348,8 @@ public class FunctionResolver
     private static class ApplicableFunction
     {
         private final FunctionMetadata function;
+        // Ideally this would be a real bound signature, but the resolver algorithm considers functions with illegal types (e.g., char(large_number))
+        // We could just not consider these applicable functions, but there are tests that depend on the specific error messages for these failures.
         private final Signature boundSignature;
 
         private ApplicableFunction(FunctionMetadata function, Signature boundSignature)
@@ -358,11 +371,6 @@ public class FunctionResolver
         public Signature getBoundSignature()
         {
             return boundSignature;
-        }
-
-        public ResolvedFunction getResolvedFunction()
-        {
-            return new ResolvedFunction(boundSignature, function.getFunctionId());
         }
 
         @Override

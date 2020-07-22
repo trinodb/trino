@@ -23,11 +23,11 @@ import com.google.common.collect.Maps;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.AbstractMockMetadata;
+import io.prestosql.metadata.BoundSignature;
 import io.prestosql.metadata.FunctionInvoker;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TableProperties;
 import io.prestosql.security.AllowAllAccessControl;
@@ -1171,8 +1171,8 @@ public class TestEffectivePredicateExtractor
 
     private static ResolvedFunction fakeFunction(String name)
     {
-        Signature boundSignature = new Signature(name, UNKNOWN.getTypeSignature(), ImmutableList.of());
-        return new ResolvedFunction(boundSignature, toFunctionId(boundSignature));
+        BoundSignature boundSignature = new BoundSignature(name, UNKNOWN, ImmutableList.of());
+        return new ResolvedFunction(boundSignature, toFunctionId(boundSignature.toSignature()));
     }
 
     private Set<Expression> normalizeConjuncts(Expression... conjuncts)

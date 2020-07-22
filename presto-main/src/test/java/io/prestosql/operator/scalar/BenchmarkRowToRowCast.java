@@ -94,7 +94,6 @@ public class BenchmarkRowToRowCast
 
             List<RowExpression> projections = ImmutableList.of(new CallExpression(
                     metadata.getCoercion(RowType.anonymous(toFieldTypes), RowType.anonymous(fromFieldTypes)),
-                    RowType.anonymous(fromFieldTypes),
                     ImmutableList.of(field(0, RowType.anonymous(toFieldTypes)))));
 
             pageProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))

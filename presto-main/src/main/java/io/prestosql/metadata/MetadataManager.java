@@ -23,6 +23,7 @@ import com.google.common.collect.Multimap;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
+import io.prestosql.metadata.ResolvedFunction.ResolvedFunctionDecoder;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.PrestoException;
@@ -177,6 +178,8 @@ public final class MetadataManager
     private final ConcurrentMap<String, BlockEncoding> blockEncodings = new ConcurrentHashMap<>();
     private final ConcurrentMap<QueryId, QueryCatalogs> catalogsByQueryId = new ConcurrentHashMap<>();
 
+    private final ResolvedFunctionDecoder functionDecoder;
+
     @Inject
     public MetadataManager(
             FeaturesConfig featuresConfig,
@@ -217,6 +220,8 @@ public final class MetadataManager
         addBlockEncoding(new LazyBlockEncoding());
 
         verifyComparableOrderableContract();
+
+        functionDecoder = new ResolvedFunctionDecoder(this::getType);
     }
 
     public static MetadataManager createTestMetadataManager()
@@ -1475,9 +1480,16 @@ public final class MetadataManager
     }
 
     @Override
+    public ResolvedFunction decodeFunction(QualifiedName name)
+    {
+        return functionDecoder.fromQualifiedName(name)
+                .orElseThrow(() -> new IllegalArgumentException("Function is not resolved: " + name));
+    }
+
+    @Override
     public ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
-        return ResolvedFunction.fromQualifiedName(name)
+        return functionDecoder.fromQualifiedName(name)
                 .orElseGet(() -> functionResolver.resolveFunction(functions.get(name), name, parameterTypes));
     }
 
@@ -1548,7 +1560,7 @@ public final class MetadataManager
         }
         return new FunctionMetadata(
                 functionMetadata.getFunctionId(),
-                resolvedFunction.getSignature(),
+                resolvedFunction.getSignature().toSignature(),
                 functionMetadata.isNullable(),
                 argumentDefinitions,
                 functionMetadata.isHidden(),

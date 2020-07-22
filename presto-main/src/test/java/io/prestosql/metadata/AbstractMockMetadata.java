@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
+import io.prestosql.metadata.ResolvedFunction.ResolvedFunctionDecoder;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.PrestoException;
@@ -76,6 +77,8 @@ public abstract class AbstractMockMetadata
     {
         return new AbstractMockMetadata() {};
     }
+
+    private final ResolvedFunctionDecoder functionDecoder = new ResolvedFunctionDecoder(this::getType);
 
     @Override
     public Set<ConnectorCapabilities> getConnectorCapabilities(Session session, CatalogName catalogName)
@@ -599,12 +602,19 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
+    public ResolvedFunction decodeFunction(QualifiedName name)
+    {
+        return functionDecoder.fromQualifiedName(name)
+                .orElseThrow(() -> new IllegalArgumentException("Function is not resolved: " + name));
+    }
+
+    @Override
     public ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         String nameSuffix = name.getSuffix();
         if (nameSuffix.equals("rand") && parameterTypes.isEmpty()) {
-            Signature boundSignature = new Signature(nameSuffix, DOUBLE.getTypeSignature(), ImmutableList.of());
-            return new ResolvedFunction(boundSignature, toFunctionId(boundSignature));
+            BoundSignature boundSignature = new BoundSignature(nameSuffix, DOUBLE, ImmutableList.of());
+            return new ResolvedFunction(boundSignature, toFunctionId(boundSignature.toSignature()));
         }
         throw new PrestoException(FUNCTION_NOT_FOUND, name + "(" + Joiner.on(", ").join(parameterTypes) + ")");
     }
@@ -637,9 +647,9 @@ public abstract class AbstractMockMetadata
     @Override
     public FunctionMetadata getFunctionMetadata(ResolvedFunction resolvedFunction)
     {
-        Signature signature = resolvedFunction.getSignature();
+        BoundSignature signature = resolvedFunction.getSignature();
         if (signature.getName().equals("rand") && signature.getArgumentTypes().isEmpty()) {
-            return new FunctionMetadata(signature, false, ImmutableList.of(), false, false, "", SCALAR);
+            return new FunctionMetadata(signature.toSignature(), false, ImmutableList.of(), false, false, "", SCALAR);
         }
         throw new PrestoException(FUNCTION_NOT_FOUND, signature.toString());
     }

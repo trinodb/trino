@@ -47,7 +47,6 @@ public class TestPageFunctionCompiler
     private static final Metadata METADATA = createTestMetadataManager();
     private static final CallExpression ADD_10_EXPRESSION = call(
             METADATA.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
-            BIGINT,
             field(0, BIGINT),
             constant(10L, BIGINT));
 

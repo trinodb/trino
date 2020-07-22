@@ -16,6 +16,7 @@ package io.prestosql.sql.planner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
+import io.prestosql.metadata.BoundSignature;
 import io.prestosql.metadata.LiteralFunction;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
@@ -63,11 +64,11 @@ public class TestLiteralEncoder
     private final LiteralEncoder encoder = new LiteralEncoder(metadata);
 
     private final ResolvedFunction literalFunction = new ResolvedFunction(
-            new Signature(LITERAL_FUNCTION_NAME, VARBINARY.getTypeSignature(), ImmutableList.of(VARBINARY.getTypeSignature())),
+            new BoundSignature(LITERAL_FUNCTION_NAME, VARBINARY, ImmutableList.of(VARBINARY)),
             new LiteralFunction().getFunctionMetadata().getFunctionId());
 
     private final ResolvedFunction base64Function = new ResolvedFunction(
-            new Signature("from_base64", VARBINARY.getTypeSignature(), ImmutableList.of(VARCHAR.getTypeSignature())),
+            new BoundSignature("from_base64", VARBINARY, ImmutableList.of(VARCHAR)),
             toFunctionId(new Signature("from_base64", VARBINARY.getTypeSignature(), ImmutableList.of(new TypeSignature("varchar", typeVariable("x"))))));
 
     @Test

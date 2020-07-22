@@ -108,7 +108,7 @@ public class InterpretedFunctionInvoker
     {
         ImmutableList.Builder<InvocationArgumentConvention> argumentConventions = ImmutableList.builder();
         for (int i = 0; i < functionMetadata.getArgumentDefinitions().size(); i++) {
-            if (function.getSignature().getArgumentTypes().get(i).getBase().equalsIgnoreCase(FunctionType.NAME)) {
+            if (function.getSignature().getArgumentTypes().get(i) instanceof FunctionType) {
                 argumentConventions.add(FUNCTION);
             }
             else if (functionMetadata.getArgumentDefinitions().get(i).isNullable()) {

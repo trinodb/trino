@@ -19,7 +19,6 @@ import com.google.common.collect.Lists;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.type.DecimalParseResult;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.RowType;
@@ -256,13 +255,11 @@ public final class SqlToRowExpressionTranslator
             if (JSON.equals(type)) {
                 return call(
                         metadata.resolveFunction(QualifiedName.of("json_parse"), fromTypes(VARCHAR)),
-                        type,
                         constant(utf8Slice(node.getValue()), VARCHAR));
             }
 
             return call(
                     metadata.getCoercion(VARCHAR, type),
-                    type,
                     constant(utf8Slice(node.getValue()), VARCHAR));
         }
 
@@ -332,7 +329,6 @@ public final class SqlToRowExpressionTranslator
 
             return call(
                     standardFunctionResolution.comparisonFunction(node.getOperator(), left.getType(), right.getType()),
-                    BOOLEAN,
                     left,
                     right);
         }
@@ -344,10 +340,7 @@ public final class SqlToRowExpressionTranslator
                     .map(value -> process(value, context))
                     .collect(toImmutableList());
 
-            ResolvedFunction resolvedFunction = ResolvedFunction.fromQualifiedName(node.getName())
-                    .orElseThrow(() -> new IllegalArgumentException("function call has not been resolved: " + node));
-
-            return new CallExpression(resolvedFunction, getType(node), arguments);
+            return new CallExpression(metadata.decodeFunction(node.getName()), arguments);
         }
 
         @Override
@@ -401,7 +394,6 @@ public final class SqlToRowExpressionTranslator
 
             return call(
                     standardFunctionResolution.arithmeticFunction(node.getOperator(), left.getType(), right.getType()),
-                    getType(node),
                     left,
                     right);
         }
@@ -417,7 +409,6 @@ public final class SqlToRowExpressionTranslator
                 case MINUS:
                     return call(
                             metadata.resolveOperator(NEGATION, ImmutableList.of(expression.getType())),
-                            getType(node),
                             expression);
             }
 
@@ -458,13 +449,11 @@ public final class SqlToRowExpressionTranslator
             if (node.isSafe()) {
                 return call(
                         metadata.getCoercion(QualifiedName.of("TRY_CAST"), value.getType(), returnType),
-                        returnType,
                         value);
             }
 
             return call(
                     metadata.getCoercion(value.getType(), returnType),
-                    returnType,
                     value);
         }
 
@@ -487,7 +476,7 @@ public final class SqlToRowExpressionTranslator
             @Override
             public RowExpression visitCall(CallExpression call, Void context)
             {
-                return new CallExpression(call.getResolvedFunction(), targetType, call.getArguments());
+                return new CallExpression(call.getResolvedFunction(), call.getArguments());
             }
 
             @Override
@@ -670,7 +659,6 @@ public final class SqlToRowExpressionTranslator
         {
             return new CallExpression(
                     metadata.resolveFunction(QualifiedName.of("not"), fromTypes(BOOLEAN)),
-                    BOOLEAN,
                     ImmutableList.of(value));
         }
 
@@ -710,7 +698,6 @@ public final class SqlToRowExpressionTranslator
 
             return call(
                     metadata.resolveOperator(SUBSCRIPT, ImmutableList.of(base.getType(), index.getType())),
-                    getType(node),
                     base,
                     index);
         }

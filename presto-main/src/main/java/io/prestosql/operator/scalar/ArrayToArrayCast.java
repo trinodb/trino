@@ -21,10 +21,10 @@ import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
+import io.prestosql.metadata.BoundSignature;
 import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -90,7 +90,7 @@ public class ArrayToArrayCast
     {
         CallSiteBinder binder = new CallSiteBinder();
 
-        Signature elementCastSignature = elementCast.getSignature();
+        BoundSignature elementCastSignature = elementCast.getSignature();
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
                 makeClassName(Joiner.on("$").join("ArrayCast", elementCastSignature.getArgumentTypes().get(0), elementCastSignature.getReturnType())),
@@ -113,8 +113,8 @@ public class ArrayToArrayCast
         body.append(wasNull.set(constantBoolean(false)));
 
         // cast map elements
-        Type fromElementType = metadata.getType(elementCastSignature.getArgumentTypes().get(0));
-        Type toElementType = metadata.getType(elementCastSignature.getReturnType());
+        Type fromElementType = elementCastSignature.getArgumentTypes().get(0);
+        Type toElementType = elementCastSignature.getReturnType();
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(definition, binder);
         ArrayMapBytecodeExpression newArray = ArrayGeneratorUtils.map(scope, cachedInstanceBinder, fromElementType, toElementType, value, elementCast, metadata);
 

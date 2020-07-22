@@ -52,7 +52,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.sql.ExpressionTestUtils.getFunctionName;
+import static io.prestosql.metadata.ResolvedFunction.extractFunctionName;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -486,7 +486,7 @@ public final class ExpressionVerifier
         FunctionCall expected = (FunctionCall) expectedExpression;
 
         return actual.isDistinct() == expected.isDistinct() &&
-                getFunctionName(actual).equals(getFunctionName(expected)) &&
+                extractFunctionName(actual.getName()).equals(extractFunctionName(expected.getName())) &&
                 process(actual.getArguments(), expected.getArguments()) &&
                 process(actual.getFilter(), expected.getFilter()) &&
                 process(actual.getWindow(), expected.getWindow());

@@ -21,7 +21,6 @@ import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.WindowNode;
 import io.prestosql.sql.planner.plan.WindowNode.Function;
 import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.Map;
 import java.util.Objects;
@@ -29,7 +28,7 @@ import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.sql.ExpressionTestUtils.getFunctionName;
+import static io.prestosql.metadata.ResolvedFunction.extractFunctionName;
 import static java.util.Objects.requireNonNull;
 
 public class WindowFunctionMatcher
@@ -87,7 +86,7 @@ public class WindowFunctionMatcher
 
         return resolvedFunction.map(windowFunction.getResolvedFunction()::equals).orElse(true) &&
                 expectedFrame.map(windowFunction.getFrame()::equals).orElse(true) &&
-                Objects.equals(getFunctionName(expectedCall), QualifiedName.of(windowFunction.getResolvedFunction().getSignature().getName())) &&
+                Objects.equals(extractFunctionName(expectedCall.getName()), windowFunction.getResolvedFunction().getSignature().getName()) &&
                 Objects.equals(expectedCall.getArguments(), windowFunction.getArguments());
     }
 

@@ -78,7 +78,6 @@ public class TestExpressionOptimizer
         for (int i = 0; i < 100; i++) {
             expression = new CallExpression(
                     metadata.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
-                    BIGINT,
                     ImmutableList.of(expression, constant(1L, BIGINT)));
         }
         optimizer.optimize(expression);
@@ -93,7 +92,6 @@ public class TestExpressionOptimizer
 
         RowExpression condition = new CallExpression(
                 metadata.resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
-                BOOLEAN,
                 ImmutableList.of(constant(3L, BIGINT), constant(3L, BIGINT)));
         assertEquals(optimizer.optimize(ifExpression(condition, 1L, 2L)), constant(1L, BIGINT));
     }
@@ -105,7 +103,7 @@ public class TestExpressionOptimizer
 
         // constant
         ResolvedFunction jsonCastFunction = metadata.getCoercion(JSON, new ArrayType(INTEGER));
-        RowExpression jsonCastExpression = new CallExpression(jsonCastFunction, new ArrayType(INTEGER), ImmutableList.of(call(jsonParseFunction, JSON, constant(utf8Slice("[1, 2]"), VARCHAR))));
+        RowExpression jsonCastExpression = new CallExpression(jsonCastFunction, ImmutableList.of(call(jsonParseFunction, constant(utf8Slice("[1, 2]"), VARCHAR))));
         RowExpression resultExpression = optimizer.optimize(jsonCastExpression);
         assertInstanceOf(resultExpression, ConstantExpression.class);
         Object resultValue = ((ConstantExpression) resultExpression).getValue();
@@ -125,13 +123,12 @@ public class TestExpressionOptimizer
     private void testCastWithJsonParseOptimization(ResolvedFunction jsonParseFunction, Type targetType, String jsonStringToRowName)
     {
         ResolvedFunction jsonCastFunction = metadata.getCoercion(JSON, targetType);
-        RowExpression jsonCastExpression = new CallExpression(jsonCastFunction, targetType, ImmutableList.of(call(jsonParseFunction, JSON, field(1, VARCHAR))));
+        RowExpression jsonCastExpression = new CallExpression(jsonCastFunction, ImmutableList.of(call(jsonParseFunction, field(1, VARCHAR))));
         RowExpression resultExpression = optimizer.optimize(jsonCastExpression);
         assertEquals(
                 resultExpression,
                 call(
                         metadata.getCoercion(QualifiedName.of(jsonStringToRowName), VARCHAR, targetType),
-                        targetType,
                         field(1, VARCHAR)));
     }
 
