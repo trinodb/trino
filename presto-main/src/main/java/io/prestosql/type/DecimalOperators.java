@@ -92,7 +92,7 @@ public final class DecimalOperators
                 .argumentTypes(decimalLeftSignature, decimalRightSignature)
                 .returnType(decimalResultSignature)
                 .build();
-        return SqlScalarFunction.builder(DecimalOperators.class)
+        return new PolymorphicScalarFunctionBuilder(DecimalOperators.class)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -174,7 +174,7 @@ public final class DecimalOperators
                 .argumentTypes(decimalLeftSignature, decimalRightSignature)
                 .returnType(decimalResultSignature)
                 .build();
-        return SqlScalarFunction.builder(DecimalOperators.class)
+        return new PolymorphicScalarFunctionBuilder(DecimalOperators.class)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -252,7 +252,7 @@ public final class DecimalOperators
                 .argumentTypes(decimalLeftSignature, decimalRightSignature)
                 .returnType(decimalResultSignature)
                 .build();
-        return SqlScalarFunction.builder(DecimalOperators.class)
+        return new PolymorphicScalarFunctionBuilder(DecimalOperators.class)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -317,7 +317,7 @@ public final class DecimalOperators
                 .argumentTypes(decimalLeftSignature, decimalRightSignature)
                 .returnType(decimalResultSignature)
                 .build();
-        return SqlScalarFunction.builder(DecimalOperators.class)
+        return new PolymorphicScalarFunctionBuilder(DecimalOperators.class)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -458,7 +458,7 @@ public final class DecimalOperators
 
     public static SqlScalarFunction modulusScalarFunction(Signature signature)
     {
-        return SqlScalarFunction.builder(DecimalOperators.class)
+        return new PolymorphicScalarFunctionBuilder(DecimalOperators.class)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice

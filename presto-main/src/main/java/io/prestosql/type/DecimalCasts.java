@@ -22,6 +22,7 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.prestosql.annotation.UsedByGeneratedCode;
+import io.prestosql.metadata.PolymorphicScalarFunctionBuilder;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.PrestoException;
@@ -104,7 +105,7 @@ public final class DecimalCasts
                 .argumentTypes(new TypeSignature("decimal", typeVariable("precision"), typeVariable("scale")))
                 .returnType(to)
                 .build();
-        return SqlScalarFunction.builder(DecimalCasts.class)
+        return new PolymorphicScalarFunctionBuilder(DecimalCasts.class)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -138,7 +139,7 @@ public final class DecimalCasts
                 .argumentTypes(from)
                 .returnType(new TypeSignature("decimal", typeVariable("precision"), typeVariable("scale")))
                 .build();
-        return SqlScalarFunction.builder(DecimalCasts.class)
+        return new PolymorphicScalarFunctionBuilder(DecimalCasts.class)
                 .signature(signature)
                 .nullableResult(nullableResult)
                 .deterministic(true)

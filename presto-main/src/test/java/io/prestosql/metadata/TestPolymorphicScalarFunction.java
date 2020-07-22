@@ -81,7 +81,7 @@ public class TestPolymorphicScalarFunction
                 .returnType(BOOLEAN.getTypeSignature())
                 .build();
 
-        SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
+        SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(TestMethods.class)
                 .signature(signature)
                 .argumentDefinitions(
                         new FunctionArgumentDefinition(true),
@@ -120,7 +120,7 @@ public class TestPolymorphicScalarFunction
     public void testSelectsMethodBasedOnArgumentTypes()
             throws Throwable
     {
-        SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
+        SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(TestMethods.class)
                 .signature(SIGNATURE)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -138,7 +138,7 @@ public class TestPolymorphicScalarFunction
     public void testSelectsMethodBasedOnReturnType()
             throws Throwable
     {
-        SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
+        SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(TestMethods.class)
                 .signature(SIGNATURE)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -164,7 +164,7 @@ public class TestPolymorphicScalarFunction
                 .argumentTypes(new TypeSignature("varchar", typeVariable("x")))
                 .build();
 
-        SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
+        SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(TestMethods.class)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -188,7 +188,7 @@ public class TestPolymorphicScalarFunction
                 .argumentTypes(new TypeSignature("V"))
                 .build();
 
-        SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
+        SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(TestMethods.class)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -210,7 +210,7 @@ public class TestPolymorphicScalarFunction
                 .argumentTypes(new TypeSignature("varchar", typeVariable("x")))
                 .build();
 
-        SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
+        SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(TestMethods.class)
                 .signature(signature)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -223,7 +223,7 @@ public class TestPolymorphicScalarFunction
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "method foo was not found in class io.prestosql.metadata.TestPolymorphicScalarFunction\\$TestMethods")
     public void testFailIfNotAllMethodsPresent()
     {
-        SqlScalarFunction.builder(TestMethods.class)
+        new PolymorphicScalarFunctionBuilder(TestMethods.class)
                 .signature(SIGNATURE)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -235,7 +235,7 @@ public class TestPolymorphicScalarFunction
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "methods must be selected first")
     public void testFailNoMethodsAreSelectedWhenExtraParametersFunctionIsSet()
     {
-        SqlScalarFunction.builder(TestMethods.class)
+        new PolymorphicScalarFunctionBuilder(TestMethods.class)
                 .signature(SIGNATURE)
                 .deterministic(true)
                 .choice(choice -> choice
@@ -247,7 +247,7 @@ public class TestPolymorphicScalarFunction
     @Test(expectedExceptions = IllegalStateException.class, expectedExceptionsMessageRegExp = "two matching methods \\(varcharToBigintReturnFirstExtraParameter and varcharToBigintReturnExtraParameter\\) for parameter types \\[varchar\\(10\\)\\]")
     public void testFailIfTwoMethodsWithSameArguments()
     {
-        SqlScalarFunction function = SqlScalarFunction.builder(TestMethods.class)
+        SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(TestMethods.class)
                 .signature(SIGNATURE)
                 .deterministic(true)
                 .choice(choice -> choice
