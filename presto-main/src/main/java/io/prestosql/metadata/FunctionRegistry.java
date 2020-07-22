@@ -813,7 +813,7 @@ public class FunctionRegistry
                 InternalAggregationFunction aggregationFunction = specializedAggregationCache.get(functionBinding, () -> specializedAggregation(metadata, functionBinding));
                 return supplier(function.getFunctionMetadata().getSignature(), aggregationFunction);
             }
-            return specializedWindowCache.get(functionBinding, () -> specializeWindow(metadata, functionBinding));
+            return specializedWindowCache.get(functionBinding, () -> specializeWindow(functionBinding));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), PrestoException.class);
@@ -821,13 +821,10 @@ public class FunctionRegistry
         }
     }
 
-    private WindowFunctionSupplier specializeWindow(Metadata metadata, FunctionBinding functionBinding)
+    private WindowFunctionSupplier specializeWindow(FunctionBinding functionBinding)
     {
         SqlWindowFunction function = (SqlWindowFunction) functions.get(functionBinding.getFunctionId());
-        return function.specialize(
-                new BoundVariables(functionBinding.getTypeVariables(), functionBinding.getLongVariables()),
-                functionBinding.getBoundSignature().getArgumentTypes().size(),
-                metadata);
+        return function.specialize(functionBinding);
     }
 
     public InternalAggregationFunction getAggregateFunctionImplementation(Metadata metadata, FunctionBinding functionBinding)
