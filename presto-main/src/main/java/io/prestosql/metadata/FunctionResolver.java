@@ -89,7 +89,6 @@ public class FunctionResolver
                         .map(metadata::getType)
                         .collect(toImmutableList()));
         return SignatureBinder.bindFunction(
-                metadata,
                 functionMetadata.getFunctionId(),
                 functionMetadata.getSignature(),
                 boundSignature);
