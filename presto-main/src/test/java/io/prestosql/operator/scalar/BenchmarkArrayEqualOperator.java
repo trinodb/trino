@@ -39,7 +39,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.operator.scalar.TypeOperatorBenchmarkUtil.addElement;
-import static io.prestosql.operator.scalar.TypeOperatorBenchmarkUtil.getHashCodeBlockMethod;
+import static io.prestosql.operator.scalar.TypeOperatorBenchmarkUtil.getEqualBlockMethod;
 import static io.prestosql.operator.scalar.TypeOperatorBenchmarkUtil.toType;
 
 @SuppressWarnings("MethodMayBeStatic")
@@ -49,16 +49,16 @@ import static io.prestosql.operator.scalar.TypeOperatorBenchmarkUtil.toType;
 @Warmup(iterations = 30, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 15, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
-public class BenchmarkArrayHashCodeOperator
+public class BenchmarkArrayEqualOperator
 {
     private static final int POSITIONS = 10_000;
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS)
-    public long hashOperator(BenchmarkData data)
+    public long equalOperator(BenchmarkData data)
             throws Throwable
     {
-        return (long) data.getHashBlock().invokeExact(data.getBlock());
+        return (long) data.getEqualBlock().invokeExact(data.getLeftBlock(), data.getRightBlock());
     }
 
     @SuppressWarnings("FieldMayBeFinal")
@@ -71,38 +71,53 @@ public class BenchmarkArrayHashCodeOperator
         @Param({"1", "10", "100", "1000"})
         private int arraySize = 10;
 
-        private MethodHandle hashBlock;
-        private Block block;
+        private MethodHandle equalBlock;
+        private Block leftBlock;
+        private Block rightBlock;
 
         @Setup
         public void setup()
         {
             ArrayType arrayType = new ArrayType(toType(type));
-            block = createChannel(POSITIONS, arraySize, arrayType);
-            hashBlock = getHashCodeBlockMethod(arrayType);
+            Block[] channels = createChannels(POSITIONS, arraySize, arrayType);
+            leftBlock = channels[0];
+            rightBlock = channels[1];
+
+            equalBlock = getEqualBlockMethod(arrayType);
         }
 
-        private static Block createChannel(int positionCount, int arraySize, ArrayType arrayType)
+        private static Block[] createChannels(int positionCount, int arraySize, ArrayType arrayType)
         {
-            BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, positionCount);
+            ThreadLocalRandom random = ThreadLocalRandom.current();
+            BlockBuilder leftBlockBuilder = arrayType.createBlockBuilder(null, positionCount);
+            BlockBuilder rightBlockBuilder = arrayType.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
-                BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
-                for (int i = 0; i < arraySize; i++) {
-                    addElement(arrayType.getElementType(), ThreadLocalRandom.current(), entryBuilder);
+                BlockBuilder leftEntryBuilder = leftBlockBuilder.beginBlockEntry();
+                BlockBuilder rightEntryBuilder = rightBlockBuilder.beginBlockEntry();
+                for (int i = 0; i < arraySize - 1; i++) {
+                    addElement(arrayType.getElementType(), random, leftEntryBuilder, rightEntryBuilder, true);
                 }
-                blockBuilder.closeEntry();
+                // last element has a 50% chance of being equal
+                addElement(arrayType.getElementType(), random, leftEntryBuilder, rightEntryBuilder, random.nextBoolean());
+                leftBlockBuilder.closeEntry();
+                rightBlockBuilder.closeEntry();
             }
-            return blockBuilder.build();
+            return new Block[] {leftBlockBuilder.build(), rightBlockBuilder.build()};
         }
 
-        public MethodHandle getHashBlock()
+        public MethodHandle getEqualBlock()
         {
-            return hashBlock;
+            return equalBlock;
         }
 
-        public Block getBlock()
+        public Block getLeftBlock()
         {
-            return block;
+            return leftBlock;
+        }
+
+        public Block getRightBlock()
+        {
+            return rightBlock;
         }
     }
 
@@ -112,7 +127,7 @@ public class BenchmarkArrayHashCodeOperator
     {
         BenchmarkData data = new BenchmarkData();
         data.setup();
-        hashOperator(data);
+        equalOperator(data);
     }
 
     public static void main(String[] args)
@@ -120,7 +135,7 @@ public class BenchmarkArrayHashCodeOperator
     {
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkArrayHashCodeOperator.class.getSimpleName() + ".*")
+                .include(".*" + BenchmarkArrayEqualOperator.class.getSimpleName() + ".*")
                 .build();
         new Runner(options).run();
     }

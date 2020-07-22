@@ -15,7 +15,7 @@ package io.prestosql.operator.scalar;
 
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.Type;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -29,6 +29,7 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
+import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
@@ -39,70 +40,75 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.operator.scalar.TypeOperatorBenchmarkUtil.addElement;
-import static io.prestosql.operator.scalar.TypeOperatorBenchmarkUtil.getHashCodeBlockMethod;
+import static io.prestosql.operator.scalar.TypeOperatorBenchmarkUtil.getEqualBlockMethod;
 import static io.prestosql.operator.scalar.TypeOperatorBenchmarkUtil.toType;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
-@Fork(2)
+@Fork(4)
 @Warmup(iterations = 30, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 15, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
-public class BenchmarkArrayHashCodeOperator
+public class BenchmarkEqualOperator
 {
     private static final int POSITIONS = 10_000;
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS)
-    public long hashOperator(BenchmarkData data)
+    public long equalOperator(BenchmarkData data)
             throws Throwable
     {
-        return (long) data.getHashBlock().invokeExact(data.getBlock());
+        return (long) data.getEqualBlock().invokeExact(data.getLeftBlock(), data.getRightBlock());
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        @Param({"BIGINT", "VARCHAR"})
+        @Param({"BIGINT", "VARCHAR", "DOUBLE", "BOOLEAN"})
         private String type = "BIGINT";
 
-        @Param({"1", "10", "100", "1000"})
-        private int arraySize = 10;
-
-        private MethodHandle hashBlock;
-        private Block block;
+        private MethodHandle equalBlock;
+        private Block leftBlock;
+        private Block rightBlock;
 
         @Setup
         public void setup()
         {
-            ArrayType arrayType = new ArrayType(toType(type));
-            block = createChannel(POSITIONS, arraySize, arrayType);
-            hashBlock = getHashCodeBlockMethod(arrayType);
+            Type type = toType(this.type);
+
+            Block[] channels = createChannels(POSITIONS, type);
+            leftBlock = channels[0];
+            rightBlock = channels[1];
+
+            equalBlock = getEqualBlockMethod(type);
         }
 
-        private static Block createChannel(int positionCount, int arraySize, ArrayType arrayType)
+        private static Block[] createChannels(int positionCount, Type type)
         {
-            BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, positionCount);
+            ThreadLocalRandom random = ThreadLocalRandom.current();
+            BlockBuilder leftBlockBuilder = type.createBlockBuilder(null, positionCount);
+            BlockBuilder rightBlockBuilder = type.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
-                BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
-                for (int i = 0; i < arraySize; i++) {
-                    addElement(arrayType.getElementType(), ThreadLocalRandom.current(), entryBuilder);
-                }
-                blockBuilder.closeEntry();
+                // 50% chance of being equal
+                addElement(type, random, leftBlockBuilder, rightBlockBuilder, random.nextBoolean());
             }
-            return blockBuilder.build();
+            return new Block[] {leftBlockBuilder.build(), rightBlockBuilder.build()};
         }
 
-        public MethodHandle getHashBlock()
+        public MethodHandle getEqualBlock()
         {
-            return hashBlock;
+            return equalBlock;
         }
 
-        public Block getBlock()
+        public Block getLeftBlock()
         {
-            return block;
+            return leftBlock;
+        }
+
+        public Block getRightBlock()
+        {
+            return rightBlock;
         }
     }
 
@@ -112,16 +118,17 @@ public class BenchmarkArrayHashCodeOperator
     {
         BenchmarkData data = new BenchmarkData();
         data.setup();
-        hashOperator(data);
+        equalOperator(data);
     }
 
     public static void main(String[] args)
-            throws Throwable
+            throws RunnerException
     {
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkArrayHashCodeOperator.class.getSimpleName() + ".*")
+                .include(".*" + BenchmarkEqualOperator.class.getSimpleName() + ".*")
                 .build();
+
         new Runner(options).run();
     }
 }

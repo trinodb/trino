@@ -13,9 +13,11 @@
  */
 package io.prestosql.operator.scalar;
 
+import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.RowType.Field;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -29,27 +31,30 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
+import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 import org.testng.annotations.Test;
 
 import java.lang.invoke.MethodHandle;
+import java.util.List;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.operator.scalar.TypeOperatorBenchmarkUtil.addElement;
 import static io.prestosql.operator.scalar.TypeOperatorBenchmarkUtil.getHashCodeBlockMethod;
 import static io.prestosql.operator.scalar.TypeOperatorBenchmarkUtil.toType;
+import static java.util.Collections.nCopies;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
 @Fork(2)
-@Warmup(iterations = 30, time = 500, timeUnit = TimeUnit.MILLISECONDS)
-@Measurement(iterations = 15, time = 500, timeUnit = TimeUnit.MILLISECONDS)
+@Warmup(iterations = 30, time = 1000, timeUnit = TimeUnit.MILLISECONDS)
+@Measurement(iterations = 15, time = 1000, timeUnit = TimeUnit.MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
-public class BenchmarkArrayHashCodeOperator
+public class BenchmarkRowHashCodeOperator
 {
     private static final int POSITIONS = 10_000;
 
@@ -61,15 +66,14 @@ public class BenchmarkArrayHashCodeOperator
         return (long) data.getHashBlock().invokeExact(data.getBlock());
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class BenchmarkData
     {
         @Param({"BIGINT", "VARCHAR"})
         private String type = "BIGINT";
 
-        @Param({"1", "10", "100", "1000"})
-        private int arraySize = 10;
+        @Param({"1", "8", "16", "32", "64", "128"})
+        private int fieldCount = 32;
 
         private MethodHandle hashBlock;
         private Block block;
@@ -77,18 +81,21 @@ public class BenchmarkArrayHashCodeOperator
         @Setup
         public void setup()
         {
-            ArrayType arrayType = new ArrayType(toType(type));
-            block = createChannel(POSITIONS, arraySize, arrayType);
-            hashBlock = getHashCodeBlockMethod(arrayType);
+            RowType rowType = RowType.anonymous(ImmutableList.copyOf(nCopies(fieldCount, toType(type))));
+            block = createChannel(POSITIONS, rowType);
+            hashBlock = getHashCodeBlockMethod(rowType);
         }
 
-        private static Block createChannel(int positionCount, int arraySize, ArrayType arrayType)
+        private static Block createChannel(int positionCount, RowType rowType)
         {
-            BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, positionCount);
+            ThreadLocalRandom random = ThreadLocalRandom.current();
+            BlockBuilder blockBuilder = rowType.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
                 BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
-                for (int i = 0; i < arraySize; i++) {
-                    addElement(arrayType.getElementType(), ThreadLocalRandom.current(), entryBuilder);
+
+                List<Field> fields = rowType.getFields();
+                for (Field field : fields) {
+                    addElement(field.getType(), random, entryBuilder);
                 }
                 blockBuilder.closeEntry();
             }
@@ -116,12 +123,13 @@ public class BenchmarkArrayHashCodeOperator
     }
 
     public static void main(String[] args)
-            throws Throwable
+            throws RunnerException
     {
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkArrayHashCodeOperator.class.getSimpleName() + ".*")
+                .include(".*" + BenchmarkRowHashCodeOperator.class.getSimpleName() + ".*")
                 .build();
+
         new Runner(options).run();
     }
 }
