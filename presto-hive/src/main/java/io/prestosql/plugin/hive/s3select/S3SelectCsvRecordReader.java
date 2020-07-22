@@ -19,6 +19,7 @@ import com.amazonaws.services.s3.model.ExpressionType;
 import com.amazonaws.services.s3.model.InputSerialization;
 import com.amazonaws.services.s3.model.OutputSerialization;
 import com.amazonaws.services.s3.model.SelectObjectContentRequest;
+import io.prestosql.plugin.hive.s3.HiveS3Config;
 import io.prestosql.plugin.hive.s3.PrestoS3FileSystem;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -26,22 +27,13 @@ import org.apache.hadoop.fs.Path;
 import java.net.URI;
 import java.util.Properties;
 
+import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_CSV_COMMENTS;
 import static org.apache.hadoop.hive.serde.serdeConstants.ESCAPE_CHAR;
 import static org.apache.hadoop.hive.serde.serdeConstants.QUOTE_CHAR;
 
 class S3SelectCsvRecordReader
         extends S3SelectLineRecordReader
 {
-    /*
-     * Sentinel unicode comment character (http://www.unicode.org/faq/private_use.html#nonchar_codes).
-     * It is expected that \uFDD0 sentinel comment character is not the first character in any row of user's CSV S3 object.
-     * The rows starting with \uFDD0 will be skipped by S3Select and will not be a part of the result set or aggregations.
-     * To process CSV objects that may contain \uFDD0 as first row character please disable S3SelectPushdown.
-     * TODO: Remove this proxy logic when S3Select API supports disabling of row level comments.
-     */
-
-    private static final String COMMENTS_CHAR_STR = "\uFDD0";
-
     public S3SelectCsvRecordReader(
             Configuration configuration,
             Path path,
@@ -55,8 +47,11 @@ class S3SelectCsvRecordReader
     }
 
     @Override
-    public SelectObjectContentRequest buildSelectObjectRequest(Properties schema, String query, Path path)
+    public SelectObjectContentRequest buildSelectObjectRequest(Properties schema, String query, Path path, Configuration configuration)
     {
+        HiveS3Config defaults = new HiveS3Config();
+        String s3CsvComments = configuration.get(S3_CSV_COMMENTS, defaults.getS3CsvComments());
+
         SelectObjectContentRequest selectObjectRequest = new SelectObjectContentRequest();
         URI uri = path.toUri();
         selectObjectRequest.setBucketName(PrestoS3FileSystem.extractBucketName(uri));
@@ -71,7 +66,7 @@ class S3SelectCsvRecordReader
         CSVInput selectObjectCSVInputSerialization = new CSVInput();
         selectObjectCSVInputSerialization.setRecordDelimiter(lineDelimiter);
         selectObjectCSVInputSerialization.setFieldDelimiter(fieldDelimiter);
-        selectObjectCSVInputSerialization.setComments(COMMENTS_CHAR_STR);
+        selectObjectCSVInputSerialization.setComments(s3CsvComments);
         selectObjectCSVInputSerialization.setQuoteCharacter(quoteChar);
         selectObjectCSVInputSerialization.setQuoteEscapeCharacter(escapeChar);
 
