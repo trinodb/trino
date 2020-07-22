@@ -184,7 +184,7 @@ public class TestIcebergSmoke
         String select3 = "SELECT CAST('2018-05-01 10:12:34' AS TIMESTAMP) _timestamp";
         assertUpdate(format("INSERT INTO %s " + select3, tableName), 1);
         assertQuery(format("SELECT COUNT(*) from %s", tableName), "SELECT 3");
-        MaterializedResult result = computeActual("SELECT * FROM " + tableName);
+
         assertQuery(format("SELECT * from %s WHERE _timestamp = CAST('2017-05-01 10:12:34' AS TIMESTAMP)", tableName), select1);
         assertQuery(format("SELECT * from %s WHERE _timestamp < CAST('2017-06-01 10:12:34' AS TIMESTAMP)", tableName), select1);
         assertQuery(format("SELECT * from %s WHERE _timestamp = CAST('2017-10-01 10:12:34' AS TIMESTAMP)", tableName), select2);
@@ -591,6 +591,215 @@ public class TestIcebergSmoke
         assertUpdate(session, "INSERT INTO test_predicating_on_real VALUES 1.2", 1);
         assertQuery(session, "SELECT * FROM test_predicating_on_real WHERE col = 1.2", "VALUES 1.2");
         dropTable(session, "test_predicating_on_real");
+    }
+
+    @Test
+    public void testDateTransforms()
+    {
+        testWithAllFileFormats(this::testHourTransformForFormat);
+        testWithAllFileFormats(this::testDayTransformForFormat);
+        testWithAllFileFormats(this::testMonthTransformForFormat);
+        testWithAllFileFormats(this::testYearTransformForFormat);
+    }
+
+    private void testHourTransformForFormat(Session session, FileFormat format)
+    {
+        String select = "SELECT d_hour, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_hour_transform$partitions\"";
+
+        assertUpdate(session, format("CREATE TABLE test_hour_transform (d TIMESTAMP, b BIGINT)" +
+                " WITH (format = '%s', partitioning = ARRAY['hour(d)'])", format.name()));
+
+        String insertSql = "INSERT INTO test_hour_transform VALUES" +
+                "(TIMESTAMP '2015-01-01 10:01:23', 1)," +
+                "(TIMESTAMP '2015-01-01 10:10:02', 2)," +
+                "(TIMESTAMP '2015-01-01 10:55:00', 3)," +
+                "(TIMESTAMP '2015-05-15 12:05:01', 4)," +
+                "(TIMESTAMP '2015-05-15 12:21:02', 5)," +
+                "(TIMESTAMP '2015-02-21 13:11:11', 6)," +
+                "(TIMESTAMP '2015-02-21 13:12:12', 7)";
+        assertUpdate(session, insertSql, 7);
+
+        assertQuery(session, "SELECT COUNT(*) FROM \"test_hour_transform$partitions\"", "SELECT 3");
+
+        assertQuery(session, "SELECT b FROM test_hour_transform WHERE hour(d) = 10 ORDER BY d", "SELECT b FROM (VALUES (1), (2), (3)) AS t(b)");
+        // 394460 = (2015 - 1970) * 365 * 24 + leap day hours + 10
+        // Parquet has min/max for timestamps but ORC does not.
+        String expectedQuery = format == FileFormat.PARQUET ?
+                "VALUES(394460, 3, TIMESTAMP '2015-01-01 10:01:23', TIMESTAMP '2015-01-01 10:55:00', 1, 3)" :
+                "VALUES(394460, 3, NULL, NULL, 1, 3)";
+        assertQuery(session, select + " WHERE d_hour = 394460", expectedQuery);
+
+        assertQuery(session, "SELECT b FROM test_hour_transform WHERE hour(d) = 12", "SELECT b FROM (VALUES (4), (5)) AS t(b)");
+        expectedQuery = format == FileFormat.PARQUET ?
+                "VALUES(397679, 2, TIMESTAMP '2015-05-15 12:05:01', TIMESTAMP '2015-05-15 12:21:02', 4, 5)" :
+                "VALUES(397679, 2, NULL, NULL, 4, 5)";
+        assertQuery(session, select + " WHERE d_hour = 397679", expectedQuery);
+
+        assertQuery(session, "SELECT b FROM test_hour_transform WHERE hour(d) = 13", "SELECT b FROM (VALUES (6), (7)) AS t(b)");
+        expectedQuery = format == FileFormat.PARQUET ?
+                "VALUES(395687, 2, TIMESTAMP '2015-02-21 13:11:11', TIMESTAMP '2015-02-21 13:12:12', 6, 7)" :
+                "VALUES(395687, 2, NULL, NULL, 6, 7)";
+        assertQuery(session, select + " WHERE d_hour = 395687", expectedQuery);
+
+        dropTable(session, "test_hour_transform");
+    }
+
+    private void testDayTransformForFormat(Session session, FileFormat format)
+    {
+        String select = "SELECT d_day, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_day_transform$partitions\"";
+
+        assertUpdate(session, format("CREATE TABLE test_day_transform (d DATE, b BIGINT)" +
+                " WITH (format = '%s', partitioning = ARRAY['day(d)'])", format.name()));
+
+        String insertSql = "INSERT INTO test_day_transform VALUES" +
+                "(DATE '2015-01-13', 1)," +
+                "(DATE '2015-01-13', 2)," +
+                "(DATE '2015-01-13', 3)," +
+                "(DATE '2015-05-15', 4)," +
+                "(DATE '2015-05-15', 5)," +
+                "(DATE '2015-02-21', 6)," +
+                "(DATE '2015-02-21', 7)";
+        assertUpdate(session, insertSql, 7);
+
+        assertQuery(session, "SELECT COUNT(*) FROM \"test_day_transform$partitions\"", "SELECT 3");
+
+        assertQuery(session, "SELECT b FROM test_day_transform WHERE day(d) = 13", "SELECT b FROM (VALUES (1), (2), (3)) AS t(b)");
+        assertQuery(session, select + " WHERE d_day = date '2015-01-13'", "VALUES(DATE '2015-01-13', 3, DATE '2015-01-13', DATE '2015-01-13', 1, 3)");
+
+        assertQuery(session, "SELECT b FROM test_day_transform WHERE day(d) = 15", "SELECT b FROM (VALUES (4), (5)) AS t(b)");
+        assertQuery(session, select + " WHERE d_day = date '2015-05-15'", "VALUES(DATE '2015-05-15', 2, DATE '2015-05-15', DATE '2015-05-15', 4, 5)");
+
+        assertQuery(session, "SELECT b FROM test_day_transform WHERE day(d) = 21", "SELECT b FROM (VALUES (6), (7)) AS t(b)");
+        assertQuery(session, select + " WHERE d_day = date '2015-02-21'", "VALUES(DATE '2015-02-21', 2, DATE '2015-02-21', DATE '2015-02-21', 6, 7)");
+
+        dropTable(session, "test_day_transform");
+    }
+
+    private void testMonthTransformForFormat(Session session, FileFormat format)
+    {
+        String select = "SELECT d_month, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_month_transform$partitions\"";
+
+        assertUpdate(session, format("CREATE TABLE test_month_transform (d DATE, b BIGINT)" +
+                " WITH (format = '%s', partitioning = ARRAY['month(d)'])", format.name()));
+
+        String insertSql = "INSERT INTO test_month_transform VALUES" +
+                "(DATE '2020-06-16', 1)," +
+                "(DATE '2020-06-28', 2)," +
+                "(DATE '2020-06-06', 3)," +
+                "(DATE '2020-07-18', 4)," +
+                "(DATE '2020-07-28', 5)";
+        assertUpdate(session, insertSql, 5);
+
+        assertQuery(session, "SELECT COUNT(*) FROM \"test_month_transform$partitions\"", "SELECT 2");
+
+        assertQuery(session, "SELECT b FROM test_month_transform WHERE month(d) = 6", "SELECT b FROM (VALUES (1), (2), (3)) AS t(b)");
+        // 605 = (2020 - 1970) * 12 + (6 - 1)
+        assertQuery(session, select + " WHERE d_month = 605", "VALUES(605, 3, DATE '2020-06-06', DATE '2020-06-28', 1, 3)");
+
+        assertQuery(session, "SELECT b FROM test_month_transform WHERE month(d) = 7", "SELECT b FROM (VALUES (4), (5)) AS t(b)");
+        assertQuery(session, select + " WHERE d_month = 606", "VALUES(606, 2, DATE '2020-07-18', DATE '2020-07-28', 4, 5)");
+
+        dropTable(session, "test_month_transform");
+    }
+
+    private void testYearTransformForFormat(Session session, FileFormat format)
+    {
+        String select = "SELECT d_year, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_year_transform$partitions\"";
+
+        assertUpdate(session, format("CREATE TABLE test_year_transform (d DATE, b BIGINT)" +
+                " WITH (format = '%s', partitioning = ARRAY['year(d)'])", format.name()));
+
+        String insertSql = "INSERT INTO test_year_transform VALUES" +
+                "(DATE '2015-01-13', 1)," +
+                "(DATE '2015-06-16', 2)," +
+                "(DATE '2015-07-28', 3)," +
+                "(DATE '2016-05-15', 4)," +
+                "(DATE '2016-06-06', 5)," +
+                "(DATE '2020-02-21', 6)," +
+                "(DATE '2020-11-10', 7)";
+        assertUpdate(session, insertSql, 7);
+
+        assertQuery(session, "SELECT COUNT(*) FROM \"test_year_transform$partitions\"", "SELECT 3");
+
+        assertQuery(session, "SELECT b FROM test_year_transform WHERE year(d) = 2015", "SELECT b FROM (VALUES (1), (2), (3)) AS t(b)");
+        // 45 = 2015 - 1970
+        assertQuery(session, select + " WHERE d_year = 45", "VALUES(45, 3, DATE '2015-01-13', DATE '2015-07-28', 1, 3)");
+
+        assertQuery(session, "SELECT b FROM test_year_transform WHERE year(d) = 2016", "SELECT b FROM (VALUES (4), (5)) AS t(b)");
+        assertQuery(session, select + " WHERE d_year = 46", "VALUES(46, 2, DATE '2016-05-15', DATE '2016-06-06', 4, 5)");
+
+        assertQuery(session, "SELECT b FROM test_year_transform WHERE year(d) = 2020", "SELECT b FROM (VALUES (6), (7)) AS t(b)");
+        assertQuery(session, select + " WHERE d_year = 50", "VALUES(50, 2, DATE '2020-02-21', DATE '2020-11-10', 6, 7)");
+
+        dropTable(session, "test_year_transform");
+    }
+
+    @Test
+    public void testTruncateTransform()
+    {
+        testWithAllFileFormats(this::testTruncateTransformsForFormat);
+    }
+
+    private void testTruncateTransformsForFormat(Session session, FileFormat format)
+    {
+        String select = "SELECT d_trunc, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_truncate_transform$partitions\"";
+
+        assertUpdate(session, format("CREATE TABLE test_truncate_transform (d VARCHAR, b BIGINT)" +
+                " WITH (format = '%s', partitioning = ARRAY['truncate(d, 2)'])", format.name()));
+
+        String insertSql = "INSERT INTO test_truncate_transform VALUES" +
+                "('abcd', 1)," +
+                "('abxy', 2)," +
+                "('ab598', 3)," +
+                "('mommy', 4)," +
+                "('moscow', 5)," +
+                "('Greece', 6)," +
+                "('Grozny', 7)";
+        assertUpdate(session, insertSql, 7);
+
+        assertQuery(session, "SELECT COUNT(*) FROM \"test_truncate_transform$partitions\"", "SELECT 3");
+
+        assertQuery(session, "SELECT b FROM test_truncate_transform WHERE substring(d, 1, 2) = 'ab'", "SELECT b FROM (VALUES (1), (2), (3)) AS t(b)");
+        assertQuery(session, select + " WHERE d_trunc = 'ab'", "VALUES('ab', 3, 'ab598', 'abxy', 1, 3)");
+
+        assertQuery(session, "SELECT b FROM test_truncate_transform WHERE substring(d, 1, 2) = 'mo'", "SELECT b FROM (VALUES (4), (5)) AS t(b)");
+        assertQuery(session, select + " WHERE d_trunc = 'mo'", "VALUES('mo', 2, 'mommy', 'moscow', 4, 5)");
+
+        assertQuery(session, "SELECT b FROM test_truncate_transform WHERE substring(d, 1, 2) = 'Gr'", "SELECT b FROM (VALUES (6), (7)) AS t(b)");
+        assertQuery(session, select + " WHERE d_trunc = 'Gr'", "VALUES('Gr', 2, 'Greece', 'Grozny', 6, 7)");
+
+        dropTable(session, "test_truncate_transform");
+    }
+
+    @Test
+    public void testBucketTransform()
+    {
+        testWithAllFileFormats(this::testBucketTransformsForFormat);
+    }
+
+    private void testBucketTransformsForFormat(Session session, FileFormat format)
+    {
+        String select = "SELECT d_bucket, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_bucket_transform$partitions\"";
+
+        assertUpdate(session, format("CREATE TABLE test_bucket_transform (d VARCHAR, b BIGINT)" +
+                " WITH (format = '%s', partitioning = ARRAY['bucket(d, 2)'])", format.name()));
+        String insertSql = "INSERT INTO test_bucket_transform VALUES" +
+                "('abcd', 1)," +
+                "('abxy', 2)," +
+                "('ab598', 3)," +
+                "('mommy', 4)," +
+                "('moscow', 5)," +
+                "('Greece', 6)," +
+                "('Grozny', 7)";
+        assertUpdate(session, insertSql, 7);
+
+        assertQuery(session, "SELECT COUNT(*) FROM \"test_bucket_transform$partitions\"", "SELECT 2");
+
+        assertQuery(session, select + " WHERE d_bucket = 0", "VALUES(0, 3, 'Grozny', 'mommy', 1, 7)");
+
+        assertQuery(session, select + " WHERE d_bucket = 1", "VALUES(1, 4, 'Greece', 'moscow', 2, 6)");
+
+        dropTable(session, "test_bucket_transform");
     }
 
     private void testWithAllFileFormats(BiConsumer<Session, FileFormat> test)
