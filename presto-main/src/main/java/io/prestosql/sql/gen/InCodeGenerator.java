@@ -34,6 +34,7 @@ import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.relational.ConstantExpression;
 import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.sql.relational.SpecialForm;
 import io.prestosql.util.FastutilSetHelper;
 
 import java.lang.invoke.MethodHandle;
@@ -58,16 +59,18 @@ import static io.prestosql.sql.gen.BytecodeUtils.invoke;
 import static io.prestosql.sql.gen.BytecodeUtils.loadConstant;
 import static io.prestosql.util.FastutilSetHelper.toFastutilHashSet;
 import static java.lang.Math.toIntExact;
-import static java.util.Objects.requireNonNull;
 
 public class InCodeGenerator
         implements BytecodeGenerator
 {
-    private final Metadata metadata;
+    private final RowExpression valueExpression;
+    private final List<RowExpression> testExpressions;
 
-    public InCodeGenerator(Metadata metadata)
+    public InCodeGenerator(SpecialForm specialForm)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        checkArgument(specialForm.getArguments().size() >= 2, "At least two arguments are required");
+        valueExpression = specialForm.getArguments().get(0);
+        testExpressions = specialForm.getArguments().subList(1, specialForm.getArguments().size());
     }
 
     enum SwitchGenerationCase
@@ -110,17 +113,12 @@ public class InCodeGenerator
     }
 
     @Override
-    public BytecodeNode generateExpression(ResolvedFunction resolvedFunction, BytecodeGeneratorContext generatorContext, Type returnType, List<RowExpression> arguments)
+    public BytecodeNode generateExpression(BytecodeGeneratorContext generatorContext)
     {
-        List<RowExpression> values = arguments.subList(1, arguments.size());
-        // empty IN statements are not allowed by the standard, and not possible here
-        // the implementation assumes this condition is always met
-        checkArgument(values.size() > 0, "values must not be empty");
-
-        Type type = arguments.get(0).getType();
+        Type type = valueExpression.getType();
         Class<?> javaType = type.getJavaType();
 
-        SwitchGenerationCase switchGenerationCase = checkSwitchGenerationCase(type, values);
+        SwitchGenerationCase switchGenerationCase = checkSwitchGenerationCase(type, testExpressions);
 
         Metadata metadata = generatorContext.getMetadata();
         ResolvedFunction resolvedHashCodeFunction = metadata.resolveOperator(HASH_CODE, ImmutableList.of(type));
@@ -133,7 +131,7 @@ public class InCodeGenerator
         ImmutableList.Builder<BytecodeNode> defaultBucket = ImmutableList.builder();
         ImmutableSet.Builder<Object> constantValuesBuilder = ImmutableSet.builder();
 
-        for (RowExpression testValue : values) {
+        for (RowExpression testValue : testExpressions) {
             BytecodeNode testBytecode = generatorContext.generate(testValue);
 
             if (isDeterminateConstant(testValue, isIndeterminateFunction)) {
@@ -222,7 +220,7 @@ public class InCodeGenerator
                         .append(switchBuilder.build());
                 break;
             case SET_CONTAINS:
-                Set<?> constantValuesSet = toFastutilHashSet(constantValues, type, this.metadata);
+                Set<?> constantValuesSet = toFastutilHashSet(constantValues, type, generatorContext.getMetadata());
                 Binding constant = generatorContext.getCallSiteBinder().bind(constantValuesSet, constantValuesSet.getClass());
 
                 switchBlock = new BytecodeBlock()
@@ -255,7 +253,7 @@ public class InCodeGenerator
 
         BytecodeBlock block = new BytecodeBlock()
                 .comment("IN")
-                .append(generatorContext.generate(arguments.get(0)))
+                .append(generatorContext.generate(valueExpression))
                 .append(ifWasNullPopAndGoto(scope, end, boolean.class, javaType))
                 .putVariable(value)
                 .append(switchBlock)
