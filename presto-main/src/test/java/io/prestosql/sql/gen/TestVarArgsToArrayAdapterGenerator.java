@@ -24,6 +24,7 @@ import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
+import io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -32,8 +33,7 @@ import java.util.Optional;
 import java.util.stream.IntStream;
 
 import static io.prestosql.metadata.FunctionKind.SCALAR;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.sql.gen.TestVarArgsToArrayAdapterGenerator.TestVarArgsSum.VAR_ARGS_SUM;
 import static io.prestosql.sql.gen.VarArgsToArrayAdapterGenerator.generateVarArgsToArrayAdapter;
@@ -103,8 +103,8 @@ public class TestVarArgsToArrayAdapterGenerator
                     METHOD_HANDLE,
                     USER_STATE_FACTORY);
             return new ScalarFunctionImplementation(
-                    false,
-                    nCopies(arity, valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                    InvocationReturnConvention.FAIL_ON_NULL,
+                    nCopies(arity, NEVER_NULL),
                     methodHandleAndConstructor.getMethodHandle(),
                     Optional.of(methodHandleAndConstructor.getConstructor()));
         }

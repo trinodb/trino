@@ -37,9 +37,9 @@ import java.util.Optional;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.type.TypeSignature.functionType;
 import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
@@ -91,11 +91,9 @@ public final class MapZipWithFunction
                         TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
                         TypeSignatureParameter.typeParameter(outputValueType.getTypeSignature())));
         return new ScalarFunctionImplementation(
-                false,
-                ImmutableList.of(
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
-                        functionTypeArgumentProperty(MapZipWithLambda.class)),
+                FAIL_ON_NULL,
+                ImmutableList.of(NEVER_NULL, NEVER_NULL, FUNCTION),
+                ImmutableList.of(Optional.empty(), Optional.empty(), Optional.of(MapZipWithLambda.class)),
                 METHOD_HANDLE.bindTo(keyType).bindTo(inputValueType1).bindTo(inputValueType2).bindTo(outputMapType),
                 Optional.of(STATE_FACTORY.bindTo(outputMapType)));
     }

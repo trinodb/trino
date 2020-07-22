@@ -37,7 +37,6 @@ import static java.util.Objects.requireNonNull;
 public class ParametricScalar
         extends SqlScalarFunction
 {
-    private final ScalarHeader details;
     private final ParametricImplementationsGroup<ParametricScalarImplementation> implementations;
 
     public ParametricScalar(
@@ -55,7 +54,6 @@ public class ParametricScalar
                 details.getDescription().orElse(""),
                 SCALAR,
                 deprecated));
-        this.details = requireNonNull(details);
         this.implementations = requireNonNull(implementations);
     }
 

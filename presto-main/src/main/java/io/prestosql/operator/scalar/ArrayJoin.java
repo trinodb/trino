@@ -23,13 +23,13 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.InvocationConvention;
+import io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.type.UnknownType;
@@ -43,12 +43,12 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.castableToTypeParameter;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_BOXED_TYPE;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -150,16 +150,14 @@ public final class ArrayJoin
     private static ScalarFunctionImplementation specializeArrayJoin(BoundVariables types, Metadata metadata, List<Boolean> nullableArguments, MethodHandle methodHandle)
     {
         Type type = types.getTypeVariable("T");
-        List<ArgumentProperty> argumentProperties = nullableArguments.stream()
-                .map(nullable -> nullable
-                        ? valueTypeArgumentProperty(USE_BOXED_TYPE)
-                        : valueTypeArgumentProperty(RETURN_NULL_ON_NULL))
+        List<InvocationArgumentConvention> argumentConventions = nullableArguments.stream()
+                .map(nullable -> nullable ? BOXED_NULLABLE : NEVER_NULL)
                 .collect(toImmutableList());
 
         if (type instanceof UnknownType) {
             return new ScalarFunctionImplementation(
-                    false,
-                    argumentProperties,
+                    FAIL_ON_NULL,
+                    argumentConventions,
                     methodHandle.bindTo(null),
                     Optional.of(STATE_FACTORY));
         }
@@ -176,8 +174,8 @@ public final class ArrayJoin
 
                 MethodHandle target = MethodHandles.insertArguments(methodHandle, 0, cast);
                 return new ScalarFunctionImplementation(
-                        false,
-                        argumentProperties,
+                        FAIL_ON_NULL,
+                        argumentConventions,
                         target,
                         Optional.of(STATE_FACTORY));
             }
