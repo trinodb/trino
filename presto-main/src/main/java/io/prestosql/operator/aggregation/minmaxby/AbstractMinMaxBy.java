@@ -25,9 +25,9 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.AccumulatorCompiler;
@@ -116,14 +116,23 @@ public abstract class AbstractMinMaxBy
     }
 
     @Override
-    public InternalAggregationFunction specialize(FunctionBinding functionBinding, Metadata metadata)
+    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    {
+        Type keyType = functionBinding.getTypeVariable("K");
+        return FunctionDependencyDeclaration.builder()
+                .addOperator(min ? LESS_THAN : GREATER_THAN, ImmutableList.of(keyType, keyType))
+                .build();
+    }
+
+    @Override
+    public InternalAggregationFunction specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         Type keyType = functionBinding.getTypeVariable("K");
         Type valueType = functionBinding.getTypeVariable("V");
-        return generateAggregation(valueType, keyType, metadata);
+        return generateAggregation(valueType, keyType, functionDependencies);
     }
 
-    private InternalAggregationFunction generateAggregation(Type valueType, Type keyType, Metadata metadata)
+    private InternalAggregationFunction generateAggregation(Type valueType, Type keyType, FunctionDependencies functionDependencies)
     {
         Class<?> stateClazz = getStateClass(keyType.getJavaType(), valueType.getJavaType());
         DynamicClassLoader classLoader = new DynamicClassLoader(getClass().getClassLoader());
@@ -157,8 +166,7 @@ public abstract class AbstractMinMaxBy
 
         CallSiteBinder binder = new CallSiteBinder();
         OperatorType operator = min ? LESS_THAN : GREATER_THAN;
-        ResolvedFunction resolvedFunction = metadata.resolveOperator(operator, ImmutableList.of(keyType, keyType));
-        MethodHandle compareMethod = metadata.getScalarFunctionInvoker(resolvedFunction, Optional.empty()).getMethodHandle();
+        MethodHandle compareMethod = functionDependencies.getOperatorInvoker(operator, ImmutableList.of(keyType, keyType), Optional.empty()).getMethodHandle();
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),

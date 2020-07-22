@@ -1635,19 +1635,22 @@ public final class MetadataManager
     @Override
     public AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction)
     {
-        return functions.getAggregationFunctionMetadata(this, toFunctionBinding(resolvedFunction));
+        FunctionDependencies functionDependencies = new FunctionDependencies(this, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
+        return functions.getAggregationFunctionMetadata(toFunctionBinding(resolvedFunction), functionDependencies);
     }
 
     @Override
     public WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)
     {
-        return functions.getWindowFunctionImplementation(this, toFunctionBinding(resolvedFunction));
+        FunctionDependencies functionDependencies = new FunctionDependencies(this, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
+        return functions.getWindowFunctionImplementation(toFunctionBinding(resolvedFunction), functionDependencies);
     }
 
     @Override
     public InternalAggregationFunction getAggregateFunctionImplementation(ResolvedFunction resolvedFunction)
     {
-        return functions.getAggregateFunctionImplementation(this, toFunctionBinding(resolvedFunction));
+        FunctionDependencies functionDependencies = new FunctionDependencies(this, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
+        return functions.getAggregateFunctionImplementation(toFunctionBinding(resolvedFunction), functionDependencies);
     }
 
     @Override

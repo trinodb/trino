@@ -15,10 +15,12 @@ package io.prestosql.plugin.ml;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.prestosql.RowPageBuilder;
 import io.prestosql.metadata.BoundSignature;
 import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
 import io.prestosql.metadata.MetadataManager;
 import io.prestosql.operator.aggregation.Accumulator;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
@@ -52,6 +54,7 @@ import static org.testng.Assert.assertTrue;
 public class TestLearnAggregations
 {
     private static final MetadataManager METADATA = createTestMetadataManager();
+    protected static final FunctionDependencies NO_FUNCTION_DEPENDENCIES = new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of());
 
     static {
         METADATA.addParametricType(new ClassifierParametricType());
@@ -73,7 +76,7 @@ public class TestLearnAggregations
                 new BoundSignature(aggregation.getFunctionMetadata().getSignature().getName(), BIGINT_CLASSIFIER, ImmutableList.of(BIGINT, mapType)),
                 ImmutableMap.of(),
                 ImmutableMap.of());
-        InternalAggregationFunction aggregationFunction = aggregation.specialize(functionBinding, METADATA);
+        InternalAggregationFunction aggregationFunction = aggregation.specialize(functionBinding, NO_FUNCTION_DEPENDENCIES);
         assertLearnClassifer(aggregationFunction.bind(ImmutableList.of(0, 1), Optional.empty()).createAccumulator());
     }
 
@@ -93,7 +96,7 @@ public class TestLearnAggregations
                         ImmutableList.of(BIGINT, mapType, VARCHAR)),
                 ImmutableMap.of(),
                 ImmutableMap.of("x", (long) Integer.MAX_VALUE));
-        InternalAggregationFunction aggregationFunction = aggregation.specialize(functionBinding, METADATA);
+        InternalAggregationFunction aggregationFunction = aggregation.specialize(functionBinding, NO_FUNCTION_DEPENDENCIES);
         assertLearnClassifer(aggregationFunction.bind(ImmutableList.of(0, 1, 2), Optional.empty()).createAccumulator());
     }
 

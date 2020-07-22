@@ -793,7 +793,7 @@ public class FunctionRegistry
         return functions.get(functionId).getFunctionMetadata();
     }
 
-    public AggregationFunctionMetadata getAggregationFunctionMetadata(Metadata metadata, FunctionBinding functionBinding)
+    public AggregationFunctionMetadata getAggregationFunctionMetadata(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         SqlFunction function = functions.get(functionBinding.getFunctionId());
         checkArgument(function instanceof SqlAggregationFunction, "%s is not an aggregation function", functionBinding.getBoundSignature());
@@ -803,19 +803,19 @@ public class FunctionRegistry
             return new AggregationFunctionMetadata(aggregationFunction.isOrderSensitive(), Optional.empty());
         }
 
-        InternalAggregationFunction implementation = getAggregateFunctionImplementation(metadata, functionBinding);
+        InternalAggregationFunction implementation = getAggregateFunctionImplementation(functionBinding, functionDependencies);
         return new AggregationFunctionMetadata(aggregationFunction.isOrderSensitive(), Optional.of(implementation.getIntermediateType().getTypeSignature()));
     }
 
-    public WindowFunctionSupplier getWindowFunctionImplementation(Metadata metadata, FunctionBinding functionBinding)
+    public WindowFunctionSupplier getWindowFunctionImplementation(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         SqlFunction function = functions.get(functionBinding.getFunctionId());
         try {
             if (function instanceof SqlAggregationFunction) {
-                InternalAggregationFunction aggregationFunction = specializedAggregationCache.get(functionBinding, () -> specializedAggregation(metadata, functionBinding));
+                InternalAggregationFunction aggregationFunction = specializedAggregationCache.get(functionBinding, () -> specializedAggregation(functionBinding, functionDependencies));
                 return supplier(function.getFunctionMetadata().getSignature(), aggregationFunction);
             }
-            return specializedWindowCache.get(functionBinding, () -> specializeWindow(functionBinding));
+            return specializedWindowCache.get(functionBinding, () -> specializeWindow(functionBinding, functionDependencies));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), PrestoException.class);
@@ -823,16 +823,16 @@ public class FunctionRegistry
         }
     }
 
-    private WindowFunctionSupplier specializeWindow(FunctionBinding functionBinding)
+    private WindowFunctionSupplier specializeWindow(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         SqlWindowFunction function = (SqlWindowFunction) functions.get(functionBinding.getFunctionId());
-        return function.specialize(functionBinding);
+        return function.specialize(functionBinding, functionDependencies);
     }
 
-    public InternalAggregationFunction getAggregateFunctionImplementation(Metadata metadata, FunctionBinding functionBinding)
+    public InternalAggregationFunction getAggregateFunctionImplementation(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         try {
-            return specializedAggregationCache.get(functionBinding, () -> specializedAggregation(metadata, functionBinding));
+            return specializedAggregationCache.get(functionBinding, () -> specializedAggregation(functionBinding, functionDependencies));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), PrestoException.class);
@@ -840,10 +840,10 @@ public class FunctionRegistry
         }
     }
 
-    private InternalAggregationFunction specializedAggregation(Metadata metadata, FunctionBinding functionBinding)
+    private InternalAggregationFunction specializedAggregation(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         SqlAggregationFunction function = (SqlAggregationFunction) functions.get(functionBinding.getFunctionId());
-        return function.specialize(functionBinding, metadata);
+        return function.specialize(functionBinding, functionDependencies);
     }
 
     public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)

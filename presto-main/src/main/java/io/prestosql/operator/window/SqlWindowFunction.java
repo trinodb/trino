@@ -15,6 +15,7 @@ package io.prestosql.operator.window;
 
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlFunction;
@@ -49,6 +50,11 @@ public class SqlWindowFunction
     public FunctionMetadata getFunctionMetadata()
     {
         return functionMetadata;
+    }
+
+    public WindowFunctionSupplier specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    {
+        return specialize(functionBinding);
     }
 
     public WindowFunctionSupplier specialize(FunctionBinding functionBinding)

@@ -18,8 +18,6 @@ import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionDependencies;
 import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 
 import java.util.Objects;
@@ -43,12 +41,6 @@ public final class TypeImplementationDependency
     {
         BoundVariables boundVariables = new BoundVariables(functionBinding.getTypeVariables(), functionBinding.getLongVariables());
         builder.addType(applyBoundVariables(signature, boundVariables));
-    }
-
-    @Override
-    public Type resolve(BoundVariables boundVariables, Metadata metadata)
-    {
-        return metadata.getType(applyBoundVariables(signature, boundVariables));
     }
 
     @Override
