@@ -14,7 +14,6 @@
 package io.prestosql.metadata;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
@@ -68,6 +67,7 @@ import static org.testng.Assert.fail;
 
 public class TestSignatureBinder
 {
+    private static final BoundVariables NO_BOUND_VARIABLES = BoundVariables.builder().build();
     private final Metadata metadata = createTestMetadataManager();
 
     @Test
@@ -83,13 +83,12 @@ public class TestSignatureBinder
 
         assertThat(function)
                 .boundTo(createDecimalType(2, 1), createDecimalType(1, 0))
-                .produces(new BoundVariables(
-                        ImmutableMap.of(),
-                        ImmutableMap.of(
-                                "p1", 2L,
-                                "s1", 1L,
-                                "p2", 1L,
-                                "s2", 0L)));
+                .produces(BoundVariables.builder()
+                        .setLongVariable("p1", 2L)
+                        .setLongVariable("s1", 1L)
+                        .setLongVariable("p2", 1L)
+                        .setLongVariable("s2", 0L)
+                        .build());
     }
 
     @Test
@@ -103,9 +102,9 @@ public class TestSignatureBinder
         assertThat(function)
                 .boundTo(createDecimalType(2, 1))
                 .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of(),
-                        ImmutableMap.of("s", 1L)));
+                .produces(BoundVariables.builder()
+                        .setLongVariable("s", 1L)
+                        .build());
 
         function = functionSignature()
                 .returnType(BOOLEAN.getTypeSignature())
@@ -115,22 +114,22 @@ public class TestSignatureBinder
         assertThat(function)
                 .boundTo(createDecimalType(2, 0))
                 .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of(),
-                        ImmutableMap.of("p", 3L)));
+                .produces(BoundVariables.builder()
+                        .setLongVariable("p", 3L)
+                        .build());
 
         assertThat(function)
                 .boundTo(createDecimalType(2, 1))
-                .produces(new BoundVariables(
-                        ImmutableMap.of(),
-                        ImmutableMap.of("p", 2L)));
+                .produces(BoundVariables.builder()
+                        .setLongVariable("p", 2L)
+                        .build());
 
         assertThat(function)
                 .boundTo(BIGINT)
                 .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of(),
-                        ImmutableMap.of("p", 20L)));
+                .produces(BoundVariables.builder()
+                        .setLongVariable("p", 20L)
+                        .build());
     }
 
     @Test
@@ -146,20 +145,18 @@ public class TestSignatureBinder
 
         assertThat(function)
                 .boundTo(createVarcharType(42), createVarcharType(44))
-                .produces(new BoundVariables(
-                        ImmutableMap.of(),
-                        ImmutableMap.of(
-                                "x", 42L,
-                                "y", 44L)));
+                .produces(BoundVariables.builder()
+                        .setLongVariable("x", 42L)
+                        .setLongVariable("y", 44L)
+                        .build());
 
         assertThat(function)
                 .boundTo(UNKNOWN, createVarcharType(44))
                 .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of(),
-                        ImmutableMap.of(
-                                "x", 0L,
-                                "y", 44L)));
+                .produces(BoundVariables.builder()
+                        .setLongVariable("x", 0L)
+                        .setLongVariable("y", 44L)
+                        .build());
     }
 
     @Test
@@ -175,27 +172,27 @@ public class TestSignatureBinder
 
         assertThat(function)
                 .boundTo(createVarcharType(44), createVarcharType(44))
-                .produces(new BoundVariables(
-                        ImmutableMap.of(),
-                        ImmutableMap.of("x", 44L)));
+                .produces(BoundVariables.builder()
+                        .setLongVariable("x", 44L)
+                        .build());
         assertThat(function)
                 .boundTo(createVarcharType(44), createVarcharType(42))
                 .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of(),
-                        ImmutableMap.of("x", 44L)));
+                .produces(BoundVariables.builder()
+                        .setLongVariable("x", 44L)
+                        .build());
         assertThat(function)
                 .boundTo(createVarcharType(42), createVarcharType(44))
                 .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of(),
-                        ImmutableMap.of("x", 44L)));
+                .produces(BoundVariables.builder()
+                        .setLongVariable("x", 44L)
+                        .build());
         assertThat(function)
                 .boundTo(UNKNOWN, createVarcharType(44))
                 .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of(),
-                        ImmutableMap.of("x", 44L)));
+                .produces(BoundVariables.builder()
+                        .setLongVariable("x", 44L)
+                        .build());
     }
 
     @Test
@@ -211,27 +208,31 @@ public class TestSignatureBinder
 
         assertThat(function)
                 .boundTo(createDecimalType(10, 5), createDecimalType(10, 5))
-                .produces(new BoundVariables(
-                        ImmutableMap.of(),
-                        ImmutableMap.of("p", 10L, "s", 5L)));
+                .produces(BoundVariables.builder()
+                        .setLongVariable("p", 10L)
+                        .setLongVariable("s", 5L)
+                        .build());
         assertThat(function)
                 .boundTo(createDecimalType(10, 8), createDecimalType(9, 8))
                 .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of(),
-                        ImmutableMap.of("p", 10L, "s", 8L)));
+                .produces(BoundVariables.builder()
+                        .setLongVariable("p", 10L)
+                        .setLongVariable("s", 8L)
+                        .build());
         assertThat(function)
                 .boundTo(createDecimalType(10, 2), createDecimalType(10, 8))
                 .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of(),
-                        ImmutableMap.of("p", 16L, "s", 8L)));
+                .produces(BoundVariables.builder()
+                        .setLongVariable("p", 16L)
+                        .setLongVariable("s", 8L)
+                        .build());
         assertThat(function)
                 .boundTo(UNKNOWN, createDecimalType(10, 5))
                 .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of(),
-                        ImmutableMap.of("p", 10L, "s", 5L)));
+                .produces(BoundVariables.builder()
+                        .setLongVariable("p", 10L)
+                        .setLongVariable("s", 5L)
+                        .build());
     }
 
     @Test
@@ -249,16 +250,16 @@ public class TestSignatureBinder
         assertThat(function)
                 .withCoercion()
                 .boundTo(ImmutableList.of(createVarcharType(3), createVarcharType(5)), createVarcharType(5))
-                .produces(new BoundVariables(
-                        ImmutableMap.of(),
-                        ImmutableMap.of("x", 5L)));
+                .produces(BoundVariables.builder()
+                        .setLongVariable("x", 5L)
+                        .build());
 
         assertThat(function)
                 .withCoercion()
                 .boundTo(ImmutableList.of(createVarcharType(3), createVarcharType(5)), createVarcharType(6))
-                .produces(new BoundVariables(
-                        ImmutableMap.of(),
-                        ImmutableMap.of("x", 6L)));
+                .produces(BoundVariables.builder()
+                        .setLongVariable("x", 6L)
+                        .build());
     }
 
     @Test
@@ -291,12 +292,11 @@ public class TestSignatureBinder
         assertThat(function)
                 .boundTo(new ArrayType(createDecimalType(2, 1)), new ArrayType(createDecimalType(3, 1)))
                 .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of(
-                                "T", createDecimalType(2, 1)),
-                        ImmutableMap.of(
-                                "p", 3L,
-                                "s", 1L)));
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", createDecimalType(2, 1))
+                        .setLongVariable("p", 3L)
+                        .setLongVariable("s", 1L)
+                        .build());
     }
 
     @Test
@@ -327,9 +327,7 @@ public class TestSignatureBinder
 
         assertThat(function)
                 .boundTo(createDecimalType(2, 1), createDecimalType(3, 1))
-                .produces(new BoundVariables(
-                        ImmutableMap.of(),
-                        ImmutableMap.of()));
+                .produces(NO_BOUND_VARIABLES);
     }
 
     @Test
@@ -343,11 +341,10 @@ public class TestSignatureBinder
         assertThat(function)
                 .boundTo(UNKNOWN)
                 .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of(),
-                        ImmutableMap.of(
-                                "p", 1L,
-                                "s", 0L)));
+                .produces(BoundVariables.builder()
+                        .setLongVariable("p", 1L)
+                        .setLongVariable("s", 0L)
+                        .build());
     }
 
     @Test
@@ -376,9 +373,9 @@ public class TestSignatureBinder
         assertThat(function)
                 .boundTo(UNKNOWN, createDecimalType(2, 1))
                 .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of("T", createDecimalType(2, 1)),
-                        ImmutableMap.of()));
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", createDecimalType(2, 1))
+                        .build());
     }
 
     @Test
@@ -412,9 +409,9 @@ public class TestSignatureBinder
         assertThat(function)
                 .boundTo(UNKNOWN)
                 .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of("T", UNKNOWN),
-                        ImmutableMap.of()));
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", UNKNOWN)
+                        .build());
     }
 
     @Test
@@ -444,11 +441,10 @@ public class TestSignatureBinder
 
         assertThat(function)
                 .boundTo(ImmutableList.of(createVarcharType(42)), createVarcharType(1))
-                .produces(new BoundVariables(
-                        ImmutableMap.of(
-                                "T1", createVarcharType(42),
-                                "T2", createVarcharType(1)),
-                        ImmutableMap.of()));
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T1", createVarcharType(42))
+                        .setTypeVariable("T2", createVarcharType(1))
+                        .build());
     }
 
     @Test
@@ -489,9 +485,9 @@ public class TestSignatureBinder
 
         assertThat(function)
                 .boundTo(VARCHAR)
-                .produces(new BoundVariables(
-                        ImmutableMap.of(),
-                        ImmutableMap.of("x", (long) Integer.MAX_VALUE)));
+                .produces(BoundVariables.builder()
+                        .setLongVariable("x", (long) Integer.MAX_VALUE)
+                        .build());
     }
 
     @Test
@@ -524,15 +520,15 @@ public class TestSignatureBinder
 
         assertThat(function)
                 .boundTo(BIGINT)
-                .produces(new BoundVariables(
-                        ImmutableMap.of("T", BIGINT),
-                        ImmutableMap.of()));
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", BIGINT)
+                        .build());
 
         assertThat(function)
                 .boundTo(VARCHAR)
-                .produces(new BoundVariables(
-                        ImmutableMap.of("T", VARCHAR),
-                        ImmutableMap.of()));
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", VARCHAR)
+                        .build());
 
         assertThat(function)
                 .boundTo(VARCHAR, BIGINT)
@@ -540,9 +536,9 @@ public class TestSignatureBinder
 
         assertThat(function)
                 .boundTo(new ArrayType(BIGINT))
-                .produces(new BoundVariables(
-                        ImmutableMap.of("T", new ArrayType(BIGINT)),
-                        ImmutableMap.of()));
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", new ArrayType(BIGINT))
+                        .build());
     }
 
     @Test
@@ -601,9 +597,9 @@ public class TestSignatureBinder
 
         assertThat(getFunction)
                 .boundTo(new ArrayType(BIGINT))
-                .produces(new BoundVariables(
-                        ImmutableMap.of("T", BIGINT),
-                        ImmutableMap.of()));
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", BIGINT)
+                        .build());
 
         assertThat(getFunction)
                 .boundTo(BIGINT)
@@ -623,9 +619,9 @@ public class TestSignatureBinder
 
         assertThat(containsFunction)
                 .boundTo(new ArrayType(BIGINT), BIGINT)
-                .produces(new BoundVariables(
-                        ImmutableMap.of("T", BIGINT),
-                        ImmutableMap.of()));
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", BIGINT)
+                        .build());
 
         assertThat(containsFunction)
                 .boundTo(new ArrayType(BIGINT), VARCHAR)
@@ -646,11 +642,10 @@ public class TestSignatureBinder
         assertThat(castFunction)
                 .boundTo(new ArrayType(UNKNOWN), new ArrayType(createDecimalType(2, 1)))
                 .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of(
-                                "T1", UNKNOWN,
-                                "T2", createDecimalType(2, 1)),
-                        ImmutableMap.of()));
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T1", UNKNOWN)
+                        .setTypeVariable("T2", createDecimalType(2, 1))
+                        .build());
 
         Signature fooFunction = functionSignature()
                 .returnType(new TypeSignature("T"))
@@ -660,9 +655,9 @@ public class TestSignatureBinder
 
         assertThat(fooFunction)
                 .boundTo(new ArrayType(BIGINT), new ArrayType(BIGINT))
-                .produces(new BoundVariables(
-                        ImmutableMap.of("T", BIGINT),
-                        ImmutableMap.of()));
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", BIGINT)
+                        .build());
 
         assertThat(fooFunction)
                 .boundTo(new ArrayType(BIGINT), new ArrayType(VARCHAR))
@@ -681,11 +676,10 @@ public class TestSignatureBinder
 
         assertThat(getValueFunction)
                 .boundTo(type(mapType(BIGINT.getTypeSignature(), VARCHAR.getTypeSignature())), BIGINT)
-                .produces(new BoundVariables(
-                        ImmutableMap.of(
-                                "K", BIGINT,
-                                "V", VARCHAR),
-                        ImmutableMap.of()));
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("K", BIGINT)
+                        .setTypeVariable("V", VARCHAR)
+                        .build());
 
         assertThat(getValueFunction)
                 .boundTo(type(mapType(BIGINT.getTypeSignature(), VARCHAR.getTypeSignature())), VARCHAR)
@@ -704,15 +698,11 @@ public class TestSignatureBinder
         assertThat(function)
                 .boundTo(RowType.anonymous(ImmutableList.of(TINYINT)))
                 .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of(),
-                        ImmutableMap.of()));
+                .produces(NO_BOUND_VARIABLES);
         assertThat(function)
                 .boundTo(RowType.anonymous(ImmutableList.of(INTEGER)))
                 .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of(),
-                        ImmutableMap.of()));
+                .produces(NO_BOUND_VARIABLES);
         assertThat(function)
                 .boundTo(RowType.anonymous(ImmutableList.of(BIGINT)))
                 .withCoercion()
@@ -727,15 +717,15 @@ public class TestSignatureBinder
         assertThat(biFunction)
                 .boundTo(RowType.anonymous(ImmutableList.of(INTEGER)), RowType.anonymous(ImmutableList.of(BIGINT)))
                 .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of("T", BIGINT),
-                        ImmutableMap.of()));
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", BIGINT)
+                        .build());
         assertThat(biFunction)
                 .boundTo(RowType.anonymous(ImmutableList.of(INTEGER)), RowType.anonymous(ImmutableList.of(BIGINT)))
                 .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of("T", BIGINT),
-                        ImmutableMap.of()));
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", BIGINT)
+                        .build());
     }
 
     @Test
@@ -749,9 +739,9 @@ public class TestSignatureBinder
 
         assertThat(rowVariadicBoundFunction)
                 .boundTo(RowType.anonymous(ImmutableList.of(BIGINT, BIGINT)))
-                .produces(new BoundVariables(
-                        ImmutableMap.of("T", RowType.anonymous(ImmutableList.of(BIGINT, BIGINT))),
-                        ImmutableMap.of()));
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", RowType.anonymous(ImmutableList.of(BIGINT, BIGINT)))
+                        .build());
 
         assertThat(rowVariadicBoundFunction)
                 .boundTo(new ArrayType(BIGINT))
@@ -779,9 +769,9 @@ public class TestSignatureBinder
         assertThat(rowFunction)
                 .boundTo(UNKNOWN, RowType.from(ImmutableList.of(RowType.field("a", BIGINT))))
                 .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of("T", RowType.from(ImmutableList.of(RowType.field("a", BIGINT)))),
-                        ImmutableMap.of()));
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", RowType.from(ImmutableList.of(RowType.field("a", BIGINT))))
+                        .build());
     }
 
     @Test
@@ -804,21 +794,21 @@ public class TestSignatureBinder
 
         assertThat(variableArityFunction)
                 .boundTo(BIGINT)
-                .produces(new BoundVariables(
-                        ImmutableMap.of("T", BIGINT),
-                        ImmutableMap.of()));
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", BIGINT)
+                        .build());
 
         assertThat(variableArityFunction)
                 .boundTo(VARCHAR)
-                .produces(new BoundVariables(
-                        ImmutableMap.of("T", VARCHAR),
-                        ImmutableMap.of()));
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", VARCHAR)
+                        .build());
 
         assertThat(variableArityFunction)
                 .boundTo(BIGINT, BIGINT)
-                .produces(new BoundVariables(
-                        ImmutableMap.of("T", BIGINT),
-                        ImmutableMap.of()));
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", BIGINT)
+                        .build());
 
         assertThat(variableArityFunction)
                 .boundTo(BIGINT, VARCHAR)
@@ -838,23 +828,23 @@ public class TestSignatureBinder
         assertThat(function)
                 .boundTo(DOUBLE, DOUBLE)
                 .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of("T", DOUBLE),
-                        ImmutableMap.of()));
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", DOUBLE)
+                        .build());
 
         assertThat(function)
                 .boundTo(BIGINT, BIGINT)
                 .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of("T", BIGINT),
-                        ImmutableMap.of()));
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", BIGINT)
+                        .build());
 
         assertThat(function)
                 .boundTo(VARCHAR, BIGINT)
                 .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of("T", VARCHAR),
-                        ImmutableMap.of()));
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", VARCHAR)
+                        .build());
 
         assertThat(function)
                 .boundTo(BIGINT, VARCHAR)
@@ -873,16 +863,16 @@ public class TestSignatureBinder
 
         assertThat(foo)
                 .boundTo(UNKNOWN, UNKNOWN)
-                .produces(new BoundVariables(
-                        ImmutableMap.of("T", UNKNOWN),
-                        ImmutableMap.of()));
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", UNKNOWN)
+                        .build());
 
         assertThat(foo)
                 .boundTo(UNKNOWN, BIGINT)
                 .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of("T", BIGINT),
-                        ImmutableMap.of()));
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", BIGINT)
+                        .build());
 
         assertThat(foo)
                 .boundTo(VARCHAR, BIGINT)
@@ -898,9 +888,9 @@ public class TestSignatureBinder
         assertThat(bar)
                 .boundTo(UNKNOWN, BIGINT)
                 .withCoercion()
-                .produces(new BoundVariables(
-                        ImmutableMap.of("T", BIGINT),
-                        ImmutableMap.of()));
+                .produces(BoundVariables.builder()
+                        .setTypeVariable("T", BIGINT)
+                        .build());
 
         assertThat(bar)
                 .boundTo(VARCHAR, BIGINT)
