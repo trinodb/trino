@@ -15,10 +15,9 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
@@ -95,10 +94,10 @@ public class ReduceAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
     {
-        Type inputType = boundVariables.getTypeVariable("T");
-        Type stateType = boundVariables.getTypeVariable("S");
+        Type inputType = functionBinding.getTypeVariable("T");
+        Type stateType = functionBinding.getTypeVariable("S");
         return generateAggregation(inputType, stateType);
     }
 

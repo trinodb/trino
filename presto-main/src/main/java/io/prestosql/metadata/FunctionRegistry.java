@@ -841,10 +841,7 @@ public class FunctionRegistry
     private InternalAggregationFunction specializedAggregation(Metadata metadata, FunctionBinding functionBinding)
     {
         SqlAggregationFunction function = (SqlAggregationFunction) functions.get(functionBinding.getFunctionId());
-        return function.specialize(
-                new BoundVariables(functionBinding.getTypeVariables(), functionBinding.getLongVariables()),
-                functionBinding.getBoundSignature().getArgumentTypes().size(),
-                metadata);
+        return function.specialize(functionBinding, metadata);
     }
 
     public FunctionInvoker getScalarFunctionInvoker(Metadata metadata, FunctionBinding functionBinding, InvocationConvention invocationConvention)

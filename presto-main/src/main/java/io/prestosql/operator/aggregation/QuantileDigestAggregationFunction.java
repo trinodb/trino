@@ -16,10 +16,9 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.stats.QuantileDigest;
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.state.QuantileDigestState;
@@ -30,7 +29,6 @@ import io.prestosql.spi.type.QuantileDigestType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -96,13 +94,11 @@ public final class QuantileDigestAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
     {
-        Type valueType = boundVariables.getTypeVariable("V");
-        QuantileDigestType outputType = (QuantileDigestType) metadata.getParameterizedType(
-                StandardTypes.QDIGEST,
-                ImmutableList.of(TypeSignatureParameter.typeParameter(valueType.getTypeSignature())));
-        return generateAggregation(valueType, outputType, arity);
+        Type valueType = functionBinding.getTypeVariable("V");
+        QuantileDigestType outputType = (QuantileDigestType) functionBinding.getBoundSignature().getReturnType();
+        return generateAggregation(valueType, outputType, functionBinding.getArity());
     }
 
     private static InternalAggregationFunction generateAggregation(Type valueType, QuantileDigestType outputType, int arity)
