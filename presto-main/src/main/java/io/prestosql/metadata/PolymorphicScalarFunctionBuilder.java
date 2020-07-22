@@ -53,7 +53,7 @@ public final class PolymorphicScalarFunctionBuilder
 
     public PolymorphicScalarFunctionBuilder(Class<?> clazz)
     {
-        this.clazz = clazz;
+        this.clazz = requireNonNull(clazz, "clazz is null");
     }
 
     public PolymorphicScalarFunctionBuilder signature(Signature signature)

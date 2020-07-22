@@ -15,6 +15,7 @@ package io.prestosql.type;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.metadata.PolymorphicScalarFunctionBuilder;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.type.DecimalConversions;
@@ -35,7 +36,7 @@ public final class DecimalToDecimalCasts
             .build();
 
     // TODO: filtering mechanism could be used to return NoOp method when only precision is increased
-    public static final SqlScalarFunction DECIMAL_TO_DECIMAL_CAST = SqlScalarFunction.builder(DecimalConversions.class)
+    public static final SqlScalarFunction DECIMAL_TO_DECIMAL_CAST = new PolymorphicScalarFunctionBuilder(DecimalConversions.class)
             .signature(SIGNATURE)
             .deterministic(true)
             .choice(choice -> choice

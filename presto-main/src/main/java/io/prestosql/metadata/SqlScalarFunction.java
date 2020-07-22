@@ -32,9 +32,4 @@ public abstract class SqlScalarFunction
     }
 
     public abstract ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata);
-
-    public static PolymorphicScalarFunctionBuilder builder(Class<?> clazz)
-    {
-        return new PolymorphicScalarFunctionBuilder(clazz);
-    }
 }
