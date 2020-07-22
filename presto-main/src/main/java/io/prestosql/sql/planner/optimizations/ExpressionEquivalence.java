@@ -122,7 +122,6 @@ public class ExpressionEquivalence
         {
             call = new CallExpression(
                     call.getResolvedFunction(),
-                    call.getType(),
                     call.getArguments().stream()
                             .map(expression -> expression.accept(this, context))
                             .collect(toImmutableList()));
@@ -133,7 +132,6 @@ public class ExpressionEquivalence
                 // sort arguments
                 return new CallExpression(
                         call.getResolvedFunction(),
-                        call.getType(),
                         ROW_EXPRESSION_ORDERING.sortedCopy(call.getArguments()));
             }
 
@@ -141,10 +139,8 @@ public class ExpressionEquivalence
                 // convert greater than to less than
                 ResolvedFunction newFunction = metadata.resolveOperator(
                         callName.equals(mangleOperatorName(GREATER_THAN)) ? LESS_THAN : LESS_THAN_OR_EQUAL,
-                        swapPair(call.getResolvedFunction().getSignature().getArgumentTypes()).stream()
-                                .map(metadata::getType)
-                                .collect(toImmutableList()));
-                return new CallExpression(newFunction, call.getType(), swapPair(call.getArguments()));
+                        swapPair(call.getResolvedFunction().getSignature().getArgumentTypes()));
+                return new CallExpression(newFunction, swapPair(call.getArguments()));
             }
 
             return call;

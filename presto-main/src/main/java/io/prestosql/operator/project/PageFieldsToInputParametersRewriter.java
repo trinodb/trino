@@ -79,7 +79,6 @@ public final class PageFieldsToInputParametersRewriter
         {
             return new CallExpression(
                     call.getResolvedFunction(),
-                    call.getType(),
                     call.getArguments().stream()
                             .map(expression -> expression.accept(this, context))
                             .collect(toImmutableList()));

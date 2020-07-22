@@ -21,23 +21,30 @@ import io.prestosql.spi.type.TypeId;
 
 import javax.inject.Inject;
 
+import java.util.function.Function;
+
 import static java.util.Objects.requireNonNull;
 
 public final class TypeDeserializer
         extends FromStringDeserializer<Type>
 {
-    private final Metadata metadata;
+    private final Function<TypeId, Type> typeLoader;
 
     @Inject
     public TypeDeserializer(Metadata metadata)
     {
+        this(requireNonNull(metadata, "metadata is null")::getType);
+    }
+
+    public TypeDeserializer(Function<TypeId, Type> typeLoader)
+    {
         super(Type.class);
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.typeLoader = requireNonNull(typeLoader, "typeLoader is null");
     }
 
     @Override
     protected Type _deserialize(String value, DeserializationContext context)
     {
-        return metadata.getType(TypeId.of(value));
+        return typeLoader.apply(TypeId.of(value));
     }
 }

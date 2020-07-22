@@ -115,7 +115,6 @@ public class BenchmarkArrayDistinct
                 ArrayType arrayType = new ArrayType(elementType);
                 projectionsBuilder.add(new CallExpression(
                         metadata.resolveFunction(QualifiedName.of(name), fromTypes(arrayType)),
-                        arrayType,
                         ImmutableList.of(field(i, arrayType))));
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }

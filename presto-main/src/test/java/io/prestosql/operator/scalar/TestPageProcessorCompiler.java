@@ -47,7 +47,6 @@ import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.project.PageProcessor.MAX_BATCH_SIZE;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.relational.Expressions.constant;
@@ -82,7 +81,7 @@ public class TestPageProcessorCompiler
         ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
         ArrayType arrayType = new ArrayType(VARCHAR);
         ResolvedFunction resolvedFunction = metadata.resolveFunction(QualifiedName.of("concat"), fromTypes(arrayType, arrayType));
-        projectionsBuilder.add(new CallExpression(resolvedFunction, arrayType, ImmutableList.of(field(0, arrayType), field(1, arrayType))));
+        projectionsBuilder.add(new CallExpression(resolvedFunction, ImmutableList.of(field(0, arrayType), field(1, arrayType))));
 
         ImmutableList<RowExpression> projections = projectionsBuilder.build();
         PageProcessor pageProcessor = compiler.compilePageProcessor(Optional.empty(), projections).get();
@@ -121,10 +120,9 @@ public class TestPageProcessorCompiler
     {
         CallExpression lengthVarchar = new CallExpression(
                 metadata.resolveFunction(QualifiedName.of("length"), fromTypes(VARCHAR)),
-                BIGINT,
                 ImmutableList.of(field(0, VARCHAR)));
         ResolvedFunction lessThan = metadata.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
-        CallExpression filter = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(lengthVarchar, constant(10L, BIGINT)));
+        CallExpression filter = new CallExpression(lessThan, ImmutableList.of(lengthVarchar, constant(10L, BIGINT)));
 
         PageProcessor processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, VARCHAR)), MAX_BATCH_SIZE).get();
 
@@ -162,7 +160,7 @@ public class TestPageProcessorCompiler
     public void testSanityFilterOnRLE()
     {
         ResolvedFunction lessThan = metadata.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
-        CallExpression filter = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(field(0, BIGINT), constant(10L, BIGINT)));
+        CallExpression filter = new CallExpression(lessThan, ImmutableList.of(field(0, BIGINT), constant(10L, BIGINT)));
 
         PageProcessor processor = compiler.compilePageProcessor(Optional.of(filter), ImmutableList.of(field(0, BIGINT)), MAX_BATCH_SIZE).get();
 
@@ -209,10 +207,9 @@ public class TestPageProcessorCompiler
         ResolvedFunction lessThan = metadata.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
         CallExpression random = new CallExpression(
                 metadata.resolveFunction(QualifiedName.of("random"), fromTypes(BIGINT)),
-                BIGINT,
                 singletonList(constant(10L, BIGINT)));
         InputReferenceExpression col0 = field(0, BIGINT);
-        CallExpression lessThanRandomExpression = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(col0, random));
+        CallExpression lessThanRandomExpression = new CallExpression(lessThan, ImmutableList.of(col0, random));
 
         PageProcessor processor = compiler.compilePageProcessor(Optional.empty(), ImmutableList.of(lessThanRandomExpression), MAX_BATCH_SIZE).get();
 

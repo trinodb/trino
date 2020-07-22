@@ -52,12 +52,10 @@ public class BetweenCodeGenerator
                 BOOLEAN,
                 call(
                         standardFunctionResolution.comparisonFunction(Operator.LESS_THAN_OR_EQUAL, min.getType(), value.getType()),
-                        BOOLEAN,
                         min,
                         valueReference),
                 call(
                         standardFunctionResolution.comparisonFunction(Operator.LESS_THAN_OR_EQUAL, value.getType(), max.getType()),
-                        BOOLEAN,
                         valueReference,
                         max));
 

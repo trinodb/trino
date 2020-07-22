@@ -110,7 +110,7 @@ public class ExpressionOptimizer
                 }
             }
 
-            return call(call.getResolvedFunction(), metadata.getType(call.getResolvedFunction().getSignature().getReturnType()), arguments);
+            return call(call.getResolvedFunction(), arguments);
         }
 
         @Override
@@ -201,19 +201,16 @@ public class ExpressionOptimizer
                     if (returnType instanceof ArrayType) {
                         return call(
                                 metadata.getCoercion(QualifiedName.of(JSON_STRING_TO_ARRAY_NAME), VARCHAR, returnType),
-                                call.getType(),
                                 innerCall.getArguments());
                     }
                     if (returnType instanceof MapType) {
                         return call(
                                 metadata.getCoercion(QualifiedName.of(JSON_STRING_TO_MAP_NAME), VARCHAR, returnType),
-                                call.getType(),
                                 innerCall.getArguments());
                     }
                     if (returnType instanceof RowType) {
                         return call(
                                 metadata.getCoercion(QualifiedName.of(JSON_STRING_TO_ROW_NAME), VARCHAR, returnType),
-                                call.getType(),
                                 innerCall.getArguments());
                     }
                 }
@@ -221,7 +218,6 @@ public class ExpressionOptimizer
 
             return call(
                     metadata.getCoercion(call.getArguments().get(0).getType(), call.getType()),
-                    call.getType(),
                     call.getArguments());
         }
     }

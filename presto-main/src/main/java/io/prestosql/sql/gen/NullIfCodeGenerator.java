@@ -20,7 +20,6 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.instruction.LabelNode;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
@@ -57,10 +56,9 @@ public class NullIfCodeGenerator
         Type secondType = second.getType();
 
         // if (equal(cast(first as <common type>), cast(second as <common type>))
-        Metadata metadata = generatorContext.getMetadata();
         ResolvedFunction resolvedEqualsFunction = generatorContext.getMetadata().resolveOperator(OperatorType.EQUAL, ImmutableList.of(firstType, secondType));
-        Type firstRequiredType = metadata.getType(resolvedEqualsFunction.getSignature().getArgumentTypes().get(0));
-        Type secondRequiredType = metadata.getType(resolvedEqualsFunction.getSignature().getArgumentTypes().get(1));
+        Type firstRequiredType = resolvedEqualsFunction.getSignature().getArgumentTypes().get(0);
+        Type secondRequiredType = resolvedEqualsFunction.getSignature().getArgumentTypes().get(1);
         BytecodeNode equalsCall = generatorContext.generateCall(
                 resolvedEqualsFunction,
                 ImmutableList.of(
