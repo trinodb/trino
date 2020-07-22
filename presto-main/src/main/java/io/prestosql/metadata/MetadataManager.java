@@ -115,16 +115,19 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.metadata.FunctionId.toFunctionId;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
@@ -153,6 +156,7 @@ import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static java.lang.String.format;
@@ -191,7 +195,7 @@ public final class MetadataManager
             TransactionManager transactionManager)
     {
         typeRegistry = new TypeRegistry(featuresConfig);
-        functions = new FunctionRegistry(this, featuresConfig);
+        functions = new FunctionRegistry(this::getBlockEncodingSerde, featuresConfig);
         functionResolver = new FunctionResolver(this);
 
         this.procedures = new ProcedureRegistry(this);
@@ -1490,7 +1494,7 @@ public final class MetadataManager
     public ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         return functionDecoder.fromQualifiedName(name)
-                .orElseGet(() -> functionResolver.resolveFunction(functions.get(name), name, parameterTypes));
+                .orElseGet(() -> resolve(functionResolver.resolveFunction(functions.get(name), name, parameterTypes)));
     }
 
     @Override
@@ -1516,7 +1520,7 @@ public final class MetadataManager
         checkArgument(operatorType == OperatorType.CAST || operatorType == OperatorType.SATURATED_FLOOR_CAST);
         try {
             String name = mangleOperatorName(operatorType);
-            return functionResolver.resolveCoercion(functions.get(QualifiedName.of(name)), new Signature(name, toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())));
+            return resolve(functionResolver.resolveCoercion(functions.get(QualifiedName.of(name)), new Signature(name, toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature()))));
         }
         catch (PrestoException e) {
             if (e.getErrorCode().getCode() == FUNCTION_IMPLEMENTATION_MISSING.toErrorCode().getCode()) {
@@ -1529,7 +1533,65 @@ public final class MetadataManager
     @Override
     public ResolvedFunction getCoercion(QualifiedName name, Type fromType, Type toType)
     {
-        return functionResolver.resolveCoercion(functions.get(name), new Signature(name.getSuffix(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())));
+        return resolve(functionResolver.resolveCoercion(functions.get(name), new Signature(name.getSuffix(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature()))));
+    }
+
+    private ResolvedFunction resolve(FunctionBinding functionBinding)
+    {
+        FunctionDependencyDeclaration declaration = functions.getFunctionDependencies(functionBinding);
+
+        Map<TypeSignature, Type> types = declaration.getTypeDependencies().stream()
+                .collect(toImmutableMap(Function.identity(), this::getType));
+
+        ImmutableSet.Builder<ResolvedFunction> functions = ImmutableSet.builder();
+        declaration.getFunctionDependencies().stream()
+                .map(functionDependency -> {
+                    try {
+                        return resolveFunction(functionDependency.getName(), fromTypeSignatures(functionDependency.getArgumentTypes()));
+                    }
+                    catch (PrestoException e) {
+                        if (functionDependency.isOptional()) {
+                            return null;
+                        }
+                        throw e;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .forEach(functions::add);
+
+        declaration.getOperatorDependencies().stream()
+                .map(operatorDependency -> {
+                    try {
+                        return resolveOperator(operatorDependency.getOperatorType(), operatorDependency.getArgumentTypes().stream()
+                                .map(this::getType)
+                                .collect(toImmutableList()));
+                    }
+                    catch (PrestoException e) {
+                        if (operatorDependency.isOptional()) {
+                            return null;
+                        }
+                        throw e;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .forEach(functions::add);
+
+        declaration.getCastDependencies().stream()
+                .map(castDependency -> {
+                    try {
+                        return getCoercion(getType(castDependency.getFromType()), getType(castDependency.getToType()));
+                    }
+                    catch (PrestoException e) {
+                        if (castDependency.isOptional()) {
+                            return null;
+                        }
+                        throw e;
+                    }
+                })
+                .filter(Objects::nonNull)
+                .forEach(functions::add);
+
+        return new ResolvedFunction(functionBinding.getBoundSignature(), functionBinding.getFunctionId(), types, functions.build());
     }
 
     @Override
@@ -1592,7 +1654,8 @@ public final class MetadataManager
     public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, Optional<InvocationConvention> invocationConvention)
     {
         InvocationConvention expectedConvention = invocationConvention.orElseGet(() -> getDefaultCallingConvention(resolvedFunction));
-        return functions.getScalarFunctionInvoker(this, toFunctionBinding(resolvedFunction), expectedConvention);
+        FunctionDependencies functionDependencies = new FunctionDependencies(this, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
+        return functions.getScalarFunctionInvoker(toFunctionBinding(resolvedFunction), functionDependencies, expectedConvention);
     }
 
     /**

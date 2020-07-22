@@ -21,13 +21,15 @@ import io.airlift.bytecode.MethodDefinition;
 import io.airlift.bytecode.Parameter;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
-import io.prestosql.metadata.BoundSignature;
 import io.prestosql.metadata.FunctionBinding;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
+import io.prestosql.metadata.FunctionInvoker;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.gen.ArrayGeneratorUtils;
@@ -36,6 +38,8 @@ import io.prestosql.sql.gen.CachedInstanceBinder;
 import io.prestosql.sql.gen.CallSiteBinder;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
+import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.bytecode.Access.FINAL;
@@ -71,14 +75,23 @@ public class ArrayToArrayCast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, Metadata metadata)
+    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    {
+        return FunctionDependencyDeclaration.builder()
+                .addCast(functionBinding.getTypeVariable("F"), functionBinding.getTypeVariable("T"))
+                .build();
+    }
+
+    @Override
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         checkArgument(functionBinding.getArity() == 1, "Expected arity to be 1");
         Type fromType = functionBinding.getTypeVariable("F");
         Type toType = functionBinding.getTypeVariable("T");
 
-        ResolvedFunction resolvedFunction = metadata.getCoercion(fromType, toType);
-        Class<?> castOperatorClass = generateArrayCast(metadata, resolvedFunction);
+        FunctionMetadata castMetadata = functionDependencies.getCastMetadata(fromType, toType);
+        Function<InvocationConvention, FunctionInvoker> castInvokerProvider = invocationConvention -> functionDependencies.getCastInvoker(fromType, toType, Optional.of(invocationConvention));
+        Class<?> castOperatorClass = generateArrayCast(fromType, toType, castMetadata, castInvokerProvider);
         MethodHandle methodHandle = methodHandle(castOperatorClass, "castArray", ConnectorSession.class, Block.class);
         return new ScalarFunctionImplementation(
                 FAIL_ON_NULL,
@@ -86,14 +99,13 @@ public class ArrayToArrayCast
                 methodHandle);
     }
 
-    private static Class<?> generateArrayCast(Metadata metadata, ResolvedFunction elementCast)
+    private static Class<?> generateArrayCast(Type fromElementType, Type toElementType, FunctionMetadata castMetadata, Function<InvocationConvention, FunctionInvoker> castInvokerProvider)
     {
         CallSiteBinder binder = new CallSiteBinder();
 
-        BoundSignature elementCastSignature = elementCast.getSignature();
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
-                makeClassName(Joiner.on("$").join("ArrayCast", elementCastSignature.getArgumentTypes().get(0), elementCastSignature.getReturnType())),
+                makeClassName(Joiner.on("$").join("ArrayCast", fromElementType, toElementType)),
                 type(Object.class));
 
         Parameter session = arg("session", ConnectorSession.class);
@@ -113,10 +125,8 @@ public class ArrayToArrayCast
         body.append(wasNull.set(constantBoolean(false)));
 
         // cast map elements
-        Type fromElementType = elementCastSignature.getArgumentTypes().get(0);
-        Type toElementType = elementCastSignature.getReturnType();
         CachedInstanceBinder cachedInstanceBinder = new CachedInstanceBinder(definition, binder);
-        ArrayMapBytecodeExpression newArray = ArrayGeneratorUtils.map(scope, cachedInstanceBinder, fromElementType, toElementType, value, elementCast, metadata);
+        ArrayMapBytecodeExpression newArray = ArrayGeneratorUtils.map(scope, cachedInstanceBinder, fromElementType, toElementType, value, castMetadata, castInvokerProvider);
 
         // return the block
         body.append(newArray.ret());

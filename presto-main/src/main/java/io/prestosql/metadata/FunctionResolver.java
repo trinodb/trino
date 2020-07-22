@@ -50,7 +50,7 @@ public class FunctionResolver
         this.metadata = metadata;
     }
 
-    ResolvedFunction resolveCoercion(Collection<FunctionMetadata> allCandidates, Signature signature)
+    FunctionBinding resolveCoercion(Collection<FunctionMetadata> allCandidates, Signature signature)
     {
         List<TypeSignatureProvider> argumentTypeSignatureProviders = fromTypeSignatures(signature.getArgumentTypes());
 
@@ -61,7 +61,7 @@ public class FunctionResolver
             Optional<BoundVariables> boundVariables = new SignatureBinder(metadata, candidate.getSignature(), false)
                     .bindVariables(argumentTypeSignatureProviders, signature.getReturnType());
             if (boundVariables.isPresent()) {
-                return new ResolvedFunction(toBoundSignature(signature), candidate.getFunctionId());
+                return toFunctionBinding(candidate, signature);
             }
         }
 
@@ -73,21 +73,26 @@ public class FunctionResolver
             Optional<BoundVariables> boundVariables = new SignatureBinder(metadata, candidate.getSignature(), false)
                     .bindVariables(argumentTypeSignatureProviders, signature.getReturnType());
             if (boundVariables.isPresent()) {
-                return new ResolvedFunction(toBoundSignature(signature), candidate.getFunctionId());
+                return toFunctionBinding(candidate, signature);
             }
         }
 
         throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("%s not found", signature));
     }
 
-    private BoundSignature toBoundSignature(Signature signature)
+    private FunctionBinding toFunctionBinding(FunctionMetadata functionMetadata, Signature signature)
     {
-        return new BoundSignature(
+        BoundSignature boundSignature = new BoundSignature(
                 signature.getName(),
                 metadata.getType(signature.getReturnType()),
                 signature.getArgumentTypes().stream()
                         .map(metadata::getType)
                         .collect(toImmutableList()));
+        return SignatureBinder.bindFunction(
+                metadata,
+                functionMetadata.getFunctionId(),
+                functionMetadata.getSignature(),
+                boundSignature);
     }
 
     private static boolean possibleExactCastMatch(Signature signature, Signature declaredSignature)
@@ -104,13 +109,13 @@ public class FunctionResolver
         return true;
     }
 
-    ResolvedFunction resolveFunction(Collection<FunctionMetadata> allCandidates, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    FunctionBinding resolveFunction(Collection<FunctionMetadata> allCandidates, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         List<FunctionMetadata> exactCandidates = allCandidates.stream()
                 .filter(function -> function.getSignature().getTypeVariableConstraints().isEmpty())
                 .collect(Collectors.toList());
 
-        Optional<ResolvedFunction> match = matchFunctionExact(exactCandidates, parameterTypes);
+        Optional<FunctionBinding> match = matchFunctionExact(exactCandidates, parameterTypes);
         if (match.isPresent()) {
             return match.get();
         }
@@ -146,17 +151,17 @@ public class FunctionResolver
         throw new PrestoException(FUNCTION_NOT_FOUND, message);
     }
 
-    private Optional<ResolvedFunction> matchFunctionExact(List<FunctionMetadata> candidates, List<TypeSignatureProvider> actualParameters)
+    private Optional<FunctionBinding> matchFunctionExact(List<FunctionMetadata> candidates, List<TypeSignatureProvider> actualParameters)
     {
         return matchFunction(candidates, actualParameters, false);
     }
 
-    private Optional<ResolvedFunction> matchFunctionWithCoercion(Collection<FunctionMetadata> candidates, List<TypeSignatureProvider> actualParameters)
+    private Optional<FunctionBinding> matchFunctionWithCoercion(Collection<FunctionMetadata> candidates, List<TypeSignatureProvider> actualParameters)
     {
         return matchFunction(candidates, actualParameters, true);
     }
 
-    private Optional<ResolvedFunction> matchFunction(Collection<FunctionMetadata> candidates, List<TypeSignatureProvider> parameters, boolean coercionAllowed)
+    private Optional<FunctionBinding> matchFunction(Collection<FunctionMetadata> candidates, List<TypeSignatureProvider> parameters, boolean coercionAllowed)
     {
         List<ApplicableFunction> applicableFunctions = identifyApplicableFunctions(candidates, parameters, coercionAllowed);
         if (applicableFunctions.isEmpty()) {
@@ -170,7 +175,7 @@ public class FunctionResolver
 
         if (applicableFunctions.size() == 1) {
             ApplicableFunction applicableFunction = getOnlyElement(applicableFunctions);
-            return Optional.of(new ResolvedFunction(toBoundSignature(applicableFunction.getBoundSignature()), applicableFunction.getFunction().getFunctionId()));
+            return Optional.of(toFunctionBinding(applicableFunction.getFunction(), applicableFunction.getBoundSignature()));
         }
 
         StringBuilder errorMessageBuilder = new StringBuilder();

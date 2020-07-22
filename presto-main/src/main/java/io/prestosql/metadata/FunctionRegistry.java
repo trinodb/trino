@@ -209,6 +209,7 @@ import io.prestosql.operator.window.RowNumberFunction;
 import io.prestosql.operator.window.SqlWindowFunction;
 import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.analyzer.FeaturesConfig;
@@ -249,6 +250,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -377,7 +379,7 @@ public class FunctionRegistry
     private final Cache<FunctionBinding, WindowFunctionSupplier> specializedWindowCache;
     private volatile FunctionMap functions = new FunctionMap();
 
-    public FunctionRegistry(Metadata metadata, FeaturesConfig featuresConfig)
+    public FunctionRegistry(Supplier<BlockEncodingSerde> blockEncodingSerdeSupplier, FeaturesConfig featuresConfig)
     {
         // We have observed repeated compilation of MethodHandle that leads to full GCs.
         // We notice that flushing the following caches mitigate the problem.
@@ -630,7 +632,7 @@ public class FunctionRegistry
                 .functions(MAP_FILTER_FUNCTION, MAP_TRANSFORM_KEYS_FUNCTION, MAP_TRANSFORM_VALUES_FUNCTION)
                 .function(FORMAT_FUNCTION)
                 .function(TRY_CAST)
-                .function(new LiteralFunction())
+                .function(new LiteralFunction(blockEncodingSerdeSupplier))
                 .aggregate(MergeSetDigestAggregation.class)
                 .aggregate(BuildSetDigestAggregation.class)
                 .scalars(SetDigestFunctions.class)
@@ -844,11 +846,20 @@ public class FunctionRegistry
         return function.specialize(functionBinding, metadata);
     }
 
-    public FunctionInvoker getScalarFunctionInvoker(Metadata metadata, FunctionBinding functionBinding, InvocationConvention invocationConvention)
+    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    {
+        SqlFunction function = functions.get(functionBinding.getFunctionId());
+        return function.getFunctionDependencies(functionBinding);
+    }
+
+    public FunctionInvoker getScalarFunctionInvoker(
+            FunctionBinding functionBinding,
+            FunctionDependencies functionDependencies,
+            InvocationConvention invocationConvention)
     {
         ScalarFunctionImplementation scalarFunctionImplementation;
         try {
-            scalarFunctionImplementation = specializedScalarCache.get(functionBinding, () -> specializeScalarFunction(metadata, functionBinding));
+            scalarFunctionImplementation = specializedScalarCache.get(functionBinding, () -> specializeScalarFunction(functionBinding, functionDependencies));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), PrestoException.class);
@@ -858,10 +869,10 @@ public class FunctionRegistry
         return functionInvokerProvider.createFunctionInvoker(scalarFunctionImplementation, functionBinding.getBoundSignature(), invocationConvention);
     }
 
-    private ScalarFunctionImplementation specializeScalarFunction(Metadata metadata, FunctionBinding functionBinding)
+    private ScalarFunctionImplementation specializeScalarFunction(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         SqlScalarFunction function = (SqlScalarFunction) functions.get(functionBinding.getFunctionId());
-        return function.specialize(functionBinding, metadata);
+        return function.specialize(functionBinding, functionDependencies);
     }
 
     private static class FunctionMap

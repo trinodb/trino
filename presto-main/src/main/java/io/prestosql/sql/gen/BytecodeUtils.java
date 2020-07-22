@@ -178,10 +178,25 @@ public final class BytecodeUtils
             List<BytecodeNode> arguments,
             CallSiteBinder binder)
     {
+        return generateInvocation(
+                scope,
+                metadata.getFunctionMetadata(resolvedFunction),
+                invocationConvention -> metadata.getScalarFunctionInvoker(resolvedFunction, Optional.of(invocationConvention)),
+                arguments,
+                binder);
+    }
+
+    public static BytecodeNode generateInvocation(
+            Scope scope,
+            FunctionMetadata functionMetadata,
+            Function<InvocationConvention, FunctionInvoker> functionInvokerProvider,
+            List<BytecodeNode> arguments,
+            CallSiteBinder binder)
+    {
         return generateFullInvocation(
                 scope,
-                resolvedFunction,
-                metadata,
+                functionMetadata,
+                functionInvokerProvider,
                 instanceFactory -> {
                     throw new IllegalArgumentException("Simple method invocation can not be used with functions that require an instance factory");
                 },
@@ -207,8 +222,23 @@ public final class BytecodeUtils
             List<Function<Optional<Class<?>>, BytecodeNode>> argumentCompilers,
             CallSiteBinder binder)
     {
-        FunctionMetadata functionMetadata = metadata.getFunctionMetadata(resolvedFunction);
+        return generateFullInvocation(
+                scope,
+                metadata.getFunctionMetadata(resolvedFunction),
+                invocationConvention -> metadata.getScalarFunctionInvoker(resolvedFunction, Optional.of(invocationConvention)),
+                instanceFactory,
+                argumentCompilers,
+                binder);
+    }
 
+    public static BytecodeNode generateFullInvocation(
+            Scope scope,
+            FunctionMetadata functionMetadata,
+            Function<InvocationConvention, FunctionInvoker> functionInvokerProvider,
+            Function<MethodHandle, BytecodeNode> instanceFactory,
+            List<Function<Optional<Class<?>>, BytecodeNode>> argumentCompilers,
+            CallSiteBinder binder)
+    {
         List<InvocationArgumentConvention> argumentConventions = new ArrayList<>();
         List<BytecodeNode> arguments = new ArrayList<>();
         for (int i = 0; i < functionMetadata.getSignature().getArgumentTypes().size(); i++) {
@@ -237,13 +267,13 @@ public final class BytecodeUtils
                 functionMetadata.isNullable() ? NULLABLE_RETURN : FAIL_ON_NULL,
                 true,
                 true);
-        FunctionInvoker functionInvoker = metadata.getScalarFunctionInvoker(resolvedFunction, Optional.of(invocationConvention));
+        FunctionInvoker functionInvoker = functionInvokerProvider.apply(invocationConvention);
 
         Binding binding = binder.bind(functionInvoker.getMethodHandle());
 
         LabelNode end = new LabelNode("end");
         BytecodeBlock block = new BytecodeBlock()
-                .setDescription("invoke " + resolvedFunction.getSignature().getName());
+                .setDescription("invoke " + functionMetadata.getSignature().getName());
 
         Optional<BytecodeNode> instance = functionInvoker.getInstanceFactory()
                 .map(instanceFactory);
@@ -311,7 +341,7 @@ public final class BytecodeUtils
             }
             currentParameterIndex++;
         }
-        block.append(invoke(binding, resolvedFunction.getSignature().getName()));
+        block.append(invoke(binding, functionMetadata.getSignature().getName()));
 
         if (functionMetadata.isNullable()) {
             block.append(unboxPrimitiveIfNecessary(scope, returnType));

@@ -14,6 +14,9 @@
 package io.prestosql.operator.annotations;
 
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionInvoker;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.function.InvocationConvention;
@@ -38,11 +41,19 @@ public abstract class ScalarImplementationDependency
 
     protected abstract ResolvedFunction getResolvedFunction(BoundVariables boundVariables, Metadata metadata);
 
+    protected abstract FunctionInvoker getInvoker(FunctionBinding functionBinding, FunctionDependencies functionDependencies, Optional<InvocationConvention> invocationConvention);
+
     @Override
     public MethodHandle resolve(BoundVariables boundVariables, Metadata metadata)
     {
         ResolvedFunction resolvedFunction = getResolvedFunction(boundVariables, metadata);
         return metadata.getScalarFunctionInvoker(resolvedFunction, invocationConvention).getMethodHandle();
+    }
+
+    @Override
+    public MethodHandle resolve(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    {
+        return getInvoker(functionBinding, functionDependencies, invocationConvention).getMethodHandle();
     }
 
     @Override

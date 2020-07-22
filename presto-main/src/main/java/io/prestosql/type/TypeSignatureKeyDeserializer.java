@@ -11,16 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.metadata;
+package io.prestosql.type;
 
-import static io.prestosql.metadata.FunctionDependencyDeclaration.NO_DEPENDENCIES;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.KeyDeserializer;
+import com.google.common.collect.ImmutableSet;
 
-public interface SqlFunction
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+
+public final class TypeSignatureKeyDeserializer
+        extends KeyDeserializer
 {
-    FunctionMetadata getFunctionMetadata();
-
-    default FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    @Override
+    public Object deserializeKey(String key, DeserializationContext context)
     {
-        return NO_DEPENDENCIES;
+        return parseTypeSignature(key, ImmutableSet.of());
     }
 }
