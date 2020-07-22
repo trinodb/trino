@@ -534,31 +534,30 @@ public class BackgroundHiveSplitLoader
         }
 
         if (!fileStatusOriginalFiles.isEmpty()) {
-            generateOriginalFilesSplits(splitFactory, fileStatusOriginalFiles, splittable, acidInfoBuilder);
+            fileIterators.addLast(generateOriginalFilesSplits(splitFactory, fileStatusOriginalFiles, splittable, acidInfoBuilder));
         }
 
         return COMPLETED_FUTURE;
     }
 
-    private void generateOriginalFilesSplits(
+    private Iterator<InternalHiveSplit> generateOriginalFilesSplits(
             InternalHiveSplitFactory splitFactory,
             List<HdfsFileStatusWithId> originalFileLocations,
             boolean splittable,
             AcidInfo.Builder acidInfoBuilder)
     {
-        fileIterators.addLast(
-                originalFileLocations.stream()
-                        .map(HdfsFileStatusWithId::getFileStatus)
-                        .map(fileStatus -> {
-                            Optional<AcidInfo> acidInfo = Optional.of(acidInfoBuilder.buildWithRequiredOriginalFiles(getRequiredBucketNumber(fileStatus.getPath())));
-                            return splitFactory.createInternalHiveSplit(
-                                    (LocatedFileStatus) fileStatus,
-                                    OptionalInt.empty(),
-                                    splittable,
-                                    acidInfo);
-                        })
-                        .map(Optional::orElseThrow)
-                        .iterator());
+        return originalFileLocations.stream()
+                .map(HdfsFileStatusWithId::getFileStatus)
+                .map(fileStatus -> {
+                    Optional<AcidInfo> acidInfo = Optional.of(acidInfoBuilder.buildWithRequiredOriginalFiles(getRequiredBucketNumber(fileStatus.getPath())));
+                    return splitFactory.createInternalHiveSplit(
+                            (LocatedFileStatus) fileStatus,
+                            OptionalInt.empty(),
+                            splittable,
+                            acidInfo)
+                            .orElseThrow();
+                })
+                .iterator();
     }
 
     private ListenableFuture<?> addSplitsToSource(InputSplit[] targetSplits, InternalHiveSplitFactory splitFactory)
