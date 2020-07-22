@@ -554,9 +554,10 @@ public class BackgroundHiveSplitLoader
                             (LocatedFileStatus) fileStatus,
                             OptionalInt.empty(),
                             splittable,
-                            acidInfo)
-                            .orElseThrow();
+                            acidInfo);
                 })
+                .filter(Optional::isPresent)
+                .map(Optional::get)
                 .iterator();
     }
 
