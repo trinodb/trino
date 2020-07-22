@@ -154,7 +154,8 @@ public class ExpressionEquivalence
                     specialForm.getType(),
                     specialForm.getArguments().stream()
                             .map(expression -> expression.accept(this, context))
-                            .collect(toImmutableList()));
+                            .collect(toImmutableList()),
+                    specialForm.getFunctionDependencies());
 
             if (specialForm.getForm() == AND || specialForm.getForm() == OR) {
                 // if we have nested calls (of the same type) flatten them
@@ -169,7 +170,7 @@ public class ExpressionEquivalence
                 // canonicalize the argument order (i.e., sort them)
                 List<RowExpression> sortedArguments = ROW_EXPRESSION_ORDERING.sortedCopy(distinctArguments);
 
-                return new SpecialForm(specialForm.getForm(), BOOLEAN, sortedArguments);
+                return new SpecialForm(specialForm.getForm(), BOOLEAN, sortedArguments, specialForm.getFunctionDependencies());
             }
 
             return specialForm;

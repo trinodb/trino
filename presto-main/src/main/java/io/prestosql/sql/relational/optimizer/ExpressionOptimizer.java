@@ -135,7 +135,7 @@ public class ExpressionOptimizer
                     List<RowExpression> arguments = specialForm.getArguments().stream()
                             .map(argument -> argument.accept(this, null))
                             .collect(toImmutableList());
-                    return new SpecialForm(specialForm.getForm(), specialForm.getType(), arguments);
+                    return new SpecialForm(specialForm.getForm(), specialForm.getType(), arguments, specialForm.getFunctionDependencies());
                 }
                 case BIND: {
                     checkState(specialForm.getArguments().size() >= 1, BIND + " function should have at least 1 argument. Got " + specialForm.getArguments().size());
@@ -154,7 +154,7 @@ public class ExpressionOptimizer
                         // It's not implemented because it would be dead code anyways because visitLambda does not produce ConstantExpression.
                         throw new UnsupportedOperationException();
                     }
-                    return new SpecialForm(specialForm.getForm(), specialForm.getType(), optimizedArgumentsBuilder.build());
+                    return new SpecialForm(specialForm.getForm(), specialForm.getType(), optimizedArgumentsBuilder.build(), specialForm.getFunctionDependencies());
                 }
                 case NULL_IF:
                 case SWITCH:
@@ -170,7 +170,7 @@ public class ExpressionOptimizer
                     List<RowExpression> arguments = specialForm.getArguments().stream()
                             .map(argument -> argument.accept(this, null))
                             .collect(toImmutableList());
-                    return new SpecialForm(specialForm.getForm(), specialForm.getType(), arguments);
+                    return new SpecialForm(specialForm.getForm(), specialForm.getType(), arguments, specialForm.getFunctionDependencies());
                 }
                 default:
                     throw new IllegalArgumentException("Unsupported special form " + specialForm.getForm());

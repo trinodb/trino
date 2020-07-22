@@ -22,7 +22,6 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.bytecode.instruction.VariableInstruction;
 import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.sql.relational.SpecialForm;
@@ -44,6 +43,7 @@ public class SwitchCodeGenerator
     private final RowExpression value;
     private final List<SpecialForm> whenClauses;
     private final Optional<RowExpression> elseValue;
+    private final List<ResolvedFunction> equalsFunctions;
 
     public SwitchCodeGenerator(SpecialForm specialForm)
     {
@@ -68,6 +68,9 @@ public class SwitchCodeGenerator
         checkArgument(whenClauses.stream()
                 .map(SpecialForm::getForm)
                 .allMatch(WHEN::equals));
+
+        equalsFunctions = ImmutableList.copyOf(specialForm.getFunctionDependencies());
+        checkArgument(equalsFunctions.size() == whenClauses.size());
     }
 
     @Override
@@ -140,7 +143,6 @@ public class SwitchCodeGenerator
             RowExpression result = clause.getArguments().get(1);
 
             // call equals(value, operand)
-            ResolvedFunction equalsFunction = generatorContext.getMetadata().resolveOperator(OperatorType.EQUAL, ImmutableList.of(value.getType(), operand.getType()));
 
             // TODO: what if operand is null? It seems that the call will return "null" (which is cleared below)
             // and the code only does the right thing because the value in the stack for that scenario is
@@ -148,7 +150,7 @@ public class SwitchCodeGenerator
             // This code should probably be checking for wasNull after the call and "failing" the equality
             // check if wasNull is true
             BytecodeNode equalsCall = generatorContext.generateCall(
-                    equalsFunction,
+                    equalsFunctions.get(i),
                     ImmutableList.of(generatorContext.generate(operand), getTempVariableNode));
 
             BytecodeBlock condition = new BytecodeBlock()
