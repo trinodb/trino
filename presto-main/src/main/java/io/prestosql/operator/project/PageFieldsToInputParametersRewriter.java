@@ -92,7 +92,8 @@ public final class PageFieldsToInputParametersRewriter
                     specialForm.getType(),
                     specialForm.getArguments().stream()
                             .map(expression -> expression.accept(this, context))
-                            .collect(toImmutableList()));
+                            .collect(toImmutableList()),
+                    specialForm.getFunctionDependencies());
         }
 
         @Override
