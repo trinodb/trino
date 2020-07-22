@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ArrayListMultimap;
 import com.google.common.collect.ImmutableList;
@@ -46,6 +47,12 @@ import org.apache.hadoop.fs.permission.FsPermission;
 import org.apache.hadoop.hive.common.ValidReaderWriteIdList;
 import org.apache.hadoop.hive.common.ValidWriteIdList;
 import org.apache.hadoop.hive.metastore.TableType;
+import org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe;
+import org.apache.hadoop.mapred.FileInputFormat;
+import org.apache.hadoop.mapred.InputSplit;
+import org.apache.hadoop.mapred.JobConf;
+import org.apache.hadoop.mapred.RecordReader;
+import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.util.Progressable;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -82,6 +89,7 @@ import static io.prestosql.plugin.hive.BackgroundHiveSplitLoader.hasAttemptId;
 import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveColumnHandle.pathColumnHandle;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_BUCKET_FILES;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static io.prestosql.plugin.hive.HiveStorageFormat.CSV;
 import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
@@ -105,6 +113,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class TestBackgroundHiveSplitLoader
 {
@@ -156,14 +165,79 @@ public class TestBackgroundHiveSplitLoader
     public void testCsv()
             throws Exception
     {
-        assertSplitCount(CSV, ImmutableMap.of(), 33);
-        assertSplitCount(CSV, ImmutableMap.of("skip.header.line.count", "1"), 33);
-        assertSplitCount(CSV, ImmutableMap.of("skip.header.line.count", "2"), 1);
-        assertSplitCount(CSV, ImmutableMap.of("skip.footer.line.count", "1"), 1);
-        assertSplitCount(CSV, ImmutableMap.of("skip.header.line.count", "1", "skip.footer.line.count", "1"), 1);
+        DataSize fileSize = DataSize.of(2, GIGABYTE);
+        assertSplitCount(CSV, ImmutableMap.of(), fileSize, 33);
+        assertSplitCount(CSV, ImmutableMap.of("skip.header.line.count", "1"), fileSize, 33);
+        assertSplitCount(CSV, ImmutableMap.of("skip.header.line.count", "2"), fileSize, 1);
+        assertSplitCount(CSV, ImmutableMap.of("skip.footer.line.count", "1"), fileSize, 1);
+        assertSplitCount(CSV, ImmutableMap.of("skip.header.line.count", "1", "skip.footer.line.count", "1"), fileSize, 1);
     }
 
-    private void assertSplitCount(HiveStorageFormat storageFormat, Map<String, String> tableProperties, int expectedSplitCount)
+    @Test
+    public void testSplittableNotCheckedOnSmallFiles()
+            throws Exception
+    {
+        DataSize initialSplitSize = getMaxInitialSplitSize(SESSION);
+
+        Table table = table(
+                ImmutableList.of(),
+                Optional.empty(),
+                ImmutableMap.of(),
+                StorageFormat.create(LazySimpleSerDe.class.getName(), TestSplittableFailureInputFormat.class.getName(), TestSplittableFailureInputFormat.class.getName()));
+
+        //  Exactly minimum split size, no isSplittable check
+        BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                ImmutableList.of(locatedFileStatus(new Path(SAMPLE_PATH), initialSplitSize.toBytes())),
+                TupleDomain.all(),
+                Optional.empty(),
+                table,
+                Optional.empty());
+
+        HiveSplitSource hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+        backgroundHiveSplitLoader.start(hiveSplitSource);
+
+        assertEquals(drainSplits(hiveSplitSource).size(), 1);
+
+        //  Large enough for isSplittable to be called
+        backgroundHiveSplitLoader = backgroundHiveSplitLoader(
+                ImmutableList.of(locatedFileStatus(new Path(SAMPLE_PATH), initialSplitSize.toBytes() + 1)),
+                TupleDomain.all(),
+                Optional.empty(),
+                table,
+                Optional.empty());
+
+        hiveSplitSource = hiveSplitSource(backgroundHiveSplitLoader);
+        backgroundHiveSplitLoader.start(hiveSplitSource);
+
+        try {
+            drainSplits(hiveSplitSource);
+            fail("Expected split generation to call isSplittable and fail");
+        }
+        catch (PrestoException e) {
+            Throwable cause = Throwables.getRootCause(e);
+            assertTrue(cause instanceof IllegalStateException);
+            assertEquals(cause.getMessage(), "isSplittable called");
+        }
+    }
+
+    public static final class TestSplittableFailureInputFormat
+            extends FileInputFormat<Void, Void>
+    {
+        @Override
+        protected boolean isSplitable(FileSystem fs, Path filename)
+        {
+            throw new IllegalStateException("isSplittable called");
+        }
+
+        @Override
+        public RecordReader<Void, Void> getRecordReader(InputSplit inputSplit, JobConf jobConf, Reporter reporter)
+                throws IOException
+        {
+            throw new UnsupportedOperationException();
+        }
+    }
+
+    private void assertSplitCount(HiveStorageFormat storageFormat, Map<String, String> tableProperties, DataSize fileSize, int expectedSplitCount)
             throws Exception
     {
         Table table = table(
@@ -173,7 +247,7 @@ public class TestBackgroundHiveSplitLoader
                 StorageFormat.fromHiveStorageFormat(storageFormat));
 
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = backgroundHiveSplitLoader(
-                ImmutableList.of(locatedFileStatus(new Path(SAMPLE_PATH), DataSize.of(2, GIGABYTE).toBytes())),
+                ImmutableList.of(locatedFileStatus(new Path(SAMPLE_PATH), fileSize.toBytes())),
                 TupleDomain.all(),
                 Optional.empty(),
                 table,
