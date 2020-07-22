@@ -16,7 +16,9 @@ package io.prestosql.operator.aggregation;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
+import io.prestosql.metadata.BoundSignature;
 import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
@@ -39,7 +41,6 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
-import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
 import static io.prestosql.operator.ParametricFunctionHelpers.bindDependencies;
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.prestosql.operator.aggregation.state.StateCompiler.generateStateSerializer;
@@ -77,18 +78,17 @@ public class ParametricAggregation
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables variables, int arity, Metadata metadata)
+    public InternalAggregationFunction specialize(FunctionBinding functionBinding, Metadata metadata)
     {
         // Bind variables
         Signature signature = getFunctionMetadata().getSignature();
-        Signature boundSignature = applyBoundVariables(signature, variables, arity);
 
         // Find implementation matching arguments
-        AggregationImplementation concreteImplementation = findMatchingImplementation(boundSignature, variables, metadata);
+        AggregationImplementation concreteImplementation = findMatchingImplementation(functionBinding.getBoundSignature());
 
         // Build argument and return Types from signatures
-        List<Type> inputTypes = boundSignature.getArgumentTypes().stream().map(metadata::getType).collect(toImmutableList());
-        Type outputType = metadata.getType(boundSignature.getReturnType());
+        List<Type> inputTypes = functionBinding.getBoundSignature().getArgumentTypes();
+        Type outputType = functionBinding.getBoundSignature().getReturnType();
 
         // Create classloader for additional aggregation dependencies
         Class<?> definitionClass = concreteImplementation.getDefinitionClass();
@@ -100,11 +100,12 @@ public class ParametricAggregation
         AccumulatorStateFactory<?> stateFactory = StateCompiler.generateStateFactory(stateClass, classLoader);
 
         // Bind provided dependencies to aggregation method handlers
-        MethodHandle inputHandle = bindDependencies(concreteImplementation.getInputFunction(), concreteImplementation.getInputDependencies(), variables, metadata);
+        BoundVariables boundVariables = new BoundVariables(functionBinding.getTypeVariables(), functionBinding.getLongVariables());
+        MethodHandle inputHandle = bindDependencies(concreteImplementation.getInputFunction(), concreteImplementation.getInputDependencies(), boundVariables, metadata);
         Optional<MethodHandle> removeInputHandle = concreteImplementation.getRemoveInputFunction().map(
-                removeInputFunction -> bindDependencies(removeInputFunction, concreteImplementation.getRemoveInputDependencies(), variables, metadata));
-        MethodHandle combineHandle = bindDependencies(concreteImplementation.getCombineFunction(), concreteImplementation.getCombineDependencies(), variables, metadata);
-        MethodHandle outputHandle = bindDependencies(concreteImplementation.getOutputFunction(), concreteImplementation.getOutputDependencies(), variables, metadata);
+                removeInputFunction -> bindDependencies(removeInputFunction, concreteImplementation.getRemoveInputDependencies(), boundVariables, metadata));
+        MethodHandle combineHandle = bindDependencies(concreteImplementation.getCombineFunction(), concreteImplementation.getCombineDependencies(), boundVariables, metadata);
+        MethodHandle outputHandle = bindDependencies(concreteImplementation.getOutputFunction(), concreteImplementation.getOutputDependencies(), boundVariables, metadata);
 
         // Build metadata of input parameters
         List<ParameterMetadata> parametersMetadata = buildParameterMetadata(concreteImplementation.getInputParameterMetadataTypes(), inputTypes);
@@ -141,17 +142,18 @@ public class ParametricAggregation
         return implementations;
     }
 
-    private AggregationImplementation findMatchingImplementation(Signature boundSignature, BoundVariables variables, Metadata metadata)
+    private AggregationImplementation findMatchingImplementation(BoundSignature boundSignature)
     {
+        Signature signature = boundSignature.toSignature();
         Optional<AggregationImplementation> foundImplementation = Optional.empty();
-        if (implementations.getExactImplementations().containsKey(boundSignature)) {
-            foundImplementation = Optional.of(implementations.getExactImplementations().get(boundSignature));
+        if (implementations.getExactImplementations().containsKey(signature)) {
+            foundImplementation = Optional.of(implementations.getExactImplementations().get(signature));
         }
         else {
             for (AggregationImplementation candidate : implementations.getGenericImplementations()) {
-                if (candidate.areTypesAssignable(boundSignature, variables, metadata)) {
+                if (candidate.areTypesAssignable(boundSignature)) {
                     if (foundImplementation.isPresent()) {
-                        throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, format("Ambiguous function call (%s) for %s", variables, getFunctionMetadata().getSignature()));
+                        throw new PrestoException(AMBIGUOUS_FUNCTION_CALL, format("Ambiguous function call (%s) for %s", boundSignature, getFunctionMetadata().getSignature()));
                     }
                     foundImplementation = Optional.of(candidate);
                 }
@@ -159,7 +161,7 @@ public class ParametricAggregation
         }
 
         if (foundImplementation.isEmpty()) {
-            throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported type parameters (%s) for %s", variables, getFunctionMetadata().getSignature()));
+            throw new PrestoException(FUNCTION_IMPLEMENTATION_MISSING, format("Unsupported type parameters (%s) for %s", boundSignature, getFunctionMetadata().getSignature()));
         }
         return foundImplementation.get();
     }

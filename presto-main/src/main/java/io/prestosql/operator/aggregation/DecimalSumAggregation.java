@@ -16,10 +16,9 @@ package io.prestosql.operator.aggregation;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.airlift.slice.Slice;
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
@@ -43,7 +42,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
-import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL;
@@ -87,11 +85,10 @@ public class DecimalSumAggregation
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
     {
-        Signature signature = getFunctionMetadata().getSignature();
-        Type inputType = metadata.getType(getOnlyElement(applyBoundVariables(signature.getArgumentTypes(), boundVariables)));
-        Type outputType = metadata.getType(applyBoundVariables(signature.getReturnType(), boundVariables));
+        Type inputType = getOnlyElement(functionBinding.getBoundSignature().getArgumentTypes());
+        Type outputType = functionBinding.getBoundSignature().getReturnType();
         return generateAggregation(inputType, outputType);
     }
 

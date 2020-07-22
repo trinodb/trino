@@ -67,5 +67,13 @@ public abstract class SqlAggregationFunction
         return decomposable;
     }
 
-    public abstract InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, Metadata metadata);
+    public InternalAggregationFunction specialize(FunctionBinding functionBinding, Metadata metadata)
+    {
+        return specialize(functionBinding);
+    }
+
+    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
+    {
+        throw new UnsupportedOperationException();
+    }
 }
