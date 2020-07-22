@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
-import com.google.common.primitives.UnsignedLong;
 import io.airlift.event.client.EventClient;
 import io.airlift.units.DataSize;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
@@ -548,7 +547,6 @@ public class HiveWriterFactory
                 hiveWriterStats);
     }
 
-
     private void validateSchema(Optional<String> partitionName, Properties schema)
     {
         // existing tables may have columns in a different order
@@ -597,9 +595,8 @@ public class HiveWriterFactory
 
     private String computeFileName(OptionalInt bucketNumber)
     {
-        // Hive is opinionated on naming pattern for "original" files of transactional tables.
-        // As currently CTAS for transactional tables in Presto creates non-transactional ("original") files.
-        // we use special file naming mode in this case.
+        // Currently CTAS for transactional tables in Presto creates non-transactional ("original") files.
+        // Hive requires "original" files of transactional tables to conform to the following naming pattern:
         //
         // For bucketed tables we drop query id from file names and just leave <bucketId>_0
         // For non bucketed tables we use 000000_<uuid_as_number>
