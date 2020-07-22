@@ -213,7 +213,7 @@ public class OrcPageSourceFactory
 
         OrcDataSource orcDataSource;
 
-        boolean originalFilesPresent = acidInfo.isPresent() && acidInfo.get().getOriginalFiles().size() > 0;
+        boolean originalFilesPresent = acidInfo.isPresent() && !acidInfo.get().getOriginalFiles().isEmpty();
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, path, configuration);
             FSDataInputStream inputStream = hdfsEnvironment.doAs(sessionUser, () -> fileSystem.open(path));
@@ -358,11 +358,8 @@ public class OrcPageSourceFactory
                             acidInfo.get()));
 
             Optional<Long> originalFileRowId = acidInfo
-                    .filter(
-                            info -> info.getDeleteDeltas().size() > 0 &&
-                                    acidInfo.isPresent() && acidInfo.get().getOriginalFiles().size() > 0)
-                    .map(
-                            info -> OriginalFilesUtils.getRowCount(
+                    .filter(info -> !info.getDeleteDeltas().isEmpty() && !info.getOriginalFiles().isEmpty())
+                    .map(info -> OriginalFilesUtils.getPrecedingRowCount(
                                     acidInfo.get().getOriginalFiles(),
                                     path,
                                     hdfsEnvironment,

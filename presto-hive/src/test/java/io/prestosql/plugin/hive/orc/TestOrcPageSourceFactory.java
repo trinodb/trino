@@ -131,14 +131,13 @@ public class TestOrcPageSourceFactory
         File tableFile = new File(TestOrcPageSourceFactory.class.getClassLoader().getResource("fullacidNationTableWithOriginalFiles/000000_0").getPath());
         String tablePath = tableFile.getParent();
 
-        Optional<AcidInfo> acidInfo = AcidInfo.builder(new Path(tablePath))
+        AcidInfo acidInfo = AcidInfo.builder(new Path(tablePath))
                 .addDeleteDelta(new Path(tablePath, deleteDeltaSubdir(10000001, 10000001, 0)), 10000001, 10000001, 0)
                 .addOriginalFile(new Path(tablePath, "000000_0"), 1780, 0)
                 .buildWithRequiredOriginalFiles(0);
 
         List<Nation> expected = expectedResult(OptionalLong.empty(), nationKey -> nationKey == 24, 1);
-        List<Nation> result = readFile(ImmutableSet.copyOf(NationColumn.values()), OptionalLong.empty(), acidInfo, tablePath + "/000000_0",
-                1780);
+        List<Nation> result = readFile(ImmutableSet.copyOf(NationColumn.values()), OptionalLong.empty(), Optional.of(acidInfo), tablePath + "/000000_0", 1780);
 
         assertEquals(result.size(), expected.size());
         int deletedRowKey = 24;

@@ -486,7 +486,7 @@ public class TestBackgroundHiveSplitLoader
     }
 
     @Test
-    public void testFullAcidTableWithOriginalFilesPass()
+    public void testFullAcidTableWithOriginalFiles()
             throws Exception
     {
         java.nio.file.Path tablePath = Files.createTempDirectory("TestBackgroundHiveSplitLoader");

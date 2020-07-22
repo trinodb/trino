@@ -45,12 +45,12 @@ public class TestOriginalFilesUtils
     }
 
     @Test
-    public void testGetRowCountSingleOriginalFileBucket()
+    public void testGetPrecedingRowCountSingleFile()
     {
         List<OriginalFileInfo> originalFileInfoList = new ArrayList<>();
         originalFileInfoList.add(new OriginalFileInfo("000001_0", 730));
 
-        long rowCountResult = OriginalFilesUtils.getRowCount(
+        long rowCountResult = OriginalFilesUtils.getPrecedingRowCount(
                 originalFileInfoList,
                 new Path(tablePath + "/000001_0"),
                 HDFS_ENVIRONMENT,
@@ -62,7 +62,7 @@ public class TestOriginalFilesUtils
     }
 
     @Test
-    public void testGetRowCountMultipleOriginalFilesBucket()
+    public void testGetPrecedingRowCount()
     {
         List<OriginalFileInfo> originalFileInfos = new ArrayList<>();
 
@@ -70,7 +70,7 @@ public class TestOriginalFilesUtils
         originalFileInfos.add(new OriginalFileInfo("000002_0_copy_1", 768));
         originalFileInfos.add(new OriginalFileInfo("000002_0_copy_2", 743));
 
-        long rowCountResult = OriginalFilesUtils.getRowCount(
+        long rowCountResult = OriginalFilesUtils.getPrecedingRowCount(
                 originalFileInfos,
                 new Path(tablePath + "/000002_0_copy_2"),
                 HDFS_ENVIRONMENT,

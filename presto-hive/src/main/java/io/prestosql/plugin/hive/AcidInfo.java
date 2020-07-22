@@ -290,14 +290,14 @@ public class AcidInfo
             return this;
         }
 
-        public Optional<AcidInfo> buildWithRequiredOriginalFiles(int bucketId)
+        public AcidInfo buildWithRequiredOriginalFiles(int bucketId)
         {
-            // 1. Fetch list of all the original files which have same bucket Id
-            // 2. Build AcidInfo
-            checkState(bucketId > -1 && bucketIdToOriginalFileInfoMap.containsKey(bucketId), "Bucket Id to OriginalFileInfo map should have " +
-                    "entry for requested bucket Id");
+            checkState(
+                    bucketId > -1 && bucketIdToOriginalFileInfoMap.containsKey(bucketId),
+                    "Bucket Id to OriginalFileInfo map should have entry for requested bucket id: %s",
+                    bucketId);
             List<DeleteDeltaInfo> deleteDeltas = ImmutableList.copyOf(deleteDeltaInfos);
-            return Optional.of(new AcidInfo(partitionLocation.toString(), deleteDeltas, bucketIdToOriginalFileInfoMap.get(bucketId), bucketId));
+            return new AcidInfo(partitionLocation.toString(), deleteDeltas, bucketIdToOriginalFileInfoMap.get(bucketId), bucketId);
         }
 
         public Optional<AcidInfo> build()

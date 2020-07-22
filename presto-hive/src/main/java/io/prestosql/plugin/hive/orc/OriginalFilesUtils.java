@@ -25,7 +25,6 @@ import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 
-import java.io.IOException;
 import java.util.Collection;
 
 import static io.prestosql.plugin.hive.AcidInfo.OriginalFileInfo;
@@ -44,7 +43,7 @@ public final class OriginalFilesUtils
      * <p>
      * for 000000_0_copy2, it returns (X0+X1)
      */
-    public static long getRowCount(
+    public static long getPrecedingRowCount(
             Collection<OriginalFileInfo> originalFileInfos,
             Path splitPath,
             HdfsEnvironment hdfsEnvironment,
@@ -56,7 +55,6 @@ public final class OriginalFilesUtils
         long rowCount = 0;
         for (OriginalFileInfo originalFileInfo : originalFileInfos) {
             Path path = new Path(splitPath.getParent() + "/" + originalFileInfo.getName());
-            // Check if the file belongs to the same bucket and comes before 'reqPath' in lexicographic order.
             if (path.compareTo(splitPath) < 0) {
                 rowCount += getRowsInFile(path, hdfsEnvironment, sessionUser, options, configuration, stats, originalFileInfo.getFileSize());
             }
@@ -77,28 +75,21 @@ public final class OriginalFilesUtils
             FileFormatDataSourceStats stats,
             long fileSize)
     {
-        OrcDataSource orcDataSource;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(sessionUser, splitPath, configuration);
             FSDataInputStream inputStream = hdfsEnvironment.doAs(sessionUser, () -> fileSystem.open(splitPath));
-            orcDataSource = new HdfsOrcDataSource(
+            try (OrcDataSource orcDataSource = new HdfsOrcDataSource(
                     new OrcDataSourceId(splitPath.toString()),
                     fileSize,
                     options,
                     inputStream,
-                    stats);
+                    stats)) {
+                OrcReader reader = new OrcReader(orcDataSource, options);
+                return reader.getFooter().getNumberOfRows();
+            }
         }
         catch (Exception e) {
-            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, "Could not create ORC data source for file: " + splitPath.getName(), e);
+            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, "Could not read ORC footer from file: " + splitPath, e);
         }
-
-        OrcReader reader;
-        try {
-            reader = new OrcReader(orcDataSource, options);
-        }
-        catch (IOException e) {
-            throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, "Could not create ORC reader for file: " + splitPath.getName(), e);
-        }
-        return reader.getFooter().getNumberOfRows();
     }
 }

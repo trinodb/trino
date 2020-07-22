@@ -178,7 +178,8 @@ public class OrcDeletedRows
                     row = BIGINT.getLong(sourcePage.getBlock(ROW_ID_INDEX), position);
                 }
                 if (!deletedRows.contains(new RowId(originalTransaction, row))) {
-                    validPositions[validPositionsIndex++] = position;
+                    validPositions[validPositionsIndex] = position;
+                    validPositionsIndex++;
                 }
             }
             this.positionCount = validPositionsIndex;

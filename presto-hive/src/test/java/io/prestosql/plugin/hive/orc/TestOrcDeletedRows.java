@@ -28,7 +28,6 @@ import org.apache.hadoop.mapred.JobConf;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
 
@@ -64,7 +63,7 @@ public class TestOrcDeletedRows
         addDeleteDelta(acidInfoBuilder, 4L, 4L, 0, partitionDirectory);
         addDeleteDelta(acidInfoBuilder, 7L, 7L, 0, partitionDirectory);
 
-        OrcDeletedRows deletedRows = createOrcDeletedRows(acidInfoBuilder.build(), "bucket_00000");
+        OrcDeletedRows deletedRows = createOrcDeletedRows(acidInfoBuilder.build().orElseThrow(), "bucket_00000");
 
         // page with deleted rows
         Page testPage = createTestPage(0, 10);
@@ -117,7 +116,7 @@ public class TestOrcDeletedRows
         acidInfoBuilder.addDeleteDelta(deleteDeltaPath, minWriteId, maxWriteId, statementId);
     }
 
-    private static OrcDeletedRows createOrcDeletedRows(Optional<AcidInfo> acidInfo, String sourceFileName)
+    private static OrcDeletedRows createOrcDeletedRows(AcidInfo acidInfo, String sourceFileName)
     {
         JobConf configuration = new JobConf(new Configuration(false));
         OrcDeleteDeltaPageSourceFactory pageSourceFactory = new OrcDeleteDeltaPageSourceFactory(
@@ -133,7 +132,7 @@ public class TestOrcDeletedRows
                 "test",
                 configuration,
                 HDFS_ENVIRONMENT,
-                acidInfo.get());
+                acidInfo);
     }
 
     private Page createTestPage(int originalTransactionStart, int originalTransactionEnd)
