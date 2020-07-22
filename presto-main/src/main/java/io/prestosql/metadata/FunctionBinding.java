@@ -19,17 +19,18 @@ import io.prestosql.spi.type.Type;
 import java.util.Map;
 import java.util.Objects;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static java.util.Objects.requireNonNull;
 
 public class FunctionBinding
 {
     private final FunctionId functionId;
-    private final Signature boundSignature;
+    private final BoundSignature boundSignature;
     private final Map<String, Type> typeVariables;
     private final Map<String, Long> longVariables;
 
-    public FunctionBinding(FunctionId functionId, Signature boundSignature, Map<String, Type> typeVariables, Map<String, Long> longVariables)
+    public FunctionBinding(FunctionId functionId, BoundSignature boundSignature, Map<String, Type> typeVariables, Map<String, Long> longVariables)
     {
         this.functionId = requireNonNull(functionId, "functionId is null");
         this.boundSignature = requireNonNull(boundSignature, "boundSignature is null");
@@ -42,9 +43,24 @@ public class FunctionBinding
         return functionId;
     }
 
-    public Signature getBoundSignature()
+    public BoundSignature getBoundSignature()
     {
         return boundSignature;
+    }
+
+    public int getArity()
+    {
+        return boundSignature.getArgumentTypes().size();
+    }
+
+    public Type getTypeVariable(String variableName)
+    {
+        return getValue(typeVariables, variableName);
+    }
+
+    public boolean containsTypeVariable(String variableName)
+    {
+        return containsValue(typeVariables, variableName);
     }
 
     public Map<String, Type> getTypeVariables()
@@ -52,9 +68,33 @@ public class FunctionBinding
         return typeVariables;
     }
 
+    public Long getLongVariable(String variableName)
+    {
+        return getValue(longVariables, variableName);
+    }
+
+    public boolean containsLongVariable(String variableName)
+    {
+        return containsValue(longVariables, variableName);
+    }
+
     public Map<String, Long> getLongVariables()
     {
         return longVariables;
+    }
+
+    private static <T> T getValue(Map<String, T> map, String variableName)
+    {
+        checkState(variableName != null, "variableName is null");
+        T value = map.get(variableName);
+        checkState(value != null, "value for variable '%s' is null", variableName);
+        return value;
+    }
+
+    private static boolean containsValue(Map<String, ?> map, String variableName)
+    {
+        checkState(variableName != null, "variableName is null");
+        return map.containsKey(variableName);
     }
 
     @Override

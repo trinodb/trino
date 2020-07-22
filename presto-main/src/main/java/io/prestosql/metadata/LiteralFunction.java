@@ -64,10 +64,10 @@ public class LiteralFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, Metadata metadata)
     {
-        Type parameterType = boundVariables.getTypeVariable("F");
-        Type type = boundVariables.getTypeVariable("T");
+        Type parameterType = functionBinding.getTypeVariable("F");
+        Type type = functionBinding.getTypeVariable("T");
 
         MethodHandle methodHandle = null;
         if (parameterType.getJavaType() == type.getJavaType()) {

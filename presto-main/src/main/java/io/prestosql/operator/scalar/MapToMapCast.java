@@ -16,7 +16,7 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
@@ -88,13 +88,13 @@ public final class MapToMapCast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, Metadata metadata)
     {
-        checkArgument(arity == 1, "Expected arity to be 1");
-        Type fromKeyType = boundVariables.getTypeVariable("FK");
-        Type fromValueType = boundVariables.getTypeVariable("FV");
-        Type toKeyType = boundVariables.getTypeVariable("TK");
-        Type toValueType = boundVariables.getTypeVariable("TV");
+        checkArgument(functionBinding.getArity() == 1, "Expected arity to be 1");
+        Type fromKeyType = functionBinding.getTypeVariable("FK");
+        Type fromValueType = functionBinding.getTypeVariable("FV");
+        Type toKeyType = functionBinding.getTypeVariable("TK");
+        Type toValueType = functionBinding.getTypeVariable("TV");
         Type toMapType = metadata.getParameterizedType(
                 "map",
                 ImmutableList.of(

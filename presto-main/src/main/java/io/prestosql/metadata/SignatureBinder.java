@@ -192,7 +192,7 @@ public class SignatureBinder
                 .orElseThrow(() -> new IllegalArgumentException("Could not extract bound variables"));
         return new FunctionBinding(
                 functionId,
-                boundSignature.toSignature(),
+                boundSignature,
                 boundVariables.getTypeVariables(),
                 boundVariables.getLongVariables());
     }

@@ -18,14 +18,12 @@ import io.prestosql.operator.scalar.ScalarFunctionImplementation.ScalarImplement
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention;
-import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.ScalarFunctionAdapter.NullAdaptationPolicy.UNSUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
@@ -37,16 +35,10 @@ import static java.util.Objects.requireNonNull;
 class FunctionInvokerProvider
 {
     private final ScalarFunctionAdapter functionAdapter = new ScalarFunctionAdapter(UNSUPPORTED);
-    private final Metadata metadata;
-
-    public FunctionInvokerProvider(Metadata metadata)
-    {
-        this.metadata = requireNonNull(metadata, "metadata is null");
-    }
 
     public FunctionInvoker createFunctionInvoker(
             ScalarFunctionImplementation scalarFunctionImplementation,
-            Signature resolvedSignature,
+            BoundSignature boundSignature,
             InvocationConvention expectedConvention)
     {
         List<Choice> choices = new ArrayList<>();
@@ -58,14 +50,15 @@ class FunctionInvokerProvider
         }
         if (choices.isEmpty()) {
             throw new PrestoException(FUNCTION_NOT_FOUND,
-                    format("Function implementation for (%s) cannot be adapted to convention (%s)", resolvedSignature, expectedConvention));
+                    format("Function implementation for (%s) cannot be adapted to convention (%s)", boundSignature, expectedConvention));
         }
 
         Choice bestChoice = Collections.max(choices, comparingInt(Choice::getScore));
-        List<Type> actualTypes = resolvedSignature.getArgumentTypes().stream()
-                .map(metadata::getType)
-                .collect(toImmutableList());
-        MethodHandle methodHandle = functionAdapter.adapt(bestChoice.getChoice().getMethodHandle(), actualTypes, bestChoice.getCallingConvention(), expectedConvention);
+        MethodHandle methodHandle = functionAdapter.adapt(
+                bestChoice.getChoice().getMethodHandle(),
+                boundSignature.getArgumentTypes(),
+                bestChoice.getCallingConvention(),
+                expectedConvention);
         return new FunctionInvoker(
                 methodHandle,
                 bestChoice.getChoice().getInstanceFactory(),

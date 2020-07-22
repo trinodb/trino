@@ -15,10 +15,9 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.block.Block;
@@ -75,11 +74,11 @@ public final class ArrayReduceFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
-        Type inputType = boundVariables.getTypeVariable("T");
-        Type intermediateType = boundVariables.getTypeVariable("S");
-        Type outputType = boundVariables.getTypeVariable("R");
+        Type inputType = functionBinding.getTypeVariable("T");
+        Type intermediateType = functionBinding.getTypeVariable("S");
+        Type outputType = functionBinding.getTypeVariable("R");
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(inputType);
         return new ScalarFunctionImplementation(
                 NULLABLE_RETURN,

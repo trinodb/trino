@@ -23,7 +23,6 @@ import io.prestosql.operator.scalar.ScalarFunctionImplementation.ScalarImplement
 import io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.util.Reflection;
 
 import java.lang.invoke.MethodHandle;
@@ -33,8 +32,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -51,38 +48,32 @@ class PolymorphicScalarFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
         ImmutableList.Builder<ScalarImplementationChoice> implementationChoices = ImmutableList.builder();
 
         for (PolymorphicScalarFunctionChoice choice : choices) {
-            implementationChoices.add(getScalarFunctionImplementationChoice(boundVariables, metadata, choice));
+            implementationChoices.add(getScalarFunctionImplementationChoice(functionBinding, choice));
         }
 
         return new ScalarFunctionImplementation(implementationChoices.build());
     }
 
     private ScalarImplementationChoice getScalarFunctionImplementationChoice(
-            BoundVariables boundVariables,
-            Metadata metadata,
+            FunctionBinding functionBinding,
             PolymorphicScalarFunctionChoice choice)
     {
-        Signature signature = getFunctionMetadata().getSignature();
-        List<TypeSignature> resolvedParameterTypeSignatures = applyBoundVariables(signature.getArgumentTypes(), boundVariables);
-        List<Type> resolvedParameterTypes = resolvedParameterTypeSignatures.stream()
-                .map(metadata::getType)
-                .collect(toImmutableList());
-        TypeSignature resolvedReturnTypeSignature = applyBoundVariables(signature.getReturnType(), boundVariables);
-        Type resolvedReturnType = metadata.getType(resolvedReturnTypeSignature);
-        SpecializeContext context = new SpecializeContext(boundVariables, resolvedParameterTypes, resolvedReturnType);
+        List<Type> argumentTypes = functionBinding.getBoundSignature().getArgumentTypes();
+        Type returnType = functionBinding.getBoundSignature().getReturnType();
+        SpecializeContext context = new SpecializeContext(functionBinding, argumentTypes, returnType);
         Optional<MethodAndNativeContainerTypes> matchingMethod = Optional.empty();
 
         Optional<MethodsGroup> matchingMethodsGroup = Optional.empty();
         for (MethodsGroup candidateMethodsGroup : choice.getMethodsGroups()) {
             for (MethodAndNativeContainerTypes candidateMethod : candidateMethodsGroup.getMethods()) {
-                if (matchesParameterAndReturnTypes(candidateMethod, resolvedParameterTypes, resolvedReturnType, choice.getArgumentConventions(), choice.getReturnConvention())) {
+                if (matchesParameterAndReturnTypes(candidateMethod, argumentTypes, returnType, choice.getArgumentConventions(), choice.getReturnConvention())) {
                     if (matchingMethod.isPresent()) {
-                        throw new IllegalStateException("two matching methods (" + matchingMethod.get().getMethod().getName() + " and " + candidateMethod.getMethod().getName() + ") for parameter types " + resolvedParameterTypeSignatures);
+                        throw new IllegalStateException("two matching methods (" + matchingMethod.get().getMethod().getName() + " and " + candidateMethod.getMethod().getName() + ") for parameter types " + argumentTypes);
                     }
 
                     matchingMethod = Optional.of(candidateMethod);
@@ -90,7 +81,7 @@ class PolymorphicScalarFunction
                 }
             }
         }
-        checkState(matchingMethod.isPresent(), "no matching method for parameter types %s", resolvedParameterTypes);
+        checkState(matchingMethod.isPresent(), "no matching method for parameter types %s", argumentTypes);
 
         List<Object> extraParameters = computeExtraParameters(matchingMethodsGroup.get(), context);
         MethodHandle methodHandle = applyExtraParameters(matchingMethod.get().getMethod(), extraParameters, choice.getArgumentConventions());

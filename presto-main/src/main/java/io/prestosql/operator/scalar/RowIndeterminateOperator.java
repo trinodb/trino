@@ -23,7 +23,7 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
-import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.SqlOperator;
@@ -72,10 +72,10 @@ public class RowIndeterminateOperator
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, Metadata metadata)
     {
-        checkArgument(arity == 1, "Expected arity to be 1");
-        Type type = boundVariables.getTypeVariable("T");
+        checkArgument(functionBinding.getArity() == 1, "Expected arity to be 1");
+        Type type = functionBinding.getTypeVariable("T");
         Class<?> indeterminateOperatorClass = generateIndeterminate(type, metadata);
         MethodHandle indeterminateMethod = methodHandle(indeterminateOperatorClass, "indeterminate", type.getJavaType(), boolean.class);
         return new ScalarFunctionImplementation(

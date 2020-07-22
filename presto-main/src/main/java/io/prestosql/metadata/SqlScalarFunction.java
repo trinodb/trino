@@ -31,5 +31,13 @@ public abstract class SqlScalarFunction
         return functionMetadata;
     }
 
-    public abstract ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata);
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, Metadata metadata)
+    {
+        return specialize(functionBinding);
+    }
+
+    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
+    {
+        throw new UnsupportedOperationException();
+    }
 }

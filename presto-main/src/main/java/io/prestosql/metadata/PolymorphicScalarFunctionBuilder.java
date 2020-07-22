@@ -154,25 +154,25 @@ public final class PolymorphicScalarFunctionBuilder
 
     public static final class SpecializeContext
     {
-        private final BoundVariables boundVariables;
+        private final FunctionBinding functionBinding;
         private final List<Type> parameterTypes;
         private final Type returnType;
 
-        SpecializeContext(BoundVariables boundVariables, List<Type> parameterTypes, Type returnType)
+        SpecializeContext(FunctionBinding functionBinding, List<Type> parameterTypes, Type returnType)
         {
-            this.boundVariables = requireNonNull(boundVariables, "boundVariables is null");
+            this.functionBinding = requireNonNull(functionBinding, "functionBinding is null");
             this.parameterTypes = requireNonNull(parameterTypes, "parameterTypes is null");
             this.returnType = requireNonNull(returnType, "returnType is null");
         }
 
         public Type getType(String name)
         {
-            return boundVariables.getTypeVariable(name);
+            return functionBinding.getTypeVariable(name);
         }
 
         public Long getLiteral(String name)
         {
-            return boundVariables.getLongVariable(name);
+            return functionBinding.getLongVariable(name);
         }
 
         public List<Type> getParameterTypes()
