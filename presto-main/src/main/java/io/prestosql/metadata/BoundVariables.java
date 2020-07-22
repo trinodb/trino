@@ -43,6 +43,11 @@ public class BoundVariables
                 .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, Map.Entry::getKey, Map.Entry::getValue));
     }
 
+    public Map<String, Type> getTypeVariables()
+    {
+        return typeVariables;
+    }
+
     public Type getTypeVariable(String variableName)
     {
         return getValue(typeVariables, variableName);
@@ -51,6 +56,11 @@ public class BoundVariables
     public boolean containsTypeVariable(String variableName)
     {
         return containsValue(typeVariables, variableName);
+    }
+
+    public Map<String, Long> getLongVariables()
+    {
+        return longVariables;
     }
 
     public Long getLongVariable(String variableName)

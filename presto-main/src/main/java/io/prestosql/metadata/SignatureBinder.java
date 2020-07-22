@@ -48,6 +48,7 @@ import static io.prestosql.metadata.SignatureBinder.RelationshipType.EXACT;
 import static io.prestosql.metadata.SignatureBinder.RelationshipType.EXPLICIT_COERCION_FROM;
 import static io.prestosql.metadata.SignatureBinder.RelationshipType.EXPLICIT_COERCION_TO;
 import static io.prestosql.metadata.SignatureBinder.RelationshipType.IMPLICIT_COERCION;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.type.TypeCalculation.calculateLiteralValue;
 import static io.prestosql.type.TypeCoercion.isCovariantTypeBase;
@@ -183,6 +184,18 @@ public class SignatureBinder
                 .collect(toList());
 
         return new TypeSignature(baseType, parameters);
+    }
+
+    public static FunctionBinding bindFunction(Metadata metadata, FunctionId functionId, Signature functionSignature, Signature boundSignature)
+    {
+        BoundVariables boundVariables = new SignatureBinder(metadata, functionSignature, false)
+                .bindVariables(fromTypeSignatures(boundSignature.getArgumentTypes()), boundSignature.getReturnType())
+                .orElseThrow(() -> new IllegalArgumentException("Could not extract bound variables"));
+        return new FunctionBinding(
+                functionId,
+                boundSignature,
+                boundVariables.getTypeVariables(),
+                boundVariables.getLongVariables());
     }
 
     /**
