@@ -101,7 +101,7 @@ public class SignatureBinder
 
     public Optional<Signature> bind(List<? extends TypeSignatureProvider> actualArgumentTypes)
     {
-        Optional<BoundVariables> boundVariables = bindVariables(actualArgumentTypes);
+        Optional<TypeVariables> boundVariables = bindVariables(actualArgumentTypes);
         if (boundVariables.isEmpty()) {
             return Optional.empty();
         }
@@ -110,7 +110,7 @@ public class SignatureBinder
 
     public Optional<Signature> bind(List<? extends TypeSignatureProvider> actualArgumentTypes, Type actualReturnType)
     {
-        Optional<BoundVariables> boundVariables = bindVariables(actualArgumentTypes, actualReturnType.getTypeSignature());
+        Optional<TypeVariables> boundVariables = bindVariables(actualArgumentTypes, actualReturnType.getTypeSignature());
         if (boundVariables.isEmpty()) {
             return Optional.empty();
         }
@@ -123,7 +123,7 @@ public class SignatureBinder
     }
 
     @VisibleForTesting
-    Optional<BoundVariables> bindVariables(List<? extends TypeSignatureProvider> actualArgumentTypes)
+    Optional<TypeVariables> bindVariables(List<? extends TypeSignatureProvider> actualArgumentTypes)
     {
         ImmutableList.Builder<TypeConstraintSolver> constraintSolvers = ImmutableList.builder();
         if (!appendConstraintSolversForArguments(constraintSolvers, actualArgumentTypes)) {
@@ -139,7 +139,7 @@ public class SignatureBinder
     }
 
     @VisibleForTesting
-    Optional<BoundVariables> bindVariables(List<? extends TypeSignatureProvider> actualArgumentTypes, TypeSignature actualReturnType)
+    Optional<TypeVariables> bindVariables(List<? extends TypeSignatureProvider> actualArgumentTypes, TypeSignature actualReturnType)
     {
         ImmutableList.Builder<TypeConstraintSolver> constraintSolvers = ImmutableList.builder();
         if (!appendConstraintSolversForReturnValue(constraintSolvers, new TypeSignatureProvider(actualReturnType))) {
@@ -152,7 +152,12 @@ public class SignatureBinder
         return iterativeSolve(constraintSolvers.build());
     }
 
-    public static Signature applyBoundVariables(Signature signature, BoundVariables boundVariables, int arity)
+    public static Signature applyBoundVariables(Signature signature, FunctionBinding functionBinding, int arity)
+    {
+        return applyBoundVariables(signature, new FunctionTypeVariables(functionBinding), arity);
+    }
+
+    private static Signature applyBoundVariables(Signature signature, TypeVariables typeVariables, int arity)
     {
         List<TypeSignature> argumentSignatures;
         if (signature.isVariableArity()) {
@@ -162,8 +167,8 @@ public class SignatureBinder
             checkArgument(signature.getArgumentTypes().size() == arity);
             argumentSignatures = signature.getArgumentTypes();
         }
-        List<TypeSignature> boundArgumentSignatures = applyBoundVariables(argumentSignatures, boundVariables);
-        TypeSignature boundReturnTypeSignature = applyBoundVariables(signature.getReturnType(), boundVariables);
+        List<TypeSignature> boundArgumentSignatures = applyBoundVariables(argumentSignatures, typeVariables);
+        TypeSignature boundReturnTypeSignature = applyBoundVariables(signature.getReturnType(), typeVariables);
 
         return new Signature(
                 signature.getName(),
@@ -174,41 +179,41 @@ public class SignatureBinder
                 false);
     }
 
-    public static List<TypeSignature> applyBoundVariables(List<TypeSignature> typeSignatures, BoundVariables boundVariables)
+    public static List<TypeSignature> applyBoundVariables(List<TypeSignature> typeSignatures, FunctionBinding functionBinding)
+    {
+        return applyBoundVariables(typeSignatures, new FunctionTypeVariables(functionBinding));
+    }
+
+    private static List<TypeSignature> applyBoundVariables(List<TypeSignature> typeSignatures, TypeVariables typeVariables)
     {
         ImmutableList.Builder<TypeSignature> builder = ImmutableList.builder();
         for (TypeSignature typeSignature : typeSignatures) {
-            builder.add(applyBoundVariables(typeSignature, boundVariables));
+            builder.add(applyBoundVariables(typeSignature, typeVariables));
         }
         return builder.build();
     }
 
-    public static TypeSignature applyBoundVariables(TypeSignature typeSignature, BoundVariables boundVariables)
+    public static TypeSignature applyBoundVariables(TypeSignature typeSignature, FunctionBinding functionBinding)
+    {
+        return applyBoundVariables(typeSignature, new FunctionTypeVariables(functionBinding));
+    }
+
+    static TypeSignature applyBoundVariables(TypeSignature typeSignature, TypeVariables typeVariables)
     {
         String baseType = typeSignature.getBase();
-        if (boundVariables.containsTypeVariable(baseType)) {
+        if (typeVariables.containsTypeVariable(baseType)) {
             checkState(typeSignature.getParameters().isEmpty(), "Type parameters cannot have parameters");
-            return boundVariables.getTypeVariable(baseType).getTypeSignature();
+            return typeVariables.getTypeVariable(baseType).getTypeSignature();
         }
 
         List<TypeSignatureParameter> parameters = typeSignature.getParameters().stream()
-                .map(typeSignatureParameter -> applyBoundVariables(typeSignatureParameter, boundVariables))
+                .map(typeSignatureParameter -> applyBoundVariables(typeSignatureParameter, typeVariables))
                 .collect(toList());
 
         return new TypeSignature(baseType, parameters);
     }
 
-    public static FunctionBinding bindFunction(FunctionId functionId, Signature functionSignature, BoundSignature boundSignature)
-    {
-        BoundVariables boundVariables = extractBoundVariables(boundSignature, functionSignature);
-        return new FunctionBinding(
-                functionId,
-                boundSignature,
-                boundVariables.getTypeVariables(),
-                boundVariables.getLongVariables());
-    }
-
-    private static BoundVariables extractBoundVariables(BoundSignature boundSignature, Signature declaredSignature)
+    public static FunctionBinding bindFunction(FunctionId functionId, Signature declaredSignature, BoundSignature boundSignature)
     {
         requireNonNull(declaredSignature, "declaredSignature is null");
         requireNonNull(boundSignature, "boundSignature is null");
@@ -227,21 +232,26 @@ public class SignatureBinder
 
         verifyBoundSignature(formalTypeSignatures.size() == boundSignature.getArgumentTypes().size(), boundSignature, declaredSignature);
 
-        BoundVariables.Builder bindings = BoundVariables.builder();
+        BoundVariables bindings = new BoundVariables();
         for (int i = 0; i < formalTypeSignatures.size(); i++) {
             extractBoundVariables(boundSignature, declaredSignature, typeVariableConstraints, bindings, boundSignature.getArgumentTypes().get(i), formalTypeSignatures.get(i));
         }
         extractBoundVariables(boundSignature, declaredSignature, typeVariableConstraints, bindings, boundSignature.getReturnType(), declaredSignature.getReturnType());
 
         verifyBoundSignature(bindings.getTypeVariables().keySet().equals(typeVariableConstraints.keySet()), boundSignature, declaredSignature);
-        return bindings.build();
+
+        return new FunctionBinding(
+                functionId,
+                boundSignature,
+                bindings.getTypeVariables(),
+                bindings.getLongVariables());
     }
 
     private static void extractBoundVariables(
             BoundSignature boundSignature,
             Signature declaredSignature,
             Map<String, TypeVariableConstraint> typeVariableConstraints,
-            BoundVariables.Builder bindings,
+            BoundVariables bindings,
             Type actualType,
             TypeSignature declaredTypeSignature)
     {
@@ -532,16 +542,16 @@ public class SignatureBinder
                 .allMatch(kind -> kind == ParameterKind.LONG || kind == ParameterKind.VARIABLE);
     }
 
-    private Optional<BoundVariables> iterativeSolve(List<TypeConstraintSolver> constraints)
+    private Optional<TypeVariables> iterativeSolve(List<TypeConstraintSolver> constraints)
     {
-        BoundVariables.Builder boundVariablesBuilder = BoundVariables.builder();
+        BoundVariables boundVariables = new BoundVariables();
         for (int i = 0; true; i++) {
             if (i == SOLVE_ITERATION_LIMIT) {
                 throw new VerifyException(format("SignatureBinder.iterativeSolve does not converge after %d iterations.", SOLVE_ITERATION_LIMIT));
             }
             SolverReturnStatusMerger statusMerger = new SolverReturnStatusMerger();
             for (TypeConstraintSolver constraint : constraints) {
-                statusMerger.add(constraint.update(boundVariablesBuilder));
+                statusMerger.add(constraint.update(boundVariables));
                 if (statusMerger.getCurrent() == SolverReturnStatus.UNSOLVABLE) {
                     return Optional.empty();
                 }
@@ -561,16 +571,15 @@ public class SignatureBinder
             break;
         }
 
-        calculateVariableValuesForLongConstraints(boundVariablesBuilder);
+        calculateVariableValuesForLongConstraints(boundVariables);
 
-        BoundVariables boundVariables = boundVariablesBuilder.build();
         if (!allTypeVariablesBound(boundVariables)) {
             return Optional.empty();
         }
         return Optional.of(boundVariables);
     }
 
-    private void calculateVariableValuesForLongConstraints(BoundVariables.Builder variableBinder)
+    private void calculateVariableValuesForLongConstraints(BoundVariables variableBinder)
     {
         for (LongVariableConstraint longVariableConstraint : declaredSignature.getLongVariableConstraints()) {
             String calculation = longVariableConstraint.getExpression();
@@ -585,32 +594,33 @@ public class SignatureBinder
         }
     }
 
-    private boolean allTypeVariablesBound(BoundVariables boundVariables)
+    private boolean allTypeVariablesBound(TypeVariables typeVariables)
     {
         return typeVariableConstraints.keySet().stream()
-                .allMatch(boundVariables::containsTypeVariable);
+                .allMatch(typeVariables::containsTypeVariable);
     }
 
-    private static TypeSignatureParameter applyBoundVariables(TypeSignatureParameter parameter, BoundVariables boundVariables)
+    private static TypeSignatureParameter applyBoundVariables(TypeSignatureParameter parameter, TypeVariables typeVariables)
     {
         ParameterKind parameterKind = parameter.getKind();
         switch (parameterKind) {
             case TYPE: {
                 TypeSignature typeSignature = parameter.getTypeSignature();
-                return TypeSignatureParameter.typeParameter(applyBoundVariables(typeSignature, boundVariables));
+                return TypeSignatureParameter.typeParameter(applyBoundVariables(typeSignature, typeVariables));
             }
             case NAMED_TYPE: {
                 NamedTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
                 TypeSignature typeSignature = namedTypeSignature.getTypeSignature();
                 return TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(
                         namedTypeSignature.getFieldName(),
-                        applyBoundVariables(typeSignature, boundVariables)));
+                        applyBoundVariables(typeSignature, typeVariables)));
             }
             case VARIABLE: {
                 String variableName = parameter.getVariable();
-                checkState(boundVariables.containsLongVariable(variableName),
+                checkState(
+                        typeVariables.containsLongVariable(variableName),
                         "Variable is not bound: %s", variableName);
-                Long variableValue = boundVariables.getLongVariable(variableName);
+                Long variableValue = typeVariables.getLongVariable(variableName);
                 return TypeSignatureParameter.numericParameter(variableValue);
             }
             case LONG: {
@@ -707,7 +717,7 @@ public class SignatureBinder
 
     private interface TypeConstraintSolver
     {
-        SolverReturnStatus update(BoundVariables.Builder bindings);
+        SolverReturnStatus update(BoundVariables bindings);
     }
 
     private enum SolverReturnStatus
@@ -773,7 +783,7 @@ public class SignatureBinder
         }
 
         @Override
-        public SolverReturnStatus update(BoundVariables.Builder bindings)
+        public SolverReturnStatus update(BoundVariables bindings)
         {
             if (!bindings.containsTypeVariable(typeParameter)) {
                 if (!satisfiesConstraints(actualType)) {
@@ -828,7 +838,7 @@ public class SignatureBinder
         }
 
         @Override
-        public SolverReturnStatus update(BoundVariables.Builder bindings)
+        public SolverReturnStatus update(BoundVariables bindings)
         {
             ImmutableList.Builder<TypeSignatureParameter> originalTypeTypeParametersBuilder = ImmutableList.builder();
             List<TypeSignatureParameter> parameters = formalTypeSignature.getParameters();
@@ -902,7 +912,7 @@ public class SignatureBinder
         }
 
         @Override
-        public SolverReturnStatus update(BoundVariables.Builder bindings)
+        public SolverReturnStatus update(BoundVariables bindings)
         {
             Optional<List<Type>> lambdaArgumentTypes = synthesizeLambdaArgumentTypes(bindings, formalLambdaArgumentsTypeSignature);
             if (lambdaArgumentTypes.isEmpty()) {
@@ -945,7 +955,7 @@ public class SignatureBinder
         }
 
         private Optional<List<Type>> synthesizeLambdaArgumentTypes(
-                BoundVariables.Builder bindings,
+                BoundVariables bindings,
                 List<TypeSignature> formalLambdaArgumentTypeSignatures)
         {
             ImmutableList.Builder<Type> lambdaArgumentTypesBuilder = ImmutableList.builder();
@@ -1013,7 +1023,7 @@ public class SignatureBinder
         }
 
         @Override
-        public SolverReturnStatus update(BoundVariables.Builder bindings)
+        public SolverReturnStatus update(BoundVariables bindings)
         {
             for (String variable : typeVariables) {
                 if (!bindings.containsTypeVariable(variable)) {
@@ -1026,7 +1036,7 @@ public class SignatureBinder
                 }
             }
 
-            TypeSignature constraintTypeSignature = applyBoundVariables(formalTypeSignature, bindings.build());
+            TypeSignature constraintTypeSignature = applyBoundVariables(formalTypeSignature, bindings);
 
             return satisfiesCoercion(relationshipType, actualType, constraintTypeSignature) ? SolverReturnStatus.UNCHANGED_SATISFIED : SolverReturnStatus.UNCHANGED_NOT_SATISFIED;
         }
@@ -1035,5 +1045,40 @@ public class SignatureBinder
     public enum RelationshipType
     {
         EXACT, IMPLICIT_COERCION, EXPLICIT_COERCION_TO, EXPLICIT_COERCION_FROM
+    }
+
+    private static final class FunctionTypeVariables
+            implements TypeVariables
+    {
+        private final FunctionBinding functionBinding;
+
+        public FunctionTypeVariables(FunctionBinding functionBinding)
+        {
+            this.functionBinding = requireNonNull(functionBinding, "functionBinding is null");
+        }
+
+        @Override
+        public Type getTypeVariable(String variableName)
+        {
+            return functionBinding.getTypeVariable(variableName);
+        }
+
+        @Override
+        public boolean containsTypeVariable(String variableName)
+        {
+            return functionBinding.containsTypeVariable(variableName);
+        }
+
+        @Override
+        public Long getLongVariable(String variableName)
+        {
+            return functionBinding.getLongVariable(variableName);
+        }
+
+        @Override
+        public boolean containsLongVariable(String variableName)
+        {
+            return functionBinding.containsLongVariable(variableName);
+        }
     }
 }
