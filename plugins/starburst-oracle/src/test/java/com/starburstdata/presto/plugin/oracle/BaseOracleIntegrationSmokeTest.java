@@ -219,24 +219,22 @@ public abstract class BaseOracleIntegrationSmokeTest
     {
         // TODO support aggregation pushdown with GROUPING SETS
 
-        assertPushedDown("SELECT count(*) FROM nation");
-        assertPushedDown("SELECT count(nationkey) FROM nation");
-        assertPushedDown("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey");
-        assertPushedDown("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey");
-        assertPushedDown("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey");
-        assertPushedDown(
-                "SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey",
-                "SELECT regionkey, avg(CAST(nationkey AS double)) FROM nation GROUP BY regionkey");
+        assertAggregationPushedDown("SELECT count(*) FROM nation");
+        assertAggregationPushedDown("SELECT count(nationkey) FROM nation");
+        assertAggregationPushedDown("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey");
+        assertAggregationPushedDown("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey");
+        assertAggregationPushedDown("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey");
+        assertAggregationPushedDown("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey");
 
         try (TestTable testTable = new TestTable(inOracle(), getSession().getSchema().orElseThrow() + ".test_aggregation_pushdown",
                 "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (100.000, 100000000.000000000)");
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (123.321, 123456789.987654321)");
 
-            assertPushedDown("SELECT min(short_decimal), min(long_decimal) FROM " + testTable.getName(), "SELECT 100.000, 100000000.000000000");
-            assertPushedDown("SELECT max(short_decimal), max(long_decimal) FROM " + testTable.getName(), "SELECT 123.321, 123456789.987654321");
-            assertPushedDown("SELECT sum(short_decimal), sum(long_decimal) FROM " + testTable.getName(), "SELECT 223.321, 223456789.987654321");
-            assertPushedDown("SELECT avg(short_decimal), avg(long_decimal) FROM " + testTable.getName(), "SELECT 223.321 / 2, 223456789.987654321 / 2");
+            assertAggregationPushedDown("SELECT min(short_decimal), min(long_decimal) FROM " + testTable.getName());
+            assertAggregationPushedDown("SELECT max(short_decimal), max(long_decimal) FROM " + testTable.getName());
+            assertAggregationPushedDown("SELECT sum(short_decimal), sum(long_decimal) FROM " + testTable.getName());
+            assertAggregationPushedDown("SELECT avg(short_decimal), avg(long_decimal) FROM " + testTable.getName());
         }
     }
 
@@ -245,22 +243,22 @@ public abstract class BaseOracleIntegrationSmokeTest
     {
         try (TestTable testTable = new TestTable(inOracle(), getSession().getSchema().orElseThrow() + ".test_stddev_pushdown",
                 "(t_double DOUBLE PRECISION)")) {
-            assertPushedDown("SELECT stddev_pop(t_double) FROM " + testTable.getName(), "SELECT null");
-            assertPushedDown("SELECT stddev(t_double) FROM " + testTable.getName(), "SELECT null");
-            assertPushedDown("SELECT stddev_samp(t_double) FROM " + testTable.getName(), "SELECT null");
+            assertAggregationPushedDown("SELECT stddev_pop(t_double) FROM " + testTable.getName());
+            assertAggregationPushedDown("SELECT stddev(t_double) FROM " + testTable.getName());
+            assertAggregationPushedDown("SELECT stddev_samp(t_double) FROM " + testTable.getName());
 
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (1)");
 
-            assertPushedDown("SELECT stddev_pop(t_double) FROM " + testTable.getName(), "SELECT 0.0");
-            assertPushedDown("SELECT stddev(t_double) FROM " + testTable.getName(), "SELECT null");
-            assertPushedDown("SELECT stddev_samp(t_double) FROM " + testTable.getName(), "SELECT null");
+            assertAggregationPushedDown("SELECT stddev_pop(t_double) FROM " + testTable.getName());
+            assertAggregationPushedDown("SELECT stddev(t_double) FROM " + testTable.getName());
+            assertAggregationPushedDown("SELECT stddev_samp(t_double) FROM " + testTable.getName());
 
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (3)");
-            assertPushedDown("SELECT stddev_pop(t_double) FROM " + testTable.getName(), "SELECT 1.0");
+            assertAggregationPushedDown("SELECT stddev_pop(t_double) FROM " + testTable.getName());
 
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (5)");
-            assertPushedDown("SELECT stddev(t_double) FROM " + testTable.getName(), "SELECT 2");
-            assertPushedDown("SELECT stddev_samp(t_double) FROM " + testTable.getName(), "SELECT 2");
+            assertAggregationPushedDown("SELECT stddev(t_double) FROM " + testTable.getName());
+            assertAggregationPushedDown("SELECT stddev_samp(t_double) FROM " + testTable.getName());
         }
 
         try (TestTable testTable = new TestTable(inOracle(), getSession().getSchema().orElseThrow() + ".test_stddev_pushdown",
@@ -271,9 +269,9 @@ public abstract class BaseOracleIntegrationSmokeTest
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (4)");
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (5)");
 
-            assertPushedDown("SELECT stddev_pop(t_double) FROM " + testTable.getName(), "SELECT 1.58113883");
-            assertPushedDown("SELECT stddev(t_double) FROM " + testTable.getName(), "SELECT 1.825741858");
-            assertPushedDown("SELECT stddev_samp(t_double) FROM " + testTable.getName(), "SELECT 1.825741858");
+            assertAggregationPushedDown("SELECT stddev_pop(t_double) FROM " + testTable.getName());
+            assertAggregationPushedDown("SELECT stddev(t_double) FROM " + testTable.getName());
+            assertAggregationPushedDown("SELECT stddev_samp(t_double) FROM " + testTable.getName());
         }
     }
 
@@ -282,22 +280,22 @@ public abstract class BaseOracleIntegrationSmokeTest
     {
         try (TestTable testTable = new TestTable(inOracle(), getSession().getSchema().orElseThrow() + ".test_variance_pushdown",
                 "(t_double DOUBLE PRECISION)")) {
-            assertPushedDown("SELECT var_pop(t_double) FROM " + testTable.getName(), "SELECT null");
-            assertPushedDown("SELECT variance(t_double) FROM " + testTable.getName(), "SELECT null");
-            assertPushedDown("SELECT var_samp(t_double) FROM " + testTable.getName(), "SELECT null");
+            assertAggregationPushedDown("SELECT var_pop(t_double) FROM " + testTable.getName());
+            assertAggregationPushedDown("SELECT variance(t_double) FROM " + testTable.getName());
+            assertAggregationPushedDown("SELECT var_samp(t_double) FROM " + testTable.getName());
 
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (1)");
 
-            assertPushedDown("SELECT var_pop(t_double) FROM " + testTable.getName(), "SELECT 0.0");
-            assertPushedDown("SELECT variance(t_double) FROM " + testTable.getName(), "SELECT null");
-            assertPushedDown("SELECT var_samp(t_double) FROM " + testTable.getName(), "SELECT null");
+            assertAggregationPushedDown("SELECT var_pop(t_double) FROM " + testTable.getName());
+            assertAggregationPushedDown("SELECT variance(t_double) FROM " + testTable.getName());
+            assertAggregationPushedDown("SELECT var_samp(t_double) FROM " + testTable.getName());
 
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (3)");
-            assertPushedDown("SELECT var_pop(t_double) FROM " + testTable.getName(), "SELECT 1.0");
+            assertAggregationPushedDown("SELECT var_pop(t_double) FROM " + testTable.getName());
 
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (5)");
-            assertPushedDown("SELECT variance(t_double) FROM " + testTable.getName(), "SELECT 4");
-            assertPushedDown("SELECT var_samp(t_double) FROM " + testTable.getName(), "SELECT 4");
+            assertAggregationPushedDown("SELECT variance(t_double) FROM " + testTable.getName());
+            assertAggregationPushedDown("SELECT var_samp(t_double) FROM " + testTable.getName());
         }
 
         try (TestTable testTable = new TestTable(inOracle(), getSession().getSchema().orElseThrow() + ".test_variance_pushdown",
@@ -309,9 +307,9 @@ public abstract class BaseOracleIntegrationSmokeTest
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (4)");
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (5)");
 
-            assertPushedDown("SELECT var_pop(t_double) FROM " + testTable.getName(), "SELECT 2.0");
-            assertPushedDown("SELECT variance(t_double) FROM " + testTable.getName(), "SELECT 2.5");
-            assertPushedDown("SELECT var_samp(t_double) FROM " + testTable.getName(), "SELECT 2.5");
+            assertAggregationPushedDown("SELECT var_pop(t_double) FROM " + testTable.getName());
+            assertAggregationPushedDown("SELECT variance(t_double) FROM " + testTable.getName());
+            assertAggregationPushedDown("SELECT var_samp(t_double) FROM " + testTable.getName());
         }
     }
 
