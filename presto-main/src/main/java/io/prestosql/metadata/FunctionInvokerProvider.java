@@ -14,7 +14,6 @@
 package io.prestosql.metadata;
 
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.function.InvocationConvention;
@@ -25,19 +24,12 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.ScalarFunctionAdapter.NullAdaptationPolicy.UNSUPPORTED;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentType.FUNCTION_TYPE;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static java.lang.String.format;
 import static java.util.Comparator.comparingInt;
 import static java.util.Objects.requireNonNull;
@@ -58,8 +50,8 @@ class FunctionInvokerProvider
             InvocationConvention expectedConvention)
     {
         List<Choice> choices = new ArrayList<>();
-        for (ScalarImplementationChoice choice : scalarFunctionImplementation.getAllChoices()) {
-            InvocationConvention callingConvention = toCallingConvention(choice);
+        for (ScalarImplementationChoice choice : scalarFunctionImplementation.getChoices()) {
+            InvocationConvention callingConvention = choice.getInvocationConvention();
             if (functionAdapter.canAdapt(callingConvention, expectedConvention)) {
                 choices.add(new Choice(choice, callingConvention));
             }
@@ -77,39 +69,7 @@ class FunctionInvokerProvider
         return new FunctionInvoker(
                 methodHandle,
                 bestChoice.getChoice().getInstanceFactory(),
-                bestChoice.getChoice().getArgumentProperties().stream()
-                        .map(ArgumentProperty::getLambdaInterface)
-                        .collect(Collectors.toList()));
-    }
-
-    private static InvocationConvention toCallingConvention(ScalarImplementationChoice choice)
-    {
-        return new InvocationConvention(
-                choice.getArgumentProperties().stream()
-                        .map(FunctionInvokerProvider::toArgumentConvention)
-                        .collect(toImmutableList()),
-                choice.isNullable() ? NULLABLE_RETURN : FAIL_ON_NULL,
-                choice.hasSession(),
-                choice.getInstanceFactory().isPresent());
-    }
-
-    private static InvocationArgumentConvention toArgumentConvention(ArgumentProperty argumentProperty)
-    {
-        if (argumentProperty.getArgumentType() == FUNCTION_TYPE) {
-            return FUNCTION;
-        }
-        switch (argumentProperty.getNullConvention()) {
-            case RETURN_NULL_ON_NULL:
-                return NEVER_NULL;
-            case USE_BOXED_TYPE:
-                return BOXED_NULLABLE;
-            case USE_NULL_FLAG:
-                return NULL_FLAG;
-            case BLOCK_AND_POSITION:
-                return BLOCK_POSITION;
-            default:
-                throw new IllegalArgumentException("Unsupported null convention: " + argumentProperty.getNullConvention());
-        }
+                bestChoice.getChoice().getLambdaInterfaces());
     }
 
     private static final class Choice
