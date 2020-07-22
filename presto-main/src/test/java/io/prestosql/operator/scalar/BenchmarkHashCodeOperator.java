@@ -15,7 +15,7 @@ package io.prestosql.operator.scalar;
 
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.Type;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -29,6 +29,7 @@ import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.annotations.State;
 import org.openjdk.jmh.annotations.Warmup;
 import org.openjdk.jmh.runner.Runner;
+import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
@@ -45,11 +46,11 @@ import static io.prestosql.operator.scalar.TypeOperatorBenchmarkUtil.toType;
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Thread)
 @OutputTimeUnit(TimeUnit.NANOSECONDS)
-@Fork(2)
+@Fork(4)
 @Warmup(iterations = 30, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @Measurement(iterations = 15, time = 500, timeUnit = TimeUnit.MILLISECONDS)
 @BenchmarkMode(Mode.AverageTime)
-public class BenchmarkArrayHashCodeOperator
+public class BenchmarkHashCodeOperator
 {
     private static final int POSITIONS = 10_000;
 
@@ -61,15 +62,11 @@ public class BenchmarkArrayHashCodeOperator
         return (long) data.getHashBlock().invokeExact(data.getBlock());
     }
 
-    @SuppressWarnings("FieldMayBeFinal")
     @State(Scope.Thread)
     public static class BenchmarkData
     {
-        @Param({"BIGINT", "VARCHAR"})
+        @Param({"BIGINT", "VARCHAR", "DOUBLE", "BOOLEAN"})
         private String type = "BIGINT";
-
-        @Param({"1", "10", "100", "1000"})
-        private int arraySize = 10;
 
         private MethodHandle hashBlock;
         private Block block;
@@ -77,20 +74,17 @@ public class BenchmarkArrayHashCodeOperator
         @Setup
         public void setup()
         {
-            ArrayType arrayType = new ArrayType(toType(type));
-            block = createChannel(POSITIONS, arraySize, arrayType);
-            hashBlock = getHashCodeBlockMethod(arrayType);
+            Type type = toType(this.type);
+            block = createChannel(POSITIONS, type);
+            hashBlock = getHashCodeBlockMethod(type);
         }
 
-        private static Block createChannel(int positionCount, int arraySize, ArrayType arrayType)
+        private static Block createChannel(int positionCount, Type type)
         {
-            BlockBuilder blockBuilder = arrayType.createBlockBuilder(null, positionCount);
+            ThreadLocalRandom random = ThreadLocalRandom.current();
+            BlockBuilder blockBuilder = type.createBlockBuilder(null, positionCount);
             for (int position = 0; position < positionCount; position++) {
-                BlockBuilder entryBuilder = blockBuilder.beginBlockEntry();
-                for (int i = 0; i < arraySize; i++) {
-                    addElement(arrayType.getElementType(), ThreadLocalRandom.current(), entryBuilder);
-                }
-                blockBuilder.closeEntry();
+                addElement(type, random, blockBuilder);
             }
             return blockBuilder.build();
         }
@@ -116,12 +110,13 @@ public class BenchmarkArrayHashCodeOperator
     }
 
     public static void main(String[] args)
-            throws Throwable
+            throws RunnerException
     {
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkArrayHashCodeOperator.class.getSimpleName() + ".*")
+                .include(".*" + BenchmarkHashCodeOperator.class.getSimpleName() + ".*")
                 .build();
+
         new Runner(options).run();
     }
 }
