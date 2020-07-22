@@ -16,10 +16,9 @@ package io.prestosql.sql.gen;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
@@ -94,17 +93,17 @@ public class TestVarArgsToArrayAdapterGenerator
         }
 
         @Override
-        public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+        protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
         {
             VarArgsToArrayAdapterGenerator.MethodHandleAndConstructor methodHandleAndConstructor = generateVarArgsToArrayAdapter(
                     long.class,
                     long.class,
-                    arity,
+                    functionBinding.getArity(),
                     METHOD_HANDLE,
                     USER_STATE_FACTORY);
             return new ScalarFunctionImplementation(
                     InvocationReturnConvention.FAIL_ON_NULL,
-                    nCopies(arity, NEVER_NULL),
+                    nCopies(functionBinding.getArity(), NEVER_NULL),
                     methodHandleAndConstructor.getMethodHandle(),
                     Optional.of(methodHandleAndConstructor.getConstructor()));
         }

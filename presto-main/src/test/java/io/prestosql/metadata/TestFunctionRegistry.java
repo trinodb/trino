@@ -361,11 +361,11 @@ public class TestFunctionRegistry
                 functions.add(new SqlScalarFunction(functionMetadata)
                 {
                     @Override
-                    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+                    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
                     {
                         return new ScalarFunctionImplementation(
                                 FAIL_ON_NULL,
-                                nCopies(arity, NEVER_NULL),
+                                nCopies(functionBinding.getArity(), NEVER_NULL),
                                 MethodHandles.identity(Void.class));
                     }
                 });

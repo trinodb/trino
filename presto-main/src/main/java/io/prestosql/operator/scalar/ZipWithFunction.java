@@ -14,10 +14,9 @@
 package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.PageBuilder;
@@ -77,11 +76,11 @@ public final class ZipWithFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
-        Type leftElementType = boundVariables.getTypeVariable("T");
-        Type rightElementType = boundVariables.getTypeVariable("U");
-        Type outputElementType = boundVariables.getTypeVariable("R");
+        Type leftElementType = functionBinding.getTypeVariable("T");
+        Type rightElementType = functionBinding.getTypeVariable("U");
+        Type outputElementType = functionBinding.getTypeVariable("R");
         ArrayType outputArrayType = new ArrayType(outputElementType);
         return new ScalarFunctionImplementation(
                 FAIL_ON_NULL,

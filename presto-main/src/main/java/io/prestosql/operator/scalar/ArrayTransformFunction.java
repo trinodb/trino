@@ -24,10 +24,9 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.PageBuilder;
@@ -97,10 +96,10 @@ public final class ArrayTransformFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
-        Type inputType = boundVariables.getTypeVariable("T");
-        Type outputType = boundVariables.getTypeVariable("U");
+        Type inputType = functionBinding.getTypeVariable("T");
+        Type outputType = functionBinding.getTypeVariable("U");
         Class<?> generatedClass = generateTransform(inputType, outputType);
         return new ScalarFunctionImplementation(
                 FAIL_ON_NULL,

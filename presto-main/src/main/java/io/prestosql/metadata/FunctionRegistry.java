@@ -860,17 +860,14 @@ public class FunctionRegistry
             throwIfInstanceOf(e.getCause(), PrestoException.class);
             throw new RuntimeException(e.getCause());
         }
-        FunctionInvokerProvider functionInvokerProvider = new FunctionInvokerProvider(metadata);
+        FunctionInvokerProvider functionInvokerProvider = new FunctionInvokerProvider();
         return functionInvokerProvider.createFunctionInvoker(scalarFunctionImplementation, functionBinding.getBoundSignature(), invocationConvention);
     }
 
     private ScalarFunctionImplementation specializeScalarFunction(Metadata metadata, FunctionBinding functionBinding)
     {
         SqlScalarFunction function = (SqlScalarFunction) functions.get(functionBinding.getFunctionId());
-        return function.specialize(
-                new BoundVariables(functionBinding.getTypeVariables(), functionBinding.getLongVariables()),
-                functionBinding.getBoundSignature().getArgumentTypes().size(),
-                metadata);
+        return function.specialize(functionBinding, metadata);
     }
 
     private static class FunctionMap

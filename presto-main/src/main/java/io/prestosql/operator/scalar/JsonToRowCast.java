@@ -19,8 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.metadata.TypeVariableConstraint;
 import io.prestosql.spi.PrestoException;
@@ -77,10 +76,10 @@ public class JsonToRowCast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
-        checkArgument(arity == 1, "Expected arity to be 1");
-        RowType rowType = (RowType) boundVariables.getTypeVariable("T");
+        checkArgument(functionBinding.getArity() == 1, "Expected arity to be 1");
+        RowType rowType = (RowType) functionBinding.getTypeVariable("T");
         checkCondition(canCastFromJson(rowType), INVALID_CAST_ARGUMENT, "Cannot cast JSON to %s", rowType);
 
         List<Field> rowFields = rowType.getFields();
