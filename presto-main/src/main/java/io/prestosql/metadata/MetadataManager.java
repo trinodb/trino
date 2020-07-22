@@ -1692,10 +1692,9 @@ public final class MetadataManager
     }
 
     @VisibleForTesting
-    public FunctionBinding toFunctionBinding(FunctionId functionId, BoundSignature boundSignature, Signature functionSignature)
+    public static FunctionBinding toFunctionBinding(FunctionId functionId, BoundSignature boundSignature, Signature functionSignature)
     {
         return SignatureBinder.bindFunction(
-                this,
                 functionId,
                 functionSignature,
                 boundSignature);

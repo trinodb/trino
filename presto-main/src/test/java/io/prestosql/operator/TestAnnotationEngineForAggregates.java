@@ -1145,7 +1145,7 @@ public class TestAnnotationEngineForAggregates
     private static InternalAggregationFunction specializeAggregationFunction(BoundSignature boundSignature, SqlAggregationFunction aggregation)
     {
         FunctionMetadata functionMetadata = aggregation.getFunctionMetadata();
-        FunctionBinding functionBinding = METADATA.toFunctionBinding(functionMetadata.getFunctionId(), boundSignature, functionMetadata.getSignature());
+        FunctionBinding functionBinding = MetadataManager.toFunctionBinding(functionMetadata.getFunctionId(), boundSignature, functionMetadata.getSignature());
 
         AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata(functionBinding);
         assertFalse(aggregationMetadata.isOrderSensitive());
