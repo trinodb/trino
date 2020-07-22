@@ -157,6 +157,11 @@ public class BoundVariables
             return containsValue(typeVariables, variableName);
         }
 
+        public Map<String, Type> getTypeVariables()
+        {
+            return typeVariables;
+        }
+
         public Long getLongVariable(String variableName)
         {
             return getValue(longVariables, variableName);

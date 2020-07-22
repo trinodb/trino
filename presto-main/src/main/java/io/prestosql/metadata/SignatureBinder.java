@@ -16,7 +16,6 @@ package io.prestosql.metadata;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.ImmutableSortedMap;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.NamedTypeSignature;
 import io.prestosql.spi.type.ParameterKind;
@@ -38,12 +37,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static com.google.common.collect.ImmutableSortedMap.toImmutableSortedMap;
 import static io.prestosql.metadata.SignatureBinder.RelationshipType.EXACT;
 import static io.prestosql.metadata.SignatureBinder.RelationshipType.EXPLICIT_COERCION_FROM;
 import static io.prestosql.metadata.SignatureBinder.RelationshipType.EXPLICIT_COERCION_TO;
@@ -55,6 +54,7 @@ import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 
 /**
@@ -95,7 +95,7 @@ public class SignatureBinder
         this.allowCoercion = allowCoercion;
 
         this.typeVariableConstraints = declaredSignature.getTypeVariableConstraints().stream()
-                .collect(ImmutableSortedMap.toImmutableSortedMap(CASE_INSENSITIVE_ORDER, TypeVariableConstraint::getName, Function.identity()));
+                .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, TypeVariableConstraint::getName, identity()));
     }
 
     public Optional<Signature> bind(List<? extends TypeSignatureProvider> actualArgumentTypes)
@@ -185,16 +185,116 @@ public class SignatureBinder
         return new TypeSignature(baseType, parameters);
     }
 
-    public static FunctionBinding bindFunction(Metadata metadata, FunctionId functionId, Signature functionSignature, BoundSignature boundSignature)
+    public static FunctionBinding bindFunction(FunctionId functionId, Signature functionSignature, BoundSignature boundSignature)
     {
-        BoundVariables boundVariables = new SignatureBinder(metadata, functionSignature, false)
-                .bindVariables(fromTypes(boundSignature.getArgumentTypes()), boundSignature.getReturnType().getTypeSignature())
-                .orElseThrow(() -> new IllegalArgumentException("Could not extract bound variables"));
+        BoundVariables boundVariables = extractBoundVariables(boundSignature, functionSignature);
         return new FunctionBinding(
                 functionId,
                 boundSignature,
                 boundVariables.getTypeVariables(),
                 boundVariables.getLongVariables());
+    }
+
+    private static BoundVariables extractBoundVariables(BoundSignature boundSignature, Signature declaredSignature)
+    {
+        requireNonNull(declaredSignature, "declaredSignature is null");
+        requireNonNull(boundSignature, "boundSignature is null");
+
+        checkNoLiteralVariableUsageAcrossTypes(declaredSignature);
+
+        Map<String, TypeVariableConstraint> typeVariableConstraints = declaredSignature.getTypeVariableConstraints().stream()
+                    .collect(toImmutableSortedMap(CASE_INSENSITIVE_ORDER, TypeVariableConstraint::getName, identity()));
+
+        boolean variableArity = declaredSignature.isVariableArity();
+        List<TypeSignature> formalTypeSignatures = declaredSignature.getArgumentTypes();
+        if (variableArity) {
+            verifyBoundSignature(boundSignature.getArgumentTypes().size() >= formalTypeSignatures.size() - 1, boundSignature, declaredSignature);
+            formalTypeSignatures = expandVarargFormalTypeSignature(formalTypeSignatures, boundSignature.getArgumentTypes().size());
+        }
+
+        verifyBoundSignature(formalTypeSignatures.size() == boundSignature.getArgumentTypes().size(), boundSignature, declaredSignature);
+
+        BoundVariables.Builder bindings = BoundVariables.builder();
+        for (int i = 0; i < formalTypeSignatures.size(); i++) {
+            extractBoundVariables(boundSignature, declaredSignature, typeVariableConstraints, bindings, boundSignature.getArgumentTypes().get(i), formalTypeSignatures.get(i));
+        }
+        extractBoundVariables(boundSignature, declaredSignature, typeVariableConstraints, bindings, boundSignature.getReturnType(), declaredSignature.getReturnType());
+
+        verifyBoundSignature(bindings.getTypeVariables().keySet().equals(typeVariableConstraints.keySet()), boundSignature, declaredSignature);
+        return bindings.build();
+    }
+
+    private static void extractBoundVariables(
+            BoundSignature boundSignature,
+            Signature declaredSignature,
+            Map<String, TypeVariableConstraint> typeVariableConstraints,
+            BoundVariables.Builder bindings,
+            Type actualType,
+            TypeSignature declaredTypeSignature)
+    {
+        // type without nested type parameters
+        if (declaredTypeSignature.getParameters().isEmpty()) {
+            String typeVariable = declaredTypeSignature.getBase();
+            TypeVariableConstraint typeVariableConstraint = typeVariableConstraints.get(typeVariable);
+            if (typeVariableConstraint == null) {
+                return;
+            }
+
+            if (bindings.containsTypeVariable(typeVariable)) {
+                Type existingTypeBinding = bindings.getTypeVariable(typeVariable);
+                verifyBoundSignature(actualType.equals(existingTypeBinding), boundSignature, declaredSignature);
+            }
+            else {
+                bindings.setTypeVariable(typeVariable, actualType);
+            }
+            return;
+        }
+
+        verifyBoundSignature(declaredTypeSignature.getBase().equalsIgnoreCase(actualType.getTypeSignature().getBase()), boundSignature, declaredSignature);
+
+        // type with nested literal parameters
+        if (isTypeWithLiteralParameters(declaredTypeSignature)) {
+            for (int i = 0; i < declaredTypeSignature.getParameters().size(); i++) {
+                TypeSignatureParameter typeSignatureParameter = declaredTypeSignature.getParameters().get(i);
+                Long actualLongBinding = actualType.getTypeSignature().getParameters().get(i).getLongLiteral();
+                if (typeSignatureParameter.getKind() == ParameterKind.VARIABLE) {
+                    if (bindings.containsLongVariable(typeSignatureParameter.getVariable())) {
+                        Long existingLongBinding = bindings.getLongVariable(typeSignatureParameter.getVariable());
+                        verifyBoundSignature(actualLongBinding.equals(existingLongBinding), boundSignature, declaredSignature);
+                    }
+                    else {
+                        bindings.setLongVariable(typeSignatureParameter.getVariable(), actualLongBinding);
+                    }
+                }
+                else {
+                    verify(typeSignatureParameter.getKind() == ParameterKind.LONG);
+                    verifyBoundSignature(actualLongBinding.equals(typeSignatureParameter.getLongLiteral()), boundSignature, declaredSignature);
+                }
+            }
+            return;
+        }
+
+        // type with nested type parameters
+        List<Type> actualTypeParameters = actualType.getTypeParameters();
+
+        // unknown types are assumed to have unknown nested types
+        if (UNKNOWN.equals(actualType)) {
+            actualTypeParameters = Collections.nCopies(declaredTypeSignature.getParameters().size(), UNKNOWN);
+        }
+
+        verifyBoundSignature(declaredTypeSignature.getParameters().size() == actualTypeParameters.size(), boundSignature, declaredSignature);
+        for (int i = 0; i < declaredTypeSignature.getParameters().size(); i++) {
+            TypeSignatureParameter typeSignatureParameter = declaredTypeSignature.getParameters().get(i);
+            TypeSignature typeSignature = typeSignatureParameter.getTypeSignatureOrNamedTypeSignature()
+                    .orElseThrow(() -> new UnsupportedOperationException("Types with both type parameters and literal parameters at the same time are not supported"));
+            Type actualTypeParameter = actualTypeParameters.get(i);
+            extractBoundVariables(boundSignature, declaredSignature, typeVariableConstraints, bindings, actualTypeParameter, typeSignature);
+        }
+    }
+
+    private static void verifyBoundSignature(boolean expression, BoundSignature boundSignature, Signature declaredSignature)
+    {
+        checkArgument(expression, "Bound signature %s does not match declared signature %s", boundSignature, declaredSignature);
     }
 
     /**
