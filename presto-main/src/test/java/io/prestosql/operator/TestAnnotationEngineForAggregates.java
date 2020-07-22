@@ -1151,7 +1151,7 @@ public class TestAnnotationEngineForAggregates
         assertFalse(aggregationMetadata.isOrderSensitive());
         assertTrue(aggregationMetadata.getIntermediateType().isPresent());
 
-        ResolvedFunction resolvedFunction = METADATA.resolve(functionMetadata.getFunctionId(), boundSignature, aggregation.getFunctionDependencies(functionBinding));
+        ResolvedFunction resolvedFunction = METADATA.resolve(functionBinding, aggregation.getFunctionDependencies(functionBinding));
         FunctionDependencies functionDependencies = new FunctionDependencies(METADATA, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
         return aggregation.specialize(functionBinding, functionDependencies);
     }

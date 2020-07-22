@@ -104,11 +104,10 @@ public abstract class AbstractMinMaxAggregationFunction
     }
 
     @Override
-    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    public FunctionDependencyDeclaration getFunctionDependencies()
     {
-        Type type = functionBinding.getTypeVariable("E");
         return FunctionDependencyDeclaration.builder()
-                .addOperator(operatorType, ImmutableList.of(type, type))
+                .addOperatorSignature(operatorType, ImmutableList.of(new TypeSignature("E"), new TypeSignature("E")))
                 .build();
     }
 

@@ -30,7 +30,7 @@ public final class LiteralImplementationDependency
     }
 
     @Override
-    public void declareDependencies(FunctionBinding functionBinding, FunctionDependencyDeclarationBuilder builder) {}
+    public void declareDependencies(FunctionDependencyDeclarationBuilder builder) {}
 
     @Override
     public Object resolve(FunctionBinding functionBinding, FunctionDependencies functionDependencies)

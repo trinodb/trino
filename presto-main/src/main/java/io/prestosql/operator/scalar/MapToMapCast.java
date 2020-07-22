@@ -87,11 +87,11 @@ public final class MapToMapCast
     }
 
     @Override
-    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    public FunctionDependencyDeclaration getFunctionDependencies()
     {
         return FunctionDependencyDeclaration.builder()
-                .addCast(functionBinding.getTypeVariable("FK"), functionBinding.getTypeVariable("TK"))
-                .addCast(functionBinding.getTypeVariable("FV"), functionBinding.getTypeVariable("TV"))
+                .addCastSignature(new TypeSignature("FK"), new TypeSignature("TK"))
+                .addCastSignature(new TypeSignature("FV"), new TypeSignature("TV"))
                 .build();
     }
 

@@ -82,26 +82,26 @@ public class ParametricAggregation
     }
 
     @Override
-    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    public FunctionDependencyDeclaration getFunctionDependencies()
     {
         FunctionDependencyDeclarationBuilder builder = FunctionDependencyDeclaration.builder();
-        declareDependencies(functionBinding, builder, implementations.getExactImplementations().values());
-        declareDependencies(functionBinding, builder, implementations.getSpecializedImplementations());
-        declareDependencies(functionBinding, builder, implementations.getGenericImplementations());
+        declareDependencies(builder, implementations.getExactImplementations().values());
+        declareDependencies(builder, implementations.getSpecializedImplementations());
+        declareDependencies(builder, implementations.getGenericImplementations());
         return builder.build();
     }
 
-    private static void declareDependencies(FunctionBinding functionBinding, FunctionDependencyDeclarationBuilder builder, Collection<AggregationImplementation> implementations)
+    private static void declareDependencies(FunctionDependencyDeclarationBuilder builder, Collection<AggregationImplementation> implementations)
     {
         for (AggregationImplementation implementation : implementations) {
             for (ImplementationDependency dependency : implementation.getInputDependencies()) {
-                dependency.declareDependencies(functionBinding, builder);
+                dependency.declareDependencies(builder);
             }
             for (ImplementationDependency dependency : implementation.getCombineDependencies()) {
-                dependency.declareDependencies(functionBinding, builder);
+                dependency.declareDependencies(builder);
             }
             for (ImplementationDependency dependency : implementation.getOutputDependencies()) {
-                dependency.declareDependencies(functionBinding, builder);
+                dependency.declareDependencies(builder);
             }
         }
     }
