@@ -16,10 +16,9 @@ package io.prestosql.sql.planner.sanity;
 import com.google.common.collect.ListMultimap;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.BoundSignature;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.planner.SimplePlanVisitor;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeAnalyzer;
@@ -34,12 +33,12 @@ import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.type.FunctionType;
 import io.prestosql.type.TypeCoercion;
+import io.prestosql.type.UnknownType;
 
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.type.UnknownType.UNKNOWN;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -48,8 +47,6 @@ import static java.util.Objects.requireNonNull;
 public final class TypeValidator
         implements PlanSanityChecker.Checker
 {
-    public TypeValidator() {}
-
     @Override
     public void validate(PlanNode plan, Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, WarningCollector warningCollector)
     {
@@ -60,7 +57,6 @@ public final class TypeValidator
             extends SimplePlanVisitor<Void>
     {
         private final Session session;
-        private final Metadata metadata;
         private final TypeCoercion typeCoercion;
         private final TypeAnalyzer typeAnalyzer;
         private final TypeProvider types;
@@ -69,7 +65,6 @@ public final class TypeValidator
         public Visitor(Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, WarningCollector warningCollector)
         {
             this.session = requireNonNull(session, "session is null");
-            this.metadata = requireNonNull(metadata, "metadata is null");
             this.typeCoercion = new TypeCoercion(metadata::getType);
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.types = requireNonNull(types, "types is null");
@@ -119,11 +114,11 @@ public final class TypeValidator
                 Type expectedType = types.get(entry.getKey());
                 if (entry.getValue() instanceof SymbolReference) {
                     SymbolReference symbolReference = (SymbolReference) entry.getValue();
-                    verifyTypeSignature(entry.getKey(), expectedType.getTypeSignature(), types.get(Symbol.from(symbolReference)).getTypeSignature());
+                    verifyTypeSignature(entry.getKey(), expectedType, types.get(Symbol.from(symbolReference)));
                     continue;
                 }
                 Type actualType = typeAnalyzer.getType(session, types, entry.getValue());
-                verifyTypeSignature(entry.getKey(), expectedType.getTypeSignature(), actualType.getTypeSignature());
+                verifyTypeSignature(entry.getKey(), expectedType, actualType);
             }
 
             return null;
@@ -139,7 +134,7 @@ public final class TypeValidator
                 List<Symbol> valueSymbols = symbolMapping.get(keySymbol);
                 Type expectedType = types.get(keySymbol);
                 for (Symbol valueSymbol : valueSymbols) {
-                    verifyTypeSignature(keySymbol, expectedType.getTypeSignature(), types.get(valueSymbol).getTypeSignature());
+                    verifyTypeSignature(keySymbol, expectedType, types.get(valueSymbol));
                 }
             }
 
@@ -154,18 +149,18 @@ public final class TypeValidator
             });
         }
 
-        private void checkSignature(Symbol symbol, Signature signature)
-        {
-            TypeSignature expectedTypeSignature = types.get(symbol).getTypeSignature();
-            TypeSignature actualTypeSignature = signature.getReturnType();
-            verifyTypeSignature(symbol, expectedTypeSignature, actualTypeSignature);
-        }
-
-        private void checkCall(Symbol symbol, Signature signature, List<Expression> arguments)
+        private void checkSignature(Symbol symbol, BoundSignature signature)
         {
             Type expectedType = types.get(symbol);
-            Type actualType = metadata.getType(signature.getReturnType());
-            verifyTypeSignature(symbol, expectedType.getTypeSignature(), actualType.getTypeSignature());
+            Type actualType = signature.getReturnType();
+            verifyTypeSignature(symbol, expectedType, actualType);
+        }
+
+        private void checkCall(Symbol symbol, BoundSignature signature, List<Expression> arguments)
+        {
+            Type expectedType = types.get(symbol);
+            Type actualType = signature.getReturnType();
+            verifyTypeSignature(symbol, expectedType, actualType);
 
             checkArgument(signature.getArgumentTypes().size() == arguments.size(),
                     "expected %s arguments, but found %s arguments",
@@ -173,19 +168,19 @@ public final class TypeValidator
                     arguments.size());
 
             for (int i = 0; i < arguments.size(); i++) {
-                TypeSignature expectedTypeSignature = signature.getArgumentTypes().get(i);
-                if (expectedTypeSignature.getBase().equals(FunctionType.NAME)) {
+                Type expectedTypeSignature = signature.getArgumentTypes().get(i);
+                if (expectedTypeSignature instanceof FunctionType) {
                     continue;
                 }
-                TypeSignature actualTypeSignature = typeAnalyzer.getType(session, types, arguments.get(i)).getTypeSignature();
+                Type actualTypeSignature = typeAnalyzer.getType(session, types, arguments.get(i));
                 verifyTypeSignature(symbol, expectedTypeSignature, actualTypeSignature);
             }
         }
 
-        private void verifyTypeSignature(Symbol symbol, TypeSignature expected, TypeSignature actual)
+        private void verifyTypeSignature(Symbol symbol, Type expected, Type actual)
         {
             // UNKNOWN should be considered as a wildcard type, which matches all the other types
-            if (!actual.equals(UNKNOWN.getTypeSignature()) && !typeCoercion.isTypeOnlyCoercion(metadata.getType(actual), metadata.getType(expected))) {
+            if (!(actual instanceof UnknownType) && !typeCoercion.isTypeOnlyCoercion(actual, expected)) {
                 checkArgument(expected.equals(actual), "type of symbol '%s' is expected to be %s, but the actual type is %s", symbol, expected, actual);
             }
         }

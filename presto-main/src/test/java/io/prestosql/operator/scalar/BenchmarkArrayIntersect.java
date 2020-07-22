@@ -123,7 +123,6 @@ public class BenchmarkArrayIntersect
             ArrayType arrayType = new ArrayType(elementType);
             ImmutableList<RowExpression> projections = ImmutableList.of(new CallExpression(
                     metadata.resolveFunction(QualifiedName.of(name), fromTypes(arrayType, arrayType)),
-                    arrayType,
                     ImmutableList.of(field(0, arrayType), field(1, arrayType))));
 
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));

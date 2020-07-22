@@ -56,7 +56,7 @@ public class InvokeFunctionBytecodeExpression
             Metadata metadata,
             List<BytecodeExpression> parameters)
     {
-        super(type(Primitives.unwrap(metadata.getType(resolvedFunction.getSignature().getReturnType()).getJavaType())));
+        super(type(Primitives.unwrap(resolvedFunction.getSignature().getReturnType().getJavaType())));
 
         this.invocation = generateInvocation(scope, resolvedFunction, metadata, parameters.stream().map(BytecodeNode.class::cast).collect(toImmutableList()), binder);
         this.oneLineDescription = resolvedFunction.getSignature().getName() + "(" + Joiner.on(", ").join(parameters) + ")";

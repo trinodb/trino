@@ -109,7 +109,6 @@ public class BenchmarkArrayTransform
             ExpressionCompiler compiler = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
             ImmutableList.Builder<RowExpression> projectionsBuilder = ImmutableList.builder();
             Block[] blocks = new Block[TYPES.size()];
-            Type returnType = new ArrayType(BOOLEAN);
             for (int i = 0; i < TYPES.size(); i++) {
                 Type elementType = TYPES.get(i);
                 ArrayType arrayType = new ArrayType(elementType);
@@ -117,7 +116,6 @@ public class BenchmarkArrayTransform
                         metadata.resolveFunction(
                                 QualifiedName.of("transform"),
                                 fromTypes(arrayType, new FunctionType(ImmutableList.of(BIGINT), BOOLEAN))),
-                        returnType,
                         ImmutableList.of(
                                 new InputReferenceExpression(0, arrayType),
                                 new LambdaDefinitionExpression(
@@ -125,7 +123,6 @@ public class BenchmarkArrayTransform
                                         ImmutableList.of("x"),
                                         new CallExpression(
                                                 metadata.resolveOperator(GREATER_THAN, ImmutableList.of(BIGINT, BIGINT)),
-                                                BOOLEAN,
                                                 ImmutableList.of(new VariableReferenceExpression("x", BIGINT), new ConstantExpression(0L, BIGINT)))))));
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }

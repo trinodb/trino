@@ -469,6 +469,8 @@ public interface Metadata
 
     List<FunctionMetadata> listFunctions();
 
+    ResolvedFunction decodeFunction(QualifiedName name);
+
     ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes);
 
     ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)

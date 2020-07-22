@@ -31,7 +31,6 @@ import java.lang.invoke.MethodHandles;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -60,14 +59,8 @@ public class TestFunctionRegistry
     @Test
     public void testIdentityCast()
     {
-        Signature exactOperator = createTestMetadataManager().getCoercion(HYPER_LOG_LOG, HYPER_LOG_LOG).getSignature();
-        assertEquals(exactOperator.getName(), mangleOperatorName(OperatorType.CAST));
-        assertEquals(
-                exactOperator.getArgumentTypes().stream()
-                        .map(Object::toString)
-                        .collect(Collectors.toList()),
-                ImmutableList.of(StandardTypes.HYPER_LOG_LOG));
-        assertEquals(exactOperator.getReturnType().getBase(), StandardTypes.HYPER_LOG_LOG);
+        BoundSignature exactOperator = createTestMetadataManager().getCoercion(HYPER_LOG_LOG, HYPER_LOG_LOG).getSignature();
+        assertEquals(exactOperator, new BoundSignature(mangleOperatorName(OperatorType.CAST), HYPER_LOG_LOG, ImmutableList.of(HYPER_LOG_LOG)));
     }
 
     @Test
@@ -89,8 +82,8 @@ public class TestFunctionRegistry
             List<Type> argumentTypes = function.getSignature().getArgumentTypes().stream()
                     .map(metadata::getType)
                     .collect(toImmutableList());
-            Signature exactOperator = metadata.resolveOperator(operatorType, argumentTypes).getSignature();
-            assertEquals(exactOperator, function.getSignature());
+            BoundSignature exactOperator = metadata.resolveOperator(operatorType, argumentTypes).getSignature();
+            assertEquals(exactOperator.toSignature(), function.getSignature());
             foundOperator = true;
         }
         assertTrue(foundOperator);
@@ -323,7 +316,7 @@ public class TestFunctionRegistry
         public ResolveFunctionAssertion returns(SignatureBuilder functionSignature)
         {
             Signature expectedSignature = functionSignature.name(TEST_FUNCTION_NAME).build();
-            Signature actualSignature = resolveSignature();
+            Signature actualSignature = resolveSignature().toSignature();
             assertEquals(actualSignature, expectedSignature);
             return this;
         }
@@ -345,7 +338,7 @@ public class TestFunctionRegistry
             return this;
         }
 
-        private Signature resolveSignature()
+        private BoundSignature resolveSignature()
         {
             Metadata metadata = createTestMetadataManager();
             metadata.addFunctions(createFunctionsFromSignatures());

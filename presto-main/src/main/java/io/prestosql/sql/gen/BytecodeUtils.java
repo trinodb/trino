@@ -25,11 +25,11 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.slice.Slice;
+import io.prestosql.metadata.BoundSignature;
 import io.prestosql.metadata.FunctionInvoker;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.metadata.Signature;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.InvocationConvention;
@@ -393,7 +393,7 @@ public final class BytecodeUtils
         return invokeDynamic(BOOTSTRAP_METHOD, ImmutableList.of(binding.getBindingId()), name.replaceAll("[^(A-Za-z0-9_$)]", "_"), binding.getType());
     }
 
-    public static BytecodeExpression invoke(Binding binding, Signature signature)
+    public static BytecodeExpression invoke(Binding binding, BoundSignature signature)
     {
         return invoke(binding, signature.getName());
     }

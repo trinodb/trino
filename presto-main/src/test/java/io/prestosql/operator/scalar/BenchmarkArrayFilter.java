@@ -138,12 +138,12 @@ public class BenchmarkArrayFilter
                         QualifiedName.of(name),
                         fromTypes(arrayType, new FunctionType(ImmutableList.of(BIGINT), BOOLEAN)));
                 ResolvedFunction greaterThan = metadata.resolveOperator(GREATER_THAN, ImmutableList.of(BIGINT, BIGINT));
-                projectionsBuilder.add(new CallExpression(resolvedFunction, arrayType, ImmutableList.of(
+                projectionsBuilder.add(new CallExpression(resolvedFunction, ImmutableList.of(
                         field(0, arrayType),
                         new LambdaDefinitionExpression(
                                 ImmutableList.of(BIGINT),
                                 ImmutableList.of("x"),
-                                new CallExpression(greaterThan, BOOLEAN, ImmutableList.of(new VariableReferenceExpression("x", BIGINT), constant(0L, BIGINT)))))));
+                                new CallExpression(greaterThan, ImmutableList.of(new VariableReferenceExpression("x", BIGINT), constant(0L, BIGINT)))))));
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
 

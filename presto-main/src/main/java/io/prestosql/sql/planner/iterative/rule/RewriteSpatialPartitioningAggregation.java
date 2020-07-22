@@ -19,7 +19,6 @@ import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.planner.FunctionCallBuilder;
 import io.prestosql.sql.planner.Symbol;
@@ -38,7 +37,6 @@ import java.util.Optional;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.SystemSessionProperties.getHashPartitionCount;
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.prestosql.sql.planner.plan.Patterns.aggregation;
@@ -150,9 +148,8 @@ public class RewriteSpatialPartitioningAggregation
         }
 
         FunctionCall functionCall = (FunctionCall) expression;
-        return ResolvedFunction.fromQualifiedName(functionCall.getName())
-                .map(ResolvedFunction::getFunctionId)
-                .map(stEnvelopeFunction.getFunctionId()::equals)
-                .orElseThrow(() -> new PrestoException(GENERIC_INTERNAL_ERROR, String.format("Function call has not been resolved: %s", expression)));
+        return metadata.decodeFunction(functionCall.getName())
+                .getFunctionId()
+                .equals(stEnvelopeFunction.getFunctionId());
     }
 }

@@ -23,6 +23,7 @@ import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.TypeSignature;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -82,7 +83,7 @@ public class Signature
     public static OperatorType unmangleOperator(String mangledName)
     {
         checkArgument(mangledName.startsWith(OPERATOR_PREFIX), "not a mangled operator name: %s", mangledName);
-        return OperatorType.valueOf(mangledName.substring(OPERATOR_PREFIX.length()));
+        return OperatorType.valueOf(mangledName.substring(OPERATOR_PREFIX.length()).toUpperCase(Locale.ENGLISH));
     }
 
     @JsonProperty

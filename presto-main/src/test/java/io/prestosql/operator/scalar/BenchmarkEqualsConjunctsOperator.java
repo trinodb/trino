@@ -114,7 +114,6 @@ public class BenchmarkEqualsConjunctsOperator
     {
         return call(
                 metadata.resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
-                BOOLEAN,
                 field(leftField, BIGINT),
                 field(rightField, BIGINT));
     }

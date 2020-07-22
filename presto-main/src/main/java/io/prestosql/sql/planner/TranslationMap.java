@@ -326,7 +326,7 @@ class TranslationMap
     {
         verify(AstUtils.preOrder(astExpression).noneMatch(expression ->
                 expression instanceof SymbolReference ||
-                expression instanceof FunctionCall && ResolvedFunction.fromQualifiedName(((FunctionCall) expression).getName()).isPresent()));
+                expression instanceof FunctionCall && ResolvedFunction.isResolved(((FunctionCall) expression).getName())));
     }
 
     public Scope getScope()
