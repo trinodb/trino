@@ -17,10 +17,11 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.prestosql.metadata.BoundSignature;
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
+import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.ParametricImplementationsGroup;
@@ -28,6 +29,7 @@ import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDes
 import io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata;
 import io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType;
 import io.prestosql.operator.aggregation.state.StateCompiler;
+import io.prestosql.operator.annotations.ImplementationDependency;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.function.AccumulatorStateFactory;
 import io.prestosql.spi.function.AccumulatorStateSerializer;
@@ -35,6 +37,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -78,7 +81,32 @@ public class ParametricAggregation
     }
 
     @Override
-    public InternalAggregationFunction specialize(FunctionBinding functionBinding, Metadata metadata)
+    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    {
+        FunctionDependencyDeclarationBuilder builder = FunctionDependencyDeclaration.builder();
+        declareDependencies(functionBinding, builder, implementations.getExactImplementations().values());
+        declareDependencies(functionBinding, builder, implementations.getSpecializedImplementations());
+        declareDependencies(functionBinding, builder, implementations.getGenericImplementations());
+        return builder.build();
+    }
+
+    private static void declareDependencies(FunctionBinding functionBinding, FunctionDependencyDeclarationBuilder builder, Collection<AggregationImplementation> implementations)
+    {
+        for (AggregationImplementation implementation : implementations) {
+            for (ImplementationDependency dependency : implementation.getInputDependencies()) {
+                dependency.declareDependencies(functionBinding, builder);
+            }
+            for (ImplementationDependency dependency : implementation.getCombineDependencies()) {
+                dependency.declareDependencies(functionBinding, builder);
+            }
+            for (ImplementationDependency dependency : implementation.getOutputDependencies()) {
+                dependency.declareDependencies(functionBinding, builder);
+            }
+        }
+    }
+
+    @Override
+    public InternalAggregationFunction specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         // Bind variables
         Signature signature = getFunctionMetadata().getSignature();
@@ -100,12 +128,11 @@ public class ParametricAggregation
         AccumulatorStateFactory<?> stateFactory = StateCompiler.generateStateFactory(stateClass, classLoader);
 
         // Bind provided dependencies to aggregation method handlers
-        BoundVariables boundVariables = new BoundVariables(functionBinding.getTypeVariables(), functionBinding.getLongVariables());
-        MethodHandle inputHandle = bindDependencies(concreteImplementation.getInputFunction(), concreteImplementation.getInputDependencies(), boundVariables, metadata);
+        MethodHandle inputHandle = bindDependencies(concreteImplementation.getInputFunction(), concreteImplementation.getInputDependencies(), functionBinding, functionDependencies);
         Optional<MethodHandle> removeInputHandle = concreteImplementation.getRemoveInputFunction().map(
-                removeInputFunction -> bindDependencies(removeInputFunction, concreteImplementation.getRemoveInputDependencies(), boundVariables, metadata));
-        MethodHandle combineHandle = bindDependencies(concreteImplementation.getCombineFunction(), concreteImplementation.getCombineDependencies(), boundVariables, metadata);
-        MethodHandle outputHandle = bindDependencies(concreteImplementation.getOutputFunction(), concreteImplementation.getOutputDependencies(), boundVariables, metadata);
+                removeInputFunction -> bindDependencies(removeInputFunction, concreteImplementation.getRemoveInputDependencies(), functionBinding, functionDependencies));
+        MethodHandle combineHandle = bindDependencies(concreteImplementation.getCombineFunction(), concreteImplementation.getCombineDependencies(), functionBinding, functionDependencies);
+        MethodHandle outputHandle = bindDependencies(concreteImplementation.getOutputFunction(), concreteImplementation.getOutputDependencies(), functionBinding, functionDependencies);
 
         // Build metadata of input parameters
         List<ParameterMetadata> parametersMetadata = buildParameterMetadata(concreteImplementation.getInputParameterMetadataTypes(), inputTypes);

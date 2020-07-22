@@ -67,7 +67,7 @@ public abstract class SqlAggregationFunction
         return decomposable;
     }
 
-    public InternalAggregationFunction specialize(FunctionBinding functionBinding, Metadata metadata)
+    public InternalAggregationFunction specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
         return specialize(functionBinding);
     }

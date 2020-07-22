@@ -19,11 +19,8 @@ import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionDependencies;
 import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.prestosql.metadata.FunctionInvoker;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.OperatorType;
-import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 
 import java.util.List;
@@ -31,7 +28,6 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.function.OperatorType.SATURATED_FLOOR_CAST;
@@ -66,15 +62,6 @@ public final class OperatorImplementationDependency
     {
         BoundVariables boundVariables = new BoundVariables(functionBinding.getTypeVariables(), functionBinding.getLongVariables());
         builder.addOperatorSignature(operator, applyBoundVariables(argumentTypes, boundVariables));
-    }
-
-    @Override
-    protected ResolvedFunction getResolvedFunction(BoundVariables boundVariables, Metadata metadata)
-    {
-        List<Type> argumentTypes = applyBoundVariables(this.argumentTypes, boundVariables).stream()
-                .map(metadata::getType)
-                .collect(toImmutableList());
-        return metadata.resolveOperator(operator, argumentTypes);
     }
 
     @Override
