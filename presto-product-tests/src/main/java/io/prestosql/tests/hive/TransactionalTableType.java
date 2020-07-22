@@ -51,6 +51,12 @@ public enum TransactionalTableType
         {
             return ImmutableList.of("'transactional'='false'");
         }
+
+        @Override
+        List<String> getPrestoTableProperties()
+        {
+            return ImmutableList.of("transactional = false");
+        }
     },
     /**/;
 
