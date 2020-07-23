@@ -16,10 +16,15 @@ package io.prestosql.plugin.hive;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.hive.s3.HiveS3Config;
 import io.prestosql.plugin.hive.s3.PrestoS3ConfigurationInitializer;
+import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
+import org.testng.annotations.Test;
+
+import java.util.Arrays;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.lang.String.format;
+import static org.testng.Assert.assertFalse;
 import static org.testng.util.Strings.isNullOrEmpty;
 
 public abstract class AbstractTestHiveFileSystemS3
@@ -68,5 +73,19 @@ public abstract class AbstractTestHiveFileSystemS3
     {
         // HDP 3.1 does not understand s3:// out of the box.
         return new Path(format("s3a://%s/%s/", writableBucket, testDirectory));
+    }
+
+    @Test
+    public void testIgnoreHadoopFolderMarker()
+            throws Exception
+    {
+        Path basePath = getBasePath();
+        FileSystem fs = hdfsEnvironment.getFileSystem(TESTING_CONTEXT, basePath);
+
+        String markerFileName = "test_table_$folder$";
+        Path filePath = new Path(basePath, markerFileName);
+        fs.create(filePath).close();
+
+        assertFalse(Arrays.stream(fs.listStatus(basePath)).anyMatch(file -> file.getPath().getName().equalsIgnoreCase(markerFileName)));
     }
 }
