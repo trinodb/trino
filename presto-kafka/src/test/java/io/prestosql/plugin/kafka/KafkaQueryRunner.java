@@ -133,7 +133,7 @@ public final class KafkaQueryRunner
             testingKafka.start();
 
             for (TpchTable<?> table : tables) {
-                testingKafka.createTopics(kafkaTopicName(table));
+                testingKafka.createTopic(kafkaTopicName(table));
             }
 
             Map<SchemaTableName, KafkaTopicDescription> tpchTopicDescriptions = createTpchTopicDescriptions(queryRunner.getCoordinator().getMetadata(), tables);
@@ -147,7 +147,7 @@ public final class KafkaQueryRunner
 
             ImmutableMap.Builder<SchemaTableName, KafkaTopicDescription> testTopicDescriptions = ImmutableMap.builder();
             for (String tableName : tableNames) {
-                testingKafka.createTopics("write_test." + tableName);
+                testingKafka.createTopic("write_test." + tableName);
                 SchemaTableName table = new SchemaTableName("write_test", tableName);
                 KafkaTopicDescription tableTemplate = topicDescriptionJsonCodec.fromJson(toByteArray(KafkaQueryRunner.class.getResourceAsStream(format("/write_test/%s.json", tableName))));
 

@@ -85,7 +85,7 @@ public class TestKafkaIntegrationSmokeTest
                         .build())
                 .build();
 
-        testingKafka.createTopics(rawFormatTopic);
+        testingKafka.createTopic(rawFormatTopic);
         return queryRunner;
     }
 
