@@ -58,7 +58,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
-import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -354,7 +353,7 @@ public class OrcPageSourceFactory
                             info));
 
             Optional<Long> originalFileRowId = acidInfo
-                    .filter(hasOriginalFilesAndDeleteDeltas())
+                    .filter(OrcPageSourceFactory::hasOriginalFilesAndDeleteDeltas)
                     .map(info -> OriginalFilesUtils.getPrecedingRowCount(
                                     acidInfo.get().getOriginalFiles(),
                                     path,
@@ -390,9 +389,9 @@ public class OrcPageSourceFactory
         }
     }
 
-    private static Predicate<AcidInfo> hasOriginalFilesAndDeleteDeltas()
+    private static boolean hasOriginalFilesAndDeleteDeltas(AcidInfo acidInfo)
     {
-        return info -> !info.getDeleteDeltas().isEmpty() && !info.getOriginalFiles().isEmpty();
+        return !acidInfo.getDeleteDeltas().isEmpty() && !acidInfo.getOriginalFiles().isEmpty();
     }
 
     private static String splitError(Throwable t, Path path, long start, long length)
