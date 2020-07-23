@@ -594,6 +594,9 @@ Procedures
 
   Registers existing location as a new partition in the metastore for the specified table.
 
+  When the ``location`` argument is omitted, the partition location is
+  constructed using ``partition_columns`` and ``partition_values``.
+
   Due to security reasons, the procedure is enabled only when ``hive.allow-register-partition-procedure``
   is set to ``true``.
 
