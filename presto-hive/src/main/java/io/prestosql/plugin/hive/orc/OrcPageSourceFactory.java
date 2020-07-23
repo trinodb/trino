@@ -354,6 +354,7 @@ public class OrcPageSourceFactory
 
             Optional<Long> originalFileRowId = acidInfo
                     .filter(OrcPageSourceFactory::hasOriginalFilesAndDeleteDeltas)
+                    // TODO reduce number of file footer accesses. Currently this is quadratic to the number of original files.
                     .map(info -> OriginalFilesUtils.getPrecedingRowCount(
                             acidInfo.get().getOriginalFiles(),
                             path,
