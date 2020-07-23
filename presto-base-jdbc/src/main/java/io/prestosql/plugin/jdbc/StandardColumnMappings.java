@@ -35,7 +35,6 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.ZoneId;
@@ -274,12 +273,12 @@ public final class StandardColumnMappings
     public static ColumnMapping timeColumnMappingUsingSqlTime(ConnectorSession session)
     {
         if (session.isLegacyTimestamp()) {
-            ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
+            ZoneId sessionZone = session.getTimeZoneKey().getZoneId();
             return ColumnMapping.longMapping(
                     TIME,
                     (resultSet, columnIndex) -> {
                         Time time = resultSet.getTime(columnIndex);
-                        return toPrestoLegacyTimestamp(toLocalTime(time).atDate(LocalDate.ofEpochDay(0)), sessionZone);
+                        return toPrestoLegacyTimestamp(fromSqlTime(time).atDate(LocalDate.ofEpochDay(0)), sessionZone);
                     },
                     timeWriteFunctionUsingSqlTime(session));
         }
@@ -288,16 +287,16 @@ public final class StandardColumnMappings
                 TIME,
                 (resultSet, columnIndex) -> {
                     Time time = resultSet.getTime(columnIndex);
-                    return NANOSECONDS.toMillis(toLocalTime(time).toNanoOfDay());
+                    return NANOSECONDS.toMillis(fromSqlTime(time).toNanoOfDay());
                 },
                 timeWriteFunctionUsingSqlTime(session));
     }
 
-    private static LocalTime toLocalTime(Time sqlTime)
+    private static LocalTime fromSqlTime(Time sqlTime)
     {
         // Time.toLocalTime() does not preserve second fraction
         return sqlTime.toLocalTime()
-                // TODO is the conversion correct if sqlTime.getTime() < 0?
+                // TODO there is an error if sqlTime.getTime() < 0
                 .withNano(toIntExact(MILLISECONDS.toNanos(sqlTime.getTime() % 1000)));
     }
 
@@ -310,7 +309,7 @@ public final class StandardColumnMappings
     public static LongWriteFunction timeWriteFunctionUsingSqlTime(ConnectorSession session)
     {
         if (session.isLegacyTimestamp()) {
-            ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
+            ZoneId sessionZone = session.getTimeZoneKey().getZoneId();
             return (statement, index, value) -> statement.setTime(index, toSqlTime(fromPrestoLegacyTimestamp(value, sessionZone).toLocalTime()));
         }
         return (statement, index, value) -> statement.setTime(index, toSqlTime(fromPrestoTimestamp(value).toLocalTime()));
@@ -325,7 +324,7 @@ public final class StandardColumnMappings
     public static ColumnMapping timeColumnMapping(ConnectorSession session)
     {
         if (session.isLegacyTimestamp()) {
-            ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
+            ZoneId sessionZone = session.getTimeZoneKey().getZoneId();
             return ColumnMapping.longMapping(
                     TIME,
                     (resultSet, columnIndex) -> {
@@ -347,7 +346,7 @@ public final class StandardColumnMappings
     public static LongWriteFunction timeWriteFunction(ConnectorSession session)
     {
         if (session.isLegacyTimestamp()) {
-            ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
+            ZoneId sessionZone = session.getTimeZoneKey().getZoneId();
             return (statement, index, value) -> statement.setObject(index, fromPrestoLegacyTimestamp(value, sessionZone).toLocalTime());
         }
         return (statement, index, value) -> statement.setObject(index, fromPrestoTimestamp(value).toLocalTime());
@@ -356,14 +355,14 @@ public final class StandardColumnMappings
     /**
      * @deprecated This method uses {@link java.sql.Timestamp} and the class cannot represent date-time value when JVM zone had
      * forward offset change (a 'gap'). This includes regular DST changes (e.g. Europe/Warsaw) and one-time policy changes
-     * (Asia/Kathmandu's shift by 15 minutes on January 1, 1986, 00:00:00). If driver only supports {@link LocalDateTime}, use
+     * (Asia/Kathmandu's shift by 15 minutes on January 1, 1986, 00:00:00). If the driver supports {@link LocalDateTime}, use
      * {@link #timestampColumnMapping} instead.
      */
     @Deprecated
     public static ColumnMapping timestampColumnMappingUsingSqlTimestamp(ConnectorSession session)
     {
         if (session.isLegacyTimestamp()) {
-            ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
+            ZoneId sessionZone = session.getTimeZoneKey().getZoneId();
             return ColumnMapping.longMapping(
                     TIMESTAMP,
                     (resultSet, columnIndex) -> {
@@ -393,7 +392,7 @@ public final class StandardColumnMappings
     public static LongReadFunction timestampReadFunction(ConnectorSession session)
     {
         if (session.isLegacyTimestamp()) {
-            ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
+            ZoneId sessionZone = session.getTimeZoneKey().getZoneId();
             return (resultSet, columnIndex) -> toPrestoLegacyTimestamp(resultSet.getObject(columnIndex, LocalDateTime.class), sessionZone);
         }
         return (resultSet, columnIndex) -> toPrestoTimestamp(resultSet.getObject(columnIndex, LocalDateTime.class));
@@ -402,7 +401,7 @@ public final class StandardColumnMappings
     /**
      * @deprecated This method uses {@link java.sql.Timestamp} and the class cannot represent date-time value when JVM zone had
      * forward offset change (a 'gap'). This includes regular DST changes (e.g. Europe/Warsaw) and one-time policy changes
-     * (Asia/Kathmandu's shift by 15 minutes on January 1, 1986, 00:00:00). If driver only supports {@link LocalDateTime}, use
+     * (Asia/Kathmandu's shift by 15 minutes on January 1, 1986, 00:00:00). If the driver supports {@link LocalDateTime}, use
      * {@link #timestampWriteFunction} instead.
      */
     @Deprecated
@@ -418,12 +417,10 @@ public final class StandardColumnMappings
     public static LongWriteFunction timestampWriteFunction(ConnectorSession session)
     {
         if (session.isLegacyTimestamp()) {
-            ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
+            ZoneId sessionZone = session.getTimeZoneKey().getZoneId();
             return (statement, index, value) -> statement.setObject(index, fromPrestoLegacyTimestamp(value, sessionZone));
         }
-        return (statement, index, value) -> {
-            statement.setObject(index, fromPrestoTimestamp(value));
-        };
+        return (statement, index, value) -> statement.setObject(index, fromPrestoTimestamp(value));
     }
 
     /**
