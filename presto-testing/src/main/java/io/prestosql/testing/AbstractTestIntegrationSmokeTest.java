@@ -449,8 +449,17 @@ public abstract class AbstractTestIntegrationSmokeTest
                 .setCatalogSessionProperty(catalog, "allow_aggregation_pushdown", "false")
                 .build();
 
+        assertPushDown(sql, computeActual(withoutPushdown, sql));
+    }
+
+    protected void assertPushedDown(@Language("SQL") String actual, @Language("SQL") String expected)
+    {
+        assertPushDown(actual, computeActual(expected));
+    }
+
+    private void assertPushDown(@Language("SQL") String sql, MaterializedResult expectedResults)
+    {
         MaterializedResult actualResults = computeActual(sql);
-        MaterializedResult expectedResults = computeActual(withoutPushdown, sql);
         assertEqualsIgnoreOrder(actualResults.getMaterializedRows(), expectedResults.getMaterializedRows());
 
         transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
