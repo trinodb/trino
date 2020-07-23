@@ -39,6 +39,7 @@ public class MockAmazonS3
     private GetObjectMetadataRequest getObjectMetadataRequest;
     private CannedAccessControlList acl;
     private boolean hasGlacierObjects;
+    private boolean hasHadoopFolderMarkerObjects;
 
     public void setGetObjectHttpErrorCode(int getObjectHttpErrorCode)
     {
@@ -58,6 +59,11 @@ public class MockAmazonS3
     public void setHasGlacierObjects(boolean hasGlacierObjects)
     {
         this.hasGlacierObjects = hasGlacierObjects;
+    }
+
+    public void setHasHadoopFolderMarkerObjects(boolean hasHadoopFolderMarkerObjects)
+    {
+        this.hasHadoopFolderMarkerObjects = hasHadoopFolderMarkerObjects;
     }
 
     public GetObjectMetadataRequest getGetObjectMetadataRequest()
@@ -125,6 +131,14 @@ public class MockAmazonS3
             listingV2.getObjectSummaries().add(standardOne);
             listingV2.setTruncated(true);
             listingV2.setNextContinuationToken(continuationToken);
+
+            if (hasHadoopFolderMarkerObjects) {
+                S3ObjectSummary hadoopFolderMarker = new S3ObjectSummary();
+                hadoopFolderMarker.setStorageClass(StorageClass.Standard.toString());
+                hadoopFolderMarker.setKey("test/test_$folder$");
+                hadoopFolderMarker.setLastModified(new Date());
+                listingV2.getObjectSummaries().add(hadoopFolderMarker);
+            }
         }
 
         return listingV2;
