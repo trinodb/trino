@@ -13,6 +13,7 @@
  */
 package io.prestosql.benchmark.driver;
 
+import com.google.common.base.CharMatcher;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -33,6 +34,7 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -40,6 +42,8 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class BenchmarkDriverOptions
 {
+    private static final Splitter NAME_VALUE_SPLITTER = Splitter.on('=').limit(2);
+    private static final CharMatcher PRINTABLE_ASCII = CharMatcher.inRange((char) 0x21, (char) 0x7E);
     @Option(name = "--server", title = "server", description = "Presto server location (default: localhost:8080)")
     public String server = "localhost:8080";
 
@@ -69,6 +73,9 @@ public class BenchmarkDriverOptions
 
     @Option(name = "--session", title = "session", description = "Session property (property can be used multiple times; format is key=value)")
     public final List<ClientSessionProperty> sessionProperties = new ArrayList<>();
+
+    @Option(name = "--extra-credential", title = "extra-credential", description = "Extra credentials (property can be used multiple times; format is key=value)")
+    public final List<ClientExtraCredential> extraCredentials = new ArrayList<>();
 
     @Option(name = "--runs", title = "runs", description = "Number of times to run each query (default: 3)")
     public int runs = 3;
@@ -104,7 +111,8 @@ public class BenchmarkDriverOptions
                 toProperties(this.sessionProperties),
                 ImmutableMap.of(),
                 ImmutableMap.of(),
-                ImmutableMap.of(),
+                extraCredentials.stream()
+                        .collect(toImmutableMap(ClientExtraCredential::getName, ClientExtraCredential::getValue)),
                 null,
                 clientRequestTimeout);
     }
@@ -228,6 +236,67 @@ public class BenchmarkDriverOptions
             return Objects.equals(this.catalog, other.catalog) &&
                     Objects.equals(this.name, other.name) &&
                     Objects.equals(this.value, other.value);
+        }
+    }
+
+    public static final class ClientExtraCredential
+    {
+        private final String name;
+        private final String value;
+
+        public ClientExtraCredential(String extraCredential)
+        {
+            List<String> nameValue = NAME_VALUE_SPLITTER.splitToList(extraCredential);
+            checkArgument(nameValue.size() == 2, "Extra credential: %s", extraCredential);
+
+            this.name = nameValue.get(0);
+            this.value = nameValue.get(1);
+            checkArgument(!name.isEmpty(), "Credential name is empty");
+            checkArgument(!value.isEmpty(), "Credential value is empty");
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(name), "Credential name contains spaces or is not US_ASCII: %s", name);
+            checkArgument(name.indexOf('=') < 0, "Credential name must not contain '=': %s", name);
+            checkArgument(PRINTABLE_ASCII.matchesAllOf(value), "Credential value contains space or is not US_ASCII: %s", name);
+        }
+
+        public ClientExtraCredential(String name, String value)
+        {
+            this.name = requireNonNull(name, "name is null");
+            this.value = value;
+        }
+
+        public String getName()
+        {
+            return name;
+        }
+
+        public String getValue()
+        {
+            return value;
+        }
+
+        @Override
+        public String toString()
+        {
+            return name + '=' + value;
+        }
+
+        @Override
+        public boolean equals(Object o)
+        {
+            if (this == o) {
+                return true;
+            }
+            if (o == null || getClass() != o.getClass()) {
+                return false;
+            }
+            ClientExtraCredential other = (ClientExtraCredential) o;
+            return Objects.equals(name, other.name) && Objects.equals(value, other.value);
+        }
+
+        @Override
+        public int hashCode()
+        {
+            return Objects.hash(name, value);
         }
     }
 }
