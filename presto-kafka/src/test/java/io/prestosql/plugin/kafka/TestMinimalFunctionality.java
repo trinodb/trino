@@ -50,7 +50,7 @@ public class TestMinimalFunctionality
                         .put("kafka.messages-per-split", "100")
                         .build())
                 .build();
-        testingKafka.createTopics(topicName);
+        testingKafka.createTopic(topicName);
         return queryRunner;
     }
 
