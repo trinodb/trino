@@ -92,7 +92,6 @@ import static io.prestosql.plugin.hive.ReaderProjections.projectBaseColumns;
 import static io.prestosql.plugin.hive.orc.OrcPageSource.handleException;
 import static io.prestosql.plugin.hive.util.HiveUtil.isDeserializerClass;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -238,9 +237,9 @@ public class OrcPageSourceFactory
             OrcReader reader = new OrcReader(orcDataSource, options);
 
             List<OrcColumn> fileColumns = reader.getRootColumn().getNestedColumns();
-            List<OrcColumn> fileReadColumns = new ArrayList<>(columns.size() + (isFullAcid ? 3 : 0));
-            List<Type> fileReadTypes = new ArrayList<>(columns.size() + (isFullAcid ? 3 : 0));
-            List<OrcReader.ProjectedLayout> fileReadLayouts = new ArrayList<>(columns.size() + (isFullAcid ? 3 : 0));
+            List<OrcColumn> fileReadColumns = new ArrayList<>(columns.size() + (isFullAcid ? 2 : 0));
+            List<Type> fileReadTypes = new ArrayList<>(columns.size() + (isFullAcid ? 2 : 0));
+            List<OrcReader.ProjectedLayout> fileReadLayouts = new ArrayList<>(columns.size() + (isFullAcid ? 2 : 0));
             if (isFullAcid && !originalFilesPresent) {
                 verifyAcidSchema(reader, path);
                 Map<String, OrcColumn> acidColumnsByName = uniqueIndex(fileColumns, orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH));
@@ -248,10 +247,6 @@ public class OrcPageSourceFactory
 
                 fileReadColumns.add(acidColumnsByName.get(ACID_COLUMN_ORIGINAL_TRANSACTION.toLowerCase(ENGLISH)));
                 fileReadTypes.add(BIGINT);
-                fileReadLayouts.add(fullyProjectedLayout());
-
-                fileReadColumns.add(acidColumnsByName.get(ACID_COLUMN_BUCKET.toLowerCase(ENGLISH)));
-                fileReadTypes.add(INTEGER);
                 fileReadLayouts.add(fullyProjectedLayout());
 
                 fileReadColumns.add(acidColumnsByName.get(ACID_COLUMN_ROW_ID.toLowerCase(ENGLISH)));

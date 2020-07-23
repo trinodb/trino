@@ -34,23 +34,18 @@ import java.util.Set;
 import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static org.testng.Assert.assertEquals;
 
 public class TestOrcDeletedRows
 {
     private Path partitionDirectory;
-    private Block bucketBlock;
     private Block rowIdBlock;
 
     @BeforeClass
     public void setUp()
     {
         partitionDirectory = new Path(TestOrcDeletedRows.class.getClassLoader().getResource("fullacid_delete_delta_test") + "/");
-        bucketBlock = INTEGER.createFixedSizeBlockBuilder(1)
-                .writeInt(536870912)
-                .build();
         rowIdBlock = BIGINT.createFixedSizeBlockBuilder(1)
                 .writeLong(0)
                 .build();
@@ -78,7 +73,7 @@ public class TestOrcDeletedRows
 
         // page with no deleted rows
         testPage = createTestPage(10, 20);
-        block = deletedRows.getMaskDeletedRowsFunction(testPage, OptionalLong.empty()).apply(testPage.getBlock(2));
+        block = deletedRows.getMaskDeletedRowsFunction(testPage, OptionalLong.empty()).apply(testPage.getBlock(1));
         assertEquals(block.getPositionCount(), 10);
     }
 
@@ -107,7 +102,7 @@ public class TestOrcDeletedRows
 
         // page with no deleted rows
         testPage = createTestPage(5, 9);
-        block = deletedRows.getMaskDeletedRowsFunction(testPage, OptionalLong.empty()).apply(testPage.getBlock(2));
+        block = deletedRows.getMaskDeletedRowsFunction(testPage, OptionalLong.empty()).apply(testPage.getBlock(1));
         assertEquals(block.getPositionCount(), 4);
     }
 
@@ -147,7 +142,6 @@ public class TestOrcDeletedRows
         return new Page(
                 size,
                 originalTransaction.build(),
-                new RunLengthEncodedBlock(bucketBlock, size),
                 new RunLengthEncodedBlock(rowIdBlock, size));
     }
 }
