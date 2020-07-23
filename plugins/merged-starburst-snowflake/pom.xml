@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-presto-root</artifactId>
-        <version>339-e-SNAPSHOT</version>
+        <version>340-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -71,12 +71,12 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>configuration</artifactId>
+            <artifactId>concurrent</artifactId>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>concurrent</artifactId>
+            <artifactId>configuration</artifactId>
         </dependency>
 
         <dependency>
@@ -87,6 +87,11 @@
         <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>stats</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>units</artifactId>
         </dependency>
 
         <dependency>
@@ -173,8 +178,7 @@
             <artifactId>jmxutils</artifactId>
         </dependency>
 
-        <!-- Presto SPI dependencies -->
-
+        <!-- Presto SPI -->
         <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-spi</artifactId>
@@ -185,11 +189,6 @@
             <groupId>io.airlift</groupId>
             <artifactId>slice</artifactId>
             <scope>provided</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>units</artifactId>
         </dependency>
 
         <dependency>
@@ -204,7 +203,14 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- Testing dependencies -->
+        <!-- for testing -->
+        <dependency>
+            <groupId>com.starburstdata.presto</groupId>
+            <artifactId>starburst-base-jdbc</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
         <dependency>
             <groupId>com.starburstdata.presto</groupId>
             <artifactId>starburst-license</artifactId>
@@ -213,9 +219,8 @@
         </dependency>
 
         <dependency>
-            <groupId>com.starburstdata.presto</groupId>
-            <artifactId>starburst-base-jdbc</artifactId>
-            <type>test-jar</type>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-jmx</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -239,30 +244,6 @@
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql.tpch</groupId>
-            <artifactId>tpch</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.assertj</groupId>
-            <artifactId>assertj-core</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>testing</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-tests</artifactId>
             <scope>test</scope>
@@ -275,8 +256,26 @@
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-jmx</artifactId>
+            <groupId>io.prestosql.tpch</groupId>
+            <artifactId>tpch</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>
