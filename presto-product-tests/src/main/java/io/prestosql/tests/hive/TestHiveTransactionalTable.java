@@ -97,18 +97,6 @@ public class TestHiveTransactionalTable
         doTestReadFullAcid(false, BucketingType.BUCKETED_V2);
     }
 
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    public void testReadFullAcidWithOriginalFilesBucketedV1()
-    {
-        testReadFullAcidWithOriginalFiles(false, BucketingType.BUCKETED_V1);
-    }
-
-    @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    public void testReadFullAcidWithOriginalFilesBucketedV2()
-    {
-        testReadFullAcidWithOriginalFiles(false, BucketingType.BUCKETED_V2);
-    }
-
     private void doTestReadFullAcid(boolean isPartitioned, BucketingType bucketingType)
     {
         if (getHiveVersionMajor() < 3) {
@@ -209,6 +197,7 @@ public class TestHiveTransactionalTable
 
         String tableName = "test_full_acid_acid_converted_table_read";
         onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
+        verify(bucketingType.getHiveTableProperties().isEmpty()); // otherwise we would need to include that in the CREATE TABLE's TBLPROPERTIES
         onHive().executeQuery("CREATE TABLE " + tableName + " (col INT, fcol INT) " +
                 (isPartitioned ? "PARTITIONED BY (part_col INT) " : "") +
                 bucketingType.getHiveClustering("fcol", 4) + " " +
@@ -251,6 +240,7 @@ public class TestHiveTransactionalTable
 
         String tableName = "test_insert_only_acid_converted_table_read";
         onHive().executeQuery("DROP TABLE IF EXISTS " + tableName);
+        verify(bucketingType.getHiveTableProperties().isEmpty()); // otherwise we would need to include that in the CREATE TABLE's TBLPROPERTIES
         onHive().executeQuery("CREATE TABLE " + tableName + " (col INT) " +
                 (isPartitioned ? "PARTITIONED BY (part_col INT) " : "") +
                 bucketingType.getHiveClustering("col", 4) + " " +
