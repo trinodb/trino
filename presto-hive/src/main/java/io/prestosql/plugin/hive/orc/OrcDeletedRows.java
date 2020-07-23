@@ -169,17 +169,8 @@ public class OrcDeletedRows
             int[] validPositions = new int[sourcePage.getPositionCount()];
             int validPositionsIndex = 0;
             for (int position = 0; position < sourcePage.getPositionCount(); position++) {
-                long originalTransaction;
-                long row;
-                if (startRowId.isPresent()) {
-                    originalTransaction = 0;
-                    row = startRowId.getAsLong() + position;
-                }
-                else {
-                    originalTransaction = BIGINT.getLong(sourcePage.getBlock(ORIGINAL_TRANSACTION_INDEX), position);
-                    row = BIGINT.getLong(sourcePage.getBlock(ROW_ID_INDEX), position);
-                }
-                if (!deletedRows.contains(new RowId(originalTransaction, row))) {
+                RowId rowId = getRowId(position);
+                if (!deletedRows.contains(rowId)) {
                     validPositions[validPositionsIndex] = position;
                     validPositionsIndex++;
                 }
@@ -187,6 +178,23 @@ public class OrcDeletedRows
             this.positionCount = validPositionsIndex;
             this.validPositions = validPositions;
             this.sourcePage = null;
+        }
+
+        private RowId getRowId(int position)
+        {
+            long originalTransaction;
+            long row;
+            if (startRowId.isPresent()) {
+                // original transaction ID is always 0 for original file row delete delta.
+                originalTransaction = 0;
+                // In case of original files, calculate row ID is start row ID of the page + current position in the page
+                row = startRowId.getAsLong() + position;
+            }
+            else {
+                originalTransaction = BIGINT.getLong(sourcePage.getBlock(ORIGINAL_TRANSACTION_INDEX), position);
+                row = BIGINT.getLong(sourcePage.getBlock(ROW_ID_INDEX), position);
+            }
+            return new RowId(originalTransaction, row);
         }
     }
 

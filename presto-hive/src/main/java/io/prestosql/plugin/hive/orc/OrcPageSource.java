@@ -76,7 +76,7 @@ public class OrcPageSource
         this.deletedRows = requireNonNull(deletedRows, "deletedRows is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
-        this.originalFileRowId = requireNonNull(originalFileRowId, "deletedRows is null");
+        this.originalFileRowId = requireNonNull(originalFileRowId, "originalFileRowId is null");
     }
 
     @Override

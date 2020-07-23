@@ -90,19 +90,20 @@ public class TestOrcDeletedRows
         addDeleteDelta(acidInfoBuilder, 10000001L, 10000001L, 0, path);
 
         acidInfoBuilder.addOriginalFile(new Path(path, "000000_0"), 743, 0);
+        acidInfoBuilder.addOriginalFile(new Path(path, "000001_0"), 730, 0);
 
         OrcDeletedRows deletedRows = createOrcDeletedRows(acidInfoBuilder.buildWithRequiredOriginalFiles(0), "000000_0");
 
         // page with deleted rows
-        Page testPage = createTestPage(0, 4);
+        Page testPage = createTestPage(0, 8);
         Block block = deletedRows.getMaskDeletedRowsFunction(testPage, OptionalLong.of(0L)).apply(testPage.getBlock(0));
         Set<Object> validRows = resultBuilder(SESSION, BIGINT)
                 .page(new Page(block))
                 .build()
                 .getOnlyColumnAsSet();
 
-        assertEquals(validRows.size(), 3);
-        assertEquals(validRows, ImmutableSet.of(0L, 1L, 3L));
+        assertEquals(validRows.size(), 7);
+        assertEquals(validRows, ImmutableSet.of(0L, 1L, 3L, 4L, 5L, 6L, 7L));
 
         // page with no deleted rows
         testPage = createTestPage(5, 9);

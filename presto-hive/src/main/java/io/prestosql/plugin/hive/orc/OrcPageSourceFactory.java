@@ -58,6 +58,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Properties;
+import java.util.function.Predicate;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -348,17 +349,17 @@ public class OrcPageSourceFactory
                     INITIAL_BATCH_SIZE,
                     exception -> handleException(orcDataSource.getId(), exception));
 
-            Optional<OrcDeletedRows> deletedRows = acidInfo.map(AcidInfo::getDeleteDeltas).map(locations ->
+            Optional<OrcDeletedRows> deletedRows = acidInfo.map(info ->
                     new OrcDeletedRows(
                             path.getName(),
                             new OrcDeleteDeltaPageSourceFactory(options, sessionUser, configuration, hdfsEnvironment, stats),
                             sessionUser,
                             configuration,
                             hdfsEnvironment,
-                            acidInfo.get()));
+                            info));
 
             Optional<Long> originalFileRowId = acidInfo
-                    .filter(info -> !info.getDeleteDeltas().isEmpty() && !info.getOriginalFiles().isEmpty())
+                    .filter(hasOriginalFilesAndDeleteDeltas())
                     .map(info -> OriginalFilesUtils.getPrecedingRowCount(
                                     acidInfo.get().getOriginalFiles(),
                                     path,
@@ -392,6 +393,11 @@ public class OrcPageSourceFactory
             }
             throw new PrestoException(HIVE_CANNOT_OPEN_SPLIT, message, e);
         }
+    }
+
+    private static Predicate<AcidInfo> hasOriginalFilesAndDeleteDeltas()
+    {
+        return info -> !info.getDeleteDeltas().isEmpty() && !info.getOriginalFiles().isEmpty();
     }
 
     private static String splitError(Throwable t, Path path, long start, long length)
