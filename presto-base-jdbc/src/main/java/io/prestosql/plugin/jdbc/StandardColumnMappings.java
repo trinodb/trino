@@ -68,6 +68,7 @@ import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
 import static java.math.RoundingMode.UNNECESSARY;
+import static java.time.LocalDate.EPOCH;
 import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -278,7 +279,7 @@ public final class StandardColumnMappings
                     TIME,
                     (resultSet, columnIndex) -> {
                         Time time = resultSet.getTime(columnIndex);
-                        return toPrestoLegacyTimestamp(fromSqlTime(time).atDate(LocalDate.ofEpochDay(0)), sessionZone);
+                        return toPrestoLegacyTime(fromSqlTime(time), sessionZone);
                     },
                     timeWriteFunctionUsingSqlTime(session));
         }
@@ -310,9 +311,9 @@ public final class StandardColumnMappings
     {
         if (session.isLegacyTimestamp()) {
             ZoneId sessionZone = session.getTimeZoneKey().getZoneId();
-            return (statement, index, value) -> statement.setTime(index, toSqlTime(fromPrestoLegacyTimestamp(value, sessionZone).toLocalTime()));
+            return (statement, index, value) -> statement.setTime(index, toSqlTime(fromPrestoLegacyTime(value, sessionZone)));
         }
-        return (statement, index, value) -> statement.setTime(index, toSqlTime(fromPrestoTimestamp(value).toLocalTime()));
+        return (statement, index, value) -> statement.setTime(index, toSqlTime(fromPrestoTime(value)));
     }
 
     private static Time toSqlTime(LocalTime localTime)
@@ -329,7 +330,7 @@ public final class StandardColumnMappings
                     TIME,
                     (resultSet, columnIndex) -> {
                         LocalTime time = resultSet.getObject(columnIndex, LocalTime.class);
-                        return toPrestoLegacyTimestamp(time.atDate(LocalDate.ofEpochDay(0)), sessionZone);
+                        return toPrestoLegacyTime(time, sessionZone);
                     },
                     timeWriteFunction(session));
         }
@@ -347,9 +348,9 @@ public final class StandardColumnMappings
     {
         if (session.isLegacyTimestamp()) {
             ZoneId sessionZone = session.getTimeZoneKey().getZoneId();
-            return (statement, index, value) -> statement.setObject(index, fromPrestoLegacyTimestamp(value, sessionZone).toLocalTime());
+            return (statement, index, value) -> statement.setObject(index, fromPrestoLegacyTime(value, sessionZone));
         }
-        return (statement, index, value) -> statement.setObject(index, fromPrestoTimestamp(value).toLocalTime());
+        return (statement, index, value) -> statement.setObject(index, fromPrestoTime(value));
     }
 
     /**
@@ -441,6 +442,20 @@ public final class StandardColumnMappings
      * @deprecated applicable in legacy timestamp semantics only
      */
     @Deprecated
+    public static long toPrestoLegacyTime(LocalTime time, ZoneId sessionZone)
+    {
+        return toPrestoLegacyTimestamp(time.atDate(EPOCH), sessionZone);
+    }
+
+    public static long toPrestoTime(LocalTime time)
+    {
+        return toPrestoTimestamp(time.atDate(EPOCH));
+    }
+
+    /**
+     * @deprecated applicable in legacy timestamp semantics only
+     */
+    @Deprecated
     public static LocalDateTime fromPrestoLegacyTimestamp(long value, ZoneId sessionZone)
     {
         return Instant.ofEpochMilli(value).atZone(sessionZone).toLocalDateTime();
@@ -449,6 +464,20 @@ public final class StandardColumnMappings
     public static LocalDateTime fromPrestoTimestamp(long value)
     {
         return Instant.ofEpochMilli(value).atZone(UTC).toLocalDateTime();
+    }
+
+    /**
+     * @deprecated applicable in legacy timestamp semantics only
+     */
+    @Deprecated
+    public static LocalTime fromPrestoLegacyTime(long value, ZoneId sessionZone)
+    {
+        return fromPrestoLegacyTimestamp(value, sessionZone).toLocalTime();
+    }
+
+    public static LocalTime fromPrestoTime(long value)
+    {
+        return Instant.ofEpochMilli(value).atZone(UTC).toLocalTime();
     }
 
     public static Optional<ColumnMapping> jdbcTypeToPrestoType(ConnectorSession session, JdbcTypeHandle type)
