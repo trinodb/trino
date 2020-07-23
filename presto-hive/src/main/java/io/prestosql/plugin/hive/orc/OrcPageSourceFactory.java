@@ -355,13 +355,13 @@ public class OrcPageSourceFactory
             Optional<Long> originalFileRowId = acidInfo
                     .filter(OrcPageSourceFactory::hasOriginalFilesAndDeleteDeltas)
                     .map(info -> OriginalFilesUtils.getPrecedingRowCount(
-                                    acidInfo.get().getOriginalFiles(),
-                                    path,
-                                    hdfsEnvironment,
-                                    sessionUser,
-                                    options,
-                                    configuration,
-                                    stats));
+                            acidInfo.get().getOriginalFiles(),
+                            path,
+                            hdfsEnvironment,
+                            sessionUser,
+                            options,
+                            configuration,
+                            stats));
 
             return new OrcPageSource(
                     recordReader,
