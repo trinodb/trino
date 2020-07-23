@@ -221,22 +221,21 @@ public class TestHiveTransactionalTable
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (22, 2)");
             onHive().executeQuery("ALTER TABLE " + tableName + " SET " + hiveTableProperties(ACID, bucketingType));
 
-            String selectPrestoQuery = "SELECT col, fcol FROM " + tableName + " ORDER BY col";
             // read with original files
-            assertThat(query(selectPrestoQuery)).containsOnly(row(21, 1), row(22, 2));
+            assertThat(query("SELECT col, fcol FROM " + tableName)).containsOnly(row(21, 1), row(22, 2));
             assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE fcol = 1")).containsOnly(row(21, 1));
 
             // read with original files and insert delta
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (20, 3)");
-            assertThat(query(selectPrestoQuery)).containsOnly(row(20, 3), row(21, 1), row(22, 2));
+            assertThat(query("SELECT col, fcol FROM " + tableName)).containsOnly(row(20, 3), row(21, 1), row(22, 2));
 
             // read with original files and delete delta
             onHive().executeQuery("DELETE FROM " + tableName + " WHERE fcol = 2");
-            assertThat(query(selectPrestoQuery)).containsExactly(row(20, 3), row(21, 1));
+            assertThat(query("SELECT col, fcol FROM " + tableName)).containsOnly(row(20, 3), row(21, 1));
 
             // read with original files and insert+delete delta (UPDATE)
             onHive().executeQuery("UPDATE " + tableName + " SET col = 23 WHERE fcol = 1" + (isPartitioned ? " AND part_col = 2 " : ""));
-            assertThat(query(selectPrestoQuery)).containsExactly(row(20, 3), row(23, 1));
+            assertThat(query("SELECT col, fcol FROM " + tableName)).containsOnly(row(20, 3), row(23, 1));
         }
         finally {
             onHive().executeQuery("DROP TABLE " + tableName);
