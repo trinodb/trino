@@ -11,10 +11,10 @@
     <groupId>io.prestosql</groupId>
     <artifactId>presto-root</artifactId>
     <version>340-SNAPSHOT</version>
-    <packaging>pom</packaging>
 
     <name>presto-root</name>
     <description>Presto</description>
+    <packaging>pom</packaging>
     <url>https://prestosql.io</url>
 
     <inceptionYear>2012</inceptionYear>
