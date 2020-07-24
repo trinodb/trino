@@ -155,7 +155,7 @@ public class PhoenixClient
             ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
             schemaNames.add(DEFAULT_SCHEMA);
             while (resultSet.next()) {
-                String schemaName = resultSet.getString("TABLE_SCHEM");
+                String schemaName = getTableSchemaName(resultSet);
                 // skip internal schemas
                 if (filterSchema(schemaName)) {
                     schemaNames.add(schemaName);
