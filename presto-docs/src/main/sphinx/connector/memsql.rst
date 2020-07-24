@@ -3,7 +3,7 @@ MemSQL Connector
 ================
 
 The MemSQL connector allows querying and creating tables in an external
-MemSQL database. The MemSQL connector is very similar to the MySQL 
+MemSQL database. The MemSQL connector is very similar to the MySQL
 connector with the only difference being the underlying driver.
 
 Configuration
@@ -57,8 +57,8 @@ Finally, you can access the ``clicks`` table in the ``web`` database::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``memsql`` in the above examples.
 
-MemSQL Connector Limitations
-----------------------------
+Limitations
+-----------
 
 The following SQL statements are not yet supported:
 
