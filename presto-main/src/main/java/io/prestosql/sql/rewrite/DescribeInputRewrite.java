@@ -123,7 +123,7 @@ final class DescribeInputRewrite
             Optional<Node> limit = Optional.empty();
             if (rows.length == 0) {
                 rows = new Row[] {row(new NullLiteral(), new NullLiteral())};
-                limit = Optional.of(new Limit("0"));
+                limit = Optional.of(new Limit(new LongLiteral("0")));
             }
 
             return simpleQuery(

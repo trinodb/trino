@@ -118,7 +118,7 @@ final class DescribeOutputRewrite
             if (rows.length == 0) {
                 NullLiteral nullLiteral = new NullLiteral();
                 rows = new Row[] {row(nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral)};
-                limit = Optional.of(new Limit("0"));
+                limit = Optional.of(new Limit(new LongLiteral("0")));
             }
             return simpleQuery(
                     selectList(
