@@ -22,6 +22,8 @@ import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
+import io.prestosql.plugin.jdbc.PredicatePushdownController;
+import io.prestosql.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -37,7 +39,6 @@ import java.sql.Connection;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.BiFunction;
-import java.util.function.UnaryOperator;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
@@ -57,11 +58,13 @@ public class SqlServerClient
     // SqlServer supports 2100 parameters in prepared statement, let's create a space for about 4 big IN predicates
     private static final int SQL_SERVER_MAX_LIST_EXPRESSIONS = 500;
 
-    private static final UnaryOperator<Domain> SIMPLIFY_UNSUPPORTED_PUSHDOWN = domain -> {
-        if (domain.getValues().getRanges().getRangeCount() <= SQL_SERVER_MAX_LIST_EXPRESSIONS) {
-            return domain;
+    private static final PredicatePushdownController SIMPLIFY_UNSUPPORTED_PUSHDOWN = domain -> {
+        Domain pushedDown = domain;
+        if (domain.getValues().getRanges().getRangeCount() > SQL_SERVER_MAX_LIST_EXPRESSIONS) {
+            pushedDown = domain.simplify();
         }
-        return domain.simplify();
+        // TODO (https://github.com/prestosql/presto/issues/4596) eliminate filter above table scan
+        return new DomainPushdownResult(pushedDown, domain);
     };
 
     @Inject
@@ -114,7 +117,7 @@ public class SqlServerClient
         if (mapping.isPresent()) {
             return mapping;
         }
-        // TODO implement proper type mapping
+        // TODO (https://github.com/prestosql/presto/issues/4593) implement proper type mapping
         return super.toPrestoType(session, connection, typeHandle)
                 .map(columnMapping -> new ColumnMapping(
                         columnMapping.getType(),
