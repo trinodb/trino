@@ -24,6 +24,7 @@ import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static io.prestosql.tpch.TpchTable.REGION;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertTrue;
 
 @Test
@@ -104,10 +105,20 @@ public class TestSqlServerIntegrationSmokeTest
                 "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
             sqlServer.execute("INSERT INTO test_decimal_pushdown VALUES (123.321, 123456789.987654321)");
 
-            assertQuery("SELECT * FROM test_decimal_pushdown WHERE short_decimal = 123.321",
-                    "VALUES (123.321, 123456789.987654321)");
-            assertQuery("SELECT * FROM test_decimal_pushdown WHERE long_decimal = 123456789.987654321",
-                    "VALUES (123.321, 123456789.987654321)");
+            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal <= 124"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))");
+            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal <= 124"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))");
+            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE long_decimal <= 123456790"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))");
+            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal <= 123.321"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))");
+            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE long_decimal <= 123456789.987654321"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))");
+            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal = 123.321"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))");
+            assertThat(query("SELECT * FROM test_decimal_pushdown WHERE long_decimal = 123456789.987654321"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))");
         }
     }
 
