@@ -71,8 +71,8 @@ Finally, you can access the ``clicks`` table in the ``web`` database::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``mysql`` in the above examples.
 
-MySQL Connector Limitations
----------------------------
+Limitations
+-----------
 
 The following SQL statements are not yet supported:
 
