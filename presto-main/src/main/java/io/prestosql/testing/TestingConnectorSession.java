@@ -128,12 +128,6 @@ public class TestingConnectorSession
     }
 
     @Override
-    public boolean isOmitDatetimeTypePrecision()
-    {
-        return omitTimestampPrecision;
-    }
-
-    @Override
     public <T> T getProperty(String name, Class<T> type)
     {
         PropertyMetadata<?> metadata = properties.get(name);
