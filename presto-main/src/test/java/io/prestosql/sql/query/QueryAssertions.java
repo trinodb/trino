@@ -24,6 +24,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.assertions.PlanAssert;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern;
+import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.testing.LocalQueryRunner;
 import io.prestosql.testing.MaterializedResult;
@@ -300,10 +301,7 @@ public class QueryAssertions
         public QueryAssert isCorrectlyPushedDown()
         {
             // Compare the results with pushdown disabled, so that explicit matches() call is not needed
-            Session withoutPushdown = Session.builder(session)
-                    .setSystemProperty("allow_pushdown_into_connectors", "false")
-                    .build();
-            matches(runner.execute(withoutPushdown, query));
+            verifyResultsWithPushdownDisabled();
 
             transaction(runner.getTransactionManager(), runner.getAccessControl())
                     .execute(session, session -> {
@@ -319,6 +317,41 @@ public class QueryAssertions
                     });
 
             return this;
+        }
+
+        /**
+         * Verifies query is not fully pushed down and verifies the results are the same as when the pushdown is fully disabled.
+         * <p>
+         * <b>Note:</b> the primary intent of this assertion is to ensure the test is updated to {@link #isCorrectlyPushedDown()}
+         * when pushdown capabilities are improved.
+         */
+        public QueryAssert isNotFullyPushedDown(Class<? extends PlanNode> retainedNode)
+        {
+            // Compare the results with pushdown disabled, so that explicit matches() call is not needed
+            verifyResultsWithPushdownDisabled();
+
+            transaction(runner.getTransactionManager(), runner.getAccessControl())
+                    .execute(session, session -> {
+                        Plan plan = runner.createPlan(session, query, WarningCollector.NOOP);
+                        assertPlan(
+                                session,
+                                runner.getMetadata(),
+                                (node, sourceStats, lookup, ignore, types) -> PlanNodeStatsEstimate.unknown(),
+                                plan,
+                                PlanMatchPattern.anyTree(
+                                        PlanMatchPattern.node(retainedNode,
+                                                PlanMatchPattern.node(TableScanNode.class))));
+                    });
+
+            return this;
+        }
+
+        private void verifyResultsWithPushdownDisabled()
+        {
+            Session withoutPushdown = Session.builder(session)
+                    .setSystemProperty("allow_pushdown_into_connectors", "false")
+                    .build();
+            matches(runner.execute(withoutPushdown, query));
         }
     }
 

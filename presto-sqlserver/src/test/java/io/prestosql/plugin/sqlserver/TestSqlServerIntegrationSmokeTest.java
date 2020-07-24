@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.sqlserver;
 
+import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
@@ -106,19 +107,26 @@ public class TestSqlServerIntegrationSmokeTest
             sqlServer.execute("INSERT INTO test_decimal_pushdown VALUES (123.321, 123456789.987654321)");
 
             assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal <= 124"))
-                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))");
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isNotFullyPushedDown(FilterNode.class); // TODO (https://github.com/prestosql/presto/issues/4596) eliminate filter above table scan
             assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal <= 124"))
-                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))");
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isNotFullyPushedDown(FilterNode.class); // TODO (https://github.com/prestosql/presto/issues/4596) eliminate filter above table scan
             assertThat(query("SELECT * FROM test_decimal_pushdown WHERE long_decimal <= 123456790"))
-                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))");
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isNotFullyPushedDown(FilterNode.class); // TODO (https://github.com/prestosql/presto/issues/4596) eliminate filter above table scan
             assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal <= 123.321"))
-                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))");
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isNotFullyPushedDown(FilterNode.class); // TODO (https://github.com/prestosql/presto/issues/4596) eliminate filter above table scan
             assertThat(query("SELECT * FROM test_decimal_pushdown WHERE long_decimal <= 123456789.987654321"))
-                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))");
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isNotFullyPushedDown(FilterNode.class); // TODO (https://github.com/prestosql/presto/issues/4596) eliminate filter above table scan
             assertThat(query("SELECT * FROM test_decimal_pushdown WHERE short_decimal = 123.321"))
-                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))");
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isNotFullyPushedDown(FilterNode.class); // TODO (https://github.com/prestosql/presto/issues/4596) eliminate filter above table scan
             assertThat(query("SELECT * FROM test_decimal_pushdown WHERE long_decimal = 123456789.987654321"))
-                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))");
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))")
+                    .isNotFullyPushedDown(FilterNode.class); // TODO (https://github.com/prestosql/presto/issues/4596) eliminate filter above table scan
         }
     }
 
