@@ -64,8 +64,8 @@ Finally, you can query the ``clicks`` table in the ``web`` schema::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``sqlserver`` in the above examples.
 
-SQL Server Connector Limitations
---------------------------------
+Limitations
+-----------
 
 Presto supports connecting to SQL Server 2016, SQL Server 2014, SQL Server 2012
 and Azure SQL Database.
