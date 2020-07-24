@@ -41,7 +41,6 @@ public class FullConnectorSession
     private final String catalog;
     private final SessionPropertyManager sessionPropertyManager;
     private final boolean isLegacyTimestamp;
-    private final boolean omitDatetimeTypePrecision;
 
     public FullConnectorSession(Session session, ConnectorIdentity identity)
     {
@@ -52,7 +51,6 @@ public class FullConnectorSession
         this.catalog = null;
         this.sessionPropertyManager = null;
         this.isLegacyTimestamp = SystemSessionProperties.isLegacyTimestamp(session);
-        this.omitDatetimeTypePrecision = SystemSessionProperties.isOmitDateTimeTypePrecision(session);
     }
 
     public FullConnectorSession(
@@ -70,7 +68,6 @@ public class FullConnectorSession
         this.catalog = requireNonNull(catalog, "catalog is null");
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.isLegacyTimestamp = SystemSessionProperties.isLegacyTimestamp(session);
-        this.omitDatetimeTypePrecision = SystemSessionProperties.isOmitDateTimeTypePrecision(session);
     }
 
     public Session getSession()
@@ -124,12 +121,6 @@ public class FullConnectorSession
     public boolean isLegacyTimestamp()
     {
         return isLegacyTimestamp;
-    }
-
-    @Override
-    public boolean isOmitDatetimeTypePrecision()
-    {
-        return omitDatetimeTypePrecision;
     }
 
     @Override

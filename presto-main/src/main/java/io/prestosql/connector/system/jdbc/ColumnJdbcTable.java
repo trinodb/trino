@@ -63,6 +63,7 @@ import java.util.stream.Collectors;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.prestosql.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.prestosql.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.prestosql.metadata.MetadataListing.listCatalogs;
@@ -239,6 +240,7 @@ public class ColumnJdbcTable
         }
 
         Session session = ((FullConnectorSession) connectorSession).getSession();
+        boolean omitDateTimeTypePrecision = isOmitDateTimeTypePrecision(session);
         Optional<String> catalogFilter = tryGetSingleVarcharValue(constraint, 0);
         Optional<String> schemaFilter = tryGetSingleVarcharValue(constraint, 1);
         Optional<String> tableFilter = tryGetSingleVarcharValue(constraint, 2);
@@ -255,7 +257,7 @@ public class ColumnJdbcTable
             if ((schemaDomain.isAll() && tableDomain.isAll()) || (schemaFilter.isPresent() && tableFilter.isPresent())) {
                 QualifiedTablePrefix tablePrefix = tablePrefix(catalog, schemaFilter, tableFilter);
                 Map<SchemaTableName, List<ColumnMetadata>> tableColumns = listTableColumns(session, metadata, accessControl, tablePrefix);
-                addColumnsRow(table, catalog, tableColumns, connectorSession.isOmitDatetimeTypePrecision());
+                addColumnsRow(table, catalog, tableColumns, omitDateTimeTypePrecision);
             }
             else {
                 Collection<String> schemas = listSchemas(session, metadata, accessControl, catalog, schemaFilter);
@@ -275,7 +277,7 @@ public class ColumnJdbcTable
                         }
 
                         Map<SchemaTableName, List<ColumnMetadata>> tableColumns = listTableColumns(session, metadata, accessControl, new QualifiedTablePrefix(catalog, schema, tableName));
-                        addColumnsRow(table, catalog, tableColumns, connectorSession.isOmitDatetimeTypePrecision());
+                        addColumnsRow(table, catalog, tableColumns, omitDateTimeTypePrecision);
                     }
                 }
             }
