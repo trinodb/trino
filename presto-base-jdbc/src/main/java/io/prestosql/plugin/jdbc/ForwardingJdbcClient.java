@@ -91,6 +91,12 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public List<ColumnMapping> getColumnMappings(ConnectorSession session, List<JdbcTypeHandle> typeHandles)
+    {
+        return delegate().getColumnMappings(session, typeHandles);
+    }
+
+    @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         return delegate().toWriteMapping(session, type);
