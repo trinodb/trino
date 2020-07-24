@@ -16,6 +16,8 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Sets;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolAllocator;
 import io.prestosql.sql.planner.TypeProvider;
@@ -71,10 +73,7 @@ public final class LambdaCaptureDesugaringRewriter
                     .map(Symbol::new)
                     .collect(toImmutableList());
 
-            // referenced symbols - lambda arguments = capture symbols
-            // referencedSymbols no longer contains what its name suggests after this line
-            referencedSymbols.removeAll(lambdaArguments);
-            Set<Symbol> captureSymbols = referencedSymbols;
+            Set<Symbol> captureSymbols = Sets.difference(referencedSymbols, ImmutableSet.copyOf(lambdaArguments));
 
             // x -> f(x, captureSymbol)    will be rewritten into
             // "$internal$bind"(captureSymbol, (extraSymbol, x) -> f(x, extraSymbol))
