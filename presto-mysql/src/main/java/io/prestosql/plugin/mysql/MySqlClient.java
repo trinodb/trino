@@ -195,13 +195,18 @@ public class MySqlClient
         if (jdbcTypeName.equalsIgnoreCase("json")) {
             return Optional.of(jsonColumnMapping());
         }
-        if (typeHandle.getJdbcType() == Types.DECIMAL && getDecimalRounding(session) == ALLOW_OVERFLOW) {
-            int precision = typeHandle.getColumnSize();
-            if (precision > Decimals.MAX_PRECISION) {
-                int scale = min(typeHandle.getDecimalDigits(), getDecimalDefaultScale(session));
-                return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
-            }
+
+        int columnSize = typeHandle.getColumnSize();
+        switch (typeHandle.getJdbcType()) {
+            case Types.DECIMAL:
+                int precision = columnSize;
+                if (getDecimalRounding(session) == ALLOW_OVERFLOW && precision > Decimals.MAX_PRECISION) {
+                    int scale = min(typeHandle.getDecimalDigits(), getDecimalDefaultScale(session));
+                    return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
+                }
         }
+
+        // TODO add explicit mappings
         return super.toPrestoType(session, connection, typeHandle);
     }
 
