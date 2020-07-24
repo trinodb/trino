@@ -199,18 +199,20 @@ public class TestPostgreSqlIntegrationSmokeTest
                 "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
             execute("INSERT INTO tpch.test_decimal_pushdown VALUES (123.321, 123456789.987654321)");
 
-            assertQuery("SELECT * FROM tpch.test_decimal_pushdown WHERE short_decimal <= 124",
-                    "VALUES (123.321, 123456789.987654321)");
-            assertQuery("SELECT * FROM tpch.test_decimal_pushdown WHERE long_decimal <= 123456790",
-                    "VALUES (123.321, 123456789.987654321)");
-            assertQuery("SELECT * FROM tpch.test_decimal_pushdown WHERE short_decimal <= 123.321",
-                    "VALUES (123.321, 123456789.987654321)");
-            assertQuery("SELECT * FROM tpch.test_decimal_pushdown WHERE long_decimal <= 123456789.987654321",
-                    "VALUES (123.321, 123456789.987654321)");
-            assertQuery("SELECT * FROM tpch.test_decimal_pushdown WHERE short_decimal = 123.321",
-                    "VALUES (123.321, 123456789.987654321)");
-            assertQuery("SELECT * FROM tpch.test_decimal_pushdown WHERE long_decimal = 123456789.987654321",
-                    "VALUES (123.321, 123456789.987654321)");
+            assertThat(query("SELECT * FROM tpch.test_decimal_pushdown WHERE short_decimal <= 124"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))");
+            assertThat(query("SELECT * FROM tpch.test_decimal_pushdown WHERE short_decimal <= 124"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))");
+            assertThat(query("SELECT * FROM tpch.test_decimal_pushdown WHERE long_decimal <= 123456790"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))");
+            assertThat(query("SELECT * FROM tpch.test_decimal_pushdown WHERE short_decimal <= 123.321"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))");
+            assertThat(query("SELECT * FROM tpch.test_decimal_pushdown WHERE long_decimal <= 123456789.987654321"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))");
+            assertThat(query("SELECT * FROM tpch.test_decimal_pushdown WHERE short_decimal = 123.321"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))");
+            assertThat(query("SELECT * FROM tpch.test_decimal_pushdown WHERE long_decimal = 123456789.987654321"))
+                    .matches("VALUES (CAST(123.321 AS decimal(9,3)), CAST(123456789.987654321 AS decimal(30, 10)))");
         }
     }
 
@@ -225,12 +227,12 @@ public class TestPostgreSqlIntegrationSmokeTest
                     "('0', '0'    , '0'         )," +
                     "('1', '12345', '1234567890')");
 
-            assertQuery("SELECT * FROM tpch.test_char_pushdown WHERE char_1 = '0' AND char_5 = '0'",
-                    "VALUES ('0', '0    ', '0         ')");
-            assertQuery("SELECT * FROM tpch.test_char_pushdown WHERE char_5 = CHAR'12345' AND char_10 = '1234567890'",
-                    "VALUES ('1', '12345', '1234567890')");
-            assertQuery("SELECT * FROM tpch.test_char_pushdown WHERE char_10 = CHAR'0'",
-                    "VALUES ('0', '0    ', '0         ')");
+            assertThat(query("SELECT * FROM tpch.test_char_pushdown WHERE char_1 = '0' AND char_5 = '0'"))
+                    .matches("VALUES (CHAR'0', CHAR'0    ', CHAR'0         ')");
+            assertThat(query("SELECT * FROM tpch.test_char_pushdown WHERE char_5 = CHAR'12345' AND char_10 = '1234567890'"))
+                    .matches("VALUES (CHAR'1', CHAR'12345', CHAR'1234567890')");
+            assertThat(query("SELECT * FROM tpch.test_char_pushdown WHERE char_10 = CHAR'0'"))
+                    .matches("VALUES (CHAR'0', CHAR'0    ', CHAR'0         ')");
         }
     }
 
