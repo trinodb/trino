@@ -287,6 +287,13 @@ public class QueryAssertions
             });
         }
 
+        public QueryAssert returnsEmptyResult()
+        {
+            return satisfies(actual -> {
+                assertThat(actual.getRowCount()).as("row count").isEqualTo(0);
+            });
+        }
+
         /**
          * Verifies query is fully pushed down and verifies the results are the same as when the pushdown is disabled.
          */
