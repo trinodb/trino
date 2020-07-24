@@ -63,6 +63,7 @@ import static io.prestosql.sql.SqlFormatter.formatSql;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -244,12 +245,14 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertQueryReturnsEmptyResult(@Language("SQL") String sql)
     {
-        QueryAssertions.assertQueryReturnsEmptyResult(queryRunner, getSession(), sql);
+        assertThat(query(sql))
+                .returnsEmptyResult();
     }
 
     protected void assertQueryReturnsEmptyResult(Session session, @Language("SQL") String sql)
     {
-        QueryAssertions.assertQueryReturnsEmptyResult(queryRunner, session, sql);
+        assertThat(query(session, sql))
+                .returnsEmptyResult();
     }
 
     protected void assertAccessAllowed(@Language("SQL") String sql, TestingPrivilege... deniedPrivileges)
