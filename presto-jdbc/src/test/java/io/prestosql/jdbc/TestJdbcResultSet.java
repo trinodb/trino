@@ -138,6 +138,38 @@ public class TestJdbcResultSet
             assertThrows(IllegalArgumentException.class, () -> rs.getTime(column));
             assertThrows(IllegalArgumentException.class, () -> rs.getTimestamp(column));
         });
+
+        // distant past, but apparently not an uncommon value in practice
+        checkRepresentation("DATE '0001-01-01'", Types.DATE, (rs, column) -> {
+            assertEquals(rs.getObject(column), Date.valueOf(LocalDate.of(1, 1, 1)));
+            assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(1, 1, 1)));
+            assertThrows(IllegalArgumentException.class, () -> rs.getTime(column));
+            assertThrows(IllegalArgumentException.class, () -> rs.getTimestamp(column));
+        });
+
+        // the Julian-Gregorian calendar "default cut-over"
+        checkRepresentation("DATE '1582-10-04'", Types.DATE, (rs, column) -> {
+            assertEquals(rs.getObject(column), Date.valueOf(LocalDate.of(1582, 10, 4)));
+            assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(1582, 10, 4)));
+            assertThrows(IllegalArgumentException.class, () -> rs.getTime(column));
+            assertThrows(IllegalArgumentException.class, () -> rs.getTimestamp(column));
+        });
+
+        // after the Julian-Gregorian calendar "default cut-over", but before the Gregorian calendar start
+        checkRepresentation("DATE '1582-10-10'", Types.DATE, (rs, column) -> {
+            assertEquals(rs.getObject(column), Date.valueOf(LocalDate.of(1582, 10, 10)));
+            assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(1582, 10, 10)));
+            assertThrows(IllegalArgumentException.class, () -> rs.getTime(column));
+            assertThrows(IllegalArgumentException.class, () -> rs.getTimestamp(column));
+        });
+
+        // the Gregorian calendar start
+        checkRepresentation("DATE '1582-10-15'", Types.DATE, (rs, column) -> {
+            assertEquals(rs.getObject(column), Date.valueOf(LocalDate.of(1582, 10, 15)));
+            assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(1582, 10, 15)));
+            assertThrows(IllegalArgumentException.class, () -> rs.getTime(column));
+            assertThrows(IllegalArgumentException.class, () -> rs.getTimestamp(column));
+        });
     }
 
     @Test
@@ -214,6 +246,45 @@ public class TestJdbcResultSet
             assertThrows(() -> rs.getDate(column));
             assertThrows(() -> rs.getTime(column));
             assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 555_555_556)));
+        });
+
+        // distant past, but apparently not an uncommon value in practice
+        checkRepresentation("TIMESTAMP '0001-01-01 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
+            assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(1, 1, 1, 0, 0, 0)));
+            assertThrows(() -> rs.getDate(column));
+            assertThrows(() -> rs.getTime(column));
+            assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(1, 1, 1, 0, 0, 0)));
+        });
+
+        // the Julian-Gregorian calendar "default cut-over"
+        checkRepresentation("TIMESTAMP '1582-10-04 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
+            assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(1582, 10, 4, 0, 0, 0)));
+            assertThrows(() -> rs.getDate(column));
+            assertThrows(() -> rs.getTime(column));
+            assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(1582, 10, 4, 0, 0, 0)));
+        });
+
+        // after the Julian-Gregorian calendar "default cut-over", but before the Gregorian calendar start
+        checkRepresentation("TIMESTAMP '1582-10-10 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
+            assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(1582, 10, 10, 0, 0, 0)));
+            assertThrows(() -> rs.getDate(column));
+            assertThrows(() -> rs.getTime(column));
+            assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(1582, 10, 10, 0, 0, 0)));
+        });
+
+        // the Gregorian calendar start
+        checkRepresentation("TIMESTAMP '1582-10-15 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
+            assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(1582, 10, 15, 0, 0, 0)));
+            assertThrows(() -> rs.getDate(column));
+            assertThrows(() -> rs.getTime(column));
+            assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(1582, 10, 15, 0, 0, 0)));
+        });
+
+        checkRepresentation("TIMESTAMP '1583-01-01 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
+            assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(1583, 1, 1, 0, 0, 0)));
+            assertThrows(() -> rs.getDate(column));
+            assertThrows(() -> rs.getTime(column));
+            assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(1583, 1, 1, 0, 0, 0)));
         });
 
         // TODO https://github.com/prestosql/presto/issues/37
