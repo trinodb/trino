@@ -84,10 +84,16 @@ public class QueryAssertions
 
     public AssertProvider<QueryAssert> query(@Language("SQL") String query)
     {
-        return query(query, runner.getDefaultSession());
+        return query(runner.getDefaultSession(), query);
     }
 
+    @Deprecated
     public AssertProvider<QueryAssert> query(@Language("SQL") String query, Session session)
+    {
+        return query(session, query);
+    }
+
+    public AssertProvider<QueryAssert> query(Session session, @Language("SQL") String query)
     {
         return newQueryAssert(query, runner, session);
     }
