@@ -28,6 +28,7 @@ import io.prestosql.sql.analyzer.Analysis;
 import io.prestosql.sql.analyzer.Analysis.GroupingSetAnalysis;
 import io.prestosql.sql.analyzer.Analysis.SelectExpression;
 import io.prestosql.sql.analyzer.FieldId;
+import io.prestosql.sql.analyzer.RelationType;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.Assignments;
@@ -797,15 +798,30 @@ class QueryPlanner
                 analysis.isTypeOnlyCoercion(original));
     }
 
-    public static NodeAndMappings coerce(PlanNode node, List<Symbol> fields, List<Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public static NodeAndMappings coerceAndPruneInvisibleFields(RelationPlan plan, Optional<List<Type>> coercion, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        checkArgument(fields.size() == types.size());
+        PlanNode node = plan.getRoot();
+        RelationType descriptor = plan.getDescriptor();
+        List<Symbol> visibleFields = descriptor.getAllFields().stream()
+                .filter(field -> !field.isHidden())
+                .map(descriptor::indexOf)
+                .map(plan.getFieldMappings()::get)
+                .collect(toImmutableList());
+
+        if (coercion.isEmpty()) {
+            // only add identity projection to prune invisible fields
+            ProjectNode pruned = new ProjectNode(idAllocator.getNextId(), node, Assignments.identity(visibleFields));
+            return new NodeAndMappings(pruned, visibleFields);
+        }
+
+        List<Type> types = coercion.get();
+        checkArgument(visibleFields.size() == types.size());
 
         Assignments.Builder assignments = Assignments.builder();
-
         ImmutableList.Builder<Symbol> mappings = ImmutableList.builder();
+
         for (int i = 0; i < types.size(); i++) {
-            Symbol input = fields.get(i);
+            Symbol input = visibleFields.get(i);
             Type type = types.get(i);
 
             if (!symbolAllocator.getTypes().get(input).equals(type)) {
