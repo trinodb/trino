@@ -442,11 +442,10 @@ public abstract class AbstractTestIntegrationSmokeTest
                         "('views')");
     }
 
-    protected void assertAggregationPushedDown(@Language("SQL") String sql)
+    protected void assertPushedDown(@Language("SQL") String sql)
     {
-        String catalog = getSession().getCatalog().orElseThrow();
         Session withoutPushdown = Session.builder(getSession())
-                .setCatalogSessionProperty(catalog, "allow_aggregation_pushdown", "false")
+                .setSystemProperty("allow_pushdown_into_connectors", "false")
                 .build();
 
         MaterializedResult actualResults = computeActual(sql);
