@@ -164,8 +164,14 @@ queryNoWith:
       queryTerm
       (ORDER BY sortItem (',' sortItem)*)?
       (OFFSET offset=INTEGER_VALUE (ROW | ROWS)?)?
-      ((LIMIT limit=(INTEGER_VALUE | ALL)) | (FETCH (FIRST | NEXT) (fetchFirst=INTEGER_VALUE)? (ROW | ROWS) (ONLY | WITH TIES)))?
-    ;
+      ((LIMIT limitRowCount) | (FETCH (FIRST | NEXT) (fetchFirst=INTEGER_VALUE)? (ROW | ROWS) (ONLY | WITH TIES)))?
+      ;
+
+limitRowCount
+     : INTEGER_VALUE
+     | ALL
+     | PARAMETER
+     ;
 
 queryTerm
     : queryPrimary                                                             #queryTermDefault
@@ -312,7 +318,7 @@ primaryExpression
     | booleanValue                                                                        #booleanLiteral
     | string                                                                              #stringLiteral
     | BINARY_LITERAL                                                                      #binaryLiteral
-    | '?'                                                                                 #parameter
+    | PARAMETER                                                                           #parameter
     | POSITION '(' valueExpression IN valueExpression ')'                                 #position
     | '(' expression (',' expression)+ ')'                                                #rowConstructor
     | ROW '(' expression (',' expression)* ')'                                            #rowConstructor
@@ -818,6 +824,11 @@ BRACKETED_COMMENT
 WS
     : [ \r\n\t]+ -> channel(HIDDEN)
     ;
+
+PARAMETER
+    : '?'
+    ;
+
 
 // Catch-all for anything we can't recognize.
 // We use this to be able to ignore and recover all the text

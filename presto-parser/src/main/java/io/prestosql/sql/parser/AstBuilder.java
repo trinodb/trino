@@ -20,6 +20,7 @@ import com.google.common.collect.Lists;
 import io.prestosql.sql.tree.AddColumn;
 import io.prestosql.sql.tree.AliasedRelation;
 import io.prestosql.sql.tree.AllColumns;
+import io.prestosql.sql.tree.AllRows;
 import io.prestosql.sql.tree.Analyze;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.ArithmeticUnaryExpression;
@@ -117,6 +118,7 @@ import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.NumericParameter;
 import io.prestosql.sql.tree.Offset;
 import io.prestosql.sql.tree.OrderBy;
+import io.prestosql.sql.tree.Parameter;
 import io.prestosql.sql.tree.PathElement;
 import io.prestosql.sql.tree.PathSpecification;
 import io.prestosql.sql.tree.Prepare;
@@ -648,7 +650,22 @@ class AstBuilder
             limit = Optional.of(new FetchFirst(Optional.of(getLocation(context.FETCH())), getTextIfPresent(context.fetchFirst), context.TIES() != null));
         }
         else if (context.LIMIT() != null) {
-            limit = Optional.of(new Limit(Optional.of(getLocation(context.LIMIT())), getTextIfPresent(context.limit).orElseThrow(() -> new IllegalStateException("Missing LIMIT value"))));
+            if (context.limitRowCount() == null) {
+                throw new IllegalStateException("Missing LIMIT value");
+            }
+            Expression rowCount;
+            if (context.limitRowCount().ALL() != null) {
+                rowCount = new AllRows(getLocation(context.limitRowCount().ALL()));
+            }
+            else if (context.limitRowCount().INTEGER_VALUE() != null) {
+                rowCount = new LongLiteral(getLocation(context.limitRowCount().INTEGER_VALUE()), context.limitRowCount().getText());
+            }
+            else {
+                rowCount = new Parameter(getLocation(context.limitRowCount().PARAMETER()), parameterPosition);
+                parameterPosition++;
+            }
+
+            limit = Optional.of(new Limit(Optional.of(getLocation(context.LIMIT())), rowCount));
         }
 
         Optional<Offset> offset = Optional.empty();

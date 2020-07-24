@@ -514,13 +514,6 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testLimitInvalidRowCount()
-    {
-        assertFails("SELECT * FROM t1 LIMIT 987654321098765432109876543210")
-                .hasErrorCode(TYPE_MISMATCH);
-    }
-
-    @Test
     public void testNestedAggregation()
     {
         assertFails("SELECT sum(count(*)) FROM t1")

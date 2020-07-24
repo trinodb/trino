@@ -351,7 +351,8 @@ public final class SqlFormatter
         @Override
         protected Void visitLimit(Limit node, Integer indent)
         {
-            append(indent, "LIMIT " + node.getLimit())
+            append(indent, "LIMIT ")
+                    .append(formatExpression(node.getRowCount()))
                     .append('\n');
             return null;
         }

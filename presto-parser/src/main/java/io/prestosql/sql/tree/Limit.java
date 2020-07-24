@@ -20,31 +20,38 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class Limit
         extends Node
 {
-    private final String limit;
+    private final Expression rowCount;
 
-    public Limit(String limit)
+    public Limit(Expression rowCount)
     {
-        this(Optional.empty(), limit);
+        this(Optional.empty(), rowCount);
     }
 
-    public Limit(NodeLocation location, String limit)
+    public Limit(NodeLocation location, Expression rowCount)
     {
-        this(Optional.of(location), limit);
+        this(Optional.of(location), rowCount);
     }
 
-    public Limit(Optional<NodeLocation> location, String limit)
+    public Limit(Optional<NodeLocation> location, Expression rowCount)
     {
         super(location);
-        this.limit = limit;
+        checkArgument(
+                rowCount instanceof AllRows ||
+                        rowCount instanceof LongLiteral ||
+                        rowCount instanceof Parameter,
+                "unexpected rowCount class: %s",
+                rowCount.getClass().getSimpleName());
+        this.rowCount = rowCount;
     }
 
-    public String getLimit()
+    public Expression getRowCount()
     {
-        return limit;
+        return rowCount;
     }
 
     @Override
@@ -56,7 +63,7 @@ public class Limit
     @Override
     public List<? extends Node> getChildren()
     {
-        return ImmutableList.of();
+        return ImmutableList.of(rowCount);
     }
 
     @Override
@@ -69,30 +76,26 @@ public class Limit
             return false;
         }
         Limit o = (Limit) obj;
-        return Objects.equals(limit, o.limit);
+        return Objects.equals(rowCount, o.rowCount);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(limit);
+        return Objects.hash(rowCount);
     }
 
     @Override
     public String toString()
     {
         return toStringHelper(this)
-                .add("limit", limit)
+                .add("limit", rowCount)
                 .toString();
     }
 
     @Override
     public boolean shallowEquals(Node other)
     {
-        if (!sameClass(this, other)) {
-            return false;
-        }
-
-        return limit.equals(((Limit) other).limit);
+        return sameClass(this, other);
     }
 }

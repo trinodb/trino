@@ -116,6 +116,9 @@ public abstract class DefaultTraversalVisitor<C>
         if (node.getOrderBy().isPresent()) {
             process(node.getOrderBy().get(), context);
         }
+        if (node.getLimit().isPresent()) {
+            process(node.getLimit().get(), context);
+        }
 
         return null;
     }
@@ -255,6 +258,14 @@ public abstract class DefaultTraversalVisitor<C>
         if (node.getValue().isPresent()) {
             process(node.getValue().get(), context);
         }
+
+        return null;
+    }
+
+    @Override
+    protected Void visitLimit(Limit node, C context)
+    {
+        process(node.getRowCount());
 
         return null;
     }
@@ -422,6 +433,9 @@ public abstract class DefaultTraversalVisitor<C>
         }
         if (node.getOrderBy().isPresent()) {
             process(node.getOrderBy().get(), context);
+        }
+        if (node.getLimit().isPresent()) {
+            process(node.getLimit().get(), context);
         }
         return null;
     }
