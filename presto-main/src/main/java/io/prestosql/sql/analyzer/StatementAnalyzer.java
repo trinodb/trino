@@ -14,6 +14,7 @@
 package io.prestosql.sql.analyzer;
 
 import com.google.common.base.Joiner;
+import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
@@ -68,6 +69,7 @@ import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.tree.AddColumn;
 import io.prestosql.sql.tree.AliasedRelation;
 import io.prestosql.sql.tree.AllColumns;
+import io.prestosql.sql.tree.AllRows;
 import io.prestosql.sql.tree.Analyze;
 import io.prestosql.sql.tree.AstVisitor;
 import io.prestosql.sql.tree.Call;
@@ -114,6 +116,7 @@ import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.Offset;
 import io.prestosql.sql.tree.OrderBy;
+import io.prestosql.sql.tree.Parameter;
 import io.prestosql.sql.tree.Prepare;
 import io.prestosql.sql.tree.Property;
 import io.prestosql.sql.tree.QualifiedName;
@@ -184,6 +187,7 @@ import static io.prestosql.spi.StandardErrorCode.DUPLICATE_PROPERTY;
 import static io.prestosql.spi.StandardErrorCode.EXPRESSION_NOT_CONSTANT;
 import static io.prestosql.spi.StandardErrorCode.EXPRESSION_NOT_IN_DISTINCT;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_WINDOW;
+import static io.prestosql.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.prestosql.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.INVALID_ROW_FILTER;
@@ -933,7 +937,7 @@ class StatementAnalyzer
             }
 
             if (node.getLimit().isPresent()) {
-                boolean requiresOrderBy = analyzeLimit(node.getLimit().get());
+                boolean requiresOrderBy = analyzeLimit(node.getLimit().get(), queryBodyScope);
                 if (requiresOrderBy && node.getOrderBy().isEmpty()) {
                     throw semanticException(MISSING_ORDER_BY, node.getLimit().get(), "FETCH FIRST WITH TIES clause requires ORDER BY");
                 }
@@ -1311,7 +1315,7 @@ class StatementAnalyzer
             }
 
             if (node.getLimit().isPresent()) {
-                boolean requiresOrderBy = analyzeLimit(node.getLimit().get());
+                boolean requiresOrderBy = analyzeLimit(node.getLimit().get(), outputScope);
                 if (requiresOrderBy && node.getOrderBy().isEmpty()) {
                     throw semanticException(MISSING_ORDER_BY, node.getLimit().get(), "FETCH FIRST WITH TIES clause requires ORDER BY");
                 }
@@ -2673,7 +2677,7 @@ class StatementAnalyzer
          * @return true if the Query / QuerySpecification containing the analyzed
          * Limit or FetchFirst, must contain orderBy (i.e., for FetchFirst with ties).
          */
-        private boolean analyzeLimit(Node node)
+        private boolean analyzeLimit(Node node, Scope scope)
         {
             checkState(
                     node instanceof FetchFirst || node instanceof Limit,
@@ -2682,7 +2686,7 @@ class StatementAnalyzer
                 return analyzeLimit((FetchFirst) node);
             }
             else {
-                return analyzeLimit((Limit) node);
+                return analyzeLimit((Limit) node, scope);
             }
         }
 
@@ -2708,24 +2712,47 @@ class StatementAnalyzer
             return node.isWithTies();
         }
 
-        private boolean analyzeLimit(Limit node)
+        private boolean analyzeLimit(Limit node, Scope scope)
         {
-            if (node.getLimit().equalsIgnoreCase("all")) {
-                analysis.setLimit(node, OptionalLong.empty());
+            OptionalLong rowCount;
+            if (node.getRowCount() instanceof AllRows) {
+                rowCount = OptionalLong.empty();
+            }
+            else if (node.getRowCount() instanceof LongLiteral) {
+                rowCount = OptionalLong.of(((LongLiteral) node.getRowCount()).getValue());
             }
             else {
-                long rowCount;
-                try {
-                    rowCount = Long.parseLong(node.getLimit());
+                checkState(node.getRowCount() instanceof Parameter, "unexpected LIMIT rowCount: " + node.getRowCount().getClass().getSimpleName());
+                if (analysis.isDescribe()) {
+                    analyzeExpression(node.getRowCount(), scope);
+                    analysis.addCoercion(node.getRowCount(), BIGINT, false);
+                    rowCount = OptionalLong.empty();
                 }
-                catch (NumberFormatException e) {
-                    throw semanticException(TYPE_MISMATCH, node, "Invalid LIMIT row count: %s", node.getLimit());
+                else {
+                    // validate parameter index
+                    analyzeExpression(node.getRowCount(), scope);
+                    Expression providedValue = analysis.getParameters().get(NodeRef.of(node.getRowCount()));
+                    try {
+                        rowCount = OptionalLong.of((long) ExpressionInterpreter.evaluateConstantExpression(
+                                providedValue,
+                                BIGINT,
+                                metadata,
+                                session,
+                                accessControl,
+                                analysis.getParameters()));
+                    }
+                    catch (VerifyException e) {
+                        throw semanticException(INVALID_ARGUMENTS, node, "Non constant parameter value for LIMIT: %s", providedValue);
+                    }
                 }
-                if (rowCount < 0) {
-                    throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, node, "LIMIT row count must be greater or equal to 0 (actual value: %s)", rowCount);
-                }
-                analysis.setLimit(node, rowCount);
             }
+            rowCount.ifPresent(count -> {
+                if (count < 0) {
+                    throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, node, "LIMIT row count must be greater or equal to 0 (actual value: %s)", count);
+                }
+            });
+
+            analysis.setLimit(node, rowCount);
 
             return false;
         }

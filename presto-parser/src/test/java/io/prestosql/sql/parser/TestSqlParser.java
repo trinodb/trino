@@ -20,6 +20,7 @@ import com.google.common.collect.Lists;
 import io.prestosql.sql.tree.AddColumn;
 import io.prestosql.sql.tree.AliasedRelation;
 import io.prestosql.sql.tree.AllColumns;
+import io.prestosql.sql.tree.AllRows;
 import io.prestosql.sql.tree.Analyze;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.ArrayConstructor;
@@ -574,7 +575,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.of(new Limit("2"))));
+                        Optional.of(new Limit(new LongLiteral("2")))));
 
         assertStatement("SELECT * FROM table1 LIMIT ALL",
                 simpleQuery(
@@ -585,7 +586,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.of(new Limit("ALL"))));
+                        Optional.of(new Limit(new AllRows()))));
 
         Query valuesQuery = query(values(
                 row(new LongLiteral("1"), new StringLiteral("1")),
@@ -599,7 +600,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.of(new Limit("ALL"))));
+                        Optional.of(new Limit(new AllRows()))));
     }
 
     @Test
@@ -2105,6 +2106,28 @@ public class TestSqlParser
                 new Prepare(identifier("myquery"), simpleQuery(
                         selectList(new Parameter(0), new Parameter(1)),
                         table(QualifiedName.of("foo")))));
+
+        assertStatement("PREPARE myquery FROM SELECT * FROM foo LIMIT ?",
+                new Prepare(identifier("myquery"), simpleQuery(
+                        selectList(new AllColumns()),
+                        table(QualifiedName.of("foo")),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new Limit(new Parameter(0))))));
+
+        assertStatement("PREPARE myquery FROM SELECT ?, ? FROM foo LIMIT ?",
+                new Prepare(identifier("myquery"), simpleQuery(
+                        selectList(new Parameter(0), new Parameter(1)),
+                        table(QualifiedName.of("foo")),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new Limit(new Parameter(2))))));
     }
 
     @Test
