@@ -23,7 +23,6 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
-import io.prestosql.operator.aggregation.histogram.HistogramGroupImplementation;
 
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
@@ -55,6 +54,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "experimental-syntax-enabled",
         "experimental.resource-groups-enabled",
         "fast-inequality-joins",
+        "histogram.implementation",
         "multimapagg.implementation",
         "optimizer.processing-optimization",
         "resource-group-manager",
@@ -101,7 +101,6 @@ public class FeaturesConfig
     private int re2JDfaStatesLimit = Integer.MAX_VALUE;
     private int re2JDfaRetries = 5;
     private RegexLibrary regexLibrary = JONI;
-    private HistogramGroupImplementation histogramGroupImplementation = HistogramGroupImplementation.NEW;
     private boolean spillEnabled;
     private boolean spillOrderBy = true;
     private boolean spillWindowOperator = true;
@@ -866,18 +865,6 @@ public class FeaturesConfig
     {
         this.filterAndProjectMinOutputPageRowCount = filterAndProjectMinOutputPageRowCount;
         return this;
-    }
-
-    @Config("histogram.implementation")
-    public FeaturesConfig setHistogramGroupImplementation(HistogramGroupImplementation groupByMode)
-    {
-        this.histogramGroupImplementation = groupByMode;
-        return this;
-    }
-
-    public HistogramGroupImplementation getHistogramGroupImplementation()
-    {
-        return histogramGroupImplementation;
     }
 
     public boolean isDistributedSortEnabled()
