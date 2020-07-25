@@ -24,7 +24,6 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.prestosql.operator.aggregation.histogram.HistogramGroupImplementation;
-import io.prestosql.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
 
 import javax.validation.constraints.DecimalMax;
 import javax.validation.constraints.DecimalMin;
@@ -56,6 +55,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "experimental-syntax-enabled",
         "experimental.resource-groups-enabled",
         "fast-inequality-joins",
+        "multimapagg.implementation",
         "optimizer.processing-optimization",
         "resource-group-manager",
 })
@@ -102,7 +102,6 @@ public class FeaturesConfig
     private int re2JDfaRetries = 5;
     private RegexLibrary regexLibrary = JONI;
     private HistogramGroupImplementation histogramGroupImplementation = HistogramGroupImplementation.NEW;
-    private MultimapAggGroupImplementation multimapAggGroupImplementation = MultimapAggGroupImplementation.NEW;
     private boolean spillEnabled;
     private boolean spillOrderBy = true;
     private boolean spillWindowOperator = true;
@@ -879,18 +878,6 @@ public class FeaturesConfig
     public HistogramGroupImplementation getHistogramGroupImplementation()
     {
         return histogramGroupImplementation;
-    }
-
-    public MultimapAggGroupImplementation getMultimapAggGroupImplementation()
-    {
-        return multimapAggGroupImplementation;
-    }
-
-    @Config("multimapagg.implementation")
-    public FeaturesConfig setMultimapAggGroupImplementation(MultimapAggGroupImplementation groupByMode)
-    {
-        this.multimapAggGroupImplementation = groupByMode;
-        return this;
     }
 
     public boolean isDistributedSortEnabled()
