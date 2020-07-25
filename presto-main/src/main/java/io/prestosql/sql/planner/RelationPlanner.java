@@ -166,7 +166,7 @@ class RelationPlanner
                     .map(Field::getType)
                     .collect(toImmutableList());
 
-            NodeAndMappings coerced = coerce(subPlan.getRoot(), visibleFields(subPlan), types, symbolAllocator, idAllocator);
+            NodeAndMappings coerced = coerce(subPlan, types, symbolAllocator, idAllocator);
 
             plan = new RelationPlan(coerced.getNode(), scope, coerced.getFields(), outerContext);
         }
@@ -884,7 +884,7 @@ class RelationPlanner
                         .collect(toImmutableList());
             }
 
-            NodeAndMappings planAndMappings = coerce(plan.getRoot(), visibleFields(plan), types, symbolAllocator, idAllocator);
+            NodeAndMappings planAndMappings = coerce(plan, types, symbolAllocator, idAllocator);
             for (int i = 0; i < outputFields.getAllFields().size(); i++) {
                 symbolMapping.put(outputs.get(i), planAndMappings.getFields().get(i));
             }
@@ -904,16 +904,6 @@ class RelationPlanner
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
                 Optional.empty());
-    }
-
-    private static List<Symbol> visibleFields(RelationPlan subPlan)
-    {
-        RelationType descriptor = subPlan.getDescriptor();
-        return descriptor.getAllFields().stream()
-                .filter(field -> !field.isHidden())
-                .map(descriptor::indexOf)
-                .map(subPlan.getFieldMappings()::get)
-                .collect(toImmutableList());
     }
 
     private static class SetOperationPlan
