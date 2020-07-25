@@ -13,16 +13,11 @@
  */
 package io.prestosql.operator.aggregation.histogram;
 
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.function.AccumulatorStateFactory;
 import io.prestosql.spi.type.Type;
 import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
 import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
 
-import static io.prestosql.operator.aggregation.histogram.HistogramGroupImplementation.LEGACY;
-import static io.prestosql.operator.aggregation.histogram.HistogramGroupImplementation.NEW;
-import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
-import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class HistogramStateFactory
@@ -32,20 +27,17 @@ public class HistogramStateFactory
     private final BlockPositionEqual equalOperator;
     private final BlockPositionHashCode hashCodeOperator;
     private final int expectedEntriesCount;
-    private final HistogramGroupImplementation mode;
 
     public HistogramStateFactory(
             Type keyType,
             BlockPositionEqual equalOperator,
             BlockPositionHashCode hashCodeOperator,
-            int expectedEntriesCount,
-            HistogramGroupImplementation mode)
+            int expectedEntriesCount)
     {
         this.keyType = requireNonNull(keyType, "keyType is null");
         this.equalOperator = requireNonNull(equalOperator, "equalOperator is null");
         this.hashCodeOperator = requireNonNull(hashCodeOperator, "hashCodeOperator is null");
         this.expectedEntriesCount = expectedEntriesCount;
-        this.mode = mode;
     }
 
     @Override
@@ -63,28 +55,12 @@ public class HistogramStateFactory
     @Override
     public HistogramState createGroupedState()
     {
-        if (mode == NEW) {
-            return new GroupedHistogramState(keyType, equalOperator, hashCodeOperator, expectedEntriesCount);
-        }
-
-        if (mode == LEGACY) {
-            return new LegacyHistogramGroupState(keyType, equalOperator, hashCodeOperator, expectedEntriesCount);
-        }
-
-        throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, format("expected group enum type %s", mode));
+        return new GroupedHistogramState(keyType, equalOperator, hashCodeOperator, expectedEntriesCount);
     }
 
     @Override
     public Class<? extends HistogramState> getGroupedStateClass()
     {
-        if (mode == NEW) {
-            return GroupedHistogramState.class;
-        }
-
-        if (mode == LEGACY) {
-            return LegacyHistogramGroupState.class;
-        }
-
-        throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, format("expected group enum type %s", mode));
+        return GroupedHistogramState.class;
     }
 }

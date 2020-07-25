@@ -59,10 +59,9 @@ public class Histogram
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(Histogram.class, "combine", HistogramState.class, HistogramState.class);
 
     public static final int EXPECTED_SIZE_FOR_HASHING = 10;
-    private final HistogramGroupImplementation groupMode;
     private final BlockTypeOperators blockTypeOperators;
 
-    public Histogram(HistogramGroupImplementation groupMode, BlockTypeOperators blockTypeOperators)
+    public Histogram(BlockTypeOperators blockTypeOperators)
     {
         super(
                 new FunctionMetadata(
@@ -81,7 +80,6 @@ public class Histogram
                         AGGREGATE),
                 true,
                 false);
-        this.groupMode = groupMode;
         this.blockTypeOperators = blockTypeOperators;
     }
 
@@ -99,7 +97,7 @@ public class Histogram
         BlockPositionEqual keyEqual = blockTypeOperators.getEqualOperator(keyType);
         BlockPositionHashCode keyHashCode = blockTypeOperators.getHashCodeOperator(keyType);
         Type outputType = functionBinding.getBoundSignature().getReturnType();
-        return generateAggregation(NAME, keyType, keyEqual, keyHashCode, outputType, groupMode);
+        return generateAggregation(NAME, keyType, keyEqual, keyHashCode, outputType);
     }
 
     private static InternalAggregationFunction generateAggregation(
@@ -107,8 +105,7 @@ public class Histogram
             Type keyType,
             BlockPositionEqual keyEqual,
             BlockPositionHashCode keyHashCode,
-            Type outputType,
-            HistogramGroupImplementation groupMode)
+            Type outputType)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(Histogram.class.getClassLoader());
         List<Type> inputTypes = ImmutableList.of(keyType);
@@ -127,7 +124,7 @@ public class Histogram
                 ImmutableList.of(new AccumulatorStateDescriptor(
                         HistogramState.class,
                         stateSerializer,
-                        new HistogramStateFactory(keyType, keyEqual, keyHashCode, EXPECTED_SIZE_FOR_HASHING, groupMode))),
+                        new HistogramStateFactory(keyType, keyEqual, keyHashCode, EXPECTED_SIZE_FOR_HASHING))),
                 outputType);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
