@@ -16,7 +16,6 @@ package io.prestosql.sql.analyzer;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
-import io.prestosql.operator.aggregation.histogram.HistogramGroupImplementation;
 import io.prestosql.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
@@ -97,7 +96,6 @@ public class TestFeaturesConfig
                 .setUseMarkDistinct(true)
                 .setPreferPartialAggregation(true)
                 .setOptimizeTopNRowNumber(true)
-                .setHistogramGroupImplementation(HistogramGroupImplementation.NEW)
                 .setDistributedSortEnabled(true)
                 .setMaxRecursionDepth(10)
                 .setMaxGroupingSets(2048)
@@ -164,7 +162,6 @@ public class TestFeaturesConfig
                 .put("pages-index.eager-compaction-enabled", "true")
                 .put("filter-and-project-min-output-page-size", "1MB")
                 .put("filter-and-project-min-output-page-row-count", "2048")
-                .put("histogram.implementation", "LEGACY")
                 .put("optimizer.use-mark-distinct", "false")
                 .put("optimizer.prefer-partial-aggregation", "false")
                 .put("optimizer.optimize-top-n-row-number", "false")
@@ -233,7 +230,6 @@ public class TestFeaturesConfig
                 .setUseMarkDistinct(false)
                 .setPreferPartialAggregation(false)
                 .setOptimizeTopNRowNumber(false)
-                .setHistogramGroupImplementation(HistogramGroupImplementation.LEGACY)
                 .setDistributedSortEnabled(false)
                 .setMaxRecursionDepth(8)
                 .setMaxGroupingSets(2047)

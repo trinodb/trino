@@ -16,10 +16,8 @@ package io.prestosql.operator.aggregation;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.GroupByIdBlock;
 import io.prestosql.operator.aggregation.groupby.GroupByAggregationTestUtils;
-import io.prestosql.operator.aggregation.histogram.HistogramGroupImplementation;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.tree.QualifiedName;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.Fork;
@@ -79,9 +77,6 @@ public class BenchmarkGroupedTypedHistogram
 //        //        @Param({"LINEAR", "SUM_OF_COUNT", "SUM_OF_SQUARE"})
 //        @Param({"LINEAR"}) // found to best
 //        private ProbeType valueStoreProbeType;
-//        //        @Param({"NEW"})
-        @Param({"NEW", "LEGACY"})
-        private HistogramGroupImplementation histogramGroupImplementation;
 
         private final Random random = new Random();
         private Page[] pages;
@@ -120,8 +115,7 @@ public class BenchmarkGroupedTypedHistogram
                 groupByIdBlocks[j] = groupByIdBlock;
             }
 
-            InternalAggregationFunction aggregationFunction =
-                    getInternalAggregationFunctionVarChar(histogramGroupImplementation);
+            InternalAggregationFunction aggregationFunction = getInternalAggregationFunctionVarChar();
             groupedAccumulator = createGroupedAccumulator(aggregationFunction);
         }
 
@@ -148,16 +142,10 @@ public class BenchmarkGroupedTypedHistogram
         return groupedAccumulator;
     }
 
-    private static InternalAggregationFunction getInternalAggregationFunctionVarChar(HistogramGroupImplementation groupMode)
+    private static InternalAggregationFunction getInternalAggregationFunctionVarChar()
     {
-        Metadata metadata = getMetadata(groupMode);
+        Metadata metadata = createTestMetadataManager();
         return metadata.getAggregateFunctionImplementation(metadata.resolveFunction(QualifiedName.of(NAME), fromTypes(VARCHAR)));
-    }
-
-    private static Metadata getMetadata(HistogramGroupImplementation groupMode)
-    {
-        return createTestMetadataManager(new FeaturesConfig()
-                .setHistogramGroupImplementation(groupMode));
     }
 
     public static void main(String[] args)
