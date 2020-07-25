@@ -155,6 +155,7 @@ public class TestExternalHiveTable
     public void testCreateExternalTableWithNoSchemaLocation()
     {
         String schema = "schema_without_location";
+        query(format("DROP SCHEMA IF EXISTS %s.%s", HIVE_CATALOG_WITH_EXTERNAL_WRITES, schema));
         query(format("CREATE SCHEMA %s.%s", HIVE_CATALOG_WITH_EXTERNAL_WRITES, schema));
 
         String table = "test_create_external";
