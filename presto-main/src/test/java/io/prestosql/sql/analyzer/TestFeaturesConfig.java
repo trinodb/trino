@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.operator.aggregation.histogram.HistogramGroupImplementation;
-import io.prestosql.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
 import io.prestosql.sql.analyzer.FeaturesConfig.DataIntegrityVerification;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy;
@@ -99,7 +98,6 @@ public class TestFeaturesConfig
                 .setPreferPartialAggregation(true)
                 .setOptimizeTopNRowNumber(true)
                 .setHistogramGroupImplementation(HistogramGroupImplementation.NEW)
-                .setMultimapAggGroupImplementation(MultimapAggGroupImplementation.NEW)
                 .setDistributedSortEnabled(true)
                 .setMaxRecursionDepth(10)
                 .setMaxGroupingSets(2048)
@@ -167,7 +165,6 @@ public class TestFeaturesConfig
                 .put("filter-and-project-min-output-page-size", "1MB")
                 .put("filter-and-project-min-output-page-row-count", "2048")
                 .put("histogram.implementation", "LEGACY")
-                .put("multimapagg.implementation", "LEGACY")
                 .put("optimizer.use-mark-distinct", "false")
                 .put("optimizer.prefer-partial-aggregation", "false")
                 .put("optimizer.optimize-top-n-row-number", "false")
@@ -237,7 +234,6 @@ public class TestFeaturesConfig
                 .setPreferPartialAggregation(false)
                 .setOptimizeTopNRowNumber(false)
                 .setHistogramGroupImplementation(HistogramGroupImplementation.LEGACY)
-                .setMultimapAggGroupImplementation(MultimapAggGroupImplementation.LEGACY)
                 .setDistributedSortEnabled(false)
                 .setMaxRecursionDepth(8)
                 .setMaxGroupingSets(2047)
