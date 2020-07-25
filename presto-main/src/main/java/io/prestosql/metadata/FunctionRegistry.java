@@ -70,7 +70,6 @@ import io.prestosql.operator.aggregation.SumDataSizeForStats;
 import io.prestosql.operator.aggregation.TDigestAggregationFunction;
 import io.prestosql.operator.aggregation.VarcharApproximateMostFrequent;
 import io.prestosql.operator.aggregation.VarianceAggregation;
-import io.prestosql.operator.aggregation.arrayagg.ArrayAggregationFunction;
 import io.prestosql.operator.aggregation.histogram.Histogram;
 import io.prestosql.operator.aggregation.minmaxby.MaxByNAggregationFunction;
 import io.prestosql.operator.aggregation.minmaxby.MinByNAggregationFunction;
@@ -284,6 +283,7 @@ import static io.prestosql.operator.aggregation.QuantileDigestAggregationFunctio
 import static io.prestosql.operator.aggregation.QuantileDigestAggregationFunction.QDIGEST_AGG_WITH_WEIGHT_AND_ERROR;
 import static io.prestosql.operator.aggregation.RealAverageAggregation.REAL_AVERAGE_AGGREGATION;
 import static io.prestosql.operator.aggregation.ReduceAggregationFunction.REDUCE_AGG;
+import static io.prestosql.operator.aggregation.arrayagg.ArrayAggregationFunction.ARRAY_AGG;
 import static io.prestosql.operator.aggregation.minmaxby.MaxByAggregationFunction.MAX_BY;
 import static io.prestosql.operator.aggregation.minmaxby.MinByAggregationFunction.MIN_BY;
 import static io.prestosql.operator.scalar.ArrayConcatFunction.ARRAY_CONCAT_FUNCTION;
@@ -552,7 +552,7 @@ public class FunctionRegistry
                 .function(ARRAY_FLATTEN_FUNCTION)
                 .function(ARRAY_CONCAT_FUNCTION)
                 .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_TO_JSON, JSON_TO_ARRAY, JSON_STRING_TO_ARRAY)
-                .function(new ArrayAggregationFunction(featuresConfig.getArrayAggGroupImplementation()))
+                .function(ARRAY_AGG)
                 .functions(new MapSubscriptOperator())
                 .functions(MAP_CONSTRUCTOR, MAP_TO_JSON, JSON_TO_MAP, JSON_STRING_TO_MAP)
                 .functions(new MapAggregationFunction(blockTypeOperators), new MapUnionAggregation(blockTypeOperators))
