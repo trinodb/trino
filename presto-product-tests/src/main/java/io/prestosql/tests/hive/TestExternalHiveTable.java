@@ -139,7 +139,7 @@ public class TestExternalHiveTable
     @Test(groups = {HIVE_WITH_EXTERNAL_WRITES, PROFILE_SPECIFIC_TESTS})
     public void testCreateExternalTableWithInaccessibleSchemaLocation()
     {
-        String schema = "schema_without_location";
+        String schema = "schema_with_invalid_location";
         String schemaLocation = "/tmp/" + schema;
         hdfsClient.createDirectory(schemaLocation);
         query(format("CREATE SCHEMA %s.%s WITH (location='%s')", HIVE_CATALOG_WITH_EXTERNAL_WRITES, schema, schemaLocation));
