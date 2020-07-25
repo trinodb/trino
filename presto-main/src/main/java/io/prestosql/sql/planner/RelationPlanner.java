@@ -94,6 +94,7 @@ import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.prestosql.sql.planner.QueryPlanner.coerce;
 import static io.prestosql.sql.planner.QueryPlanner.coerceIfNecessary;
+import static io.prestosql.sql.planner.QueryPlanner.pruneInvisibleFields;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.Join.Type.CROSS;
@@ -874,17 +875,16 @@ class RelationPlanner
         for (Relation child : node.getRelations()) {
             RelationPlan plan = process(child, null);
 
+            NodeAndMappings planAndMappings;
             List<Type> types = analysis.getRelationCoercion(child);
             if (types == null) {
-                // If there are no coercions, we still want to call the coerce method below to create a plan
-                // with just the visible fields
-                types = plan.getDescriptor()
-                        .getVisibleFields().stream()
-                        .map(Field::getType)
-                        .collect(toImmutableList());
+                // no coercion required, only prune invisible fields from child outputs
+                planAndMappings = pruneInvisibleFields(plan, idAllocator);
             }
-
-            NodeAndMappings planAndMappings = coerce(plan, types, symbolAllocator, idAllocator);
+            else {
+                // apply required coercion and prune invisible fields from child outputs
+                planAndMappings = coerce(plan, types, symbolAllocator, idAllocator);
+            }
             for (int i = 0; i < outputFields.getAllFields().size(); i++) {
                 symbolMapping.put(outputs.get(i), planAndMappings.getFields().get(i));
             }
