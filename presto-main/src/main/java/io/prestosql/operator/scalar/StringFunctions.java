@@ -914,6 +914,18 @@ public final class StringFunctions
         return source.compareTo(0, prefix.length(), prefix, 0, prefix.length()) == 0;
     }
 
+    @Description("Determine whether source ends with suffix or not")
+    @ScalarFunction
+    @LiteralParameters({"x", "y"})
+    @SqlType(StandardTypes.BOOLEAN)
+    public static boolean endsWith(@SqlType("varchar(x)") Slice source, @SqlType("varchar(y)") Slice suffix)
+    {
+        if (source.length() < suffix.length()) {
+            return false;
+        }
+        return source.compareTo(source.length() - suffix.length(), suffix.length(), suffix, 0, suffix.length()) == 0;
+    }
+
     @Description("Translate characters from the source string based on original and translations strings")
     @ScalarFunction
     @LiteralParameters({"x", "y", "z"})
