@@ -834,6 +834,13 @@ class QueryPlanner
                 .collect(toImmutableList());
     }
 
+    public static NodeAndMappings pruneInvisibleFields(RelationPlan plan, PlanNodeIdAllocator idAllocator)
+    {
+        List<Symbol> visibleFields = visibleFields(plan);
+        ProjectNode pruned = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), Assignments.identity(visibleFields));
+        return new NodeAndMappings(pruned, visibleFields);
+    }
+
     private PlanBuilder distinct(PlanBuilder subPlan, QuerySpecification node, List<Expression> expressions)
     {
         if (node.getSelect().isDistinct()) {
