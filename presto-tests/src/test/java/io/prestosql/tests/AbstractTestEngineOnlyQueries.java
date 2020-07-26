@@ -809,6 +809,86 @@ public abstract class AbstractTestEngineOnlyQueries
     }
 
     @Test
+    public void testExecuteWithParametersInOffset()
+    {
+        String query = "SELECT a FROM (VALUES 1, 2, 2, 3) t(a) where a = ? OFFSET ? ROWS";
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query", query)
+                .build();
+
+        assertQuery(
+                session,
+                "EXECUTE my_query USING 2, 1",
+                "SELECT 2");
+
+        assertQuery(
+                session,
+                "EXECUTE my_query USING 2, 4 - 3",
+                "SELECT 2");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, 'one'",
+                "\\Qline 1:27: Cannot cast type varchar(3) to bigint\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, 1.0",
+                "\\Qline 1:27: Cannot cast type decimal(2,1) to bigint\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, 1 + t.a",
+                "\\Qline 1:29: Constant expression cannot contain column references\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, null",
+                "\\Qline 1:59: Parameter value provided for OFFSET is NULL: null\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, 1 + null",
+                "\\Qline 1:59: Parameter value provided for OFFSET is NULL: (1 + null)\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, ?",
+                "\\Qline 1:27: No value provided for parameter\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, -2",
+                "\\Qline 1:52: OFFSET row count must be greater or equal to 0 (actual value: -2)\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, 99999999999999999999",
+                "\\Qline 1:1: Invalid numeric literal: 99999999999999999999\\E");
+    }
+
+    @Test
+    public void testExecuteWithParametersInDifferentClauses()
+    {
+        String query1 = "SELECT a FROM (VALUES 1, 2, 2, 2, 2, 2) t(a) where a = ? OFFSET ? ROWS LIMIT ?";
+        String query2 = "SELECT a FROM (VALUES 1, 2, 2, 2, 2, 2) t(a) where a = ? ORDER BY a OFFSET ? ROWS FETCH FIRST ? ROWS WITH TIES";
+        Session session = Session.builder(getSession())
+                .addPreparedStatement("my_query_1", query1)
+                .addPreparedStatement("my_query_2", query2)
+                .build();
+
+        assertQuery(
+                session,
+                "EXECUTE my_query_1 USING 2, 1, 3",
+                "VALUES 2, 2, 2");
+
+        assertQuery(
+                session,
+                "EXECUTE my_query_2 USING 2, 1, 3",
+                "VALUES 2, 2, 2, 2");
+    }
+
+    @Test
     public void testExecuteUsingWithWithClause()
     {
         String query = "WITH src AS (SELECT * FROM (VALUES (1, 4),(2, 5), (3, 6)) AS t(id1, id2) WHERE id2 = ?)" +
@@ -868,6 +948,18 @@ public abstract class AbstractTestEngineOnlyQueries
                 .row(0, "unknown")
                 .row(1, "bigint")
                 .row(2, "varchar(25)")
+                .build();
+        assertEqualsIgnoreOrder(actual, expected);
+
+        session = Session.builder(getSession())
+                .addPreparedStatement("my_query", "SELECT ? FROM nation WHERE nationkey = ? and name < ? OFFSET ?")
+                .build();
+        actual = computeActual(session, "DESCRIBE INPUT my_query");
+        expected = resultBuilder(session, BIGINT, VARCHAR)
+                .row(0, "unknown")
+                .row(1, "bigint")
+                .row(2, "varchar(25)")
+                .row(3, "bigint")
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
 

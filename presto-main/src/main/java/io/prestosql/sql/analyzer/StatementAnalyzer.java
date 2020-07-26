@@ -933,7 +933,7 @@ class StatementAnalyzer
             analysis.setOrderByExpressions(node, orderByExpressions);
 
             if (node.getOffset().isPresent()) {
-                analyzeOffset(node.getOffset().get());
+                analyzeOffset(node.getOffset().get(), queryBodyScope);
             }
 
             if (node.getLimit().isPresent()) {
@@ -1311,7 +1311,7 @@ class StatementAnalyzer
             analysis.setOrderByExpressions(node, orderByExpressions);
 
             if (node.getOffset().isPresent()) {
-                analyzeOffset(node.getOffset().get());
+                analyzeOffset(node.getOffset().get(), outputScope);
             }
 
             if (node.getLimit().isPresent()) {
@@ -2658,14 +2658,16 @@ class StatementAnalyzer
             return orderByFieldsBuilder.build();
         }
 
-        private void analyzeOffset(Offset node)
+        private void analyzeOffset(Offset node, Scope scope)
         {
             long rowCount;
-            try {
-                rowCount = Long.parseLong(node.getRowCount());
+            if (node.getRowCount() instanceof LongLiteral) {
+                rowCount = ((LongLiteral) node.getRowCount()).getValue();
             }
-            catch (NumberFormatException e) {
-                throw semanticException(TYPE_MISMATCH, node, "Invalid OFFSET row count: %s", node.getRowCount());
+            else {
+                checkState(node.getRowCount() instanceof Parameter, "unexpected OFFSET rowCount: " + node.getRowCount().getClass().getSimpleName());
+                OptionalLong providedValue = analyzeParameterAsRowCount((Parameter) node.getRowCount(), scope, "OFFSET");
+                rowCount = providedValue.orElse(0);
             }
             if (rowCount < 0) {
                 throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, node, "OFFSET row count must be greater or equal to 0 (actual value: %s)", rowCount);

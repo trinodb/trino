@@ -889,7 +889,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.of(new Offset("2")),
+                        Optional.of(new Offset(new LongLiteral("2"))),
                         Optional.empty()));
 
         assertStatement("SELECT * FROM table1 OFFSET 2",
@@ -900,7 +900,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.of(new Offset("2")),
+                        Optional.of(new Offset(new LongLiteral("2"))),
                         Optional.empty()));
 
         Query valuesQuery = query(values(
@@ -914,7 +914,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.of(new Offset("2")),
+                        Optional.of(new Offset(new LongLiteral("2"))),
                         Optional.empty()));
 
         assertStatement("SELECT * FROM (VALUES (1, '1'), (2, '2')) OFFSET 2",
@@ -924,7 +924,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.of(new Offset("2")),
+                        Optional.of(new Offset(new LongLiteral("2"))),
                         Optional.empty()));
     }
 
@@ -2149,6 +2149,39 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
+                        Optional.of(new FetchFirst(new Parameter(2), true)))));
+
+        assertStatement("PREPARE myquery FROM SELECT ?, ? FROM foo OFFSET ? ROWS",
+                new Prepare(identifier("myquery"), simpleQuery(
+                        selectList(new Parameter(0), new Parameter(1)),
+                        table(QualifiedName.of("foo")),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new Offset(new Parameter(2))),
+                        Optional.empty())));
+
+        assertStatement("PREPARE myquery FROM SELECT ? FROM foo OFFSET ? ROWS LIMIT ?",
+                new Prepare(identifier("myquery"), simpleQuery(
+                        selectList(new Parameter(0)),
+                        table(QualifiedName.of("foo")),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new Offset(new Parameter(1))),
+                        Optional.of(new Limit(new Parameter(2))))));
+
+        assertStatement("PREPARE myquery FROM SELECT ? FROM foo OFFSET ? ROWS FETCH FIRST ? ROWS WITH TIES",
+                new Prepare(identifier("myquery"), simpleQuery(
+                        selectList(new Parameter(0)),
+                        table(QualifiedName.of("foo")),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new Offset(new Parameter(1))),
                         Optional.of(new FetchFirst(new Parameter(2), true)))));
     }
 

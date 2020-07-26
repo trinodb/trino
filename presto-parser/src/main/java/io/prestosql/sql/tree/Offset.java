@@ -20,29 +20,33 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
+import static com.google.common.base.Preconditions.checkArgument;
 
 public class Offset
         extends Node
 {
-    private final String rowCount;
+    private final Expression rowCount;
 
-    public Offset(String rowCount)
+    public Offset(Expression rowCount)
     {
         this(Optional.empty(), rowCount);
     }
 
-    public Offset(NodeLocation location, String rowCount)
+    public Offset(NodeLocation location, Expression rowCount)
     {
         this(Optional.of(location), rowCount);
     }
 
-    public Offset(Optional<NodeLocation> location, String rowCount)
+    public Offset(Optional<NodeLocation> location, Expression rowCount)
     {
         super(location);
+        checkArgument(rowCount instanceof LongLiteral || rowCount instanceof Parameter,
+                "unexpected rowCount class: %s",
+                rowCount.getClass().getSimpleName());
         this.rowCount = rowCount;
     }
 
-    public String getRowCount()
+    public Expression getRowCount()
     {
         return rowCount;
     }
@@ -56,7 +60,7 @@ public class Offset
     @Override
     public List<? extends Node> getChildren()
     {
-        return ImmutableList.of();
+        return ImmutableList.of(rowCount);
     }
 
     @Override
@@ -89,10 +93,6 @@ public class Offset
     @Override
     public boolean shallowEquals(Node other)
     {
-        if (!sameClass(this, other)) {
-            return false;
-        }
-
-        return Objects.equals(rowCount, ((Offset) other).rowCount);
+        return sameClass(this, other);
     }
 }
