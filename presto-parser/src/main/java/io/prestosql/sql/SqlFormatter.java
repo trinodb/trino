@@ -334,8 +334,9 @@ public final class SqlFormatter
         @Override
         protected Void visitOffset(Offset node, Integer indent)
         {
-            append(indent, "OFFSET " + node.getRowCount() + " ROWS")
-                    .append('\n');
+            append(indent, "OFFSET ")
+                    .append(formatExpression(node.getRowCount()))
+                    .append(" ROWS\n");
             return null;
         }
 

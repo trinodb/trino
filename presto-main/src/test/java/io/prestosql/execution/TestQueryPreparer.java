@@ -82,6 +82,18 @@ public class TestQueryPreparer
     }
 
     @Test
+    public void testParameterMismatchWithOffset()
+    {
+        Session session = testSessionBuilder()
+                .addPreparedStatement("my_query", "SELECT ? FROM foo OFFSET ? ROWS")
+                .build();
+        assertPrestoExceptionThrownBy(() -> QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query USING 1"))
+                .hasErrorCode(INVALID_PARAMETER_USAGE);
+        assertPrestoExceptionThrownBy(() -> QUERY_PREPARER.prepareQuery(session, "EXECUTE my_query USING 1, 2, 3, 4, 5, 6"))
+                .hasErrorCode(INVALID_PARAMETER_USAGE);
+    }
+
+    @Test
     public void testParameterMismatchWithLimit()
     {
         Session session = testSessionBuilder()
