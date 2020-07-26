@@ -102,6 +102,12 @@ public class Analysis
 
     private final Map<NodeRef<Table>, Query> namedQueries = new LinkedHashMap<>();
 
+    // map expandable query to the node being the inner recursive reference
+    private final Map<NodeRef<Query>, Node> expandableNamedQueries = new LinkedHashMap<>();
+
+    // map inner recursive reference in the expandable query to the recursion base scope
+    private final Map<NodeRef<Node>, Scope> expandableBaseScopes = new LinkedHashMap<>();
+
     // Synthetic scope when a query does not have a FROM clause
     // We need to track this separately because there's no node we can attach it to.
     private final Map<NodeRef<QuerySpecification>, Scope> implicitFromScopes = new LinkedHashMap<>();
@@ -612,6 +618,35 @@ public class Analysis
         requireNonNull(query, "query is null");
 
         namedQueries.put(NodeRef.of(tableReference), query);
+    }
+
+    public void registerExpandableQuery(Query query, Node recursiveReference)
+    {
+        requireNonNull(query, "query is null");
+        requireNonNull(recursiveReference, "recursiveReference is null");
+
+        expandableNamedQueries.put(NodeRef.of(query), recursiveReference);
+    }
+
+    public boolean isExpandableQuery(Query query)
+    {
+        return expandableNamedQueries.containsKey(NodeRef.of(query));
+    }
+
+    public Node getRecursiveReference(Query query)
+    {
+        checkArgument(isExpandableQuery(query), "query is not registered as expandable");
+        return expandableNamedQueries.get(NodeRef.of(query));
+    }
+
+    public void setExpandableBaseScope(Node node, Scope scope)
+    {
+        expandableBaseScopes.put(NodeRef.of(node), scope);
+    }
+
+    public Optional<Scope> getExpandableBaseScope(Node node)
+    {
+        return Optional.ofNullable(expandableBaseScopes.get(NodeRef.of(node)));
     }
 
     public void registerTableForView(Table tableReference)

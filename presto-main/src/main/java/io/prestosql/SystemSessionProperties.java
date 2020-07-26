@@ -106,6 +106,7 @@ public final class SystemSessionProperties
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE = "filter_and_project_min_output_page_size";
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT = "filter_and_project_min_output_page_row_count";
     public static final String DISTRIBUTED_SORT = "distributed_sort";
+    public static final String MAX_RECURSION_DEPTH = "max_recursion_depth";
     public static final String USE_MARK_DISTINCT = "use_mark_distinct";
     public static final String PREFER_PARTIAL_AGGREGATION = "prefer_partial_aggregation";
     public static final String OPTIMIZE_TOP_N_ROW_NUMBER = "optimize_top_n_row_number";
@@ -448,6 +449,15 @@ public final class SystemSessionProperties
                         "Parallelize sort across multiple nodes",
                         featuresConfig.isDistributedSortEnabled(),
                         false),
+                new PropertyMetadata<>(
+                        MAX_RECURSION_DEPTH,
+                        "Maximum recursion depth for recursive common table expression",
+                        INTEGER,
+                        Integer.class,
+                        featuresConfig.getMaxRecursionDepth(),
+                        false,
+                        value -> validateIntegerValue(value, MAX_RECURSION_DEPTH, 1, false),
+                        object -> object),
                 booleanProperty(
                         USE_MARK_DISTINCT,
                         "Implement DISTINCT aggregations using MarkDistinct",
@@ -888,6 +898,11 @@ public final class SystemSessionProperties
     public static boolean isDistributedSortEnabled(Session session)
     {
         return session.getSystemProperty(DISTRIBUTED_SORT, Boolean.class);
+    }
+
+    public static int getMaxRecursionDepth(Session session)
+    {
+        return session.getSystemProperty(MAX_RECURSION_DEPTH, Integer.class);
     }
 
     public static int getMaxGroupingSets(Session session)
