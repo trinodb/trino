@@ -657,11 +657,11 @@ class AstBuilder
             if (context.limitRowCount().ALL() != null) {
                 rowCount = new AllRows(getLocation(context.limitRowCount().ALL()));
             }
-            else if (context.limitRowCount().INTEGER_VALUE() != null) {
-                rowCount = new LongLiteral(getLocation(context.limitRowCount().INTEGER_VALUE()), context.limitRowCount().getText());
+            else if (context.limitRowCount().rowCount().INTEGER_VALUE() != null) {
+                rowCount = new LongLiteral(getLocation(context.limitRowCount().rowCount().INTEGER_VALUE()), context.limitRowCount().getText());
             }
             else {
-                rowCount = new Parameter(getLocation(context.limitRowCount().PARAMETER()), parameterPosition);
+                rowCount = new Parameter(getLocation(context.limitRowCount().rowCount().PARAMETER()), parameterPosition);
                 parameterPosition++;
             }
 
