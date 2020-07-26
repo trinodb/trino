@@ -16,31 +16,39 @@ package io.prestosql.pinot;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import io.prestosql.pinot.client.PinotHostMapper;
 import io.prestosql.pinot.util.TestingPinotCluster;
+import io.prestosql.pinot.util.TestingPinotHostMapper;
+import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.kafka.TestingKafka;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import java.time.Instant;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static java.util.Objects.requireNonNull;
 
 @Test(singleThreaded = true)
 public class TestMinimalFunctionality
+        extends AbstractTestQueryFramework
 {
     public static final String TOPIC_AND_TABLE = "my_table";
 
     private TestingPinotCluster pinot;
     private TestingKafka kafka;
 
-    @BeforeClass
-    public void setup()
+    @Override
+    protected QueryRunner createQueryRunner()
             throws Exception
     {
         kafka = new TestingKafka();
@@ -62,6 +70,16 @@ public class TestMinimalFunctionality
         produceRecords(builder.build());
         pinot.createSchema(getClass().getClassLoader().getResourceAsStream("schema.json"), TOPIC_AND_TABLE);
         pinot.addRealTimeTable(getClass().getClassLoader().getResourceAsStream("realtimeSpec.json"), TOPIC_AND_TABLE);
+
+        Map<String, String> pinotProperties = ImmutableMap.<String, String>builder()
+                .put("pinot.controller-urls", pinot.getControllerConnectString())
+                .build();
+
+        return PinotQueryRunner.createPinotQueryRunner(
+                ImmutableMap.of(),
+                pinotProperties,
+                Optional.of(binder -> newOptionalBinder(binder, PinotHostMapper.class).setBinding()
+                        .toInstance(new TestingPinotHostMapper(pinot.getBrokerHostAndPort(), pinot.getServerHostAndPort()))));
     }
 
     @AfterClass(alwaysRun = true)
