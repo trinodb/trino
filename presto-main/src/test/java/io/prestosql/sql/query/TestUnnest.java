@@ -211,5 +211,14 @@ public class TestUnnest
                         "AS t(a, b) " +
                         "CROSS JOIN UNNEST(a, b) t(x, y, z, w, u)"))
                 .matches("VALUES (1, 3)");
+
+        // Dereference without named subfields
+        assertThat(assertions.query(
+                "SELECT x, z.a FROM (" +
+                        "VALUES (" +
+                        "   ARRAY[ROW(1, 2, CAST(ROW(3, 4) AS ROW(a INTEGER, b INTEGER)))])) " +
+                        "AS t(a) " +
+                        "CROSS JOIN UNNEST(a) t(x, y, z)"))
+                .matches("VALUES (1, 3)");
     }
 }

@@ -23,6 +23,7 @@ import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.planner.DesugarRowSubscriptRewriter;
 import io.prestosql.sql.planner.FunctionCallBuilder;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.SymbolAllocator;
@@ -36,8 +37,10 @@ import io.prestosql.sql.tree.DereferenceExpression;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.LambdaArgumentDeclaration;
 import io.prestosql.sql.tree.LambdaExpression;
+import io.prestosql.sql.tree.LongLiteral;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.sql.tree.Row;
+import io.prestosql.sql.tree.SubscriptExpression;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.type.FunctionType;
 
@@ -283,7 +286,7 @@ public class PruneUnnestMappings
         // Create new lambda expression for pruned element
         RowType elementRowType = (RowType) (arrayType.getElementType());
         Symbol lambdaSymbol = symbolAllocator.newSymbol("transformarray$element", arrayType.getElementType());
-        LambdaExpression lambdaExpression = createLambdaExpression(lambdaSymbol, elementRowType.getFields(), newRowFields, outputSymbols);
+        LambdaExpression lambdaExpression = createLambdaExpression(lambdaSymbol, elementRowType.getFields(), newRowFields, outputSymbols, symbolAllocator, session);
 
         // Construct a transformed array using transform function
         Expression transformedArray = new FunctionCallBuilder(metadata)
@@ -304,13 +307,20 @@ public class PruneUnnestMappings
             Symbol lambdaSymbol,
             List<RowType.Field> originalFields,
             List<Expression> newFields,
-            List<Symbol> outputSymbols)
+            List<Symbol> outputSymbols,
+            SymbolAllocator symbolAllocator,
+            Session session)
     {
         Map<Expression, Expression> lambdaMapping = IntStream.range(0, outputSymbols.size()).boxed()
                 .collect(toImmutableMap(
                         fieldIndex -> outputSymbols.get(fieldIndex).toSymbolReference(),
                         fieldIndex -> {
                             RowType.Field field = originalFields.get(fieldIndex);
+                            if (field.getName().isEmpty()) {
+                                // Convert subscript to cast + dereference
+                                Expression subscript = new SubscriptExpression(lambdaSymbol.toSymbolReference(), new LongLiteral("" + (fieldIndex + 1)));
+                                return DesugarRowSubscriptRewriter.rewrite(subscript, session, typeAnalyzer, symbolAllocator);
+                            }
                             return new DereferenceExpression(lambdaSymbol.toSymbolReference(), identifier(field.getName().get()));
                         }));
 
