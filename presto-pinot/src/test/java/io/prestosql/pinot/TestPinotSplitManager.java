@@ -75,7 +75,6 @@ public class TestPinotSplitManager
 
     private void testSegmentSplitsHelperNoFilter(PinotTableHandle table, int segmentsPerSplit, int expectedNumSplits, boolean expectFilter)
     {
-        PinotConfig pinotConfig = new PinotConfig().setPreferBrokerQueries(false);
         PinotTableHandle pinotTableHandle = new PinotTableHandle(table.getSchemaName(), table.getTableName());
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, segmentsPerSplit, false);
         assertSplits(splits, expectedNumSplits, SEGMENT);
@@ -84,7 +83,6 @@ public class TestPinotSplitManager
 
     private void testSegmentSplitsHelperWithFilter(PinotTableHandle table, int segmentsPerSplit, int expectedNumSplits)
     {
-        PinotConfig pinotConfig = new PinotConfig().setPreferBrokerQueries(false);
         PinotTableHandle pinotTableHandle = new PinotTableHandle(table.getSchemaName(), table.getTableName());
         List<PinotSplit> splits = getSplitsHelper(pinotTableHandle, segmentsPerSplit, false);
         assertSplits(splits, expectedNumSplits, SEGMENT);
