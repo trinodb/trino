@@ -2371,9 +2371,7 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testWithRecursive()
     {
-        assertQueryFails(
-                "WITH RECURSIVE a AS (SELECT 123) SELECT * FROM a",
-                "line 1:1: Recursive WITH queries are not supported");
+        assertQuery("WITH RECURSIVE a(x) AS (SELECT 123) SELECT * FROM a");
     }
 
     @Test

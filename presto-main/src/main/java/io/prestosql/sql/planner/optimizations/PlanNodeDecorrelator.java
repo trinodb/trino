@@ -57,6 +57,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.sql.planner.optimizations.SymbolMapper.symbolMapper;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.tree.ComparisonExpression.Operator.EQUAL;
 import static java.lang.Math.toIntExact;
@@ -516,7 +517,7 @@ public class PlanNodeDecorrelator
 
         SymbolMapper getCorrelatedSymbolMapper()
         {
-            return new SymbolMapper(correlatedSymbolsMapping.asMap().entrySet().stream()
+            return symbolMapper(correlatedSymbolsMapping.asMap().entrySet().stream()
                     .collect(toImmutableMap(Map.Entry::getKey, symbols -> Iterables.getLast(symbols.getValue()))));
         }
 
