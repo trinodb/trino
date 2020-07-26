@@ -19,6 +19,8 @@ import io.prestosql.client.IntervalDayTime;
 import io.prestosql.client.IntervalYearMonth;
 import io.prestosql.client.QueryData;
 import io.prestosql.client.QueryStatusInfo;
+import io.prestosql.client.Row;
+import io.prestosql.client.RowField;
 import io.prestosql.client.Warning;
 import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.spi.type.ArrayType;
@@ -44,7 +46,6 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -252,8 +253,10 @@ public class TestingPrestoClient
         }
         else if (type instanceof RowType) {
             List<Type> fieldTypes = type.getTypeParameters();
-            Collection<?> values = ((Map<?, ?>) value).values();
-            return dataToRow(fieldTypes).apply(new ArrayList<>(values));
+            List<Object> fieldValues = ((Row) value).getFields().stream()
+                    .map(RowField::getValue)
+                    .collect(toList()); // nullable
+            return dataToRow(fieldTypes).apply(fieldValues);
         }
         else if (type instanceof DecimalType) {
             return new BigDecimal((String) value);

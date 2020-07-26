@@ -19,7 +19,6 @@ import io.prestosql.client.ClientTypeSignatureParameter.ParameterKind;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -104,7 +103,7 @@ final class FixJsonDataUtils
             return fixedValue;
         }
         if (signature.getRawType().equals(ROW)) {
-            Map<String, Object> fixedValue = new LinkedHashMap<>();
+            Row.Builder row = Row.builder();
             List<?> listValue = ((List<?>) value);
             checkArgument(listValue.size() == signature.getArguments().size(), "Mismatched data values and row type");
             for (int i = 0; i < listValue.size(); i++) {
@@ -114,10 +113,15 @@ final class FixJsonDataUtils
                         "Unexpected parameter [%s] for row type",
                         parameter);
                 NamedClientTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
-                String key = namedTypeSignature.getName().orElse("field" + i);
-                fixedValue.put(key, fixValue(namedTypeSignature.getTypeSignature(), listValue.get(i)));
+                Object fixedValue = fixValue(namedTypeSignature.getTypeSignature(), listValue.get(i));
+                if (namedTypeSignature.getName().isPresent()) {
+                    row.addField(namedTypeSignature.getName().get(), fixedValue);
+                }
+                else {
+                    row.addUnnamedField(fixedValue);
+                }
             }
-            return fixedValue;
+            return row.build();
         }
         switch (signature.getRawType()) {
             case BIGINT:
