@@ -123,6 +123,14 @@ public class TestMinimalFunctionality
     }
 
     @Test
+    public void testCountStarQueries()
+    {
+        assertQuery("SELECT COUNT(*) FROM \"SELECT * FROM " + TOPIC_AND_TABLE + " WHERE vendor != 'vendor7'\"", "VALUES(6)");
+        assertQuery("SELECT COUNT(*) FROM " + TOPIC_AND_TABLE + " WHERE vendor != 'vendor7'", "VALUES(6)");
+        assertQuery("SELECT \"count(*)\" FROM \"SELECT COUNT(*) FROM " + TOPIC_AND_TABLE + " WHERE vendor != 'vendor7'\"", "VALUES(6)");
+    }
+
+    @Test
     public void testLimitForSegmentQueries()
     {
         assertQuerySucceeds("SELECT * FROM " + TOPIC_AND_TABLE + " WHERE vendor != 'vendor7'");
