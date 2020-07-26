@@ -168,8 +168,12 @@ queryNoWith:
       ;
 
 limitRowCount
+    : ALL
+    | rowCount
+    ;
+
+rowCount
     : INTEGER_VALUE
-    | ALL
     | PARAMETER
     ;
 
