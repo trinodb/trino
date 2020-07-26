@@ -49,8 +49,6 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.prestosql.pinot.PinotErrorCode.PINOT_DECODE_ERROR;
 import static io.prestosql.pinot.PinotErrorCode.PINOT_EXCEPTION;
 import static io.prestosql.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -200,7 +198,7 @@ public class PinotSegmentPageSource
 
             this.columnTypes = columnHandles
                     .stream()
-                    .map(this::getTypeForBlock)
+                    .map(columnHandle -> columnHandle.getDataType())
                     .collect(Collectors.toList());
             isPinotDataFetched = true;
         }
@@ -464,14 +462,6 @@ public class PinotSegmentPageSource
             }
         }
         return estimatedNonNumericColumnSize;
-    }
-
-    Type getTypeForBlock(PinotColumnHandle pinotColumnHandle)
-    {
-        if (pinotColumnHandle.getDataType().equals(INTEGER)) {
-            return BIGINT;
-        }
-        return pinotColumnHandle.getDataType();
     }
 
     private static class PinotDataTableWithSize

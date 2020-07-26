@@ -21,6 +21,7 @@ import io.prestosql.pinot.client.PinotHostMapper;
 import io.prestosql.pinot.util.TestingPinotCluster;
 import io.prestosql.pinot.util.TestingPinotHostMapper;
 import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.kafka.TestingKafka;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -34,9 +35,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static java.util.Objects.requireNonNull;
+import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestMinimalFunctionality
@@ -143,6 +147,23 @@ public class TestMinimalFunctionality
                         "  FROM " + TOPIC_AND_TABLE +
                         "  WHERE vendor = 'vendor1'\"",
                 "VALUES (3, 3, 3, 3, 2)");
+    }
+
+    @Test
+    public void testBrokerQueriesWithAvg()
+    {
+        assertQuery("SELECT city, \"avg(lucky_number)\", \"avg(price)\", \"avg(long_number)\"" +
+                "  FROM \"SELECT city, AVG(price), AVG(lucky_number), AVG(long_number) FROM my_table WHERE vendor != 'vendor7' GROUP BY city\"", "VALUES" +
+                "  ('New York', 7.0, 5.5, 10000.0)," +
+                "  ('Los Angeles', 7.75, 6.25, 10000.0)");
+    }
+
+    @Test
+    public void testIntegerType()
+    {
+        MaterializedResult result = computeActual("SELECT lucky_number FROM " + TOPIC_AND_TABLE + " WHERE vendor = 'vendor1'");
+        assertEquals(getOnlyElement(result.getTypes()), INTEGER);
+        assertEquals(result.getOnlyValue(), 5);
     }
 
     @Test
