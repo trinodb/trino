@@ -63,7 +63,6 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -126,25 +125,6 @@ public class ClickHouseClient
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
     }
 
-    @Override
-    protected Collection<String> listSchemas(Connection connection)
-    {
-        // for clickhouse, we need to list catalogs instead of schemas
-        try (ResultSet resultSet = connection.getMetaData().getCatalogs()) {
-            ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
-            while (resultSet.next()) {
-                String schemaName = resultSet.getString("TABLE_CAT");
-                // skip internal schemas
-                if (!schemaName.equalsIgnoreCase("information_schema") && !schemaName.equalsIgnoreCase("clickhouse")) {
-                    schemaNames.add(schemaName);
-                }
-            }
-            return schemaNames.build();
-        }
-        catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
-    }
 
     @Override
     public void abortReadConnection(Connection connection)
@@ -241,14 +221,6 @@ public class ClickHouseClient
                 null,
                 escapeNamePattern(tableName, metadata.getSearchStringEscape()).orElse(null),
                 new String[] {"TABLE", "VIEW"});
-    }
-
-    @Override
-    protected String getTableSchemaName(ResultSet resultSet)
-            throws SQLException
-    {
-        // clickhouse uses catalogs instead of schemas
-        return resultSet.getString("TABLE_CAT");
     }
 
     @Override

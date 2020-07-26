@@ -18,7 +18,6 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
 import com.google.inject.Singleton;
-import io.airlift.log.Logger;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DecimalModule;
@@ -36,8 +35,6 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 public class ClickHouseClientModule
         implements Module
 {
-    private static final Logger log = Logger.get(ClickHouseClientModule.class);
-
     @Override
     public void configure(Binder binder)
     {

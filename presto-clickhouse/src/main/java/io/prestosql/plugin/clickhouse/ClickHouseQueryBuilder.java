@@ -15,7 +15,6 @@ package io.prestosql.plugin.clickhouse;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import io.airlift.log.Logger;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
@@ -113,8 +112,6 @@ public class ClickHouseQueryBuilder
             Function<String, String> sqlFunction)
             throws SQLException
     {
-        Logger log = Logger.get(QueryBuilder.class);
-
         StringBuilder sql = new StringBuilder();
 
         String columnNames = columns.stream()
