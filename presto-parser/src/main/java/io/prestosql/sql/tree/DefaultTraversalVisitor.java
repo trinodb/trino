@@ -271,6 +271,14 @@ public abstract class DefaultTraversalVisitor<C>
     }
 
     @Override
+    protected Void visitFetchFirst(FetchFirst node, C context)
+    {
+        node.getRowCount().ifPresent(this::process);
+
+        return null;
+    }
+
+    @Override
     protected Void visitSimpleCaseExpression(SimpleCaseExpression node, C context)
     {
         process(node.getOperand(), context);

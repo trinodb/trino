@@ -496,8 +496,6 @@ public class TestAnalyzer
     @Test
     public void testFetchFirstInvalidRowCount()
     {
-        assertFails("SELECT * FROM t1 FETCH FIRST 987654321098765432109876543210 ROWS ONLY")
-                .hasErrorCode(TYPE_MISMATCH);
         assertFails("SELECT * FROM t1 FETCH FIRST 0 ROWS ONLY")
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
     }
