@@ -19,6 +19,7 @@ import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.kafka.KafkaTopicDescription;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.testing.TestingPrestoClient;
+import io.prestosql.testing.kafka.TestingKafka;
 import org.apache.kafka.clients.producer.KafkaProducer;
 
 import java.io.IOException;

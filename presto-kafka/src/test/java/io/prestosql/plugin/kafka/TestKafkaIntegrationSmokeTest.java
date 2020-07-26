@@ -15,7 +15,6 @@ package io.prestosql.plugin.kafka;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.kafka.util.TestingKafka;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
@@ -23,6 +22,7 @@ import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
+import io.prestosql.testing.kafka.TestingKafka;
 import io.prestosql.tpch.TpchTable;
 import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerRecord;

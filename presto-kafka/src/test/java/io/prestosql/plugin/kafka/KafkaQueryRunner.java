@@ -24,11 +24,11 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.plugin.kafka.util.CodecSupplier;
 import io.prestosql.plugin.kafka.util.TestUtils;
-import io.prestosql.plugin.kafka.util.TestingKafka;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.TestingPrestoClient;
+import io.prestosql.testing.kafka.TestingKafka;
 import io.prestosql.tpch.TpchTable;
 
 import java.util.ArrayList;
