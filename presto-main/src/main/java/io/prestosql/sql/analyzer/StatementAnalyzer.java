@@ -2723,28 +2723,7 @@ class StatementAnalyzer
             }
             else {
                 checkState(node.getRowCount() instanceof Parameter, "unexpected LIMIT rowCount: " + node.getRowCount().getClass().getSimpleName());
-                if (analysis.isDescribe()) {
-                    analyzeExpression(node.getRowCount(), scope);
-                    analysis.addCoercion(node.getRowCount(), BIGINT, false);
-                    rowCount = OptionalLong.empty();
-                }
-                else {
-                    // validate parameter index
-                    analyzeExpression(node.getRowCount(), scope);
-                    Expression providedValue = analysis.getParameters().get(NodeRef.of(node.getRowCount()));
-                    try {
-                        rowCount = OptionalLong.of((long) ExpressionInterpreter.evaluateConstantExpression(
-                                providedValue,
-                                BIGINT,
-                                metadata,
-                                session,
-                                accessControl,
-                                analysis.getParameters()));
-                    }
-                    catch (VerifyException e) {
-                        throw semanticException(INVALID_ARGUMENTS, node, "Non constant parameter value for LIMIT: %s", providedValue);
-                    }
-                }
+                rowCount = analyzeParameterAsRowCount((Parameter) node.getRowCount(), scope);
             }
             rowCount.ifPresent(count -> {
                 if (count < 0) {
@@ -2755,6 +2734,32 @@ class StatementAnalyzer
             analysis.setLimit(node, rowCount);
 
             return false;
+        }
+
+        private OptionalLong analyzeParameterAsRowCount(Parameter parameter, Scope scope)
+        {
+            if (analysis.isDescribe()) {
+                analyzeExpression(parameter, scope);
+                analysis.addCoercion(parameter, BIGINT, false);
+                return OptionalLong.empty();
+            }
+            else {
+                // validate parameter index
+                analyzeExpression(parameter, scope);
+                Expression providedValue = analysis.getParameters().get(NodeRef.of(parameter));
+                try {
+                    return OptionalLong.of((long) ExpressionInterpreter.evaluateConstantExpression(
+                            providedValue,
+                            BIGINT,
+                            metadata,
+                            session,
+                            accessControl,
+                            analysis.getParameters()));
+                }
+                catch (VerifyException e) {
+                    throw semanticException(INVALID_ARGUMENTS, parameter, "Non constant parameter value for LIMIT: %s", providedValue);
+                }
+            }
         }
 
         private Scope createAndAssignScope(Node node, Optional<Scope> parentScope)
