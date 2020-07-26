@@ -487,13 +487,6 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testOffsetInvalidRowCount()
-    {
-        assertFails("SELECT * FROM t1 OFFSET 987654321098765432109876543210 ROWS")
-                .hasErrorCode(TYPE_MISMATCH);
-    }
-
-    @Test
     public void testFetchFirstInvalidRowCount()
     {
         assertFails("SELECT * FROM t1 FETCH FIRST 0 ROWS ONLY")

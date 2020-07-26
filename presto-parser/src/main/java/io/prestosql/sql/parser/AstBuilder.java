@@ -645,6 +645,19 @@ class AstBuilder
             orderBy = Optional.of(new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class)));
         }
 
+        Optional<Offset> offset = Optional.empty();
+        if (context.OFFSET() != null) {
+            Expression rowCount;
+            if (context.offset.INTEGER_VALUE() != null) {
+                rowCount = new LongLiteral(getLocation(context.offset.INTEGER_VALUE()), context.offset.getText());
+            }
+            else {
+                rowCount = new Parameter(getLocation(context.offset.PARAMETER()), parameterPosition);
+                parameterPosition++;
+            }
+            offset = Optional.of(new Offset(Optional.of(getLocation(context.OFFSET())), rowCount));
+        }
+
         Optional<Node> limit = Optional.empty();
         if (context.FETCH() != null) {
             Optional<Expression> rowCount = Optional.empty();
@@ -676,11 +689,6 @@ class AstBuilder
             }
 
             limit = Optional.of(new Limit(Optional.of(getLocation(context.LIMIT())), rowCount));
-        }
-
-        Optional<Offset> offset = Optional.empty();
-        if (context.OFFSET() != null) {
-            offset = Optional.of(new Offset(Optional.of(getLocation(context.OFFSET())), getTextIfPresent(context.offset).orElseThrow(() -> new IllegalStateException("Missing OFFSET row count"))));
         }
 
         if (term instanceof QuerySpecification) {
