@@ -330,7 +330,7 @@ public class TestJdbcCompatibility
     {
         String query = "SELECT CAST(ROW(1, 2e0) AS ROW(x BIGINT, y DOUBLE))";
         checkRepresentation(query, JAVA_OBJECT, (rs, column) -> {
-            Map<String, Object> values = (Map<String, Object>) rs.getObject(column);
+            Map<String, Object> values = getRowAsMap(rs, column);
 
             assertThat(values).containsEntry("x", 1L);
             assertThat(values).containsEntry("y", 2e0);
@@ -453,13 +453,25 @@ public class TestJdbcCompatibility
         return ((Object[]) array.getArray(1, 1))[0];
     }
 
-    @SuppressWarnings("UncheckedCast")
+    @SuppressWarnings("unchecked")
     private static Object getSingleElementFromRow(ResultSet resultSet, int columnIndex)
             throws SQLException
     {
-        return ((Map<String, Object>) resultSet.getObject(columnIndex)).get("timestamp");
+        return getRowAsMap(resultSet, columnIndex).get("timestamp");
     }
 
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> getRowAsMap(ResultSet resultSet, int columnIndex)
+            throws SQLException
+    {
+        Object value = resultSet.getObject(columnIndex);
+        if (value != null && !(value instanceof Map)) {
+            value = resultSet.getObject(columnIndex, Map.class);
+        }
+        return (Map<String, Object>) value;
+    }
+
+    @SuppressWarnings("unchecked")
     private static Object getSingleElementFromMap(ResultSet resultSet, int columnIndex)
             throws SQLException
     {

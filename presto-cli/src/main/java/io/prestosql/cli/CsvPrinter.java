@@ -15,6 +15,7 @@ package io.prestosql.cli;
 
 import au.com.bytecode.opencsv.CSVWriter;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.client.Row;
 
 import java.io.IOException;
 import java.io.Writer;
@@ -24,6 +25,7 @@ import java.util.Map;
 import static io.prestosql.cli.AlignedTablePrinter.formatHexDump;
 import static io.prestosql.cli.AlignedTablePrinter.formatList;
 import static io.prestosql.cli.AlignedTablePrinter.formatMap;
+import static io.prestosql.cli.AlignedTablePrinter.formatRow;
 import static java.util.Objects.requireNonNull;
 
 public class CsvPrinter
@@ -123,6 +125,10 @@ public class CsvPrinter
 
         if (o instanceof List) {
             return formatList((List<?>) o);
+        }
+
+        if (o instanceof Row) {
+            return formatRow((Row) o);
         }
 
         if (o instanceof byte[]) {

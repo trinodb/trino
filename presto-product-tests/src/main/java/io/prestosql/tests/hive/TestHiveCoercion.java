@@ -34,10 +34,8 @@ import org.testng.annotations.Test;
 import java.math.BigDecimal;
 import java.sql.JDBCType;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Optional;
 import java.util.stream.IntStream;
 
@@ -63,7 +61,6 @@ import static java.sql.JDBCType.REAL;
 import static java.sql.JDBCType.SMALLINT;
 import static java.sql.JDBCType.VARCHAR;
 import static java.util.stream.Collectors.toList;
-import static org.testng.Assert.assertEquals;
 
 public class TestHiveCoercion
         extends HiveProductTest
@@ -346,9 +343,24 @@ public class TestHiveCoercion
         assertColumnTypes(queryResult, tableName);
         List<Row> expectedRows = ImmutableList.of(
                 row(
-                        asMap("keep", "as is", "ti2si", (short) -1, "si2int", 100, "int2bi", 2323L, "bi2vc", "12345"),
-                        ImmutableList.of(asMap("ti2int", 2, "si2bi", -101L, "bi2vc", "12345")),
-                        asMap(2, asMap("ti2bi", -3L, "int2bi", 2323L, "float2double", 0.5, "add", null)),
+                        rowBuilder()
+                                .addField("keep", "as is")
+                                .addField("ti2si", (short) -1)
+                                .addField("si2int", 100)
+                                .addField("int2bi", 2323L)
+                                .addField("bi2vc", "12345")
+                                .build(),
+                        ImmutableList.of(rowBuilder()
+                                .addField("ti2int", 2)
+                                .addField("si2bi", -101L)
+                                .addField("bi2vc", "12345")
+                                .build()),
+                        ImmutableMap.of(2, rowBuilder()
+                                .addField("ti2bi", -3L)
+                                .addField("int2bi", 2323L)
+                                .addField("float2double", 0.5)
+                                .addField("add", null)
+                                .build()),
                         -1,
                         2,
                         -3L,
@@ -370,9 +382,24 @@ public class TestHiveCoercion
                         "ab",
                         1),
                 row(
-                        asMap("keep", null, "ti2si", (short) 1, "si2int", -100, "int2bi", -2323L, "bi2vc", "-12345"),
-                        ImmutableList.of(asMap("ti2int", -2, "si2bi", 101L, "bi2vc", "-12345")),
-                        ImmutableMap.of(-2, asMap("ti2bi", null, "int2bi", -2323L, "float2double", -1.5, "add", null)),
+                        rowBuilder()
+                                .addField("keep", null)
+                                .addField("ti2si", (short) 1)
+                                .addField("si2int", -100)
+                                .addField("int2bi", -2323L)
+                                .addField("bi2vc", "-12345")
+                                .build(),
+                        ImmutableList.of(rowBuilder()
+                                .addField("ti2int", -2)
+                                .addField("si2bi", 101L)
+                                .addField("bi2vc", "-12345")
+                                .build()),
+                        ImmutableMap.of(-2, rowBuilder()
+                                .addField("ti2bi", null)
+                                .addField("int2bi", -2323L)
+                                .addField("float2double", -1.5)
+                                .addField("add", null)
+                                .build()),
                         1,
                         -2,
                         null,
@@ -521,16 +548,9 @@ public class TestHiveCoercion
         return tableHandle;
     }
 
-    // This help function should only be used when the map contains null value.
-    // Otherwise, use ImmutableMap.
-    private static Map<Object, Object> asMap(Object... objects)
+    private io.prestosql.jdbc.Row.Builder rowBuilder()
     {
-        assertEquals(objects.length % 2, 0, "number of objects must be even");
-        Map<Object, Object> struct = new HashMap<>();
-        for (int i = 0; i < objects.length; i += 2) {
-            struct.put(objects[i], objects[i + 1]);
-        }
-        return struct;
+        return io.prestosql.jdbc.Row.builder();
     }
 
     private static Row project(Row row, int... columns)

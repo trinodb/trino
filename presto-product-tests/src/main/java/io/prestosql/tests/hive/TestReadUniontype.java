@@ -13,6 +13,7 @@
  */
 package io.prestosql.tests.hive;
 
+import io.prestosql.jdbc.Row;
 import io.prestosql.tempto.AfterTestWithContext;
 import io.prestosql.tempto.BeforeTestWithContext;
 import io.prestosql.tempto.query.QueryResult;
@@ -21,16 +22,14 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.util.Arrays;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 import static io.prestosql.tests.TestGroups.SMOKE;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
 
 public class TestReadUniontype
         extends HiveProductTest
@@ -140,14 +139,14 @@ public class TestReadUniontype
         }
     }
 
+    // TODO use Row as expected too, and use tempto QueryAssert
     private static void assertStructEquals(Object actual, Object[] expected)
     {
-        assertTrue(actual instanceof LinkedHashMap);
-        Map<String, Object> actualStruct = (LinkedHashMap<String, Object>) actual;
-        assertEquals(actualStruct.size(), expected.length);
-        int i = 0;
-        for (Object fieldValue : actualStruct.values()) {
-            assertEquals(fieldValue, expected[i++]);
+        assertThat(actual).isInstanceOf(Row.class);
+        Row actualRow = (Row) actual;
+        assertEquals(actualRow.getFields().size(), expected.length);
+        for (int i = 0; i < actualRow.getFields().size(); i++) {
+            assertEquals(actualRow.getFields().get(i).getValue(), expected[i]);
         }
     }
 }
