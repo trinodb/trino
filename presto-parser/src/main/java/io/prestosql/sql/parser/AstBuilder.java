@@ -647,7 +647,17 @@ class AstBuilder
 
         Optional<Node> limit = Optional.empty();
         if (context.FETCH() != null) {
-            limit = Optional.of(new FetchFirst(Optional.of(getLocation(context.FETCH())), getTextIfPresent(context.fetchFirst), context.TIES() != null));
+            Optional<Expression> rowCount = Optional.empty();
+            if (context.fetchFirst != null) {
+                if (context.fetchFirst.INTEGER_VALUE() != null) {
+                    rowCount = Optional.of(new LongLiteral(getLocation(context.fetchFirst.INTEGER_VALUE()), context.fetchFirst.getText()));
+                }
+                else {
+                    rowCount = Optional.of(new Parameter(getLocation(context.fetchFirst.PARAMETER()), parameterPosition));
+                    parameterPosition++;
+                }
+            }
+            limit = Optional.of(new FetchFirst(Optional.of(getLocation(context.FETCH())), rowCount, context.TIES() != null));
         }
         else if (context.LIMIT() != null) {
             if (context.limitRowCount() == null) {
