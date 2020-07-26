@@ -168,10 +168,10 @@ queryNoWith:
       ;
 
 limitRowCount
-     : INTEGER_VALUE
-     | ALL
-     | PARAMETER
-     ;
+    : INTEGER_VALUE
+    | ALL
+    | PARAMETER
+    ;
 
 queryTerm
     : queryPrimary                                                             #queryTermDefault
