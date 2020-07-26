@@ -940,7 +940,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.of(new FetchFirst("2"))));
+                        Optional.of(new FetchFirst(new LongLiteral("2")))));
 
         assertStatement("SELECT * FROM table1 FETCH NEXT ROW ONLY",
                 simpleQuery(
@@ -988,7 +988,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.of(new FetchFirst("2", true))));
+                        Optional.of(new FetchFirst(new LongLiteral("2"), true))));
 
         assertStatement("SELECT * FROM table1 FETCH NEXT ROW WITH TIES",
                 simpleQuery(
@@ -2128,6 +2128,28 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.of(new Limit(new Parameter(2))))));
+
+        assertStatement("PREPARE myquery FROM SELECT ? FROM foo FETCH FIRST ? ROWS ONLY",
+                new Prepare(identifier("myquery"), simpleQuery(
+                        selectList(new Parameter(0)),
+                        table(QualifiedName.of("foo")),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new FetchFirst(new Parameter(1))))));
+
+        assertStatement("PREPARE myquery FROM SELECT ?, ? FROM foo FETCH NEXT ? ROWS WITH TIES",
+                new Prepare(identifier("myquery"), simpleQuery(
+                        selectList(new Parameter(0), new Parameter(1)),
+                        table(QualifiedName.of("foo")),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new FetchFirst(new Parameter(2), true)))));
     }
 
     @Test

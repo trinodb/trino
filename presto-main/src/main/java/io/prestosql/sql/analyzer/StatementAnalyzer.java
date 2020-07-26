@@ -2683,31 +2683,33 @@ class StatementAnalyzer
                     node instanceof FetchFirst || node instanceof Limit,
                     "Invalid limit node type. Expected: FetchFirst or Limit. Actual: %s", node.getClass().getName());
             if (node instanceof FetchFirst) {
-                return analyzeLimit((FetchFirst) node);
+                return analyzeLimit((FetchFirst) node, scope);
             }
             else {
                 return analyzeLimit((Limit) node, scope);
             }
         }
 
-        private boolean analyzeLimit(FetchFirst node)
+        private boolean analyzeLimit(FetchFirst node, Scope scope)
         {
-            if (node.getRowCount().isEmpty()) {
-                analysis.setLimit(node, 1);
+            long rowCount = 1;
+            if (node.getRowCount().isPresent()) {
+                Expression count = node.getRowCount().get();
+                if (count instanceof LongLiteral) {
+                    rowCount = ((LongLiteral) count).getValue();
+                }
+                else {
+                    checkState(count instanceof Parameter, "unexpected FETCH FIRST rowCount: " + count.getClass().getSimpleName());
+                    OptionalLong providedValue = analyzeParameterAsRowCount((Parameter) count, scope, "FETCH FIRST");
+                    if (providedValue.isPresent()) {
+                        rowCount = providedValue.getAsLong();
+                    }
+                }
             }
-            else {
-                long rowCount;
-                try {
-                    rowCount = Long.parseLong(node.getRowCount().get());
-                }
-                catch (NumberFormatException e) {
-                    throw semanticException(TYPE_MISMATCH, node, "Invalid FETCH FIRST row count: %s", node.getRowCount().get());
-                }
-                if (rowCount <= 0) {
-                    throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, node, "FETCH FIRST row count must be positive (actual value: %s)", rowCount);
-                }
-                analysis.setLimit(node, rowCount);
+            if (rowCount <= 0) {
+                throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, node, "FETCH FIRST row count must be positive (actual value: %s)", rowCount);
             }
+            analysis.setLimit(node, rowCount);
 
             return node.isWithTies();
         }
@@ -2723,7 +2725,7 @@ class StatementAnalyzer
             }
             else {
                 checkState(node.getRowCount() instanceof Parameter, "unexpected LIMIT rowCount: " + node.getRowCount().getClass().getSimpleName());
-                rowCount = analyzeParameterAsRowCount((Parameter) node.getRowCount(), scope);
+                rowCount = analyzeParameterAsRowCount((Parameter) node.getRowCount(), scope, "LIMIT");
             }
             rowCount.ifPresent(count -> {
                 if (count < 0) {
@@ -2736,7 +2738,7 @@ class StatementAnalyzer
             return false;
         }
 
-        private OptionalLong analyzeParameterAsRowCount(Parameter parameter, Scope scope)
+        private OptionalLong analyzeParameterAsRowCount(Parameter parameter, Scope scope, String context)
         {
             if (analysis.isDescribe()) {
                 analyzeExpression(parameter, scope);
@@ -2758,10 +2760,10 @@ class StatementAnalyzer
                             analysis.getParameters());
                 }
                 catch (VerifyException e) {
-                    throw semanticException(INVALID_ARGUMENTS, parameter, "Non constant parameter value for LIMIT: %s", providedValue);
+                    throw semanticException(INVALID_ARGUMENTS, parameter, "Non constant parameter value for %s: %s", context, providedValue);
                 }
                 if (value == null) {
-                    throw semanticException(INVALID_ARGUMENTS, parameter, "Parameter value provided for LIMIT is NULL: %s", providedValue);
+                    throw semanticException(INVALID_ARGUMENTS, parameter, "Parameter value provided for %s is NULL: %s", context, providedValue);
                 }
                 return OptionalLong.of((long) value);
             }
