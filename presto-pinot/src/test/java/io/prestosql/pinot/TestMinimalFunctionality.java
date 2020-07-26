@@ -73,6 +73,7 @@ public class TestMinimalFunctionality
 
         Map<String, String> pinotProperties = ImmutableMap.<String, String>builder()
                 .put("pinot.controller-urls", pinot.getControllerConnectString())
+                .put("pinot.max-rows-per-split-for-segment-queries", "6")
                 .build();
 
         return PinotQueryRunner.createPinotQueryRunner(
@@ -86,6 +87,13 @@ public class TestMinimalFunctionality
     public void tearDown()
     {
         closeAllRuntimeException(pinot, kafka);
+    }
+
+    @Test
+    public void testLimitForSegmentQueries()
+    {
+        assertQuerySucceeds("SELECT * FROM " + TOPIC_AND_TABLE + " WHERE vendor != 'vendor7'");
+        assertQueryFails("SELECT * FROM " + TOPIC_AND_TABLE, "Segment query returned.*");
     }
 
     private static Object createTestRecord(

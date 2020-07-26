@@ -40,11 +40,13 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.prestosql.pinot.PinotErrorCode.PINOT_EXCEPTION;
 import static io.prestosql.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
@@ -62,6 +64,8 @@ public class PinotSegmentPageSource
     private final PinotQueryClient pinotQueryClient;
     private final ConnectorSession session;
     private final String query;
+    private final int limitForSegmentQueries;
+    private final AtomicLong currentRowCount = new AtomicLong();
 
     private List<Type> columnTypes;
     // dataTableList stores the dataTable returned from each server. Each dataTable is constructed to a Page, and then destroyed to save memory.
@@ -76,12 +80,14 @@ public class PinotSegmentPageSource
     public PinotSegmentPageSource(
             ConnectorSession session,
             PinotConfig pinotConfig,
+            int limitForSegmentQueries,
             PinotQueryClient pinotQueryClient,
             PinotSplit split,
             List<PinotColumnHandle> columnHandles,
             String query)
     {
         this.pinotConfig = requireNonNull(pinotConfig, "pinotConfig is null");
+        this.limitForSegmentQueries = limitForSegmentQueries;
         this.split = requireNonNull(split, "split is null");
         this.pinotQueryClient = requireNonNull(pinotQueryClient, "pinotQueryClient is null");
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
@@ -180,6 +186,7 @@ public class PinotSegmentPageSource
                     .forEach(dataTable ->
                     {
                         checkExceptions(dataTable, split, query);
+                        checkTooManyRows(dataTable);
                         // Store each dataTable which will later be constructed into Pages.
                         // Also update estimatedMemoryUsage, mostly represented by the size of all dataTables, using numberOfRows and fieldTypes combined as an estimate
                         int estimatedTableSizeInBytes = IntStream.rangeClosed(0, dataTable.getDataSchema().size() - 1)
@@ -197,6 +204,13 @@ public class PinotSegmentPageSource
         }
         finally {
             readTimeNanos += System.nanoTime() - startTimeNanos;
+        }
+    }
+
+    private void checkTooManyRows(DataTable dataTable)
+    {
+        if (currentRowCount.addAndGet(dataTable.getNumberOfRows()) > limitForSegmentQueries) {
+            throw new PinotException(PINOT_EXCEPTION, Optional.of(query), format("Segment query returned '%s' rows per split, maximum allowed is '%s' rows.", currentRowCount.get(), limitForSegmentQueries));
         }
     }
 
