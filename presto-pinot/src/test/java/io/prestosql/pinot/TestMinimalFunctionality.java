@@ -131,6 +131,21 @@ public class TestMinimalFunctionality
     }
 
     @Test
+    public void testBrokerQueriesWithArrays()
+    {
+        assertQuery("SELECT ARRAY_MIN(unlucky_numbers), ARRAY_MAX(long_numbers), ELEMENT_AT(neighbors, 2), ARRAY_MIN(lucky_numbers), ARRAY_MAX(prices)" +
+                        "  FROM \"SELECT unlucky_numbers, long_numbers, neighbors, lucky_numbers, prices" +
+                        "  FROM " + TOPIC_AND_TABLE +
+                        "  WHERE vendor = 'vendor1'\"",
+                "VALUES (-3.7, 20000000, 'bar1', 5, 5.5)");
+        assertQuery("SELECT CARDINALITY(unlucky_numbers), CARDINALITY(long_numbers), CARDINALITY(neighbors), CARDINALITY(lucky_numbers), CARDINALITY(prices)" +
+                        "  FROM \"SELECT unlucky_numbers, long_numbers, neighbors, lucky_numbers, prices" +
+                        "  FROM " + TOPIC_AND_TABLE +
+                        "  WHERE vendor = 'vendor1'\"",
+                "VALUES (3, 3, 3, 3, 2)");
+    }
+
+    @Test
     public void testLimitForSegmentQueries()
     {
         assertQuerySucceeds("SELECT * FROM " + TOPIC_AND_TABLE + " WHERE vendor != 'vendor7'");
