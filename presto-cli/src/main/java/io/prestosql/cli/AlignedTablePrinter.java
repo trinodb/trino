@@ -18,6 +18,7 @@ import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.client.Column;
+import io.prestosql.client.Row;
 
 import java.io.IOException;
 import java.io.Writer;
@@ -169,6 +170,10 @@ public class AlignedTablePrinter
             return formatList((List<?>) o);
         }
 
+        if (o instanceof Row) {
+            return formatRow(((Row) o));
+        }
+
         if (o instanceof byte[]) {
             return formatHexDump((byte[]) o, 16);
         }
@@ -216,6 +221,19 @@ public class AlignedTablePrinter
     {
         return map.entrySet().stream()
                 .map(entry -> format("%s=%s", formatValue(entry.getKey()), formatValue(entry.getValue())))
+                .collect(joining(", ", "{", "}"));
+    }
+
+    static String formatRow(Row row)
+    {
+        return row.getFields().stream()
+                .map(field -> {
+                    String formattedValue = formatValue(field.getValue());
+                    if (field.getName().isPresent()) {
+                        return format("%s=%s", formatValue(field.getName().get()), formattedValue);
+                    }
+                    return formattedValue;
+                })
                 .collect(joining(", ", "{", "}"));
     }
 

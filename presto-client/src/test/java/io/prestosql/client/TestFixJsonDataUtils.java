@@ -79,7 +79,10 @@ public class TestFixJsonDataUtils
                         field("foo", BIGINT),
                         field("bar", BIGINT))).getTypeSignature(),
                 ImmutableList.of(1, 2),
-                ImmutableMap.of("foo", 1L, "bar", 2L));
+                Row.builder()
+                        .addField("foo", 1L)
+                        .addField("bar", 2L)
+                        .build());
         assertQueryResult(arrayType(BIGINT.getTypeSignature()), ImmutableList.of(1, 2, 4), ImmutableList.of(1L, 2L, 4L));
         assertQueryResult(mapType(BIGINT.getTypeSignature(), BIGINT.getTypeSignature()), ImmutableMap.of(1, 3, 2, 4), ImmutableMap.of(1L, 3L, 2L, 4L));
         assertQueryResult(new TypeSignature(JSON), "{\"json\": {\"a\": 1}}", "{\"json\": {\"a\": 1}}");
