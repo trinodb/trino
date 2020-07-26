@@ -96,7 +96,7 @@ public class PinotClient
     private final List<String> controllerUrls;
     private final PinotMetrics metrics;
     private final HttpClient httpClient;
-
+    private final PinotHostMapper pinotHostMapper;
     private final Ticker ticker = Ticker.systemTicker();
 
     private final LoadingCache<String, List<String>> brokersForTableCache;
@@ -110,6 +110,7 @@ public class PinotClient
     @Inject
     public PinotClient(
             PinotConfig config,
+            PinotHostMapper pinotHostMapper,
             PinotMetrics metrics,
             @ForPinot HttpClient httpClient,
             JsonCodec<GetTables> tablesJsonCodec,
@@ -127,6 +128,7 @@ public class PinotClient
         if (config.getControllerUrls() == null || config.getControllerUrls().isEmpty()) {
             throw new PinotException(PINOT_INVALID_CONFIGURATION, Optional.empty(), "No pinot controllers specified");
         }
+        this.pinotHostMapper = requireNonNull(pinotHostMapper, "pinotHostMapper is null");
 
         this.controllerUrls = config.getControllerUrls();
         this.metrics = requireNonNull(metrics, "metrics is null");
@@ -272,7 +274,7 @@ public class PinotClient
                 .map(brokerToParse -> {
                     Matcher matcher = BROKER_PATTERN.matcher(brokerToParse);
                     if (matcher.matches() && matcher.groupCount() == 2) {
-                        return matcher.group(1) + ":" + matcher.group(2);
+                        return pinotHostMapper.getBrokerHost(matcher.group(1), matcher.group(2));
                     }
                     else {
                         throw new PinotException(

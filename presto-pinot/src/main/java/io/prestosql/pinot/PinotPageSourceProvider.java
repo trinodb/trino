@@ -44,10 +44,11 @@ public class PinotPageSourceProvider
     @Inject
     public PinotPageSourceProvider(
             PinotConfig pinotConfig,
-            PinotClient clusterInfoFetcher)
+            PinotClient clusterInfoFetcher,
+            PinotQueryClient pinotQueryClient)
     {
         this.pinotConfig = requireNonNull(pinotConfig, "pinotConfig is null");
-        this.pinotQueryClient = new PinotQueryClient(pinotConfig);
+        this.pinotQueryClient = requireNonNull(pinotQueryClient, "pinotQueryClient is null");
         this.clusterInfoFetcher = requireNonNull(clusterInfoFetcher, "cluster info fetcher is null");
     }
 
