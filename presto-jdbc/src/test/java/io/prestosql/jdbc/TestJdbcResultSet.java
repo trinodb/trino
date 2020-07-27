@@ -15,6 +15,7 @@ package io.prestosql.jdbc;
 
 import io.airlift.log.Logging;
 import io.prestosql.server.testing.TestingPrestoServer;
+import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
@@ -35,6 +36,7 @@ import java.sql.Types;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.Map;
 
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -243,6 +245,17 @@ public class TestJdbcResultSet
             assertThrows(() -> rs.getDate(column));
             assertThrows(() -> rs.getTime(column));
             assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(12345, 1, 22, 18, 23, 45, 123_456_789)));
+        });
+    }
+
+    @Test
+    public void testPartiallyNamedRow()
+            throws Exception
+    {
+        // partially named row
+        checkRepresentation("CAST(ROW(42, 'Presto', true, 'OpenSource') AS ROW(field1 bigint, varchar(17), boolean, field3 varchar(10)))", Types.JAVA_OBJECT, (rs, column) -> {
+            assertEquals(rs.getObject(column), ImmutableMap.of("field1", 42L, "field2", "Presto", "field3", "OpenSource", "field4", true));
+            assertEquals(rs.getObject(column, Map.class), ImmutableMap.of("field1", 42L, "field2", "Presto", "field3", "OpenSource", "field4", true));
         });
     }
 

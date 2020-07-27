@@ -20,6 +20,7 @@ import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 
@@ -105,18 +106,39 @@ final class FixJsonDataUtils
         }
         if (signature.getRawType().equals(ROW)) {
             Map<String, Object> fixedValue = new LinkedHashMap<>();
-            List<?> listValue = ((List<?>) value);
-            checkArgument(listValue.size() == signature.getArguments().size(), "Mismatched data values and row type");
-            for (int i = 0; i < listValue.size(); i++) {
+            List<?> listValues = ((List<?>) value);
+            checkArgument(listValues.size() == signature.getArguments().size(), "Mismatched data values and row type");
+            List<Object> unnamedValues = new LinkedList<>();
+
+            // Assign named parameters first
+            for (int i = 0; i < listValues.size(); i++) {
                 ClientTypeSignatureParameter parameter = signature.getArguments().get(i);
                 checkArgument(
                         parameter.getKind() == ParameterKind.NAMED_TYPE,
                         "Unexpected parameter [%s] for row type",
                         parameter);
                 NamedClientTypeSignature namedTypeSignature = parameter.getNamedTypeSignature();
-                String key = namedTypeSignature.getName().orElse("field" + i);
-                fixedValue.put(key, fixValue(namedTypeSignature.getTypeSignature(), listValue.get(i)));
+                Object listValue = fixValue(namedTypeSignature.getTypeSignature(), listValues.get(i));
+
+                if (!namedTypeSignature.getName().isPresent()) {
+                    unnamedValues.add(listValue);
+                    continue;
+                }
+
+                String key = namedTypeSignature.getName().orElseThrow(() -> new IllegalStateException("Type name should be present"));
+                fixedValue.put(key, listValue);
             }
+
+            // Assign rest of the values finding next available field key
+            int nextFieldId = 0;
+            for (int i = 0; i < unnamedValues.size(); i++) {
+                do {
+                    nextFieldId++;
+                } while (fixedValue.containsKey("field" + nextFieldId));
+
+                fixedValue.put("field" + nextFieldId, unnamedValues.get(i));
+            }
+
             return fixedValue;
         }
         switch (signature.getRawType()) {
