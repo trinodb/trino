@@ -1616,7 +1616,15 @@ abstract class AbstractPrestoResultSet
     public <T> T getObject(int columnIndex, Class<T> type)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("getObject");
+        if (type == null) {
+            throw new SQLException("type is null");
+        }
+        Object object = getObject(columnIndex);
+        if (object == null || type.isInstance(object)) {
+            //noinspection unchecked
+            return (T) object;
+        }
+        throw new SQLException(format("Cannot convert an instance of %s to %s", object.getClass(), type));
     }
 
     @Override
