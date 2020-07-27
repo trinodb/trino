@@ -101,9 +101,8 @@ public class TestJdbcResultSet
         }
     }
 
-    @SuppressWarnings("UnnecessaryBoxing")
     @Test
-    public void testObjectTypes()
+    public void testPrimitiveTypes()
             throws Exception
     {
         checkRepresentation("123", Types.INTEGER, 123);
@@ -112,22 +111,56 @@ public class TestJdbcResultSet
         checkRepresentation("1e-1", Types.DOUBLE, 0.1);
         checkRepresentation("1.0E0 / 0.0E0", Types.DOUBLE, Double.POSITIVE_INFINITY);
         checkRepresentation("0.0E0 / 0.0E0", Types.DOUBLE, Double.NaN);
-        checkRepresentation("0.1", Types.DECIMAL, new BigDecimal("0.1"));
         checkRepresentation("true", Types.BOOLEAN, true);
         checkRepresentation("'hello'", Types.VARCHAR, "hello");
         checkRepresentation("cast('foo' as char(5))", Types.CHAR, "foo  ");
-        checkRepresentation("ARRAY[1, 2]", Types.ARRAY, (rs, column) -> assertEquals(rs.getArray(column).getArray(), new int[] {1, 2}));
-        checkRepresentation("DECIMAL '0.1'", Types.DECIMAL, new BigDecimal("0.1"));
-        checkRepresentation("IPADDRESS '1.2.3.4'", Types.JAVA_OBJECT, "1.2.3.4");
-        checkRepresentation("UUID '0397e63b-2b78-4b7b-9c87-e085fa225dd8'", Types.JAVA_OBJECT, "0397e63b-2b78-4b7b-9c87-e085fa225dd8");
+    }
 
+    @Test
+    public void testArray()
+            throws Exception
+    {
+        checkRepresentation("ARRAY[1, 2]", Types.ARRAY, (rs, column) -> assertEquals(rs.getArray(column).getArray(), new int[] {1, 2}));
+    }
+
+    @Test
+    public void testDecimal()
+            throws Exception
+    {
+        checkRepresentation("0.1", Types.DECIMAL, new BigDecimal("0.1"));
+        checkRepresentation("DECIMAL '0.1'", Types.DECIMAL, new BigDecimal("0.1"));
+    }
+
+    @Test
+    public void testIpAddress()
+            throws Exception
+    {
+        checkRepresentation("IPADDRESS '1.2.3.4'", Types.JAVA_OBJECT, "1.2.3.4");
+    }
+
+    @Test
+    public void testUuid()
+            throws Exception
+    {
+        checkRepresentation("UUID '0397e63b-2b78-4b7b-9c87-e085fa225dd8'", Types.JAVA_OBJECT, "0397e63b-2b78-4b7b-9c87-e085fa225dd8");
+    }
+
+    @Test
+    public void testDate()
+            throws Exception
+    {
         checkRepresentation("DATE '2018-02-13'", Types.DATE, (rs, column) -> {
             assertEquals(rs.getObject(column), Date.valueOf(LocalDate.of(2018, 2, 13)));
             assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(2018, 2, 13)));
             assertThrows(IllegalArgumentException.class, () -> rs.getTime(column));
             assertThrows(IllegalArgumentException.class, () -> rs.getTimestamp(column));
         });
+    }
 
+    @Test
+    public void testTime()
+            throws Exception
+    {
         checkRepresentation("TIME '09:39:05'", Types.TIME, (rs, column) -> {
             assertEquals(rs.getObject(column), Time.valueOf(LocalTime.of(9, 39, 5)));
             assertThrows(() -> rs.getDate(column));
@@ -171,7 +204,12 @@ public class TestJdbcResultSet
             assertEquals(rs.getTime(column), someBogusValue); // TODO this should fail, as there no java.sql.Time representation for TIME '00:39:07' in America/Bahia_Banderas
             assertThrows(() -> rs.getTimestamp(column));
         });
+    }
 
+    @Test
+    public void testTimestamp()
+            throws Exception
+    {
         checkRepresentation("TIMESTAMP '2018-02-13 13:14:15.123'", Types.TIMESTAMP, (rs, column) -> {
             assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
             assertThrows(() -> rs.getDate(column));
