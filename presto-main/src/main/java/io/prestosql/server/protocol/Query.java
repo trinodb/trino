@@ -714,6 +714,7 @@ class Query
                 .setElapsedTimeMillis(queryStats.getElapsedTime().toMillis())
                 .setProcessedRows(queryStats.getRawInputPositions())
                 .setProcessedBytes(queryStats.getRawInputDataSize().toBytes())
+                .setPhysicalInputBytes(queryStats.getPhysicalInputDataSize().toBytes())
                 .setPeakMemoryBytes(queryStats.getPeakUserMemoryReservation().toBytes())
                 .setSpilledBytes(queryStats.getSpilledDataSize().toBytes())
                 .setRootStage(toStageStats(outputStage))
@@ -753,6 +754,7 @@ class Query
                 .setWallTimeMillis(stageStats.getTotalScheduledTime().toMillis())
                 .setProcessedRows(stageStats.getRawInputPositions())
                 .setProcessedBytes(stageStats.getRawInputDataSize().toBytes())
+                .setPhysicalInputBytes(stageStats.getPhysicalInputDataSize().toBytes())
                 .setSubStages(subStages.build())
                 .build();
     }
