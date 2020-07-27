@@ -117,32 +117,11 @@ public class TestJdbcResultSet
     }
 
     @Test
-    public void testArray()
-            throws Exception
-    {
-        checkRepresentation("ARRAY[1, 2]", Types.ARRAY, (rs, column) -> assertEquals(rs.getArray(column).getArray(), new int[] {1, 2}));
-    }
-
-    @Test
     public void testDecimal()
             throws Exception
     {
         checkRepresentation("0.1", Types.DECIMAL, new BigDecimal("0.1"));
         checkRepresentation("DECIMAL '0.1'", Types.DECIMAL, new BigDecimal("0.1"));
-    }
-
-    @Test
-    public void testIpAddress()
-            throws Exception
-    {
-        checkRepresentation("IPADDRESS '1.2.3.4'", Types.JAVA_OBJECT, "1.2.3.4");
-    }
-
-    @Test
-    public void testUuid()
-            throws Exception
-    {
-        checkRepresentation("UUID '0397e63b-2b78-4b7b-9c87-e085fa225dd8'", Types.JAVA_OBJECT, "0397e63b-2b78-4b7b-9c87-e085fa225dd8");
     }
 
     @Test
@@ -282,6 +261,27 @@ public class TestJdbcResultSet
             assertThrows(() -> rs.getTime(column));
             assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(12345, 1, 22, 18, 23, 45, 123_456_789)));
         });
+    }
+
+    @Test
+    public void testIpAddress()
+            throws Exception
+    {
+        checkRepresentation("IPADDRESS '1.2.3.4'", Types.JAVA_OBJECT, "1.2.3.4");
+    }
+
+    @Test
+    public void testUuid()
+            throws Exception
+    {
+        checkRepresentation("UUID '0397e63b-2b78-4b7b-9c87-e085fa225dd8'", Types.JAVA_OBJECT, "0397e63b-2b78-4b7b-9c87-e085fa225dd8");
+    }
+
+    @Test
+    public void testArray()
+            throws Exception
+    {
+        checkRepresentation("ARRAY[1, 2]", Types.ARRAY, (rs, column) -> assertEquals(rs.getArray(column).getArray(), new int[] {1, 2}));
     }
 
     private void checkRepresentation(String expression, int expectedSqlType, Object expectedRepresentation)
