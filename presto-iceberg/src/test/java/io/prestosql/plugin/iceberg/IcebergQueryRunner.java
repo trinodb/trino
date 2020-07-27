@@ -21,6 +21,7 @@ import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.tpch.TpchTable;
 
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
 
@@ -57,12 +58,17 @@ public final class IcebergQueryRunner
         queryRunner.installPlugin(new TpchPlugin());
         queryRunner.createCatalog("tpch", "tpch");
 
-        Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
-
         queryRunner.installPlugin(new IcebergPlugin());
+
+        Path dataDir = queryRunner.getCoordinator().getBaseDataDir().resolve("iceberg_data");
+        Path cacheDir = dataDir.resolve("hive_cache");
+        Files.createDirectories(cacheDir);
+
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", dataDir.toString())
+                .put("hive.cache.location", cacheDir.toString())
+                .put("hive.cache.enabled", "true")
                 .build();
 
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);

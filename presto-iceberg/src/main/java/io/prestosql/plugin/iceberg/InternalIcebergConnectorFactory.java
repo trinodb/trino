@@ -32,6 +32,8 @@ import io.prestosql.plugin.hive.NodeVersion;
 import io.prestosql.plugin.hive.authentication.HiveAuthenticationModule;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HiveMetastoreModule;
+import io.prestosql.plugin.hive.rubix.RubixEnabledConfig;
+import io.prestosql.plugin.hive.rubix.RubixModule;
 import io.prestosql.plugin.hive.s3.HiveS3Module;
 import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.PageIndexerFactory;
@@ -50,6 +52,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.airlift.configuration.ConditionalModule.installModuleIf;
+
 public final class InternalIcebergConnectorFactory
 {
     private InternalIcebergConnectorFactory() {}
@@ -58,6 +62,7 @@ public final class InternalIcebergConnectorFactory
     {
         ClassLoader classLoader = InternalIcebergConnectorFactory.class.getClassLoader();
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            //Files.createDirectories();
             Bootstrap app = new Bootstrap(
                     new EventModule(),
                     new MBeanModule(),
@@ -67,6 +72,7 @@ public final class InternalIcebergConnectorFactory
                     new HiveAuthenticationModule(),
                     new HiveMetastoreModule(metastore),
                     new MBeanServerModule(),
+                    installModuleIf(RubixEnabledConfig.class, RubixEnabledConfig::isCacheEnabled, new RubixModule()),
                     binder -> {
                         binder.bind(NodeVersion.class).toInstance(new NodeVersion(context.getNodeManager().getCurrentNode().getVersion()));
                         binder.bind(NodeManager.class).toInstance(context.getNodeManager());
