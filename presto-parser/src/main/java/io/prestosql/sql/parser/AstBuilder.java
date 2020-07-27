@@ -673,18 +673,18 @@ class AstBuilder
             limit = Optional.of(new FetchFirst(Optional.of(getLocation(context.FETCH())), rowCount, context.TIES() != null));
         }
         else if (context.LIMIT() != null) {
-            if (context.limitRowCount() == null) {
+            if (context.limit == null) {
                 throw new IllegalStateException("Missing LIMIT value");
             }
             Expression rowCount;
-            if (context.limitRowCount().ALL() != null) {
-                rowCount = new AllRows(getLocation(context.limitRowCount().ALL()));
+            if (context.limit.ALL() != null) {
+                rowCount = new AllRows(getLocation(context.limit.ALL()));
             }
-            else if (context.limitRowCount().rowCount().INTEGER_VALUE() != null) {
-                rowCount = new LongLiteral(getLocation(context.limitRowCount().rowCount().INTEGER_VALUE()), context.limitRowCount().getText());
+            else if (context.limit.rowCount().INTEGER_VALUE() != null) {
+                rowCount = new LongLiteral(getLocation(context.limit.rowCount().INTEGER_VALUE()), context.limit.getText());
             }
             else {
-                rowCount = new Parameter(getLocation(context.limitRowCount().rowCount().PARAMETER()), parameterPosition);
+                rowCount = new Parameter(getLocation(context.limit.rowCount().PARAMETER()), parameterPosition);
                 parameterPosition++;
             }
 
