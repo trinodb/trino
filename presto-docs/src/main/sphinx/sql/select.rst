@@ -15,8 +15,8 @@ Synopsis
     [ HAVING condition]
     [ { UNION | INTERSECT | EXCEPT } [ ALL | DISTINCT ] select ]
     [ ORDER BY expression [ ASC | DESC ] [, ...] ]
-    [ LIMIT { count | ALL } ]
     [ OFFSET count [ ROW | ROWS ] ]
+    [ LIMIT { count | ALL } ]
     [ FETCH { FIRST | NEXT } [ count ] { ROW | ROWS } { ONLY | WITH TIES } ]
 
 where ``from_item`` is one of
