@@ -164,6 +164,7 @@ import io.prestosql.sql.planner.iterative.rule.RemoveUnreferencedScalarSubquerie
 import io.prestosql.sql.planner.iterative.rule.RemoveUnsupportedDynamicFilters;
 import io.prestosql.sql.planner.iterative.rule.ReorderJoins;
 import io.prestosql.sql.planner.iterative.rule.RewriteSpatialPartitioningAggregation;
+import io.prestosql.sql.planner.iterative.rule.SimplifyCoalesceExpressionOverJoin;
 import io.prestosql.sql.planner.iterative.rule.SimplifyCountOverConstant;
 import io.prestosql.sql.planner.iterative.rule.SimplifyExpressions;
 import io.prestosql.sql.planner.iterative.rule.SingleDistinctAggregationToGroupBy;
@@ -428,7 +429,8 @@ public class PlanOptimizers
                                         new PruneCountAggregationOverScalar(metadata),
                                         new PruneOrderByInAggregation(metadata),
                                         new RewriteSpatialPartitioningAggregation(metadata),
-                                        new SimplifyCountOverConstant(metadata)))
+                                        new SimplifyCountOverConstant(metadata),
+                                        new SimplifyCoalesceExpressionOverJoin()))
                                 .build()),
                 new IterativeOptimizer(
                         ruleStats,
