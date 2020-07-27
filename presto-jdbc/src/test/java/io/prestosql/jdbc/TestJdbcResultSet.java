@@ -13,6 +13,7 @@
  */
 package io.prestosql.jdbc;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logging;
 import io.prestosql.server.testing.TestingPrestoServer;
 import org.testng.annotations.AfterClass;
@@ -35,6 +36,8 @@ import java.sql.Types;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.util.HashMap;
+import java.util.Map;
 
 import static java.lang.String.format;
 import static java.util.concurrent.TimeUnit.DAYS;
@@ -285,6 +288,25 @@ public class TestJdbcResultSet
             throws Exception
     {
         checkRepresentation("ARRAY[1, 2]", Types.ARRAY, (rs, column) -> assertEquals(rs.getArray(column).getArray(), new int[] {1, 2}));
+    }
+
+    @Test
+    public void testMap()
+            throws Exception
+    {
+        checkRepresentation("map(ARRAY['k1', 'k2'], ARRAY[BIGINT '42', -117])", Types.JAVA_OBJECT, (rs, column) -> {
+            assertEquals(rs.getObject(column), ImmutableMap.of("k1", 42L, "k2", -117L));
+            assertEquals(rs.getObject(column, Map.class), ImmutableMap.of("k1", 42L, "k2", -117L));
+        });
+
+        // NULL value
+        checkRepresentation("map(ARRAY['k1', 'k2'], ARRAY[42, NULL])", Types.JAVA_OBJECT, (rs, column) -> {
+            Map<String, Integer> expected = new HashMap<>();
+            expected.put("k1", 42);
+            expected.put("k2", null);
+            assertEquals(rs.getObject(column), expected);
+            assertEquals(rs.getObject(column, Map.class), expected);
+        });
     }
 
     private void checkRepresentation(String expression, int expectedSqlType, Object expectedRepresentation)
