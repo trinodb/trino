@@ -720,6 +720,16 @@ public abstract class AbstractTestEngineOnlyQueries
 
         assertQueryFails(
                 session,
+                "EXECUTE my_query USING 2, null",
+                "\\Qline 1:58: Parameter value provided for LIMIT is NULL: null\\E");
+
+        assertQueryFails(
+                session,
+                "EXECUTE my_query USING 2, 1 + null",
+                "\\Qline 1:58: Parameter value provided for LIMIT is NULL: (1 + null)\\E");
+
+        assertQueryFails(
+                session,
                 "EXECUTE my_query USING 2, ?",
                 "\\Qline 1:27: No value provided for parameter\\E");
 

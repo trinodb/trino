@@ -2747,18 +2747,23 @@ class StatementAnalyzer
                 // validate parameter index
                 analyzeExpression(parameter, scope);
                 Expression providedValue = analysis.getParameters().get(NodeRef.of(parameter));
+                Object value;
                 try {
-                    return OptionalLong.of((long) ExpressionInterpreter.evaluateConstantExpression(
+                    value = ExpressionInterpreter.evaluateConstantExpression(
                             providedValue,
                             BIGINT,
                             metadata,
                             session,
                             accessControl,
-                            analysis.getParameters()));
+                            analysis.getParameters());
                 }
                 catch (VerifyException e) {
                     throw semanticException(INVALID_ARGUMENTS, parameter, "Non constant parameter value for LIMIT: %s", providedValue);
                 }
+                if (value == null) {
+                    throw semanticException(INVALID_ARGUMENTS, parameter, "Parameter value provided for LIMIT is NULL: %s", providedValue);
+                }
+                return OptionalLong.of((long) value);
             }
         }
 
