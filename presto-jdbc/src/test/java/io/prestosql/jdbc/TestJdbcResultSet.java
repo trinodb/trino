@@ -309,6 +309,36 @@ public class TestJdbcResultSet
         });
     }
 
+    @Test
+    public void testRow()
+            throws Exception
+    {
+        // named row
+        checkRepresentation("CAST(ROW(42, 'Presto') AS ROW(a_bigint bigint, a_varchar varchar(17)))", Types.JAVA_OBJECT, (rs, column) -> {
+            assertEquals(rs.getObject(column), ImmutableMap.of("a_bigint", 42L, "a_varchar", "Presto"));
+            assertEquals(rs.getObject(column, Map.class), ImmutableMap.of("a_bigint", 42L, "a_varchar", "Presto"));
+        });
+
+        // partially named row
+        checkRepresentation("CAST(ROW(42, 'Presto') AS ROW(a_bigint bigint, varchar(17)))", Types.JAVA_OBJECT, (rs, column) -> {
+            assertEquals(rs.getObject(column), ImmutableMap.of("a_bigint", 42L, "field1", "Presto"));
+            assertEquals(rs.getObject(column, Map.class), ImmutableMap.of("a_bigint", 42L, "field1", "Presto"));
+        });
+
+        // anonymous row
+        checkRepresentation("ROW(42, 'Presto')", Types.JAVA_OBJECT, (rs, column) -> {
+            assertEquals(rs.getObject(column), ImmutableMap.of("field0", 42, "field1", "Presto"));
+            assertEquals(rs.getObject(column, Map.class), ImmutableMap.of("field0", 42, "field1", "Presto"));
+        });
+
+        // name collision
+        checkRepresentation("CAST(ROW(42, 'Presto') AS ROW(field1 integer, varchar(17)))", Types.JAVA_OBJECT, (rs, column) -> {
+            // TODO (https://github.com/prestosql/presto/issues/4594) both fields should be visible or exception thrown
+            assertEquals(rs.getObject(column), ImmutableMap.of("field1", "Presto"));
+            assertEquals(rs.getObject(column, Map.class), ImmutableMap.of("field1", "Presto"));
+        });
+    }
+
     private void checkRepresentation(String expression, int expectedSqlType, Object expectedRepresentation)
             throws Exception
     {
