@@ -710,6 +710,11 @@ public abstract class AbstractTestEngineOnlyQueries
 
         assertQueryFails(
                 session,
+                "EXECUTE my_query USING 2, 1.0",
+                "\\Qline 1:27: Cannot cast type decimal(2,1) to bigint\\E");
+
+        assertQueryFails(
+                session,
                 "EXECUTE my_query USING 2, 1 + t.a",
                 "\\Qline 1:29: Constant expression cannot contain column references\\E");
 
