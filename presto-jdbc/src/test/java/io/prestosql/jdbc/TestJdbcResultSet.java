@@ -130,6 +130,7 @@ public class TestJdbcResultSet
     {
         checkRepresentation("DATE '2018-02-13'", Types.DATE, (rs, column) -> {
             assertEquals(rs.getObject(column), Date.valueOf(LocalDate.of(2018, 2, 13)));
+            assertEquals(rs.getObject(column, Date.class), Date.valueOf(LocalDate.of(2018, 2, 13)));
             assertEquals(rs.getDate(column), Date.valueOf(LocalDate.of(2018, 2, 13)));
             assertThrows(IllegalArgumentException.class, () -> rs.getTime(column));
             assertThrows(IllegalArgumentException.class, () -> rs.getTimestamp(column));
@@ -142,6 +143,7 @@ public class TestJdbcResultSet
     {
         checkRepresentation("TIME '09:39:05'", Types.TIME, (rs, column) -> {
             assertEquals(rs.getObject(column), Time.valueOf(LocalTime.of(9, 39, 5)));
+            assertEquals(rs.getObject(column, Time.class), Time.valueOf(LocalTime.of(9, 39, 5)));
             assertThrows(() -> rs.getDate(column));
             assertEquals(rs.getTime(column), Time.valueOf(LocalTime.of(9, 39, 5)));
             assertThrows(() -> rs.getTimestamp(column));
@@ -191,6 +193,7 @@ public class TestJdbcResultSet
     {
         checkRepresentation("TIMESTAMP '2018-02-13 13:14:15.123'", Types.TIMESTAMP, (rs, column) -> {
             assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
+            assertEquals(rs.getObject(column, Timestamp.class), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
             assertThrows(() -> rs.getDate(column));
             assertThrows(() -> rs.getTime(column));
             assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
@@ -287,7 +290,10 @@ public class TestJdbcResultSet
     private void checkRepresentation(String expression, int expectedSqlType, Object expectedRepresentation)
             throws Exception
     {
-        checkRepresentation(expression, expectedSqlType, (rs, column) -> assertEquals(rs.getObject(column), expectedRepresentation));
+        checkRepresentation(expression, expectedSqlType, (rs, column) -> {
+            assertEquals(rs.getObject(column), expectedRepresentation);
+            assertEquals(rs.getObject(column, expectedRepresentation.getClass()), expectedRepresentation);
+        });
     }
 
     private void checkRepresentation(String expression, int expectedSqlType, ResultAssertion assertion)
