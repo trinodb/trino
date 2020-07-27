@@ -125,10 +125,17 @@ public final class GlueToPrestoConverter
                 .build();
     }
 
-    private static Column convertColumn(com.amazonaws.services.glue.model.Column glueColumn)
-    {
-        return new Column(glueColumn.getName(), HiveType.valueOf(glueColumn.getType().toLowerCase(Locale.ENGLISH)), Optional.ofNullable(glueColumn.getComment()));
-    }
+	private static Column convertColumn(com.amazonaws.services.glue.model.Column glueColumn, StorageDescriptor storageDescriptor)
+	{
+		if(storageDescriptor.getSerdeInfo().getName() != null &&
+		! ((storageDescriptor.getSerdeInfo().getName().contains("csv")) ||
+		(storageDescriptor.getSerdeInfo().getName().contains("CSV")))) {
+		return new Column(glueColumn.getName(), HiveType.valueOf(glueColumn.getType().toLowerCase(Locale.ENGLISH)), Optional.ofNullable(glueColumn.getComment()));
+		}
+		else{
+		return new Column(glueColumn.getName(), HiveType. HIVE_STRING, Optional.ofNullable(glueColumn.getComment()));
+		}
+	}
 
     public static Partition convertPartition(com.amazonaws.services.glue.model.Partition gluePartition, Map<String, String> tableParameters)
     {
