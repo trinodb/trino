@@ -29,6 +29,7 @@ public class GlueHiveMetastoreConfig
     private Optional<String> glueRegion = Optional.empty();
     private Optional<String> glueEndpointUrl = Optional.empty();
     private boolean pinGlueClientToCurrentRegion;
+    private int maxGlueErrorRetries = 10;
     private int maxGlueConnections = 5;
     private Optional<String> defaultWarehouseDir = Optional.empty();
     private Optional<String> iamRole = Optional.empty();
@@ -90,6 +91,19 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setMaxGlueConnections(int maxGlueConnections)
     {
         this.maxGlueConnections = maxGlueConnections;
+        return this;
+    }
+
+    @Min(0)
+    public int getMaxGlueErrorRetries()
+    {
+        return maxGlueErrorRetries;
+    }
+
+    @Config("hive.metastore.glue.max-error-retries")
+    public GlueHiveMetastoreConfig setMaxGlueErrorRetries(int maxGlueErrorRetries)
+    {
+        this.maxGlueErrorRetries = maxGlueErrorRetries;
         return this;
     }
 
