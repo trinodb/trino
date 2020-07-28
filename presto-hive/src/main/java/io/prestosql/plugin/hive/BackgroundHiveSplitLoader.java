@@ -476,7 +476,15 @@ public class BackgroundHiveSplitLoader
             // Create a registry of delete_delta directories for the partition
             for (AcidUtils.ParsedDelta delta : directory.getCurrentDirectories()) {
                 if (delta.isDeleteDelta()) {
-                    acidInfoBuilder.addDeleteDelta(delta.getPath(), delta.getMinWriteId(), delta.getMaxWriteId(), delta.getStatementId());
+                    OptionalInt statementId = OptionalInt.empty();
+
+                    // Handling different formats of Delete delta file:
+                    // 1. delete_delta_minWriteId_maxWriteID_statementId: default case
+                    // 2. delete_delta_minWriteId_maxWriteID: after minor compaction
+                    if (delta.getPath().getName().split("_").length == 5) {
+                        statementId = OptionalInt.of(delta.getStatementId());
+                    }
+                    acidInfoBuilder.addDeleteDelta(delta.getPath(), delta.getMinWriteId(), delta.getMaxWriteId(), statementId);
                 }
             }
 
