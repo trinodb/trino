@@ -379,14 +379,15 @@ class QueryPlanner
             groupingSetMappings.put(output, input);
         }
 
-        ImmutableMap.Builder<Expression, Symbol> expressionsBuilder = ImmutableMap.builder();
+        Map<ScopeAware<Expression>, Symbol> complexExpressions = new HashMap<>();
         for (Expression expression : groupingSetAnalysis.getComplexExpressions()) {
-            Symbol input = subPlan.translate(expression);
-            Symbol output = symbolAllocator.newSymbol(expression, analysis.getType(expression), "gid");
-            expressionsBuilder.put(expression, output);
-            groupingSetMappings.put(output, input);
+            if (!complexExpressions.containsKey(scopeAwareKey(expression, analysis, subPlan.getScope()))) {
+                Symbol input = subPlan.translate(expression);
+                Symbol output = symbolAllocator.newSymbol(expression, analysis.getType(expression), "gid");
+                complexExpressions.put(ScopeAware.scopeAwareKey(expression, analysis, subPlan.getScope()), output);
+                groupingSetMappings.put(output, input);
+            }
         }
-        Map<Expression, Symbol> complexExpressions = expressionsBuilder.build();
 
         // For the purpose of "distinct", we need to canonicalize column references that may have varying
         // syntactic forms (e.g., "t.a" vs "a"). Thus we need to enumerate grouping sets based on the underlying
