@@ -384,7 +384,7 @@ class QueryPlanner
             if (!complexExpressions.containsKey(scopeAwareKey(expression, analysis, subPlan.getScope()))) {
                 Symbol input = subPlan.translate(expression);
                 Symbol output = symbolAllocator.newSymbol(expression, analysis.getType(expression), "gid");
-                complexExpressions.put(ScopeAware.scopeAwareKey(expression, analysis, subPlan.getScope()), output);
+                complexExpressions.put(scopeAwareKey(expression, analysis, subPlan.getScope()), output);
                 groupingSetMappings.put(output, input);
             }
         }

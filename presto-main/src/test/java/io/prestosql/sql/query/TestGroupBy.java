@@ -115,4 +115,44 @@ public class TestGroupBy
                         "GROUP BY t.A + 1, 1"))
                 .matches("VALUES 2");
     }
+
+    @Test
+    public void testReferenceWithMixedStyle()
+    {
+        assertThat(assertions.query(
+                "SELECT a + 1 " +
+                        "FROM (VALUES 1) t(a) " +
+                        "GROUP BY A + 1"))
+                .matches("VALUES 2");
+
+        assertThat(assertions.query(
+                "SELECT a + 1 " +
+                        "FROM (VALUES 1) t(a) " +
+                        "GROUP BY t.a + 1"))
+                .matches("VALUES 2");
+
+        assertThat(assertions.query(
+                "SELECT a + 1 " +
+                        "FROM (VALUES 1) t(a) " +
+                        "GROUP BY t.A + 1"))
+                .matches("VALUES 2");
+
+        assertThat(assertions.query(
+                "SELECT t.a + 1 " +
+                        "FROM (VALUES 1) t(a) " +
+                        "GROUP BY a + 1"))
+                .matches("VALUES 2");
+
+        assertThat(assertions.query(
+                "SELECT t.a + 1 " +
+                        "FROM (VALUES 1) t(a) " +
+                        "GROUP BY A + 1"))
+                .matches("VALUES 2");
+
+        assertThat(assertions.query(
+                "SELECT t.a + 1 " +
+                        "FROM (VALUES 1) t(a) " +
+                        "GROUP BY t.A + 1"))
+                .matches("VALUES 2");
+    }
 }
