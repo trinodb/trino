@@ -86,7 +86,6 @@ import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFuncti
 import static io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
-import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
@@ -114,7 +113,7 @@ public class ClickHouseClient
     @Inject
     public ClickHouseClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, TypeManager typeManager)
     {
-//        super(config, "`", connectionFactory);
+    //    super(config, "`", connectionFactory);
 
         super(
                 ESCAPE_CHARACTER,
@@ -124,7 +123,6 @@ public class ClickHouseClient
                 config.getCaseInsensitiveNameMatchingCacheTtl());
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
     }
-
 
     @Override
     public void abortReadConnection(Connection connection)
@@ -136,91 +134,58 @@ public class ClickHouseClient
     }
 
     @Override
+    public void createSchema(JdbcIdentity identity, String schemaName)
+    {
+        execute(identity, "CREATE DATABASE " + quoted(schemaName));
+    }
+
+    @Override
+    public void dropSchema(JdbcIdentity identity, String schemaName)
+    {
+        execute(identity, "DROP DATABASE " + quoted(schemaName));
+    }
+
+    @Override
+    protected void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
+    {
+        String sql = format(
+                "CREATE TABLE %s  ENGINE = Log AS SELECT %s FROM %s WHERE 0 = 1 ",
+                quoted(null, schemaName, newTableName),
+                columnNames.stream()
+                        .map(this::quoted)
+                        .collect(joining(", ")),
+                quoted(null, schemaName, tableName));
+        execute(connection, sql);
+    }
+
+    @Override
+    public void renameTable(JdbcIdentity identity, JdbcTableHandle handle, SchemaTableName newTableName)
+    {
+        // clickhouse doesn't support specifying the catalog name in a rename. By setting the
+        // catalogName parameter to null, it will be omitted in the ALTER TABLE statement.
+        verify(handle.getSchemaName() == null);
+        renameTable(identity, null, handle.getCatalogName(), handle.getTableName(), newTableName);
+    }
+
+    @Override
+    public void dropTable(JdbcIdentity identity, JdbcTableHandle handle)
+    {
+        String sql = "DROP TABLE " + quoted(null, handle.getSchemaName(), handle.getTableName());
+
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            execute(connection, sql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
     public ClickHousePreparedStatement getPreparedStatement(Connection connection, String sql)
             throws SQLException
     {
         ClickHousePreparedStatement statement = (ClickHousePreparedStatement) connection.prepareStatement(sql);
         return statement;
-    }
-
-    @Override
-    public void finishInsertTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
-    {
-        String temporaryTable = quoted(null, handle.getSchemaName(), handle.getTemporaryTableName());
-        String targetTable = quoted(null, handle.getSchemaName(), handle.getTableName());
-        String columnNames = handle.getColumnNames().stream()
-                .map(this::quoted)
-                .collect(joining(", "));
-        String insertSql = format("INSERT INTO %s (%s) SELECT %s FROM %s", targetTable, columnNames, columnNames, temporaryTable);
-        String cleanupSql = "DROP TABLE " + temporaryTable;
-
-        try (Connection connection = getConnection(identity, handle)) {
-            execute(connection, insertSql);
-        }
-        catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
-        }
-
-        try (Connection connection = getConnection(identity, handle)) {
-            execute(connection, cleanupSql);
-        }
-        catch (SQLException e) {
-            log.warn(e, "Failed to cleanup temporary table: %s", temporaryTable);
-        }
-    }
-
-    @Override
-    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
-    {
-        SchemaTableName schemaTableName = tableHandle.getSchemaTableName();
-        JdbcIdentity identity = JdbcIdentity.from(session);
-
-        try (Connection connection = connectionFactory.openConnection(identity)) {
-            boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
-            String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
-            String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
-            String tableName = generateTemporaryTableName();
-            if (uppercase) {
-                tableName = tableName.toUpperCase(ENGLISH);
-            }
-            String catalog = connection.getCatalog();
-
-            ImmutableList.Builder<String> columnNames = ImmutableList.builder();
-            ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
-            ImmutableList.Builder<JdbcTypeHandle> jdbcColumnTypes = ImmutableList.builder();
-            for (JdbcColumnHandle column : columns) {
-                columnNames.add(column.getColumnName());
-                columnTypes.add(column.getColumnType());
-                jdbcColumnTypes.add(column.getJdbcTypeHandle());
-            }
-
-            copyTableSchema(connection, catalog, remoteSchema, remoteTable, tableName, columnNames.build());
-
-            return new JdbcOutputTableHandle(
-                    catalog,
-                    remoteSchema,
-                    remoteTable,
-                    columnNames.build(),
-                    columnTypes.build(),
-                    Optional.of(jdbcColumnTypes.build()),
-                    tableName);
-        }
-        catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
-        }
-    }
-
-    @Override
-    protected ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
-            throws SQLException
-    {
-        // clickhouse maps their "database" to SQL catalogs and does not have schemas
-        DatabaseMetaData metadata = connection.getMetaData();
-        return metadata.getTables(
-                schemaName.orElse(null),
-                null,
-                escapeNamePattern(tableName, metadata.getSearchStringEscape()).orElse(null),
-                new String[] {"TABLE", "VIEW"});
     }
 
     @Override
@@ -307,13 +272,79 @@ public class ClickHouseClient
     }
 
     @Override
+    public void finishInsertTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
+    {
+        String temporaryTable = quoted(null, handle.getSchemaName(), handle.getTemporaryTableName());
+        String targetTable = quoted(null, handle.getSchemaName(), handle.getTableName());
+        String columnNames = handle.getColumnNames().stream()
+                .map(this::quoted)
+                .collect(joining(", "));
+        String insertSql = format("INSERT INTO %s (%s) SELECT %s FROM %s", targetTable, columnNames, columnNames, temporaryTable);
+        String cleanupSql = "DROP TABLE " + temporaryTable;
+
+        try (Connection connection = getConnection(identity, handle)) {
+            execute(connection, insertSql);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+
+        try (Connection connection = getConnection(identity, handle)) {
+            execute(connection, cleanupSql);
+        }
+        catch (SQLException e) {
+            log.warn(e, "Failed to cleanup temporary table: %s", temporaryTable);
+        }
+    }
+
+    @Override
+    public JdbcOutputTableHandle beginInsertTable(ConnectorSession session, JdbcTableHandle tableHandle, List<JdbcColumnHandle> columns)
+    {
+        SchemaTableName schemaTableName = tableHandle.getSchemaTableName();
+        JdbcIdentity identity = JdbcIdentity.from(session);
+
+        try (Connection connection = connectionFactory.openConnection(identity)) {
+            boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
+            String remoteSchema = toRemoteSchemaName(identity, connection, schemaTableName.getSchemaName());
+            String remoteTable = toRemoteTableName(identity, connection, remoteSchema, schemaTableName.getTableName());
+            String tableName = generateTemporaryTableName();
+            if (uppercase) {
+                tableName = tableName.toUpperCase(ENGLISH);
+            }
+            String catalog = connection.getCatalog();
+
+            ImmutableList.Builder<String> columnNames = ImmutableList.builder();
+            ImmutableList.Builder<Type> columnTypes = ImmutableList.builder();
+            ImmutableList.Builder<JdbcTypeHandle> jdbcColumnTypes = ImmutableList.builder();
+            for (JdbcColumnHandle column : columns) {
+                columnNames.add(column.getColumnName());
+                columnTypes.add(column.getColumnType());
+                jdbcColumnTypes.add(column.getJdbcTypeHandle());
+            }
+
+            copyTableSchema(connection, catalog, remoteSchema, remoteTable, tableName, columnNames.build());
+
+            return new JdbcOutputTableHandle(
+                    catalog,
+                    remoteSchema,
+                    remoteTable,
+                    columnNames.build(),
+                    columnTypes.build(),
+                    Optional.of(jdbcColumnTypes.build()),
+                    tableName);
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
+    }
+
+    @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         if (REAL.equals(type)) {
             return WriteMapping.longMapping("float", realWriteFunction());
         }
         if (TIMESTAMP.equals(type)) {
-            // TODO use `timestampWriteFunction`
             return WriteMapping.longMapping("datetime", timestampWriteFunctionUsingSqlTimestamp(session));
         }
         if (VARBINARY.equals(type)) {
@@ -345,13 +376,7 @@ public class ClickHouseClient
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        try {
-            createTable(session, tableMetadata, tableMetadata.getTable().getTableName());
-        }
-        catch (SQLException e) {
-            boolean exists = ClickHouseErrorCode.TABLE_ALREADY_EXISTS.equals(e.getSQLState());
-            throw new PrestoException(exists ? ALREADY_EXISTS : JDBC_ERROR, e);
-        }
+        throw new PrestoException(NOT_SUPPORTED, "Create table not yet supported for ClickHouse");
     }
 
     @Override
@@ -393,41 +418,6 @@ public class ClickHouseClient
                 table.getConstraint(),
                 split.getAdditionalPredicate(),
                 tryApplyLimit(table.getLimit()));
-    }
-
-    @Override
-    protected void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
-    {
-        String sql = format(
-                "CREATE TABLE %s  ENGINE = Log AS SELECT %s FROM %s WHERE 0 = 1 ",
-                quoted(null, schemaName, newTableName),
-                columnNames.stream()
-                        .map(this::quoted)
-                        .collect(joining(", ")),
-                quoted(null, schemaName, tableName));
-        execute(connection, sql);
-    }
-
-    @Override
-    public void renameTable(JdbcIdentity identity, JdbcTableHandle handle, SchemaTableName newTableName)
-    {
-        // clickhouse doesn't support specifying the catalog name in a rename. By setting the
-        // catalogName parameter to null, it will be omitted in the ALTER TABLE statement.
-        verify(handle.getSchemaName() == null);
-        renameTable(identity, null, handle.getCatalogName(), handle.getTableName(), newTableName);
-    }
-
-    @Override
-    public void dropTable(JdbcIdentity identity, JdbcTableHandle handle)
-    {
-        String sql = "DROP TABLE " + quoted(null, handle.getSchemaName(), handle.getTableName());
-
-        try (Connection connection = connectionFactory.openConnection(identity)) {
-            execute(connection, sql);
-        }
-        catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
-        }
     }
 
     @Override
