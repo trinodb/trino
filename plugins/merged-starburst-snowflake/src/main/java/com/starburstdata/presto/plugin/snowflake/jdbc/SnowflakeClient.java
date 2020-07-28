@@ -13,6 +13,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import com.starburstdata.presto.plugin.jdbc.stats.TableStatisticsClient;
+import com.starburstdata.presto.plugin.toolkit.UtcTimeZoneCalendar;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ColumnMapping;
