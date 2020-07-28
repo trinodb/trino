@@ -604,4 +604,71 @@ public class TestIcebergSmoke
         assertUpdate(session, "DROP TABLE " + table);
         assertFalse(getQueryRunner().tableExists(session, table));
     }
+
+    @Test
+    public void testCreateNestedPartitionedTable()
+    {
+        @Language("SQL") String createTable = "" +
+            "CREATE TABLE test_nested_table (" +
+                " bool BOOLEAN" +
+                ", int INTEGER" +
+                ", arr ARRAY(VARCHAR)" +
+                ", big BIGINT" +
+                ", rl REAL" +
+                ", dbl DOUBLE" +
+                ", mp MAP(INTEGER, VARCHAR)" +
+                ", dec DECIMAL(5,2)" +
+                ", vc VARCHAR" +
+                ", vb VARBINARY" +
+                ", ts TIMESTAMP" +
+                ", str ROW(id INTEGER , vc VARCHAR)" +
+                ", dt DATE)" +
+                " WITH (partitioning = ARRAY['int'])";
+
+        Session session = getSession();
+        assertUpdate(session, createTable);
+
+        assertUpdate(session, "INSERT INTO test_nested_table " +
+                " select true, 1, array['uno', 'dos', 'tres'], BIGINT '1', REAL '1.0', DOUBLE '1.0', map(array[1,2,3,4], array['ek','don','teen','char'])," +
+                " CAST(1.0 as DECIMAL(5,2))," +
+                " 'one', VARBINARY 'binary0/1values',\n" +
+                " cast(current_timestamp as TIMESTAMP), (CAST(ROW(null, 'this is a random value') AS ROW(int, varchar))), current_date", 1);
+        MaterializedResult result = computeActual("SELECT * from test_nested_table");
+        assertEquals(result.getRowCount(), 1);
+
+        dropTable(session, "test_nested_table");
+
+        @Language("SQL") String createTable2 = "" +
+            "CREATE TABLE test_nested_table (" +
+                " int INTEGER" +
+                ", arr ARRAY(ROW(id INTEGER, vc VARCHAR))" +
+                ", big BIGINT" +
+                ", rl REAL" +
+                ", dbl DOUBLE" +
+                ", mp MAP(INTEGER, ARRAY(VARCHAR))" +
+                ", dec DECIMAL(5,2)" +
+                ", str ROW(id INTEGER, vc VARCHAR, arr ARRAY(INTEGER))" +
+                ", vc VARCHAR)" +
+                " WITH (partitioning = ARRAY['int'])";
+
+        assertUpdate(session, createTable2);
+
+        assertUpdate(session, "INSERT INTO test_nested_table " +
+                " select 1, array[cast(row(1, null) as row(int, varchar)), cast(row(2, 'dos') as row(int, varchar))], BIGINT '1', REAL '1.0', DOUBLE '1.0', " +
+                "map(array[1,2], array[array['ek', 'one'], array['don', 'do', 'two']]), CAST(1.0 as DECIMAL(5,2)), " +
+                "CAST(ROW(1, 'this is a random value', null) AS ROW(int, varchar, array(int))), 'one'", 1);
+        result = computeActual("SELECT * from test_nested_table");
+        assertEquals(result.getRowCount(), 1);
+
+        @Language("SQL") String createTable3 = "" +
+            "CREATE TABLE test_nested_table2 WITH (partitioning = ARRAY['int']) as select * from test_nested_table";
+
+        assertUpdate(session, createTable3, 1);
+
+        result = computeActual("SELECT * from test_nested_table2");
+        assertEquals(result.getRowCount(), 1);
+
+        dropTable(session, "test_nested_table");
+        dropTable(session, "test_nested_table2");
+    }
 }
