@@ -198,7 +198,7 @@ public final class TypeConverter
         for (RowType.Field field : type.getFields()) {
             String name = field.getName().orElseThrow(() ->
                     new PrestoException(NOT_SUPPORTED, "Row type field does not have a name: " + type.getDisplayName()));
-            fields.add(Types.NestedField.required(fields.size() + 1, name, toIcebergType(field.getType())));
+            fields.add(Types.NestedField.optional(fields.size() + 1, name, toIcebergType(field.getType())));
         }
         return Types.StructType.of(fields);
     }
