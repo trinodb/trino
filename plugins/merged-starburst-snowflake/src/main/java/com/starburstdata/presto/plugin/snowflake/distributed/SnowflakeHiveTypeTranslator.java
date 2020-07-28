@@ -9,9 +9,8 @@
  */
 package com.starburstdata.presto.plugin.snowflake.distributed;
 
-import io.prestosql.plugin.hive.HiveTypeTranslator;
+import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.spi.type.Type;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 
 import static io.prestosql.plugin.hive.HiveType.HIVE_TIMESTAMP;
 import static io.prestosql.spi.type.TimeType.TIME;
@@ -24,17 +23,18 @@ import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIM
  * we're getting the column metadata through JDBC, so the type info isn't really used.
  */
 public class SnowflakeHiveTypeTranslator
-        extends HiveTypeTranslator
 {
-    @Override
-    public TypeInfo translate(Type type)
+    private SnowflakeHiveTypeTranslator() {}
+
+    public static HiveType toHiveType(Type type)
     {
         if (TIME.equals(type)) {
-            return HIVE_TIMESTAMP.getTypeInfo();
+            return HIVE_TIMESTAMP;
         }
         if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
-            return HIVE_TIMESTAMP.getTypeInfo();
+            return HIVE_TIMESTAMP;
         }
-        return super.translate(type);
+
+        return HiveType.toHiveType(type);
     }
 }

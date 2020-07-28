@@ -18,6 +18,7 @@ import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.type.TypeManager;
 
 import javax.inject.Inject;
@@ -58,7 +59,8 @@ class SnowflakeSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle table,
-            SplitSchedulingStrategy splitSchedulingStrategy)
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            DynamicFilter dynamicFilter)
     {
         JdbcTableHandle jdbcTableHandle = (JdbcTableHandle) table;
         List<JdbcColumnHandle> columns = jdbcTableHandle.getColumns()

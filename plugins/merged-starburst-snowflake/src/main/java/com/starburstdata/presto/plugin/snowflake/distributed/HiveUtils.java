@@ -16,7 +16,6 @@ import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HiveHdfsConfiguration;
-import io.prestosql.plugin.hive.TypeTranslator;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.s3.HiveS3Config;
 import io.prestosql.plugin.hive.s3.PrestoS3ConfigurationInitializer;
@@ -29,23 +28,23 @@ import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeEncryptionMaterialsProvider.setQueryStageMasterKey;
+import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeHiveTypeTranslator.toHiveType;
 import static io.prestosql.plugin.hive.DynamicConfigurationProvider.setCacheKey;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
-import static io.prestosql.plugin.hive.HiveType.toHiveType;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_SESSION_TOKEN;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 final class HiveUtils
 {
-    static List<HiveColumnHandle> getHiveColumnHandles(TypeTranslator typeTranslator, List<JdbcColumnHandle> columns)
+    static List<HiveColumnHandle> getHiveColumnHandles(List<JdbcColumnHandle> columns)
     {
         return IntStream.range(0, columns.size())
-                .mapToObj(index -> toHiveColumnHandle(typeTranslator, columns.get(index), index))
+                .mapToObj(index -> toHiveColumnHandle(columns.get(index), index))
                 .collect(toImmutableList());
     }
 
-    private static HiveColumnHandle toHiveColumnHandle(TypeTranslator typeTranslator, JdbcColumnHandle jdbcColumnHandle, int columnIndex)
+    private static HiveColumnHandle toHiveColumnHandle(JdbcColumnHandle jdbcColumnHandle, int columnIndex)
     {
         return new HiveColumnHandle(
                 // Snowflake supports case-sensitive column names, but does not allow collisions when compared case-insensitively.
@@ -53,7 +52,7 @@ final class HiveUtils
                 // TODO lowercasing is a workaround for https://github.com/prestosql/presto/issues/3574. Remove
                 jdbcColumnHandle.getColumnName().toLowerCase(ENGLISH),
                 columnIndex,
-                toHiveType(typeTranslator, jdbcColumnHandle.getColumnType()),
+                toHiveType(jdbcColumnHandle.getColumnType()),
                 jdbcColumnHandle.getColumnType(),
                 Optional.empty(),
                 REGULAR,

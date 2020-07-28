@@ -20,7 +20,6 @@ import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.CachingDirectoryLister;
 import io.prestosql.plugin.hive.HdfsConfig;
 import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.HiveCoercionPolicy;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveMetastoreClosure;
 import io.prestosql.plugin.hive.HivePartition;
@@ -29,7 +28,6 @@ import io.prestosql.plugin.hive.HiveSplit;
 import io.prestosql.plugin.hive.HiveSplitManager;
 import io.prestosql.plugin.hive.HiveTableHandle;
 import io.prestosql.plugin.hive.NamenodeStats;
-import io.prestosql.plugin.hive.TypeTranslator;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
@@ -45,6 +43,7 @@ import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitSource;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.TypeManager;
 import net.jodah.failsafe.Failsafe;
@@ -73,9 +72,9 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getLast;
 import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.getHdfsEnvironment;
 import static com.starburstdata.presto.plugin.snowflake.distributed.HiveUtils.getHiveColumnHandles;
+import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeHiveTypeTranslator.toHiveType;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.prestosql.plugin.hive.HiveStorageFormat.PARQUET;
-import static io.prestosql.plugin.hive.HiveType.toHiveType;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
@@ -266,13 +265,12 @@ public class SnowflakeSplitSource
 
     private ConnectorSplitSource getHiveSplitSource()
     {
-        SnowflakeHiveTypeTranslator typeTranslator = new SnowflakeHiveTypeTranslator();
         SchemaTableName schemaTableName = new SchemaTableName(jdbcTableHandle.getSchemaName(), jdbcTableHandle.getTableName());
         HiveTableHandle tableLayoutHandle = new HiveTableHandle(
                 jdbcTableHandle.getSchemaName(),
                 jdbcTableHandle.getTableName(),
                 Optional.of(ImmutableMap.of()),
-                getHiveColumnHandles(typeTranslator, columns),
+                getHiveColumnHandles(columns),
                 Optional.of(ImmutableList.of(new HivePartition(schemaTableName))),
                 all(),
                 none(),
@@ -282,16 +280,17 @@ public class SnowflakeSplitSource
                 Optional.empty(),
                 Optional.empty());
 
-        return getHiveSplitManager(typeTranslator).getSplits(
+        return getHiveSplitManager().getSplits(
                 // no transaction is needed
                 null,
                 session,
                 tableLayoutHandle,
                 // Snowflake connector does not support partitioning
-                UNGROUPED_SCHEDULING);
+                UNGROUPED_SCHEDULING,
+                DynamicFilter.EMPTY);
     }
 
-    private HiveSplitManager getHiveSplitManager(TypeTranslator typeTranslator)
+    private HiveSplitManager getHiveSplitManager()
     {
         HiveConfig hiveConfig = snowflakeConfig.getHiveConfig();
         HdfsConfig hdfsConfig = new HdfsConfig();
@@ -302,7 +301,7 @@ public class SnowflakeSplitSource
                 getCredential(AWS_TOKEN),
                 Optional.of(getQueryStageMasterKey()));
 
-        SemiTransactionalHiveMetastore metastore = getSemiTransactionalHiveMetastore(typeTranslator, hiveConfig, hdfsEnvironment);
+        SemiTransactionalHiveMetastore metastore = getSemiTransactionalHiveMetastore(hiveConfig, hdfsEnvironment);
         metastore.beginQuery(session);
 
         return new HiveSplitManager(
@@ -312,7 +311,6 @@ public class SnowflakeSplitSource
                 hdfsEnvironment,
                 new CachingDirectoryLister(hiveConfig),
                 executorService,
-                new HiveCoercionPolicy(typeManager),
                 new CounterStat(),
                 hiveConfig.getMaxOutstandingSplits(),
                 hiveConfig.getMaxOutstandingSplitsSize(),
@@ -325,7 +323,7 @@ public class SnowflakeSplitSource
                 typeManager);
     }
 
-    private SemiTransactionalHiveMetastore getSemiTransactionalHiveMetastore(TypeTranslator typeTranslator, HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
+    private SemiTransactionalHiveMetastore getSemiTransactionalHiveMetastore(HiveConfig hiveConfig, HdfsEnvironment hdfsEnvironment)
     {
         Table table = new Table(
                 jdbcTableHandle.getSchemaName(),
@@ -336,7 +334,7 @@ public class SnowflakeSplitSource
                         .setLocation("s3://" + transferAgent.getStageLocation())
                         .setStorageFormat(StorageFormat.fromHiveStorageFormat(PARQUET))
                         .build(),
-                getHiveColumns(typeTranslator),
+                getHiveColumns(),
                 ImmutableList.of(),
                 ImmutableMap.of(),
                 Optional.empty(),
@@ -353,16 +351,16 @@ public class SnowflakeSplitSource
                 Executors.newScheduledThreadPool(1));
     }
 
-    private List<Column> getHiveColumns(TypeTranslator typeTranslator)
+    private List<Column> getHiveColumns()
     {
         return columns.stream()
-                .map(column -> toHiveColumn(typeTranslator, column))
+                .map(column -> toHiveColumn(column))
                 .collect(toImmutableList());
     }
 
-    private Column toHiveColumn(TypeTranslator typeTranslator, JdbcColumnHandle jdbcColumnHandle)
+    private Column toHiveColumn(JdbcColumnHandle jdbcColumnHandle)
     {
-        return new Column(jdbcColumnHandle.getColumnName(), toHiveType(typeTranslator, jdbcColumnHandle.getColumnType()), Optional.empty());
+        return new Column(jdbcColumnHandle.getColumnName(), toHiveType(jdbcColumnHandle.getColumnType()), Optional.empty());
     }
 
     private String copyIntoStage(String sql, String stageName)

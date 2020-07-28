@@ -57,7 +57,6 @@ import static java.util.function.Function.identity;
 class SnowflakePageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private final SnowflakeHiveTypeTranslator typeTranslator = new SnowflakeHiveTypeTranslator();
     private final FileFormatDataSourceStats stats;
     private final ParquetReaderConfig parquetReaderConfig;
 
@@ -94,7 +93,6 @@ class SnowflakePageSourceProvider
         long unpaddedFileSize = snowflakeSplit.getFileSize() - paddedBytes;
 
         List<HiveColumnHandle> hiveColumns = getHiveColumnHandles(
-                typeTranslator,
                 columns.stream()
                         .map(JdbcColumnHandle.class::cast)
                         .collect(toImmutableList()));
