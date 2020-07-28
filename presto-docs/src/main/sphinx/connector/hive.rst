@@ -357,6 +357,9 @@ Property Name                                        Description
 ``hive.metastore.glue.max-connections``              Max number of concurrent connections to Glue,
                                                      defaults to ``5``.
 
+``hive.metastore.glue.max-error-retries``            Maximum number of error retries for the Glue client,
+                                                     defaults to ``10``.
+
 ``hive.metastore.glue.default-warehouse-dir``        Default warehouse directory for schemas created without an
                                                      explicit ``location`` property.
 
