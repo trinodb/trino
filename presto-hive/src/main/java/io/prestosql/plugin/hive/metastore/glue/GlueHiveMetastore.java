@@ -183,7 +183,9 @@ public class GlueHiveMetastore
 
     private static AWSGlueAsync createAsyncGlueClient(GlueHiveMetastoreConfig config, Optional<RequestHandler2> requestHandler)
     {
-        ClientConfiguration clientConfig = new ClientConfiguration().withMaxConnections(config.getMaxGlueConnections());
+        ClientConfiguration clientConfig = new ClientConfiguration()
+                .withMaxConnections(config.getMaxGlueConnections())
+                .withMaxErrorRetry(config.getMaxGlueErrorRetries());
         AWSGlueAsyncClientBuilder asyncGlueClientBuilder = AWSGlueAsyncClientBuilder.standard()
                 .withClientConfiguration(clientConfig);
 
