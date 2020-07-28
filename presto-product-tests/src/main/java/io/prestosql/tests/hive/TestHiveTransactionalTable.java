@@ -127,6 +127,12 @@ public class TestHiveTransactionalTable
             // test filtering
             assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE fcol = 1 ORDER BY col")).containsOnly(row(21, 1));
 
+            onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (24, 4)");
+            onHive().executeQuery("DELETE FROM " + tableName + " where fcol=4");
+
+            // test filtering
+            assertThat(query("SELECT col, fcol FROM " + tableName + " WHERE fcol = 1 ORDER BY col")).containsOnly(row(21, 1));
+
             // test minor compacted data read
             onHive().executeQuery("INSERT INTO TABLE " + tableName + hivePartitionString + " VALUES (20, 3)");
 

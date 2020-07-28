@@ -24,6 +24,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -114,17 +115,17 @@ public class AcidInfo
     {
         private final long minWriteId;
         private final long maxWriteId;
-        private final int statementId;
+        private final OptionalInt statementId;
 
         @JsonCreator
         public DeleteDeltaInfo(
                 @JsonProperty("minWriteId") long minWriteId,
                 @JsonProperty("maxWriteId") long maxWriteId,
-                @JsonProperty("statementId") int statementId)
+                @JsonProperty("statementId") OptionalInt statementId)
         {
             this.minWriteId = minWriteId;
             this.maxWriteId = maxWriteId;
-            this.statementId = statementId;
+            this.statementId = requireNonNull(statementId, "statementId is null");
         }
 
         @JsonProperty
@@ -140,7 +141,7 @@ public class AcidInfo
         }
 
         @JsonProperty
-        public int getStatementId()
+        public OptionalInt getStatementId()
         {
             return statementId;
         }
@@ -159,7 +160,7 @@ public class AcidInfo
             DeleteDeltaInfo that = (DeleteDeltaInfo) o;
             return minWriteId == that.minWriteId &&
                     maxWriteId == that.maxWriteId &&
-                    statementId == that.statementId;
+                    statementId.equals(that.statementId);
         }
 
         @Override
@@ -262,7 +263,7 @@ public class AcidInfo
             deleteDeltaInfos.addAll(acidInfo.deleteDeltas);
         }
 
-        public Builder addDeleteDelta(Path deleteDeltaPath, long minWriteId, long maxWriteId, int statementId)
+        public Builder addDeleteDelta(Path deleteDeltaPath, long minWriteId, long maxWriteId, OptionalInt statementId)
         {
             requireNonNull(deleteDeltaPath, "deleteDeltaPath is null");
             Path partitionPathFromDeleteDelta = deleteDeltaPath.getParent();

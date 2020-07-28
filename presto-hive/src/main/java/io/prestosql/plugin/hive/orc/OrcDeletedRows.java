@@ -243,10 +243,14 @@ public class OrcDeletedRows
 
     private static Path createPath(AcidInfo acidInfo, AcidInfo.DeleteDeltaInfo deleteDeltaInfo, String fileName)
     {
-        Path directory = new Path(acidInfo.getPartitionLocation(), deleteDeltaSubdir(
-                deleteDeltaInfo.getMinWriteId(),
-                deleteDeltaInfo.getMaxWriteId(),
-                deleteDeltaInfo.getStatementId()));
+        String deleteDeltaSubdir;
+        if (deleteDeltaInfo.getStatementId().isPresent()) {
+            deleteDeltaSubdir = deleteDeltaSubdir(deleteDeltaInfo.getMinWriteId(), deleteDeltaInfo.getMaxWriteId(), deleteDeltaInfo.getStatementId().getAsInt());
+        }
+        else {
+            deleteDeltaSubdir = deleteDeltaSubdir(deleteDeltaInfo.getMinWriteId(), deleteDeltaInfo.getMaxWriteId());
+        }
+        Path directory = new Path(acidInfo.getPartitionLocation(), deleteDeltaSubdir);
 
         // When direct insert is enabled base and delta directories contain bucket_[id]_[attemptId] files
         // but delete delta directories contain bucket files without attemptId so we have to remove it from filename.
