@@ -1,11 +1,19 @@
-# Presto
-[![Maven Central](https://img.shields.io/maven-central/v/io.prestosql/presto-server.svg?label=Download)](https://prestosql.io/download.html)
-[![Presto Slack](https://img.shields.io/static/v1?logo=slack&logoColor=959DA5&label=Slack&labelColor=333a41&message=join%20conversation&color=3AC358)](https://prestosql.io/slack.html)
-[![Presto: The Definitive Guide book download](https://img.shields.io/badge/Presto%3A%20The%20Definitive%20Guide-download-brightgreen)](https://www.starburstdata.com/oreilly-presto-guide-download/)
-
-Presto is a distributed SQL query engine for big data.
-
-See the [User Manual](https://prestosql.io/docs/current/) for deployment instructions and end user documentation.
+<p align="center">
+    <img alt="Presto Logo" src="presto-docs/src/main/resources/logo/web/main/white/Presto_Logo_WhiteBG-01.png" width="25%" />
+</p>
+<p align="center">Presto is a distributed SQL query engine for big data.</p>
+<p align="center">See the <a href="https://prestosql.io/docs/current/">User Manual</a> for deployment instructions and end user documentation.</p>
+<p align="center">
+   <a href="https://prestosql.io/download.html">
+       <img src="https://img.shields.io/maven-central/v/io.prestosql/presto-server.svg?label=Download" alt="Maven Central" />
+   </a>
+   <a href="https://prestosql.io/slack.html">
+       <img src="https://img.shields.io/static/v1?logo=slack&logoColor=959DA5&label=Slack&labelColor=333a41&message=join%20conversation&color=3AC358" alt="Presto Slack" />
+   </a>
+   <a href="https://www.starburstdata.com/oreilly-presto-guide-download">
+       <img src="https://img.shields.io/badge/Presto%3A%20The%20Definitive%20Guide-download-brightgreen" alt="Presto: The Definitive Guide book download" />
+   </a>
+</p>
 
 ## Requirements
 
