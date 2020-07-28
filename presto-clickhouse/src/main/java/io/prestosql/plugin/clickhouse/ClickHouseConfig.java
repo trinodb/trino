@@ -14,20 +14,13 @@
 package io.prestosql.plugin.clickhouse;
 
 import io.airlift.configuration.Config;
-import io.airlift.log.Logger;
 import io.airlift.units.Duration;
-
-import javax.validation.constraints.NotNull;
 
 import java.util.concurrent.TimeUnit;
 
 public class ClickHouseConfig
 {
-    private static final Logger log = Logger.get(ClickHouseConfig.class);
-
     private String connectionurl;
-    private String user;
-    private String password;
     private Duration connectionTimeout = new Duration(10, TimeUnit.SECONDS);
 
     // Using `useInformationSchema=true` prevents race condition inside clickhouse driver's java.sql.DatabaseMetaData.getColumns
@@ -35,18 +28,7 @@ public class ClickHouseConfig
     // Using `useInformationSchema=false` may provide more diagnostic information (see https://github.com/prestosql/presto/issues/1597)
     private boolean driverUseInformationSchema = true;
 
-    @NotNull
-    public String getConnectionUrl()
-    {
-        return connectionurl;
-    }
-
-    @Config("connection-url")
-    public ClickHouseConfig setConnectionUrl(String connectionUrl)
-    {
-        this.connectionurl = connectionUrl;
-        return this;
-    }
+    private boolean includeSystemTables;
 
     public Duration getConnectionTimeout()
     {
@@ -63,31 +45,5 @@ public class ClickHouseConfig
     public boolean isDriverUseInformationSchema()
     {
         return driverUseInformationSchema;
-    }
-
-    @NotNull
-    public String getConnectionuser()
-    {
-        return user;
-    }
-
-    @Config("connection-user")
-    public ClickHouseConfig setConnectionuser(String user)
-    {
-        this.user = user;
-        return this;
-    }
-
-    @NotNull
-    public String getConnectionpassword()
-    {
-        return password;
-    }
-
-    @Config("connection-password")
-    public ClickHouseConfig setConnectionpassword(String password)
-    {
-        this.password = password;
-        return this;
     }
 }
