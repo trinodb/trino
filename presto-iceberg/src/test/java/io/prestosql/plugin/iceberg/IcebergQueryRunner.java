@@ -36,13 +36,13 @@ public final class IcebergQueryRunner
 
     private IcebergQueryRunner() {}
 
-    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties)
+    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraServerProperties)
             throws Exception
     {
-        return createIcebergQueryRunner(extraProperties, true);
+        return createIcebergQueryRunner(extraServerProperties, ImmutableMap.of(), true);
     }
 
-    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, boolean createTpchTables)
+    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraServerProperties, Map<String, String> extraIcebergProperties, boolean createTpchTables)
             throws Exception
     {
         Session session = testSessionBuilder()
@@ -51,7 +51,7 @@ public final class IcebergQueryRunner
                 .build();
 
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(session)
-                .setExtraProperties(extraProperties)
+                .setExtraProperties(extraServerProperties)
                 .build();
 
         queryRunner.installPlugin(new TpchPlugin());
@@ -63,6 +63,7 @@ public final class IcebergQueryRunner
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", dataDir.toString())
+                .putAll(extraIcebergProperties)
                 .build();
 
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
