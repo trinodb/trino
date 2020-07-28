@@ -47,12 +47,10 @@ public class ClickHouseClientModule
     @Provides
     @Singleton
     @ForBaseJdbc
-    public static ConnectionFactory createConnectionFactory(ClickHouseConfig config, CredentialProvider credentialProvider, ClickHouseConfig clickhouseConfig)
+    public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, ClickHouseConfig clickhouseConfig)
             throws SQLException
     {
         Properties connectionProperties = new Properties();
-        connectionProperties.setProperty("user", config.getConnectionuser());
-        connectionProperties.setProperty("password", config.getConnectionpassword());
         if (clickhouseConfig.getConnectionTimeout() != null) {
             connectionProperties.setProperty("connectionTimeout", String.valueOf(clickhouseConfig.getConnectionTimeout().toMillis()));
         }
