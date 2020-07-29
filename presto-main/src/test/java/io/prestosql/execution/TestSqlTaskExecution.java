@@ -88,6 +88,9 @@ import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockAssertions.createStringSequenceBlock;
 import static io.prestosql.block.BlockAssertions.createStringsBlock;
+import static io.prestosql.execution.TaskState.FINISHED;
+import static io.prestosql.execution.TaskState.FLUSHING;
+import static io.prestosql.execution.TaskState.RUNNING;
 import static io.prestosql.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static io.prestosql.execution.TaskTestUtils.createTestSplitMonitor;
 import static io.prestosql.execution.buffer.BufferState.OPEN;
@@ -177,7 +180,7 @@ public class TestSqlTaskExecution
 
             //
             // test body
-            assertEquals(taskStateMachine.getState(), TaskState.RUNNING);
+            assertEquals(taskStateMachine.getState(), RUNNING);
 
             switch (executionStrategy) {
                 case UNGROUPED_EXECUTION:
@@ -277,10 +280,9 @@ public class TestSqlTaskExecution
                     throw new UnsupportedOperationException();
             }
 
-            assertEquals(taskStateMachine.getStateChange(TaskState.RUNNING).get(10, SECONDS), TaskState.FLUSHING);
+            assertEquals(taskStateMachine.getStateChange(RUNNING).get(10, SECONDS), FLUSHING);
             outputBufferConsumer.abort(); // complete the task by calling abort on it
-            TaskState taskState = taskStateMachine.getStateChange(TaskState.FLUSHING).get(10, SECONDS);
-            assertEquals(taskState, TaskState.FINISHED);
+            assertEquals(taskStateMachine.getStateChange(FLUSHING).get(10, SECONDS), FINISHED);
         }
         finally {
             taskExecutor.stop();
@@ -429,7 +431,7 @@ public class TestSqlTaskExecution
 
             //
             // test body
-            assertEquals(taskStateMachine.getState(), TaskState.RUNNING);
+            assertEquals(taskStateMachine.getState(), RUNNING);
 
             switch (executionStrategy) {
                 case UNGROUPED_EXECUTION:
@@ -580,10 +582,9 @@ public class TestSqlTaskExecution
                     throw new UnsupportedOperationException();
             }
 
-            assertEquals(taskStateMachine.getStateChange(TaskState.RUNNING).get(10, SECONDS), TaskState.FLUSHING);
+            assertEquals(taskStateMachine.getStateChange(RUNNING).get(10, SECONDS), FLUSHING);
             outputBufferConsumer.abort(); // complete the task by calling abort on it
-            TaskState taskState = taskStateMachine.getStateChange(TaskState.FLUSHING).get(10, SECONDS);
-            assertEquals(taskState, TaskState.FINISHED);
+            assertEquals(taskStateMachine.getStateChange(FLUSHING).get(10, SECONDS), FINISHED);
         }
         finally {
             taskExecutor.stop();
