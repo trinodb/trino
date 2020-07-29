@@ -47,6 +47,7 @@ import java.util.function.LongPredicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.plugin.hive.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveStorageFormat.ORC;
@@ -196,7 +197,8 @@ public class TestOrcPageSourceFactory
                 createSchema(),
                 columnHandles,
                 tupleDomain,
-                acidInfo);
+                acidInfo,
+                NO_ACID_TRANSACTION);
 
         checkArgument(pageSourceWithProjections.isPresent());
         checkArgument(pageSourceWithProjections.get().getProjectedReaderColumns().isEmpty(),

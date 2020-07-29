@@ -195,7 +195,8 @@ public class HivePartitionManager
                 handle.getAnalyzePartitionValues(),
                 handle.getAnalyzeColumnNames(),
                 Optionals.combine(handle.getConstraintColumns(), columns,
-                        Sets::union));
+                        Sets::union),
+                handle.getTransaction());
     }
 
     public List<HivePartition> getOrLoadPartitions(SemiTransactionalHiveMetastore metastore, HiveIdentity identity, HiveTableHandle table)

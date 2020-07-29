@@ -14,6 +14,7 @@
 package io.prestosql.plugin.hive.metastore.thrift;
 
 import com.google.common.annotations.VisibleForTesting;
+import io.prestosql.plugin.hive.AcidOperation;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
@@ -393,6 +394,34 @@ public class FailureAwareThriftMetastoreClient
             throws TException
     {
         return runWithHandle(() -> delegate.getDelegationToken(userName));
+    }
+
+    @Override
+    public long allocateWriteId(String dbName, String tableName, long transactionid)
+            throws TException
+    {
+        return runWithHandle(() -> delegate.allocateWriteId(dbName, tableName, transactionid));
+    }
+
+    @Override
+    public void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId)
+            throws TException
+    {
+        runWithHandle(() -> delegate.updateTableWriteId(dbName, tableName, transactionId, writeId));
+    }
+
+    @Override
+    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
+            throws TException
+    {
+        runWithHandle(() -> delegate.alterPartitions(dbName, tableName, partitions, writeId));
+    }
+
+    @Override
+    public void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
+            throws TException
+    {
+        runWithHandle(() -> delegate.addDynamicPartitions(dbName, tableName, partitionNames, transactionId, writeId, operation));
     }
 
     private <T> T runWithHandle(ThrowingSupplier<T> supplier)

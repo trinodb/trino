@@ -13,23 +13,23 @@
  */
 package io.prestosql.plugin.hive;
 
-import io.prestosql.plugin.hive.metastore.StorageFormat;
-import io.prestosql.spi.connector.ConnectorSession;
-import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.JobConf;
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.apache.hadoop.hive.metastore.api.DataOperationType;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.Properties;
-
-public interface HiveFileWriterFactory
+public enum AcidOperation
 {
-    Optional<FileWriter> createFileWriter(
-            Path path,
-            List<String> inputColumnNames,
-            StorageFormat storageFormat,
-            Properties schema,
-            JobConf conf,
-            ConnectorSession session,
-            AcidTransaction transaction);
+    // INSERT and UPDATE will be added when they are implemented
+    NONE,
+    DELETE;
+
+    @JsonIgnore
+    public DataOperationType getOperationType()
+    {
+        switch (this) {
+            case DELETE:
+                return DataOperationType.DELETE;
+            default:
+                return DataOperationType.NO_TXN;
+        }
+    }
 }

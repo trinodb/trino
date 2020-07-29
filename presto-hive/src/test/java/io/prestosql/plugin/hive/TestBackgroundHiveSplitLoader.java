@@ -86,6 +86,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.prestosql.plugin.hive.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.prestosql.plugin.hive.BackgroundHiveSplitLoader.BucketSplitInfo.createBucketSplitInfo;
 import static io.prestosql.plugin.hive.BackgroundHiveSplitLoader.getBucketNumber;
 import static io.prestosql.plugin.hive.BackgroundHiveSplitLoader.hasAttemptId;
@@ -473,6 +474,7 @@ public class TestBackgroundHiveSplitLoader
 
         BackgroundHiveSplitLoader backgroundHiveSplitLoader = new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
+                NO_ACID_TRANSACTION,
                 () -> new Iterator<>()
                 {
                     private boolean threw;
@@ -844,6 +846,7 @@ public class TestBackgroundHiveSplitLoader
 
         return new BackgroundHiveSplitLoader(
                 table,
+                NO_ACID_TRANSACTION,
                 hivePartitionMetadatas,
                 compactEffectivePredicate,
                 dynamicFilter,
@@ -874,6 +877,7 @@ public class TestBackgroundHiveSplitLoader
 
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
+                NO_ACID_TRANSACTION,
                 hivePartitionMetadatas,
                 TupleDomain.none(),
                 DynamicFilter.EMPTY,
@@ -898,6 +902,7 @@ public class TestBackgroundHiveSplitLoader
 
         return new BackgroundHiveSplitLoader(
                 SIMPLE_TABLE,
+                NO_ACID_TRANSACTION,
                 createPartitionMetadataWithOfflinePartitions(),
                 TupleDomain.all(),
                 DynamicFilter.EMPTY,

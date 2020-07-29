@@ -29,6 +29,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
+import org.apache.hadoop.hive.metastore.api.DataOperationType;
 
 import java.util.List;
 import java.util.Map;
@@ -314,5 +315,30 @@ public class HiveMetastoreClosure
     public Optional<String> getConfigValue(String name)
     {
         return delegate.getConfigValue(name);
+    }
+
+    public long allocateWriteId(String dbName, String tableName, long transactionId)
+    {
+        return delegate.allocateWriteId(dbName, tableName, transactionId);
+    }
+
+    public void acquireTableWriteLock(HiveIdentity identity, String queryId, long transactionId, String dbName, String tableName, DataOperationType operation)
+    {
+        delegate.acquireTableWriteLock(identity, queryId, transactionId, dbName, tableName, operation);
+    }
+
+    public void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId)
+    {
+        delegate.updateTableWriteId(dbName, tableName, transactionId, writeId);
+    }
+
+    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
+    {
+        delegate.alterPartitions(dbName, tableName, partitions, writeId);
+    }
+
+    public void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
+    {
+        delegate.addDynamicPartitions(dbName, tableName, partitionNames, transactionId, writeId, operation);
     }
 }

@@ -235,4 +235,13 @@ public class LongColumnWriter
         rowGroupColumnStatistics.clear();
         statisticsBuilder = statisticsBuilderSupplier.get();
     }
+
+    @Override
+    public String toString()
+    {
+        return "LongColumnWriter{" +
+                "columnId=" + columnId +
+                ", type=" + type +
+                '}';
+    }
 }

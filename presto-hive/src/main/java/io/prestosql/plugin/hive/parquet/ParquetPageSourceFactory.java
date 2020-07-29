@@ -25,6 +25,7 @@ import io.prestosql.parquet.predicate.Predicate;
 import io.prestosql.parquet.reader.MetadataReader;
 import io.prestosql.parquet.reader.ParquetReader;
 import io.prestosql.plugin.hive.AcidInfo;
+import io.prestosql.plugin.hive.AcidTransaction;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
@@ -123,7 +124,8 @@ public class ParquetPageSourceFactory
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            Optional<AcidInfo> acidInfo)
+            Optional<AcidInfo> acidInfo,
+            AcidTransaction transaction)
     {
         if (!PARQUET_SERDE_CLASS_NAMES.contains(getDeserializerClassName(schema))) {
             return Optional.empty();

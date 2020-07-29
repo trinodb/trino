@@ -800,10 +800,13 @@ public abstract class AbstractTestHive
                 new HiveWriterStats());
         pageSourceProvider = new HivePageSourceProvider(
                 TYPE_MANAGER,
+                hiveConfig,
+                metastoreClient,
                 hdfsEnvironment,
                 getDefaultHivePageSourceFactories(hdfsEnvironment, hiveConfig),
                 getDefaultHiveRecordCursorProviders(hiveConfig, hdfsEnvironment),
-                new GenericHiveRecordCursorProvider(hdfsEnvironment, hiveConfig));
+                new GenericHiveRecordCursorProvider(hdfsEnvironment, hiveConfig),
+                Optional.empty());
     }
 
     protected HdfsConfiguration createTestHdfsConfiguration()

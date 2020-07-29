@@ -235,10 +235,13 @@ public abstract class AbstractTestHiveFileSystem
                 new HiveWriterStats());
         pageSourceProvider = new HivePageSourceProvider(
                 TYPE_MANAGER,
+                config,
+                metastoreClient,
                 hdfsEnvironment,
                 getDefaultHivePageSourceFactories(hdfsEnvironment, config),
                 getDefaultHiveRecordCursorProviders(config, hdfsEnvironment),
-                new GenericHiveRecordCursorProvider(hdfsEnvironment, config));
+                new GenericHiveRecordCursorProvider(hdfsEnvironment, config),
+                Optional.empty());
 
         onSetupComplete();
     }

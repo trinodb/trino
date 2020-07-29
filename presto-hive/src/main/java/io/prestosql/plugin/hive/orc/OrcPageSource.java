@@ -14,11 +14,14 @@
 package io.prestosql.plugin.hive.orc;
 
 import com.google.common.collect.ImmutableList;
+import io.airlift.log.Logger;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.orc.OrcCorruptionException;
 import io.prestosql.orc.OrcDataSource;
 import io.prestosql.orc.OrcDataSourceId;
 import io.prestosql.orc.OrcRecordReader;
+import io.prestosql.orc.metadata.ColumnMetadata;
+import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.orc.OrcDeletedRows.MaskDeletedRowsFunction;
 import io.prestosql.spi.Page;
@@ -41,12 +44,18 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
+import static io.prestosql.plugin.hive.HiveUpdatablePageSource.BUCKET_CHANNEL;
+import static io.prestosql.plugin.hive.HiveUpdatablePageSource.ORIGINAL_TRANSACTION_CHANNEL;
+import static io.prestosql.plugin.hive.HiveUpdatablePageSource.ROW_ID_CHANNEL;
+import static io.prestosql.spi.block.RowBlock.fromFieldBlocks;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class OrcPageSource
         implements ConnectorPageSource
 {
+    private static final Logger log = Logger.get(OrcPageSource.class);
+
     private final OrcRecordReader recordReader;
     private final List<ColumnAdaptation> columnAdaptations;
     private final OrcDataSource orcDataSource;
@@ -95,6 +104,11 @@ public class OrcPageSource
     public boolean isFinished()
     {
         return closed;
+    }
+
+    public ColumnMetadata<OrcType> getColumnTypes()
+    {
+        return recordReader.getColumnTypes();
     }
 
     @Override
@@ -198,6 +212,11 @@ public class OrcPageSource
         {
             return new SourceColumn(index);
         }
+
+        static ColumnAdaptation rowIdColumn()
+        {
+            return new RowIdAdaptation();
+        }
     }
 
     private static class NullColumn
@@ -279,6 +298,24 @@ public class OrcPageSource
 
                 return resultBlock;
             }
+        }
+    }
+
+    private static class RowIdAdaptation
+            implements ColumnAdaptation
+    {
+        @Override
+        public Block block(Page sourcePage, MaskDeletedRowsFunction maskDeletedRowsFunction)
+        {
+            Block rowBlock = maskDeletedRowsFunction.apply(fromFieldBlocks(
+                    sourcePage.getPositionCount(),
+                    Optional.empty(),
+                    new Block[] {
+                            sourcePage.getBlock(ORIGINAL_TRANSACTION_CHANNEL),
+                            sourcePage.getBlock(ROW_ID_CHANNEL),
+                            sourcePage.getBlock(BUCKET_CHANNEL)
+                    }));
+            return rowBlock;
         }
     }
 }

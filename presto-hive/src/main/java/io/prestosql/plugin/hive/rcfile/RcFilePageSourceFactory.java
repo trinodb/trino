@@ -19,6 +19,7 @@ import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
 import io.prestosql.plugin.hive.AcidInfo;
+import io.prestosql.plugin.hive.AcidTransaction;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
@@ -108,7 +109,8 @@ public class RcFilePageSourceFactory
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            Optional<AcidInfo> acidInfo)
+            Optional<AcidInfo> acidInfo,
+            AcidTransaction transaction)
     {
         RcFileEncoding rcFileEncoding;
         String deserializerClassName = getDeserializerClassName(schema);

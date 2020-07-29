@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Lists;
+import io.prestosql.plugin.hive.AcidOperation;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.apache.hadoop.hive.metastore.Warehouse;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsData;
@@ -490,6 +491,34 @@ public class MockThriftMetastoreClient
 
     @Override
     public String getDelegationToken(String userName)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public long allocateWriteId(String dbName, String tableName, long transactionId)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
+            throws TException
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
+            throws TException
     {
         throw new UnsupportedOperationException();
     }

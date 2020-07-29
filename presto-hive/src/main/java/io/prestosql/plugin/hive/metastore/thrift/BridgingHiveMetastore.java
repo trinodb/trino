@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive.metastore.thrift;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.plugin.hive.AcidOperation;
 import io.prestosql.plugin.hive.HivePartition;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.PartitionStatistics;
@@ -36,6 +37,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
+import org.apache.hadoop.hive.metastore.api.DataOperationType;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 
 import javax.inject.Inject;
@@ -57,6 +59,7 @@ import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.from
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isAvroTableWithSchemaSet;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.isCsvTable;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiDatabase;
+import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiPartition;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.toMetastoreApiTable;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
@@ -486,5 +489,39 @@ public class BridgingHiveMetastore
     public String getValidWriteIds(HiveIdentity identity, List<SchemaTableName> tables, long currentTransactionId)
     {
         return delegate.getValidWriteIds(identity, tables, currentTransactionId);
+    }
+
+    @Override
+    public long allocateWriteId(String dbName, String tableName, long transactionId)
+    {
+        return delegate.allocateWriteId(dbName, tableName, transactionId);
+    }
+
+    @Override
+    public void acquireTableWriteLock(HiveIdentity identity, String queryId, long transactionId, String dbName, String tableName, DataOperationType operation)
+    {
+        delegate.acquireTableWriteLock(identity, queryId, transactionId, dbName, tableName, operation);
+    }
+
+    @Override
+    public void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId)
+    {
+        delegate.updateTableWriteId(dbName, tableName, transactionId, writeId);
+    }
+
+    @Override
+    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
+    {
+        List<org.apache.hadoop.hive.metastore.api.Partition> hadoopPartitions = partitions.stream()
+                .map(partition -> toMetastoreApiPartition(partition))
+                .collect(toImmutableList());
+        hadoopPartitions.forEach(partition -> partition.setWriteId(writeId));
+        delegate.alterPartitions(dbName, tableName, hadoopPartitions, writeId);
+    }
+
+    @Override
+    public void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
+    {
+        delegate.addDynamicPartitions(dbName, tableName, partitionNames, transactionId, writeId, operation);
     }
 }

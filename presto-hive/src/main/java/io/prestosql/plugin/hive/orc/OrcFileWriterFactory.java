@@ -22,6 +22,7 @@ import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.orc.OrcWriterStats;
 import io.prestosql.orc.OutputStreamOrcDataSink;
 import io.prestosql.orc.metadata.CompressionKind;
+import io.prestosql.plugin.hive.AcidTransaction;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.FileWriter;
 import io.prestosql.plugin.hive.HdfsEnvironment;
@@ -128,7 +129,8 @@ public class OrcFileWriterFactory
             StorageFormat storageFormat,
             Properties schema,
             JobConf configuration,
-            ConnectorSession session)
+            ConnectorSession session,
+            AcidTransaction transaction)
     {
         if (!OrcOutputFormat.class.getName().equals(storageFormat.getOutputFormat())) {
             return Optional.empty();
@@ -146,6 +148,10 @@ public class OrcFileWriterFactory
         int[] fileInputColumnIndexes = fileColumnNames.stream()
                 .mapToInt(inputColumnNames::indexOf)
                 .toArray();
+        if (transaction.isDelete()) {
+            // For delete, set the "row" column to -1
+            fileInputColumnIndexes[fileInputColumnIndexes.length - 1] = -1;
+        }
 
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);

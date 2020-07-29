@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive.parquet;
 
 import io.prestosql.parquet.writer.ParquetSchemaConverter;
 import io.prestosql.parquet.writer.ParquetWriterOptions;
+import io.prestosql.plugin.hive.AcidTransaction;
 import io.prestosql.plugin.hive.FileWriter;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveFileWriterFactory;
@@ -67,7 +68,8 @@ public class ParquetFileWriterFactory
             StorageFormat storageFormat,
             Properties schema,
             JobConf conf,
-            ConnectorSession session)
+            ConnectorSession session,
+            AcidTransaction transaction)
     {
         if (!HiveSessionProperties.isParquetOptimizedWriterEnabled(session)) {
             return Optional.empty();

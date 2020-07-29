@@ -94,7 +94,8 @@ public class RcFileFileWriterFactory
             StorageFormat storageFormat,
             Properties schema,
             JobConf configuration,
-            ConnectorSession session)
+            ConnectorSession session,
+            AcidTransaction transaction)
     {
         if (!RCFileOutputFormat.class.getName().equals(storageFormat.getOutputFormat())) {
             return Optional.empty();

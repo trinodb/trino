@@ -27,6 +27,7 @@ import io.prestosql.orc.TupleDomainOrcPredicate;
 import io.prestosql.orc.TupleDomainOrcPredicate.TupleDomainOrcPredicateBuilder;
 import io.prestosql.orc.metadata.OrcType.OrcTypeKind;
 import io.prestosql.plugin.hive.AcidInfo;
+import io.prestosql.plugin.hive.AcidTransaction;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
@@ -92,6 +93,7 @@ import static io.prestosql.plugin.hive.ReaderProjections.projectBaseColumns;
 import static io.prestosql.plugin.hive.orc.OrcPageSource.handleException;
 import static io.prestosql.plugin.hive.util.HiveUtil.isDeserializerClass;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -145,7 +147,8 @@ public class OrcPageSourceFactory
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            Optional<AcidInfo> acidInfo)
+            Optional<AcidInfo> acidInfo,
+            AcidTransaction transaction)
     {
         if (!isDeserializerClass(schema, OrcSerde.class)) {
             return Optional.empty();
@@ -185,6 +188,7 @@ public class OrcPageSourceFactory
                         .withNestedLazy(isOrcNestedLazy(session))
                         .withBloomFiltersEnabled(isOrcBloomFiltersEnabled(session)),
                 acidInfo,
+                transaction,
                 stats);
 
         return Optional.of(new ReaderPageSourceWithProjections(orcPageSource, projectedReaderColumns));
@@ -206,6 +210,7 @@ public class OrcPageSourceFactory
             DateTimeZone legacyFileTimeZone,
             OrcReaderOptions options,
             Optional<AcidInfo> acidInfo,
+            AcidTransaction transaction,
             FileFormatDataSourceStats stats)
     {
         for (HiveColumnHandle column : columns) {
@@ -239,9 +244,10 @@ public class OrcPageSourceFactory
             OrcReader reader = new OrcReader(orcDataSource, options);
 
             List<OrcColumn> fileColumns = reader.getRootColumn().getNestedColumns();
-            List<OrcColumn> fileReadColumns = new ArrayList<>(columns.size() + (isFullAcid ? 2 : 0));
-            List<Type> fileReadTypes = new ArrayList<>(columns.size() + (isFullAcid ? 2 : 0));
-            List<OrcReader.ProjectedLayout> fileReadLayouts = new ArrayList<>(columns.size() + (isFullAcid ? 2 : 0));
+            int acidColumnCount = 3;
+            List<OrcColumn> fileReadColumns = new ArrayList<>(columns.size() + (isFullAcid ? acidColumnCount : 0));
+            List<Type> fileReadTypes = new ArrayList<>(columns.size() + (isFullAcid ? acidColumnCount : 0));
+            List<OrcReader.ProjectedLayout> fileReadLayouts = new ArrayList<>(columns.size() + (isFullAcid ? acidColumnCount : 0));
             if (isFullAcid && !originalFilesPresent) {
                 verifyAcidSchema(reader, path);
                 Map<String, OrcColumn> acidColumnsByName = uniqueIndex(fileColumns, orcColumn -> orcColumn.getColumnName().toLowerCase(ENGLISH));
@@ -253,6 +259,10 @@ public class OrcPageSourceFactory
 
                 fileReadColumns.add(acidColumnsByName.get(ACID_COLUMN_ROW_ID.toLowerCase(ENGLISH)));
                 fileReadTypes.add(BIGINT);
+                fileReadLayouts.add(fullyProjectedLayout());
+
+                fileReadColumns.add(acidColumnsByName.get(ACID_COLUMN_BUCKET.toLowerCase(ENGLISH)));
+                fileReadTypes.add(INTEGER);
                 fileReadLayouts.add(fullyProjectedLayout());
             }
 
@@ -332,6 +342,9 @@ public class OrcPageSourceFactory
                 else {
                     columnAdaptations.add(ColumnAdaptation.nullColumn(readType));
                 }
+            }
+            if (transaction.isTransactionRunning() && transaction.isDelete()) {
+                columnAdaptations.add(ColumnAdaptation.rowIdColumn());
             }
 
             OrcRecordReader recordReader = reader.createRecordReader(

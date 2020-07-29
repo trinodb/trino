@@ -23,6 +23,7 @@ import com.google.common.collect.Iterables;
 import com.google.common.collect.Lists;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.hive.AcidOperation;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveBasicStatistics;
@@ -48,6 +49,7 @@ import org.apache.hadoop.fs.FileStatus;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.ValidTxnWriteIdList;
+import org.apache.hadoop.hive.metastore.api.DataOperationType;
 import org.apache.hadoop.hive.ql.io.AcidUtils;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -68,6 +70,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -107,6 +110,7 @@ public class SemiTransactionalHiveMetastore
 {
     private static final Logger log = Logger.get(SemiTransactionalHiveMetastore.class);
     private static final int PARTITION_COMMIT_BATCH_SIZE = 8;
+    private static final Pattern DELTA_DIRECTORY_MATCHER = Pattern.compile("(delete_)?delta_[\\d]+_[\\d]+_[\\d]+$");
 
     private final HiveMetastoreClosure delegate;
     private final HdfsEnvironment hdfsEnvironment;
@@ -1024,7 +1028,6 @@ public class SemiTransactionalHiveMetastore
                         .map(Duration::toMillis)
                         .orElseGet(this::getServerExpectedHeartbeatIntervalMillis);
                 long transactionId = delegate.openTransaction(identity);
-                log.debug("Using hive transaction %s for query %s", transactionId, queryId);
 
                 ScheduledFuture<?> heartbeatTask = heartbeatExecutor.scheduleAtFixedRate(
                         () -> delegate.sendTransactionHeartbeat(identity, transactionId),
@@ -1043,6 +1046,24 @@ public class SemiTransactionalHiveMetastore
         Configuration configuration = new Configuration(false);
         configuration.set(TXN_TIMEOUT.toString(), hiveServerTransactionTimeout);
         return getTimeVar(configuration, TXN_TIMEOUT, MILLISECONDS) / 2;
+    }
+
+    public Optional<Long> getTransactionId()
+    {
+        if (currentHiveTransaction.isEmpty()) {
+            return Optional.empty();
+        }
+        return Optional.of(currentHiveTransaction.get().getTransactionId());
+    }
+
+    public synchronized Optional<Long> getOrCreateTransactionId()
+    {
+        if (currentHiveTransaction.isEmpty()) {
+            currentHiveTransaction = Optional.of(hiveTransactionSupplier
+                    .orElseThrow(() -> new IllegalStateException("hiveTransactionSupplier is not set"))
+                    .get());
+        }
+        return Optional.of(currentHiveTransaction.get().getTransactionId());
     }
 
     public synchronized Optional<ValidTxnWriteIdList> getValidWriteIds(ConnectorSession session, HiveTableHandle tableHandle)
@@ -2052,7 +2073,9 @@ public class SemiTransactionalHiveMetastore
                 notDeletedEligibleItems.add(fileStatus.getPath().toString());
             }
         }
-        if (allDescendentsDeleted && deleteEmptyDirectories) {
+        // Unconditionally delete empty delta_ and delete_delta_ directories, because that's
+        // what Hive does, and leaving them in place confuses delta file readers.
+        if (allDescendentsDeleted && (deleteEmptyDirectories || DELTA_DIRECTORY_MATCHER.matcher(directory.getName()).matches())) {
             verify(notDeletedEligibleItems.build().isEmpty());
             if (!deleteIfExists(fileSystem, directory, false)) {
                 return new RecursiveDeleteResult(false, ImmutableList.of(directory.toString() + "/"));
@@ -2958,5 +2981,35 @@ public class SemiTransactionalHiveMetastore
     private interface ExclusiveOperation
     {
         void execute(HiveMetastoreClosure delegate, HdfsEnvironment hdfsEnvironment);
+    }
+
+    public long allocateWriteId(String dbName, String tableName, long transactionId)
+    {
+        return delegate.allocateWriteId(dbName, tableName, transactionId);
+    }
+
+    public void acquireTableWriteLock(HiveIdentity identity, String queryId, long transactionId, String dbName, String tableName, DataOperationType operation)
+    {
+        delegate.acquireTableWriteLock(identity, queryId, transactionId, dbName, tableName, operation);
+    }
+
+    public void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId)
+    {
+        delegate.updateTableWriteId(dbName, tableName, transactionId, writeId);
+    }
+
+    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
+    {
+        delegate.alterPartitions(dbName, tableName, partitions, writeId);
+    }
+
+    public void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
+    {
+        delegate.addDynamicPartitions(dbName, tableName, partitionNames, transactionId, writeId, operation);
+    }
+
+    public void commitTransaction(HiveIdentity identity, long transactionId)
+    {
+        delegate.commitTransaction(identity, transactionId);
     }
 }

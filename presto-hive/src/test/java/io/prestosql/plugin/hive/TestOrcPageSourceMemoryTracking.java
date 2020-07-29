@@ -98,6 +98,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertBetweenInclusive;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.orc.OrcReader.MAX_BATCH_SIZE;
+import static io.prestosql.plugin.hive.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
@@ -503,7 +504,8 @@ public class TestOrcPageSourceMemoryTracking
                     TableToPartitionMapping.empty(),
                     Optional.empty(),
                     false,
-                    Optional.empty())
+                    Optional.empty(),
+                    NO_ACID_TRANSACTION)
                     .get();
         }
 

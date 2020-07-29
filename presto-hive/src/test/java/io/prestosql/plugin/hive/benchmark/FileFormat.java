@@ -68,6 +68,7 @@ import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
+import static io.prestosql.plugin.hive.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
@@ -350,7 +351,8 @@ public enum FileFormat
                         createSchema(format, columnNames, columnTypes),
                         columnHandles,
                         TupleDomain.all(),
-                        Optional.empty());
+                        Optional.empty(),
+                        NO_ACID_TRANSACTION);
 
         checkState(readerPageSourceWithProjections.isPresent(), "readerPageSourceWithProjections is not present");
         checkState(readerPageSourceWithProjections.get().getProjectedReaderColumns().isEmpty(), "projection should not be required");

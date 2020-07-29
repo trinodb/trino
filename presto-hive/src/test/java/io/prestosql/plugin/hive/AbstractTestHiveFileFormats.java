@@ -83,6 +83,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.prestosql.plugin.hive.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveColumnHandle.createBaseColumn;
@@ -585,7 +586,8 @@ public abstract class AbstractTestHiveFileFormats
                 StorageFormat.fromHiveStorageFormat(storageFormat),
                 tableProperties,
                 jobConf,
-                session);
+                session,
+                NO_ACID_TRANSACTION);
 
         FileWriter hiveFileWriter = fileWriter.orElseThrow(() -> new IllegalArgumentException("fileWriterFactory"));
         hiveFileWriter.appendRows(page);

@@ -70,6 +70,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.plugin.hive.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.prestosql.plugin.hive.HiveStorageFormat.AVRO;
 import static io.prestosql.plugin.hive.HiveStorageFormat.CSV;
 import static io.prestosql.plugin.hive.HiveStorageFormat.JSON;
@@ -927,7 +928,8 @@ public class TestHiveFileFormats
                 TableToPartitionMapping.empty(),
                 Optional.empty(),
                 false,
-                Optional.empty());
+                Optional.empty(),
+                NO_ACID_TRANSACTION);
 
         return pageSource.get();
     }
@@ -993,7 +995,8 @@ public class TestHiveFileFormats
                 TableToPartitionMapping.empty(),
                 Optional.empty(),
                 false,
-                Optional.empty());
+                Optional.empty(),
+                NO_ACID_TRANSACTION);
 
         assertTrue(pageSource.isPresent());
 

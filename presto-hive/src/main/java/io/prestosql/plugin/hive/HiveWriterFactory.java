@@ -72,6 +72,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.prestosql.plugin.hive.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILESYSTEM_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_READ_ONLY;
@@ -455,7 +456,8 @@ public class HiveWriterFactory
                     outputStorageFormat,
                     schema,
                     conf,
-                    session);
+                    session,
+                    NO_ACID_TRANSACTION);
             if (fileWriter.isPresent()) {
                 hiveFileWriter = fileWriter.get();
                 break;

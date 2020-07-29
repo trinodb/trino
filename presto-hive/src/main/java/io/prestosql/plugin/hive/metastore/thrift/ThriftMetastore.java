@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive.metastore.thrift;
 
+import io.prestosql.plugin.hive.AcidOperation;
 import io.prestosql.plugin.hive.HivePartition;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
@@ -26,6 +27,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
+import org.apache.hadoop.hive.metastore.api.DataOperationType;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Partition;
@@ -154,5 +156,30 @@ public interface ThriftMetastore
     default Optional<String> getConfigValue(String name)
     {
         return Optional.empty();
+    }
+
+    default long allocateWriteId(String dbName, String tableName, long transactionId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void acquireTableWriteLock(HiveIdentity identity, String queryId, long transactionId, String dbName, String tableName, DataOperationType operation)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
+    {
+        throw new UnsupportedOperationException();
+    }
+
+    default void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
+    {
+        throw new UnsupportedOperationException();
     }
 }

@@ -48,6 +48,7 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.plugin.hive.AcidTransaction.NO_ACID_TRANSACTION;
 import static io.prestosql.plugin.hive.HiveStorageFormat.ORC;
 import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
@@ -223,7 +224,8 @@ public class TestOrcPredicates
                 TableToPartitionMapping.empty(),
                 Optional.empty(),
                 false,
-                Optional.empty());
+                Optional.empty(),
+                NO_ACID_TRANSACTION);
 
         assertTrue(pageSource.isPresent());
         return pageSource.get();

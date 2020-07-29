@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive.metastore.thrift;
 
+import io.prestosql.plugin.hive.AcidOperation;
 import org.apache.hadoop.hive.metastore.api.ColumnStatisticsObj;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
@@ -178,5 +179,17 @@ public interface ThriftMetastoreClient
             throws TException;
 
     String getDelegationToken(String userName)
+            throws TException;
+
+    long allocateWriteId(String dbName, String tableName, long transactionId)
+            throws TException;
+
+    void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId)
+            throws TException;
+
+    void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
+            throws TException;
+
+    void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
             throws TException;
 }

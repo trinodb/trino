@@ -2855,7 +2855,7 @@ public class TestHiveIntegrationSmokeTest
             fail("expected exception");
         }
         catch (RuntimeException e) {
-            assertEquals(e.getMessage(), "This connector only supports delete where one or more partitions are deleted entirely");
+            assertEquals(e.getMessage(), "Deletes must match whole partitions for non-transactional tables");
         }
 
         assertQuery("SELECT * FROM test_metadata_delete", "SELECT orderkey, linenumber, linestatus FROM lineitem WHERE linestatus<>'O' AND linenumber<>3");

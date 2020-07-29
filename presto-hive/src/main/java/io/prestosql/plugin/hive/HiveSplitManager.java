@@ -218,6 +218,7 @@ public class HiveSplitManager
 
         HiveSplitLoader hiveSplitLoader = new BackgroundHiveSplitLoader(
                 table,
+                hiveTable.getTransaction(),
                 hivePartitions,
                 hiveTable.getCompactEffectivePredicate(),
                 dynamicFilter,

@@ -359,12 +359,20 @@ public final class ThriftMetastoreUtil
 
     public static org.apache.hadoop.hive.metastore.api.Partition toMetastoreApiPartition(Partition partition)
     {
+        return toMetastoreApiPartition(partition, Optional.empty());
+    }
+
+    public static org.apache.hadoop.hive.metastore.api.Partition toMetastoreApiPartition(Partition partition, Optional<Long> writeId)
+    {
         org.apache.hadoop.hive.metastore.api.Partition result = new org.apache.hadoop.hive.metastore.api.Partition();
         result.setDbName(partition.getDatabaseName());
         result.setTableName(partition.getTableName());
         result.setValues(partition.getValues());
         result.setSd(makeStorageDescriptor(partition.getTableName(), partition.getColumns(), partition.getStorage()));
         result.setParameters(partition.getParameters());
+        if (writeId.isPresent()) {
+            result.setWriteId(writeId.get());
+        }
         return result;
     }
 

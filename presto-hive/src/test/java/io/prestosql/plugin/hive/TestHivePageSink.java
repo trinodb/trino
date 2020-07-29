@@ -189,7 +189,7 @@ public class TestHivePageSink
         File outputFile = getOnlyElement(files);
         long length = outputFile.length();
 
-        ConnectorPageSource pageSource = createPageSource(transaction, config, outputFile);
+        ConnectorPageSource pageSource = createPageSource(transaction, config, outputFile, metastore);
 
         List<Page> pages = new ArrayList<>();
         while (!pageSource.isFinished()) {
@@ -215,7 +215,7 @@ public class TestHivePageSink
         return resultBuilder.build();
     }
 
-    private static ConnectorPageSource createPageSource(HiveTransactionHandle transaction, HiveConfig config, File outputFile)
+    private static ConnectorPageSource createPageSource(HiveTransactionHandle transaction, HiveConfig config, File outputFile, HiveMetastore metastore)
     {
         Properties splitProperties = new Properties();
         splitProperties.setProperty(FILE_INPUT_FORMAT, config.getHiveStorageFormat().getInputFormat());
@@ -235,6 +235,7 @@ public class TestHivePageSink
                 ImmutableList.of(),
                 ImmutableList.of(),
                 OptionalInt.empty(),
+                0,
                 false,
                 TableToPartitionMapping.empty(),
                 Optional.empty(),
@@ -243,10 +244,13 @@ public class TestHivePageSink
         ConnectorTableHandle table = new HiveTableHandle(SCHEMA_NAME, TABLE_NAME, ImmutableMap.of(), ImmutableList.of(), Optional.empty());
         HivePageSourceProvider provider = new HivePageSourceProvider(
                 TYPE_MANAGER,
+                config,
+                metastore,
                 HDFS_ENVIRONMENT,
                 getDefaultHivePageSourceFactories(HDFS_ENVIRONMENT, config),
                 getDefaultHiveRecordCursorProviders(config, HDFS_ENVIRONMENT),
-                new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT, config));
+                new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT, config),
+                Optional.empty());
         return provider.createPageSource(transaction, getHiveSession(config), split, table, ImmutableList.copyOf(getColumnHandles()), TupleDomain.all());
     }
 

@@ -15,8 +15,10 @@ package io.prestosql.plugin.hive;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ColumnMetadata;
+import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 
 import java.util.Objects;
@@ -28,8 +30,13 @@ import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.SYNTHESIZED;
 import static io.prestosql.plugin.hive.HiveType.HIVE_INT;
 import static io.prestosql.plugin.hive.HiveType.HIVE_LONG;
 import static io.prestosql.plugin.hive.HiveType.HIVE_STRING;
+import static io.prestosql.plugin.hive.HiveType.toHiveType;
+import static io.prestosql.plugin.hive.orc.OrcPageSourceFactory.ACID_COLUMN_BUCKET;
+import static io.prestosql.plugin.hive.orc.OrcPageSourceFactory.ACID_COLUMN_ORIGINAL_TRANSACTION;
+import static io.prestosql.plugin.hive.orc.OrcPageSourceFactory.ACID_COLUMN_ROW_ID;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.RowType.field;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
@@ -67,7 +74,13 @@ public class HiveColumnHandle
     public static final HiveType PARTITION_HIVE_TYPE = HIVE_STRING;
     public static final Type PARTITION_TYPE_SIGNATURE = VARCHAR;
 
-    private static final String UPDATE_ROW_ID_COLUMN_NAME = "$shard_row_id";
+    public static final int UPDATE_ROW_ID_COLUMN_INDEX = -16;
+    public static final String UPDATE_ROW_ID_COLUMN_NAME = "row__id";
+
+    private static final RowType ACID_ROW_ID_ROW_TYPE = RowType.from(ImmutableList.of(
+            field(ACID_COLUMN_ORIGINAL_TRANSACTION, BIGINT),
+            field(ACID_COLUMN_ROW_ID, BIGINT),
+            field(ACID_COLUMN_BUCKET, INTEGER)));
 
     public enum ColumnType
     {
@@ -244,13 +257,7 @@ public class HiveColumnHandle
 
     public static HiveColumnHandle updateRowIdHandle()
     {
-        // Hive connector only supports metadata delete. It does not support generic row-by-row deletion.
-        // Metadata delete is implemented in Presto by generating a plan for row-by-row delete first,
-        // and then optimize it into metadata delete. As a result, Hive connector must provide partial
-        // plan-time support for row-by-row delete so that planning doesn't fail. This is why we need
-        // rowid handle. Note that in Hive connector, rowid handle is not implemented beyond plan-time.
-
-        return createBaseColumn(UPDATE_ROW_ID_COLUMN_NAME, -1, HIVE_LONG, BIGINT, SYNTHESIZED, Optional.empty());
+        return createBaseColumn(UPDATE_ROW_ID_COLUMN_NAME, UPDATE_ROW_ID_COLUMN_INDEX, toHiveType(ACID_ROW_ID_ROW_TYPE), ACID_ROW_ID_ROW_TYPE, SYNTHESIZED, Optional.empty());
     }
 
     public static HiveColumnHandle pathColumnHandle()
@@ -306,5 +313,10 @@ public class HiveColumnHandle
     public static boolean isPartitionColumnHandle(HiveColumnHandle column)
     {
         return column.getBaseHiveColumnIndex() == PARTITION_COLUMN_INDEX;
+    }
+
+    public static boolean isRowIdColumnHandle(HiveColumnHandle column)
+    {
+        return column.getBaseHiveColumnIndex() == UPDATE_ROW_ID_COLUMN_INDEX;
     }
 }

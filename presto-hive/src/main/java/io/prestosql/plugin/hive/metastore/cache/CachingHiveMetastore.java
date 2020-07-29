@@ -23,6 +23,7 @@ import com.google.common.collect.SetMultimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.jmx.CacheStatsMBean;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.hive.AcidOperation;
 import io.prestosql.plugin.hive.HivePartition;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.PartitionNotFoundException;
@@ -48,6 +49,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
+import org.apache.hadoop.hive.metastore.api.DataOperationType;
 import org.weakref.jmx.Managed;
 import org.weakref.jmx.Nested;
 
@@ -941,6 +943,36 @@ public class CachingHiveMetastore
     private Set<HivePrivilegeInfo> loadTablePrivileges(String databaseName, String tableName, String tableOwner, Optional<HivePrincipal> principal)
     {
         return delegate.listTablePrivileges(databaseName, tableName, tableOwner, principal);
+    }
+
+    @Override
+    public long allocateWriteId(String dbName, String tableName, long transactionId)
+    {
+        return delegate.allocateWriteId(dbName, tableName, transactionId);
+    }
+
+    @Override
+    public void acquireTableWriteLock(HiveIdentity identity, String queryId, long transactionId, String dbName, String tableName, DataOperationType operation)
+    {
+        delegate.acquireTableWriteLock(identity, queryId, transactionId, dbName, tableName, operation);
+    }
+
+    @Override
+    public void updateTableWriteId(String dbName, String tableName, long transactionId, long writeId)
+    {
+        delegate.updateTableWriteId(dbName, tableName, transactionId, writeId);
+    }
+
+    @Override
+    public void alterPartitions(String dbName, String tableName, List<Partition> partitions, long writeId)
+    {
+        delegate.alterPartitions(dbName, tableName, partitions, writeId);
+    }
+
+    @Override
+    public void addDynamicPartitions(String dbName, String tableName, List<String> partitionNames, long transactionId, long writeId, AcidOperation operation)
+    {
+        delegate.addDynamicPartitions(dbName, tableName, partitionNames, transactionId, writeId, operation);
     }
 
     private static CacheBuilder<Object, Object> newCacheBuilder(OptionalLong expiresAfterWriteMillis, OptionalLong refreshMillis, long maximumSize, StatsRecording statsRecording)

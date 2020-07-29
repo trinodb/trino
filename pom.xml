@@ -503,7 +503,8 @@
             <dependency>
                 <groupId>io.prestosql.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>3.1.2-1</version>
+                <!-- TODO: Replace with the released version before merging -->
+                <version>3.1.2-2-SNAPSHOT</version>
             </dependency>
 
             <dependency>

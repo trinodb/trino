@@ -44,6 +44,7 @@ import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.security.AccessControlMetadata;
 import io.prestosql.plugin.hive.statistics.HiveStatisticsProvider;
+import io.prestosql.plugin.hive.util.HiveBucketing;
 import io.prestosql.plugin.hive.util.HiveUtil;
 import io.prestosql.plugin.hive.util.HiveWriteUtils;
 import io.prestosql.spi.ErrorType;
@@ -96,6 +97,7 @@ import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.VarcharType;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
+import org.apache.hadoop.hive.metastore.api.DataOperationType;
 import org.apache.hadoop.hive.ql.exec.FileSinkOperator;
 import org.apache.hadoop.hive.serde.serdeConstants;
 import org.apache.hadoop.hive.serde2.OpenCSVSerde;
@@ -256,6 +258,7 @@ import static java.util.stream.Collectors.toMap;
 import static java.util.stream.Collectors.toSet;
 import static org.apache.hadoop.hive.metastore.TableType.EXTERNAL_TABLE;
 import static org.apache.hadoop.hive.metastore.TableType.MANAGED_TABLE;
+import static org.apache.hadoop.hive.ql.io.AcidUtils.isFullAcidTable;
 
 public class HiveMetadata
         implements TransactionalMetadata
@@ -1890,7 +1893,71 @@ public class HiveMetadata
     @Override
     public ConnectorTableHandle beginDelete(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
-        throw new PrestoException(NOT_SUPPORTED, "This connector only supports delete where one or more partitions are deleted entirely");
+        HiveTableHandle handle = (HiveTableHandle) tableHandle;
+
+        SchemaTableName tableName = handle.getSchemaTableName();
+        Table table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(tableName));
+        ensureTableSupportsDelete(table);
+
+        long transactionId = metastore.getOrCreateTransactionId().get();
+
+        metastore.acquireTableWriteLock(
+                new HiveIdentity(session),
+                "delete in " + handle.getTableName(),
+                transactionId,
+                handle.getSchemaName(),
+                handle.getTableName(),
+                DataOperationType.DELETE);
+
+        long writeId = metastore.allocateWriteId(handle.getSchemaName(), handle.getTableName(), transactionId);
+
+        HiveTableHandle deleteHandle = handle.forDelete(transactionId, writeId);
+        return deleteHandle;
+    }
+
+    @Override
+    public void finishDelete(ConnectorSession session, ConnectorTableHandle tableHandle, Collection<Slice> fragments)
+    {
+        HiveTableHandle handle = (HiveTableHandle) tableHandle;
+        checkArgument(handle.isAcidDelete(), "handle should be a delete handle, but is " + handle);
+        // The fragments list contains the partitionNames of partitions in which deletion happened, and therefore
+        // the partition's writeId should be updated.
+        requireNonNull(fragments, "fragments is null");
+
+        SchemaTableName tableName = handle.getSchemaTableName();
+        Table table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName())
+                .orElseThrow(() -> new TableNotFoundException(tableName));
+
+        ensureTableSupportsDelete(table);
+
+        Set<String> partitionIds = fragments.stream().map(Slice::toStringUtf8).collect(Collectors.toUnmodifiableSet());
+        if (!partitionIds.isEmpty()) {
+            Map<String, Optional<Partition>> partitionsMap = metastore.getPartitionsByNames(
+                    new HiveIdentity(session),
+                    tableName.getSchemaName(),
+                    tableName.getTableName(),
+                    ImmutableList.copyOf(partitionIds));
+            List<Partition> partitions = partitionsMap.values().stream()
+                    .filter(Optional::isPresent)
+                    .map(Optional::get)
+                    .collect(toImmutableList());
+            if (!partitions.isEmpty()) {
+                metastore.alterPartitions(table.getDatabaseName(), table.getTableName(), partitions, handle.getWriteId());
+                metastore.addDynamicPartitions(table.getDatabaseName(), table.getTableName(), new ArrayList<>(partitionsMap.keySet()), handle.getAcidTransactionId(), handle.getWriteId(), AcidOperation.DELETE);
+            }
+        }
+
+        metastore.updateTableWriteId(handle.getSchemaName(), handle.getTableName(), handle.getAcidTransactionId(), handle.getWriteId());
+
+        metastore.commitTransaction(new HiveIdentity(session), handle.getAcidTransactionId());
+    }
+
+    private void ensureTableSupportsDelete(Table table)
+    {
+        if (!isFullAcidTable(table.getParameters())) {
+            throw new PrestoException(NOT_SUPPORTED, "Deletes must match whole partitions for non-transactional tables");
+        }
     }
 
     @Override
@@ -2209,7 +2276,8 @@ public class HiveMetadata
                 hiveTable.getBucketFilter(),
                 hiveTable.getAnalyzePartitionValues(),
                 hiveTable.getAnalyzeColumnNames(),
-                Optional.empty());
+                Optional.empty(),
+                hiveTable.getTransaction());
     }
 
     @VisibleForTesting
@@ -2280,6 +2348,13 @@ public class HiveMetadata
             if (bucketedOnTimestamp(table.getStorage().getBucketProperty().get(), table)) {
                 throw new PrestoException(NOT_SUPPORTED, "Writing to tables bucketed on timestamp not supported");
             }
+        }
+        // treat un-bucketed transactional table as having a single bucket on no columns
+        else if (hiveTableHandle.isInAcidTransaction()) {
+            table = Table.builder(table)
+                    .withStorage(storage -> storage.setBucketProperty(Optional.of(
+                            new HiveBucketProperty(ImmutableList.of(), HiveBucketing.BucketingVersion.BUCKETING_V2, 1, ImmutableList.of()))))
+                    .build();
         }
 
         Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(table, typeManager);

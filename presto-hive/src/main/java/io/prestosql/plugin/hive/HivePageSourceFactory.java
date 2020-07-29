@@ -37,7 +37,8 @@ public interface HivePageSourceFactory
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            Optional<AcidInfo> acidInfo);
+            Optional<AcidInfo> acidInfo,
+            AcidTransaction transaction);
 
     /**
      * A wrapper class for
