@@ -26,6 +26,7 @@ import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.ObjectReadFunction;
 import io.prestosql.plugin.jdbc.ObjectWriteFunction;
 import io.prestosql.plugin.jdbc.QueryBuilder;
+import io.prestosql.plugin.jdbc.SqlDialect;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
@@ -110,7 +111,6 @@ import static java.sql.Types.TIME_WITH_TIMEZONE;
 import static java.sql.Types.VARCHAR;
 import static java.util.Collections.nCopies;
 import static org.apache.phoenix.coprocessor.BaseScannerRegionObserver.SKIP_REGION_BOUNDARY_CHECK;
-import static org.apache.phoenix.util.SchemaUtil.ESCAPE_CHARACTER;
 
 public class PhoenixClient
         extends BaseJdbcClient
@@ -118,11 +118,11 @@ public class PhoenixClient
     private final Configuration configuration;
 
     @Inject
-    public PhoenixClient(PhoenixConfig config, ConnectionFactory connectionFactory)
+    public PhoenixClient(PhoenixConfig config, SqlDialect dialect, ConnectionFactory connectionFactory)
             throws SQLException
     {
         super(
-                ESCAPE_CHARACTER,
+                dialect,
                 connectionFactory,
                 ImmutableSet.of(),
                 config.isCaseInsensitiveNameMatching(),
@@ -173,7 +173,7 @@ public class PhoenixClient
             throws SQLException
     {
         PhoenixSplit phoenixSplit = (PhoenixSplit) split;
-        PreparedStatement query = new QueryBuilder(identifierQuote).buildSql(
+        PreparedStatement query = new QueryBuilder(dialect).buildSql(
                 this,
                 session,
                 connection,
@@ -211,12 +211,12 @@ public class PhoenixClient
         if (outputHandle.hasUUIDRowkey()) {
             String nextId = format(
                     "NEXT VALUE FOR %s, ",
-                    quoted(null, handle.getSchemaName(), handle.getTableName() + "_sequence"));
+                    dialect.getRelation(null, handle.getSchemaName(), handle.getTableName() + "_sequence"));
             params = nextId + params;
         }
         return format(
                 "UPSERT INTO %s VALUES (%s)",
-                quoted(null, handle.getSchemaName(), handle.getTableName()),
+                dialect.getRelation(null, handle.getSchemaName(), handle.getTableName()),
                 params);
     }
 

@@ -155,7 +155,7 @@ public class OracleClient
             OracleConfig oracleConfig,
             ConnectionFactory connectionFactory)
     {
-        super(config, "\"", connectionFactory);
+        super(config, connectionFactory);
 
         requireNonNull(oracleConfig, "oracle config is null");
         this.synonymsEnabled = oracleConfig.isSynonymsEnabled();
@@ -216,8 +216,8 @@ public class OracleClient
         String newTableName = newTable.getTableName().toUpperCase(ENGLISH);
         String sql = format(
                 "ALTER TABLE %s RENAME TO %s",
-                quoted(catalogName, schemaName, tableName),
-                quoted(newTableName));
+                dialect.getRelation(catalogName, schemaName, tableName),
+                dialect.quote(newTableName));
 
         try (Connection connection = connectionFactory.openConnection(identity)) {
             execute(connection, sql);

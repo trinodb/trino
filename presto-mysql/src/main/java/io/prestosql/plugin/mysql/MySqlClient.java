@@ -24,6 +24,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
+import io.prestosql.plugin.jdbc.BaseSqlDialect;
 import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
@@ -103,7 +104,7 @@ public class MySqlClient
     @Inject
     public MySqlClient(BaseJdbcConfig config, ConnectionFactory connectionFactory, TypeManager typeManager)
     {
-        super(config, "`", connectionFactory);
+        super(config, new BaseSqlDialect("`"), connectionFactory);
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
     }
 
@@ -270,9 +271,9 @@ public class MySqlClient
             }
             String sql = format(
                     "ALTER TABLE %s RENAME COLUMN %s TO %s",
-                    quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
-                    quoted(jdbcColumn.getColumnName()),
-                    quoted(newColumnName));
+                    dialect.getRelation(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
+                    dialect.quote(jdbcColumn.getColumnName()),
+                    dialect.quote(newColumnName));
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -289,8 +290,8 @@ public class MySqlClient
     {
         String sql = format(
                 "CREATE TABLE %s LIKE %s",
-                quoted(catalogName, schemaName, newTableName),
-                quoted(catalogName, schemaName, tableName));
+                dialect.getRelation(catalogName, schemaName, newTableName),
+                dialect.getRelation(catalogName, schemaName, tableName));
         execute(connection, sql);
     }
 

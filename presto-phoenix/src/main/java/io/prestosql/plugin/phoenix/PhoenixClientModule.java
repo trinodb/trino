@@ -24,6 +24,7 @@ import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorPageSinkProv
 import io.prestosql.plugin.base.classloader.ClassLoaderSafeConnectorSplitManager;
 import io.prestosql.plugin.base.classloader.ForClassLoaderSafe;
 import io.prestosql.plugin.base.util.LoggingInvocationHandler;
+import io.prestosql.plugin.jdbc.BaseSqlDialect;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.ForwardingJdbcClient;
@@ -32,6 +33,7 @@ import io.prestosql.plugin.jdbc.JdbcMetadataConfig;
 import io.prestosql.plugin.jdbc.JdbcMetadataSessionProperties;
 import io.prestosql.plugin.jdbc.JdbcPageSinkProvider;
 import io.prestosql.plugin.jdbc.JdbcRecordSetProvider;
+import io.prestosql.plugin.jdbc.SqlDialect;
 import io.prestosql.plugin.jdbc.TypeHandlingJdbcConfig;
 import io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties;
 import io.prestosql.plugin.jdbc.credential.EmptyCredentialProvider;
@@ -59,6 +61,7 @@ import static io.prestosql.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
 import static io.prestosql.plugin.phoenix.PhoenixErrorCode.PHOENIX_CONFIG_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.phoenix.util.SchemaUtil.ESCAPE_CHARACTER;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class PhoenixClientModule
@@ -90,8 +93,9 @@ public class PhoenixClientModule
         binder.bind(PhoenixClient.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorMetadata.class).annotatedWith(ForClassLoaderSafe.class).to(PhoenixMetadata.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorMetadata.class).to(ClassLoaderSafeConnectorMetadata.class).in(Scopes.SINGLETON);
+        binder.bind(SqlDialect.class).toInstance(new BaseSqlDialect(ESCAPE_CHARACTER));
 
-        binder.bind(PhoenixTableProperties.class).in(Scopes.SINGLETON);
+                binder.bind(PhoenixTableProperties.class).in(Scopes.SINGLETON);
         binder.bind(PhoenixColumnProperties.class).in(Scopes.SINGLETON);
 
         binder.bind(PhoenixConnector.class).in(Scopes.SINGLETON);

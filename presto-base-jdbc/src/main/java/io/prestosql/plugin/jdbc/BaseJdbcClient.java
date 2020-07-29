@@ -38,8 +38,6 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 
-import javax.annotation.Nullable;
-
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
@@ -61,7 +59,6 @@ import java.util.function.Function;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
@@ -127,16 +124,21 @@ public abstract class BaseJdbcClient
             .build();
 
     protected final ConnectionFactory connectionFactory;
-    protected final String identifierQuote;
+    protected final SqlDialect dialect;
     protected final Set<String> jdbcTypesMappedToVarchar;
     protected final boolean caseInsensitiveNameMatching;
     protected final Cache<JdbcIdentity, Map<String, String>> remoteSchemaNames;
     protected final Cache<RemoteTableNameCacheKey, Map<String, String>> remoteTableNames;
 
-    public BaseJdbcClient(BaseJdbcConfig config, String identifierQuote, ConnectionFactory connectionFactory)
+    public BaseJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
+    {
+        this(config, new BaseSqlDialect(), connectionFactory);
+    }
+
+    public BaseJdbcClient(BaseJdbcConfig config, SqlDialect dialect, ConnectionFactory connectionFactory)
     {
         this(
-                identifierQuote,
+                dialect,
                 connectionFactory,
                 config.getJdbcTypesMappedToVarchar(),
                 requireNonNull(config, "config is null").isCaseInsensitiveNameMatching(),
@@ -144,13 +146,13 @@ public abstract class BaseJdbcClient
     }
 
     public BaseJdbcClient(
-            String identifierQuote,
+            SqlDialect dialect,
             ConnectionFactory connectionFactory,
             Set<String> jdbcTypesMappedToVarchar,
             boolean caseInsensitiveNameMatching,
             Duration caseInsensitiveNameMatchingCacheTtl)
     {
-        this.identifierQuote = requireNonNull(identifierQuote, "identifierQuote is null");
+        this.dialect = requireNonNull(dialect, "dialect is null");
         this.connectionFactory = requireNonNull(connectionFactory, "connectionFactory is null");
         this.jdbcTypesMappedToVarchar = ImmutableSortedSet.orderedBy(CASE_INSENSITIVE_ORDER)
                 .addAll(requireNonNull(jdbcTypesMappedToVarchar, "jdbcTypesMappedToVarchar is null"))
@@ -387,7 +389,7 @@ public abstract class BaseJdbcClient
     public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
             throws SQLException
     {
-        return new QueryBuilder(identifierQuote).buildSql(
+        return new QueryBuilder(dialect).buildSql(
                 this,
                 session,
                 connection,
@@ -455,8 +457,8 @@ public abstract class BaseJdbcClient
                 columnList.add(getColumnSql(session, column, columnName));
             }
 
-            RemoteTableName remoteTableName = new RemoteTableName(Optional.ofNullable(catalog), Optional.ofNullable(remoteSchema), tableName);
-            String sql = createTableSql(remoteTableName, columnList.build());
+            RemoteTableName remoteTable = new RemoteTableName(Optional.ofNullable(catalog), Optional.ofNullable(remoteSchema), tableName);
+            String sql = dialect.createTableSql(remoteTable, columnList.build());
             execute(connection, sql);
 
             return new JdbcOutputTableHandle(
@@ -470,15 +472,10 @@ public abstract class BaseJdbcClient
         }
     }
 
-    protected String createTableSql(RemoteTableName remoteTableName, List<String> columns)
-    {
-        return format("CREATE TABLE %s (%s)", quoted(remoteTableName), join(", ", columns));
-    }
-
     private String getColumnSql(ConnectorSession session, ColumnMetadata column, String columnName)
     {
         StringBuilder sb = new StringBuilder()
-                .append(quoted(columnName))
+                .append(dialect.quote(columnName))
                 .append(" ")
                 .append(toWriteMapping(session, column.getType()).getDataType());
         if (!column.isNullable()) {
@@ -532,11 +529,11 @@ public abstract class BaseJdbcClient
     {
         String sql = format(
                 "CREATE TABLE %s AS SELECT %s FROM %s WHERE 0 = 1",
-                quoted(catalogName, schemaName, newTableName),
+                dialect.getRelation(catalogName, schemaName, newTableName),
                 columnNames.stream()
-                        .map(this::quoted)
+                        .map(dialect::quote)
                         .collect(joining(", ")),
-                quoted(catalogName, schemaName, tableName));
+                dialect.getRelation(catalogName, schemaName, tableName));
         execute(connection, sql);
     }
 
@@ -571,10 +568,7 @@ public abstract class BaseJdbcClient
                 newSchemaName = newSchemaName.toUpperCase(ENGLISH);
                 newTableName = newTableName.toUpperCase(ENGLISH);
             }
-            String sql = format(
-                    "ALTER TABLE %s RENAME TO %s",
-                    quoted(catalogName, schemaName, tableName),
-                    quoted(catalogName, newSchemaName, newTableName));
+            String sql = dialect.renameTable(catalogName, schemaName, tableName, newSchemaName, newTableName);
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -585,10 +579,10 @@ public abstract class BaseJdbcClient
     @Override
     public void finishInsertTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
     {
-        String temporaryTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName());
-        String targetTable = quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
+        String temporaryTable = dialect.getRelation(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName());
+        String targetTable = dialect.getRelation(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
         String columnNames = handle.getColumnNames().stream()
-                .map(this::quoted)
+                .map(dialect::quote)
                 .collect(joining(", "));
         String insertSql = format("INSERT INTO %s (%s) SELECT %s FROM %s", targetTable, columnNames, columnNames, temporaryTable);
         String cleanupSql = "DROP TABLE " + temporaryTable;
@@ -618,7 +612,7 @@ public abstract class BaseJdbcClient
             }
             String sql = format(
                     "ALTER TABLE %s ADD %s",
-                    quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
+                    dialect.getRelation(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
                     getColumnSql(session, column, columnName));
             execute(connection, sql);
         }
@@ -636,7 +630,7 @@ public abstract class BaseJdbcClient
             }
             String sql = format(
                     "ALTER TABLE %s RENAME COLUMN %s TO %s",
-                    quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
+                    dialect.getRelation(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
                     jdbcColumn.getColumnName(),
                     newColumnName);
             execute(connection, sql);
@@ -651,7 +645,7 @@ public abstract class BaseJdbcClient
     {
         String sql = format(
                 "ALTER TABLE %s DROP COLUMN %s",
-                quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
+                dialect.getRelation(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName()),
                 column.getColumnName());
         execute(identity, sql);
     }
@@ -659,7 +653,7 @@ public abstract class BaseJdbcClient
     @Override
     public void dropTable(JdbcIdentity identity, JdbcTableHandle handle)
     {
-        String sql = "DROP TABLE " + quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
+        String sql = "DROP TABLE " + dialect.getRelation(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName());
         execute(identity, sql);
     }
 
@@ -678,9 +672,9 @@ public abstract class BaseJdbcClient
     {
         return format(
                 "INSERT INTO %s (%s) VALUES (%s)",
-                quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()),
+                dialect.getRelation(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()),
                 handle.getColumnNames().stream()
-                        .map(this::quoted)
+                        .map(dialect::quote)
                         .collect(joining(", ")),
                 join(",", nCopies(handle.getColumnNames().size(), "?")));
     }
@@ -824,13 +818,13 @@ public abstract class BaseJdbcClient
     @Override
     public void createSchema(JdbcIdentity identity, String schemaName)
     {
-        execute(identity, "CREATE SCHEMA " + quoted(schemaName));
+        execute(identity, "CREATE SCHEMA " + dialect.quote(schemaName));
     }
 
     @Override
     public void dropSchema(JdbcIdentity identity, String schemaName)
     {
-        execute(identity, "DROP SCHEMA " + quoted(schemaName));
+        execute(identity, "DROP SCHEMA " + dialect.quote(schemaName));
     }
 
     protected void execute(JdbcIdentity identity, String query)
@@ -914,33 +908,6 @@ public abstract class BaseJdbcClient
     public boolean isLimitGuaranteed(ConnectorSession session)
     {
         throw new PrestoException(JDBC_ERROR, "limitFunction() is implemented without isLimitGuaranteed()");
-    }
-
-    protected String quoted(String name)
-    {
-        name = name.replace(identifierQuote, identifierQuote + identifierQuote);
-        return identifierQuote + name + identifierQuote;
-    }
-
-    protected String quoted(RemoteTableName remoteTableName)
-    {
-        return quoted(
-                remoteTableName.getCatalogName().orElse(null),
-                remoteTableName.getSchemaName().orElse(null),
-                remoteTableName.getTableName());
-    }
-
-    protected String quoted(@Nullable String catalog, @Nullable String schema, String table)
-    {
-        StringBuilder sb = new StringBuilder();
-        if (!isNullOrEmpty(catalog)) {
-            sb.append(quoted(catalog)).append(".");
-        }
-        if (!isNullOrEmpty(schema)) {
-            sb.append(quoted(schema)).append(".");
-        }
-        sb.append(quoted(table));
-        return sb.toString();
     }
 
     protected static Optional<String> escapeNamePattern(Optional<String> name, String escape)

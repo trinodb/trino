@@ -67,7 +67,7 @@ public class SqlServerClient
     @Inject
     public SqlServerClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
     {
-        super(config, "\"", connectionFactory);
+        super(config, connectionFactory);
     }
 
     @Override
@@ -100,10 +100,10 @@ public class SqlServerClient
         String sql = format(
                 "SELECT %s INTO %s FROM %s WHERE 0 = 1",
                 columnNames.stream()
-                        .map(this::quoted)
+                        .map(name -> dialect.quote(name))
                         .collect(joining(", ")),
-                quoted(catalogName, schemaName, newTableName),
-                quoted(catalogName, schemaName, tableName));
+                dialect.getRelation(catalogName, schemaName, newTableName),
+                dialect.getRelation(catalogName, schemaName, tableName));
         execute(connection, sql);
     }
 

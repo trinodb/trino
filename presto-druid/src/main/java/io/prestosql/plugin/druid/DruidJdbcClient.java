@@ -66,9 +66,8 @@ public class DruidJdbcClient
 
     @Inject
     public DruidJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
-            throws SQLException
     {
-        super(config, "\"", connectionFactory);
+        super(config, connectionFactory);
     }
 
     @Override
@@ -155,7 +154,7 @@ public class DruidJdbcClient
     {
         String schemaName = table.getSchemaName();
         checkArgument("druid".equals(schemaName), "Only \"druid\" schema is supported");
-        return new QueryBuilder(identifierQuote)
+        return new QueryBuilder(dialect)
                 .buildSql(
                         this,
                         session,

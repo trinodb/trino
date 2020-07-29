@@ -16,6 +16,7 @@ package io.prestosql.plugin.memsql;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
+import io.prestosql.plugin.jdbc.BaseSqlDialect;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.spi.connector.ConnectorSession;
 
@@ -35,7 +36,7 @@ public class MemSqlClient
     @Inject
     public MemSqlClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
     {
-        super(config, "`", connectionFactory);
+        super(config, new BaseSqlDialect("`"), connectionFactory);
     }
 
     @Override

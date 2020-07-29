@@ -38,7 +38,7 @@ public class RedshiftClient
     @Inject
     public RedshiftClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
     {
-        super(config, "\"", connectionFactory);
+        super(config, connectionFactory);
     }
 
     @Override
@@ -50,8 +50,8 @@ public class RedshiftClient
 
         String sql = format(
                 "ALTER TABLE %s RENAME TO %s",
-                quoted(catalogName, schemaName, tableName),
-                quoted(newTable.getTableName()));
+                dialect.getRelation(catalogName, schemaName, tableName),
+                dialect.quote(newTable.getTableName()));
         execute(identity, sql);
     }
 

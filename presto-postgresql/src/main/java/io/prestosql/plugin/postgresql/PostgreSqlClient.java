@@ -181,7 +181,7 @@ public class PostgreSqlClient
             ConnectionFactory connectionFactory,
             TypeManager typeManager)
     {
-        super(config, "\"", connectionFactory);
+        super(config, connectionFactory);
         this.jsonType = typeManager.getType(new TypeSignature(JSON));
         this.uuidType = typeManager.getType(new TypeSignature(StandardTypes.UUID));
         this.varcharMapType = (MapType) typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
@@ -195,7 +195,7 @@ public class PostgreSqlClient
 
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(Types.BIGINT, Optional.of("bigint"), 0, 0, Optional.empty(), Optional.empty());
         this.aggregateFunctionRewriter = new AggregateFunctionRewriter(
-                this::quoted,
+                name -> dialect.quote(name),
                 ImmutableSet.<AggregateFunctionRule>builder()
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
@@ -228,8 +228,8 @@ public class PostgreSqlClient
 
         String sql = format(
                 "ALTER TABLE %s RENAME TO %s",
-                quoted(catalogName, schemaName, tableName),
-                quoted(newTable.getTableName()));
+                dialect.getRelation(catalogName, schemaName, tableName),
+                dialect.quote(newTable.getTableName()));
         execute(identity, sql);
     }
 

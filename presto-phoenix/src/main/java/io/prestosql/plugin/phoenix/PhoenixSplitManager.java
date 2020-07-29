@@ -19,6 +19,7 @@ import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.QueryBuilder;
+import io.prestosql.plugin.jdbc.SqlDialect;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -39,7 +40,6 @@ import org.apache.phoenix.jdbc.PhoenixConnection;
 import org.apache.phoenix.jdbc.PhoenixPreparedStatement;
 import org.apache.phoenix.mapreduce.PhoenixInputSplit;
 import org.apache.phoenix.query.KeyRange;
-import org.apache.phoenix.util.SchemaUtil;
 
 import javax.inject.Inject;
 
@@ -63,11 +63,13 @@ public class PhoenixSplitManager
     private static final Logger log = Logger.get(PhoenixSplitManager.class);
 
     private final PhoenixClient phoenixClient;
+    private final SqlDialect dialect;
 
     @Inject
-    public PhoenixSplitManager(PhoenixClient phoenixClient)
+    public PhoenixSplitManager(PhoenixClient phoenixClient, SqlDialect dialect)
     {
         this.phoenixClient = requireNonNull(phoenixClient, "client is null");
+        this.dialect = requireNonNull(dialect, "dialect is null");
     }
 
     @Override
@@ -78,7 +80,7 @@ public class PhoenixSplitManager
             List<JdbcColumnHandle> columns = tableHandle.getColumns()
                     .map(columnSet -> columnSet.stream().map(JdbcColumnHandle.class::cast).collect(toList()))
                     .orElseGet(() -> phoenixClient.getColumns(session, tableHandle));
-            PhoenixPreparedStatement inputQuery = (PhoenixPreparedStatement) new QueryBuilder(SchemaUtil.ESCAPE_CHARACTER).buildSql(
+            PhoenixPreparedStatement inputQuery = (PhoenixPreparedStatement) new QueryBuilder(dialect).buildSql(
                     phoenixClient,
                     session,
                     connection,

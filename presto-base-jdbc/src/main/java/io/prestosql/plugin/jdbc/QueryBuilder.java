@@ -35,7 +35,6 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -51,7 +50,7 @@ public class QueryBuilder
     private static final String ALWAYS_TRUE = "1=1";
     private static final String ALWAYS_FALSE = "1=0";
 
-    private final String identifierQuote;
+    private final SqlDialect dialect;
 
     private static class TypeAndValue
     {
@@ -82,9 +81,9 @@ public class QueryBuilder
         }
     }
 
-    public QueryBuilder(String identifierQuote)
+    public QueryBuilder(SqlDialect dialect)
     {
-        this.identifierQuote = requireNonNull(identifierQuote, "identifierQuote is null");
+        this.dialect = requireNonNull(dialect, "dialect is null");
     }
 
     public PreparedStatement buildSql(
@@ -102,7 +101,7 @@ public class QueryBuilder
             throws SQLException
     {
         String sql = "SELECT " + getProjection(columns);
-        sql += " FROM " + getRelation(catalog, schema, table);
+        sql += " FROM " + dialect.getRelation(catalog, schema, table);
 
         List<TypeAndValue> accumulator = new ArrayList<>();
 
@@ -152,26 +151,14 @@ public class QueryBuilder
         return statement;
     }
 
-    protected String getProjection(List<JdbcColumnHandle> columns)
+    private String getProjection(List<JdbcColumnHandle> columns)
     {
         if (columns.isEmpty()) {
             return "1";
         }
         return columns.stream()
-                .map(jdbcColumnHandle -> format("%s AS %s", jdbcColumnHandle.toSqlExpression(this::quote), quote(jdbcColumnHandle.getColumnName())))
+                .map(dialect::getProjection)
                 .collect(joining(", "));
-    }
-
-    protected String getRelation(String catalog, String schema, String table)
-    {
-        StringBuilder sql = new StringBuilder();
-        if (!isNullOrEmpty(catalog)) {
-            sql.append(quote(catalog)).append('.');
-        }
-        if (!isNullOrEmpty(schema)) {
-            sql.append(quote(schema)).append('.');
-        }
-        return sql.append(quote(table)).toString();
     }
 
     private static Domain pushDownDomain(JdbcClient client, ConnectorSession session, Connection connection, JdbcColumnHandle column, Domain domain)
@@ -195,19 +182,20 @@ public class QueryBuilder
         for (Map.Entry<ColumnHandle, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
             JdbcColumnHandle column = ((JdbcColumnHandle) entry.getKey());
             Domain domain = pushDownDomain(client, session, connection, column, entry.getValue());
-            builder.add(toPredicate(column.getColumnName(), domain, column, accumulator));
+            builder.add(toPredicate(column, domain, accumulator));
         }
         return builder.build();
     }
 
-    private String toPredicate(String columnName, Domain domain, JdbcColumnHandle column, List<TypeAndValue> accumulator)
+    private String toPredicate(JdbcColumnHandle column, Domain domain, List<TypeAndValue> accumulator)
     {
+        String columnName = column.getColumnName();
         if (domain.getValues().isNone()) {
-            return domain.isNullAllowed() ? quote(columnName) + " IS NULL" : ALWAYS_FALSE;
+            return domain.isNullAllowed() ? dialect.quote(columnName) + " IS NULL" : ALWAYS_FALSE;
         }
 
         if (domain.getValues().isAll()) {
-            return domain.isNullAllowed() ? ALWAYS_TRUE : quote(columnName) + " IS NOT NULL";
+            return domain.isNullAllowed() ? ALWAYS_TRUE : dialect.quote(columnName) + " IS NOT NULL";
         }
 
         List<String> disjuncts = new ArrayList<>();
@@ -222,10 +210,10 @@ public class QueryBuilder
                 if (!range.getLow().isLowerUnbounded()) {
                     switch (range.getLow().getBound()) {
                         case ABOVE:
-                            rangeConjuncts.add(toPredicate(columnName, ">", range.getLow().getValue(), column, accumulator));
+                            rangeConjuncts.add(toPredicate(column, ">", range.getLow().getValue(), accumulator));
                             break;
                         case EXACTLY:
-                            rangeConjuncts.add(toPredicate(columnName, ">=", range.getLow().getValue(), column, accumulator));
+                            rangeConjuncts.add(toPredicate(column, ">=", range.getLow().getValue(), accumulator));
                             break;
                         case BELOW:
                             throw new IllegalArgumentException("Low marker should never use BELOW bound");
@@ -238,10 +226,10 @@ public class QueryBuilder
                         case ABOVE:
                             throw new IllegalArgumentException("High marker should never use ABOVE bound");
                         case EXACTLY:
-                            rangeConjuncts.add(toPredicate(columnName, "<=", range.getHigh().getValue(), column, accumulator));
+                            rangeConjuncts.add(toPredicate(column, "<=", range.getHigh().getValue(), accumulator));
                             break;
                         case BELOW:
-                            rangeConjuncts.add(toPredicate(columnName, "<", range.getHigh().getValue(), column, accumulator));
+                            rangeConjuncts.add(toPredicate(column, "<", range.getHigh().getValue(), accumulator));
                             break;
                         default:
                             throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
@@ -255,29 +243,29 @@ public class QueryBuilder
 
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
-            disjuncts.add(toPredicate(columnName, "=", getOnlyElement(singleValues), column, accumulator));
+            disjuncts.add(toPredicate(column, "=", getOnlyElement(singleValues), accumulator));
         }
         else if (singleValues.size() > 1) {
             for (Object value : singleValues) {
                 bindValue(value, column, accumulator);
             }
             String values = Joiner.on(",").join(nCopies(singleValues.size(), "?"));
-            disjuncts.add(quote(columnName) + " IN (" + values + ")");
+            disjuncts.add(dialect.quote(columnName) + " IN (" + values + ")");
         }
 
         // Add nullability disjuncts
         checkState(!disjuncts.isEmpty());
         if (domain.isNullAllowed()) {
-            disjuncts.add(quote(columnName) + " IS NULL");
+            disjuncts.add(dialect.quote(columnName) + " IS NULL");
         }
 
         return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
     }
 
-    private String toPredicate(String columnName, String operator, Object value, JdbcColumnHandle column, List<TypeAndValue> accumulator)
+    private String toPredicate(JdbcColumnHandle column, String operator, Object value, List<TypeAndValue> accumulator)
     {
         bindValue(value, column, accumulator);
-        return quote(columnName) + " " + operator + " ?";
+        return dialect.getPredicate(column, operator);
     }
 
     private String getGroupBy(Optional<List<List<JdbcColumnHandle>>> groupingSets)
@@ -295,21 +283,16 @@ public class QueryBuilder
             }
             return " GROUP BY " + groupingSet.stream()
                     .map(JdbcColumnHandle::getColumnName)
-                    .map(this::quote)
+                    .map(dialect::quote)
                     .collect(joining(", "));
         }
         return " GROUP BY GROUPING SETS " +
                 groupingSets.get().stream()
                         .map(groupingSet -> groupingSet.stream()
                                 .map(JdbcColumnHandle::getColumnName)
-                                .map(this::quote)
+                                .map(dialect::quote)
                                 .collect(joining(", ", "(", ")")))
                         .collect(joining(", ", "(", ")"));
-    }
-
-    protected String quote(String name)
-    {
-        return identifierQuote + name.replace(identifierQuote, identifierQuote + identifierQuote) + identifierQuote;
     }
 
     private static void bindValue(Object value, JdbcColumnHandle column, List<TypeAndValue> accumulator)
