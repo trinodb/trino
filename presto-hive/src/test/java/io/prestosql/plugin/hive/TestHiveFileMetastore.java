@@ -15,7 +15,7 @@ package io.prestosql.plugin.hive;
 
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
-import org.testng.SkipException;
+import org.testng.annotations.Test;
 
 import java.io.File;
 
@@ -32,31 +32,35 @@ public class TestHiveFileMetastore
     }
 
     @Override
+    @Test(enabled = false)
     public void testMismatchSchemaTable()
     {
         // FileHiveMetastore only supports replaceTable() for views
     }
 
     @Override
+    @Test(enabled = false)
     public void testPartitionSchemaMismatch()
     {
-        // test expects an exception to be thrown
-        throw new SkipException("FileHiveMetastore only supports replaceTable() for views");
+        // FileHiveMetastore only supports replaceTable() for views
     }
 
     @Override
+    @Test(enabled = false)
     public void testBucketedTableEvolution()
     {
         // FileHiveMetastore only supports replaceTable() for views
     }
 
     @Override
+    @Test(enabled = false)
     public void testTransactionDeleteInsert()
     {
         // FileHiveMetastore has various incompatibilities
     }
 
     @Override
+    @Test(enabled = false)
     public void testInsertOverwriteUnpartitioned()
     {
         // FileHiveMetastore has various incompatibilities

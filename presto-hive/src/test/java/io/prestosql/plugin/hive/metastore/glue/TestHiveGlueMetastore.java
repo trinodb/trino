@@ -59,37 +59,37 @@ public class TestHiveGlueMetastore
         return new GlueHiveMetastore(HDFS_ENVIRONMENT, glueConfig, new DisabledGlueColumnStatisticsProvider(), executor, Optional.empty());
     }
 
-    @Override
+    @Override @Test(enabled = false)
     public void testRenameTable()
     {
         // rename table is not yet supported by Glue
     }
 
-    @Override
+    @Override @Test(enabled = false)
     public void testPartitionStatisticsSampling()
     {
         // Glue metastore does not support column level statistics
     }
 
-    @Override
+    @Override @Test(enabled = false)
     public void testUpdateTableColumnStatistics()
     {
         // column statistics are not supported by Glue
     }
 
-    @Override
+    @Override @Test(enabled = false)
     public void testUpdateTableColumnStatisticsEmptyOptionalFields()
     {
         // column statistics are not supported by Glue
     }
 
-    @Override
+    @Override @Test(enabled = false)
     public void testUpdatePartitionColumnStatistics()
     {
         // column statistics are not supported by Glue
     }
 
-    @Override
+    @Override @Test(enabled = false)
     public void testUpdatePartitionColumnStatisticsEmptyOptionalFields()
     {
         // column statistics are not supported by Glue

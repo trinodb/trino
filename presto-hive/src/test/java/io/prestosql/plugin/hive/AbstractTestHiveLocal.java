@@ -24,6 +24,7 @@ import io.prestosql.spi.security.PrincipalType;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 
 import java.io.File;
 import java.io.IOException;
@@ -98,30 +99,35 @@ public abstract class AbstractTestHiveLocal
     }
 
     @Override
+    @Test(enabled = false)
     public void testGetAllTableNames()
     {
         throw new SkipException("Test disabled for this subclass");
     }
 
     @Override
+    @Test(enabled = false)
     public void testGetAllTableColumns()
     {
         throw new SkipException("Test disabled for this subclass");
     }
 
     @Override
+    @Test(enabled = false)
     public void testGetAllTableColumnsInSchema()
     {
         throw new SkipException("Test disabled for this subclass");
     }
 
     @Override
+    @Test(enabled = false)
     public void testGetTableNames()
     {
         throw new SkipException("Test disabled for this subclass");
     }
 
     @Override
+    @Test(enabled = false)
     public void testGetTableSchemaOffline()
     {
         throw new SkipException("Test disabled for this subclass");

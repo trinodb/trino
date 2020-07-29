@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.thrift.BridgingHiveMetastore;
 import io.prestosql.plugin.hive.metastore.thrift.InMemoryThriftMetastore;
+import org.testng.annotations.Test;
 
 import java.io.File;
 
@@ -31,12 +32,14 @@ public class TestHiveInMemoryMetastore
     }
 
     @Override
+    @Test(enabled = false)
     public void testMetadataDelete()
     {
         // InMemoryHiveMetastore ignores "removeData" flag in dropPartition
     }
 
     @Override
+    @Test(enabled = false)
     public void testTransactionDeleteInsert()
     {
         // InMemoryHiveMetastore does not check whether partition exist in createPartition and dropPartition
