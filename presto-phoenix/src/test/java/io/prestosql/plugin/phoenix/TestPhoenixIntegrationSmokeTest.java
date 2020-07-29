@@ -67,6 +67,7 @@ public class TestPhoenixIntegrationSmokeTest
                         "   comment varchar(79)\n" +
                         ")\n" +
                         "WITH (\n" +
+                        "   data_block_encoding = 'FAST_DIFF',\n" +
                         "   rowkeys = 'ROWKEY',\n" +
                         "   salt_buckets = 10\n" +
                         ")");
@@ -140,6 +141,7 @@ public class TestPhoenixIntegrationSmokeTest
                            "   d varchar(10)\n" +
                            ")\n" +
                            "WITH (\n" +
+                           "   data_block_encoding = 'FAST_DIFF',\n" +
                            "   rowkeys = 'A,B,C',\n" +
                            "   salt_buckets = 10\n" +
                            ")");
