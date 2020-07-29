@@ -64,7 +64,6 @@ import static io.prestosql.sql.planner.plan.Patterns.aggregation;
 import static io.prestosql.sql.planner.plan.Patterns.source;
 import static io.prestosql.sql.planner.plan.Patterns.tableScan;
 import static java.util.function.Function.identity;
-import static java.util.stream.Collectors.toList;
 import static java.util.stream.Collectors.toSet;
 
 public abstract class PushAggregationIntoTableScan
@@ -95,9 +94,10 @@ public abstract class PushAggregationIntoTableScan
 
     private static boolean hasNoMasks(AggregationNode node)
     {
-        return node.getAggregations()
+        return !node.getAggregations()
                 .values().stream()
-                .noneMatch(aggregation -> aggregation.getMask().isPresent());
+                .map(aggregation -> aggregation.getMask().isPresent())
+                .anyMatch(isMaskPresent -> isMaskPresent);
     }
 
     protected abstract List<List<Symbol>> groupBySymbols(AggregationNode node, Captures captures);
@@ -238,7 +238,7 @@ public abstract class PushAggregationIntoTableScan
     public static class PushAggregationIntoTableScanWithoutGroupingSets
             extends PushAggregationIntoTableScan
     {
-        private static final Pattern<AggregationNode> AGGREGATION_WITHOUT_GROUPING_SETS =
+        private static final Pattern<AggregationNode> PATTERN =
                 aggregation()
                         .matching(PushAggregationIntoTableScan::allArgumentsAreSimpleReferences)
                         .matching(PushAggregationIntoTableScan::hasNoMasks)
@@ -252,7 +252,7 @@ public abstract class PushAggregationIntoTableScan
         @Override
         public Pattern<AggregationNode> getPattern()
         {
-            return AGGREGATION_WITHOUT_GROUPING_SETS;
+            return PATTERN;
         }
 
         @Override
@@ -273,7 +273,7 @@ public abstract class PushAggregationIntoTableScan
             extends PushAggregationIntoTableScan
     {
         private static final Capture<GroupIdNode> GROUP_ID = newCapture();
-        private static final Pattern<AggregationNode> AGGREGATION_WITH_GROUPING_SETS =
+        private static final Pattern<AggregationNode> PATTERN =
                 aggregation()
                         .matching(PushAggregationIntoTableScan::allArgumentsAreSimpleReferences)
                         .matching(PushAggregationIntoTableScan::hasNoMasks)
@@ -288,7 +288,7 @@ public abstract class PushAggregationIntoTableScan
         @Override
         public Pattern<AggregationNode> getPattern()
         {
-            return AGGREGATION_WITH_GROUPING_SETS;
+            return PATTERN;
         }
 
         @Override
@@ -299,8 +299,8 @@ public abstract class PushAggregationIntoTableScan
             return groupIdNode.getGroupingSets().stream()
                     .map(groupIdNodeSymbols -> groupIdNodeSymbols.stream()
                             .map(groupIdNode.getGroupingColumns()::get)
-                            .collect(toList())
-                    ).collect(toList());
+                            .collect(toImmutableList()))
+                    .collect(toImmutableList());
         }
 
         @Override
