@@ -30,6 +30,11 @@ presto-product-tests-launcher/bin/run-launcher test run \
     -- -g sqlserver \
     || suite_exit_code=1
 
+presto-product-tests-launcher/bin/run-launcher test run \
+    --environment singlenode-spark-iceberg \
+    -- -g iceberg -x storage_formats \
+    || suite_exit_code=1
+
 # Environment not set up on CDH. (TODO run on HDP 2.6 and HDP 3.1)
 presto-product-tests-launcher/bin/run-launcher test run \
     --environment singlenode-kerberos-hdfs-impersonation-cross-realm \
