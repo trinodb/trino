@@ -90,7 +90,7 @@ public class StaticSelector
             addVariableValues(userRegex.get(), criteria.getUser(), variables);
         }
 
-        if (userGroupRegex.isPresent() && !criteria.getUserGroups().stream().anyMatch(group -> userGroupRegex.get().matcher(group).matches())) {
+        if (userGroupRegex.isPresent() && criteria.getUserGroups().stream().noneMatch(group -> userGroupRegex.get().matcher(group).matches())) {
             return Optional.empty();
         }
 
