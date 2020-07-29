@@ -24,8 +24,6 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.OperatorType;
@@ -33,9 +31,7 @@ import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
-import io.prestosql.spi.type.SqlDecimal;
 import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.Type;
 import io.prestosql.type.JsonPathType;
 
 import java.io.IOException;
@@ -480,14 +476,5 @@ public final class JsonFunctions
     public static Long jsonSize(@SqlType(StandardTypes.JSON) Slice json, @SqlType(JsonPathType.NAME) JsonPath jsonPath)
     {
         return JsonExtract.extract(json, jsonPath.getSizeExtractor());
-    }
-
-    public static Object getJsonObjectValue(Type valueType, ConnectorSession session, Block block, int position)
-    {
-        Object objectValue = valueType.getObjectValue(session, block, position);
-        if (objectValue instanceof SqlDecimal) {
-            objectValue = ((SqlDecimal) objectValue).toBigDecimal();
-        }
-        return objectValue;
     }
 }
