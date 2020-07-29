@@ -1,14 +1,10 @@
-=================
+====================
 ClickHouse Connector
-=================
+====================
 
-The ClickHouse connector allows querying data stored in 
-`Yandex ClickHouse <https://clickhouse.tech/>`_ 
-
-Compatibility
--------------
-
-The ClickHouse connector is compatible with all ClickHouse versions starting from 20.3.5.21.
+The ClickHouse connector allows querying tables in an external
+`Yandex ClickHouse <https://clickhouse.tech/>`_ instance. This can be used to join data between different
+systems like ClickHouse and Hive, or between two different ClickHouse instances.
 
 Configuration
 -------------
@@ -26,7 +22,7 @@ replacing the connection properties as appropriate for your setup:
 
 
 Multiple ClickHouse Server
-^^^^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 You can have as many catalogs as you need, so if you have additional
 ClickHouse servers, simply add another properties file to ``etc/catalog``
@@ -35,7 +31,7 @@ example, if you name the property file ``sales.properties``, Presto
 will create a catalog named ``sales`` using the configured connector.
 
 Querying ClickHouse
----------------
+-------------------
 
 The ClickHouse connector provides a schema for every ClickHouse *database*.
 You can see the available ClickHouse databases by running ``SHOW SCHEMAS``::
@@ -61,11 +57,10 @@ If you used a different name for your catalog properties file, use
 that catalog name instead of ``ClickHouse`` in the above examples.
 
 ClickHouse Connector Limitations
-----------------------------
+--------------------------------
 
 The following SQL statements are not yet supported:
 
-* :doc:`/sql/delete`
 * :doc:`/sql/grant`
 * :doc:`/sql/revoke`
 * :doc:`/sql/show-grants`
