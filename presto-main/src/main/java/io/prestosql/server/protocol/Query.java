@@ -106,6 +106,7 @@ import static io.prestosql.spi.type.StandardTypes.ROW;
 import static io.prestosql.spi.type.StandardTypes.TIME;
 import static io.prestosql.spi.type.StandardTypes.TIMESTAMP;
 import static io.prestosql.spi.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
 import static io.prestosql.util.Failures.toFailure;
 import static io.prestosql.util.MoreLists.mappedCopy;
 import static java.lang.String.format;
@@ -624,6 +625,9 @@ class Query
                 else if (dataTimeType.getType() == DateTimeDataType.Type.TIME && !dataTimeType.isWithTimeZone()) {
                     return TIME;
                 }
+                else if (dataTimeType.getType() == DateTimeDataType.Type.TIME && dataTimeType.isWithTimeZone()) {
+                    return TIMESTAMP_WITH_TIME_ZONE;
+                }
             }
 
             return ExpressionFormatter.formatExpression(type);
@@ -670,6 +674,9 @@ class Query
             }
             else if (signature.getBase().equalsIgnoreCase(TIME)) {
                 return new ClientTypeSignature(TIME);
+            }
+            else if (signature.getBase().equalsIgnoreCase(TIME_WITH_TIME_ZONE)) {
+                return new ClientTypeSignature(TIME_WITH_TIME_ZONE);
             }
         }
 

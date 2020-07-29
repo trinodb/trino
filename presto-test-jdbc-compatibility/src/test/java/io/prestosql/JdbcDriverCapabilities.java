@@ -62,4 +62,9 @@ public final class JdbcDriverCapabilities
     {
         return driverVersion() >= 337 && driverVersion() <= 340;
     }
+
+    public static boolean hasBrokenTimeWithTimeZoneSupport()
+    {
+        return driverVersion() <= 340;
+    }
 }

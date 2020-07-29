@@ -20,6 +20,7 @@ import io.prestosql.spi.PrestoException;
 import org.testng.annotations.Test;
 
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
@@ -48,7 +49,7 @@ public class TestCustomDateTimeJsonFieldDecoder
         timeTester.assertDecodedAs("\"15:13:18\"", TIME, 47_718_000_000_000_000L);
         timeJustHourTester.assertDecodedAs("\"15\"", TIME, 54_000_000_000_000_000L);
         timeJustHourTester.assertDecodedAs("15", TIME, 54_000_000_000_000_000L);
-        timeTester.assertDecodedAs("\"15:13:18\"", TIME_WITH_TIME_ZONE, packDateTimeWithZone(47718000, UTC_KEY));
+        timeTester.assertDecodedAs("\"15:13:18\"", TIME_WITH_TIME_ZONE, packTimeWithTimeZone(47_718_000_000_000L, 0));
         dateTester.assertDecodedAs("\"02/2018/11\"", DATE, 17573);
     }
 

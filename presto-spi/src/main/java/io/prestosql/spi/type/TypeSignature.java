@@ -22,6 +22,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
+import static io.prestosql.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TypeSignatureParameter.typeParameter;
 import static java.lang.String.format;
 import static java.util.Arrays.asList;
@@ -113,6 +114,10 @@ public class TypeSignature
 
         if (base.equalsIgnoreCase(TIMESTAMP_WITHOUT_TIME_ZONE)) {
             return format("timestamp(%s) without time zone", parameters.get(0));
+        }
+
+        if (base.equalsIgnoreCase(TIME_WITH_TIME_ZONE)) {
+            return format("time(%s) with time zone", parameters.get(0));
         }
 
         StringBuilder typeName = new StringBuilder(base);

@@ -21,6 +21,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.Type;
 
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.format.DateTimeParseException;
 import java.time.temporal.TemporalAccessor;
 import java.util.Set;
@@ -29,12 +30,14 @@ import java.util.concurrent.TimeUnit;
 import static io.prestosql.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
 import static io.prestosql.decoder.json.JsonRowDecoderFactory.throwUnsupportedColumnType;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_DATE;
@@ -127,7 +130,7 @@ public class ISO8601JsonFieldDecoder
                 }
                 if (columnType.equals(TIME_WITH_TIME_ZONE)) {
                     TemporalAccessor parseResult = ISO_OFFSET_TIME.parse(textValue);
-                    return packDateTimeWithZone(parseResult.get(MILLI_OF_DAY), getTimeZoneKey(ZoneId.from(parseResult).getId()));
+                    return packTimeWithTimeZone((long) (parseResult.get(MILLI_OF_DAY)) * NANOSECONDS_PER_MILLISECOND, ZoneOffset.from(parseResult).getTotalSeconds() / 60);
                 }
                 if (columnType == DATE) {
                     return ISO_DATE.parse(textValue).getLong(EPOCH_DAY);

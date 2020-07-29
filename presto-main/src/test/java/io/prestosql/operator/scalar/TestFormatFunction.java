@@ -55,7 +55,7 @@ public class TestFormatFunction
         assertFormat("format('%1$s %1$tF %1$tT', timestamp '1969-07-20 16:17:03')", "1969-07-20T16:17:03 1969-07-20 16:17:03");
         assertFormat("format('%1$s %1$tc', cast('1969-07-20 16:17:00 America/New_York' AS timestamp with time zone))", "1969-07-20T16:17-04:00[America/New_York] Sun Jul 20 16:17:00 EDT 1969");
         assertFormat("format('%1$s %1$tc', cast('1969-07-20 20:17:00 UTC' AS timestamp with time zone))", "1969-07-20T20:17Z[UTC] Sun Jul 20 20:17:00 UTC 1969");
-        assertFormat("format('%s', cast('16:17:13 -05:00' AS time with time zone))", "16:17:13.000 -05:00");
+        assertFormat("format('%s', cast('16:17:13 -05:00' AS time with time zone))", "16:17:13.000-05:00");
         assertFormat("format('%s', cast('test' AS char(5)))", "test ");
 
         assertInvalidFunction("format('%.4d', 8)", "Invalid format string: %.4d (IllegalFormatPrecision: 4)");

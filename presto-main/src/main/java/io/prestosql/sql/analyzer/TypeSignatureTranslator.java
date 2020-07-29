@@ -47,7 +47,6 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.type.StandardTypes.INTERVAL_DAY_TO_SECOND;
 import static io.prestosql.spi.type.StandardTypes.INTERVAL_YEAR_TO_MONTH;
-import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TypeSignatureParameter.namedTypeParameter;
 import static io.prestosql.spi.type.TypeSignatureParameter.numericParameter;
 import static io.prestosql.spi.type.TypeSignatureParameter.typeParameter;
@@ -168,33 +167,29 @@ public class TypeSignatureTranslator
     {
         boolean withTimeZone = type.isWithTimeZone();
 
-        if (type.getPrecision().isPresent()) {
-            if (type.getType() != DateTimeDataType.Type.TIMESTAMP && (type.getType() != DateTimeDataType.Type.TIME && !withTimeZone)) {
-                throw new PrestoException(NOT_SUPPORTED, String.format("%s type with non-default precision not yet supported", type.getType()));
-            }
-        }
-
+        String base;
         switch (type.getType()) {
             case TIMESTAMP:
-                String base;
                 if (withTimeZone) {
                     base = StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
                 }
                 else {
                     base = StandardTypes.TIMESTAMP;
                 }
-
-                return new TypeSignature(base, translateParameters(type, typeVariables));
-            case TIME: {
+                break;
+            case TIME:
                 if (withTimeZone) {
-                    return TIME_WITH_TIME_ZONE.getTypeSignature();
+                    base = StandardTypes.TIME_WITH_TIME_ZONE;
                 }
-
-                return new TypeSignature(StandardTypes.TIME, translateParameters(type, typeVariables));
-            }
+                else {
+                    base = StandardTypes.TIME;
+                }
+                break;
+            default:
+                throw new UnsupportedOperationException("Unknown dateTime type: " + type.getType());
         }
 
-        throw new UnsupportedOperationException("Unknown dateTime type: " + type.getType());
+        return new TypeSignature(base, translateParameters(type, typeVariables));
     }
 
     private static List<TypeSignatureParameter> translateParameters(DateTimeDataType type, Set<String> typeVariables)
@@ -256,8 +251,17 @@ public class TypeSignatureTranslator
 
                 return new DateTimeDataType(Optional.empty(), DateTimeDataType.Type.TIMESTAMP, false, argument);
             }
-            case StandardTypes.TIME_WITH_TIME_ZONE:
-                return new DateTimeDataType(Optional.empty(), DateTimeDataType.Type.TIME, true, Optional.empty());
+            case StandardTypes.TIME_WITH_TIME_ZONE: {
+                if (typeSignature.getParameters().isEmpty()) {
+                    return new DateTimeDataType(Optional.empty(), DateTimeDataType.Type.TIME, true, Optional.empty());
+                }
+
+                Optional<DataTypeParameter> argument = typeSignature.getParameters().stream()
+                        .map(TypeSignatureTranslator::toTypeParameter)
+                        .findAny();
+
+                return new DateTimeDataType(Optional.empty(), DateTimeDataType.Type.TIME, true, argument);
+            }
             case StandardTypes.TIME: {
                 if (typeSignature.getParameters().isEmpty()) {
                     return new DateTimeDataType(Optional.empty(), DateTimeDataType.Type.TIME, false, Optional.empty());

@@ -24,11 +24,13 @@ import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static java.lang.String.format;
 
@@ -74,8 +76,11 @@ public abstract class AbstractDateTimeJsonValueProvider
         if (type.equals(TIMESTAMP)) {
             return millis;
         }
-        if (type.equals(TIMESTAMP_WITH_TIME_ZONE) || type.equals(TIME_WITH_TIME_ZONE)) {
+        if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
             return packDateTimeWithZone(millis, getTimeZone());
+        }
+        if (type.equals(TIME_WITH_TIME_ZONE)) {
+            return packTimeWithTimeZone(millis * NANOSECONDS_PER_MILLISECOND, 0);
         }
 
         return millis;

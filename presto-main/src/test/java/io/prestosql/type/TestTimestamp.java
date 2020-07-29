@@ -15,7 +15,6 @@ package io.prestosql.type;
 
 import io.prestosql.operator.scalar.AbstractTestFunctions;
 import io.prestosql.spi.type.SqlDate;
-import io.prestosql.spi.type.SqlTimeWithTimeZone;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.testing.TestingSession;
@@ -31,7 +30,6 @@ import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
@@ -223,17 +221,6 @@ public class TestTimestamp
     public void testCastToTime()
     {
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as time)", TIME, sqlTimeOf(3, 4, 5, 321));
-    }
-
-    @Test
-    public void testCastToTimeWithTimeZone()
-    {
-        assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321' as time with time zone)",
-                TIME_WITH_TIME_ZONE,
-                new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), TIME_ZONE_KEY));
-        functionAssertions.assertFunctionString("cast(TIMESTAMP '2001-1-22 03:04:05.321' as time with time zone)",
-                TIME_WITH_TIME_ZONE,
-                "03:04:05.321 " + DATE_TIME_ZONE.getID());
     }
 
     @Test

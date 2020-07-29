@@ -36,6 +36,7 @@ import io.prestosql.spi.type.SqlTimeWithTimeZone;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.TimeType;
+import io.prestosql.spi.type.TimeWithTimeZoneType;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
@@ -68,21 +69,21 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
+import static io.prestosql.spi.type.Timestamps.roundDiv;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.prestosql.type.JsonType.JSON;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class MaterializedResult
         implements Iterable<MaterializedRow>
@@ -289,10 +290,10 @@ public class MaterializedResult
             SqlTime time = (SqlTime) value;
             type.writeLong(blockBuilder, time.getPicos());
         }
-        else if (TIME_WITH_TIME_ZONE.equals(type)) {
-            long millisUtc = ((SqlTimeWithTimeZone) value).getMillisUtc();
-            TimeZoneKey timeZoneKey = ((SqlTimeWithTimeZone) value).getTimeZoneKey();
-            type.writeLong(blockBuilder, packDateTimeWithZone(millisUtc, timeZoneKey));
+        else if (type instanceof TimeWithTimeZoneType) {
+            long nanos = roundDiv(((SqlTimeWithTimeZone) value).getPicos(), PICOSECONDS_PER_NANOSECOND);
+            int offsetMinutes = ((SqlTimeWithTimeZone) value).getOffsetMinutes();
+            type.writeLong(blockBuilder, packTimeWithTimeZone(nanos, offsetMinutes));
         }
         else if (type instanceof TimestampType) {
             long micros = ((SqlTimestamp) value).getEpochMicros();
@@ -373,12 +374,9 @@ public class MaterializedResult
                 convertedValue = DateTimeFormatter.ISO_LOCAL_TIME.parse(prestoValue.toString(), LocalTime::from);
             }
             else if (prestoValue instanceof SqlTimeWithTimeZone) {
-                // Political timezone cannot be represented in OffsetTime and there isn't any better representation.
-                long millisUtc = ((SqlTimeWithTimeZone) prestoValue).getMillisUtc();
-                ZoneOffset zone = toZoneOffset(((SqlTimeWithTimeZone) prestoValue).getTimeZoneKey());
-                convertedValue = OffsetTime.of(
-                        LocalTime.ofNanoOfDay(MILLISECONDS.toNanos(millisUtc) + SECONDS.toNanos(zone.getTotalSeconds())),
-                        zone);
+                long nanos = roundDiv(((SqlTimeWithTimeZone) prestoValue).getPicos(), PICOSECONDS_PER_NANOSECOND);
+                int offsetMinutes = ((SqlTimeWithTimeZone) prestoValue).getOffsetMinutes();
+                convertedValue = OffsetTime.of(LocalTime.ofNanoOfDay(nanos), ZoneOffset.ofTotalSeconds(offsetMinutes * 60));
             }
             else if (prestoValue instanceof SqlTimestamp) {
                 convertedValue = ((SqlTimestamp) prestoValue).toLocalDateTime();

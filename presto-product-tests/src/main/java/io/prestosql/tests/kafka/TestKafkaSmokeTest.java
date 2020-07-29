@@ -310,11 +310,11 @@ public class TestKafkaSmokeTest
                 row("c_timestamptz_iso8601", "timestamp(3) with time zone"),
                 row("c_timestamptz_rfc2822", "timestamp(3) with time zone"),
                 row("c_timestamptz_custom", "timestamp(3) with time zone"),
-                row("c_timetz_milliseconds_since_epoch", "time with time zone"),
-                row("c_timetz_seconds_since_epoch", "time with time zone"),
-                row("c_timetz_iso8601", "time with time zone"),
-                row("c_timetz_rfc2822", "time with time zone"),
-                row("c_timetz_custom", "time with time zone"));
+                row("c_timetz_milliseconds_since_epoch", "time(3) with time zone"),
+                row("c_timetz_seconds_since_epoch", "time(3) with time zone"),
+                row("c_timetz_iso8601", "time(3) with time zone"),
+                row("c_timetz_rfc2822", "time(3) with time zone"),
+                row("c_timetz_custom", "time(3) with time zone"));
 
         assertThat(query(format("select * from %s.%s.%s", KAFKA_CATALOG, SCHEMA_NAME, ALL_DATATYPES_JSON_TABLE_NAME))).containsOnly(row(
                 "ala ma kota",

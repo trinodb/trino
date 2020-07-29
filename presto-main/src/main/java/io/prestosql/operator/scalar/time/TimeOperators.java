@@ -18,7 +18,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.BlockIndex;
 import io.prestosql.spi.function.BlockPosition;
 import io.prestosql.spi.function.IsNull;
@@ -30,7 +29,6 @@ import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.AbstractLongType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.type.Constraint;
-import org.joda.time.chrono.ISOChronology;
 
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.ADD;
@@ -46,7 +44,6 @@ import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.function.OperatorType.SUBTRACT;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.TimeType.MAX_PRECISION;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.type.DateTimes.MINUTES_PER_HOUR;
@@ -60,7 +57,6 @@ import static io.prestosql.type.DateTimes.parseTime;
 import static io.prestosql.type.DateTimes.rescaleWithRounding;
 import static io.prestosql.type.DateTimes.round;
 import static io.prestosql.type.DateTimes.scaleFactor;
-import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 
@@ -128,18 +124,6 @@ public final class TimeOperators
     public static boolean greaterThanOrEqual(@SqlType("time(p)") long left, @SqlType("time(p)") long right)
     {
         return left >= right;
-    }
-
-    @ScalarOperator(CAST)
-    @LiteralParameters("p")
-    @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
-    public static long castToTimeWithTimeZone(ConnectorSession session, @SqlType("time(p)") long value)
-    {
-        long millis = rescaleWithRounding(value, MAX_PRECISION, 3);
-
-        ISOChronology localChronology = getChronology(session.getTimeZoneKey());
-        millis = localChronology.getZone().convertLocalToUTC(millis, false);
-        return packDateTimeWithZone(millis, session.getTimeZoneKey());
     }
 
     @ScalarOperator(CAST)
@@ -288,9 +272,9 @@ public final class TimeOperators
         return output.slice();
     }
 
-    public static long add(long time, long delta)
+    public static long add(long picos, long delta)
     {
-        long result = (time + delta) % PICOSECONDS_PER_DAY;
+        long result = (picos + delta) % PICOSECONDS_PER_DAY;
         if (result < 0) {
             result += PICOSECONDS_PER_DAY;
         }

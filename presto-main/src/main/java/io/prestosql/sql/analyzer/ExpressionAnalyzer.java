@@ -39,6 +39,7 @@ import io.prestosql.spi.type.DecimalParseResult;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.TimeType;
+import io.prestosql.spi.type.TimeWithTimeZoneType;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
@@ -122,6 +123,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -147,6 +149,7 @@ import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeType.createTimeType;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
@@ -163,14 +166,13 @@ import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.prestosql.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
-import static io.prestosql.sql.tree.CurrentTime.Function.LOCALTIME;
-import static io.prestosql.sql.tree.CurrentTime.Function.LOCALTIMESTAMP;
 import static io.prestosql.sql.tree.Extract.Field.TIMEZONE_HOUR;
 import static io.prestosql.sql.tree.Extract.Field.TIMEZONE_MINUTE;
 import static io.prestosql.type.ArrayParametricType.ARRAY;
 import static io.prestosql.type.DateTimes.extractTimePrecision;
 import static io.prestosql.type.DateTimes.extractTimestampPrecision;
 import static io.prestosql.type.DateTimes.parseTime;
+import static io.prestosql.type.DateTimes.parseTimeWithTimeZone;
 import static io.prestosql.type.DateTimes.parseTimestamp;
 import static io.prestosql.type.DateTimes.parseTimestampWithTimeZone;
 import static io.prestosql.type.DateTimes.timeHasTimeZone;
@@ -378,20 +380,19 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitCurrentTime(CurrentTime node, StackableAstVisitorContext<Context> context)
         {
-            if (node.getPrecision() != null &&
-                    node.getFunction() != LOCALTIMESTAMP &&
-                    node.getFunction() != CurrentTime.Function.TIMESTAMP &&
-                    node.getFunction() != LOCALTIME) {
-                throw semanticException(NOT_SUPPORTED, node, "non-default precision not yet supported");
-            }
-
             Type type;
             switch (node.getFunction()) {
                 case DATE:
+                    checkArgument(node.getPrecision() == null);
                     type = DATE;
                     break;
                 case TIME:
-                    type = TIME_WITH_TIME_ZONE;
+                    if (node.getPrecision() != null) {
+                        type = createTimeWithTimeZoneType(node.getPrecision());
+                    }
+                    else {
+                        type = TIME_WITH_TIME_ZONE;
+                    }
                     break;
                 case LOCALTIME:
                     if (node.getPrecision() != null) {
@@ -842,11 +843,13 @@ public class ExpressionAnalyzer
         {
             Type type;
             try {
+                int precision = extractTimePrecision(node.getValue());
+
                 if (timeHasTimeZone(node.getValue())) {
-                    type = TIME_WITH_TIME_ZONE;
+                    type = createTimeWithTimeZoneType(precision);
+                    parseTimeWithTimeZone(precision, node.getValue());
                 }
                 else {
-                    int precision = extractTimePrecision(node.getValue());
                     type = createTimeType(precision);
                     parseTime(node.getValue());
                 }
@@ -1062,12 +1065,12 @@ public class ExpressionAnalyzer
         {
             Type valueType = process(node.getValue(), context);
             process(node.getTimeZone(), context);
-            if (!valueType.equals(TIME_WITH_TIME_ZONE) && !(valueType instanceof TimestampWithTimeZoneType) && !(valueType instanceof TimeType) && !(valueType instanceof TimestampType)) {
+            if (!(valueType instanceof TimeWithTimeZoneType) && !(valueType instanceof TimestampWithTimeZoneType) && !(valueType instanceof TimeType) && !(valueType instanceof TimestampType)) {
                 throw semanticException(TYPE_MISMATCH, node.getValue(), "Type of value must be a time or timestamp with or without time zone (actual %s)", valueType);
             }
             Type resultType = valueType;
             if (valueType instanceof TimeType) {
-                resultType = TIME_WITH_TIME_ZONE;
+                resultType = createTimeWithTimeZoneType(((TimeType) valueType).getPrecision());
             }
             else if (valueType instanceof TimestampType) {
                 resultType = createTimestampWithTimeZoneType(((TimestampType) valueType).getPrecision());

@@ -23,6 +23,7 @@ import io.prestosql.spi.type.DecimalParseResult;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.RowType.Field;
+import io.prestosql.spi.type.TimeWithTimeZoneType;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
@@ -93,7 +94,6 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.CharType.createCharType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
@@ -116,11 +116,11 @@ import static io.prestosql.sql.relational.SpecialForm.Form.ROW_CONSTRUCTOR;
 import static io.prestosql.sql.relational.SpecialForm.Form.SWITCH;
 import static io.prestosql.sql.relational.SpecialForm.Form.WHEN;
 import static io.prestosql.type.DateTimes.parseTime;
+import static io.prestosql.type.DateTimes.parseTimeWithTimeZone;
 import static io.prestosql.type.DateTimes.parseTimestamp;
 import static io.prestosql.type.DateTimes.parseTimestampWithTimeZone;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.util.DateTimeUtils.parseDayTimeInterval;
-import static io.prestosql.util.DateTimeUtils.parseTimeWithTimeZone;
 import static io.prestosql.util.DateTimeUtils.parseYearMonthInterval;
 import static java.util.Objects.requireNonNull;
 
@@ -256,14 +256,15 @@ public final class SqlToRowExpressionTranslator
         @Override
         protected RowExpression visitTimeLiteral(TimeLiteral node, Void context)
         {
-            long value;
-            if (getType(node).equals(TIME_WITH_TIME_ZONE)) {
-                value = parseTimeWithTimeZone(node.getValue());
+            Type type = getType(node);
+            Object value;
+            if (type instanceof TimeWithTimeZoneType) {
+                value = parseTimeWithTimeZone(((TimeWithTimeZoneType) type).getPrecision(), node.getValue());
             }
             else {
                 value = parseTime(node.getValue());
             }
-            return constant(value, getType(node));
+            return constant(value, type);
         }
 
         @Override
