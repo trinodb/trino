@@ -46,7 +46,6 @@ import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.VarcharType;
 import ru.yandex.clickhouse.ClickHouseConnection;
 import ru.yandex.clickhouse.ClickHousePreparedStatement;
 import ru.yandex.clickhouse.except.ClickHouseErrorCode;
@@ -348,27 +347,27 @@ public class ClickHouseClient
             return WriteMapping.longMapping("datetime", timestampWriteFunctionUsingSqlTimestamp(session));
         }
         if (VARBINARY.equals(type)) {
-            return WriteMapping.sliceMapping("mediumblob", varbinaryWriteFunction());
+            return WriteMapping.sliceMapping("String", varbinaryWriteFunction());
         }
         if (isVarcharType(type)) {
-            VarcharType varcharType = (VarcharType) type;
-            String dataType;
-            if (varcharType.isUnbounded()) {
-                dataType = "longtext";
-            }
-            else if (varcharType.getBoundedLength() <= 255) {
-                dataType = "tinytext";
-            }
-            else if (varcharType.getBoundedLength() <= 65535) {
-                dataType = "text";
-            }
-            else if (varcharType.getBoundedLength() <= 16777215) {
-                dataType = "mediumtext";
-            }
-            else {
-                dataType = "longtext";
-            }
-            return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
+            // VarcharType varcharType = (VarcharType) type;
+            // String dataType;
+            // if (varcharType.isUnbounded()) {
+            //     dataType = "longtext";
+            // }
+            // else if (varcharType.getBoundedLength() <= 255) {
+            //     dataType = "tinytext";
+            // }
+            // else if (varcharType.getBoundedLength() <= 65535) {
+            //     dataType = "text";
+            // }
+            // else if (varcharType.getBoundedLength() <= 16777215) {
+            //     dataType = "mediumtext";
+            // }
+            // else {
+            //     dataType = "longtext";
+            // }
+            return WriteMapping.sliceMapping("String", varcharWriteFunction());
         }
         return super.toWriteMapping(session, type);
     }
