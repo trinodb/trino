@@ -55,8 +55,8 @@ public final class JsonTypeUtil
             parser.nextToken();
             return output.slice();
         }
-        catch (Exception e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Cannot convert '%s' to JSON", slice.toStringUtf8()));
+        catch (IOException | RuntimeException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Cannot convert value to JSON: '%s'", slice.toStringUtf8()), e);
         }
     }
 
