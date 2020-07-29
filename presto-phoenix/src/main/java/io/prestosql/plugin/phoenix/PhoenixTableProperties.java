@@ -48,6 +48,7 @@ public final class PhoenixTableProperties
     public static final String MIN_VERSIONS = "min_versions";
     public static final String COMPRESSION = "compression";
     public static final String TTL = "ttl";
+    public static final String DATA_BLOCK_ENCODING = "data_block_encoding";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -108,6 +109,11 @@ public final class PhoenixTableProperties
                 integerProperty(
                         TTL,
                         "Number of seconds for cell TTL.  HBase will automatically delete rows once the expiration time is reached.",
+                        null,
+                        false),
+                stringProperty(
+                        DATA_BLOCK_ENCODING,
+                        "The block encoding algorithm to use for Cells in HBase blocks. Options are: NONE, PREFIX, DIFF, FAST_DIFF, ROW_INDEX_V1, and others.",
                         null,
                         false));
     }
@@ -230,6 +236,14 @@ public final class PhoenixTableProperties
             return Optional.empty();
         }
         return Optional.of(value);
+    }
+
+    public static Optional<String> getDataBlockEncoding(Map<String, Object> tableProperties)
+    {
+        requireNonNull(tableProperties);
+
+        String value = (String) tableProperties.get(DATA_BLOCK_ENCODING);
+        return Optional.ofNullable(value);
     }
 
     public static Optional<Integer> getTimeToLive(Map<String, Object> tableProperties)
