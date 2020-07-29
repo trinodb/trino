@@ -12,6 +12,7 @@ from different data sources.
     BigQuery        <connector/bigquery>
     Black Hole      <connector/blackhole>
     Cassandra       <connector/cassandra>
+    ClickHouse      <connector/clickhouse>
     Druid           <connector/druid>
     Elasticsearch   <connector/elasticsearch>
     Google Sheets   <connector/googlesheets>
