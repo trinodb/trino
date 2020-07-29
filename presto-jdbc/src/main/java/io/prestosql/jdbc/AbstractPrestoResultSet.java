@@ -25,8 +25,6 @@ import org.joda.time.DateTimeZone;
 import org.joda.time.LocalDate;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.DateTimeFormatterBuilder;
-import org.joda.time.format.DateTimeParser;
 import org.joda.time.format.ISODateTimeFormat;
 
 import java.io.InputStream;
@@ -85,7 +83,10 @@ abstract class AbstractPrestoResultSet
             "(?: (?<hour>\\d{1,2}):(?<minute>\\d{1,2})(?::(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?)?)?" +
             "\\s*(?<timezone>.+)?");
 
-    public static final Pattern TIME_PATTERN = Pattern.compile("(?<hour>\\d{1,2}):(?<minute>\\d{1,2}):(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?");
+    private static final Pattern TIME_PATTERN = Pattern.compile("(?<hour>\\d{1,2}):(?<minute>\\d{1,2}):(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?");
+    private static final Pattern TIME_WITH_TIME_ZONE_PATTERN = Pattern.compile("" +
+            "(?<hour>\\d{1,2}):(?<minute>\\d{1,2}):(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?" +
+            "(?<offsetHour>[+-]\\d\\d):(?<offsetMinute>\\d\\d)");
 
     private static final long[] POWERS_OF_TEN = {
             1L,
@@ -103,17 +104,13 @@ abstract class AbstractPrestoResultSet
             1000_000_000_000L
     };
 
+    private static final int MAX_DATETIME_PRECISION = 12;
+
+    private static final int MILLISECONDS_PER_SECOND = 1000;
+    private static final int MILLISECONDS_PER_MINUTE = 60 * MILLISECONDS_PER_SECOND;
+
     static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date();
     static final DateTimeFormatter TIME_FORMATTER = DateTimeFormat.forPattern("HH:mm:ss.SSS");
-    static final DateTimeFormatter TIME_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
-            .append(DateTimeFormat.forPattern("HH:mm:ss.SSS ZZZ").getPrinter(),
-                    new DateTimeParser[] {
-                            DateTimeFormat.forPattern("HH:mm:ss.SSS Z").getParser(),
-                            DateTimeFormat.forPattern("HH:mm:ss.SSS ZZZ").getParser(),
-                    })
-            .toFormatter()
-            .withOffsetParsed();
-
     static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
     // Before 1900, Java Time and Joda Time are not consistent with java.sql.Date and java.util.Calendar
@@ -311,9 +308,9 @@ abstract class AbstractPrestoResultSet
             }
         }
 
-        if (columnInfo.getColumnTypeName().equalsIgnoreCase("time with time zone")) {
+        if (columnInfo.getColumnTypeSignature().getRawType().equalsIgnoreCase("time with time zone")) {
             try {
-                return new Time(TIME_WITH_TIME_ZONE_FORMATTER.parseMillis(String.valueOf(value)));
+                return parseTimeWithTimeZone(String.valueOf(value));
             }
             catch (IllegalArgumentException e) {
                 throw new SQLException("Invalid time from server: " + value, e);
@@ -1867,6 +1864,43 @@ abstract class AbstractPrestoResultSet
         return new Time(epochMilli);
     }
 
+    private static Time parseTimeWithTimeZone(String value)
+    {
+        Matcher matcher = TIME_WITH_TIME_ZONE_PATTERN.matcher(value);
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException("Invalid time: " + value);
+        }
+
+        int hour = Integer.parseInt(matcher.group("hour"));
+        int minute = Integer.parseInt(matcher.group("minute"));
+        int second = matcher.group("second") == null ? 0 : Integer.parseInt(matcher.group("second"));
+        int offsetHour = Integer.parseInt((matcher.group("offsetHour")));
+        int offsetMinute = Integer.parseInt((matcher.group("offsetMinute")));
+
+        if (hour > 23 || minute > 59 || second > 59 || !isValidOffset(offsetHour, offsetMinute)) {
+            throw new IllegalArgumentException("Invalid time with time zone: " + value);
+        }
+
+        int precision = 0;
+        String fraction = matcher.group("fraction");
+
+        long fractionValue = 0;
+        if (fraction != null) {
+            precision = fraction.length();
+
+            if (precision > MAX_DATETIME_PRECISION) {
+                throw new IllegalArgumentException(format("Precision must be <= %s: %s", MAX_DATETIME_PRECISION, value));
+            }
+
+            fractionValue = Long.parseLong(fraction);
+        }
+
+        long epochMilli = (hour * 3600 + minute * 60 + second) * MILLISECONDS_PER_SECOND + rescale(fractionValue, precision, 3);
+        epochMilli -= (offsetHour * 60 + offsetMinute) * MILLISECONDS_PER_MINUTE;
+
+        return new Time(epochMilli);
+    }
+
     private static long rescale(long value, int fromPrecision, int toPrecision)
     {
         if (value < 0) {
@@ -1901,5 +1935,10 @@ abstract class AbstractPrestoResultSet
         }
 
         return (value - (factor / 2)) / factor;
+    }
+
+    private static boolean isValidOffset(int hour, int minute)
+    {
+        return (hour == 14 && minute == 0 || hour < 14) && (hour == -14 && minute == 0 || hour > -14) && minute >= 0 && minute <= 59;
     }
 }

@@ -56,7 +56,7 @@ import static io.prestosql.spi.type.QuantileDigestParametricType.QDIGEST;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeParametricType.TIME;
-import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimeWithTimeZoneParametricType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampParametricType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneParametricType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
@@ -106,7 +106,6 @@ final class TypeRegistry
         addType(REAL);
         addType(VARBINARY);
         addType(DATE);
-        addType(TIME_WITH_TIME_ZONE);
         addType(INTERVAL_YEAR_MONTH);
         addType(INTERVAL_DAY_TIME);
         addType(HYPER_LOG_LOG);
@@ -132,6 +131,7 @@ final class TypeRegistry
         addParametricType(TIMESTAMP);
         addParametricType(TIMESTAMP_WITH_TIME_ZONE);
         addParametricType(TIME);
+        addParametricType(TIME_WITH_TIME_ZONE);
 
         parametricTypeCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)

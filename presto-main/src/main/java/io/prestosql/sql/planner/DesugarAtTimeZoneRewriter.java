@@ -17,7 +17,9 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.TimeType;
+import io.prestosql.spi.type.TimeWithTimeZoneType;
 import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.tree.AtTimeZone;
 import io.prestosql.sql.tree.Cast;
@@ -30,7 +32,7 @@ import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.Map;
 
-import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static java.util.Objects.requireNonNull;
@@ -75,23 +77,42 @@ public final class DesugarAtTimeZoneRewriter
             Type valueType = getType(node.getValue());
             Expression value = treeRewriter.rewrite(node.getValue(), context);
 
-            if (valueType instanceof TimeType) {
-                valueType = TIME_WITH_TIME_ZONE;
-                value = new Cast(value, toSqlType(valueType));
-            }
-            else if (valueType instanceof TimestampType) {
-                valueType = createTimestampWithTimeZoneType(((TimestampType) valueType).getPrecision());
-                value = new Cast(value, toSqlType(valueType));
-            }
-
             Type timeZoneType = getType(node.getTimeZone());
             Expression timeZone = treeRewriter.rewrite(node.getTimeZone(), context);
 
-            return new FunctionCallBuilder(metadata)
-                    .setName(QualifiedName.of("at_timezone"))
-                    .addArgument(valueType, value)
-                    .addArgument(timeZoneType, timeZone)
-                    .build();
+            if (valueType instanceof TimeType) {
+                return new FunctionCallBuilder(metadata)
+                        .setName(QualifiedName.of("$at_timezone"))
+                        .addArgument(createTimeWithTimeZoneType(((TimeType) valueType).getPrecision()), new Cast(value, toSqlType(createTimeWithTimeZoneType(((TimeType) valueType).getPrecision()))))
+                        .addArgument(getType(node.getTimeZone()), treeRewriter.rewrite(node.getTimeZone(), context))
+                        .build();
+            }
+
+            if (valueType instanceof TimeWithTimeZoneType) {
+                return new FunctionCallBuilder(metadata)
+                        .setName(QualifiedName.of("$at_timezone"))
+                        .addArgument(valueType, value)
+                        .addArgument(getType(node.getTimeZone()), treeRewriter.rewrite(node.getTimeZone(), context))
+                        .build();
+            }
+
+            if (valueType instanceof TimestampType) {
+                return new FunctionCallBuilder(metadata)
+                        .setName(QualifiedName.of("at_timezone"))
+                        .addArgument(createTimestampWithTimeZoneType(((TimestampType) valueType).getPrecision()), new Cast(value, toSqlType(createTimestampWithTimeZoneType(((TimestampType) valueType).getPrecision()))))
+                        .addArgument(timeZoneType, timeZone)
+                        .build();
+            }
+
+            if (valueType instanceof TimestampWithTimeZoneType) {
+                return new FunctionCallBuilder(metadata)
+                        .setName(QualifiedName.of("at_timezone"))
+                        .addArgument(valueType, value)
+                        .addArgument(timeZoneType, timeZone)
+                        .build();
+            }
+
+            throw new IllegalArgumentException("Unexpected type: " + valueType);
         }
 
         private Type getType(Expression expression)

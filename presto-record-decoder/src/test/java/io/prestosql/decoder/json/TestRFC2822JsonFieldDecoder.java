@@ -17,6 +17,7 @@ import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
@@ -35,7 +36,7 @@ public class TestRFC2822JsonFieldDecoder
     {
         tester.assertDecodedAs("\"Mon Feb 12 13:15:16 Z 2018\"", DATE, 17574); // TODO should it be supported really?
         tester.assertDecodedAs("\"Thu Jan 01 13:15:19 Z 1970\"", TIME, 47_719_000_000_000_000L); // TODO should it be supported really?
-        tester.assertDecodedAs("\"Thu Jan 01 13:15:19 Z 1970\"", TIME_WITH_TIME_ZONE, packDateTimeWithZone(47719000, UTC_KEY)); // TODO should it be supported really?
+        tester.assertDecodedAs("\"Thu Jan 01 13:15:19 Z 1970\"", TIME_WITH_TIME_ZONE, packTimeWithTimeZone(47_719_000_000_000L, 0)); // TODO should it be supported really?
         tester.assertDecodedAs("\"Fri Feb 09 13:15:19 Z 2018\"", TIMESTAMP, 1518182119000L);
         tester.assertDecodedAs("\"Fri Feb 09 13:15:19 Z 2018\"", TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(1518182119000L, UTC_KEY));
         tester.assertDecodedAs("\"Fri Feb 09 15:15:19 +02:00 2018\"", TIMESTAMP, 1518182119000L);

@@ -41,6 +41,7 @@ import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.TimeType;
+import io.prestosql.spi.type.TimeWithTimeZoneType;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
@@ -424,8 +425,13 @@ public class ColumnJdbcTable
             int precision = ((TimeType) type).getPrecision();
             return 8 + min(precision, 1) + precision;
         }
-        if (type.equals(TIME_WITH_TIME_ZONE)) {
-            return 8 + 6; // 00:00:00+00:00
+        if (type instanceof TimeWithTimeZoneType) {
+            // 8 characters for "HH:MM:SS"
+            // min(p, 1) for the fractional second period (i.e., no period if p == 0)
+            // p for the fractional digits
+            // 6 for timezone offset
+            int precision = ((TimeWithTimeZoneType) type).getPrecision();
+            return 8 + min(precision, 1) + precision + 6;
         }
         if (type.equals(DATE)) {
             return 14; // +5881580-07-11 (2**31-1 days)

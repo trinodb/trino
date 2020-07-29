@@ -48,12 +48,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.MULTIPLY;
-import static io.prestosql.sql.tree.CurrentTime.Function.LOCALTIME;
-import static io.prestosql.sql.tree.CurrentTime.Function.LOCALTIMESTAMP;
 import static java.util.Objects.requireNonNull;
 
 public final class CanonicalizeExpressionRewriter
@@ -137,21 +136,16 @@ public final class CanonicalizeExpressionRewriter
         @Override
         public Expression rewriteCurrentTime(CurrentTime node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            if (node.getPrecision() != null &&
-                    node.getFunction() != LOCALTIMESTAMP &&
-                    node.getFunction() != CurrentTime.Function.TIMESTAMP &&
-                    node.getFunction() != LOCALTIME) {
-                throw new UnsupportedOperationException("not yet implemented: non-default precision");
-            }
-
             switch (node.getFunction()) {
                 case DATE:
+                    checkArgument(node.getPrecision() == null);
                     return new FunctionCallBuilder(metadata)
                             .setName(QualifiedName.of("current_date"))
                             .build();
                 case TIME:
                     return new FunctionCallBuilder(metadata)
-                            .setName(QualifiedName.of("current_time"))
+                            .setName(QualifiedName.of("$current_time"))
+                            .setArguments(ImmutableList.of(expressionTypes.get(NodeRef.of(node))), ImmutableList.of(new NullLiteral()))
                             .build();
                 case LOCALTIME:
                     return new FunctionCallBuilder(metadata)

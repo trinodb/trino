@@ -774,81 +774,395 @@ public class TestTimestamp
     public void testCastToTimeWithTimeZone()
     {
         Session session = assertions.sessionBuilder()
-                .setTimeZoneKey(TimeZoneKey.getTimeZoneKeyForOffset(-5 * 60))
+                .setTimeZoneKey(getTimeZoneKey("+08:35"))
                 .build();
 
         // Should be equivalent to CAST(CAST(x AS TIMESTAMP(p) WITH TIME ZONE) AS TIME(p) WITH TIME ZONE)
 
-        // round down
-        assertThat(assertions.expression("CAST(TIMESTAMP '2001-1-22 12:34:56' AS TIME WITH TIME ZONE)", session)).matches("TIME '12:34:56 -05:00'");
-        assertThat(assertions.expression("CAST(TIMESTAMP '2001-1-22 12:34:56.1' AS TIME WITH TIME ZONE)", session)).matches("TIME '12:34:56.1 -05:00'");
-        assertThat(assertions.expression("CAST(TIMESTAMP '2001-1-22 12:34:56.11' AS TIME WITH TIME ZONE)", session)).matches("TIME '12:34:56.11 -05:00'");
-        assertThat(assertions.expression("CAST(TIMESTAMP '2001-1-22 12:34:56.111' AS TIME WITH TIME ZONE)", session)).matches("TIME '12:34:56.111 -05:00'");
-        assertThat(assertions.expression("CAST(TIMESTAMP '2001-1-22 12:34:56.1111' AS TIME WITH TIME ZONE)", session)).matches("TIME '12:34:56.111 -05:00'");
-        assertThat(assertions.expression("CAST(TIMESTAMP '2001-1-22 12:34:56.11111' AS TIME WITH TIME ZONE)", session)).matches("TIME '12:34:56.111 -05:00'");
-        assertThat(assertions.expression("CAST(TIMESTAMP '2001-1-22 12:34:56.111111' AS TIME WITH TIME ZONE)", session)).matches("TIME '12:34:56.111 -05:00'");
-        assertThat(assertions.expression("CAST(TIMESTAMP '2001-1-22 12:34:56.1111111' AS TIME WITH TIME ZONE)", session)).matches("TIME '12:34:56.111 -05:00'");
-        assertThat(assertions.expression("CAST(TIMESTAMP '2001-1-22 12:34:56.11111111' AS TIME WITH TIME ZONE)", session)).matches("TIME '12:34:56.111 -05:00'");
-        assertThat(assertions.expression("CAST(TIMESTAMP '2001-1-22 12:34:56.111111111' AS TIME WITH TIME ZONE)", session)).matches("TIME '12:34:56.111 -05:00'");
-        assertThat(assertions.expression("CAST(TIMESTAMP '2001-1-22 12:34:56.1111111111' AS TIME WITH TIME ZONE)", session)).matches("TIME '12:34:56.111 -05:00'");
-        assertThat(assertions.expression("CAST(TIMESTAMP '2001-1-22 12:34:56.11111111111' AS TIME WITH TIME ZONE)", session)).matches("TIME '12:34:56.111 -05:00'");
-        assertThat(assertions.expression("CAST(TIMESTAMP '2001-1-22 12:34:56.111111111111' AS TIME WITH TIME ZONE)", session)).matches("TIME '12:34:56.111 -05:00'");
+        // source = target
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:56+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '12:34:56.12+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '12:34:56.123+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1234' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1234+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12345' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '12:34:56.12345+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123456' AS TIME(6) WITH TIME ZONE)", session)).matches("TIME '12:34:56.123456+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1234567' AS TIME(7) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1234567+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12345678' AS TIME(8) WITH TIME ZONE)", session)).matches("TIME '12:34:56.12345678+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123456789' AS TIME(9) WITH TIME ZONE)", session)).matches("TIME '12:34:56.123456789+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1234567891' AS TIME(10) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1234567891+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12345678912' AS TIME(11) WITH TIME ZONE)", session)).matches("TIME '12:34:56.12345678912+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123456789123' AS TIME(12) WITH TIME ZONE)", session)).matches("TIME '12:34:56.123456789123+08:35'");
 
-        // round up
-        assertThat(assertions.expression("CAST(TIMESTAMP '2001-1-22 12:34:56' AS TIME WITH TIME ZONE)", session)).matches("TIME '12:34:56 -05:00'");
-        assertThat(assertions.expression("CAST(TIMESTAMP '2001-1-22 12:34:56.5' AS TIME WITH TIME ZONE)", session)).matches("TIME '12:34:56.5 -05:00'");
-        assertThat(assertions.expression("CAST(TIMESTAMP '2001-1-22 12:34:56.55' AS TIME WITH TIME ZONE)", session)).matches("TIME '12:34:56.55 -05:00'");
-        assertThat(assertions.expression("CAST(TIMESTAMP '2001-1-22 12:34:56.555' AS TIME WITH TIME ZONE)", session)).matches("TIME '12:34:56.555 -05:00'");
-        assertThat(assertions.expression("CAST(TIMESTAMP '2001-1-22 12:34:56.5555' AS TIME WITH TIME ZONE)", session)).matches("TIME '12:34:56.556 -05:00'");
-        assertThat(assertions.expression("CAST(TIMESTAMP '2001-1-22 12:34:56.55555' AS TIME WITH TIME ZONE)", session)).matches("TIME '12:34:56.556 -05:00'");
-        assertThat(assertions.expression("CAST(TIMESTAMP '2001-1-22 12:34:56.555555' AS TIME WITH TIME ZONE)", session)).matches("TIME '12:34:56.556 -05:00'");
-        assertThat(assertions.expression("CAST(TIMESTAMP '2001-1-22 12:34:56.5555555' AS TIME WITH TIME ZONE)", session)).matches("TIME '12:34:56.556 -05:00'");
-        assertThat(assertions.expression("CAST(TIMESTAMP '2001-1-22 12:34:56.55555555' AS TIME WITH TIME ZONE)", session)).matches("TIME '12:34:56.556 -05:00'");
-        assertThat(assertions.expression("CAST(TIMESTAMP '2001-1-22 12:34:56.555555555' AS TIME WITH TIME ZONE)", session)).matches("TIME '12:34:56.556 -05:00'");
-        assertThat(assertions.expression("CAST(TIMESTAMP '2001-1-22 12:34:56.5555555555' AS TIME WITH TIME ZONE)", session)).matches("TIME '12:34:56.556 -05:00'");
-        assertThat(assertions.expression("CAST(TIMESTAMP '2001-1-22 12:34:56.55555555555' AS TIME WITH TIME ZONE)", session)).matches("TIME '12:34:56.556 -05:00'");
-        assertThat(assertions.expression("CAST(TIMESTAMP '2001-1-22 12:34:56.555555555555' AS TIME WITH TIME ZONE)", session)).matches("TIME '12:34:56.556 -05:00'");
-    }
+        // source < target
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '12:34:56.0+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '12:34:56.00+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '12:34:56.000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '12:34:56.0000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '12:34:56.00000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56' AS TIME(6) WITH TIME ZONE)", session)).matches("TIME '12:34:56.000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56' AS TIME(7) WITH TIME ZONE)", session)).matches("TIME '12:34:56.0000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56' AS TIME(8) WITH TIME ZONE)", session)).matches("TIME '12:34:56.00000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56' AS TIME(9) WITH TIME ZONE)", session)).matches("TIME '12:34:56.000000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56' AS TIME(10) WITH TIME ZONE)", session)).matches("TIME '12:34:56.0000000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56' AS TIME(11) WITH TIME ZONE)", session)).matches("TIME '12:34:56.00000000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56' AS TIME(12) WITH TIME ZONE)", session)).matches("TIME '12:34:56.000000000000+08:35'");
 
-    @Test
-    public void testCastFromTimeWithTimeZone()
-    {
-        Session session = assertions.sessionBuilder()
-                .setTimeZoneKey(TimeZoneKey.getTimeZoneKeyForOffset(-8 * 60))
-                .build();
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '12:34:56.10+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '12:34:56.100+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '12:34:56.10000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1' AS TIME(6) WITH TIME ZONE)", session)).matches("TIME '12:34:56.100000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1' AS TIME(7) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1' AS TIME(8) WITH TIME ZONE)", session)).matches("TIME '12:34:56.10000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1' AS TIME(9) WITH TIME ZONE)", session)).matches("TIME '12:34:56.100000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1' AS TIME(10) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1000000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1' AS TIME(11) WITH TIME ZONE)", session)).matches("TIME '12:34:56.10000000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1' AS TIME(12) WITH TIME ZONE)", session)).matches("TIME '12:34:56.100000000000+08:35'");
 
-        // should be equivalent to CAST(CAST(x, 'America/Los_Angeles') AS TIMESTAMP WITHOUT TIME ZONE)
-        // TODO: date part should be 2020-05-01. See https://github.com/prestosql/presto/issues/3845
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '12:34:56.120+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1200+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '12:34:56.12000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12' AS TIME(6) WITH TIME ZONE)", session)).matches("TIME '12:34:56.120000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12' AS TIME(7) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1200000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12' AS TIME(8) WITH TIME ZONE)", session)).matches("TIME '12:34:56.12000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12' AS TIME(9) WITH TIME ZONE)", session)).matches("TIME '12:34:56.120000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12' AS TIME(10) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1200000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12' AS TIME(11) WITH TIME ZONE)", session)).matches("TIME '12:34:56.12000000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12' AS TIME(12) WITH TIME ZONE)", session)).matches("TIME '12:34:56.120000000000+08:35'");
 
-        // round down
-        assertThat(assertions.expression("CAST(TIME '12:34:56.111 -08:00' AS TIMESTAMP(0))", session)).matches("TIMESTAMP '1970-01-01 12:34:56'");
-        assertThat(assertions.expression("CAST(TIME '12:34:56.111 -08:00' AS TIMESTAMP(1))", session)).matches("TIMESTAMP '1970-01-01 12:34:56.1'");
-        assertThat(assertions.expression("CAST(TIME '12:34:56.111 -08:00' AS TIMESTAMP(2))", session)).matches("TIMESTAMP '1970-01-01 12:34:56.11'");
-        assertThat(assertions.expression("CAST(TIME '12:34:56.111 -08:00' AS TIMESTAMP(3))", session)).matches("TIMESTAMP '1970-01-01 12:34:56.111'");
-        assertThat(assertions.expression("CAST(TIME '12:34:56.111 -08:00' AS TIMESTAMP(4))", session)).matches("TIMESTAMP '1970-01-01 12:34:56.1110'");
-        assertThat(assertions.expression("CAST(TIME '12:34:56.111 -08:00' AS TIMESTAMP(5))", session)).matches("TIMESTAMP '1970-01-01 12:34:56.11100'");
-        assertThat(assertions.expression("CAST(TIME '12:34:56.111 -08:00' AS TIMESTAMP(6))", session)).matches("TIMESTAMP '1970-01-01 12:34:56.111000'");
-        assertThat(assertions.expression("CAST(TIME '12:34:56.111 -08:00' AS TIMESTAMP(7))", session)).matches("TIMESTAMP '1970-01-01 12:34:56.1110000'");
-        assertThat(assertions.expression("CAST(TIME '12:34:56.111 -08:00' AS TIMESTAMP(8))", session)).matches("TIMESTAMP '1970-01-01 12:34:56.11100000'");
-        assertThat(assertions.expression("CAST(TIME '12:34:56.111 -08:00' AS TIMESTAMP(9))", session)).matches("TIMESTAMP '1970-01-01 12:34:56.111000000'");
-        assertThat(assertions.expression("CAST(TIME '12:34:56.111 -08:00' AS TIMESTAMP(10))", session)).matches("TIMESTAMP '1970-01-01 12:34:56.1110000000'");
-        assertThat(assertions.expression("CAST(TIME '12:34:56.111 -08:00' AS TIMESTAMP(11))", session)).matches("TIMESTAMP '1970-01-01 12:34:56.11100000000'");
-        assertThat(assertions.expression("CAST(TIME '12:34:56.111 -08:00' AS TIMESTAMP(12))", session)).matches("TIMESTAMP '1970-01-01 12:34:56.111000000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1230+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '12:34:56.12300+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123' AS TIME(6) WITH TIME ZONE)", session)).matches("TIME '12:34:56.123000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123' AS TIME(7) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1230000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123' AS TIME(8) WITH TIME ZONE)", session)).matches("TIME '12:34:56.12300000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123' AS TIME(9) WITH TIME ZONE)", session)).matches("TIME '12:34:56.123000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123' AS TIME(10) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1230000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123' AS TIME(11) WITH TIME ZONE)", session)).matches("TIME '12:34:56.12300000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123' AS TIME(12) WITH TIME ZONE)", session)).matches("TIME '12:34:56.123000000000+08:35'");
 
-        // round up
-        assertThat(assertions.expression("CAST(TIME '12:34:56.555 -08:00' AS TIMESTAMP(0))", session)).matches("TIMESTAMP '1970-01-01 12:34:57'");
-        assertThat(assertions.expression("CAST(TIME '12:34:56.555 -08:00' AS TIMESTAMP(1))", session)).matches("TIMESTAMP '1970-01-01 12:34:56.6'");
-        assertThat(assertions.expression("CAST(TIME '12:34:56.555 -08:00' AS TIMESTAMP(2))", session)).matches("TIMESTAMP '1970-01-01 12:34:56.56'");
-        assertThat(assertions.expression("CAST(TIME '12:34:56.555 -08:00' AS TIMESTAMP(3))", session)).matches("TIMESTAMP '1970-01-01 12:34:56.555'");
-        assertThat(assertions.expression("CAST(TIME '12:34:56.555 -08:00' AS TIMESTAMP(4))", session)).matches("TIMESTAMP '1970-01-01 12:34:56.5550'");
-        assertThat(assertions.expression("CAST(TIME '12:34:56.555 -08:00' AS TIMESTAMP(5))", session)).matches("TIMESTAMP '1970-01-01 12:34:56.55500'");
-        assertThat(assertions.expression("CAST(TIME '12:34:56.555 -08:00' AS TIMESTAMP(6))", session)).matches("TIMESTAMP '1970-01-01 12:34:56.555000'");
-        assertThat(assertions.expression("CAST(TIME '12:34:56.555 -08:00' AS TIMESTAMP(7))", session)).matches("TIMESTAMP '1970-01-01 12:34:56.5550000'");
-        assertThat(assertions.expression("CAST(TIME '12:34:56.555 -08:00' AS TIMESTAMP(8))", session)).matches("TIMESTAMP '1970-01-01 12:34:56.55500000'");
-        assertThat(assertions.expression("CAST(TIME '12:34:56.555 -08:00' AS TIMESTAMP(9))", session)).matches("TIMESTAMP '1970-01-01 12:34:56.555000000'");
-        assertThat(assertions.expression("CAST(TIME '12:34:56.555 -08:00' AS TIMESTAMP(10))", session)).matches("TIMESTAMP '1970-01-01 12:34:56.5550000000'");
-        assertThat(assertions.expression("CAST(TIME '12:34:56.555 -08:00' AS TIMESTAMP(11))", session)).matches("TIMESTAMP '1970-01-01 12:34:56.55500000000'");
-        assertThat(assertions.expression("CAST(TIME '12:34:56.555 -08:00' AS TIMESTAMP(12))", session)).matches("TIMESTAMP '1970-01-01 12:34:56.555000000000'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1234' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '12:34:56.12340+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1234' AS TIME(6) WITH TIME ZONE)", session)).matches("TIME '12:34:56.123400+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1234' AS TIME(7) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1234000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1234' AS TIME(8) WITH TIME ZONE)", session)).matches("TIME '12:34:56.12340000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1234' AS TIME(9) WITH TIME ZONE)", session)).matches("TIME '12:34:56.123400000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1234' AS TIME(10) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1234000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1234' AS TIME(11) WITH TIME ZONE)", session)).matches("TIME '12:34:56.12340000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1234' AS TIME(12) WITH TIME ZONE)", session)).matches("TIME '12:34:56.123400000000+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12345' AS TIME(6) WITH TIME ZONE)", session)).matches("TIME '12:34:56.123450+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12345' AS TIME(7) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1234500+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12345' AS TIME(8) WITH TIME ZONE)", session)).matches("TIME '12:34:56.12345000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12345' AS TIME(9) WITH TIME ZONE)", session)).matches("TIME '12:34:56.123450000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12345' AS TIME(10) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1234500000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12345' AS TIME(11) WITH TIME ZONE)", session)).matches("TIME '12:34:56.12345000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12345' AS TIME(12) WITH TIME ZONE)", session)).matches("TIME '12:34:56.123450000000+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123456' AS TIME(7) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1234560+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123456' AS TIME(8) WITH TIME ZONE)", session)).matches("TIME '12:34:56.12345600+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123456' AS TIME(9) WITH TIME ZONE)", session)).matches("TIME '12:34:56.123456000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123456' AS TIME(10) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1234560000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123456' AS TIME(11) WITH TIME ZONE)", session)).matches("TIME '12:34:56.12345600000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123456' AS TIME(12) WITH TIME ZONE)", session)).matches("TIME '12:34:56.123456000000+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1234567' AS TIME(8) WITH TIME ZONE)", session)).matches("TIME '12:34:56.12345670+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1234567' AS TIME(9) WITH TIME ZONE)", session)).matches("TIME '12:34:56.123456700+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1234567' AS TIME(10) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1234567000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1234567' AS TIME(11) WITH TIME ZONE)", session)).matches("TIME '12:34:56.12345670000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1234567' AS TIME(12) WITH TIME ZONE)", session)).matches("TIME '12:34:56.123456700000+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12345678' AS TIME(9) WITH TIME ZONE)", session)).matches("TIME '12:34:56.123456780+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12345678' AS TIME(10) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1234567800+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12345678' AS TIME(11) WITH TIME ZONE)", session)).matches("TIME '12:34:56.12345678000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12345678' AS TIME(12) WITH TIME ZONE)", session)).matches("TIME '12:34:56.123456780000+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123456789' AS TIME(10) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1234567890+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123456789' AS TIME(11) WITH TIME ZONE)", session)).matches("TIME '12:34:56.12345678900+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.123456789' AS TIME(12) WITH TIME ZONE)", session)).matches("TIME '12:34:56.123456789000+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1234567891' AS TIME(11) WITH TIME ZONE)", session)).matches("TIME '12:34:56.12345678910+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1234567891' AS TIME(12) WITH TIME ZONE)", session)).matches("TIME '12:34:56.123456789100+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.12345678912' AS TIME(12) WITH TIME ZONE)", session)).matches("TIME '12:34:56.123456789120+08:35'");
+
+        // source > target, round down
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:56+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.11' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:56+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:56+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1111' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:56+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.11111' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:56+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:56+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1111111' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:56+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.11111111' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:56+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111111' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:56+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1111111111' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:56+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.11111111111' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:56+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111111111' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:56+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.11' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1111' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.11111' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1111111' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.11111111' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111111' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1111111111' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.11111111111' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111111111' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '12:34:56.11+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1111' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '12:34:56.11+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.11111' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '12:34:56.11+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '12:34:56.11+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1111111' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '12:34:56.11+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.11111111' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '12:34:56.11+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111111' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '12:34:56.11+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1111111111' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '12:34:56.11+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.11111111111' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '12:34:56.11+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111111111' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '12:34:56.11+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1111' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '12:34:56.111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.11111' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '12:34:56.111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '12:34:56.111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1111111' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '12:34:56.111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.11111111' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '12:34:56.111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111111' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '12:34:56.111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1111111111' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '12:34:56.111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.11111111111' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '12:34:56.111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111111111' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '12:34:56.111+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.11111' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1111111' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.11111111' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111111' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1111111111' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.11111111111' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111111111' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1111+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '12:34:56.11111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1111111' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '12:34:56.11111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.11111111' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '12:34:56.11111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111111' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '12:34:56.11111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1111111111' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '12:34:56.11111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.11111111111' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '12:34:56.11111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111111111' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '12:34:56.11111+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1111111' AS TIME(6) WITH TIME ZONE)", session)).matches("TIME '12:34:56.111111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.11111111' AS TIME(6) WITH TIME ZONE)", session)).matches("TIME '12:34:56.111111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111111' AS TIME(6) WITH TIME ZONE)", session)).matches("TIME '12:34:56.111111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1111111111' AS TIME(6) WITH TIME ZONE)", session)).matches("TIME '12:34:56.111111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.11111111111' AS TIME(6) WITH TIME ZONE)", session)).matches("TIME '12:34:56.111111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111111111' AS TIME(6) WITH TIME ZONE)", session)).matches("TIME '12:34:56.111111+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.11111111' AS TIME(7) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1111111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111111' AS TIME(7) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1111111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1111111111' AS TIME(7) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1111111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.11111111111' AS TIME(7) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1111111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111111111' AS TIME(7) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1111111+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111111' AS TIME(8) WITH TIME ZONE)", session)).matches("TIME '12:34:56.11111111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1111111111' AS TIME(8) WITH TIME ZONE)", session)).matches("TIME '12:34:56.11111111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.11111111111' AS TIME(8) WITH TIME ZONE)", session)).matches("TIME '12:34:56.11111111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111111111' AS TIME(8) WITH TIME ZONE)", session)).matches("TIME '12:34:56.11111111+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.1111111111' AS TIME(9) WITH TIME ZONE)", session)).matches("TIME '12:34:56.111111111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.11111111111' AS TIME(9) WITH TIME ZONE)", session)).matches("TIME '12:34:56.111111111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111111111' AS TIME(9) WITH TIME ZONE)", session)).matches("TIME '12:34:56.111111111+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.11111111111' AS TIME(10) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1111111111+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111111111' AS TIME(10) WITH TIME ZONE)", session)).matches("TIME '12:34:56.1111111111+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.111111111111' AS TIME(11) WITH TIME ZONE)", session)).matches("TIME '12:34:56.11111111111+08:35'");
+
+        // source > target, round up
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.5' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:57+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:57+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:57+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.5555' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:57+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55555' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:57+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:57+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.5555555' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:57+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55555555' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:57+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:57+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.5555555555' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:57+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55555555555' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:57+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555555' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:57+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '12:34:56.6+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '12:34:56.6+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.5555' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '12:34:56.6+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55555' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '12:34:56.6+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '12:34:56.6+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.5555555' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '12:34:56.6+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55555555' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '12:34:56.6+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '12:34:56.6+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.5555555555' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '12:34:56.6+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55555555555' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '12:34:56.6+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555555' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '12:34:56.6+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '12:34:56.56+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.5555' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '12:34:56.56+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55555' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '12:34:56.56+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '12:34:56.56+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.5555555' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '12:34:56.56+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55555555' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '12:34:56.56+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '12:34:56.56+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.5555555555' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '12:34:56.56+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55555555555' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '12:34:56.56+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555555' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '12:34:56.56+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.5555' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '12:34:56.556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55555' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '12:34:56.556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '12:34:56.556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.5555555' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '12:34:56.556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55555555' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '12:34:56.556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '12:34:56.556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.5555555555' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '12:34:56.556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55555555555' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '12:34:56.556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555555' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '12:34:56.556+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55555' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '12:34:56.5556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '12:34:56.5556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.5555555' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '12:34:56.5556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55555555' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '12:34:56.5556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '12:34:56.5556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.5555555555' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '12:34:56.5556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55555555555' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '12:34:56.5556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555555' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '12:34:56.5556+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '12:34:56.55556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.5555555' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '12:34:56.55556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55555555' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '12:34:56.55556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '12:34:56.55556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.5555555555' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '12:34:56.55556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55555555555' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '12:34:56.55556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555555' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '12:34:56.55556+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.5555555' AS TIME(6) WITH TIME ZONE)", session)).matches("TIME '12:34:56.555556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55555555' AS TIME(6) WITH TIME ZONE)", session)).matches("TIME '12:34:56.555556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555' AS TIME(6) WITH TIME ZONE)", session)).matches("TIME '12:34:56.555556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.5555555555' AS TIME(6) WITH TIME ZONE)", session)).matches("TIME '12:34:56.555556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55555555555' AS TIME(6) WITH TIME ZONE)", session)).matches("TIME '12:34:56.555556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555555' AS TIME(6) WITH TIME ZONE)", session)).matches("TIME '12:34:56.555556+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55555555' AS TIME(7) WITH TIME ZONE)", session)).matches("TIME '12:34:56.5555556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555' AS TIME(7) WITH TIME ZONE)", session)).matches("TIME '12:34:56.5555556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.5555555555' AS TIME(7) WITH TIME ZONE)", session)).matches("TIME '12:34:56.5555556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55555555555' AS TIME(7) WITH TIME ZONE)", session)).matches("TIME '12:34:56.5555556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555555' AS TIME(7) WITH TIME ZONE)", session)).matches("TIME '12:34:56.5555556+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555' AS TIME(8) WITH TIME ZONE)", session)).matches("TIME '12:34:56.55555556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.5555555555' AS TIME(8) WITH TIME ZONE)", session)).matches("TIME '12:34:56.55555556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55555555555' AS TIME(8) WITH TIME ZONE)", session)).matches("TIME '12:34:56.55555556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555555' AS TIME(8) WITH TIME ZONE)", session)).matches("TIME '12:34:56.55555556+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.5555555555' AS TIME(9) WITH TIME ZONE)", session)).matches("TIME '12:34:56.555555556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55555555555' AS TIME(9) WITH TIME ZONE)", session)).matches("TIME '12:34:56.555555556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555555' AS TIME(9) WITH TIME ZONE)", session)).matches("TIME '12:34:56.555555556+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.55555555555' AS TIME(10) WITH TIME ZONE)", session)).matches("TIME '12:34:56.5555555556+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555555' AS TIME(10) WITH TIME ZONE)", session)).matches("TIME '12:34:56.5555555556+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 12:34:56.555555555555' AS TIME(11) WITH TIME ZONE)", session)).matches("TIME '12:34:56.55555555556+08:35'");
+
+        // 5-digit year in the future
+        assertThat(assertions.expression("CAST(TIMESTAMP '12001-05-01 12:34:56' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:56+08:35'");
+
+        // 5-digit year in the past
+        assertThat(assertions.expression("CAST(TIMESTAMP '-12001-05-01 12:34:56' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '12:34:56+08:35'");
+
+        // round up, wrap-around
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.9' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '00:00:00+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.99' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '00:00:00+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '00:00:00+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.9999' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '00:00:00+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.99999' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '00:00:00+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '00:00:00+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.9999999' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '00:00:00+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.99999999' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '00:00:00+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999999' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '00:00:00+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.9999999999' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '00:00:00+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.99999999999' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '00:00:00+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999999999' AS TIME(0) WITH TIME ZONE)", session)).matches("TIME '00:00:00+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.99' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '00:00:00.0+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '00:00:00.0+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.9999' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '00:00:00.0+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.99999' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '00:00:00.0+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '00:00:00.0+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.9999999' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '00:00:00.0+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.99999999' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '00:00:00.0+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999999' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '00:00:00.0+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.9999999999' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '00:00:00.0+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.99999999999' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '00:00:00.0+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999999999' AS TIME(1) WITH TIME ZONE)", session)).matches("TIME '00:00:00.0+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '00:00:00.00+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.9999' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '00:00:00.00+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.99999' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '00:00:00.00+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '00:00:00.00+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.9999999' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '00:00:00.00+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.99999999' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '00:00:00.00+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999999' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '00:00:00.00+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.9999999999' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '00:00:00.00+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.99999999999' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '00:00:00.00+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999999999' AS TIME(2) WITH TIME ZONE)", session)).matches("TIME '00:00:00.00+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.9999' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '00:00:00.000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.99999' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '00:00:00.000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '00:00:00.000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.9999999' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '00:00:00.000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.99999999' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '00:00:00.000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999999' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '00:00:00.000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.9999999999' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '00:00:00.000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.99999999999' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '00:00:00.000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999999999' AS TIME(3) WITH TIME ZONE)", session)).matches("TIME '00:00:00.000+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.99999' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '00:00:00.0000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '00:00:00.0000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.9999999' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '00:00:00.0000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.99999999' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '00:00:00.0000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999999' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '00:00:00.0000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.9999999999' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '00:00:00.0000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.99999999999' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '00:00:00.0000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999999999' AS TIME(4) WITH TIME ZONE)", session)).matches("TIME '00:00:00.0000+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '00:00:00.00000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.9999999' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '00:00:00.00000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.99999999' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '00:00:00.00000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999999' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '00:00:00.00000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.9999999999' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '00:00:00.00000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.99999999999' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '00:00:00.00000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999999999' AS TIME(5) WITH TIME ZONE)", session)).matches("TIME '00:00:00.00000+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.9999999' AS TIME(6) WITH TIME ZONE)", session)).matches("TIME '00:00:00.000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.99999999' AS TIME(6) WITH TIME ZONE)", session)).matches("TIME '00:00:00.000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999999' AS TIME(6) WITH TIME ZONE)", session)).matches("TIME '00:00:00.000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.9999999999' AS TIME(6) WITH TIME ZONE)", session)).matches("TIME '00:00:00.000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.99999999999' AS TIME(6) WITH TIME ZONE)", session)).matches("TIME '00:00:00.000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999999999' AS TIME(6) WITH TIME ZONE)", session)).matches("TIME '00:00:00.000000+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.99999999' AS TIME(7) WITH TIME ZONE)", session)).matches("TIME '00:00:00.0000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999999' AS TIME(7) WITH TIME ZONE)", session)).matches("TIME '00:00:00.0000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.9999999999' AS TIME(7) WITH TIME ZONE)", session)).matches("TIME '00:00:00.0000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.99999999999' AS TIME(7) WITH TIME ZONE)", session)).matches("TIME '00:00:00.0000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999999999' AS TIME(7) WITH TIME ZONE)", session)).matches("TIME '00:00:00.0000000+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999999' AS TIME(8) WITH TIME ZONE)", session)).matches("TIME '00:00:00.00000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.9999999999' AS TIME(8) WITH TIME ZONE)", session)).matches("TIME '00:00:00.00000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.99999999999' AS TIME(8) WITH TIME ZONE)", session)).matches("TIME '00:00:00.00000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999999999' AS TIME(8) WITH TIME ZONE)", session)).matches("TIME '00:00:00.00000000+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.9999999999' AS TIME(9) WITH TIME ZONE)", session)).matches("TIME '00:00:00.000000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.99999999999' AS TIME(9) WITH TIME ZONE)", session)).matches("TIME '00:00:00.000000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999999999' AS TIME(9) WITH TIME ZONE)", session)).matches("TIME '00:00:00.000000000+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.99999999999' AS TIME(10) WITH TIME ZONE)", session)).matches("TIME '00:00:00.0000000000+08:35'");
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999999999' AS TIME(10) WITH TIME ZONE)", session)).matches("TIME '00:00:00.0000000000+08:35'");
+
+        assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-01 23:59:59.999999999999' AS TIME(11) WITH TIME ZONE)", session)).matches("TIME '00:00:00.00000000000+08:35'");
     }
 
     @Test

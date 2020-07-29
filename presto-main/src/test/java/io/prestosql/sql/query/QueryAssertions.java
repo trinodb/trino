@@ -389,10 +389,10 @@ public class QueryAssertions
                 else if (object instanceof SqlTimeWithTimeZone) {
                     SqlTimeWithTimeZone time = (SqlTimeWithTimeZone) object;
                     return String.format(
-                            "%s [millis = %s, tz = %s]",
+                            "%s [picos = %s, offset = %s]",
                             time,
-                            time.getMillisUtc(),
-                            time.getTimeZoneKey());
+                            time.getPicos(),
+                            time.getOffsetMinutes());
                 }
 
                 return Objects.toString(object);

@@ -13,22 +13,14 @@
  */
 package io.prestosql.type;
 
-import io.prestosql.Session;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
-import io.prestosql.operator.scalar.FunctionAssertions;
-import io.prestosql.spi.type.SqlTimeWithTimeZone;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.testing.TestingSession;
-import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
-import java.time.Instant;
-
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
@@ -118,44 +110,6 @@ public class TestTime
         assertFunction("TIME '03:04:05.321' between TIME '03:04:05.322' and TIME '03:04:05.333'", BOOLEAN, false);
         assertFunction("TIME '03:04:05.321' between TIME '03:04:05.311' and TIME '03:04:05.312'", BOOLEAN, false);
         assertFunction("TIME '03:04:05.321' between TIME '03:04:05.333' and TIME '03:04:05.111'", BOOLEAN, false);
-    }
-
-    @Test
-    public void testCastToTimeWithTimeZone()
-    {
-        assertFunction("cast(TIME '03:04:05.321' as time with time zone)",
-                TIME_WITH_TIME_ZONE,
-                new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), DATE_TIME_ZONE.toTimeZone()));
-    }
-
-    @Test
-    public void testCastToTimeWithTimeZoneWithTZWithRulesChanged()
-    {
-        TimeZoneKey timeZoneThatChangedSince1970 = getTimeZoneKey("Asia/Kathmandu");
-        DateTimeZone dateTimeZoneThatChangedSince1970 = getDateTimeZone(timeZoneThatChangedSince1970);
-        Session session = Session.builder(this.session)
-                .setTimeZoneKey(timeZoneThatChangedSince1970)
-                .build();
-        try (FunctionAssertions localAssertions = new FunctionAssertions(session)) {
-            localAssertions.assertFunction(
-                    "cast(TIME '03:04:05.321' as time with time zone)",
-                    TIME_WITH_TIME_ZONE,
-                    new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, dateTimeZoneThatChangedSince1970).getMillis(), dateTimeZoneThatChangedSince1970.toTimeZone()));
-        }
-    }
-
-    @Test
-    public void testCastToTimeWithTimeZoneDSTIsNotAppliedWhenTimeCrossesDST()
-    {
-        // Australia/Sydney will switch DST a second after session start
-        // For simplicity we have to use time zone that is going forward when entering DST zone with 1970-01-01
-        Session session = Session.builder(this.session)
-                .setTimeZoneKey(getTimeZoneKey("Australia/Sydney"))
-                .setStart(Instant.ofEpochMilli(new DateTime(2017, 10, 1, 1, 59, 59, 999, getDateTimeZone(getTimeZoneKey("Australia/Sydney"))).getMillis()))
-                .build();
-        try (FunctionAssertions localAssertions = new FunctionAssertions(session)) {
-            localAssertions.assertFunctionString("cast(TIME '12:00:00.000' as time with time zone)", TIME_WITH_TIME_ZONE, "12:00:00.000 Australia/Sydney");
-        }
     }
 
     @Test

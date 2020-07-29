@@ -13,36 +13,25 @@
  */
 package io.prestosql.type;
 
-import io.prestosql.Session;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
-import io.prestosql.operator.scalar.FunctionAssertions;
 import io.prestosql.spi.type.SqlDate;
-import io.prestosql.spi.type.SqlTimeWithTimeZone;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.TimeZoneKey;
-import io.prestosql.spi.type.Type;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
-import java.time.Instant;
 import java.util.concurrent.TimeUnit;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-import static com.google.common.base.Verify.verify;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.DateTimeTestingUtils.sqlTimeOf;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.joda.time.DateTimeZone.UTC;
@@ -147,79 +136,6 @@ public class TestDateTimeOperators
     }
 
     @Test
-    public void testTimeWithTimeZoneRepresentation()
-    {
-        // PST -> PDT date
-        testTimeRepresentationOnDate(
-                new DateTime(2017, 3, 12, 10, 0, 0, 0, UTC),
-                "TIME '02:30:00.000 America/Los_Angeles'",
-                TIME_WITH_TIME_ZONE,
-                new SqlTimeWithTimeZone(37800000, getTimeZoneKey("America/Los_Angeles")));
-        testTimeRepresentationOnDate(
-                new DateTime(2017, 3, 12, 10, 0, 0, 0, UTC),
-                "TIME '03:30:00.000 America/Los_Angeles'",
-                TIME_WITH_TIME_ZONE,
-                new SqlTimeWithTimeZone(41400000, getTimeZoneKey("America/Los_Angeles")));
-
-        // PDT -> PST date
-        testTimeRepresentationOnDate(
-                new DateTime(2017, 10, 4, 10, 0, 0, 0, UTC),
-                "TIME '02:30:00.000 America/Los_Angeles'",
-                TIME_WITH_TIME_ZONE,
-                new SqlTimeWithTimeZone(37800000, getTimeZoneKey("America/Los_Angeles")));
-        testTimeRepresentationOnDate(
-                new DateTime(2017, 10, 4, 10, 0, 0, 0, UTC),
-                "TIME '03:30:00.000 America/Los_Angeles'",
-                TIME_WITH_TIME_ZONE,
-                new SqlTimeWithTimeZone(41400000, getTimeZoneKey("America/Los_Angeles")));
-
-        // PDT date
-        testTimeRepresentationOnDate(
-                new DateTime(2017, 6, 6, 10, 0, 0, 0, UTC),
-                "TIME '02:30:00.000 America/Los_Angeles'",
-                TIME_WITH_TIME_ZONE,
-                new SqlTimeWithTimeZone(37800000, getTimeZoneKey("America/Los_Angeles")));
-        testTimeRepresentationOnDate(
-                new DateTime(2017, 6, 6, 10, 0, 0, 0, UTC),
-                "TIME '03:30:00.000 America/Los_Angeles'",
-                TIME_WITH_TIME_ZONE,
-                new SqlTimeWithTimeZone(41400000, getTimeZoneKey("America/Los_Angeles")));
-
-        // PST date
-        testTimeRepresentationOnDate(
-                new DateTime(2017, 11, 1, 10, 0, 0, 0, UTC),
-                "TIME '02:30:00.000 America/Los_Angeles'",
-                TIME_WITH_TIME_ZONE,
-                new SqlTimeWithTimeZone(37800000, getTimeZoneKey("America/Los_Angeles")));
-        testTimeRepresentationOnDate(
-                new DateTime(2017, 11, 1, 10, 0, 0, 0, UTC),
-                "TIME '03:30:00.000 America/Los_Angeles'",
-                TIME_WITH_TIME_ZONE,
-                new SqlTimeWithTimeZone(41400000, getTimeZoneKey("America/Los_Angeles")));
-    }
-
-    private static void testTimeRepresentationOnDate(DateTime date, String timeLiteral, Type expectedType, Object expected)
-    {
-        Session localSession = testSessionBuilder()
-                .setTimeZoneKey(getTimeZoneKey("America/Los_Angeles"))
-                .setStart(Instant.ofEpochMilli(date.getMillis()))
-                .build();
-
-        try (FunctionAssertions localAssertions = new FunctionAssertions(localSession)) {
-            localAssertions.assertFunction(timeLiteral, expectedType, expected);
-            localAssertions.assertFunctionString(timeLiteral, expectedType, valueFromLiteral(timeLiteral));
-        }
-    }
-
-    private static String valueFromLiteral(String literal)
-    {
-        Pattern p = Pattern.compile("'(.*)'");
-        Matcher m = p.matcher(literal);
-        verify(m.find());
-        return m.group(1);
-    }
-
-    @Test
     public void testDatePlusInterval()
     {
         assertFunction("DATE '2001-1-22' + INTERVAL '3' day", DATE, toDate(new DateTime(2001, 1, 25, 0, 0, 0, 0, UTC)));
@@ -231,38 +147,6 @@ public class TestDateTimeOperators
 
         assertInvalidFunction("DATE '2001-1-22' + INTERVAL '3' hour", "Cannot add hour, minutes or seconds to a date");
         assertInvalidFunction("INTERVAL '3' hour + DATE '2001-1-22'", "Cannot add hour, minutes or seconds to a date");
-    }
-
-    @Test
-    public void testTimePlusInterval()
-    {
-        assertFunction("TIME '03:04:05.321' + INTERVAL '3' hour", TIME, sqlTimeOf(6, 4, 5, 321));
-        assertFunction("INTERVAL '3' hour + TIME '03:04:05.321'", TIME, sqlTimeOf(6, 4, 5, 321));
-        assertFunction("TIME '03:04:05.321' + INTERVAL '3' day", TIME, sqlTimeOf(3, 4, 5, 321));
-        assertFunction("INTERVAL '3' day + TIME '03:04:05.321'", TIME, sqlTimeOf(3, 4, 5, 321));
-
-        assertFunction("TIME '03:04:05.321' + INTERVAL '27' hour", TIME, sqlTimeOf(6, 4, 5, 321));
-        assertFunction("INTERVAL '27' hour + TIME '03:04:05.321'", TIME, sqlTimeOf(6, 4, 5, 321));
-
-        assertFunction("TIME '03:04:05.321 +05:09' + INTERVAL '3' hour",
-                TIME_WITH_TIME_ZONE,
-                new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 6, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
-        assertFunction("INTERVAL '3' hour + TIME '03:04:05.321 +05:09'",
-                TIME_WITH_TIME_ZONE,
-                new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 6, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
-        assertFunction("TIME '03:04:05.321 +05:09' + INTERVAL '3' day",
-                TIME_WITH_TIME_ZONE,
-                new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
-        assertFunction("INTERVAL '3' day + TIME '03:04:05.321 +05:09'",
-                TIME_WITH_TIME_ZONE,
-                new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
-
-        assertFunction("TIME '03:04:05.321 +05:09' + INTERVAL '27' hour",
-                TIME_WITH_TIME_ZONE,
-                new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 6, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
-        assertFunction("INTERVAL '27' hour + TIME '03:04:05.321 +05:09'",
-                TIME_WITH_TIME_ZONE,
-                new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 6, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
     }
 
     @Test
@@ -325,25 +209,6 @@ public class TestDateTimeOperators
         assertFunction("DATE '2001-1-22' - INTERVAL '3' day", DATE, toDate(new DateTime(2001, 1, 19, 0, 0, 0, 0, UTC)));
 
         assertInvalidFunction("DATE '2001-1-22' - INTERVAL '3' hour", "Cannot subtract hour, minutes or seconds from a date");
-    }
-
-    @Test
-    public void testTimeMinusInterval()
-    {
-        assertFunction("TIME '03:04:05.321' - INTERVAL '3' hour", TIME, sqlTimeOf(0, 4, 5, 321));
-        assertFunction("TIME '03:04:05.321' - INTERVAL '3' day", TIME, sqlTimeOf(3, 4, 5, 321));
-
-        assertFunction("TIME '03:04:05.321' - INTERVAL '6' hour", TIME, sqlTimeOf(21, 4, 5, 321));
-
-        assertFunction("TIME '03:04:05.321 +05:09' - INTERVAL '3' hour",
-                TIME_WITH_TIME_ZONE,
-                new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 0, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
-        assertFunction("TIME '03:04:05.321 +05:09' - INTERVAL '3' day",
-                TIME_WITH_TIME_ZONE,
-                new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 3, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
-        assertFunction("TIME '03:04:05.321 +05:09' - INTERVAL '6' hour",
-                TIME_WITH_TIME_ZONE,
-                new SqlTimeWithTimeZone(new DateTime(1970, 1, 1, 21, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), WEIRD_TIME_ZONE_KEY));
     }
 
     @Test

@@ -1410,8 +1410,8 @@ public class TestExpressionInterpreter
     {
         optimize("DATE '2013-04-03' + unbound_interval");
         optimize("TIME '03:04:05.321' + unbound_interval");
-        optimize("TIME '03:04:05.321 UTC' + unbound_interval");
-        optimize("TIMESTAMP '2013-04-03 03:04:05.321' + unbound_interval");
+        optimize("TIME '03:04:05.321+00:00' + unbound_interval");
+        optimize("TIMESTAMP '2013-04-03 03:04:05.321' +     unbound_interval");
         optimize("TIMESTAMP '2013-04-03 03:04:05.321 UTC' + unbound_interval");
 
         optimize("INTERVAL '3' DAY * unbound_long");

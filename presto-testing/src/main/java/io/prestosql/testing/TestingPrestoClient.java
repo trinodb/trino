@@ -26,6 +26,7 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.TimeType;
+import io.prestosql.spi.type.TimeWithTimeZoneType;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
@@ -38,11 +39,9 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetTime;
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeFormatterBuilder;
-import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -64,7 +63,6 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.testing.MaterializedResult.DEFAULT_PRECISION;
@@ -80,8 +78,7 @@ import static java.util.stream.Collectors.toList;
 public class TestingPrestoClient
         extends AbstractTestingPrestoClient<MaterializedResult>
 {
-    private static final DateTimeFormatter timeWithUtcZoneFormat = DateTimeFormatter.ofPattern("HH:mm:ss.SSS 'UTC'"); // UTC zone would be printed as "Z" in "XXX" format
-    private static final DateTimeFormatter timeWithZoneOffsetFormat = DateTimeFormatter.ofPattern("HH:mm:ss.SSS XXX");
+    private static final DateTimeFormatter timeWithZoneOffsetFormat = DateTimeFormatter.ofPattern("HH:mm:ss[.SSS]XXX");
 
     private static final DateTimeFormatter timestampFormat = new DateTimeFormatterBuilder()
             .appendPattern("uuuu-MM-dd HH:mm:ss")
@@ -225,14 +222,8 @@ public class TestingPrestoClient
         else if (type instanceof TimeType) {
             return DateTimeFormatter.ISO_LOCAL_TIME.parse(((String) value), LocalTime::from);
         }
-        else if (TIME_WITH_TIME_ZONE.equals(type)) {
-            // Only zone-offset timezones are supported (TODO remove political timezones support for TIME WITH TIME ZONE)
-            try {
-                return timeWithUtcZoneFormat.parse(((String) value), LocalTime::from).atOffset(ZoneOffset.UTC);
-            }
-            catch (DateTimeParseException e) {
-                return timeWithZoneOffsetFormat.parse(((String) value), OffsetTime::from);
-            }
+        else if (type instanceof TimeWithTimeZoneType) {
+            return timeWithZoneOffsetFormat.parse(((String) value), OffsetTime::from);
         }
         else if (type instanceof TimestampType) {
             return timestampFormat.parse((String) value, LocalDateTime::from);

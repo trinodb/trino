@@ -49,12 +49,6 @@ public class TestCanonicalizeExpressionRewriter
     }
 
     @Test
-    public void testRewriteCurrentTime()
-    {
-        assertRewritten("CURRENT_TIME", "\"current_time\"()");
-    }
-
-    @Test
     public void testRewriteYearExtract()
     {
         assertRewritten("EXTRACT(YEAR FROM DATE '2017-07-20')", "year(DATE '2017-07-20')");

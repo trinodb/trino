@@ -15,9 +15,11 @@ package io.prestosql.type;
 
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.DateTimeEncoding;
+import io.prestosql.spi.type.LongTimeWithTimeZone;
 import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.LongTimestampWithTimeZone;
 import io.prestosql.spi.type.TimeType;
+import io.prestosql.spi.type.TimeWithTimeZoneType;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
@@ -34,6 +36,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
@@ -54,7 +57,7 @@ public final class DateTimes
 
     public static final Pattern TIME_PATTERN = Pattern.compile("" +
             "(?<hour>\\d{1,2}):(?<minute>\\d{1,2})(?::(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?)?" +
-            "\\s*(?<timezone>.+)?");
+            "\\s*((?<offsetHour>[+-]\\d\\d):(?<offsetMinute>\\d\\d))?");
 
     private static final long[] POWERS_OF_TEN = {
             1L,
@@ -73,11 +76,16 @@ public final class DateTimes
     };
 
     public static final int MILLISECONDS_PER_SECOND = 1000;
+    public static final long MILLISECONDS_PER_MINUTE = 60 * MILLISECONDS_PER_SECOND;
     public static final long MILLISECONDS_PER_DAY = 24 * 60 * 60 * MILLISECONDS_PER_SECOND;
     public static final int MICROSECONDS_PER_SECOND = 1_000_000;
     public static final int MICROSECONDS_PER_MILLISECOND = 1000;
     public static final long MICROSECONDS_PER_DAY = MILLISECONDS_PER_DAY * MICROSECONDS_PER_MILLISECOND;
     public static final long PICOSECONDS_PER_SECOND = 1_000_000_000_000L;
+    public static final long NANOSECONDS_PER_SECOND = 1_000_000_000;
+    public static final long NANOSECONDS_PER_MINUTE = NANOSECONDS_PER_SECOND * 60;
+    public static final long NANOSECONDS_PER_HOUR = NANOSECONDS_PER_MINUTE * 60;
+    public static final long NANOSECONDS_PER_DAY = NANOSECONDS_PER_HOUR * 24;
     public static final int NANOSECONDS_PER_MILLISECOND = 1_000_000;
     public static final int NANOSECONDS_PER_MICROSECOND = 1_000;
     public static final int PICOSECONDS_PER_MILLISECOND = 1_000_000_000;
@@ -483,7 +491,7 @@ public final class DateTimes
             throw new IllegalArgumentException(format("Invalid time '%s'", value));
         }
 
-        return matcher.group("timezone") != null;
+        return matcher.group("offsetHour") != null && matcher.group("offsetMinute") != null;
     }
 
     public static int extractTimePrecision(String value)
@@ -504,7 +512,7 @@ public final class DateTimes
     public static long parseTime(String value)
     {
         Matcher matcher = TIME_PATTERN.matcher(value);
-        if (!matcher.matches() || matcher.group("timezone") != null) {
+        if (!matcher.matches() || matcher.group("offsetHour") != null || matcher.group("offsetMinute") != null) {
             throw new IllegalArgumentException("Invalid time: " + value);
         }
 
@@ -529,6 +537,77 @@ public final class DateTimes
         }
 
         return (((hour * 60) + minute) * 60 + second) * PICOSECONDS_PER_SECOND + rescale(fractionValue, precision, 12);
+    }
+
+    public static Object parseTimeWithTimeZone(int precision, String value)
+    {
+        if (precision <= TimeWithTimeZoneType.MAX_SHORT_PRECISION) {
+            return parseShortTimeWithTimeZone(value);
+        }
+
+        return parseLongTimeWithTimeZone(value);
+    }
+
+    public static long parseShortTimeWithTimeZone(String value)
+    {
+        Matcher matcher = TIME_PATTERN.matcher(value);
+        if (!matcher.matches() || matcher.group("offsetHour") == null || matcher.group("offsetMinute") == null) {
+            throw new IllegalArgumentException("Invalid time with time zone: " + value);
+        }
+
+        int hour = Integer.parseInt(matcher.group("hour"));
+        int minute = Integer.parseInt(matcher.group("minute"));
+        int second = matcher.group("second") == null ? 0 : Integer.parseInt(matcher.group("second"));
+        int offsetHour = Integer.parseInt((matcher.group("offsetHour")));
+        int offsetMinute = Integer.parseInt((matcher.group("offsetMinute")));
+
+        if (hour > 23 || minute > 59 || second > 59 || !isValidOffset(offsetHour, offsetMinute)) {
+            throw new IllegalArgumentException("Invalid time with time zone: " + value);
+        }
+
+        int precision = 0;
+        String fraction = matcher.group("fraction");
+        long fractionValue = 0;
+        if (fraction != null) {
+            precision = fraction.length();
+            fractionValue = Long.parseLong(fraction);
+        }
+
+        long nanos = (((hour * 60) + minute) * 60 + second) * NANOSECONDS_PER_SECOND + rescale(fractionValue, precision, 9);
+        int offsetMinutes = offsetHour * 60 + offsetMinute;
+
+        return packTimeWithTimeZone(nanos, offsetMinutes);
+    }
+
+    public static LongTimeWithTimeZone parseLongTimeWithTimeZone(String value)
+    {
+        Matcher matcher = TIME_PATTERN.matcher(value);
+        if (!matcher.matches() || matcher.group("offsetHour") == null || matcher.group("offsetMinute") == null) {
+            throw new IllegalArgumentException("Invalid time with time zone: " + value);
+        }
+
+        int hour = Integer.parseInt(matcher.group("hour"));
+        int minute = Integer.parseInt(matcher.group("minute"));
+        int second = matcher.group("second") == null ? 0 : Integer.parseInt(matcher.group("second"));
+        int offsetHour = Integer.parseInt((matcher.group("offsetHour")));
+        int offsetMinute = Integer.parseInt((matcher.group("offsetMinute")));
+
+        if (hour > 23 || minute > 59 || second > 59 || !isValidOffset(offsetHour, offsetMinute)) {
+            throw new IllegalArgumentException("Invalid time with time zone: " + value);
+        }
+
+        int precision = 0;
+        String fraction = matcher.group("fraction");
+        long fractionValue = 0;
+        if (fraction != null) {
+            precision = fraction.length();
+            fractionValue = Long.parseLong(fraction);
+        }
+
+        long picos = (((hour * 60) + minute) * 60 + second) * PICOSECONDS_PER_SECOND + rescale(fractionValue, precision, 12);
+        int offset = offsetHour * 60 + offsetMinute;
+
+        return new LongTimeWithTimeZone(picos, offset);
     }
 
     public static LongTimestamp longTimestamp(long precision, Instant start)
@@ -571,5 +650,19 @@ public final class DateTimes
             epochMillis++;
         }
         return epochMillis;
+    }
+
+    public static int getOffsetMinutes(Instant instant, TimeZoneKey zoneKey)
+    {
+        return zoneKey
+                .getZoneId()
+                .getRules()
+                .getOffset(instant)
+                .getTotalSeconds() / 60;
+    }
+
+    public static boolean isValidOffset(int hour, int minute)
+    {
+        return (hour == 14 && minute == 0 || hour < 14) && (hour == -14 && minute == 0 || hour > -14) && minute >= 0 && minute <= 59;
     }
 }
