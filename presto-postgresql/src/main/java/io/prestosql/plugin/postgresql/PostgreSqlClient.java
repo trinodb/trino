@@ -13,20 +13,11 @@
  */
 package io.prestosql.plugin.postgresql;
 
-import com.fasterxml.jackson.core.JsonFactory;
-import com.fasterxml.jackson.core.JsonFactoryBuilder;
-import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.airlift.json.ObjectMapperProvider;
 import io.airlift.log.Logger;
-import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
-import io.airlift.slice.SliceOutput;
-import io.airlift.slice.Slices;
 import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.BooleanReadFunction;
@@ -82,8 +73,6 @@ import org.postgresql.util.PGobject;
 import javax.inject.Inject;
 
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStream;
 import java.sql.Array;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -102,13 +91,13 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.function.BiFunction;
 
-import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_NAMES;
-import static com.fasterxml.jackson.databind.SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.slice.Slices.wrappedLongArray;
+import static io.prestosql.plugin.base.util.JsonTypeUtil.jsonParse;
+import static io.prestosql.plugin.base.util.JsonTypeUtil.toJsonValue;
 import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
 import static io.prestosql.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.prestosql.plugin.jdbc.DecimalSessionSessionProperties.getDecimalDefaultScale;
@@ -148,7 +137,6 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.min;
 import static java.lang.String.format;
-import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.sql.DatabaseMetaData.columnNoNulls;
 import static java.util.Collections.addAll;
 
@@ -162,9 +150,6 @@ public class PostgreSqlClient
      */
     private static final int ARRAY_RESULT_SET_VALUE_COLUMN = 2;
     private static final String DUPLICATE_TABLE_SQLSTATE = "42P07";
-
-    private static final JsonFactory JSON_FACTORY = new JsonFactoryBuilder().configure(CANONICALIZE_FIELD_NAMES, false).build();
-    private static final ObjectMapper SORTED_MAPPER = new ObjectMapperProvider().get().configure(ORDER_MAP_ENTRIES_BY_KEYS, true);
 
     private final Type jsonType;
     private final Type uuidType;
@@ -650,9 +635,9 @@ public class PostgreSqlClient
             Object value = type.getObjectValue(session, builder.build(), 0);
 
             try {
-                return Slices.wrappedBuffer(SORTED_MAPPER.writeValueAsBytes(value));
+                return toJsonValue(value);
             }
-            catch (JsonProcessingException e) {
+            catch (IOException e) {
                 throw new PrestoException(JDBC_ERROR, "Conversion to JSON failed for  " + type.getDisplayName(), e);
             }
         };
@@ -760,29 +745,5 @@ public class PostgreSqlClient
                 uuidType,
                 (resultSet, columnIndex) -> uuidSlice((UUID) resultSet.getObject(columnIndex)),
                 uuidWriteFunction());
-    }
-
-    private static Slice jsonParse(Slice slice)
-    {
-        try (JsonParser parser = createJsonParser(slice)) {
-            byte[] in = slice.getBytes();
-            SliceOutput dynamicSliceOutput = new DynamicSliceOutput(in.length);
-            SORTED_MAPPER.writeValue((OutputStream) dynamicSliceOutput, SORTED_MAPPER.readValue(parser, Object.class));
-            // nextToken() returns null if the input is parsed correctly,
-            // but will throw an exception if there are trailing characters.
-            parser.nextToken();
-            return dynamicSliceOutput.slice();
-        }
-        catch (Exception e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Cannot convert '%s' to JSON", slice.toStringUtf8()));
-        }
-    }
-
-    private static JsonParser createJsonParser(Slice json)
-            throws IOException
-    {
-        // Jackson tries to detect the character encoding automatically when using InputStream
-        // so we pass an InputStreamReader instead.
-        return JSON_FACTORY.createParser(new InputStreamReader(json.getInput(), UTF_8));
     }
 }
