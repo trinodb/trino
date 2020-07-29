@@ -22,6 +22,7 @@ import java.util.concurrent.atomic.AtomicLong;
 
 public class RuleStats
 {
+    private final AtomicLong invocations = new AtomicLong();
     private final AtomicLong hits = new AtomicLong();
     private final TimeDistribution time = new TimeDistribution(TimeUnit.MICROSECONDS);
     private final AtomicLong failures = new AtomicLong();
@@ -32,12 +33,19 @@ public class RuleStats
             hits.incrementAndGet();
         }
 
+        invocations.incrementAndGet();
         time.add(nanos);
     }
 
     public void recordFailure()
     {
         failures.incrementAndGet();
+    }
+
+    @Managed
+    public long getInvocations()
+    {
+        return invocations.get();
     }
 
     @Managed
