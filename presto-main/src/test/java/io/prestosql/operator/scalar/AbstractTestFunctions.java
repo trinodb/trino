@@ -28,7 +28,7 @@ import io.prestosql.spi.type.SqlDecimal;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.type.Timestamps;
+import io.prestosql.type.DateTimes;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
@@ -199,7 +199,7 @@ public abstract class AbstractTestFunctions
 
     protected static SqlTimestamp legacyTimestamp(int precision, String legacyTimestampValue)
     {
-        Object timestamp = Timestamps.parseLegacyTimestamp(precision, TEST_SESSION.getTimeZoneKey(), legacyTimestampValue);
+        Object timestamp = DateTimes.parseLegacyTimestamp(precision, TEST_SESSION.getTimeZoneKey(), legacyTimestampValue);
         if (timestamp instanceof LongTimestamp) {
             LongTimestamp longTimestamp = (LongTimestamp) timestamp;
             return SqlTimestamp.newLegacyInstance(precision, longTimestamp.getEpochMicros(), longTimestamp.getPicosOfMicro(), TEST_SESSION.getTimeZoneKey());

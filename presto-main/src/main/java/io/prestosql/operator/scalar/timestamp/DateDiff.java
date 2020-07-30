@@ -25,7 +25,7 @@ import io.prestosql.spi.type.StandardTypes;
 import org.joda.time.chrono.ISOChronology;
 
 import static io.prestosql.operator.scalar.DateTimeFunctions.getTimestampField;
-import static io.prestosql.type.Timestamps.scaleEpochMicrosToMillis;
+import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 
 @Description("Difference of the given times in the given unit")

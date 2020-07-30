@@ -34,8 +34,8 @@ import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.TestingSession.DEFAULT_TIME_ZONE_KEY;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static io.prestosql.type.Timestamps.MICROSECONDS_PER_SECOND;
-import static io.prestosql.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.prestosql.type.DateTimes.MICROSECONDS_PER_SECOND;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 

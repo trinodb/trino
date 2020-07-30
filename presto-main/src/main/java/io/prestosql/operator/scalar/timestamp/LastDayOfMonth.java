@@ -24,7 +24,7 @@ import io.prestosql.spi.type.StandardTypes;
 import org.joda.time.chrono.ISOChronology;
 
 import static io.prestosql.operator.scalar.DateTimeFunctions.lastDayOfMonthFromDate;
-import static io.prestosql.type.Timestamps.scaleEpochMicrosToMillis;
+import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @Description("Last day of the month of the given timestamp")

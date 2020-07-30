@@ -20,7 +20,7 @@ import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestamp;
-import io.prestosql.type.Timestamps;
+import io.prestosql.type.DateTimes;
 
 import java.time.ZoneId;
 import java.time.ZoneOffset;
@@ -28,7 +28,7 @@ import java.time.format.DateTimeFormatter;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.type.Timestamps.scaleEpochMillisToMicros;
+import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
 
 @ScalarOperator(CAST)
 public final class TimestampToVarcharCast
@@ -51,7 +51,7 @@ public final class TimestampToVarcharCast
             zoneId = session.getTimeZoneKey().getZoneId();
         }
 
-        return utf8Slice(Timestamps.formatTimestamp((int) precision, epochMicros, 0, zoneId, TIMESTAMP_FORMATTER));
+        return utf8Slice(DateTimes.formatTimestamp((int) precision, epochMicros, 0, zoneId, TIMESTAMP_FORMATTER));
     }
 
     @LiteralParameters({"x", "p"})
@@ -63,6 +63,6 @@ public final class TimestampToVarcharCast
             zoneId = session.getTimeZoneKey().getZoneId();
         }
 
-        return utf8Slice(Timestamps.formatTimestamp((int) precision, timestamp.getEpochMicros(), timestamp.getPicosOfMicro(), zoneId, TIMESTAMP_FORMATTER));
+        return utf8Slice(DateTimes.formatTimestamp((int) precision, timestamp.getEpochMicros(), timestamp.getPicosOfMicro(), zoneId, TIMESTAMP_FORMATTER));
     }
 }

@@ -30,9 +30,9 @@ import static com.google.common.base.Verify.verify;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
-import static io.prestosql.type.Timestamps.getMicrosOfMilli;
-import static io.prestosql.type.Timestamps.scaleEpochMicrosToMillis;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
+import static io.prestosql.type.DateTimes.getMicrosOfMilli;
+import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
 import static java.lang.String.format;
 

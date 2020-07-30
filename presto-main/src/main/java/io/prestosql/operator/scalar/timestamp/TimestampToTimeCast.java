@@ -25,8 +25,8 @@ import org.joda.time.chrono.ISOChronology;
 import static io.prestosql.operator.scalar.DateTimeFunctions.valueToSessionTimeZoneOffsetDiff;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.type.DateTimeOperators.modulo24Hour;
-import static io.prestosql.type.Timestamps.round;
-import static io.prestosql.type.Timestamps.scaleEpochMicrosToMillis;
+import static io.prestosql.type.DateTimes.round;
+import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
 
