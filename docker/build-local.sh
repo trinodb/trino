@@ -19,7 +19,7 @@ cp -R bin default ${WORK_DIR}/presto-server-${PRESTO_VERSION}
 
 cp ../presto-cli/target/presto-cli-${PRESTO_VERSION}-executable.jar ${WORK_DIR}
 
-docker build ${WORK_DIR} -f Dockerfile --build-arg "PRESTO_VERSION=${PRESTO_VERSION}" -t "presto:${PRESTO_VERSION}"
+docker build ${WORK_DIR} --pull -f Dockerfile --build-arg "PRESTO_VERSION=${PRESTO_VERSION}" -t "presto:${PRESTO_VERSION}"
 
 rm -r ${WORK_DIR}
 
