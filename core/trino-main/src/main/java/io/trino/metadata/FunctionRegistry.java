@@ -150,6 +150,7 @@ import io.trino.operator.scalar.TryFunction;
 import io.trino.operator.scalar.TypeOfFunction;
 import io.trino.operator.scalar.UrlFunctions;
 import io.trino.operator.scalar.VarbinaryFunctions;
+import io.trino.operator.scalar.VersionFunction;
 import io.trino.operator.scalar.WilsonInterval;
 import io.trino.operator.scalar.WordStemFunction;
 import io.trino.operator.scalar.time.LocalTimeFunction;
@@ -375,7 +376,8 @@ public class FunctionRegistry
             Supplier<BlockEncodingSerde> blockEncodingSerdeSupplier,
             FeaturesConfig featuresConfig,
             TypeOperators typeOperators,
-            BlockTypeOperators blockTypeOperators)
+            BlockTypeOperators blockTypeOperators,
+            String nodeVersion)
     {
         // We have observed repeated compilation of MethodHandle that leads to full GCs.
         // We notice that flushing the following caches mitigate the problem.
@@ -598,6 +600,7 @@ public class FunctionRegistry
                 .function(new GenericComparisonOperator(typeOperators))
                 .function(new GenericLessThanOperator(typeOperators))
                 .function(new GenericLessThanOrEqualOperator(typeOperators))
+                .function(new VersionFunction(nodeVersion))
                 .aggregate(MergeSetDigestAggregation.class)
                 .aggregate(BuildSetDigestAggregation.class)
                 .scalars(SetDigestFunctions.class)

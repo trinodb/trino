@@ -20,6 +20,7 @@ import static io.trino.tempto.assertions.QueryAssert.Row.row;
 import static io.trino.tempto.assertions.QueryAssert.assertThat;
 import static io.trino.tests.TestGroups.FUNCTIONS;
 import static io.trino.tests.utils.QueryExecutors.onPresto;
+import static org.testng.Assert.assertEquals;
 
 public class TestFunctions
         extends ProductTest
@@ -35,5 +36,13 @@ public class TestFunctions
     public void testPosition()
     {
         assertThat(onPresto().executeQuery("SELECT POSITION('ma' IN 'ala ma kota')")).contains(row(5));
+    }
+
+    @Test(groups = FUNCTIONS)
+    public void testVersion()
+    {
+        assertEquals(
+                onPresto().executeQuery("SELECT version()").row(0).get(0),
+                onPresto().executeQuery("SELECT node_version FROM system.runtime.nodes WHERE coordinator = TRUE").row(0).get(0));
     }
 }

@@ -40,6 +40,7 @@ and the :doc:`SQL statement and syntax reference</sql>`.
     UUID                <functions/uuid>
     Color               <functions/color>
     Session             <functions/session>
+    System              <functions/system>
     Teradata            <functions/teradata>
     Machine Learning    <functions/ml>
     functions/list

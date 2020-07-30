@@ -22,6 +22,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import io.airlift.slice.Slice;
 import io.trino.Session;
+import io.trino.client.NodeVersion;
 import io.trino.connector.CatalogName;
 import io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder;
 import io.trino.operator.aggregation.InternalAggregationFunction;
@@ -205,10 +206,12 @@ public final class MetadataManager
             AnalyzePropertyManager analyzePropertyManager,
             TransactionManager transactionManager,
             TypeOperators typeOperators,
-            BlockTypeOperators blockTypeOperators)
+            BlockTypeOperators blockTypeOperators,
+            NodeVersion nodeVersion)
     {
+        requireNonNull(nodeVersion, "nodeVersion is null");
         typeRegistry = new TypeRegistry(featuresConfig);
-        functions = new FunctionRegistry(this::getBlockEncodingSerde, featuresConfig, typeOperators, blockTypeOperators);
+        functions = new FunctionRegistry(this::getBlockEncodingSerde, featuresConfig, typeOperators, blockTypeOperators, nodeVersion.getVersion());
         functionResolver = new FunctionResolver(this);
 
         this.procedures = new ProcedureRegistry();
@@ -274,7 +277,8 @@ public final class MetadataManager
                 new AnalyzePropertyManager(),
                 transactionManager,
                 typeOperators,
-                new BlockTypeOperators(typeOperators));
+                new BlockTypeOperators(typeOperators),
+                NodeVersion.UNKNOWN);
     }
 
     @Override
