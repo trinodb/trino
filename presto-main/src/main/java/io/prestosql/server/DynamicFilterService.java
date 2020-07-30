@@ -55,8 +55,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.airlift.concurrent.MoreFutures.getDone;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
+import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.operator.JoinUtils.isBuildSideRepartitioned;
@@ -219,7 +219,7 @@ public class DynamicFilterService
                 }
 
                 dynamicFilter = dynamicFilters.stream()
-                        .map(filter -> getSummary(dynamicFilterFutures.get(filter))
+                        .map(filter -> tryGetFutureValue(dynamicFilterFutures.get(filter))
                                 .map(summary -> translateSummaryToTupleDomain(filter, summary, sourceColumnHandles)))
                         .filter(Optional::isPresent)
                         .map(Optional::get)
@@ -271,16 +271,7 @@ public class DynamicFilterService
     @VisibleForTesting
     Optional<Domain> getSummary(QueryId queryId, DynamicFilterId filterId)
     {
-        return getSummary(dynamicFilterSummaries.get(queryId).get(filterId));
-    }
-
-    private Optional<Domain> getSummary(ListenableFuture<Domain> future)
-    {
-        if (!future.isDone()) {
-            return Optional.empty();
-        }
-
-        return Optional.of(getDone(future));
+        return tryGetFutureValue(dynamicFilterSummaries.get(queryId).get(filterId));
     }
 
     private Map<QueryId, Supplier<List<StageDynamicFilters>>> getDynamicFilterSuppliers()
