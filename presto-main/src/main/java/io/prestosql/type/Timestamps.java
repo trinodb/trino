@@ -424,7 +424,6 @@ public final class Timestamps
 
         long epochMillis = epochSecond * 1000 + rescale(fractionValue, precision, 3);
 
-        // TODO: parametric-timestamptz
         return DateTimeEncoding.packDateTimeWithZone(epochMillis, timezone);
     }
 
