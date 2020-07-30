@@ -41,6 +41,8 @@ import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
@@ -50,6 +52,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.sql.planner.plan.AggregationNode.groupingSets;
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
 
 public class SymbolMapper
@@ -58,7 +61,36 @@ public class SymbolMapper
 
     public SymbolMapper(Map<Symbol, Symbol> mapping)
     {
-        this.mapping = ImmutableMap.copyOf(requireNonNull(mapping, "mapping is null"));
+        Map<Symbol, Symbol> simplifiedMapping = new HashMap<>(mapping);
+
+        // Remove trivial mappings
+        Iterator<Entry<Symbol, Symbol>> entries = simplifiedMapping.entrySet().iterator();
+        while (entries.hasNext()) {
+            Entry<Symbol, Symbol> entry = entries.next();
+            Symbol key = requireNonNull(entry.getKey(), "key is null");
+            Symbol value = requireNonNull(entry.getValue(), () -> "value is null for key " + key);
+            if (key.equals(value)) {
+                entries.remove();
+            }
+        }
+
+        // Shorten paths
+        for (Symbol key : ImmutableList.copyOf(simplifiedMapping.keySet())) {
+            Set<Symbol> visited = new LinkedHashSet<>();
+            visited.add(key);
+            Symbol current = simplifiedMapping.get(key);
+            while (simplifiedMapping.containsKey(current)) {
+                if (!visited.add(current)) {
+                    throw new IllegalArgumentException("Mapping cycle: " + visited);
+                }
+                current = simplifiedMapping.get(current);
+            }
+            for (Symbol visitedSymbol : visited) {
+                simplifiedMapping.put(visitedSymbol, current);
+            }
+        }
+
+        this.mapping = unmodifiableMap(simplifiedMapping);
     }
 
     public Map<Symbol, Symbol> getMapping()
