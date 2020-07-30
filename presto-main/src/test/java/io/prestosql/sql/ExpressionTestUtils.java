@@ -28,7 +28,6 @@ import io.prestosql.sql.planner.DesugarArrayConstructorRewriter;
 import io.prestosql.sql.planner.DesugarLikeRewriter;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
-import io.prestosql.sql.planner.assertions.ExpressionVerifier;
 import io.prestosql.sql.planner.assertions.SymbolAliases;
 import io.prestosql.sql.planner.iterative.rule.CanonicalizeExpressionRewriter;
 import io.prestosql.sql.tree.Cast;
@@ -49,6 +48,7 @@ import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferen
 import static io.prestosql.sql.ParsingUtil.createParsingOptions;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
+import static io.prestosql.sql.planner.assertions.ExpressionVerifier.verify;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static org.testng.internal.EclipseInterface.ASSERT_LEFT;
 import static org.testng.internal.EclipseInterface.ASSERT_MIDDLE;
@@ -76,8 +76,7 @@ public final class ExpressionTestUtils
 
     public static void assertExpressionEquals(Expression actual, Expression expected, SymbolAliases symbolAliases)
     {
-        ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
-        if (!verifier.process(actual, expected)) {
+        if (!verify(actual, expected, symbolAliases)) {
             failNotEqual(actual, expected, null);
         }
     }

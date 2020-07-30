@@ -28,6 +28,7 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
+import static io.prestosql.sql.planner.assertions.ExpressionVerifier.verify;
 import static io.prestosql.sql.planner.assertions.MatchResult.NO_MATCH;
 import static io.prestosql.sql.planner.assertions.MatchResult.match;
 import static java.util.Objects.requireNonNull;
@@ -65,7 +66,7 @@ public class SpatialJoinMatcher
         checkState(shapeMatches(node), "Plan testing framework error: shapeMatches returned false in detailMatches in %s", this.getClass().getName());
 
         SpatialJoinNode joinNode = (SpatialJoinNode) node;
-        if (!new ExpressionVerifier(symbolAliases).process(joinNode.getFilter(), filter)) {
+        if (!verify(joinNode.getFilter(), filter, symbolAliases)) {
             return NO_MATCH;
         }
         if (!joinNode.getKdbTree().equals(kdbTree)) {

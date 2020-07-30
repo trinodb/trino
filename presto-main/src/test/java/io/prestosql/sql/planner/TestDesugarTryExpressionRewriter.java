@@ -15,7 +15,6 @@ package io.prestosql.sql.planner;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.operator.scalar.TryFunction;
-import io.prestosql.sql.planner.assertions.ExpressionVerifier;
 import io.prestosql.sql.planner.assertions.SymbolAliases;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
@@ -28,6 +27,7 @@ import io.prestosql.type.FunctionType;
 import org.testng.annotations.Test;
 
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.prestosql.sql.planner.assertions.ExpressionVerifier.verify;
 import static io.prestosql.sql.tree.ArithmeticBinaryExpression.Operator.ADD;
 import static org.testng.Assert.assertTrue;
 
@@ -58,7 +58,6 @@ public class TestDesugarTryExpressionRewriter
                         .addArgument(new FunctionType(ImmutableList.of(), createDecimalType(1)), new LambdaExpression(ImmutableList.of(), new DecimalLiteral("2")))
                         .build());
 
-        ExpressionVerifier verifier = new ExpressionVerifier(new SymbolAliases());
-        assertTrue(verifier.process(rewritten, expected));
+        assertTrue(verify(rewritten, expected, new SymbolAliases()));
     }
 }

@@ -13,35 +13,28 @@
  */
 package io.prestosql.sql.planner.assertions;
 
-import io.prestosql.sql.parser.ParsingOptions;
-import io.prestosql.sql.parser.SqlParser;
-import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.SymbolReference;
 import org.testng.annotations.Test;
 
-import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
+import static io.prestosql.sql.planner.assertions.ExpressionVerifier.verify;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestExpressionVerifier
 {
-    private final SqlParser parser = new SqlParser();
-
     @Test
     public void test()
     {
-        Expression actual = expression("NOT(orderkey = 3 AND custkey = 3 AND orderkey < 10)");
+        String actual = "NOT(orderkey = 3 AND custkey = 3 AND orderkey < 10)";
 
         SymbolAliases symbolAliases = SymbolAliases.builder()
                 .put("X", new SymbolReference("orderkey"))
                 .put("Y", new SymbolReference("custkey"))
                 .build();
 
-        ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
-
-        assertTrue(verifier.process(actual, expression("NOT(X = 3 AND Y = 3 AND X < 10)")));
-        assertThrows(() -> verifier.process(actual, expression("NOT(X = 3 AND Y = 3 AND Z < 10)")));
-        assertFalse(verifier.process(actual, expression("NOT(X = 3 AND X = 3 AND X < 10)")));
+        assertTrue(verify(actual, "NOT(X = 3 AND Y = 3 AND X < 10)", symbolAliases));
+        assertThrows(() -> verify(actual, "NOT(X = 3 AND Y = 3 AND Z < 10)", symbolAliases));
+        assertFalse(verify(actual, "NOT(X = 3 AND X = 3 AND X < 10)", symbolAliases));
     }
 
     @Test
@@ -51,10 +44,9 @@ public class TestExpressionVerifier
                 .put("X", new SymbolReference("orderkey"))
                 .build();
 
-        ExpressionVerifier verifier = new ExpressionVerifier(aliases);
-        assertTrue(verifier.process(expression("CAST('2' AS varchar)"), expression("CAST('2' AS varchar)")));
-        assertFalse(verifier.process(expression("CAST('2' AS varchar)"), expression("CAST('2' AS bigint)")));
-        assertTrue(verifier.process(expression("CAST(orderkey AS varchar)"), expression("CAST(X AS varchar)")));
+        assertTrue(verify("CAST('2' AS varchar)", "CAST('2' AS varchar)", aliases));
+        assertFalse(verify("CAST('2' AS varchar)", "CAST('2' AS bigint)", aliases));
+        assertTrue(verify("CAST(orderkey AS varchar)", "CAST(X AS varchar)", aliases));
     }
 
     @Test
@@ -65,16 +57,15 @@ public class TestExpressionVerifier
                 .put("Y", new SymbolReference("custkey"))
                 .build();
 
-        ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
         // Complete match
-        assertTrue(verifier.process(expression("orderkey BETWEEN 1 AND 2"), expression("X BETWEEN 1 AND 2")));
+        assertTrue(verify("orderkey BETWEEN 1 AND 2", "X BETWEEN 1 AND 2", symbolAliases));
         // Different value
-        assertFalse(verifier.process(expression("orderkey BETWEEN 1 AND 2"), expression("Y BETWEEN 1 AND 2")));
-        assertFalse(verifier.process(expression("custkey BETWEEN 1 AND 2"), expression("X BETWEEN 1 AND 2")));
+        assertFalse(verify("orderkey BETWEEN 1 AND 2", "Y BETWEEN 1 AND 2", symbolAliases));
+        assertFalse(verify("custkey BETWEEN 1 AND 2", "X BETWEEN 1 AND 2", symbolAliases));
         // Different min or max
-        assertFalse(verifier.process(expression("orderkey BETWEEN 2 AND 4"), expression("X BETWEEN 1 AND 2")));
-        assertFalse(verifier.process(expression("orderkey BETWEEN 1 AND 2"), expression("X BETWEEN '1' AND '2'")));
-        assertFalse(verifier.process(expression("orderkey BETWEEN 1 AND 2"), expression("X BETWEEN 4 AND 7")));
+        assertFalse(verify("orderkey BETWEEN 2 AND 4", "X BETWEEN 1 AND 2", symbolAliases));
+        assertFalse(verify("orderkey BETWEEN 1 AND 2", "X BETWEEN '1' AND '2'", symbolAliases));
+        assertFalse(verify("orderkey BETWEEN 1 AND 2", "X BETWEEN 4 AND 7", symbolAliases));
     }
 
     @Test
@@ -85,46 +76,70 @@ public class TestExpressionVerifier
                 .put("b", new SymbolReference("y"))
                 .build();
 
-        ExpressionVerifier verifier = new ExpressionVerifier(symbolAliases);
+        assertTrue(verify("x > y", "a > b", symbolAliases));
+        assertTrue(verify("x > y", "b < a", symbolAliases));
+        assertTrue(verify("y < x", "a > b", symbolAliases));
+        assertTrue(verify("y < x", "b < a", symbolAliases));
 
-        assertTrue(verifier.process(expression("x > y"), expression("a > b")));
-        assertTrue(verifier.process(expression("x > y"), expression("b < a")));
-        assertTrue(verifier.process(expression("y < x"), expression("a > b")));
-        assertTrue(verifier.process(expression("y < x"), expression("b < a")));
+        assertFalse(verify("x < y", "a > b", symbolAliases));
+        assertFalse(verify("x < y", "b < a", symbolAliases));
+        assertFalse(verify("y > x", "a > b", symbolAliases));
+        assertFalse(verify("y > x", "b < a", symbolAliases));
 
-        assertFalse(verifier.process(expression("x < y"), expression("a > b")));
-        assertFalse(verifier.process(expression("x < y"), expression("b < a")));
-        assertFalse(verifier.process(expression("y > x"), expression("a > b")));
-        assertFalse(verifier.process(expression("y > x"), expression("b < a")));
+        assertTrue(verify("x >= y", "a >= b", symbolAliases));
+        assertTrue(verify("x >= y", "b <= a", symbolAliases));
+        assertTrue(verify("y <= x", "a >= b", symbolAliases));
+        assertTrue(verify("y <= x", "b <= a", symbolAliases));
 
-        assertTrue(verifier.process(expression("x >= y"), expression("a >= b")));
-        assertTrue(verifier.process(expression("x >= y"), expression("b <= a")));
-        assertTrue(verifier.process(expression("y <= x"), expression("a >= b")));
-        assertTrue(verifier.process(expression("y <= x"), expression("b <= a")));
+        assertFalse(verify("x <= y", "a >= b", symbolAliases));
+        assertFalse(verify("x <= y", "b <= a", symbolAliases));
+        assertFalse(verify("y >= x", "a >= b", symbolAliases));
+        assertFalse(verify("y >= x", "b <= a", symbolAliases));
 
-        assertFalse(verifier.process(expression("x <= y"), expression("a >= b")));
-        assertFalse(verifier.process(expression("x <= y"), expression("b <= a")));
-        assertFalse(verifier.process(expression("y >= x"), expression("a >= b")));
-        assertFalse(verifier.process(expression("y >= x"), expression("b <= a")));
+        assertTrue(verify("x = y", "a = b", symbolAliases));
+        assertTrue(verify("x = y", "b = a", symbolAliases));
+        assertTrue(verify("y = x", "a = b", symbolAliases));
+        assertTrue(verify("y = x", "b = a", symbolAliases));
+        assertTrue(verify("x <> y", "a <> b", symbolAliases));
+        assertTrue(verify("x <> y", "b <> a", symbolAliases));
+        assertTrue(verify("y <> x", "a <> b", symbolAliases));
+        assertTrue(verify("y <> x", "b <> a", symbolAliases));
 
-        assertTrue(verifier.process(expression("x = y"), expression("a = b")));
-        assertTrue(verifier.process(expression("x = y"), expression("b = a")));
-        assertTrue(verifier.process(expression("y = x"), expression("a = b")));
-        assertTrue(verifier.process(expression("y = x"), expression("b = a")));
-        assertTrue(verifier.process(expression("x <> y"), expression("a <> b")));
-        assertTrue(verifier.process(expression("x <> y"), expression("b <> a")));
-        assertTrue(verifier.process(expression("y <> x"), expression("a <> b")));
-        assertTrue(verifier.process(expression("y <> x"), expression("b <> a")));
-
-        assertTrue(verifier.process(expression("x IS DISTINCT FROM y"), expression("a IS DISTINCT FROM b")));
-        assertTrue(verifier.process(expression("x IS DISTINCT FROM y"), expression("b IS DISTINCT FROM a")));
-        assertTrue(verifier.process(expression("y IS DISTINCT FROM x"), expression("a IS DISTINCT FROM b")));
-        assertTrue(verifier.process(expression("y IS DISTINCT FROM x"), expression("b IS DISTINCT FROM a")));
+        assertTrue(verify("x IS DISTINCT FROM y", "a IS DISTINCT FROM b", symbolAliases));
+        assertTrue(verify("x IS DISTINCT FROM y", "b IS DISTINCT FROM a", symbolAliases));
+        assertTrue(verify("y IS DISTINCT FROM x", "a IS DISTINCT FROM b", symbolAliases));
+        assertTrue(verify("y IS DISTINCT FROM x", "b IS DISTINCT FROM a", symbolAliases));
     }
 
-    private Expression expression(String sql)
+    @Test
+    public void testLambdaExpressions()
     {
-        return rewriteIdentifiersToSymbolReferences(parser.createExpression(sql, new ParsingOptions()));
+        SymbolAliases symbolAliases = SymbolAliases.builder()
+                .put("a", new SymbolReference("x"))
+                .put("b", new SymbolReference("y"))
+                .build();
+
+        assertTrue(verify(
+                "transform(x, p -> p.f0.f0 + y)",
+                "transform(a, q -> q.f0.f0 + b)",
+                symbolAliases));
+
+        // The same identifier used in multiple lambda expressions
+        assertTrue(verify(
+                "transform(x, p -> p.f0.f0) || transform(y, p -> p + 2)",
+                "transform(a, q -> q.f0.f0) || transform(b, q -> q + 2)",
+                symbolAliases));
+
+        assertTrue(verify(
+                "transform(x, p -> p.f0.f0) || transform(y, p -> p + 2)",
+                "transform(a, q -> q.f0.f0) || transform(b, r -> r + 2)",
+                symbolAliases));
+
+        // Nested lambda expressions
+        assertTrue(verify(
+                "transform(x, p -> transform(array[p], q -> q + 1 + f(p)))",
+                "transform(a, q -> transform(array[q], s -> s + 1 + f(q)))",
+                symbolAliases));
     }
 
     private static void assertThrows(Runnable runnable)

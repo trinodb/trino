@@ -105,6 +105,7 @@ import io.prestosql.sql.planner.iterative.rule.PruneTopNRowNumberColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneUnionColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneUnionSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneUnnestColumns;
+import io.prestosql.sql.planner.iterative.rule.PruneUnnestMappings;
 import io.prestosql.sql.planner.iterative.rule.PruneUnnestSourceColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneValuesColumns;
 import io.prestosql.sql.planner.iterative.rule.PruneWindowColumns;
@@ -333,7 +334,8 @@ public class PlanOptimizers
                 new PushDownDereferencesThroughWindow(typeAnalyzer),
                 new PushDownDereferencesThroughTopN(typeAnalyzer),
                 new PushDownDereferencesThroughRowNumber(typeAnalyzer),
-                new PushDownDereferencesThroughTopNRowNumber(typeAnalyzer));
+                new PushDownDereferencesThroughTopNRowNumber(typeAnalyzer),
+                new PruneUnnestMappings(typeAnalyzer, metadata));
 
         IterativeOptimizer inlineProjections = new IterativeOptimizer(
                 ruleStats,

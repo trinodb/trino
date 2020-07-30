@@ -29,6 +29,7 @@ import java.util.Set;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.prestosql.sql.planner.assertions.ExpressionVerifier.verify;
 import static io.prestosql.sql.planner.assertions.MatchResult.NO_MATCH;
 import static java.util.Objects.requireNonNull;
 
@@ -84,7 +85,7 @@ final class JoinMatcher
             if (joinNode.getFilter().isEmpty()) {
                 return NO_MATCH;
             }
-            if (!new ExpressionVerifier(symbolAliases).process(joinNode.getFilter().get(), filter.get())) {
+            if (!verify(joinNode.getFilter().get(), filter.get(), symbolAliases)) {
                 return NO_MATCH;
             }
         }
