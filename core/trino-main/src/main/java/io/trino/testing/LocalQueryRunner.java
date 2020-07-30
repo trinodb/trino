@@ -326,7 +326,8 @@ public class LocalQueryRunner
                 new AnalyzePropertyManager(),
                 transactionManager,
                 typeOperators,
-                blockTypeOperators);
+                blockTypeOperators,
+                nodeManager.getCurrentNode().getNodeVersion());
         this.splitManager = new SplitManager(new QueryManagerConfig(), metadata);
         this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig());
         this.joinCompiler = new JoinCompiler(typeOperators);
