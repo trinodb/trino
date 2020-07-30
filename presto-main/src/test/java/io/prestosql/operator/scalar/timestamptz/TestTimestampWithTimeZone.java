@@ -29,8 +29,8 @@ import java.util.function.BiFunction;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.type.Timestamps.MILLISECONDS_PER_SECOND;
-import static io.prestosql.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
+import static io.prestosql.type.DateTimes.MILLISECONDS_PER_SECOND;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MILLISECOND;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 

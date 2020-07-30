@@ -26,7 +26,7 @@ import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.type.Timestamps.roundToEpochMillis;
+import static io.prestosql.type.DateTimes.roundToEpochMillis;
 import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
 

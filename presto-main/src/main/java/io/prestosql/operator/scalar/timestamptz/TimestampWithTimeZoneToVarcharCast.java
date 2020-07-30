@@ -20,7 +20,7 @@ import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestampWithTimeZone;
-import io.prestosql.type.Timestamps;
+import io.prestosql.type.DateTimes;
 
 import java.time.ZoneId;
 
@@ -29,7 +29,7 @@ import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.type.Timestamps.formatTimestampWithTimeZone;
+import static io.prestosql.type.DateTimes.formatTimestampWithTimeZone;
 
 @ScalarOperator(CAST)
 public final class TimestampWithTimeZoneToVarcharCast
@@ -50,7 +50,7 @@ public final class TimestampWithTimeZoneToVarcharCast
     @SqlType("varchar(x)")
     public static Slice cast(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp)
     {
-        return utf8Slice(Timestamps.formatTimestampWithTimeZone(
+        return utf8Slice(DateTimes.formatTimestampWithTimeZone(
                 (int) precision,
                 timestamp.getEpochMillis(),
                 timestamp.getPicosOfMilli(),

@@ -25,7 +25,7 @@ import org.joda.time.chrono.ISOChronology;
 import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.type.Timestamps.scaleEpochMillisToMicros;
+import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
 import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 
 @ScalarOperator(CAST)

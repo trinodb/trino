@@ -69,7 +69,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.type.JsonType.JSON;
-import static io.prestosql.type.Timestamps.parseLegacyTimestamp;
+import static io.prestosql.type.DateTimes.parseLegacyTimestamp;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static io.prestosql.util.StructuralTestUtil.appendToBlockBuilder;
 import static io.prestosql.util.StructuralTestUtil.arrayBlockOf;

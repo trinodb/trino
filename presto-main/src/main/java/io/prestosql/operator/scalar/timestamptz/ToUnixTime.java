@@ -21,9 +21,9 @@ import io.prestosql.spi.type.LongTimestampWithTimeZone;
 import io.prestosql.spi.type.StandardTypes;
 
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.prestosql.type.Timestamps.MICROSECONDS_PER_SECOND;
-import static io.prestosql.type.Timestamps.MILLISECONDS_PER_SECOND;
-import static io.prestosql.type.Timestamps.PICOSECONDS_PER_SECOND;
+import static io.prestosql.type.DateTimes.MICROSECONDS_PER_SECOND;
+import static io.prestosql.type.DateTimes.MILLISECONDS_PER_SECOND;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_SECOND;
 
 @ScalarFunction("to_unixtime")
 public final class ToUnixTime

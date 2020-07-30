@@ -24,8 +24,8 @@ import io.prestosql.spi.type.LongTimestamp;
 import org.joda.time.chrono.ISOChronology;
 
 import static io.prestosql.operator.scalar.DateTimeFunctions.getTimestampField;
-import static io.prestosql.type.Timestamps.scaleEpochMicrosToMillis;
-import static io.prestosql.type.Timestamps.scaleEpochMillisToMicros;
+import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
+import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
 import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 
 @Description("Truncate to the specified precision in the session timezone")

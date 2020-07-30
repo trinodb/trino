@@ -25,8 +25,8 @@ import io.prestosql.spi.type.StandardTypes;
 import org.joda.time.chrono.ISOChronology;
 
 import static io.prestosql.operator.scalar.DateTimeFunctions.dateFormat;
-import static io.prestosql.type.Timestamps.round;
-import static io.prestosql.type.Timestamps.scaleEpochMicrosToMillis;
+import static io.prestosql.type.DateTimes.round;
+import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 
 @ScalarFunction

@@ -41,12 +41,12 @@ import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.TimestampType.MAX_SHORT_PRECISION;
 import static io.prestosql.spi.type.TimestampTypes.hashLongTimestamp;
 import static io.prestosql.spi.type.TimestampTypes.hashShortTimestamp;
-import static io.prestosql.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
-import static io.prestosql.type.Timestamps.getMicrosOfMilli;
-import static io.prestosql.type.Timestamps.rescale;
-import static io.prestosql.type.Timestamps.round;
-import static io.prestosql.type.Timestamps.scaleEpochMicrosToMillis;
-import static io.prestosql.type.Timestamps.scaleEpochMillisToMicros;
+import static io.prestosql.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
+import static io.prestosql.type.DateTimes.getMicrosOfMilli;
+import static io.prestosql.type.DateTimes.rescale;
+import static io.prestosql.type.DateTimes.round;
+import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
+import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
 import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 import static java.lang.Math.multiplyExact;
 

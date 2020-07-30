@@ -43,7 +43,7 @@ import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoField.MICRO_OF_SECOND;
 
-public final class Timestamps
+public final class DateTimes
 {
     public static final Pattern DATETIME_PATTERN = Pattern.compile("" +
             "(?<year>[-+]?\\d{4,})-(?<month>\\d{1,2})-(?<day>\\d{1,2})" +
@@ -77,7 +77,7 @@ public final class Timestamps
     public static final int PICOSECONDS_PER_MICROSECOND = 1_000_000;
     public static final int PICOSECONDS_PER_NANOSECOND = 1000;
 
-    private Timestamps() {}
+    private DateTimes() {}
 
     private static long roundDiv(long value, long factor)
     {
