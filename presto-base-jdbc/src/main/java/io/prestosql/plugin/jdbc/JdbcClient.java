@@ -120,4 +120,8 @@ public interface JdbcClient
     {
         return Optional.empty();
     }
+
+    String quoted(String name);
+
+    String quoted(RemoteTableName remoteTableName);
 }
