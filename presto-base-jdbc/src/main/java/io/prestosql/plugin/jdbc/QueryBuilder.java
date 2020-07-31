@@ -261,6 +261,11 @@ public class QueryBuilder
     private String toPredicate(JdbcColumnHandle column, String operator, Object value, List<TypeAndValue> accumulator)
     {
         bindValue(value, column, accumulator);
+        return toPredicate(column, operator);
+    }
+
+    protected String toPredicate(JdbcColumnHandle column, String operator)
+    {
         return client.quoted(column.getColumnName()) + " " + operator + " ?";
     }
 
