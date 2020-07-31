@@ -179,19 +179,19 @@ public class QueryBuilder
         for (Map.Entry<ColumnHandle, Domain> entry : tupleDomain.getDomains().get().entrySet()) {
             JdbcColumnHandle column = ((JdbcColumnHandle) entry.getKey());
             Domain domain = pushDownDomain(client, session, connection, column, entry.getValue());
-            builder.add(toPredicate(column.getColumnName(), domain, column, accumulator));
+            builder.add(toPredicate(column, domain, accumulator));
         }
         return builder.build();
     }
 
-    private String toPredicate(String columnName, Domain domain, JdbcColumnHandle column, List<TypeAndValue> accumulator)
+    private String toPredicate(JdbcColumnHandle column, Domain domain, List<TypeAndValue> accumulator)
     {
         if (domain.getValues().isNone()) {
-            return domain.isNullAllowed() ? client.quoted(columnName) + " IS NULL" : ALWAYS_FALSE;
+            return domain.isNullAllowed() ? client.quoted(column.getColumnName()) + " IS NULL" : ALWAYS_FALSE;
         }
 
         if (domain.getValues().isAll()) {
-            return domain.isNullAllowed() ? ALWAYS_TRUE : client.quoted(columnName) + " IS NOT NULL";
+            return domain.isNullAllowed() ? ALWAYS_TRUE : client.quoted(column.getColumnName()) + " IS NOT NULL";
         }
 
         List<String> disjuncts = new ArrayList<>();
@@ -206,10 +206,10 @@ public class QueryBuilder
                 if (!range.getLow().isLowerUnbounded()) {
                     switch (range.getLow().getBound()) {
                         case ABOVE:
-                            rangeConjuncts.add(toPredicate(columnName, ">", range.getLow().getValue(), column, accumulator));
+                            rangeConjuncts.add(toPredicate(column, ">", range.getLow().getValue(), accumulator));
                             break;
                         case EXACTLY:
-                            rangeConjuncts.add(toPredicate(columnName, ">=", range.getLow().getValue(), column, accumulator));
+                            rangeConjuncts.add(toPredicate(column, ">=", range.getLow().getValue(), accumulator));
                             break;
                         case BELOW:
                             throw new IllegalArgumentException("Low marker should never use BELOW bound");
@@ -222,10 +222,10 @@ public class QueryBuilder
                         case ABOVE:
                             throw new IllegalArgumentException("High marker should never use ABOVE bound");
                         case EXACTLY:
-                            rangeConjuncts.add(toPredicate(columnName, "<=", range.getHigh().getValue(), column, accumulator));
+                            rangeConjuncts.add(toPredicate(column, "<=", range.getHigh().getValue(), accumulator));
                             break;
                         case BELOW:
-                            rangeConjuncts.add(toPredicate(columnName, "<", range.getHigh().getValue(), column, accumulator));
+                            rangeConjuncts.add(toPredicate(column, "<", range.getHigh().getValue(), accumulator));
                             break;
                         default:
                             throw new AssertionError("Unhandled bound: " + range.getHigh().getBound());
@@ -239,29 +239,29 @@ public class QueryBuilder
 
         // Add back all of the possible single values either as an equality or an IN predicate
         if (singleValues.size() == 1) {
-            disjuncts.add(toPredicate(columnName, "=", getOnlyElement(singleValues), column, accumulator));
+            disjuncts.add(toPredicate(column, "=", getOnlyElement(singleValues), accumulator));
         }
         else if (singleValues.size() > 1) {
             for (Object value : singleValues) {
                 bindValue(value, column, accumulator);
             }
             String values = Joiner.on(",").join(nCopies(singleValues.size(), "?"));
-            disjuncts.add(client.quoted(columnName) + " IN (" + values + ")");
+            disjuncts.add(client.quoted(column.getColumnName()) + " IN (" + values + ")");
         }
 
         // Add nullability disjuncts
         checkState(!disjuncts.isEmpty());
         if (domain.isNullAllowed()) {
-            disjuncts.add(client.quoted(columnName) + " IS NULL");
+            disjuncts.add(client.quoted(column.getColumnName()) + " IS NULL");
         }
 
         return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
     }
 
-    private String toPredicate(String columnName, String operator, Object value, JdbcColumnHandle column, List<TypeAndValue> accumulator)
+    private String toPredicate(JdbcColumnHandle column, String operator, Object value, List<TypeAndValue> accumulator)
     {
         bindValue(value, column, accumulator);
-        return client.quoted(columnName) + " " + operator + " ?";
+        return client.quoted(column.getColumnName()) + " " + operator + " ?";
     }
 
     private String getGroupBy(Optional<List<List<JdbcColumnHandle>>> groupingSets)
