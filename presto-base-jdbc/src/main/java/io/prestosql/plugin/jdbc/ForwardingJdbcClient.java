@@ -45,7 +45,7 @@ public abstract class ForwardingJdbcClient
         return new ForwardingJdbcClient()
         {
             @Override
-            protected JdbcClient delegate()
+            public JdbcClient delegate()
             {
                 return requireNonNull(jdbcClientSupplier.get(), "jdbcClientSupplier.get() is null");
             }
@@ -255,5 +255,17 @@ public abstract class ForwardingJdbcClient
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         return delegate().getSystemTable(session, tableName);
+    }
+
+    @Override
+    public String quoted(String name)
+    {
+        return delegate().quoted(name);
+    }
+
+    @Override
+    public String quoted(RemoteTableName remoteTableName)
+    {
+        return delegate().quoted(remoteTableName);
     }
 }

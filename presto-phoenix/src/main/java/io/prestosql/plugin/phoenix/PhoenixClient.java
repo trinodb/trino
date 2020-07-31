@@ -173,13 +173,10 @@ public class PhoenixClient
             throws SQLException
     {
         PhoenixSplit phoenixSplit = (PhoenixSplit) split;
-        PreparedStatement query = new QueryBuilder(identifierQuote).buildSql(
-                this,
+        PreparedStatement query = new QueryBuilder(this).buildSql(
                 session,
                 connection,
-                table.getCatalogName(),
-                table.getSchemaName(),
-                table.getTableName(),
+                table.getRemoteTableName(),
                 table.getGroupingSets(),
                 columnHandles,
                 phoenixSplit.getConstraint(),

@@ -387,13 +387,10 @@ public abstract class BaseJdbcClient
     public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
             throws SQLException
     {
-        return new QueryBuilder(identifierQuote).buildSql(
-                this,
+        return new QueryBuilder(this).buildSql(
                 session,
                 connection,
-                table.getCatalogName(),
-                table.getSchemaName(),
-                table.getTableName(),
+                table.getRemoteTableName(),
                 table.getGroupingSets(),
                 columns,
                 table.getConstraint(),
@@ -916,13 +913,15 @@ public abstract class BaseJdbcClient
         throw new PrestoException(JDBC_ERROR, "limitFunction() is implemented without isLimitGuaranteed()");
     }
 
-    protected String quoted(String name)
+    @Override
+    public String quoted(String name)
     {
         name = name.replace(identifierQuote, identifierQuote + identifierQuote);
         return identifierQuote + name + identifierQuote;
     }
 
-    protected String quoted(RemoteTableName remoteTableName)
+    @Override
+    public String quoted(RemoteTableName remoteTableName)
     {
         return quoted(
                 remoteTableName.getCatalogName().orElse(null),
