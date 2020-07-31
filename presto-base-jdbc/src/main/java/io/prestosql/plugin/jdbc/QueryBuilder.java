@@ -98,7 +98,7 @@ public class QueryBuilder
             throws SQLException
     {
         String sql = "SELECT " + getProjection(columns);
-        sql += " FROM " + client.quoted(remoteTableName);
+        sql += " FROM " + getRelation(remoteTableName);
 
         List<TypeAndValue> accumulator = new ArrayList<>();
 
@@ -146,6 +146,11 @@ public class QueryBuilder
         }
 
         return statement;
+    }
+
+    protected String getRelation(RemoteTableName remoteTableName)
+    {
+        return client.quoted(remoteTableName);
     }
 
     protected String getProjection(List<JdbcColumnHandle> columns)
