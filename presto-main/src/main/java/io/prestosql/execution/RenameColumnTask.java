@@ -26,6 +26,7 @@ import io.prestosql.transaction.TransactionManager;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
@@ -50,8 +51,14 @@ public class RenameColumnTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
-        TableHandle tableHandle = metadata.getTableHandle(session, tableName)
-                .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName));
+        Optional<TableHandle> tableHandleOptional = metadata.getTableHandle(session, tableName);
+        if (tableHandleOptional.isEmpty()) {
+            if (!statement.isTableExists()) {
+                throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
+            }
+            return immediateFuture(null);
+        }
+        TableHandle tableHandle = tableHandleOptional.get();
 
         String source = statement.getSource().getValue().toLowerCase(ENGLISH);
         String target = statement.getTarget().getValue().toLowerCase(ENGLISH);
@@ -61,7 +68,10 @@ public class RenameColumnTask
         Map<String, ColumnHandle> columnHandles = metadata.getColumnHandles(session, tableHandle);
         ColumnHandle columnHandle = columnHandles.get(source);
         if (columnHandle == null) {
-            throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not exist", source);
+            if (!statement.isColumnExists()) {
+                throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not exist", source);
+            }
+            return immediateFuture(null);
         }
 
         if (columnHandles.containsKey(target)) {
