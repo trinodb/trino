@@ -212,6 +212,7 @@ public class ServerMainModule
 
         // GC Monitor
         binder.bind(GcMonitor.class).to(JmxGcMonitor.class).in(Scopes.SINGLETON);
+        newExporter(binder).export(GcMonitor.class).withGeneratedName();
 
         // session properties
         binder.bind(SessionPropertyManager.class).in(Scopes.SINGLETON);
