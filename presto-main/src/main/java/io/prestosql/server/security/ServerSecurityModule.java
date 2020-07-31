@@ -66,6 +66,8 @@ public class ServerSecurityModule
         installAuthenticator("password", PasswordAuthenticator.class, PasswordAuthenticatorConfig.class);
         installAuthenticator("jwt", JsonWebTokenAuthenticator.class, JsonWebTokenConfig.class);
 
+        configBinder(binder).bindConfig(InsecureAuthenticatorConfig.class);
+        binder.bind(InsecureAuthenticator.class).in(Scopes.SINGLETON);
         install(authenticatorModule("insecure", InsecureAuthenticator.class, unused -> {}));
     }
 

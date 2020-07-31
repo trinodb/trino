@@ -26,6 +26,7 @@ Username and Password (file or LDAP)  ``http-server.authentication.password.user
 Kerberos                              ``http-server.authentication.krb5.user-mapping.pattern``
 Certificate                           ``http-server.authentication.certificate.user-mapping.pattern``
 Json Web Token                        ``http-server.authentication.jwt.user-mapping.pattern``
+Insecure                              ``http-server.authentication.insecure.user-mapping.pattern``
 ===================================== ===============================================================
 
 File Mapping Rules
@@ -57,5 +58,6 @@ Username and password (file or LDAP)  ``http-server.authentication.password.user
 Kerberos                              ``http-server.authentication.krb5.user-mapping.file``
 Certificate                           ``http-server.authentication.certificate.user-mapping.file``
 Json Web Token                        ``http-server.authentication.jwt.user-mapping.file``
+Insecure                              ``http-server.authentication.insecure.user-mapping.file``
 ===================================== ===============================================================
 
