@@ -13,7 +13,6 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.configuration.testing.ConfigAssertions;
 import org.testng.annotations.Test;
 
-import java.math.RoundingMode;
 import java.util.Map;
 
 import static com.starburstdata.presto.plugin.oracle.OracleParallelismType.NO_PARALLELISM;
@@ -21,17 +20,13 @@ import static com.starburstdata.presto.plugin.oracle.OracleParallelismType.PARTI
 import static io.airlift.configuration.testing.ConfigAssertions.assertDeprecatedEquivalence;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 
-public class TestOracleConfig
+public class TestStarburstOracleConfig
 {
     @Test
     public void testDefaults()
     {
-        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(OracleConfig.class)
+        ConfigAssertions.assertRecordedDefaults(ConfigAssertions.recordDefaults(StarburstOracleConfig.class)
                 .setImpersonationEnabled(false)
-                .setSynonymsEnabled(false)
-                .setConnectionPoolingEnabled(true)
-                .setNumberRoundingMode(RoundingMode.UNNECESSARY)
-                .setDefaultNumberScale(null)
                 .setParallelismType(NO_PARALLELISM)
                 .setAuthenticationType(OracleAuthenticationType.PASSWORD)
                 .setMaxSplitsPerScan(10));
@@ -42,24 +37,16 @@ public class TestOracleConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("oracle.impersonation.enabled", "true")
-                .put("oracle.synonyms.enabled", "true")
-                .put("oracle.connection-pool.enabled", "false")
-                .put("oracle.number.rounding-mode", "HALF_EVEN")
-                .put("oracle.number.default-scale", "0")
                 .put("oracle.authentication.type", "KERBEROS")
                 .put("oracle.parallelism-type", "PARTITIONS")
                 .put("oracle.parallel.max-splits-per-scan", "42")
                 .build();
 
-        OracleConfig expected = new OracleConfig()
-                .setImpersonationEnabled(true)
-                .setSynonymsEnabled(true)
-                .setConnectionPoolingEnabled(false)
-                .setNumberRoundingMode(RoundingMode.HALF_EVEN)
-                .setDefaultNumberScale(0)
+        StarburstOracleConfig expected = new StarburstOracleConfig()
                 .setAuthenticationType(OracleAuthenticationType.KERBEROS)
                 .setParallelismType(PARTITIONS)
-                .setMaxSplitsPerScan(42);
+                .setMaxSplitsPerScan(42)
+                .setImpersonationEnabled(true);
 
         assertFullMapping(properties, expected);
     }
@@ -69,21 +56,13 @@ public class TestOracleConfig
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("oracle.impersonation.enabled", "true")
-                .put("oracle.synonyms.enabled", "true")
-                .put("oracle.connection-pool.enabled", "false")
-                .put("oracle.number.rounding-mode", "HALF_EVEN")
-                .put("oracle.number.default-scale", "0")
                 .put("oracle.authentication.type", "KERBEROS")
                 .put("oracle.parallelism-type", "PARTITIONS")
                 .put("oracle.parallel.max-splits-per-scan", "42")
                 .build();
 
-        OracleConfig expected = new OracleConfig()
+        StarburstOracleConfig expected = new StarburstOracleConfig()
                 .setImpersonationEnabled(true)
-                .setSynonymsEnabled(true)
-                .setConnectionPoolingEnabled(false)
-                .setNumberRoundingMode(RoundingMode.HALF_EVEN)
-                .setDefaultNumberScale(0)
                 .setAuthenticationType(OracleAuthenticationType.KERBEROS)
                 .setParallelismType(PARTITIONS)
                 .setMaxSplitsPerScan(42);
@@ -96,10 +75,6 @@ public class TestOracleConfig
     {
         Map<String, String> oldProperties = new ImmutableMap.Builder<String, String>()
                 .put("oracle.impersonation.enabled", "true")
-                .put("oracle.synonyms.enabled", "true")
-                .put("oracle.connection-pool.enabled", "false")
-                .put("oracle.number.rounding-mode", "HALF_EVEN")
-                .put("oracle.number.default-scale", "0")
                 .put("oracle.authentication.type", "KERBEROS")
                 .put("oracle.concurrency-type", "PARTITIONS")
                 .put("oracle.concurrent.max-splits-per-scan", "42")
@@ -107,16 +82,12 @@ public class TestOracleConfig
 
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("oracle.impersonation.enabled", "true")
-                .put("oracle.synonyms.enabled", "true")
-                .put("oracle.connection-pool.enabled", "false")
-                .put("oracle.number.rounding-mode", "HALF_EVEN")
-                .put("oracle.number.default-scale", "0")
                 .put("oracle.authentication.type", "KERBEROS")
                 .put("oracle.parallelism-type", "PARTITIONS")
                 .put("oracle.parallel.max-splits-per-scan", "42")
                 .build();
 
-        assertDeprecatedEquivalence(OracleConfig.class, properties, oldProperties);
+        assertDeprecatedEquivalence(StarburstOracleConfig.class, properties, oldProperties);
     }
 
     @Test
@@ -124,10 +95,6 @@ public class TestOracleConfig
     {
         Map<String, String> oldProperties = new ImmutableMap.Builder<String, String>()
                 .put("oracle.impersonation.enabled", "true")
-                .put("oracle.synonyms.enabled", "true")
-                .put("oracle.connection-pool.enabled", "false")
-                .put("oracle.number.rounding-mode", "HALF_EVEN")
-                .put("oracle.number.default-scale", "0")
                 .put("oracle.authentication.type", "KERBEROS")
                 .put("oracle.concurrency-type", "NO_CONCURRENCY")
                 .put("oracle.concurrent.max-splits-per-scan", "42")
@@ -135,15 +102,11 @@ public class TestOracleConfig
 
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("oracle.impersonation.enabled", "true")
-                .put("oracle.synonyms.enabled", "true")
-                .put("oracle.connection-pool.enabled", "false")
-                .put("oracle.number.rounding-mode", "HALF_EVEN")
-                .put("oracle.number.default-scale", "0")
                 .put("oracle.authentication.type", "KERBEROS")
                 .put("oracle.parallelism-type", "NO_PARALLELISM")
                 .put("oracle.parallel.max-splits-per-scan", "42")
                 .build();
 
-        assertDeprecatedEquivalence(OracleConfig.class, properties, oldProperties);
+        assertDeprecatedEquivalence(StarburstOracleConfig.class, properties, oldProperties);
     }
 }

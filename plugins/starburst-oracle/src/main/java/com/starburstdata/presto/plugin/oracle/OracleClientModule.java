@@ -15,6 +15,8 @@ import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
+import io.prestosql.plugin.oracle.OracleConfig;
+import io.prestosql.plugin.oracle.OracleSessionProperties;
 
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.prestosql.plugin.jdbc.JdbcModule.bindProcedure;
@@ -36,13 +38,15 @@ public class OracleClientModule
     {
         binder.bind(OracleSplitManager.class).in(Scopes.SINGLETON);
 
-        binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(OracleClient.class).in(Scopes.SINGLETON);
+        binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(StarburstOracleClient.class).in(Scopes.SINGLETON);
 
         bindProcedure(binder, AnalyzeProcedure.class);
 
+        bindSessionPropertiesProvider(binder, StarburstOracleSessionProperties.class);
         bindSessionPropertiesProvider(binder, OracleSessionProperties.class);
 
         configBinder(binder).bindConfig(OracleConfig.class);
+        configBinder(binder).bindConfig(StarburstOracleConfig.class);
         configBinder(binder).bindConfig(JdbcStatisticsConfig.class);
 
         install(new OracleAuthenticationModule(catalogName));

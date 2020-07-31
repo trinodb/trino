@@ -16,48 +16,33 @@ import io.prestosql.spi.session.PropertyMetadata;
 
 import javax.inject.Inject;
 
-import java.math.RoundingMode;
 import java.util.List;
-import java.util.Optional;
 
 import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 
-public final class OracleSessionProperties
+public final class StarburstOracleSessionProperties
         implements SessionPropertiesProvider
 {
-    public static final String NUMBER_ROUNDING_MODE = "number_rounding_mode";
-    public static final String NUMBER_DEFAULT_SCALE = "number_default_scale";
     public static final String PARALLELISM_TYPE = "parallelism_type";
     public static final String MAX_SPLITS_PER_SCAN = "max_splits_per_scan";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
-    public OracleSessionProperties(OracleConfig oracleConfig)
+    public StarburstOracleSessionProperties(StarburstOracleConfig starburstOracleConfig)
     {
         sessionProperties = ImmutableList.<PropertyMetadata<?>>builder()
-                .add(enumProperty(
-                        NUMBER_ROUNDING_MODE,
-                        "Rounding mode for Oracle NUMBER data type",
-                        RoundingMode.class,
-                        oracleConfig.getNumberRoundingMode(),
-                        false))
-                .add(integerProperty(
-                        NUMBER_DEFAULT_SCALE,
-                        "Default scale for Oracle Number data type",
-                        oracleConfig.getDefaultNumberScale().orElse(null),
-                        false))
                 .add(enumProperty(
                         PARALLELISM_TYPE,
                         "Parallelism strategy for reads",
                         OracleParallelismType.class,
-                        oracleConfig.getParallelismType(),
+                        starburstOracleConfig.getParallelismType(),
                         false))
                 .add(integerProperty(
                         MAX_SPLITS_PER_SCAN,
                         "Maximum number of splits for a table scan",
-                        oracleConfig.getMaxSplitsPerScan(),
+                        starburstOracleConfig.getMaxSplitsPerScan(),
                         false))
                 .build();
     }
@@ -66,16 +51,6 @@ public final class OracleSessionProperties
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
-    }
-
-    public static RoundingMode getNumberRoundingMode(ConnectorSession session)
-    {
-        return session.getProperty(NUMBER_ROUNDING_MODE, RoundingMode.class);
-    }
-
-    public static Optional<Integer> getNumberDefaultScale(ConnectorSession session)
-    {
-        return Optional.ofNullable(session.getProperty(NUMBER_DEFAULT_SCALE, Integer.class));
     }
 
     public static OracleParallelismType getParallelismType(ConnectorSession session)

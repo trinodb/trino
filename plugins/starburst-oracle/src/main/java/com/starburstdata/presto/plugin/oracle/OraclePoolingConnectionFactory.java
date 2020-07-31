@@ -14,6 +14,7 @@ import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
+import io.prestosql.plugin.oracle.OracleConfig;
 import io.prestosql.spi.PrestoException;
 import oracle.jdbc.pool.OracleDataSource;
 import oracle.ucp.UniversalConnectionPoolAdapter;
@@ -33,6 +34,7 @@ import static com.starburstdata.presto.plugin.oracle.OracleAuthenticationType.PA
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_USER_ERROR;
+import static java.lang.Math.toIntExact;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -55,7 +57,7 @@ public class OraclePoolingConnectionFactory
             BaseJdbcConfig config,
             Properties properties,
             Optional<CredentialProvider> credentialProvider,
-            OracleConnectionPoolingConfig poolingConfig,
+            OracleConfig oracleConfig,
             OracleAuthenticationType authenticationType)
     {
         this.authenticationType = requireNonNull(authenticationType, "authenticationType is null");
@@ -74,9 +76,9 @@ public class OraclePoolingConnectionFactory
             dataSource.setConnectionFactoryClassName(OracleDataSource.class.getName());
             dataSource.setURL(config.getConnectionUrl());
             dataSource.setConnectionProperties(properties);
-            dataSource.setMaxPoolSize(poolingConfig.getMaxPoolSize());
-            dataSource.setMinPoolSize(poolingConfig.getMinPoolSize());
-            dataSource.setInactiveConnectionTimeout((int) poolingConfig.getInactiveConnectionTimeout().roundTo(SECONDS));
+            dataSource.setMaxPoolSize(oracleConfig.getConnectionPoolMaxSize());
+            dataSource.setMinPoolSize(oracleConfig.getConnectionPoolMinSize());
+            dataSource.setInactiveConnectionTimeout(toIntExact(oracleConfig.getInactiveConnectionTimeout().roundTo(SECONDS)));
             credentialProvider.flatMap(provider -> provider.getConnectionUser(Optional.empty()))
                     .ifPresent(user -> attempt(() -> dataSource.setUser(user)));
             credentialProvider.flatMap(provider -> provider.getConnectionPassword(Optional.empty()))

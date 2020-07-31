@@ -10,28 +10,21 @@
 package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.starburstdata.presto.plugin.jdbc.stats.JdbcStatisticsConfig;
 import com.starburstdata.presto.plugin.jdbc.stats.TableStatisticsClient;
-import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
-import io.prestosql.plugin.jdbc.DoubleWriteFunction;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcExpression;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
-import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
 import io.prestosql.plugin.jdbc.JdbcSplit;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
-import io.prestosql.plugin.jdbc.LongWriteFunction;
 import io.prestosql.plugin.jdbc.QueryBuilder;
 import io.prestosql.plugin.jdbc.RemoteTableName;
-import io.prestosql.plugin.jdbc.SliceWriteFunction;
-import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.plugin.jdbc.expression.AggregateFunctionRewriter;
 import io.prestosql.plugin.jdbc.expression.AggregateFunctionRule;
 import io.prestosql.plugin.jdbc.expression.ImplementAvgDecimal;
@@ -40,6 +33,8 @@ import io.prestosql.plugin.jdbc.expression.ImplementCount;
 import io.prestosql.plugin.jdbc.expression.ImplementCountAll;
 import io.prestosql.plugin.jdbc.expression.ImplementMinMax;
 import io.prestosql.plugin.jdbc.expression.ImplementSum;
+import io.prestosql.plugin.oracle.OracleClient;
+import io.prestosql.plugin.oracle.OracleConfig;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.AggregateFunction;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -52,138 +47,45 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.ColumnStatistics;
 import io.prestosql.spi.statistics.Estimate;
 import io.prestosql.spi.statistics.TableStatistics;
-import io.prestosql.spi.type.CharType;
-import io.prestosql.spi.type.Chars;
 import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.Decimals;
-import io.prestosql.spi.type.TimestampType;
-import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.VarcharType;
 import oracle.jdbc.OracleConnection;
-import oracle.jdbc.OraclePreparedStatement;
 import oracle.jdbc.OracleTypes;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
 
 import javax.inject.Inject;
 
-import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
-import java.sql.Timestamp;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.TimeZone;
 import java.util.function.BiFunction;
-import java.util.function.UnaryOperator;
 
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.starburstdata.presto.plugin.oracle.OracleSessionProperties.getMaxSplitsPerScan;
-import static com.starburstdata.presto.plugin.oracle.OracleSessionProperties.getNumberDefaultScale;
-import static com.starburstdata.presto.plugin.oracle.OracleSessionProperties.getNumberRoundingMode;
-import static com.starburstdata.presto.plugin.oracle.OracleSessionProperties.getParallelismType;
-import static io.airlift.slice.Slices.utf8Slice;
-import static io.airlift.slice.Slices.wrappedBuffer;
-import static io.prestosql.plugin.jdbc.ColumnMapping.DISABLE_PUSHDOWN;
+import static com.starburstdata.presto.plugin.oracle.StarburstOracleSessionProperties.getMaxSplitsPerScan;
+import static com.starburstdata.presto.plugin.oracle.StarburstOracleSessionProperties.getParallelismType;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_NON_TRANSIENT_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.charReadFunction;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.charWriteFunction;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
-import static io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
-import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.CharType.createCharType;
-import static io.prestosql.spi.type.Chars.isCharType;
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
-import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.DecimalType.createDecimalType;
-import static io.prestosql.spi.type.Decimals.encodeScaledValue;
-import static io.prestosql.spi.type.Decimals.encodeShortScaledValue;
-import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TinyintType.TINYINT;
-import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
-import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.spi.type.Varchars.isVarcharType;
-import static java.lang.Float.floatToRawIntBits;
-import static java.lang.Float.intBitsToFloat;
-import static java.lang.Math.max;
 import static java.lang.Math.min;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.DAYS;
 import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 
-public class OracleClient
-        extends BaseJdbcClient
+public class StarburstOracleClient
+        extends OracleClient
 {
     private static final int DEFAULT_ROW_FETCH_SIZE = 1000;
-
-    // single UTF char may require up to 4 bytes of storage
-    private static final int MAX_BYTES_PER_CHAR = 4;
-
-    private static final int ORACLE_CHAR_MAX_BYTES = 2000;
-    private static final int ORACLE_CHAR_MAX_CHARS = ORACLE_CHAR_MAX_BYTES / MAX_BYTES_PER_CHAR;
-
-    private static final int ORACLE_VARCHAR2_MAX_BYTES = 4000;
-    private static final int ORACLE_VARCHAR2_MAX_CHARS = ORACLE_VARCHAR2_MAX_BYTES / MAX_BYTES_PER_CHAR;
-
     private static final int ORACLE_MAX_LIST_EXPRESSIONS = 1000;
-    private static final int PRECISION_OF_UNSPECIFIED_NUMBER = 127;
-
-    public static final UnaryOperator<Domain> SIMPLIFY_UNSUPPORTED_PUSHDOWN = domain -> {
-        if (domain.getValues().getRanges().getRangeCount() <= ORACLE_MAX_LIST_EXPRESSIONS) {
-            return domain;
-        }
-        return domain.simplify();
-    };
-
     private static final int PRESTO_BIGINT_TYPE = 832_424_001;
-
-    private static final Map<Type, WriteMapping> WRITE_MAPPINGS = ImmutableMap.<Type, WriteMapping>builder()
-            .put(BOOLEAN, oracleBooleanWriteMapping())
-            .put(BIGINT, WriteMapping.longMapping("number(19)", bigintWriteFunction()))
-            .put(INTEGER, WriteMapping.longMapping("number(10)", integerWriteFunction()))
-            .put(SMALLINT, WriteMapping.longMapping("number(5)", smallintWriteFunction()))
-            .put(TINYINT, WriteMapping.longMapping("number(3)", tinyintWriteFunction()))
-            .put(DOUBLE, WriteMapping.doubleMapping("binary_double", oracleDoubleWriteFunction()))
-            .put(REAL, WriteMapping.longMapping("binary_float", oracleRealWriteFunction()))
-            .put(VARBINARY, WriteMapping.sliceMapping("blob", varbinaryWriteFunction()))
-            .put(DATE, WriteMapping.longMapping("date", oracleDateWriteFunction()))
-            .put(TIMESTAMP_WITH_TIME_ZONE, WriteMapping.longMapping("timestamp(3) with time zone", oracleTimestampWithTimezoneWriteFunction()))
-            .build();
 
     private final boolean synonymsEnabled;
     private final OracleSplitManager splitManager;
@@ -191,14 +93,14 @@ public class OracleClient
     private final TableStatisticsClient tableStatisticsClient;
 
     @Inject
-    public OracleClient(
+    public StarburstOracleClient(
             BaseJdbcConfig config,
             JdbcStatisticsConfig statisticsConfig,
             OracleConfig oracleConfig,
             OracleSplitManager oracleSplitManager,
             ConnectionFactory connectionFactory)
     {
-        super(config, "\"", connectionFactory);
+        super(config, oracleConfig, connectionFactory);
         synonymsEnabled = oracleConfig.isSynonymsEnabled();
         splitManager = oracleSplitManager;
         JdbcTypeHandle bigintTypeHandle = new JdbcTypeHandle(PRESTO_BIGINT_TYPE, Optional.empty(), 0, 0, Optional.empty());
@@ -208,7 +110,7 @@ public class OracleClient
                         .add(new ImplementCountAll(bigintTypeHandle))
                         .add(new ImplementCount(bigintTypeHandle))
                         .add(new ImplementMinMax())
-                        .add(new ImplementSum(OracleClient::toTypeHandle))
+                        .add(new ImplementSum(StarburstOracleClient::toTypeHandle))
                         .add(new ImplementAvgFloatingPoint())
                         .add(new ImplementAvgDecimal())
                         .add(new ImplementOracleStddev())
@@ -278,67 +180,17 @@ public class OracleClient
     }
 
     @Override
-    public void commitCreateTable(JdbcIdentity identity, JdbcOutputTableHandle handle)
-    {
-        StringBuilder sql = new StringBuilder()
-                .append("ALTER TABLE ")
-                .append(quoted(handle.getCatalogName(), handle.getSchemaName(), handle.getTemporaryTableName()))
-                .append(" RENAME TO ")
-                .append(quoted(handle.getTableName()));
-
-        try (Connection connection = getConnection(identity, handle)) {
-            execute(connection, sql.toString());
-        }
-        catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
-        }
-    }
-
-    @Override
     protected void renameTable(JdbcIdentity identity, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
     {
         if (!schemaName.equals(newTable.getSchemaName().toUpperCase(ENGLISH))) {
             throw new PrestoException(NOT_SUPPORTED, "Table rename across schemas is not supported");
         }
 
-        try (Connection connection = connectionFactory.openConnection(identity)) {
-            String newTableName = newTable.getTableName();
-            if (connection.getMetaData().storesUpperCaseIdentifiers()) {
-                newTableName = newTableName.toUpperCase(ENGLISH);
-            }
-            String sql = format(
-                    "ALTER TABLE %s RENAME TO %s",
-                    quoted(catalogName, schemaName, tableName),
-                    quoted(newTableName));
-            execute(connection, sql);
-        }
-        catch (SQLException e) {
-            throw new PrestoException(JDBC_ERROR, e);
-        }
+        super.renameTable(identity, catalogName, schemaName, tableName, newTable);
     }
 
     @Override
-    protected ResultSet getTables(Connection connection, Optional<String> schemaName, Optional<String> tableName)
-            throws SQLException
-    {
-        DatabaseMetaData metadata = connection.getMetaData();
-        String escape = metadata.getSearchStringEscape();
-        return metadata.getTables(
-                connection.getCatalog(),
-                escapeNamePattern(schemaName, escape).orElse(null),
-                escapeNamePattern(tableName, escape).orElse(null),
-                getTableTypes());
-    }
-
-    private String[] getTableTypes()
-    {
-        if (synonymsEnabled) {
-            return new String[] {"TABLE", "VIEW", "SYNONYM"};
-        }
-        return new String[] {"TABLE", "VIEW"};
-    }
-
-    @Override
+    // TODO: migrate to OSS?
     public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
     {
         if (!synonymsEnabled) {
@@ -406,216 +258,27 @@ public class OracleClient
         if (mappingToVarchar.isPresent()) {
             return mappingToVarchar;
         }
-        int columnSize = type.getColumnSize();
-        // OracleType enum would be more appropriate here, but it doesn't have a
-        // value that corresponds to type.getJdbcType() for Oracle's RAW type.
-        switch (type.getJdbcType()) {
-            case OracleTypes.BINARY_FLOAT:
-                return Optional.of(ColumnMapping.longMapping(
-                        REAL,
-                        (resultSet, columnIndex) -> floatToRawIntBits(resultSet.getFloat(columnIndex)),
-                        oracleRealWriteFunction(),
-                        SIMPLIFY_UNSUPPORTED_PUSHDOWN));
 
+        return super.toPrestoType(session, connection, type).map(mapping -> simplifyUnsupportedPushdown(mapping, type.getJdbcType()));
+    }
+
+    private ColumnMapping simplifyUnsupportedPushdown(ColumnMapping mapping, int jdbcType)
+    {
+        switch (jdbcType) {
+            case OracleTypes.BINARY_FLOAT:
             case OracleTypes.BINARY_DOUBLE:
             case OracleTypes.FLOAT:
-                return Optional.of(ColumnMapping.doubleMapping(
-                        DOUBLE,
-                        ResultSet::getDouble,
-                        oracleDoubleWriteFunction(),
-                        SIMPLIFY_UNSUPPORTED_PUSHDOWN));
-
             case OracleTypes.NUMBER:
-                int decimalDigits = type.getDecimalDigits();
-                // Map negative scale to decimal(p+s, 0).
-                int precision = columnSize + max(-decimalDigits, 0);
-                int scale = max(decimalDigits, 0);
-                Optional<Integer> numberDefaultScale = getNumberDefaultScale(session);
-                RoundingMode roundingMode = getNumberRoundingMode(session);
-                if (precision < scale) {
-                    if (roundingMode == RoundingMode.UNNECESSARY) {
-                        break;
-                    }
-                    scale = min(Decimals.MAX_PRECISION, scale);
-                    precision = scale;
-                }
-                else if (numberDefaultScale.isPresent() && precision == PRECISION_OF_UNSPECIFIED_NUMBER) {
-                    precision = Decimals.MAX_PRECISION;
-                    scale = numberDefaultScale.get();
-                }
-                else if (precision > Decimals.MAX_PRECISION || columnSize <= 0) {
-                    break;
-                }
-                DecimalType decimalType = createDecimalType(precision, scale);
-                int finalScale = scale;
-                // JDBC driver can return BigDecimal with lower scale than column's scale when there are trailing zeroes
-                if (decimalType.isShort()) {
-                    return Optional.of(ColumnMapping.longMapping(
-                            decimalType,
-                            (resultSet, columnIndex) -> encodeShortScaledValue(resultSet.getBigDecimal(columnIndex), finalScale, roundingMode),
-                            shortDecimalWriteFunction(decimalType),
-                            SIMPLIFY_UNSUPPORTED_PUSHDOWN));
-                }
-                return Optional.of(ColumnMapping.sliceMapping(
-                        decimalType,
-                        (resultSet, columnIndex) -> encodeScaledValue(resultSet.getBigDecimal(columnIndex), finalScale, roundingMode),
-                        longDecimalWriteFunction(decimalType),
-                        SIMPLIFY_UNSUPPORTED_PUSHDOWN));
-
             case OracleTypes.CHAR:
             case OracleTypes.NCHAR:
-                CharType charType = createCharType(columnSize);
-                return Optional.of(ColumnMapping.sliceMapping(
-                        charType,
-                        charReadFunction(),
-                        oracleCharWriteFunction(charType),
-                        SIMPLIFY_UNSUPPORTED_PUSHDOWN));
-
             case OracleTypes.VARCHAR:
             case OracleTypes.NVARCHAR:
-                return Optional.of(ColumnMapping.sliceMapping(
-                        createVarcharType(columnSize),
-                        (varcharResultSet, varcharColumnIndex) -> utf8Slice(varcharResultSet.getString(varcharColumnIndex)),
-                        varcharWriteFunction(),
-                        SIMPLIFY_UNSUPPORTED_PUSHDOWN));
-
-            case OracleTypes.CLOB:
-            case OracleTypes.NCLOB:
-                return Optional.of(ColumnMapping.sliceMapping(
-                        createUnboundedVarcharType(),
-                        (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex)),
-                        varcharWriteFunction(),
-                        DISABLE_PUSHDOWN));
-
-            case OracleTypes.VARBINARY: // Oracle's RAW(n)
-            case OracleTypes.BLOB:
-                return Optional.of(ColumnMapping.sliceMapping(
-                        VARBINARY,
-                        (resultSet, columnIndex) -> wrappedBuffer(resultSet.getBytes(columnIndex)),
-                        varbinaryWriteFunction(),
-                        DISABLE_PUSHDOWN));
-
-            // This mapping covers both DATE and TIMESTAMP, as Oracle's DATE has second precision.
             case OracleTypes.TIMESTAMP:
-                return Optional.of(oracleTimestampColumnMapping());
             case OracleTypes.TIMESTAMPTZ:
-                return Optional.of(oracleTimestampWithTimeZoneColumnMapping());
+                return new ColumnMapping(mapping.getType(), mapping.getReadFunction(), mapping.getWriteFunction(), StarburstOracleClient::simplifyUnsupportedPushdown);
         }
-        if (getUnsupportedTypeHandling(session) == CONVERT_TO_VARCHAR) {
-            return mapToUnboundedVarchar(type);
-        }
-        return Optional.empty();
-    }
 
-    private static WriteMapping oracleBooleanWriteMapping()
-    {
-        return WriteMapping.booleanMapping("number(1)", (statement, index, value) -> statement.setInt(index, value ? 1 : 0));
-    }
-
-    private SliceWriteFunction oracleCharWriteFunction(CharType charType)
-    {
-        return (statement, index, value) -> statement.setString(index, Chars.padSpaces(value, charType).toStringUtf8());
-    }
-
-    private static ColumnMapping oracleTimestampColumnMapping()
-    {
-        return ColumnMapping.longMapping(
-                TIMESTAMP,
-                (resultSet, columnIndex) -> {
-                    LocalDateTime timestamp = resultSet.getObject(columnIndex, LocalDateTime.class);
-                    return timestamp.toInstant(ZoneOffset.UTC).toEpochMilli();
-                },
-                oracleTimestampWriteFunction(),
-                SIMPLIFY_UNSUPPORTED_PUSHDOWN);
-    }
-
-    public static ColumnMapping oracleTimestampWithTimeZoneColumnMapping()
-    {
-        return ColumnMapping.longMapping(
-                TIMESTAMP_WITH_TIME_ZONE,
-                (resultSet, columnIndex) -> {
-                    ZonedDateTime timestamp = resultSet.getObject(columnIndex, ZonedDateTime.class);
-                    return packDateTimeWithZone(
-                            timestamp.toInstant().toEpochMilli(),
-                            timestamp.getZone().getId());
-                },
-                oracleTimestampWithTimezoneWriteFunction(),
-                SIMPLIFY_UNSUPPORTED_PUSHDOWN);
-    }
-
-    public static LongWriteFunction oracleTimestampWithTimezoneWriteFunction()
-    {
-        return (statement, index, encodedTimeWithZone) -> {
-            Instant time = Instant.ofEpochMilli(unpackMillisUtc(encodedTimeWithZone));
-            ZoneId zone = ZoneId.of(unpackZoneKey(encodedTimeWithZone).getId());
-            statement.setObject(index, time.atZone(zone));
-        };
-    }
-
-    public static LongWriteFunction oracleRealWriteFunction()
-    {
-        return (statement, index, value) -> ((OraclePreparedStatement) statement).setBinaryFloat(index, intBitsToFloat(toIntExact(value)));
-    }
-
-    public static DoubleWriteFunction oracleDoubleWriteFunction()
-    {
-        return ((statement, index, value) -> ((OraclePreparedStatement) statement).setBinaryDouble(index, value));
-    }
-
-    public static LongWriteFunction oracleDateWriteFunction()
-    {
-        return (statement, index, value) -> {
-            long utcMillis = DAYS.toMillis(value);
-            ZonedDateTime date = Instant.ofEpochMilli(utcMillis).atZone(ZoneOffset.UTC);
-            // because of how JDBC works with dates we need to use the ZonedDataTime object and not a LocalDateTime
-            statement.setObject(index, date);
-        };
-    }
-
-    private static LongWriteFunction oracleTimestampWriteFunction()
-    {
-        return (statement, index, utcMillis) -> statement.setObject(index, new oracle.sql.TIMESTAMP(new Timestamp(utcMillis), Calendar.getInstance(TimeZone.getTimeZone("UTC"))));
-    }
-
-    @Override
-    public WriteMapping toWriteMapping(ConnectorSession session, Type type)
-    {
-        if (isVarcharType(type)) {
-            String dataType;
-            VarcharType varcharType = (VarcharType) type;
-            if (varcharType.isUnbounded() || varcharType.getBoundedLength() > ORACLE_VARCHAR2_MAX_CHARS) {
-                dataType = "nclob";
-            }
-            else {
-                dataType = "varchar2(" + varcharType.getBoundedLength() + " CHAR)";
-            }
-            return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
-        }
-        if (isCharType(type)) {
-            String dataType;
-            if (((CharType) type).getLength() > ORACLE_CHAR_MAX_CHARS) {
-                dataType = "nclob";
-            }
-            else {
-                dataType = "char(" + ((CharType) type).getLength() + " CHAR)";
-            }
-            return WriteMapping.sliceMapping(dataType, charWriteFunction());
-        }
-        if (type instanceof DecimalType) {
-            String dataType = format("number(%s, %s)", ((DecimalType) type).getPrecision(), ((DecimalType) type).getScale());
-            if (((DecimalType) type).isShort()) {
-                return WriteMapping.longMapping(dataType, shortDecimalWriteFunction((DecimalType) type));
-            }
-            return WriteMapping.sliceMapping(dataType, longDecimalWriteFunction((DecimalType) type));
-        }
-        if (type instanceof TimestampType) {
-            return WriteMapping.longMapping("timestamp(3)", oracleTimestampWriteFunction());
-        }
-        WriteMapping writeMapping = WRITE_MAPPINGS.get(type);
-        if (writeMapping != null) {
-            return writeMapping;
-        }
-        throw new PrestoException(NOT_SUPPORTED, "Unsupported column type: " + type.getDisplayName());
+        return mapping;
     }
 
     @Override
@@ -639,16 +302,11 @@ public class OracleClient
     @Override
     public boolean isLimitGuaranteed(ConnectorSession session)
     {
-        return OracleSessionProperties.getParallelismType(session) == OracleParallelismType.NO_PARALLELISM;
+        return StarburstOracleSessionProperties.getParallelismType(session) == OracleParallelismType.NO_PARALLELISM;
     }
 
     @Override
-    public void createSchema(JdbcIdentity identity, String schemaName)
-    {
-        throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating schemas");
-    }
-
-    @Override
+    // TODO: migrate to OSS?
     public void dropSchema(JdbcIdentity identity, String schemaName)
     {
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support dropping schemas");
@@ -721,6 +379,14 @@ public class OracleClient
 
             return Optional.of(tableStatistics.build());
         }
+    }
+
+    private static Domain simplifyUnsupportedPushdown(Domain domain)
+    {
+        if (domain.getValues().getRanges().getRangeCount() <= ORACLE_MAX_LIST_EXPRESSIONS) {
+            return domain;
+        }
+        return domain.simplify();
     }
 
     private static class StatisticsDao

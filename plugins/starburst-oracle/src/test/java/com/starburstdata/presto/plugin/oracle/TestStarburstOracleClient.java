@@ -19,6 +19,8 @@ import io.prestosql.plugin.jdbc.JdbcExpression;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.TypeHandlingJdbcConfig;
 import io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties;
+import io.prestosql.plugin.oracle.OracleConfig;
+import io.prestosql.plugin.oracle.OracleSessionProperties;
 import io.prestosql.spi.connector.AggregateFunction;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
@@ -43,7 +45,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
-public class TestOracleClient
+public class TestStarburstOracleClient
 {
     private static final JdbcColumnHandle DECIMAL_COLUMN =
             JdbcColumnHandle.builder()
@@ -60,7 +62,7 @@ public class TestOracleClient
                     .build();
 
     public static final ConnectionFactory CONNECTION_FACTORY = identity -> { throw new UnsupportedOperationException(); };
-    private static final JdbcClient JDBC_CLIENT = new OracleClient(
+    private static final JdbcClient JDBC_CLIENT = new StarburstOracleClient(
             new BaseJdbcConfig(),
             new JdbcStatisticsConfig(),
             new OracleConfig(),
@@ -71,6 +73,7 @@ public class TestOracleClient
             .setPropertyMetadata(ImmutableList.<PropertyMetadata<?>>builder()
                     .addAll(new TypeHandlingJdbcSessionProperties(new TypeHandlingJdbcConfig()).getSessionProperties())
                     .addAll(new OracleSessionProperties(new OracleConfig()).getSessionProperties())
+                    .addAll(new StarburstOracleSessionProperties(new StarburstOracleConfig()).getSessionProperties())
                     .build())
             .build();
 

@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-presto-root</artifactId>
-        <version>339-e-SNAPSHOT</version>
+        <version>341-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -41,6 +41,22 @@
         <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-matching</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-oracle</artifactId>
+            <!-- We need to downgrade Oracle JDBC driver due to Kerberos authentication errors -->
+            <exclusions>
+                <exclusion>
+                    <groupId>com.oracle.ojdbc</groupId>
+                    <artifactId>ojdbc8</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.oracle.ojdbc</groupId>
+                    <artifactId>ucp</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>

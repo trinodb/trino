@@ -75,11 +75,11 @@ import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.tooLargeCha
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.tooLargeVarcharDataType;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.unspecifiedNumberDataType;
 import static com.starburstdata.presto.plugin.oracle.OracleDataTypes.varchar2DataType;
-import static com.starburstdata.presto.plugin.oracle.OracleSessionProperties.NUMBER_DEFAULT_SCALE;
-import static com.starburstdata.presto.plugin.oracle.OracleSessionProperties.NUMBER_ROUNDING_MODE;
 import static io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
+import static io.prestosql.plugin.oracle.OracleSessionProperties.NUMBER_DEFAULT_SCALE;
+import static io.prestosql.plugin.oracle.OracleSessionProperties.NUMBER_ROUNDING_MODE;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.testing.datatype.DataType.timestampDataType;
