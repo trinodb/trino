@@ -146,7 +146,7 @@ Property                                                  Description
         http-server.https.excluded-cipher=
 
     The Java documentation lists the `supported cipher suites
-    <http://docs.oracle.com/javase/8/docs/technotes/guides/security/SunProviders.html#SupportedCipherSuites>`_.
+    <https://docs.oracle.com/en/java/javase/11/security/oracle-providers.html#GUID-7093246A-31A3-4304-AC5F-5FB6400405E2__SUNJSSE_CIPHER_SUITES>`_.
 
 access-controls.properties
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
