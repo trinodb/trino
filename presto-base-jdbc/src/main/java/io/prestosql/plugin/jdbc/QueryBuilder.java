@@ -35,7 +35,6 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static java.lang.String.format;
@@ -51,7 +50,7 @@ public class QueryBuilder
     private static final String ALWAYS_TRUE = "1=1";
     private static final String ALWAYS_FALSE = "1=0";
 
-    private final String identifierQuote;
+    private final JdbcClient client;
 
     private static class TypeAndValue
     {
@@ -82,18 +81,15 @@ public class QueryBuilder
         }
     }
 
-    public QueryBuilder(String identifierQuote)
+    public QueryBuilder(JdbcClient client)
     {
-        this.identifierQuote = requireNonNull(identifierQuote, "identifierQuote is null");
+        this.client = requireNonNull(client, "jdbcClient is null");
     }
 
     public PreparedStatement buildSql(
-            JdbcClient client,
             ConnectorSession session,
             Connection connection,
-            String catalog,
-            String schema,
-            String table,
+            RemoteTableName remoteTableName,
             Optional<List<List<JdbcColumnHandle>>> groupingSets,
             List<JdbcColumnHandle> columns,
             TupleDomain<ColumnHandle> tupleDomain,
@@ -102,7 +98,7 @@ public class QueryBuilder
             throws SQLException
     {
         String sql = "SELECT " + getProjection(columns);
-        sql += " FROM " + getRelation(catalog, schema, table);
+        sql += " FROM " + client.quoted(remoteTableName);
 
         List<TypeAndValue> accumulator = new ArrayList<>();
 
@@ -158,20 +154,8 @@ public class QueryBuilder
             return "1";
         }
         return columns.stream()
-                .map(jdbcColumnHandle -> format("%s AS %s", jdbcColumnHandle.toSqlExpression(this::quote), quote(jdbcColumnHandle.getColumnName())))
+                .map(jdbcColumnHandle -> format("%s AS %s", jdbcColumnHandle.toSqlExpression(client::quoted), client.quoted(jdbcColumnHandle.getColumnName())))
                 .collect(joining(", "));
-    }
-
-    protected String getRelation(String catalog, String schema, String table)
-    {
-        StringBuilder sql = new StringBuilder();
-        if (!isNullOrEmpty(catalog)) {
-            sql.append(quote(catalog)).append('.');
-        }
-        if (!isNullOrEmpty(schema)) {
-            sql.append(quote(schema)).append('.');
-        }
-        return sql.append(quote(table)).toString();
     }
 
     private static Domain pushDownDomain(JdbcClient client, ConnectorSession session, Connection connection, JdbcColumnHandle column, Domain domain)
@@ -203,11 +187,11 @@ public class QueryBuilder
     private String toPredicate(String columnName, Domain domain, JdbcColumnHandle column, List<TypeAndValue> accumulator)
     {
         if (domain.getValues().isNone()) {
-            return domain.isNullAllowed() ? quote(columnName) + " IS NULL" : ALWAYS_FALSE;
+            return domain.isNullAllowed() ? client.quoted(columnName) + " IS NULL" : ALWAYS_FALSE;
         }
 
         if (domain.getValues().isAll()) {
-            return domain.isNullAllowed() ? ALWAYS_TRUE : quote(columnName) + " IS NOT NULL";
+            return domain.isNullAllowed() ? ALWAYS_TRUE : client.quoted(columnName) + " IS NOT NULL";
         }
 
         List<String> disjuncts = new ArrayList<>();
@@ -262,13 +246,13 @@ public class QueryBuilder
                 bindValue(value, column, accumulator);
             }
             String values = Joiner.on(",").join(nCopies(singleValues.size(), "?"));
-            disjuncts.add(quote(columnName) + " IN (" + values + ")");
+            disjuncts.add(client.quoted(columnName) + " IN (" + values + ")");
         }
 
         // Add nullability disjuncts
         checkState(!disjuncts.isEmpty());
         if (domain.isNullAllowed()) {
-            disjuncts.add(quote(columnName) + " IS NULL");
+            disjuncts.add(client.quoted(columnName) + " IS NULL");
         }
 
         return "(" + Joiner.on(" OR ").join(disjuncts) + ")";
@@ -277,7 +261,7 @@ public class QueryBuilder
     private String toPredicate(String columnName, String operator, Object value, JdbcColumnHandle column, List<TypeAndValue> accumulator)
     {
         bindValue(value, column, accumulator);
-        return quote(columnName) + " " + operator + " ?";
+        return client.quoted(columnName) + " " + operator + " ?";
     }
 
     private String getGroupBy(Optional<List<List<JdbcColumnHandle>>> groupingSets)
@@ -295,21 +279,16 @@ public class QueryBuilder
             }
             return " GROUP BY " + groupingSet.stream()
                     .map(JdbcColumnHandle::getColumnName)
-                    .map(this::quote)
+                    .map(client::quoted)
                     .collect(joining(", "));
         }
         return " GROUP BY GROUPING SETS " +
                 groupingSets.get().stream()
                         .map(groupingSet -> groupingSet.stream()
                                 .map(JdbcColumnHandle::getColumnName)
-                                .map(this::quote)
+                                .map(client::quoted)
                                 .collect(joining(", ", "(", ")")))
                         .collect(joining(", ", "(", ")"));
-    }
-
-    protected String quote(String name)
-    {
-        return identifierQuote + name.replace(identifierQuote, identifierQuote + identifierQuote) + identifierQuote;
     }
 
     private static void bindValue(Object value, JdbcColumnHandle column, List<TypeAndValue> accumulator)

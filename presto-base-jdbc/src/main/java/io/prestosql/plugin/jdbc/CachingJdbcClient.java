@@ -315,6 +315,18 @@ public final class CachingJdbcClient
         return delegate.getSystemTable(session, tableName);
     }
 
+    @Override
+    public String quoted(String name)
+    {
+        return delegate.quoted(name);
+    }
+
+    @Override
+    public String quoted(RemoteTableName remoteTableName)
+    {
+        return delegate.quoted(remoteTableName);
+    }
+
     private void invalidateSchemasCache()
     {
         schemaNamesCache.invalidateAll();

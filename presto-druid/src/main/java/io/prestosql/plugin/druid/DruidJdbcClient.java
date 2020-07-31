@@ -25,6 +25,7 @@ import io.prestosql.plugin.jdbc.JdbcSplit;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.QueryBuilder;
+import io.prestosql.plugin.jdbc.RemoteTableName;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
@@ -66,7 +67,6 @@ public class DruidJdbcClient
 
     @Inject
     public DruidJdbcClient(BaseJdbcConfig config, ConnectionFactory connectionFactory)
-            throws SQLException
     {
         super(config, "\"", connectionFactory);
     }
@@ -155,14 +155,11 @@ public class DruidJdbcClient
     {
         String schemaName = table.getSchemaName();
         checkArgument("druid".equals(schemaName), "Only \"druid\" schema is supported");
-        return new QueryBuilder(identifierQuote)
+        return new QueryBuilder(this)
                 .buildSql(
-                        this,
                         session,
                         connection,
-                        null,
-                        schemaName,
-                        table.getTableName(),
+                        new RemoteTableName(Optional.empty(), table.getRemoteTableName().getSchemaName(), table.getRemoteTableName().getTableName()),
                         table.getGroupingSets(),
                         columns,
                         table.getConstraint(),
