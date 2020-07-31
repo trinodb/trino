@@ -18,6 +18,8 @@ import io.prestosql.spi.block.LongArrayBlock;
 import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.TimeType;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 
@@ -32,6 +34,8 @@ import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeQue
 import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeQueryBuilder.TIMESTAMP_WITH_TIME_ZONE_ZONE_MASK;
 import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeQueryBuilder.ZONE_OFFSET_MINUTES_BIAS;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.TimeType.createTimeType;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -41,6 +45,8 @@ import static java.util.Objects.requireNonNull;
 public class TranslatingPageSource
         implements ConnectorPageSource
 {
+    private static final TimeType TIME_TYPE = createTimeType(TimestampType.DEFAULT_PRECISION);
+
     private final ConnectorPageSource delegate;
     private final List<HiveColumnHandle> columns;
     private final TranslateToLong timestampWithTimeZoneTranslation;
@@ -74,6 +80,13 @@ public class TranslatingPageSource
                         new TranslateToLongBlockLoader(
                                 originalBlock,
                                 timestampWithTimeZoneTranslation));
+            }
+            else if (type instanceof TimeType) {
+                translatedBlocks[index] = new LazyBlock(
+                        originalBlock.getPositionCount(),
+                        new TranslateToLongBlockLoader(
+                                originalBlock,
+                                TranslatingPageSource::translateTime));
             }
             else {
                 translatedBlocks[index] = originalBlock;
@@ -167,11 +180,20 @@ public class TranslatingPageSource
         }
     }
 
-    interface TranslateToLong
+    // TODO: Remove mapLong entirely and make TimestampWithTimeZoneTranslation into a static method instead of a class
+    private interface TranslateToLong
     {
         long extractLong(Block block, int position);
 
-        long mapLong(long value);
+        default long mapLong(long value)
+        {
+            return value;
+        }
+    }
+
+    private static long translateTime(Block block, int position)
+    {
+        return TIME_TYPE.getLong(block, position) * PICOSECONDS_PER_MILLISECOND;
     }
 
     private static class TimestampWithTimeZoneTranslation

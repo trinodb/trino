@@ -50,19 +50,17 @@ import org.jdbi.v3.core.Jdbi;
 import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Time;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.LocalTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
 
 import static com.google.common.base.Verify.verify;
@@ -70,10 +68,13 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoTime;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoTimestamp;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.jdbcTypeToPrestoType;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.toPrestoTimestamp;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
@@ -88,6 +89,7 @@ import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
@@ -105,7 +107,6 @@ public class SnowflakeClient
 {
     public static final String IDENTIFIER_QUOTE = "\"";
 
-    private static final LocalDate EPOCH_DAY = LocalDate.ofEpochDay(0);
     private static final DateTimeFormatter SNOWFLAKE_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("y-MM-dd'T'HH:mm:ss.SSSSSSSSSXXX");
     private static final int SNOWFLAKE_MAX_LIST_EXPRESSIONS = 1000;
 
@@ -325,23 +326,13 @@ public class SnowflakeClient
     {
         return ColumnMapping.longMapping(
                 TIME,
-                (resultSet, columnIndex) -> toPrestoTime(toLocalTime(resultSet, columnIndex)),
+                (resultSet, columnIndex) -> toPrestoTime(resultSet.getTime(columnIndex)),
                 timeWriteFunction());
     }
 
     private static LongWriteFunction timeWriteFunction()
     {
         return (statement, index, value) -> statement.setString(index, fromPrestoTime(value).toString());
-    }
-
-    private static long toPrestoTimestamp(LocalDateTime localDateTime)
-    {
-        return localDateTime.atZone(UTC).toInstant().toEpochMilli();
-    }
-
-    private static LocalDateTime fromPrestoTimestamp(long value)
-    {
-        return Instant.ofEpochMilli(value).atZone(UTC).toLocalDateTime();
     }
 
     private static LocalDateTime toLocalDateTime(ResultSet resultSet, int columnIndex)
@@ -351,20 +342,9 @@ public class SnowflakeClient
         return LocalDateTime.ofInstant(Instant.ofEpochMilli(ts.getTime()), UTC);
     }
 
-    private static long toPrestoTime(LocalTime localTime)
+    private static long toPrestoTime(Time sqlTime)
     {
-        return localTime.atDate(EPOCH_DAY).atZone(UTC).toInstant().toEpochMilli();
-    }
-
-    private static LocalTime fromPrestoTime(long value)
-    {
-        return Instant.ofEpochMilli(value).atZone(UTC).toLocalTime();
-    }
-
-    private static LocalTime toLocalTime(ResultSet resultSet, int columnIndex)
-            throws SQLException
-    {
-        return LocalTime.ofNanoOfDay(TimeUnit.MILLISECONDS.toNanos(resultSet.getTime(columnIndex).getTime()));
+        return PICOSECONDS_PER_MILLISECOND * sqlTime.getTime();
     }
 
     private Optional<TableStatistics> readTableStatistics(ConnectorSession session, JdbcTableHandle table)
