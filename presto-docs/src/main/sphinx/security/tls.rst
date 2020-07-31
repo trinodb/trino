@@ -77,7 +77,7 @@ Java Keystore File Verification
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 Verify the password for a keystore file and view its contents using `keytool
-<http://docs.oracle.com/javase/8/docs/technotes/tools/windows/keytool.html>`_.
+<https://docs.oracle.com/en/java/javase/11/tools/keytool.html>`_.
 
 .. code-block:: none
 
