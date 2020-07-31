@@ -160,6 +160,9 @@ public final class TimeZoneKey
         return TIME_ZONE_KEYS[timeZoneKey];
     }
 
+    /**
+     * @throws TimeZoneNotSupportedException when {@code zoneId} does not identity a time zone
+     */
     public static TimeZoneKey getTimeZoneKey(String zoneId)
     {
         requireNonNull(zoneId, "Zone id is null");
