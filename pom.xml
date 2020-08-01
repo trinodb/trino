@@ -595,12 +595,6 @@
 
             <dependency>
                 <groupId>io.airlift</groupId>
-                <artifactId>airline</artifactId>
-                <version>0.8</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.airlift</groupId>
                 <artifactId>bootstrap</artifactId>
                 <version>${dep.airlift.version}</version>
             </dependency>
@@ -1021,6 +1015,12 @@
                 <groupId>com.teradata</groupId>
                 <artifactId>re2j-td</artifactId>
                 <version>1.4</version>
+            </dependency>
+
+            <dependency>
+                <groupId>info.picocli</groupId>
+                <artifactId>picocli</artifactId>
+                <version>4.5.1</version>
             </dependency>
 
             <dependency>

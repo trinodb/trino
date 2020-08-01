@@ -13,50 +13,129 @@
  */
 package io.prestosql.tests.product.launcher.cli;
 
-import io.airlift.airline.Cli;
-import io.airlift.airline.CommandFactory;
-import io.airlift.airline.Help;
 import io.prestosql.tests.product.launcher.Extensions;
+import picocli.CommandLine;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.HelpCommand;
+import picocli.CommandLine.IFactory;
+import picocli.CommandLine.Model.CommandSpec;
+import picocli.CommandLine.Option;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
+import static io.prestosql.tests.product.launcher.cli.Launcher.EnvironmentCommand;
+import static io.prestosql.tests.product.launcher.cli.Launcher.SuiteCommand;
+import static io.prestosql.tests.product.launcher.cli.Launcher.TestCommand;
+import static io.prestosql.tests.product.launcher.cli.Launcher.VersionProvider;
+import static java.util.Objects.requireNonNull;
+import static picocli.CommandLine.IVersionProvider;
+import static picocli.CommandLine.Spec;
+
+@Command(
+        name = "launcher",
+        usageHelpAutoWidth = true,
+        versionProvider = VersionProvider.class,
+        subcommands = {
+                HelpCommand.class,
+                EnvironmentCommand.class,
+                SuiteCommand.class,
+                TestCommand.class,
+        })
 public class Launcher
 {
+    @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
+    public boolean usageHelpRequested;
+
+    @Option(names = "--version", versionHelp = true, description = "Print version information and exit")
+    public boolean versionInfoRequested;
+
     public static void main(String[] args)
     {
-        new Launcher().run(args);
+        Launcher launcher = new Launcher();
+        IFactory factory = createFactory(launcher.getExtensions());
+        System.exit(new CommandLine(launcher, factory).execute(args));
     }
 
-    protected void run(String[] args)
+    private static IFactory createFactory(Extensions extensions)
     {
-        CommandFactory<Runnable> commandFactory = new ExtensionsProvidingCommandFactory<>(getExtensions());
-        Cli.CliBuilder<Runnable> cli = Cli.<Runnable>builder("launcher")
-                .withCommandFactory(commandFactory) // TODO ignored
-                .withDefaultCommand(Help.class)
-                .withCommand(Help.class);
-
-        cli
-                .withGroup("env")
-                .withDefaultCommand(Help.class) // TODO should be group aware https://github.com/airlift/airline/issues/72? Otherwise it's required until https://github.com/airlift/airline/pull/71
-                .withCommand(EnvironmentUp.class)
-                .withCommand(EnvironmentDown.class)
-                .withCommand(EnvironmentList.class);
-
-        cli
-                .withGroup("test")
-                .withDefaultCommand(Help.class) // TODO should be group aware https://github.com/airlift/airline/issues/72? Otherwise it's required until https://github.com/airlift/airline/pull/71
-                .withCommand(TestRun.class);
-
-        cli
-                .withGroup("suite")
-                .withDefaultCommand(Help.class) // TODO should be group aware https://github.com/airlift/airline/issues/72? Otherwise it's required until https://github.com/airlift/airline/pull/71
-                .withCommand(SuiteRun.class)
-                .withCommand(SuiteList.class)
-                .withCommand(SuiteDescribe.class);
-
-        cli.build().parse(commandFactory, args).run();
+        requireNonNull(extensions, "extensions is null");
+        return new IFactory()
+        {
+            @Override
+            public <T> T create(Class<T> clazz)
+                    throws Exception
+            {
+                try {
+                    return clazz.getConstructor(Extensions.class).newInstance(extensions);
+                }
+                catch (NoSuchMethodException ignore) {
+                    return CommandLine.defaultFactory().create(clazz);
+                }
+            }
+        };
     }
 
     protected Extensions getExtensions()
     {
         return new Extensions(binder -> {});
+    }
+
+    @Command(
+            name = "env",
+            description = "Manage test environments",
+            usageHelpAutoWidth = true,
+            subcommands = {
+                    HelpCommand.class,
+                    EnvironmentUp.class,
+                    EnvironmentDown.class,
+                    EnvironmentList.class,
+            })
+    public static class EnvironmentCommand
+    {
+        @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
+        public boolean usageHelpRequested;
+    }
+
+    @Command(
+            name = "suite",
+            description = "Manage test suites",
+            usageHelpAutoWidth = true,
+            subcommands = {
+                    HelpCommand.class,
+                    SuiteRun.class,
+                    SuiteList.class,
+                    SuiteDescribe.class,
+            })
+    public static class SuiteCommand
+    {
+        @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
+        public boolean usageHelpRequested;
+    }
+
+    @Command(
+            name = "test",
+            description = "Run a Presto product test",
+            usageHelpAutoWidth = true,
+            subcommands = {
+                    HelpCommand.class,
+                    TestRun.class,
+            })
+    public static class TestCommand
+    {
+        @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
+        public boolean usageHelpRequested;
+    }
+
+    public static class VersionProvider
+            implements IVersionProvider
+    {
+        @Spec
+        public CommandSpec spec;
+
+        @Override
+        public String[] getVersion()
+        {
+            String version = getClass().getPackage().getImplementationVersion();
+            return new String[] {spec.name() + " " + firstNonNull(version, "(version unknown)")};
+        }
     }
 }
