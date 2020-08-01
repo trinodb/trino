@@ -105,7 +105,6 @@ import static io.prestosql.plugin.hive.metastore.MetastoreUtil.partitionKeyFilte
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
-import static io.prestosql.plugin.hive.util.HiveUtil.PRESTO_VIEW_FLAG;
 import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -461,7 +460,13 @@ public class FileHiveMetastore
     @Override
     public synchronized List<String> getAllViews(String databaseName)
     {
-        return getTablesWithParameter(databaseName, PRESTO_VIEW_FLAG, "true");
+        return getAllTables(databaseName).stream()
+                .map(tableName -> getTable(databaseName, tableName))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .filter(table -> TableType.valueOf(table.getTableType()).equals(VIRTUAL_VIEW))
+                .map(Table::getTableName)
+                .collect(toImmutableList());
     }
 
     @Override
