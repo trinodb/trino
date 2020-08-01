@@ -13,7 +13,15 @@
  */
 package io.prestosql.cli;
 
-import static io.airlift.airline.SingleCommand.singleCommand;
+import com.google.common.net.HostAndPort;
+import io.airlift.units.Duration;
+import io.prestosql.cli.ClientOptions.ClientExtraCredential;
+import io.prestosql.cli.ClientOptions.ClientResourceEstimate;
+import io.prestosql.cli.ClientOptions.ClientSessionProperty;
+import picocli.CommandLine;
+import picocli.CommandLine.IVersionProvider;
+
+import static com.google.common.base.MoreObjects.firstNonNull;
 
 public final class Presto
 {
@@ -21,13 +29,27 @@ public final class Presto
 
     public static void main(String[] args)
     {
-        Console console = singleCommand(Console.class).parse(args);
+        System.exit(createCommandLine(new Console()).execute(args));
+    }
 
-        if (console.helpOption.showHelpIfRequested() ||
-                console.versionOption.showVersionIfRequested()) {
-            return;
+    public static CommandLine createCommandLine(Object command)
+    {
+        return new CommandLine(command)
+                .registerConverter(ClientResourceEstimate.class, ClientResourceEstimate::new)
+                .registerConverter(ClientSessionProperty.class, ClientSessionProperty::new)
+                .registerConverter(ClientExtraCredential.class, ClientExtraCredential::new)
+                .registerConverter(HostAndPort.class, HostAndPort::fromString)
+                .registerConverter(Duration.class, Duration::valueOf);
+    }
+
+    public static class VersionProvider
+            implements IVersionProvider
+    {
+        @Override
+        public String[] getVersion()
+        {
+            String version = getClass().getPackage().getImplementationVersion();
+            return new String[] {"Presto CLI " + firstNonNull(version, "(version unknown)")};
         }
-
-        System.exit(console.run() ? 0 : 1);
     }
 }

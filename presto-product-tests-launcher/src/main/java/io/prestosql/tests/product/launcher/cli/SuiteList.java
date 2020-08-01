@@ -16,7 +16,6 @@ package io.prestosql.tests.product.launcher.cli;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
-import io.airlift.airline.Command;
 import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentConfigFactory;
@@ -24,6 +23,8 @@ import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 import io.prestosql.tests.product.launcher.suite.SuiteFactory;
 import io.prestosql.tests.product.launcher.suite.SuiteModule;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.Option;
 
 import javax.inject.Inject;
 
@@ -36,12 +37,18 @@ import java.nio.charset.Charset;
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static java.util.Objects.requireNonNull;
 
-@Command(name = "list", description = "lists test suites")
+@Command(
+        name = "list",
+        description = "List tests suite",
+        usageHelpAutoWidth = true)
 public final class SuiteList
         implements Runnable
 {
     private final Module additionalEnvironments;
     private final Module additionalSuites;
+
+    @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
+    public boolean usageHelpRequested;
 
     public SuiteList(Extensions extensions)
     {

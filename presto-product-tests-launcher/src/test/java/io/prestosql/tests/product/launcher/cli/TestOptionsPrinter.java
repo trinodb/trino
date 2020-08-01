@@ -14,9 +14,9 @@
 package io.prestosql.tests.product.launcher.cli;
 
 import com.google.common.collect.ImmutableList;
-import io.airlift.airline.Arguments;
-import io.airlift.airline.Option;
 import org.testng.annotations.Test;
+import picocli.CommandLine.Option;
+import picocli.CommandLine.Parameters;
 
 import java.util.List;
 
@@ -61,13 +61,13 @@ public class TestOptionsPrinter
 
     private static class Options
     {
-        @Option(name = "--value", title = "value", description = "Test value")
+        @Option(names = "--value", paramLabel = "<value>", description = "Test value")
         public String value;
 
-        @Option(name = "--boolean", title = "value-boolean", description = "Test value boolean")
+        @Option(names = "--boolean", paramLabel = "<boolean>", description = "Test value boolean")
         public boolean valueBoolean;
 
-        @Arguments
+        @Parameters
         public List<String> arguments;
 
         public Options(String value, boolean valueBoolean, List<String> arguments)
