@@ -186,7 +186,6 @@ public final class KafkaQueryRunner
 
             Map<String, String> kafkaProperties = new HashMap<>(ImmutableMap.copyOf(extraKafkaProperties));
             kafkaProperties.putIfAbsent("kafka.nodes", testingKafka.getConnectString());
-            kafkaProperties.putIfAbsent("kafka.connect-timeout", "120s");
             kafkaProperties.putIfAbsent("kafka.default-schema", "default");
             kafkaProperties.putIfAbsent("kafka.messages-per-split", "1000");
             kafkaProperties.putIfAbsent("kafka.table-description-dir", "write-test");
