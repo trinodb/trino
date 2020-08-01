@@ -39,7 +39,6 @@ import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
 import static java.util.stream.Collectors.toSet;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestGrantRevoke
         extends ProductTest
@@ -238,15 +237,12 @@ public class TestGrantRevoke
     public void testTablePrivilegesWithHiveOnlyViews()
     {
         executeWith(createViewAs("hive_only_view", format("SELECT * FROM %s", tableName), onHive()), view -> {
-            assertThatThrownBy(() -> onPresto().executeQuery(format("SELECT * FROM %s", view.getName())))
-                    .hasMessageContaining("Hive views are not supported");
-
             assertThat(onPresto().executeQuery("SELECT DISTINCT table_name FROM information_schema.table_privileges"))
                     .contains(row(tableName))
-                    .doesNotHave(expectedRow(row(view.getName())));
+                    .contains(row(view.getName()));
             assertThat(onPresto().executeQuery("SHOW GRANTS").project(7))
                     .contains(row(tableName))
-                    .doesNotHave(expectedRow(row(view.getName())));
+                    .contains(row(view.getName()));
         });
     }
 

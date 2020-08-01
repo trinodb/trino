@@ -2092,21 +2092,6 @@ public abstract class AbstractTestHive
     }
 
     @Test
-    public void testHiveViewsAreNotSupported()
-    {
-        try (Transaction transaction = newTransaction()) {
-            try {
-                ConnectorMetadata metadata = transaction.getMetadata();
-                getTableHandle(metadata, view);
-                fail("Expected HiveViewNotSupportedException");
-            }
-            catch (HiveViewNotSupportedException e) {
-                assertEquals(e.getTableName(), view);
-            }
-        }
-    }
-
-    @Test
     public void testHiveViewsHaveNoColumns()
     {
         try (Transaction transaction = newTransaction()) {
