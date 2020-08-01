@@ -13,7 +13,7 @@
  */
 package io.prestosql.verifier;
 
-import static io.airlift.airline.SingleCommand.singleCommand;
+import picocli.CommandLine;
 
 public final class PrestoVerifier
 {
@@ -21,10 +21,6 @@ public final class PrestoVerifier
 
     public static void main(String[] args)
     {
-        VerifyCommand verifier = singleCommand(VerifyCommand.class).parse(args);
-        if (verifier.helpOption.showHelpIfRequested()) {
-            return;
-        }
-        verifier.run();
+        new CommandLine(new VerifyCommand()).execute(args);
     }
 }

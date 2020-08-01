@@ -15,8 +15,6 @@ package io.prestosql.tests.product.launcher.cli;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
-import io.airlift.airline.Command;
-import io.airlift.airline.Option;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.prestosql.tests.product.launcher.Extensions;
@@ -31,10 +29,14 @@ import io.prestosql.tests.product.launcher.suite.Suite;
 import io.prestosql.tests.product.launcher.suite.SuiteFactory;
 import io.prestosql.tests.product.launcher.suite.SuiteModule;
 import io.prestosql.tests.product.launcher.suite.SuiteTestRun;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Option;
 
 import javax.inject.Inject;
 
 import java.io.File;
+import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
 
@@ -45,7 +47,10 @@ import static java.lang.String.format;
 import static java.lang.System.exit;
 import static java.util.Objects.requireNonNull;
 
-@Command(name = "run", description = "run suite tests")
+@Command(
+        name = "run",
+        description = "Run suite tests",
+        usageHelpAutoWidth = true)
 public class SuiteRun
         implements Runnable
 {
@@ -54,10 +59,13 @@ public class SuiteRun
     private final Module additionalEnvironments;
     private final Module additionalSuites;
 
-    @Inject
-    public SuiteRun.SuiteRunOptions suiteRunOptions = new SuiteRun.SuiteRunOptions();
+    @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
+    public boolean usageHelpRequested;
 
-    @Inject
+    @Mixin
+    public SuiteRunOptions suiteRunOptions = new SuiteRunOptions();
+
+    @Mixin
     public EnvironmentOptions environmentOptions = new EnvironmentOptions();
 
     public SuiteRun(Extensions extensions)
@@ -76,20 +84,22 @@ public class SuiteRun
                         .add(new EnvironmentModule(environmentOptions, additionalEnvironments))
                         .add(suiteRunOptions.toModule())
                         .build(),
-                SuiteRun.Execution.class);
+                Execution.class);
     }
 
     public static class SuiteRunOptions
     {
-        @Option(name = "--suite", title = "suite", description = "the name of the suite to run", required = true)
+        private static final String DEFAULT_VALUE = "(default: ${DEFAULT-VALUE})";
+
+        @Option(names = "--suite", paramLabel = "<suite>", description = "Name of the suite to run", required = true)
         public String suite;
 
-        @Option(name = "--test-jar", title = "test jar", description = "path to test jar")
+        @Option(names = "--test-jar", paramLabel = "<jar>", description = "Path to test JAR " + DEFAULT_VALUE)
         public File testJar = new File("presto-product-tests/target/presto-product-tests-${project.version}-executable.jar");
 
         public Module toModule()
         {
-            return binder -> binder.bind(SuiteRun.SuiteRunOptions.class).toInstance(this);
+            return binder -> binder.bind(SuiteRunOptions.class).toInstance(this);
         }
     }
 
@@ -191,7 +201,7 @@ public class SuiteRun
             testRunOptions.environment = suiteTestRun.getEnvironmentName();
             testRunOptions.testArguments = suiteTestRun.getTemptoRunArguments(environmentConfig);
             testRunOptions.testJar = pathResolver.resolvePlaceholders(suiteRunOptions.testJar);
-            testRunOptions.reportsDir = format("presto-product-tests/target/%s/%s/%s", suiteName, environmentConfig.getConfigName(), suiteTestRun.getEnvironmentName());
+            testRunOptions.reportsDir = Paths.get(format("presto-product-tests/target/%s/%s/%s", suiteName, environmentConfig.getConfigName(), suiteTestRun.getEnvironmentName()));
             return testRunOptions;
         }
     }

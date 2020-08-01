@@ -13,29 +13,30 @@
  */
 package io.prestosql.tests.product.launcher.env;
 
-import io.airlift.airline.Option;
-
 import java.io.File;
 import java.util.Locale;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.util.Objects.requireNonNull;
+import static picocli.CommandLine.Option;
 
 public final class EnvironmentOptions
 {
-    @Option(name = "--config", title = "config", description = "Environment config to use")
+    private static final String DEFAULT_VALUE = "(default: ${DEFAULT-VALUE})";
+
+    @Option(names = "--config", paramLabel = "<config>", description = "Environment config to use")
     public String config = "config-default";
 
-    @Option(name = "--server-package", title = "server-package", description = "path to Presto server package")
+    @Option(names = "--server-package", paramLabel = "<package>", description = "Path to Presto server package " + DEFAULT_VALUE)
     public File serverPackage = new File("presto-server/target/presto-server-${project.version}.tar.gz");
 
-    @Option(name = "--without-presto", title = "without Presto", description = "do not start presto-master")
+    @Option(names = "--without-presto", description = "Do not start presto-master")
     public boolean withoutPrestoMaster;
 
-    @Option(name = "--bind", description = "bind ports on localhost")
+    @Option(names = "--bind", description = "Bind ports on localhost")
     public boolean bindPorts = toBoolean(firstNonNull(System.getenv("PTL_BIND_PORTS"), "true"));
 
-    @Option(name = "--debug", description = "open Java debug ports")
+    @Option(names = "--debug", description = "Open Java debug ports")
     public boolean debug;
 
     public EnvironmentOptions copyOf()

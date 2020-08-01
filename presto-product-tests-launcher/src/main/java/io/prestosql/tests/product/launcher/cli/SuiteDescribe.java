@@ -15,8 +15,6 @@ package io.prestosql.tests.product.launcher.cli;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
-import io.airlift.airline.Command;
-import io.airlift.airline.Option;
 import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
 import io.prestosql.tests.product.launcher.PathResolver;
@@ -28,6 +26,8 @@ import io.prestosql.tests.product.launcher.suite.Suite;
 import io.prestosql.tests.product.launcher.suite.SuiteFactory;
 import io.prestosql.tests.product.launcher.suite.SuiteModule;
 import io.prestosql.tests.product.launcher.suite.SuiteTestRun;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.Mixin;
 
 import javax.inject.Inject;
 
@@ -36,22 +36,30 @@ import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
+import java.nio.file.Paths;
 
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static picocli.CommandLine.Option;
 
-@Command(name = "describe", description = "describe tests suite")
+@Command(
+        name = "describe",
+        description = "Describe tests suite",
+        usageHelpAutoWidth = true)
 public class SuiteDescribe
         implements Runnable
 {
     private final Module additionalSuites;
     private final Module additionalEnvironments;
 
-    @Inject
+    @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
+    public boolean usageHelpRequested;
+
+    @Mixin
     public SuiteDescribeOptions options = new SuiteDescribeOptions();
 
-    @Inject
+    @Mixin
     public EnvironmentOptions environmentOptions = new EnvironmentOptions();
 
     public SuiteDescribe(Extensions extensions)
@@ -75,7 +83,7 @@ public class SuiteDescribe
 
     public static class SuiteDescribeOptions
     {
-        @Option(name = "--suite", title = "suite", description = "the name of the suite to run", required = true)
+        @Option(names = "--suite", paramLabel = "<suite>", description = "Name of the suite to describe", required = true)
         public String suite;
 
         public Module toModule()
@@ -138,7 +146,7 @@ public class SuiteDescribe
             testRunOptions.environment = suiteTestRun.getEnvironmentName();
             testRunOptions.testArguments = suiteTestRun.getTemptoRunArguments(environmentConfig);
             testRunOptions.testJar = pathResolver.resolvePlaceholders(testRunOptions.testJar);
-            testRunOptions.reportsDir = format("presto-product-tests/target/%s/%s/%s", suiteName, environmentConfig.getConfigName(), suiteTestRun.getEnvironmentName());
+            testRunOptions.reportsDir = Paths.get(format("presto-product-tests/target/%s/%s/%s", suiteName, environmentConfig.getConfigName(), suiteTestRun.getEnvironmentName()));
             return testRunOptions;
         }
     }

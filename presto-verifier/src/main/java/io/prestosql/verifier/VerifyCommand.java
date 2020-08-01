@@ -22,9 +22,6 @@ import com.google.inject.Injector;
 import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
-import io.airlift.airline.Arguments;
-import io.airlift.airline.Command;
-import io.airlift.airline.HelpOption;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventClient;
@@ -60,8 +57,11 @@ import io.prestosql.verifier.QueryRewriter.QueryRewriteException;
 import org.jdbi.v3.core.ConnectionFactory;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
-
-import javax.inject.Inject;
+import picocli.CommandLine.Command;
+import picocli.CommandLine.Model.CommandSpec;
+import picocli.CommandLine.Option;
+import picocli.CommandLine.Parameters;
+import picocli.CommandLine.Spec;
 
 import java.io.File;
 import java.io.IOException;
@@ -83,6 +83,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorCompletionService;
 import java.util.concurrent.ExecutorService;
 
+import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -90,19 +91,27 @@ import static io.prestosql.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_
 import static io.prestosql.verifier.QueryType.CREATE;
 import static io.prestosql.verifier.QueryType.MODIFY;
 import static io.prestosql.verifier.QueryType.READ;
+import static io.prestosql.verifier.VerifyCommand.VersionProvider;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
+import static picocli.CommandLine.IVersionProvider;
 
-@Command(name = "verifier")
+@Command(
+        name = "verifier",
+        usageHelpAutoWidth = true,
+        versionProvider = VersionProvider.class)
 public class VerifyCommand
         implements Runnable
 {
     private static final Logger LOG = Logger.get(VerifyCommand.class);
 
-    @Inject
-    public HelpOption helpOption;
+    @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
+    public boolean usageHelpRequested;
 
-    @Arguments(description = "Configuration file")
+    @Option(names = "--version", versionHelp = true, description = "Print version information and exit")
+    public boolean versionInfoRequested;
+
+    @Parameters(index = "0", paramLabel = "<file>", description = "Configuration file")
     public String configFilename;
 
     @Override
@@ -477,5 +486,19 @@ public class VerifyCommand
                     return new QueryPair(input.getSuite(), input.getName(), test, control);
                 })
                 .collect(toImmutableList());
+    }
+
+    public static class VersionProvider
+            implements IVersionProvider
+    {
+        @Spec
+        public CommandSpec spec;
+
+        @Override
+        public String[] getVersion()
+        {
+            String version = getClass().getPackage().getImplementationVersion();
+            return new String[] {spec.name() + " " + firstNonNull(version, "(version unknown)")};
+        }
     }
 }

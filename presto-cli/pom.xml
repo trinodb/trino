@@ -31,11 +31,6 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>airline</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
             <artifactId>concurrent</artifactId>
         </dependency>
 
@@ -81,8 +76,8 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
+            <groupId>info.picocli</groupId>
+            <artifactId>picocli</artifactId>
         </dependency>
 
         <dependency>

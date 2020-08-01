@@ -16,8 +16,6 @@ package io.prestosql.tests.product.launcher.cli;
 import com.github.dockerjava.api.DockerClient;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
-import io.airlift.airline.Command;
-import io.airlift.airline.Option;
 import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
@@ -32,6 +30,7 @@ import io.prestosql.tests.product.launcher.env.common.Standard;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.ContainerState;
+import picocli.CommandLine.Command;
 
 import javax.inject.Inject;
 
@@ -41,20 +40,28 @@ import java.util.Collection;
 
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static java.util.Objects.requireNonNull;
+import static picocli.CommandLine.Mixin;
+import static picocli.CommandLine.Option;
 
-@Command(name = "up", description = "start an environment")
+@Command(
+        name = "up",
+        description = "Start an environment",
+        usageHelpAutoWidth = true)
 public final class EnvironmentUp
         implements Runnable
 {
     private static final Logger log = Logger.get(EnvironmentUp.class);
 
-    @Inject
+    @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
+    public boolean usageHelpRequested;
+
+    @Mixin
     public EnvironmentOptions environmentOptions = new EnvironmentOptions();
 
-    @Inject
+    @Mixin
     public EnvironmentUpOptions environmentUpOptions = new EnvironmentUpOptions();
 
-    private Module additionalEnvironments;
+    private final Module additionalEnvironments;
 
     public EnvironmentUp(Extensions extensions)
     {
@@ -75,10 +82,10 @@ public final class EnvironmentUp
 
     public static class EnvironmentUpOptions
     {
-        @Option(name = "--background", title = "background", description = "keep containers running in the background once they are started")
+        @Option(names = "--background", description = "Keep containers running in the background once they are started")
         public boolean background;
 
-        @Option(name = "--environment", title = "environment", description = "the name of the environment to start", required = true)
+        @Option(names = "--environment", paramLabel = "<environment>", description = "Name of the environment to start", required = true)
         public String environment;
 
         public Module toModule()

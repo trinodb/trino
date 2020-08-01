@@ -14,8 +14,8 @@
 package io.prestosql.tests.product.launcher.cli;
 
 import com.google.common.base.Joiner;
-import io.airlift.airline.Arguments;
-import io.airlift.airline.Option;
+import picocli.CommandLine.Option;
+import picocli.CommandLine.Parameters;
 
 import java.lang.reflect.Field;
 import java.util.Collection;
@@ -60,7 +60,7 @@ public final class OptionsPrinter
                 return formatOption(value, field.getAnnotation(Option.class));
             }
 
-            if (field.isAnnotationPresent(Arguments.class)) {
+            if (field.isAnnotationPresent(Parameters.class)) {
                 return formatArguments(value);
             }
         }
@@ -75,7 +75,7 @@ public final class OptionsPrinter
     {
         if (value instanceof Boolean) {
             if ((boolean) value) {
-                return annotation.name()[0];
+                return annotation.names()[0];
             }
 
             return null;
@@ -85,7 +85,7 @@ public final class OptionsPrinter
             return null;
         }
 
-        return String.format("%s %s", annotation.name()[0], value);
+        return String.format("%s %s", annotation.names()[0], value);
     }
 
     private static String formatArguments(Object value)

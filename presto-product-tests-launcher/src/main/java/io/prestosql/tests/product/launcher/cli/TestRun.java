@@ -18,9 +18,6 @@ import com.github.dockerjava.api.command.InspectContainerResponse.ContainerState
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
-import io.airlift.airline.Arguments;
-import io.airlift.airline.Command;
-import io.airlift.airline.Option;
 import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
@@ -37,6 +34,8 @@ import net.jodah.failsafe.RetryPolicy;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
+import picocli.CommandLine.Mixin;
+import picocli.CommandLine.Parameters;
 
 import javax.inject.Inject;
 
@@ -45,7 +44,6 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -57,20 +55,28 @@ import static io.prestosql.tests.product.launcher.docker.ContainerUtil.exposePor
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
+import static picocli.CommandLine.Command;
+import static picocli.CommandLine.Option;
 
-@Command(name = "run", description = "Presto product test launcher")
+@Command(
+        name = "run",
+        description = "Run a Presto product test",
+        usageHelpAutoWidth = true)
 public final class TestRun
         implements Runnable
 {
     private static final Logger log = Logger.get(TestRun.class);
 
-    @Inject
+    @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
+    public boolean usageHelpRequested;
+
+    @Mixin
     public EnvironmentOptions environmentOptions = new EnvironmentOptions();
 
-    @Inject
+    @Mixin
     public TestRunOptions testRunOptions = new TestRunOptions();
 
-    private Module additionalEnvironments;
+    private final Module additionalEnvironments;
 
     public TestRun(Extensions extensions)
     {
@@ -91,26 +97,28 @@ public final class TestRun
 
     public static class TestRunOptions
     {
-        @Option(name = "--test-jar", title = "test jar", description = "path to test jar")
-        public File testJar = new File("presto-product-tests/target/presto-product-tests-${project.version}-executable.jar");
+        private static final String TARGET = "presto-product-tests/target";
 
-        @Option(name = "--environment", title = "environment", description = "the name of the environment to start", required = true)
+        private static final String DEFAULT_VALUE = "(default: ${DEFAULT-VALUE})";
+
+        @Option(names = "--test-jar", paramLabel = "<jar>", description = "Path to test JAR " + DEFAULT_VALUE)
+        public File testJar = new File(TARGET + "/presto-product-tests-${project.version}-executable.jar");
+
+        @Option(names = "--environment", paramLabel = "<environment>", description = "Name of the environment to start", required = true)
         public String environment;
 
-        @Option(name = "--reports-dir", title = "reports dir", description = "location of the reports directory")
-        public String reportsDir = "presto-product-tests/target/";
+        @Option(names = "--reports-dir", paramLabel = "<dir>", defaultValue = TARGET, description = "Location of the reports directory " + DEFAULT_VALUE)
+        public Path reportsDir;
 
-        @Option(name = "--startup-retries", title = "environment startup retries", description = "environment startup retries")
-        public int startupRetries = 5;
+        @Option(names = "--startup-retries", paramLabel = "<retries>", defaultValue = "5", description = "Environment startup retries " + DEFAULT_VALUE)
+        public int startupRetries;
 
-        @Arguments(description = "test arguments")
-        public List<String> testArguments = new ArrayList<>();
+        @Parameters(paramLabel = "<argument>", description = "Test arguments")
+        public List<String> testArguments;
 
         public Module toModule()
         {
-            return binder -> {
-                binder.bind(TestRunOptions.class).toInstance(this);
-            };
+            return binder -> binder.bind(TestRunOptions.class).toInstance(this);
         }
     }
 
@@ -139,7 +147,7 @@ public final class TestRun
             this.testArguments = ImmutableList.copyOf(requireNonNull(testRunOptions.testArguments, "testOptions.testArguments is null"));
             this.environment = requireNonNull(testRunOptions.environment, "testRunOptions.environment is null");
             this.startupRetries = testRunOptions.startupRetries;
-            this.reportsDirBase = Paths.get(requireNonNull(testRunOptions.reportsDir, "testRunOptions.reportsDirBase is empty"));
+            this.reportsDirBase = requireNonNull(testRunOptions.reportsDir, "testRunOptions.reportsDirBase is empty");
             this.environmentConfig = requireNonNull(environmentConfig, "environmentConfig is null");
         }
 
