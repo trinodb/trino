@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.clickhouse;
 
+import io.airlift.log.Logger;
 import org.testcontainers.containers.ClickHouseContainer;
 
 import java.io.Closeable;
@@ -20,27 +21,36 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 public class TestingClickHouseServer
         extends ClickHouseContainer
-        implements Closeable
+            implements Closeable
 {
+    private static final Logger LOG = Logger.get(TestingClickHouseServer.class);
     private static final String USER = "test";
     private static final String PASSWORD = "test";
     private static final String DATABASE = "tpch";
-    private static final String dockerImageName = ClickHouseContainer.IMAGE + ":latest";
-    private final ClickHouseContainer dockerContainer;
+    private final AtomicBoolean tpchLoaded = new AtomicBoolean();
+    private final CountDownLatch tpchLoadComplete = new CountDownLatch(1);
 
     public TestingClickHouseServer()
     {
-        this(dockerImageName);
-    }
+        super("yandex/clickhouse-server:latest");
 
-    public TestingClickHouseServer(String dockerImageName)
-    {
-        dockerContainer = new ClickHouseContainer(dockerImageName);
-        // withDatabaseName(DATABASE);
-        dockerContainer.start();
+        start();
+
+        try (Connection connection = DriverManager.getConnection(getJdbcUrl(), getUsername(), getPassword());
+                Statement statement = connection.createStatement()) {
+            statement.execute("select 1");
+            statement.execute("select 2");
+        }
+        catch (SQLException e) {
+            throw new RuntimeException(e);
+        }
+
         waitUntilContainerStarted();
     }
 
@@ -59,9 +69,25 @@ public class TestingClickHouseServer
         }
     }
 
+    public boolean isTpchLoaded()
+    {
+        return tpchLoaded.getAndSet(true);
+    }
+
+    public void setTpchLoaded()
+    {
+        tpchLoadComplete.countDown();
+    }
+
+    public void waitTpchLoaded()
+            throws InterruptedException
+    {
+        tpchLoadComplete.await(2, TimeUnit.MINUTES);
+    }
+
     @Override
     public void close()
     {
-        dockerContainer.close();
+        stop();
     }
 }

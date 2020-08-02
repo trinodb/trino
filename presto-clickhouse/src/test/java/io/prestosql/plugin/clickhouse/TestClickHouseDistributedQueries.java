@@ -34,7 +34,7 @@ public class TestClickHouseDistributedQueries
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.clickhouseServer = new TestingClickHouseServer("yandex/clickhouse-server:latest");
+        this.clickhouseServer = new TestingClickHouseServer();
         return createClickHouseQueryRunner(
                 clickhouseServer,
                 ImmutableMap.of(),

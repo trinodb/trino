@@ -39,21 +39,21 @@ import static org.testng.Assert.assertTrue;
 public class TestClickHouseIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {
-    protected TestingClickHouseServer postgreSqlServer;
+    protected TestingClickHouseServer clickhouseServer;
 
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        this.postgreSqlServer = new TestingClickHouseServer();
-        execute("CREATE EXTENSION file_fdw");
-        return ClickHouseQueryRunner.createClickHouseQueryRunner(postgreSqlServer, CUSTOMER, NATION, ORDERS, REGION);
+        this.clickhouseServer = new TestingClickHouseServer();
+//        execute("CREATE EXTENSION file_fdw");
+        return ClickHouseQueryRunner.createClickHouseQueryRunner(clickhouseServer, CUSTOMER, NATION, ORDERS, REGION);
     }
 
     @AfterClass(alwaysRun = true)
     public final void destroy()
     {
-        postgreSqlServer.close();
+        clickhouseServer.close();
     }
 
     @Test
@@ -361,7 +361,7 @@ public class TestClickHouseIntegrationSmokeTest
     private void execute(String sql)
             throws SQLException
     {
-        try (Connection connection = DriverManager.getConnection(postgreSqlServer.getJdbcUrl());
+        try (Connection connection = DriverManager.getConnection(clickhouseServer.getJdbcUrl());
                 Statement statement = connection.createStatement()) {
             statement.execute(sql);
         }

@@ -123,6 +123,12 @@ public class ClickHouseClient
         this.jsonType = typeManager.getType(new TypeSignature(StandardTypes.JSON));
     }
 
+//    public static ClickHouseConnection getConnection(JdbcIdentity identity, JdbcTableHandle handle)
+//            throws SQLException
+//    {
+//        return connectionFactory.openConnection(identity).unwrap(ClickHouseConnection.class);
+//    }
+
     @Override
     public void abortReadConnection(Connection connection)
             throws SQLException
@@ -375,7 +381,13 @@ public class ClickHouseClient
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
-        throw new PrestoException(NOT_SUPPORTED, "Create table not yet supported for ClickHouse");
+        log.info("table properties: {}", tableMetadata.getProperties().toString());
+        try {
+            createTable(session, tableMetadata, tableMetadata.getTable().getTableName());
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
     }
 
     @Override
@@ -479,5 +491,10 @@ public class ClickHouseClient
         // Jackson tries to detect the character encoding automatically when using InputStream
         // so we pass an InputStreamReader instead.
         return JSON_FACTORY.createParser(new InputStreamReader(json.getInput(), UTF_8));
+    }
+
+    public void execute(ConnectorSession session, String statement)
+    {
+        execute(JdbcIdentity.from(session), statement);
     }
 }
