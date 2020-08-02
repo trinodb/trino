@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
+import com.google.common.collect.Sets;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
@@ -563,12 +564,41 @@ public class UnaliasSymbolReferences
         public PlanAndMappings visitProject(ProjectNode node, UnaliasContext context)
         {
             PlanAndMappings rewrittenSource = node.getSource().accept(this, context);
+
+            // Assignment of a form `s -> x` establishes new semantics for symbol s.
+            // It is possible though that symbol `s` is present in the source plan, and represents the same or different semantics.
+            // As a consequence, any symbol mapping derived from the source plan involving symbol `s` becomes potentially invalid,
+            // e.g. `s -> y` or `y -> s` refer to the old semantics of symbol `s`.
+            // In such case, the underlying mappings are only used to map projection assignments' values to ensure consistency with the source plan.
+            // They aren't used to map projection outputs to avoid:
+            // - errors from duplicate assignments
+            // - incorrect results from mixed semantics of symbols
+            // Also, the underlying mappings aren't passed up the plan, and new mappings aren't derived from projection assignments
+            // (with the exception for "deduplicating" mappings for repeated assignments).
+            // This can be thought of as a "cut-off" at the point of potentially changed semantics.
+            // Note: the issue of ambiguous symbols does not apply to symbols involved in context (correlation) mapping.
+            // Those symbols are supposed to represent constant semantics throughout the plan.
+
+            Assignments assignments = node.getAssignments();
+            Set<Symbol> newlyAssignedSymbols = assignments.filter(output -> !assignments.isIdentity(output)).getSymbols();
+            Set<Symbol> symbolsInSourceMapping = ImmutableSet.<Symbol>builder()
+                    .addAll(rewrittenSource.getMappings().keySet())
+                    .addAll(rewrittenSource.getMappings().values())
+                    .build();
+            Set<Symbol> symbolsInCorrelationMapping = ImmutableSet.<Symbol>builder()
+                    .addAll(context.getCorrelationMapping().keySet())
+                    .addAll(context.getCorrelationMapping().values())
+                    .build();
+            boolean ambiguousSymbolsPresent = !Sets.intersection(newlyAssignedSymbols, Sets.difference(symbolsInSourceMapping, symbolsInCorrelationMapping)).isEmpty();
+
             SymbolMapper mapper = new SymbolMapper(rewrittenSource.getMappings());
 
             // canonicalize ProjectNode assignments
             ImmutableList.Builder<Map.Entry<Symbol, Expression>> rewrittenAssignments = ImmutableList.builder();
             for (Map.Entry<Symbol, Expression> assignment : node.getAssignments().entrySet()) {
-                rewrittenAssignments.add(new SimpleEntry<>(mapper.map(assignment.getKey()), mapper.map(assignment.getValue())));
+                rewrittenAssignments.add(new SimpleEntry<>(
+                        ambiguousSymbolsPresent ? assignment.getKey() : mapper.map(assignment.getKey()),
+                        mapper.map(assignment.getValue())));
             }
 
             // deduplicate assignments
@@ -579,10 +609,10 @@ public class UnaliasSymbolReferences
                     }));
 
             // derive new mappings for ProjectNode output symbols
-            Map<Symbol, Symbol> newMapping = mappingFromAssignments(deduplicateAssignments);
+            Map<Symbol, Symbol> newMapping = mappingFromAssignments(deduplicateAssignments, ambiguousSymbolsPresent);
 
             Map<Symbol, Symbol> outputMapping = new HashMap<>();
-            outputMapping.putAll(mapper.getMapping());
+            outputMapping.putAll(ambiguousSymbolsPresent ? context.getCorrelationMapping() : mapper.getMapping());
             outputMapping.putAll(newMapping);
 
             mapper = new SymbolMapper(outputMapping);
@@ -599,14 +629,17 @@ public class UnaliasSymbolReferences
                     mapper.getMapping());
         }
 
-        private Map<Symbol, Symbol> mappingFromAssignments(Map<Symbol, Expression> assignments)
+        private Map<Symbol, Symbol> mappingFromAssignments(Map<Symbol, Expression> assignments, boolean ambiguousSymbolsPresent)
         {
             Map<Symbol, Symbol> newMapping = new HashMap<>();
             Map<Expression, Symbol> inputsToOutputs = new HashMap<>();
             for (Map.Entry<Symbol, Expression> assignment : assignments.entrySet()) {
                 Expression expression = assignment.getValue();
                 // 1. for trivial symbol projection, map output symbol to input symbol
-                if (expression instanceof SymbolReference) {
+                // If the assignment potentially introduces a reused (ambiguous) symbol, do not map output to input
+                // to avoid mixing semantics. Input symbols represent semantics as in the source plan,
+                // while output symbols represent newly established semantics.
+                if (expression instanceof SymbolReference && !ambiguousSymbolsPresent) {
                     Symbol value = Symbol.from(expression);
                     if (!assignment.getKey().equals(value)) {
                         newMapping.put(assignment.getKey(), value);
@@ -706,7 +739,7 @@ public class UnaliasSymbolReferences
                     }));
 
             // derive new mappings for Subquery assignments outputs
-            Map<Symbol, Symbol> newMapping = mappingFromAssignments(deduplicateAssignments);
+            Map<Symbol, Symbol> newMapping = mappingFromAssignments(deduplicateAssignments, false);
 
             Map<Symbol, Symbol> assignmentsOutputMapping = new HashMap<>();
             assignmentsOutputMapping.putAll(mapper.getMapping());
