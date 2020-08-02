@@ -1583,6 +1583,48 @@ public class TestDomainTranslator
     }
 
     @Test
+    public void testStartsWithFunction()
+    {
+        Type varcharType = createUnboundedVarcharType();
+
+        // constant
+        testSimpleComparison(
+                startsWith(C_VARCHAR, stringLiteral("abc")),
+                C_VARCHAR,
+                startsWith(C_VARCHAR, stringLiteral("abc")),
+                Domain.create(ValueSet.ofRanges(Range.range(varcharType, utf8Slice("abc"), true, utf8Slice("abd"), false)), false));
+
+        testSimpleComparison(
+                startsWith(C_VARCHAR, stringLiteral("_abc")),
+                C_VARCHAR,
+                startsWith(C_VARCHAR, stringLiteral("_abc")),
+                Domain.create(ValueSet.ofRanges(Range.range(varcharType, utf8Slice("_abc"), true, utf8Slice("_abd"), false)), false));
+
+        // empty
+        assertUnsupportedPredicate(startsWith(C_VARCHAR, stringLiteral("")));
+        // complement
+        assertUnsupportedPredicate(not(startsWith(C_VARCHAR, stringLiteral("abc"))));
+
+        // non-ASCII
+        testSimpleComparison(
+                startsWith(C_VARCHAR, stringLiteral("abc\u0123\ud83d\ude80def\u007e\u007f\u00ff\u0123\uccf0")),
+                C_VARCHAR,
+                startsWith(C_VARCHAR, stringLiteral("abc\u0123\ud83d\ude80def\u007e\u007f\u00ff\u0123\uccf0")),
+                Domain.create(
+                        ValueSet.ofRanges(Range.range(varcharType,
+                                utf8Slice("abc\u0123\ud83d\ude80def\u007e\u007f\u00ff\u0123\uccf0"), true,
+                                utf8Slice("abc\u0123\ud83d\ude80def\u007f"), false)),
+                        false));
+    }
+
+    @Test
+    public void testUnsupportedFunctions()
+    {
+        assertUnsupportedPredicate(new FunctionCall(QualifiedName.of("LENGTH"), ImmutableList.of(C_VARCHAR.toSymbolReference())));
+        assertUnsupportedPredicate(new FunctionCall(QualifiedName.of("REPLACE"), ImmutableList.of(C_VARCHAR.toSymbolReference(), stringLiteral("abc"))));
+    }
+
+    @Test
     public void testCharComparedToVarcharExpression()
     {
         Type charType = createCharType(10);
@@ -1701,6 +1743,11 @@ public class TestDomainTranslator
     private static LikePredicate like(Symbol symbol, Expression expression, Expression escape)
     {
         return new LikePredicate(symbol.toSymbolReference(), expression, Optional.of(escape));
+    }
+
+    private static FunctionCall startsWith(Symbol symbol, Expression expression)
+    {
+        return new FunctionCall(QualifiedName.of("STARTS_WITH"), ImmutableList.of(symbol.toSymbolReference(), expression));
     }
 
     private static Expression isNotNull(Symbol symbol)
