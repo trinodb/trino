@@ -19,6 +19,7 @@ import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DoubleWriteFunction;
+import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcExpression;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
@@ -28,6 +29,7 @@ import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.LongWriteFunction;
 import io.prestosql.plugin.jdbc.QueryBuilder;
+import io.prestosql.plugin.jdbc.RemoteTableName;
 import io.prestosql.plugin.jdbc.SliceWriteFunction;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.plugin.jdbc.expression.AggregateFunctionRewriter;
@@ -231,13 +233,10 @@ public class OracleClient
     public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
             throws SQLException
     {
-        return new OracleQueryBuilder(identifierQuote, (OracleSplit) split).buildSql(
-                this,
+        return new OracleQueryBuilder(this, (OracleSplit) split).buildSql(
                 session,
                 connection,
-                table.getCatalogName(),
-                table.getSchemaName(),
-                table.getTableName(),
+                table.getRemoteTableName(),
                 table.getGroupingSets(),
                 columns,
                 table.getConstraint(),
@@ -254,7 +253,7 @@ public class OracleClient
     }
 
     @Override
-    protected String quoted(String name)
+    public String quoted(String name)
     {
         if (name.contains("\"")) {
             // ORA-03001: unimplemented feature
@@ -813,16 +812,16 @@ public class OracleClient
     {
         private final OracleSplit split;
 
-        public OracleQueryBuilder(String identifierQuote, OracleSplit split)
+        public OracleQueryBuilder(JdbcClient jdbcClient, OracleSplit split)
         {
-            super(identifierQuote);
+            super(jdbcClient);
             this.split = requireNonNull(split, "split is null");
         }
 
         @Override
-        protected String getRelation(String catalog, String schema, String table)
+        protected String getRelation(RemoteTableName remoteTableName)
         {
-            String tableName = super.getRelation(catalog, schema, table);
+            String tableName = super.getRelation(remoteTableName);
             return split.getPartitionNames()
                     .map(batch -> batch.stream()
                             .map(partitionName -> format("SELECT * FROM %s PARTITION (%s)", tableName, partitionName))
