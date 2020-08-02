@@ -209,13 +209,10 @@ public class SnowflakeSplitSource
                     String stageName = "export_" + randomUUID().toString().replace("-", "_");
                     execute(connection, format("CREATE TEMPORARY STAGE %s.%s FILE_FORMAT = (TYPE = PARQUET)", snowflakeConfig.getStageSchema(), stageName));
 
-                    try (PreparedStatement statement = new SnowflakeQueryBuilder().buildSql(
-                            client,
+                    try (PreparedStatement statement = new SnowflakeQueryBuilder(client).buildSql(
                             session,
                             connection,
-                            jdbcTableHandle.getCatalogName(),
-                            jdbcTableHandle.getSchemaName(),
-                            jdbcTableHandle.getTableName(),
+                            jdbcTableHandle.getRemoteTableName(),
                             jdbcTableHandle.getGroupingSets(),
                             columns,
                             jdbcTableHandle.getConstraint(),

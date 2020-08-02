@@ -9,14 +9,15 @@
  */
 package com.starburstdata.presto.plugin.snowflake.distributed;
 
+import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.QueryBuilder;
 
 import java.util.List;
 
-import static com.starburstdata.presto.plugin.snowflake.jdbc.SnowflakeClient.IDENTIFIER_QUOTE;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.lang.String.format;
+import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
 /**
@@ -39,9 +40,12 @@ public class SnowflakeQueryBuilder
     public static final int TIMESTAMP_WITH_TIME_ZONE_ZONE_MASK = 0xFFF;
     public static final int ZONE_OFFSET_MINUTES_BIAS = 2048;
 
-    public SnowflakeQueryBuilder()
+    private final JdbcClient jdbcClient;
+
+    public SnowflakeQueryBuilder(JdbcClient jdbcClient)
     {
-        super(IDENTIFIER_QUOTE);
+        super(jdbcClient);
+        this.jdbcClient = requireNonNull(jdbcClient, "jdbcClient is null");
     }
 
     @Override
@@ -63,7 +67,7 @@ public class SnowflakeQueryBuilder
                                         columnHandle.getColumnName(),
                                         TIMESTAMP_WITH_TIME_ZONE_MILLIS_SHIFT,
                                         ZONE_OFFSET_MINUTES_BIAS) :
-                                quote(columnHandle.getColumnName()))
+                                jdbcClient.quoted(columnHandle.getColumnName()))
                 .collect(joining(", "));
     }
 }
