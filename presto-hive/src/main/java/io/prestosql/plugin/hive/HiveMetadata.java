@@ -237,6 +237,7 @@ import static io.prestosql.plugin.hive.util.Statistics.fromComputedStatistics;
 import static io.prestosql.plugin.hive.util.Statistics.reduce;
 import static io.prestosql.plugin.hive.util.SystemTables.createSystemTable;
 import static io.prestosql.spi.StandardErrorCode.INVALID_ANALYZE_PROPERTY;
+import static io.prestosql.spi.StandardErrorCode.INVALID_COLUMN_NAME;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
 import static io.prestosql.spi.StandardErrorCode.INVALID_TABLE_PROPERTY;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -2537,6 +2538,10 @@ public class HiveMetadata
         List<String> allColumns = tableMetadata.getColumns().stream()
                 .map(ColumnMetadata::getName)
                 .collect(toList());
+
+        if (allColumns.stream().anyMatch(x -> x.contains(" ") || x.contains(","))) {
+            throw new PrestoException(INVALID_COLUMN_NAME, "Hive does not support spaces and commas in column names");
+        }
 
         if (!allColumns.containsAll(partitionedBy)) {
             throw new PrestoException(INVALID_TABLE_PROPERTY, format("Partition columns %s not present in schema", Sets.difference(ImmutableSet.copyOf(partitionedBy), ImmutableSet.copyOf(allColumns))));

@@ -1660,6 +1660,13 @@ public class TestHiveIntegrationSmokeTest
                 "WITH (partitioned_by = ARRAY['dragonfruit'])");
     }
 
+    @Test//(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Hive does not support spaces and commas in column names")
+    public void testCreateTableFailsWithSpacesOrCommas()
+    {
+        assertQueryFails("CREATE TABLE test_create_table_with_space_fails (\"a \" bigint)", "Hive does not support spaces and commas in column names");
+        assertQueryFails("CREATE TABLE test_create_table_with_space_fails (\"a,\" bigint)", "Hive does not support spaces and commas in column names");
+    }
+
     @Test(expectedExceptions = RuntimeException.class, expectedExceptionsMessageRegExp = "Unsupported type .* for partition: .*")
     public void testCreateTableUnsupportedPartitionType()
     {
