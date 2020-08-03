@@ -1,0 +1,5 @@
+{
+    "java.checkstyle.configuration": "${workspaceFolder}/presto-main/target/checkstyle-checker.xml",
+    "restructuredtext.confPath": "${workspaceFolder}/presto-docs/src/main/sphinx",
+    "java.configuration.updateBuildConfiguration": "automatic"
+}

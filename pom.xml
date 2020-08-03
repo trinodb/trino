@@ -147,6 +147,7 @@
         <module>presto-pinot</module>
         <module>presto-oracle</module>
         <module>presto-druid</module>
+        <module>presto-clickhouse</module>
     </modules>
 
     <dependencyManagement>
