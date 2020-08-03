@@ -375,24 +375,7 @@ public class ClickHouseClient
             throw new PrestoException(JDBC_ERROR, e);
         }
     }
-
-    @Override
-    public PreparedStatement buildSql(ConnectorSession session, Connection connection, JdbcSplit split, JdbcTableHandle table, List<JdbcColumnHandle> columns)
-            throws SQLException
-    {
-        return new ClickHouseQueryBuilder(identifierQuote).buildSql(
-                this,
-                session,
-                connection,
-                table.getCatalogName(),
-                table.getSchemaName(),
-                table.getTableName(),
-                columns,
-                table.getConstraint(),
-                split.getAdditionalPredicate(),
-                tryApplyLimit(table.getLimit()));
-    }
-
+    
     @Override
     protected void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
     {
