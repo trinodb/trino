@@ -40,20 +40,17 @@ public class ClickHouseClientModule
     {
         binder.bind(JdbcClient.class).annotatedWith(ForBaseJdbc.class).to(ClickHouseClient.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(BaseJdbcConfig.class);
-        configBinder(binder).bindConfig(ClickHouseConfig.class);
         binder.install(new DecimalModule());
     }
 
     @Provides
     @Singleton
     @ForBaseJdbc
-    public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider, ClickHouseConfig clickhouseConfig)
+    public static ConnectionFactory createConnectionFactory(BaseJdbcConfig config, CredentialProvider credentialProvider)
             throws SQLException
     {
         Properties connectionProperties = new Properties();
-        if (clickhouseConfig.getConnectionTimeout() != null) {
-            connectionProperties.setProperty("connectionTimeout", String.valueOf(clickhouseConfig.getConnectionTimeout().toMillis()));
-        }
+
         return new DriverConnectionFactory(
                 new ClickHouseDriver(),
                 config.getConnectionUrl(),
