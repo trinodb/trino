@@ -79,7 +79,7 @@ public class TestDynamicFilterService
         DynamicFiltersStats stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
         assertEquals(stats.getTotalDynamicFilters(), 1);
         assertEquals(stats.getDynamicFiltersCompleted(), 0);
-        assertEquals(stats.getRepartitionedDynamicFilters(), 1);
+        assertEquals(stats.getLazyDynamicFilters(), 1);
         assertEquals(stats.getReplicatedDynamicFilters(), 0);
 
         dynamicFiltersStageSupplier.storeSummary(
@@ -116,7 +116,7 @@ public class TestDynamicFilterService
 
         stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
         assertEquals(stats.getDynamicFiltersCompleted(), 1);
-        assertEquals(stats.getRepartitionedDynamicFilters(), 1);
+        assertEquals(stats.getLazyDynamicFilters(), 1);
         assertEquals(stats.getReplicatedDynamicFilters(), 0);
         assertEquals(
                 stats.getDynamicFilterDomainStats(),
@@ -174,7 +174,7 @@ public class TestDynamicFilterService
         DynamicFiltersStats stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
         assertEquals(stats.getTotalDynamicFilters(), 3);
         assertEquals(stats.getDynamicFiltersCompleted(), 0);
-        assertEquals(stats.getRepartitionedDynamicFilters(), 3);
+        assertEquals(stats.getLazyDynamicFilters(), 3);
         assertEquals(stats.getReplicatedDynamicFilters(), 0);
 
         // dynamic filter should be blocked waiting for tuple domain to be provided
@@ -298,7 +298,7 @@ public class TestDynamicFilterService
 
         stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
         assertEquals(stats.getDynamicFiltersCompleted(), 3);
-        assertEquals(stats.getRepartitionedDynamicFilters(), 3);
+        assertEquals(stats.getLazyDynamicFilters(), 3);
         assertEquals(stats.getReplicatedDynamicFilters(), 0);
         assertEquals(stats.getDynamicFilterDomainStats(), ImmutableList.of(
                 new DynamicFilterDomainStats(
@@ -347,7 +347,7 @@ public class TestDynamicFilterService
         assertEquals(stats.getTotalDynamicFilters(), 1);
         assertEquals(stats.getDynamicFiltersCompleted(), 0);
         assertEquals(stats.getReplicatedDynamicFilters(), 1);
-        assertEquals(stats.getRepartitionedDynamicFilters(), 0);
+        assertEquals(stats.getLazyDynamicFilters(), 0);
 
         // replicated dynamic filters cannot be lazy due to replicated join task scheduling dependencies
         assertTrue(dynamicFilter.isBlocked().isDone());
@@ -369,7 +369,7 @@ public class TestDynamicFilterService
         assertEquals(stats.getTotalDynamicFilters(), 1);
         assertEquals(stats.getDynamicFiltersCompleted(), 1);
         assertEquals(stats.getReplicatedDynamicFilters(), 1);
-        assertEquals(stats.getRepartitionedDynamicFilters(), 0);
+        assertEquals(stats.getLazyDynamicFilters(), 0);
         assertEquals(
                 stats.getDynamicFilterDomainStats(),
                 ImmutableList.of(
