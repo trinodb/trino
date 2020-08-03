@@ -134,9 +134,9 @@ public class TestingAccessControlManager
         return new TestingPrivilege(Optional.empty(), entityName, type);
     }
 
-    public static TestingPrivilege privilege(String userName, String entityName, TestingPrivilegeType type)
+    public static TestingPrivilege privilege(String actorName, String entityName, TestingPrivilegeType type)
     {
-        return new TestingPrivilege(Optional.of(userName), entityName, type);
+        return new TestingPrivilege(Optional.of(actorName), entityName, type);
     }
 
     public void deny(TestingPrivilege... deniedPrivileges)
@@ -211,7 +211,7 @@ public class TestingAccessControlManager
     @Deprecated
     public void checkCanSetUser(Optional<Principal> principal, String userName)
     {
-        if (shouldDenyPrivilege(userName, userName, SET_USER)) {
+        if (shouldDenyPrivilege(principal.map(Principal::getName), userName, SET_USER)) {
             denySetUser(principal, userName);
         }
         if (denyPrivileges.isEmpty()) {
@@ -547,16 +547,15 @@ public class TestingAccessControlManager
         return super.getColumnMasks(context, tableName, column, type);
     }
 
-    private boolean shouldDenyPrivilege(String userName, String entityName, TestingPrivilegeType type)
+    private boolean shouldDenyPrivilege(String actorName, String entityName, TestingPrivilegeType verb)
     {
-        return shouldDenyPrivilege(privilege(userName, entityName, type));
+        return shouldDenyPrivilege(Optional.of(actorName), entityName, verb);
     }
 
-    private boolean shouldDenyPrivilege(TestingPrivilege privilege)
+    private boolean shouldDenyPrivilege(Optional<String> actorName, String entityName, TestingPrivilegeType verb)
     {
-        TestingPrivilege testPrivilege = privilege;
         for (TestingPrivilege denyPrivilege : denyPrivileges) {
-            if (denyPrivilege.matches(testPrivilege)) {
+            if (denyPrivilege.matches(actorName, entityName, verb)) {
                 return true;
             }
         }
@@ -578,22 +577,22 @@ public class TestingAccessControlManager
 
     public static class TestingPrivilege
     {
-        private final Optional<String> userName;
+        private final Optional<String> actorName;
         private final String entityName;
         private final TestingPrivilegeType type;
 
-        private TestingPrivilege(Optional<String> userName, String entityName, TestingPrivilegeType type)
+        private TestingPrivilege(Optional<String> actorName, String entityName, TestingPrivilegeType type)
         {
-            this.userName = requireNonNull(userName, "userName is null");
+            this.actorName = requireNonNull(actorName, "actorName is null");
             this.entityName = requireNonNull(entityName, "entityName is null");
             this.type = requireNonNull(type, "type is null");
         }
 
-        public boolean matches(TestingPrivilege testPrivilege)
+        public boolean matches(Optional<String> actorName, String entityName, TestingPrivilegeType type)
         {
-            return userName.map(name -> testPrivilege.userName.get().equals(name)).orElse(true) &&
-                    entityName.equals(testPrivilege.entityName) &&
-                    type == testPrivilege.type;
+            return (this.actorName.isEmpty() || this.actorName.equals(actorName)) &&
+                    this.entityName.equals(entityName) &&
+                    this.type == type;
         }
 
         @Override
@@ -606,21 +605,22 @@ public class TestingAccessControlManager
                 return false;
             }
             TestingPrivilege that = (TestingPrivilege) o;
-            return Objects.equals(entityName, that.entityName) &&
+            return Objects.equals(actorName, that.actorName) &&
+                    Objects.equals(entityName, that.entityName) &&
                     type == that.type;
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(entityName, type);
+            return Objects.hash(actorName, entityName, type);
         }
 
         @Override
         public String toString()
         {
             return toStringHelper(this)
-                    .add("userName", userName)
+                    .add("actorName", actorName)
                     .add("entityName", entityName)
                     .add("type", type)
                     .toString();
