@@ -59,17 +59,17 @@ public class RedisRecordSetProvider
                 .collect(ImmutableList.toImmutableList());
 
         RowDecoder keyDecoder = decoderFactory.create(
+                session,
                 redisSplit.getKeyDataFormat(),
-                emptyMap(),
-                redisColumns.stream()
+                emptyMap(), redisColumns.stream()
                         .filter(col -> !col.isInternal())
                         .filter(RedisColumnHandle::isKeyDecoder)
                         .collect(toImmutableSet()));
 
         RowDecoder valueDecoder = decoderFactory.create(
+                session,
                 redisSplit.getValueDataFormat(),
-                emptyMap(),
-                redisColumns.stream()
+                emptyMap(), redisColumns.stream()
                         .filter(col -> !col.isInternal())
                         .filter(col -> !col.isKeyDecoder())
                         .collect(toImmutableSet()));

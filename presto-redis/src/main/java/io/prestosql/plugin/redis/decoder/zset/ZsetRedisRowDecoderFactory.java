@@ -16,6 +16,7 @@ package io.prestosql.plugin.redis.decoder.zset;
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.RowDecoder;
 import io.prestosql.decoder.RowDecoderFactory;
+import io.prestosql.spi.connector.ConnectorSession;
 
 import java.util.Map;
 import java.util.Set;
@@ -29,7 +30,7 @@ public class ZsetRedisRowDecoderFactory
     private static final RowDecoder DECODER_INSTANCE = new ZsetRedisRowDecoder();
 
     @Override
-    public RowDecoder create(Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
+    public RowDecoder create(ConnectorSession session, Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
     {
         requireNonNull(columns, "columnHandles is null");
         checkArgument(columns.stream().noneMatch(DecoderColumnHandle::isInternal), "unexpected internal column");

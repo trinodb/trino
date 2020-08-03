@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.FieldValueProvider;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
@@ -49,11 +50,14 @@ public class CustomDateTimeJsonFieldDecoder
 {
     private static final Set<Type> NON_PARAMETRIC_SUPPORTED_TYPES = ImmutableSet.of(DATE, TIME, TIME_WITH_TIME_ZONE);
 
+    private final ConnectorSession session;
     private final DecoderColumnHandle columnHandle;
     private final DateTimeFormatter formatter;
 
-    public CustomDateTimeJsonFieldDecoder(DecoderColumnHandle columnHandle)
+    public CustomDateTimeJsonFieldDecoder(ConnectorSession session, DecoderColumnHandle columnHandle)
     {
+        this.session = requireNonNull(session, "session is null");
+        checkArgument(this.session.isLegacyTimestamp(), "The custom date time JSON field decoder only supports legacy timestamp semantics");
         this.columnHandle = requireNonNull(columnHandle, "columnHandle is null");
         if (!isSupportedType(columnHandle.getType())) {
             throwUnsupportedColumnType(columnHandle);
@@ -80,7 +84,7 @@ public class CustomDateTimeJsonFieldDecoder
     @Override
     public FieldValueProvider decode(JsonNode value)
     {
-        return new CustomDateTimeJsonValueProvider(value, columnHandle, formatter);
+        return new CustomDateTimeJsonValueProvider(session, value, columnHandle, formatter);
     }
 
     public static class CustomDateTimeJsonValueProvider
@@ -88,9 +92,9 @@ public class CustomDateTimeJsonFieldDecoder
     {
         private final DateTimeFormatter formatter;
 
-        public CustomDateTimeJsonValueProvider(JsonNode value, DecoderColumnHandle columnHandle, DateTimeFormatter formatter)
+        public CustomDateTimeJsonValueProvider(ConnectorSession session, JsonNode value, DecoderColumnHandle columnHandle, DateTimeFormatter formatter)
         {
-            super(value, columnHandle);
+            super(session, value, columnHandle);
             this.formatter = formatter;
         }
 

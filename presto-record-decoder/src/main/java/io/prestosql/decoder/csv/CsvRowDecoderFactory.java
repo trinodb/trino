@@ -16,6 +16,7 @@ package io.prestosql.decoder.csv;
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.RowDecoder;
 import io.prestosql.decoder.RowDecoderFactory;
+import io.prestosql.spi.connector.ConnectorSession;
 
 import java.util.Map;
 import java.util.Set;
@@ -24,7 +25,7 @@ public class CsvRowDecoderFactory
         implements RowDecoderFactory
 {
     @Override
-    public RowDecoder create(Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
+    public RowDecoder create(ConnectorSession session, Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
     {
         return new CsvRowDecoder(columns);
     }

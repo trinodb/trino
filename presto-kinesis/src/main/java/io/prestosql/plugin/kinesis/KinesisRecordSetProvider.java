@@ -63,9 +63,9 @@ public class KinesisRecordSetProvider
         ImmutableList.Builder<KinesisColumnHandle> handleBuilder = ImmutableList.builder();
 
         RowDecoder messageDecoder = decoderFactory.create(
+                session,
                 kinesisSplit.getMessageDataFormat(),
-                new HashMap<>(),
-                kinesisColumns.stream()
+                new HashMap<>(), kinesisColumns.stream()
                         .filter(column -> !column.isInternal())
                         .collect(toImmutableSet()));
 

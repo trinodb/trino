@@ -14,6 +14,7 @@
 package io.prestosql.decoder;
 
 import com.google.common.collect.ImmutableMap;
+import io.prestosql.spi.connector.ConnectorSession;
 
 import javax.inject.Inject;
 
@@ -32,9 +33,9 @@ public class DispatchingRowDecoderFactory
         this.factories = ImmutableMap.copyOf(factories);
     }
 
-    public RowDecoder create(String dataFormat, Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
+    public RowDecoder create(ConnectorSession session, String dataFormat, Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
     {
         checkArgument(factories.containsKey(dataFormat), "unknown data format '%s'", dataFormat);
-        return factories.get(dataFormat).create(decoderParams, columns);
+        return factories.get(dataFormat).create(session, decoderParams, columns);
     }
 }

@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.FieldValueProvider;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
@@ -27,6 +28,7 @@ import org.joda.time.format.DateTimeFormatter;
 import java.util.Locale;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
 import static io.prestosql.decoder.json.JsonRowDecoderFactory.throwUnsupportedColumnType;
 import static io.prestosql.spi.type.DateType.DATE;
@@ -49,10 +51,14 @@ public class RFC2822JsonFieldDecoder
      * Todo - configurable time zones and locales.
      */
     private static final DateTimeFormatter FORMATTER = DateTimeFormat.forPattern("EEE MMM dd HH:mm:ss Z yyyy").withLocale(Locale.ENGLISH).withZoneUTC();
+
+    private final ConnectorSession session;
     private final DecoderColumnHandle columnHandle;
 
-    public RFC2822JsonFieldDecoder(DecoderColumnHandle columnHandle)
+    public RFC2822JsonFieldDecoder(ConnectorSession session, DecoderColumnHandle columnHandle)
     {
+        this.session = requireNonNull(session, "session is null");
+        checkArgument(this.session.isLegacyTimestamp(), "The RFC2822 JSON field decoder only supports legacy timestamp semantics");
         this.columnHandle = requireNonNull(columnHandle, "columnHandle is null");
         if (!isSupportedType(columnHandle.getType())) {
             throwUnsupportedColumnType(columnHandle);
@@ -69,15 +75,15 @@ public class RFC2822JsonFieldDecoder
     @Override
     public FieldValueProvider decode(JsonNode value)
     {
-        return new RFC2822JsonValueProvider(value, columnHandle);
+        return new RFC2822JsonValueProvider(session, value, columnHandle);
     }
 
     public static class RFC2822JsonValueProvider
             extends AbstractDateTimeJsonValueProvider
     {
-        public RFC2822JsonValueProvider(JsonNode value, DecoderColumnHandle columnHandle)
+        public RFC2822JsonValueProvider(ConnectorSession session, JsonNode value, DecoderColumnHandle columnHandle)
         {
-            super(value, columnHandle);
+            super(session, value, columnHandle);
         }
 
         @Override

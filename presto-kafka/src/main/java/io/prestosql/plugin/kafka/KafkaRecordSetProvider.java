@@ -58,17 +58,17 @@ public class KafkaRecordSetProvider
                 .collect(ImmutableList.toImmutableList());
 
         RowDecoder keyDecoder = decoderFactory.create(
+                session,
                 kafkaSplit.getKeyDataFormat(),
-                getDecoderParameters(kafkaSplit.getKeyDataSchemaContents()),
-                kafkaColumns.stream()
+                getDecoderParameters(kafkaSplit.getKeyDataSchemaContents()), kafkaColumns.stream()
                         .filter(col -> !col.isInternal())
                         .filter(KafkaColumnHandle::isKeyCodec)
                         .collect(toImmutableSet()));
 
         RowDecoder messageDecoder = decoderFactory.create(
+                session,
                 kafkaSplit.getMessageDataFormat(),
-                getDecoderParameters(kafkaSplit.getMessageDataSchemaContents()),
-                kafkaColumns.stream()
+                getDecoderParameters(kafkaSplit.getMessageDataSchemaContents()), kafkaColumns.stream()
                         .filter(col -> !col.isInternal())
                         .filter(col -> !col.isKeyCodec())
                         .collect(toImmutableSet()));

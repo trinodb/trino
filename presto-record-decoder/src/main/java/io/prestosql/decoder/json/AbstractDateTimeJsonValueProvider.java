@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.FieldValueProvider;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
@@ -33,11 +34,13 @@ import static java.lang.String.format;
 public abstract class AbstractDateTimeJsonValueProvider
         extends FieldValueProvider
 {
+    protected final ConnectorSession session;
     protected final JsonNode value;
     protected final DecoderColumnHandle columnHandle;
 
-    protected AbstractDateTimeJsonValueProvider(JsonNode value, DecoderColumnHandle columnHandle)
+    protected AbstractDateTimeJsonValueProvider(ConnectorSession session, JsonNode value, DecoderColumnHandle columnHandle)
     {
+        this.session = session;
         this.value = value;
         this.columnHandle = columnHandle;
     }

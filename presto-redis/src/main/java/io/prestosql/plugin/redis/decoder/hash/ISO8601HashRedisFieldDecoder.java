@@ -15,6 +15,7 @@ package io.prestosql.plugin.redis.decoder.hash;
 
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.FieldValueProvider;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
@@ -23,16 +24,26 @@ import org.joda.time.format.ISODateTimeFormat;
 
 import java.util.Locale;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class ISO8601HashRedisFieldDecoder
         extends HashRedisFieldDecoder
 {
     private static final DateTimeFormatter FORMATTER = ISODateTimeFormat.dateTimeParser().withLocale(Locale.ENGLISH).withZoneUTC();
+
+    private final ConnectorSession session;
+
+    public ISO8601HashRedisFieldDecoder(ConnectorSession session)
+    {
+        this.session = requireNonNull(session, "session is null");
+        checkArgument(this.session.isLegacyTimestamp(), "The ISO8601HashRedisFieldDecoder does not support non-legacy timestamp semantics");
+    }
 
     @Override
     public FieldValueProvider decode(String value, DecoderColumnHandle columnHandle)

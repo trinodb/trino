@@ -18,6 +18,7 @@ import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.RowDecoder;
 import io.prestosql.decoder.RowDecoderFactory;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorSession;
 
 import javax.inject.Inject;
 
@@ -44,36 +45,37 @@ public class JsonRowDecoderFactory
     }
 
     @Override
-    public RowDecoder create(Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
+    public RowDecoder create(ConnectorSession session, Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
     {
         requireNonNull(columns, "columnHandles is null");
-        return new JsonRowDecoder(objectMapper, chooseFieldDecoders(columns));
+        return new JsonRowDecoder(objectMapper, chooseFieldDecoders(session, columns));
     }
 
-    private Map<DecoderColumnHandle, JsonFieldDecoder> chooseFieldDecoders(Set<DecoderColumnHandle> columns)
+    private Map<DecoderColumnHandle, JsonFieldDecoder> chooseFieldDecoders(ConnectorSession session, Set<DecoderColumnHandle> columns)
     {
         return columns.stream()
-                .collect(toImmutableMap(identity(), this::chooseFieldDecoder));
+                .collect(toImmutableMap(identity(), col -> chooseFieldDecoder(session, col)));
     }
 
-    private JsonFieldDecoder chooseFieldDecoder(DecoderColumnHandle column)
+    private JsonFieldDecoder chooseFieldDecoder(ConnectorSession session, DecoderColumnHandle column)
     {
         try {
             requireNonNull(column);
             checkArgument(!column.isInternal(), "unexpected internal column '%s'", column.getName());
+            requireNonNull(session, "session is null");
 
             String dataFormat = Optional.ofNullable(column.getDataFormat()).orElse("");
             switch (dataFormat) {
                 case "custom-date-time":
-                    return new CustomDateTimeJsonFieldDecoder(column);
+                    return new CustomDateTimeJsonFieldDecoder(session, column);
                 case "iso8601":
-                    return new ISO8601JsonFieldDecoder(column);
+                    return new ISO8601JsonFieldDecoder(session, column);
                 case "seconds-since-epoch":
-                    return new SecondsSinceEpochJsonFieldDecoder(column);
+                    return new SecondsSinceEpochJsonFieldDecoder(session, column);
                 case "milliseconds-since-epoch":
-                    return new MillisecondsSinceEpochJsonFieldDecoder(column);
+                    return new MillisecondsSinceEpochJsonFieldDecoder(session, column);
                 case "rfc2822":
-                    return new RFC2822JsonFieldDecoder(column);
+                    return new RFC2822JsonFieldDecoder(session, column);
                 case "":
                     return new DefaultJsonFieldDecoder(column);
                 default:

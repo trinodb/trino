@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.FieldValueProvider;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
@@ -28,6 +29,7 @@ import java.time.temporal.TemporalAccessor;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
 import static io.prestosql.decoder.json.JsonRowDecoderFactory.throwUnsupportedColumnType;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
@@ -57,10 +59,13 @@ public class ISO8601JsonFieldDecoder
 {
     private static final Set<Type> NON_PARAMETRIC_SUPPORTED_TYPES = ImmutableSet.of(DATE, TIME, TIME_WITH_TIME_ZONE);
 
+    private final ConnectorSession session;
     private final DecoderColumnHandle columnHandle;
 
-    public ISO8601JsonFieldDecoder(DecoderColumnHandle columnHandle)
+    public ISO8601JsonFieldDecoder(ConnectorSession session, DecoderColumnHandle columnHandle)
     {
+        this.session = requireNonNull(session, "session is null");
+        checkArgument(this.session.isLegacyTimestamp(), "The ISO8601 JSON field decoder only supports legacy timestamp semantics");
         this.columnHandle = requireNonNull(columnHandle, "columnHandle is null");
         if (!isSupportedType(columnHandle.getType())) {
             throwUnsupportedColumnType(columnHandle);
@@ -77,17 +82,19 @@ public class ISO8601JsonFieldDecoder
     @Override
     public FieldValueProvider decode(JsonNode value)
     {
-        return new ISO8601JsonValueProvider(value, columnHandle);
+        return new ISO8601JsonValueProvider(session, value, columnHandle);
     }
 
     private static class ISO8601JsonValueProvider
             extends FieldValueProvider
     {
+        private final ConnectorSession session;
         private final JsonNode value;
         private final DecoderColumnHandle columnHandle;
 
-        public ISO8601JsonValueProvider(JsonNode value, DecoderColumnHandle columnHandle)
+        public ISO8601JsonValueProvider(ConnectorSession session, JsonNode value, DecoderColumnHandle columnHandle)
         {
+            this.session = session;
             this.value = value;
             this.columnHandle = columnHandle;
         }

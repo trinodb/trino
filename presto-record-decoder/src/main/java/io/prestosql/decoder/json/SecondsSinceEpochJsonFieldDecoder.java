@@ -18,12 +18,14 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.FieldValueProvider;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
 import static io.prestosql.decoder.json.JsonRowDecoderFactory.throwUnsupportedColumnType;
 import static io.prestosql.spi.type.TimeType.TIME;
@@ -43,10 +45,13 @@ public class SecondsSinceEpochJsonFieldDecoder
 {
     private static final Set<Type> NON_PARAMETRIC_SUPPORTED_TYPES = ImmutableSet.of(TIME, TIME_WITH_TIME_ZONE);
 
+    private final ConnectorSession session;
     private final DecoderColumnHandle columnHandle;
 
-    public SecondsSinceEpochJsonFieldDecoder(DecoderColumnHandle columnHandle)
+    public SecondsSinceEpochJsonFieldDecoder(ConnectorSession session, DecoderColumnHandle columnHandle)
     {
+        this.session = requireNonNull(session, "session is null");
+        checkArgument(this.session.isLegacyTimestamp(), "The seconds since epoch JSON field decoder only supports legacy timestamp semantics");
         this.columnHandle = requireNonNull(columnHandle, "columnHandle is null");
         if (!isSupportedType(columnHandle.getType())) {
             throwUnsupportedColumnType(columnHandle);
@@ -63,15 +68,15 @@ public class SecondsSinceEpochJsonFieldDecoder
     @Override
     public FieldValueProvider decode(JsonNode value)
     {
-        return new SecondsSinceEpochJsonValueProvider(value, columnHandle);
+        return new SecondsSinceEpochJsonValueProvider(session, value, columnHandle);
     }
 
     public static class SecondsSinceEpochJsonValueProvider
             extends AbstractDateTimeJsonValueProvider
     {
-        public SecondsSinceEpochJsonValueProvider(JsonNode value, DecoderColumnHandle columnHandle)
+        public SecondsSinceEpochJsonValueProvider(ConnectorSession session, JsonNode value, DecoderColumnHandle columnHandle)
         {
-            super(value, columnHandle);
+            super(session, value, columnHandle);
         }
 
         @Override

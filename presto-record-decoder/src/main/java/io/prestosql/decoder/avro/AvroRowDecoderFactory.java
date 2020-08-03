@@ -16,6 +16,7 @@ package io.prestosql.decoder.avro;
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.RowDecoder;
 import io.prestosql.decoder.RowDecoderFactory;
+import io.prestosql.spi.connector.ConnectorSession;
 import org.apache.avro.Schema;
 import org.apache.avro.generic.GenericDatumReader;
 
@@ -28,7 +29,7 @@ public class AvroRowDecoderFactory
         implements RowDecoderFactory
 {
     @Override
-    public RowDecoder create(Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
+    public RowDecoder create(ConnectorSession session, Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
     {
         String dataSchema = requireNonNull(decoderParams.get("dataSchema"), "dataSchema cannot be null");
         Schema parsedSchema = (new Schema.Parser()).parse(dataSchema);

@@ -18,6 +18,7 @@ import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.RowDecoder;
 import io.prestosql.decoder.RowDecoderFactory;
 import io.prestosql.plugin.redis.RedisFieldDecoder;
+import io.prestosql.spi.connector.ConnectorSession;
 
 import java.util.Map;
 import java.util.Set;
@@ -31,7 +32,7 @@ public class HashRedisRowDecoderFactory
         implements RowDecoderFactory
 {
     @Override
-    public RowDecoder create(Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
+    public RowDecoder create(ConnectorSession session, Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
     {
         requireNonNull(columns, "columns is null");
         return new HashRedisRowDecoder(chooseFieldDecoders(columns));
