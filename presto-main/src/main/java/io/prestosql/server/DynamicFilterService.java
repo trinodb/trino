@@ -22,13 +22,13 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.Duration;
 import io.prestosql.execution.SqlQueryExecution;
 import io.prestosql.execution.StageState;
-import io.prestosql.execution.TaskManagerConfig;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.DynamicFilters;
+import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.optimizations.PlanNodeSearcher;
 import io.prestosql.sql.planner.plan.DynamicFilterId;
@@ -55,8 +55,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.airlift.concurrent.MoreFutures.getDone;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
+import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.operator.JoinUtils.isBuildSideRepartitioned;
@@ -73,7 +73,7 @@ import static java.util.stream.Collectors.mapping;
 @ThreadSafe
 public class DynamicFilterService
 {
-    private final Duration statusRefreshMaxWait;
+    private final Duration dynamicFilteringRefreshInterval;
     private final ScheduledExecutorService collectDynamicFiltersExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("DynamicFilterService"));
 
     @GuardedBy("this") // for updates
@@ -86,15 +86,15 @@ public class DynamicFilterService
     private final Map<QueryId, Set<DynamicFilterId>> queryReplicatedDynamicFilters = new ConcurrentHashMap<>();
 
     @Inject
-    public DynamicFilterService(TaskManagerConfig taskConfig)
+    public DynamicFilterService(FeaturesConfig featuresConfig)
     {
-        this.statusRefreshMaxWait = requireNonNull(taskConfig, "taskConfig is null").getStatusRefreshMaxWait();
+        this.dynamicFilteringRefreshInterval = requireNonNull(featuresConfig, "featuresConfig is null").getDynamicFilteringRefreshInterval();
     }
 
     @PostConstruct
     public void start()
     {
-        collectDynamicFiltersExecutor.scheduleWithFixedDelay(this::collectDynamicFilters, 0, statusRefreshMaxWait.toMillis(), MILLISECONDS);
+        collectDynamicFiltersExecutor.scheduleWithFixedDelay(this::collectDynamicFilters, 0, dynamicFilteringRefreshInterval.toMillis(), MILLISECONDS);
     }
 
     @PreDestroy
@@ -219,7 +219,7 @@ public class DynamicFilterService
                 }
 
                 dynamicFilter = dynamicFilters.stream()
-                        .map(filter -> getSummary(dynamicFilterFutures.get(filter))
+                        .map(filter -> tryGetFutureValue(dynamicFilterFutures.get(filter))
                                 .map(summary -> translateSummaryToTupleDomain(filter, summary, sourceColumnHandles)))
                         .filter(Optional::isPresent)
                         .map(Optional::get)
@@ -271,16 +271,7 @@ public class DynamicFilterService
     @VisibleForTesting
     Optional<Domain> getSummary(QueryId queryId, DynamicFilterId filterId)
     {
-        return getSummary(dynamicFilterSummaries.get(queryId).get(filterId));
-    }
-
-    private Optional<Domain> getSummary(ListenableFuture<Domain> future)
-    {
-        if (!future.isDone()) {
-            return Optional.empty();
-        }
-
-        return Optional.of(getDone(future));
+        return tryGetFutureValue(dynamicFilterSummaries.get(queryId).get(filterId));
     }
 
     private Map<QueryId, Supplier<List<StageDynamicFilters>>> getDynamicFilterSuppliers()

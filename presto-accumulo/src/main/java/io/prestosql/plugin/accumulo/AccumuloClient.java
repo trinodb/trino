@@ -573,7 +573,7 @@ public class AccumuloClient
 
     public void renameColumn(AccumuloTable table, String source, String target)
     {
-        if (!table.getColumns().stream().anyMatch(columnHandle -> columnHandle.getName().equalsIgnoreCase(source))) {
+        if (table.getColumns().stream().noneMatch(columnHandle -> columnHandle.getName().equalsIgnoreCase(source))) {
             throw new PrestoException(NOT_FOUND, format("Failed to find source column %s to rename to %s", source, target));
         }
 

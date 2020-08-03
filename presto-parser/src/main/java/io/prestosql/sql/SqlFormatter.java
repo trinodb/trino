@@ -334,15 +334,16 @@ public final class SqlFormatter
         @Override
         protected Void visitOffset(Offset node, Integer indent)
         {
-            append(indent, "OFFSET " + node.getRowCount() + " ROWS")
-                    .append('\n');
+            append(indent, "OFFSET ")
+                    .append(formatExpression(node.getRowCount()))
+                    .append(" ROWS\n");
             return null;
         }
 
         @Override
         protected Void visitFetchFirst(FetchFirst node, Integer indent)
         {
-            append(indent, "FETCH FIRST " + node.getRowCount().map(c -> c + " ROWS ").orElse("ROW "))
+            append(indent, "FETCH FIRST " + node.getRowCount().map(count -> formatExpression(count) + " ROWS ").orElse("ROW "))
                     .append(node.isWithTies() ? "WITH TIES" : "ONLY")
                     .append('\n');
             return null;
@@ -351,7 +352,8 @@ public final class SqlFormatter
         @Override
         protected Void visitLimit(Limit node, Integer indent)
         {
-            append(indent, "LIMIT " + node.getLimit())
+            append(indent, "LIMIT ")
+                    .append(formatExpression(node.getRowCount()))
                     .append('\n');
             return null;
         }

@@ -11,12 +11,20 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive;
+package io.prestosql.type;
 
-import io.prestosql.spi.type.Type;
-import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
+import com.fasterxml.jackson.databind.DeserializationContext;
+import com.fasterxml.jackson.databind.KeyDeserializer;
+import com.google.common.collect.ImmutableSet;
 
-public interface TypeTranslator
+import static io.prestosql.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
+
+public final class TypeSignatureKeyDeserializer
+        extends KeyDeserializer
 {
-    TypeInfo translate(Type type);
+    @Override
+    public Object deserializeKey(String key, DeserializationContext context)
+    {
+        return parseTypeSignature(key, ImmutableSet.of());
+    }
 }

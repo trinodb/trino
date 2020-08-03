@@ -28,6 +28,7 @@ import io.prestosql.sql.analyzer.Analysis;
 import io.prestosql.sql.analyzer.Analysis.GroupingSetAnalysis;
 import io.prestosql.sql.analyzer.Analysis.SelectExpression;
 import io.prestosql.sql.analyzer.FieldId;
+import io.prestosql.sql.analyzer.RelationType;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.Assignments;
@@ -378,14 +379,15 @@ class QueryPlanner
             groupingSetMappings.put(output, input);
         }
 
-        ImmutableMap.Builder<Expression, Symbol> expressionsBuilder = ImmutableMap.builder();
+        Map<ScopeAware<Expression>, Symbol> complexExpressions = new HashMap<>();
         for (Expression expression : groupingSetAnalysis.getComplexExpressions()) {
-            Symbol input = subPlan.translate(expression);
-            Symbol output = symbolAllocator.newSymbol(expression, analysis.getType(expression), "gid");
-            expressionsBuilder.put(expression, output);
-            groupingSetMappings.put(output, input);
+            if (!complexExpressions.containsKey(scopeAwareKey(expression, analysis, subPlan.getScope()))) {
+                Symbol input = subPlan.translate(expression);
+                Symbol output = symbolAllocator.newSymbol(expression, analysis.getType(expression), "gid");
+                complexExpressions.put(scopeAwareKey(expression, analysis, subPlan.getScope()), output);
+                groupingSetMappings.put(output, input);
+            }
         }
-        Map<Expression, Symbol> complexExpressions = expressionsBuilder.build();
 
         // For the purpose of "distinct", we need to canonicalize column references that may have varying
         // syntactic forms (e.g., "t.a" vs "a"). Thus we need to enumerate grouping sets based on the underlying
@@ -797,15 +799,15 @@ class QueryPlanner
                 analysis.isTypeOnlyCoercion(original));
     }
 
-    public static NodeAndMappings coerce(PlanNode node, List<Symbol> fields, List<Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
+    public static NodeAndMappings coerce(RelationPlan plan, List<Type> types, SymbolAllocator symbolAllocator, PlanNodeIdAllocator idAllocator)
     {
-        checkArgument(fields.size() == types.size());
+        List<Symbol> visibleFields = visibleFields(plan);
+        checkArgument(visibleFields.size() == types.size());
 
         Assignments.Builder assignments = Assignments.builder();
-
         ImmutableList.Builder<Symbol> mappings = ImmutableList.builder();
         for (int i = 0; i < types.size(); i++) {
-            Symbol input = fields.get(i);
+            Symbol input = visibleFields.get(i);
             Type type = types.get(i);
 
             if (!symbolAllocator.getTypes().get(input).equals(type)) {
@@ -819,8 +821,25 @@ class QueryPlanner
             }
         }
 
-        ProjectNode coerced = new ProjectNode(idAllocator.getNextId(), node, assignments.build());
+        ProjectNode coerced = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), assignments.build());
         return new NodeAndMappings(coerced, mappings.build());
+    }
+
+    private static List<Symbol> visibleFields(RelationPlan subPlan)
+    {
+        RelationType descriptor = subPlan.getDescriptor();
+        return descriptor.getAllFields().stream()
+                .filter(field -> !field.isHidden())
+                .map(descriptor::indexOf)
+                .map(subPlan.getFieldMappings()::get)
+                .collect(toImmutableList());
+    }
+
+    public static NodeAndMappings pruneInvisibleFields(RelationPlan plan, PlanNodeIdAllocator idAllocator)
+    {
+        List<Symbol> visibleFields = visibleFields(plan);
+        ProjectNode pruned = new ProjectNode(idAllocator.getNextId(), plan.getRoot(), Assignments.identity(visibleFields));
+        return new NodeAndMappings(pruned, visibleFields);
     }
 
     private PlanBuilder distinct(PlanBuilder subPlan, QuerySpecification node, List<Expression> expressions)

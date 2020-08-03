@@ -11,21 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.sql.gen;
+package io.prestosql.metadata;
 
-import io.airlift.bytecode.BytecodeNode;
-import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.relational.RowExpression;
+import io.prestosql.spi.PrestoException;
 
-import java.util.List;
+import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 
-public class FunctionCallCodeGenerator
-        implements BytecodeGenerator
+public class UndeclaredDependencyException
+        extends PrestoException
 {
-    @Override
-    public BytecodeNode generateExpression(ResolvedFunction resolvedFunction, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments)
+    public UndeclaredDependencyException(String dependency)
     {
-        return context.generateFullCall(resolvedFunction, arguments);
+        super(FUNCTION_IMPLEMENTATION_ERROR, "Undeclared function dependency: " + dependency);
     }
 }

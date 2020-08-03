@@ -15,10 +15,9 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
@@ -29,6 +28,7 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.function.AccumulatorState;
 import io.prestosql.spi.function.AccumulatorStateSerializer;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -79,7 +79,15 @@ public class RealAverageAggregation
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
+    {
+        return ImmutableList.of(
+                StateCompiler.getSerializedType(LongState.class).getTypeSignature(),
+                StateCompiler.getSerializedType(DoubleState.class).getTypeSignature());
+    }
+
+    @Override
+    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(AverageAggregations.class.getClassLoader());
         Class<? extends AccumulatorState> longStateInterface = LongState.class;
@@ -113,8 +121,6 @@ public class RealAverageAggregation
                         longStateSerializer.getSerializedType(),
                         doubleStateSerializer.getSerializedType()),
                 REAL,
-                true,
-                false,
                 factory);
     }
 

@@ -11,9 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive;
+package io.prestosql.metadata;
 
-public interface CoercionPolicy
+import io.prestosql.spi.type.Type;
+
+interface TypeVariables
 {
-    boolean canCoerce(HiveType fromType, HiveType toType);
+    Type getTypeVariable(String variableName);
+
+    boolean containsTypeVariable(String variableName);
+
+    Long getLongVariable(String variableName);
+
+    boolean containsLongVariable(String variableName);
 }

@@ -16,10 +16,10 @@ package io.prestosql.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.operator.aggregation.TypedSet;
 import io.prestosql.spi.PrestoException;
@@ -29,7 +29,6 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
@@ -39,12 +38,11 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.metadata.Signature.castableToTypeParameter;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.block.MethodHandleUtil.compose;
 import static io.prestosql.spi.block.MethodHandleUtil.nativeValueWriter;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.function.OperatorType.CAST;
@@ -89,36 +87,40 @@ public final class MapToMapCast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    public FunctionDependencyDeclaration getFunctionDependencies()
     {
-        checkArgument(arity == 1, "Expected arity to be 1");
-        Type fromKeyType = boundVariables.getTypeVariable("FK");
-        Type fromValueType = boundVariables.getTypeVariable("FV");
-        Type toKeyType = boundVariables.getTypeVariable("TK");
-        Type toValueType = boundVariables.getTypeVariable("TV");
-        Type toMapType = metadata.getParameterizedType(
-                "map",
-                ImmutableList.of(
-                        TypeSignatureParameter.typeParameter(toKeyType.getTypeSignature()),
-                        TypeSignatureParameter.typeParameter(toValueType.getTypeSignature())));
+        return FunctionDependencyDeclaration.builder()
+                .addCastSignature(new TypeSignature("FK"), new TypeSignature("TK"))
+                .addCastSignature(new TypeSignature("FV"), new TypeSignature("TV"))
+                .build();
+    }
 
-        MethodHandle keyProcessor = buildProcessor(metadata, fromKeyType, toKeyType, true);
-        MethodHandle valueProcessor = buildProcessor(metadata, fromValueType, toValueType, false);
+    @Override
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    {
+        checkArgument(functionBinding.getArity() == 1, "Expected arity to be 1");
+        Type fromKeyType = functionBinding.getTypeVariable("FK");
+        Type fromValueType = functionBinding.getTypeVariable("FV");
+        Type toKeyType = functionBinding.getTypeVariable("TK");
+        Type toValueType = functionBinding.getTypeVariable("TV");
+        Type toMapType = functionBinding.getBoundSignature().getReturnType();
+
+        MethodHandle keyProcessor = buildProcessor(functionDependencies, fromKeyType, toKeyType, true);
+        MethodHandle valueProcessor = buildProcessor(functionDependencies, fromValueType, toValueType, false);
         MethodHandle target = MethodHandles.insertArguments(METHOD_HANDLE, 0, keyProcessor, valueProcessor, toMapType);
-        return new ScalarFunctionImplementation(true, ImmutableList.of(valueTypeArgumentProperty(RETURN_NULL_ON_NULL)), target);
+        return new ScalarFunctionImplementation(NULLABLE_RETURN, ImmutableList.of(NEVER_NULL), target);
     }
 
     /**
      * The signature of the returned MethodHandle is (Block fromMap, int position, ConnectorSession session, BlockBuilder mapBlockBuilder)void.
      * The processor will get the value from fromMap, cast it and write to toBlock.
      */
-    private MethodHandle buildProcessor(Metadata metadata, Type fromType, Type toType, boolean isKey)
+    private MethodHandle buildProcessor(FunctionDependencies functionDependencies, Type fromType, Type toType, boolean isKey)
     {
         // Get block position cast, with optional connector session
-        ResolvedFunction resolvedFunction = metadata.getCoercion(fromType, toType);
-        FunctionMetadata functionMetadata = metadata.getFunctionMetadata(resolvedFunction);
+        FunctionMetadata functionMetadata = functionDependencies.getCastMetadata(fromType, toType);
         InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(BLOCK_POSITION), functionMetadata.isNullable() ? NULLABLE_RETURN : FAIL_ON_NULL, true, false);
-        MethodHandle cast = metadata.getScalarFunctionInvoker(resolvedFunction, Optional.of(invocationConvention)).getMethodHandle();
+        MethodHandle cast = functionDependencies.getCastInvoker(fromType, toType, Optional.of(invocationConvention)).getMethodHandle();
         // Normalize cast to have connector session as first argument
         if (cast.type().parameterArray()[0] != ConnectorSession.class) {
             cast = MethodHandles.dropArguments(cast, 0, ConnectorSession.class);

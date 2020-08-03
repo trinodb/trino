@@ -33,6 +33,9 @@ public final class DateTimeEncoding
         return (millisUtc << MILLIS_SHIFT) | (timeZoneKey & TIME_ZONE_MASK);
     }
 
+    /**
+     * @throws TimeZoneNotSupportedException when {@code zoneId} does not identity a time zone
+     */
     public static long packDateTimeWithZone(long millisUtc, String zoneId)
     {
         return packDateTimeWithZone(millisUtc, getTimeZoneKey(zoneId));

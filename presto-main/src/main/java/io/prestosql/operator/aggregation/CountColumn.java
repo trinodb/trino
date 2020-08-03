@@ -15,10 +15,9 @@ package io.prestosql.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
@@ -78,9 +77,15 @@ public class CountColumn
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
     {
-        Type type = boundVariables.getTypeVariable("T");
+        return ImmutableList.of(StateCompiler.getSerializedType(LongState.class).getTypeSignature());
+    }
+
+    @Override
+    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
+    {
+        Type type = functionBinding.getTypeVariable("T");
         return generateAggregation(type);
     }
 
@@ -108,7 +113,7 @@ public class CountColumn
                 BIGINT);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), BIGINT, true, false, factory);
+        return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(intermediateType), BIGINT, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)

@@ -21,15 +21,16 @@ import io.airlift.slice.SliceUtf8;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.BoundSignature;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.OperatorNotFoundException;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.metadata.Signature;
 import io.prestosql.operator.scalar.FormatFunction;
 import io.prestosql.security.AccessControl;
 import io.prestosql.security.SecurityContext;
+import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.PrestoWarning;
@@ -130,6 +131,7 @@ import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_PARAMETER_USAGE;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.StandardErrorCode.OPERATOR_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
 import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.StandardErrorCode.TYPE_NOT_FOUND;
@@ -157,6 +159,7 @@ import static io.prestosql.sql.analyzer.Analyzer.verifyNoAggregateWindowOrGroupi
 import static io.prestosql.sql.analyzer.ExpressionTreeUtils.extractLocation;
 import static io.prestosql.sql.analyzer.SemanticExceptions.missingAttributeException;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
+import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toTypeSignature;
 import static io.prestosql.sql.tree.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static io.prestosql.sql.tree.CurrentTime.Function.LOCALTIMESTAMP;
@@ -972,10 +975,10 @@ public class ExpressionAnalyzer
                 }
             }
 
-            Signature signature = function.getSignature();
+            BoundSignature signature = function.getSignature();
             for (int i = 0; i < node.getArguments().size(); i++) {
                 Expression expression = node.getArguments().get(i);
-                Type expectedType = metadata.getType(signature.getArgumentTypes().get(i));
+                Type expectedType = signature.getArgumentTypes().get(i);
                 requireNonNull(expectedType, format("Type '%s' not found", signature.getArgumentTypes().get(i)));
                 if (node.isDistinct() && !expectedType.isComparable()) {
                     throw semanticException(TYPE_MISMATCH, node, "DISTINCT can only be applied to comparable types (actual: %s)", expectedType);
@@ -996,12 +999,12 @@ public class ExpressionAnalyzer
             FunctionMetadata functionMetadata = metadata.getFunctionMetadata(function);
             if (functionMetadata.isDeprecated()) {
                 warningCollector.add(new PrestoWarning(DEPRECATED_FUNCTION,
-                        String.format("Use of deprecated function: %s: %s",
+                        format("Use of deprecated function: %s: %s",
                                 functionMetadata.getSignature().getName(),
                                 functionMetadata.getDescription())));
             }
 
-            Type type = metadata.getType(signature.getReturnType());
+            Type type = signature.getReturnType();
             return setExpressionType(node, type);
         }
 
@@ -1082,11 +1085,12 @@ public class ExpressionAnalyzer
 
             for (int i = 1; i < arguments.size(); i++) {
                 try {
-                    FormatFunction.validateType(metadata, arguments.get(i));
+                    metadata.resolveFunction(QualifiedName.of(FormatFunction.NAME), fromTypes(arguments.get(0), RowType.anonymous(arguments.subList(1, arguments.size()))));
                 }
                 catch (PrestoException e) {
-                    if (e.getErrorCode().equals(NOT_SUPPORTED.toErrorCode())) {
-                        throw semanticException(NOT_SUPPORTED, node.getArguments().get(i), "%s", e.getRawMessage());
+                    ErrorCode errorCode = e.getErrorCode();
+                    if (errorCode.equals(NOT_SUPPORTED.toErrorCode()) || errorCode.equals(OPERATOR_NOT_FOUND.toErrorCode())) {
+                        throw semanticException(NOT_SUPPORTED, node.getArguments().get(i), "Type not supported for formatting: %s", arguments.get(i));
                     }
                     throw e;
                 }
@@ -1108,7 +1112,11 @@ public class ExpressionAnalyzer
                 throw semanticException(INVALID_PARAMETER_USAGE, node, "Invalid parameter index %s, max value is %s", node.getPosition(), parameters.size() - 1);
             }
 
-            Type resultType = process(parameters.get(NodeRef.of(node)), context);
+            Expression providedValue = parameters.get(NodeRef.of(node));
+            if (providedValue == null) {
+                throw semanticException(INVALID_PARAMETER_USAGE, node, "No value provided for parameter");
+            }
+            Type resultType = process(providedValue, context);
             return setExpressionType(node, resultType);
         }
 
@@ -1449,7 +1457,7 @@ public class ExpressionAnalyzer
                 argumentTypes.add(process(expression, context));
             }
 
-            Signature operatorSignature;
+            BoundSignature operatorSignature;
             try {
                 operatorSignature = metadata.resolveOperator(operatorType, argumentTypes.build()).getSignature();
             }
@@ -1459,11 +1467,11 @@ public class ExpressionAnalyzer
 
             for (int i = 0; i < arguments.length; i++) {
                 Expression expression = arguments[i];
-                Type type = metadata.getType(operatorSignature.getArgumentTypes().get(i));
+                Type type = operatorSignature.getArgumentTypes().get(i);
                 coerceType(context, expression, type, format("Operator %s argument %d", operatorSignature, i));
             }
 
-            Type type = metadata.getType(operatorSignature.getReturnType());
+            Type type = operatorSignature.getReturnType();
             return setExpressionType(node, type);
         }
 

@@ -17,9 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.kafka.util.TestingKafka;
 import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.type.BigintType;
-import io.prestosql.spi.type.BooleanType;
-import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
@@ -41,6 +38,9 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.TestngUtils.toDataProvider;
 import static java.util.Objects.requireNonNull;
@@ -65,17 +65,17 @@ public class TestKafkaIntegrationSmokeTest
                 .put(new SchemaTableName("default", rawFormatTopic),
                         createDescription(rawFormatTopic, "default", rawFormatTopic,
                                 createFieldGroup("raw", ImmutableList.of(
-                                        createOneFieldDescription("bigint_long", BigintType.BIGINT, "0", "LONG"),
-                                        createOneFieldDescription("bigint_int", BigintType.BIGINT, "8", "INT"),
-                                        createOneFieldDescription("bigint_short", BigintType.BIGINT, "12", "SHORT"),
-                                        createOneFieldDescription("bigint_byte", BigintType.BIGINT, "14", "BYTE"),
-                                        createOneFieldDescription("double_double", DoubleType.DOUBLE, "15", "DOUBLE"),
-                                        createOneFieldDescription("double_float", DoubleType.DOUBLE, "23", "FLOAT"),
+                                        createOneFieldDescription("bigint_long", BIGINT, "0", "LONG"),
+                                        createOneFieldDescription("bigint_int", BIGINT, "8", "INT"),
+                                        createOneFieldDescription("bigint_short", BIGINT, "12", "SHORT"),
+                                        createOneFieldDescription("bigint_byte", BIGINT, "14", "BYTE"),
+                                        createOneFieldDescription("double_double", DOUBLE, "15", "DOUBLE"),
+                                        createOneFieldDescription("double_float", DOUBLE, "23", "FLOAT"),
                                         createOneFieldDescription("varchar_byte", createVarcharType(6), "27:33", "BYTE"),
-                                        createOneFieldDescription("boolean_long", BooleanType.BOOLEAN, "33", "LONG"),
-                                        createOneFieldDescription("boolean_int", BooleanType.BOOLEAN, "41", "INT"),
-                                        createOneFieldDescription("boolean_short", BooleanType.BOOLEAN, "45", "SHORT"),
-                                        createOneFieldDescription("boolean_byte", BooleanType.BOOLEAN, "47", "BYTE")))))
+                                        createOneFieldDescription("boolean_long", BOOLEAN, "33", "LONG"),
+                                        createOneFieldDescription("boolean_int", BOOLEAN, "41", "INT"),
+                                        createOneFieldDescription("boolean_short", BOOLEAN, "45", "SHORT"),
+                                        createOneFieldDescription("boolean_byte", BOOLEAN, "47", "BYTE")))))
                 .build();
 
         QueryRunner queryRunner = KafkaQueryRunner.builder(testingKafka)
@@ -85,7 +85,8 @@ public class TestKafkaIntegrationSmokeTest
                         .build())
                 .build();
 
-        testingKafka.createTopics(rawFormatTopic);
+        testingKafka.createTopic(rawFormatTopic);
+
         return queryRunner;
     }
 
@@ -160,7 +161,7 @@ public class TestKafkaIntegrationSmokeTest
         return new KafkaTopicFieldDescription(name, type, mapping, null, dataFormat, null, false);
     }
 
-    @Test(dataProvider = "testRoundTripAllFormatsDataProvider")
+    @Test(dataProvider = "roundTripAllFormatsDataProvider")
     public void testRoundTripAllFormats(RoundTripTestCase testCase)
     {
         assertUpdate("INSERT into write_test." + testCase.getTableName() +
@@ -171,14 +172,14 @@ public class TestKafkaIntegrationSmokeTest
                 "VALUES " + testCase.getRowValues());
     }
 
-    @DataProvider(name = "testRoundTripAllFormatsDataProvider")
-    public final Object[][] testRoundTripAllFormatsDataProvider()
+    @DataProvider
+    public final Object[][] roundTripAllFormatsDataProvider()
     {
-        return testRoundTripAllFormatsData().stream()
+        return roundTripAllFormatsData().stream()
                 .collect(toDataProvider());
     }
 
-    private List<RoundTripTestCase> testRoundTripAllFormatsData()
+    private List<RoundTripTestCase> roundTripAllFormatsData()
     {
         return ImmutableList.<RoundTripTestCase>builder()
                 .add(new RoundTripTestCase(
@@ -199,10 +200,16 @@ public class TestKafkaIntegrationSmokeTest
                         ImmutableList.of(
                                 ImmutableList.of(1, "'test'", 100000, 1000, 100, 10, 1000.001, true),
                                 ImmutableList.of(1, "'abcd'", 123456, 1234, 123, 12, 12345.123, false))))
+                .add(new RoundTripTestCase(
+                        "all_datatypes_json",
+                        ImmutableList.of("f_bigint", "f_int", "f_smallint", "f_tinyint", "f_double", "f_boolean", "f_varchar"),
+                        ImmutableList.of(
+                                ImmutableList.of(100000, 1000, 100, 10, 1000.001, true, "'test'"),
+                                ImmutableList.of(123748, 1234, 123, 12, 12345.123, false, "'abcd'"))))
                 .build();
     }
 
-    protected static final class RoundTripTestCase
+    private static final class RoundTripTestCase
     {
         private final String tableName;
         private final List<String> fieldNames;

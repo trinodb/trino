@@ -133,7 +133,7 @@ public final class KafkaQueryRunner
             testingKafka.start();
 
             for (TpchTable<?> table : tables) {
-                testingKafka.createTopics(kafkaTopicName(table));
+                testingKafka.createTopic(kafkaTopicName(table));
             }
 
             Map<SchemaTableName, KafkaTopicDescription> tpchTopicDescriptions = createTpchTopicDescriptions(queryRunner.getCoordinator().getMetadata(), tables);
@@ -142,12 +142,13 @@ public final class KafkaQueryRunner
             tableNames.add("all_datatypes_avro");
             tableNames.add("all_datatypes_csv");
             tableNames.add("all_datatypes_raw");
+            tableNames.add("all_datatypes_json");
 
             JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec = new CodecSupplier<>(KafkaTopicDescription.class, queryRunner.getMetadata()).get();
 
             ImmutableMap.Builder<SchemaTableName, KafkaTopicDescription> testTopicDescriptions = ImmutableMap.builder();
             for (String tableName : tableNames) {
-                testingKafka.createTopics("write_test." + tableName);
+                testingKafka.createTopic("write_test." + tableName);
                 SchemaTableName table = new SchemaTableName("write_test", tableName);
                 KafkaTopicDescription tableTemplate = topicDescriptionJsonCodec.fromJson(toByteArray(KafkaQueryRunner.class.getResourceAsStream(format("/write_test/%s.json", tableName))));
 
@@ -185,7 +186,6 @@ public final class KafkaQueryRunner
 
             Map<String, String> kafkaProperties = new HashMap<>(ImmutableMap.copyOf(extraKafkaProperties));
             kafkaProperties.putIfAbsent("kafka.nodes", testingKafka.getConnectString());
-            kafkaProperties.putIfAbsent("kafka.connect-timeout", "120s");
             kafkaProperties.putIfAbsent("kafka.default-schema", "default");
             kafkaProperties.putIfAbsent("kafka.messages-per-split", "1000");
             kafkaProperties.putIfAbsent("kafka.table-description-dir", "write-test");

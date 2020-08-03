@@ -62,7 +62,6 @@ Property Name                   Description
 ``kafka.table-names``           List of all tables provided by the catalog
 ``kafka.default-schema``        Default schema name for tables
 ``kafka.nodes``                 List of nodes in the Kafka cluster
-``kafka.connect-timeout``       Timeout for connecting to the Kafka cluster
 ``kafka.buffer-size``           Kafka read buffer size
 ``kafka.table-description-dir`` Directory containing topic description files
 ``kafka.hide-internal-columns`` Controls whether internal columns are part of the table schema or not
@@ -104,15 +103,6 @@ This property is required; there is no default and at least one node must be def
     Presto must still be able to connect to all nodes of the cluster
     even if only a subset is specified here as segment files may be
     located only on a specific node.
-
-``kafka.connect-timeout``
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Timeout for connecting to a data node. A busy Kafka cluster may take quite
-some time before accepting a connection; when seeing failed queries due to
-timeouts, increasing this value is a good strategy.
-
-This property is optional; the default is 10 seconds (``10s``).
 
 ``kafka.buffer-size``
 ^^^^^^^^^^^^^^^^^^^^^

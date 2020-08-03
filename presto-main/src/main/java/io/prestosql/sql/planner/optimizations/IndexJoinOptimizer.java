@@ -22,10 +22,10 @@ import com.google.common.collect.Lists;
 import com.google.common.collect.Maps;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
+import io.prestosql.metadata.BoundSignature;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.ResolvedIndex;
-import io.prestosql.metadata.Signature;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.planner.DomainTranslator;
@@ -368,7 +368,7 @@ public class IndexJoinOptimizer
             if (!node.getWindowFunctions().values().stream()
                     .map(Function::getResolvedFunction)
                     .map(ResolvedFunction::getSignature)
-                    .map(Signature::getName)
+                    .map(BoundSignature::getName)
                     .map(QualifiedName::of)
                     .allMatch(metadata::isAggregationFunction)) {
                 return node;

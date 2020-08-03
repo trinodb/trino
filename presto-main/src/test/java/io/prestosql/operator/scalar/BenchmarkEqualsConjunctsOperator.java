@@ -68,7 +68,7 @@ import static io.prestosql.sql.relational.Expressions.field;
 @Measurement(iterations = 5, time = 10)
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
-public class BenchmarkEqualsOperator
+public class BenchmarkEqualsConjunctsOperator
 {
     private static final int FIELDS_COUNT = 10;
     private static final int COMPARISONS_COUNT = 100;
@@ -114,7 +114,6 @@ public class BenchmarkEqualsOperator
     {
         return call(
                 metadata.resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
-                BOOLEAN,
                 field(leftField, BIGINT),
                 field(rightField, BIGINT));
     }
@@ -166,7 +165,7 @@ public class BenchmarkEqualsOperator
     {
         Options options = new OptionsBuilder()
                 .verbosity(VerboseMode.NORMAL)
-                .include(".*" + BenchmarkEqualsOperator.class.getSimpleName() + ".*")
+                .include(".*" + BenchmarkEqualsConjunctsOperator.class.getSimpleName() + ".*")
                 .build();
 
         new Runner(options).run();

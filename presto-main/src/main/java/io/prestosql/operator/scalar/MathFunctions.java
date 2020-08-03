@@ -41,7 +41,6 @@ import java.math.RoundingMode;
 import java.util.concurrent.ThreadLocalRandom;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.prestosql.spi.type.Decimals.longTenToNth;
@@ -525,7 +524,6 @@ public final class MathFunctions
     private static SqlScalarFunction decimalModFunction()
     {
         Signature signature = modulusSignatureBuilder()
-                .kind(SCALAR)
                 .name("mod")
                 .build();
         return modulusScalarFunction(signature);

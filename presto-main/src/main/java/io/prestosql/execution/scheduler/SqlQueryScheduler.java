@@ -90,6 +90,7 @@ import static io.prestosql.execution.StageState.ABORTED;
 import static io.prestosql.execution.StageState.CANCELED;
 import static io.prestosql.execution.StageState.FAILED;
 import static io.prestosql.execution.StageState.FINISHED;
+import static io.prestosql.execution.StageState.FLUSHING;
 import static io.prestosql.execution.StageState.RUNNING;
 import static io.prestosql.execution.StageState.SCHEDULED;
 import static io.prestosql.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
@@ -420,7 +421,7 @@ public class SqlQueryScheduler
         }
         Set<SqlStageExecution> childStages = childStagesBuilder.build();
         stage.addStateChangeListener(newState -> {
-            if (newState.isDone()) {
+            if (newState == FLUSHING || newState.isDone()) {
                 childStages.forEach(SqlStageExecution::cancel);
             }
         });
@@ -595,7 +596,7 @@ public class SqlQueryScheduler
 
             for (SqlStageExecution stage : stages.values()) {
                 StageState state = stage.getState();
-                if (state != SCHEDULED && state != RUNNING && !state.isDone()) {
+                if (state != SCHEDULED && state != RUNNING && state != FLUSHING && !state.isDone()) {
                     throw new PrestoException(GENERIC_INTERNAL_ERROR, format("Scheduling is complete, but stage %s is in state %s", stage.getStageId(), state));
                 }
             }

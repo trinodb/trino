@@ -16,10 +16,9 @@ package io.prestosql.operator.aggregation;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
@@ -27,6 +26,7 @@ import io.prestosql.operator.aggregation.state.NullableLongState;
 import io.prestosql.operator.aggregation.state.StateCompiler;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.AccumulatorStateSerializer;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 
@@ -43,7 +43,6 @@ import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMet
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.NULLABLE_BLOCK_INPUT_CHANNEL;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
-import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.util.Reflection.methodHandle;
 
@@ -80,9 +79,15 @@ public class ChecksumAggregationFunction
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
     {
-        Type valueType = boundVariables.getTypeVariable("T");
+        return ImmutableList.of(StateCompiler.getSerializedType(NullableLongState.class).getTypeSignature());
+    }
+
+    @Override
+    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
+    {
+        Type valueType = functionBinding.getTypeVariable("T");
         return generateAggregation(valueType);
     }
 
@@ -92,6 +97,7 @@ public class ChecksumAggregationFunction
 
         List<Type> inputTypes = ImmutableList.of(type);
 
+        AccumulatorStateSerializer<NullableLongState> stateSerializer = StateCompiler.generateStateSerializer(NullableLongState.class, classLoader);
         AggregationMetadata metadata = new AggregationMetadata(
                 generateAggregationName(NAME, type.getTypeSignature(), inputTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())),
                 createInputParameterMetadata(type),
@@ -101,12 +107,12 @@ public class ChecksumAggregationFunction
                 OUTPUT_FUNCTION,
                 ImmutableList.of(new AccumulatorStateDescriptor(
                         NullableLongState.class,
-                        StateCompiler.generateStateSerializer(NullableLongState.class, classLoader),
+                        stateSerializer,
                         StateCompiler.generateStateFactory(NullableLongState.class, classLoader))),
                 VARBINARY);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(BIGINT), VARBINARY, true, false, factory);
+        return new InternalAggregationFunction(NAME, inputTypes, ImmutableList.of(stateSerializer.getSerializedType()), VARBINARY, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type type)

@@ -29,7 +29,6 @@ import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.prestosql.plugin.hive.util.HiveBucketing.HiveBucketFilter;
 import io.prestosql.plugin.hive.util.HiveFileIterator;
-import io.prestosql.plugin.hive.util.HiveFileIterator.NestedDirectoryNotAllowedException;
 import io.prestosql.plugin.hive.util.InternalHiveSplitFactory;
 import io.prestosql.plugin.hive.util.ResumableTask;
 import io.prestosql.plugin.hive.util.ResumableTasks;
@@ -46,6 +45,7 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.common.ValidWriteIdList;
 import org.apache.hadoop.hive.ql.io.AcidUtils;
 import org.apache.hadoop.hive.ql.io.SymlinkTextInputFormat;
+import org.apache.hadoop.hive.shims.HadoopShims.HdfsFileStatusWithId;
 import org.apache.hadoop.mapred.FileInputFormat;
 import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.InputFormat;
@@ -89,6 +89,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_PARTITION_VALUE;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static io.prestosql.plugin.hive.HivePartitionManager.partitionMatches;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isForceLocalScheduling;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getHiveSchema;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.getPartitionLocation;
@@ -375,6 +376,7 @@ public class BackgroundHiveSplitLoader
                         partitionMatchSupplier,
                         partition.getTableToPartitionMapping(),
                         Optional.empty(),
+                        getMaxInitialSplitSize(session),
                         isForceLocalScheduling(session),
                         s3SelectPushdownEnabled);
                 lastResult = addSplitsToSource(targetSplits, splitFactory);
@@ -413,6 +415,7 @@ public class BackgroundHiveSplitLoader
                 partitionMatchSupplier,
                 partition.getTableToPartitionMapping(),
                 bucketConversionRequiresWorkerParticipation ? bucketConversion : Optional.empty(),
+                getMaxInitialSplitSize(session),
                 isForceLocalScheduling(session),
                 s3SelectPushdownEnabled);
 
@@ -435,7 +438,8 @@ public class BackgroundHiveSplitLoader
         }
 
         List<Path> readPaths;
-        Optional<AcidInfo> acidInfo;
+        List<HdfsFileStatusWithId> fileStatusOriginalFiles = ImmutableList.of();
+        AcidInfo.Builder acidInfoBuilder = AcidInfo.builder(path);
         if (AcidUtils.isTransactionalTable(table.getParameters())) {
             AcidUtils.Directory directory = hdfsEnvironment.doAs(hdfsContext.getIdentity().getUser(), () -> AcidUtils.getAcidState(
                     path,
@@ -457,10 +461,6 @@ public class BackgroundHiveSplitLoader
 
             readPaths = new ArrayList<>();
 
-            if (!directory.getOriginalFiles().isEmpty()) {
-                throw new PrestoException(NOT_SUPPORTED, "Original non-ACID files in transactional tables are not supported");
-            }
-
             // base
             if (directory.getBaseDirectory() != null) {
                 readPaths.add(directory.getBaseDirectory());
@@ -474,18 +474,28 @@ public class BackgroundHiveSplitLoader
             }
 
             // Create a registry of delete_delta directories for the partition
-            AcidInfo.Builder acidInfoBuilder = AcidInfo.builder(path);
             for (AcidUtils.ParsedDelta delta : directory.getCurrentDirectories()) {
                 if (delta.isDeleteDelta()) {
                     acidInfoBuilder.addDeleteDelta(delta.getPath(), delta.getMinWriteId(), delta.getMaxWriteId(), delta.getStatementId());
                 }
             }
 
-            acidInfo = acidInfoBuilder.build();
+            // initialize original files status list if present
+            fileStatusOriginalFiles = directory.getOriginalFiles();
+
+            for (HdfsFileStatusWithId hdfsFileStatusWithId : fileStatusOriginalFiles) {
+                Path originalFilePath = hdfsFileStatusWithId.getFileStatus().getPath();
+                long originalFileLength = hdfsFileStatusWithId.getFileStatus().getLen();
+                if (originalFileLength == 0) {
+                    continue;
+                }
+                // Hive requires "original" files of transactional tables to conform to the bucketed tables naming pattern, to match them with delete deltas.
+                int bucketId = getRequiredBucketNumber(originalFilePath);
+                acidInfoBuilder.addOriginalFile(originalFilePath, originalFileLength, bucketId);
+            }
         }
         else {
             readPaths = ImmutableList.of(path);
-            acidInfo = Optional.empty();
         }
 
         // S3 Select pushdown works at the granularity of individual S3 objects,
@@ -497,16 +507,61 @@ public class BackgroundHiveSplitLoader
         if (tableBucketInfo.isPresent()) {
             ListenableFuture<?> lastResult = immediateFuture(null); // TODO document in addToQueue() that it is sufficient to hold on to last returned future
             for (Path readPath : readPaths) {
-                lastResult = hiveSplitSource.addToQueue(getBucketedSplits(readPath, fs, splitFactory, tableBucketInfo.get(), bucketConversion, splittable, acidInfo));
+                // list all files in the partition
+                List<LocatedFileStatus> files = new ArrayList<>();
+                try {
+                    Iterators.addAll(files, new HiveFileIterator(table, readPath, fs, directoryLister, namenodeStats, FAIL, ignoreAbsentPartitions));
+                }
+                catch (HiveFileIterator.NestedDirectoryNotAllowedException e) {
+                    // Fail here to be on the safe side. This seems to be the same as what Hive does
+                    throw new PrestoException(
+                            HIVE_INVALID_BUCKET_FILES,
+                            format("Hive table '%s' is corrupt. Found sub-directory in bucket directory for partition: %s",
+                                    table.getSchemaTableName(),
+                                    splitFactory.getPartitionName()));
+                }
+                lastResult = hiveSplitSource.addToQueue(getBucketedSplits(files, splitFactory, tableBucketInfo.get(), bucketConversion, splittable, acidInfoBuilder.build()));
             }
+
+            for (HdfsFileStatusWithId hdfsFileStatusWithId : fileStatusOriginalFiles) {
+                List<LocatedFileStatus> locatedFileStatuses = ImmutableList.of((LocatedFileStatus) hdfsFileStatusWithId.getFileStatus());
+                Optional<AcidInfo> acidInfo = Optional.of(acidInfoBuilder.buildWithRequiredOriginalFiles(getRequiredBucketNumber(hdfsFileStatusWithId.getFileStatus().getPath())));
+                lastResult = hiveSplitSource.addToQueue(getBucketedSplits(locatedFileStatuses, splitFactory, tableBucketInfo.get(), bucketConversion, splittable, acidInfo));
+            }
+
             return lastResult;
         }
 
         for (Path readPath : readPaths) {
-            fileIterators.addLast(createInternalHiveSplitIterator(readPath, fs, splitFactory, splittable, acidInfo));
+            fileIterators.addLast(createInternalHiveSplitIterator(readPath, fs, splitFactory, splittable, acidInfoBuilder.build()));
+        }
+
+        if (!fileStatusOriginalFiles.isEmpty()) {
+            fileIterators.addLast(generateOriginalFilesSplits(splitFactory, fileStatusOriginalFiles, splittable, acidInfoBuilder));
         }
 
         return COMPLETED_FUTURE;
+    }
+
+    private Iterator<InternalHiveSplit> generateOriginalFilesSplits(
+            InternalHiveSplitFactory splitFactory,
+            List<HdfsFileStatusWithId> originalFileLocations,
+            boolean splittable,
+            AcidInfo.Builder acidInfoBuilder)
+    {
+        return originalFileLocations.stream()
+                .map(HdfsFileStatusWithId::getFileStatus)
+                .map(fileStatus -> {
+                    Optional<AcidInfo> acidInfo = Optional.of(acidInfoBuilder.buildWithRequiredOriginalFiles(getRequiredBucketNumber(fileStatus.getPath())));
+                    return splitFactory.createInternalHiveSplit(
+                            (LocatedFileStatus) fileStatus,
+                            OptionalInt.empty(),
+                            splittable,
+                            acidInfo);
+                })
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .iterator();
     }
 
     private ListenableFuture<?> addSplitsToSource(InputSplit[] targetSplits, InternalHiveSplitFactory splitFactory)
@@ -542,26 +597,18 @@ public class BackgroundHiveSplitLoader
                 .iterator();
     }
 
-    private List<InternalHiveSplit> getBucketedSplits(Path path, FileSystem fileSystem, InternalHiveSplitFactory splitFactory, BucketSplitInfo bucketSplitInfo, Optional<BucketConversion> bucketConversion, boolean splittable, Optional<AcidInfo> acidInfo)
+    private List<InternalHiveSplit> getBucketedSplits(
+            List<LocatedFileStatus> files,
+            InternalHiveSplitFactory splitFactory,
+            BucketSplitInfo bucketSplitInfo,
+            Optional<BucketConversion> bucketConversion,
+            boolean splittable,
+            Optional<AcidInfo> acidInfo)
     {
         int readBucketCount = bucketSplitInfo.getReadBucketCount();
         int tableBucketCount = bucketSplitInfo.getTableBucketCount();
         int partitionBucketCount = bucketConversion.map(BucketConversion::getPartitionBucketCount).orElse(tableBucketCount);
         int bucketCount = max(readBucketCount, partitionBucketCount);
-
-        // list all files in the partition
-        List<LocatedFileStatus> files = new ArrayList<>(partitionBucketCount);
-        try {
-            Iterators.addAll(files, new HiveFileIterator(table, path, fileSystem, directoryLister, namenodeStats, FAIL, ignoreAbsentPartitions));
-        }
-        catch (NestedDirectoryNotAllowedException e) {
-            // Fail here to be on the safe side. This seems to be the same as what Hive does
-            throw new PrestoException(
-                    HIVE_INVALID_BUCKET_FILES,
-                    format("Hive table '%s' is corrupt. Found sub-directory in bucket directory for partition: %s",
-                            table.getSchemaTableName(),
-                            splitFactory.getPartitionName()));
-        }
 
         // build mapping of file name to bucket
         ListMultimap<Integer, LocatedFileStatus> bucketFiles = ArrayListMultimap.create();
@@ -659,6 +706,12 @@ public class BackgroundHiveSplitLoader
                     partitionBucketCount,
                     partitionName));
         }
+    }
+
+    private static int getRequiredBucketNumber(Path path)
+    {
+        return getBucketNumber(path.getName())
+                .orElseThrow(() -> new IllegalStateException("Cannot get bucket number from path: " + path));
     }
 
     @VisibleForTesting

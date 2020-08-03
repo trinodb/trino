@@ -105,6 +105,7 @@ import static io.prestosql.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY
 import static io.prestosql.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
+import static io.prestosql.plugin.hive.HiveType.toHiveType;
 import static io.prestosql.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.prestosql.spi.predicate.Marker.Bound.ABOVE;
 import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
@@ -158,13 +159,11 @@ public class TestHiveIntegrationSmokeTest
 {
     private final String catalog;
     private final Session bucketedSession;
-    private final TypeTranslator typeTranslator;
 
     public TestHiveIntegrationSmokeTest()
     {
         this.catalog = HIVE_CATALOG;
         this.bucketedSession = createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin"))));
-        this.typeTranslator = new HiveTypeTranslator();
     }
 
     @Override
@@ -3259,7 +3258,8 @@ public class TestHiveIntegrationSmokeTest
                         "   orc_bloom_filter_columns = ARRAY['c1','c2'],\n" +
                         "   orc_bloom_filter_fpp = 7E-1,\n" +
                         "   partitioned_by = ARRAY['c5'],\n" +
-                        "   sorted_by = ARRAY['c1','c 2 DESC']\n" +
+                        "   sorted_by = ARRAY['c1','c 2 DESC'],\n" +
+                        "   transactional = true\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
@@ -6968,8 +6968,7 @@ public class TestHiveIntegrationSmokeTest
 
     private Type canonicalizeType(Type type)
     {
-        HiveType hiveType = HiveType.toHiveType(typeTranslator, type);
-        return TYPE_MANAGER.getType(hiveType.getTypeSignature());
+        return TYPE_MANAGER.getType(toHiveType(type).getTypeSignature());
     }
 
     private void assertColumnType(TableMetadata tableMetadata, String columnName, Type expectedType)

@@ -24,10 +24,9 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.PageBuilder;
@@ -58,9 +57,9 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.subtract;
 import static io.airlift.bytecode.instruction.VariableInstruction.incrementVariable;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.functionTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.spi.type.TypeSignature.functionType;
 import static io.prestosql.sql.gen.SqlTypeBytecodeExpression.constantType;
@@ -97,16 +96,15 @@ public final class ArrayTransformFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
-        Type inputType = boundVariables.getTypeVariable("T");
-        Type outputType = boundVariables.getTypeVariable("U");
+        Type inputType = functionBinding.getTypeVariable("T");
+        Type outputType = functionBinding.getTypeVariable("U");
         Class<?> generatedClass = generateTransform(inputType, outputType);
         return new ScalarFunctionImplementation(
-                false,
-                ImmutableList.of(
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
-                        functionTypeArgumentProperty(UnaryFunctionInterface.class)),
+                FAIL_ON_NULL,
+                ImmutableList.of(NEVER_NULL, FUNCTION),
+                ImmutableList.of(Optional.empty(), Optional.of(UnaryFunctionInterface.class)),
                 methodHandle(generatedClass, "transform", PageBuilder.class, Block.class, UnaryFunctionInterface.class),
                 Optional.of(methodHandle(generatedClass, "createPageBuilder")));
     }

@@ -35,7 +35,6 @@ import static io.prestosql.tpch.TpchTable.PART;
 import static io.prestosql.tpch.TpchTable.REGION;
 import static org.assertj.core.api.Assertions.assertThat;
 
-@Test
 public class TestDruidIntegrationSmokeTest
         extends AbstractTestIntegrationSmokeTest
 {

@@ -26,6 +26,7 @@ import io.prestosql.spi.QueryId;
 import io.prestosql.spi.eventlistener.RoutineInfo;
 import io.prestosql.spi.eventlistener.TableInfo;
 import io.prestosql.spi.memory.MemoryPoolId;
+import io.prestosql.spi.resourcegroups.QueryType;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.sql.analyzer.Output;
@@ -79,6 +80,7 @@ public class QueryInfo
     private final Optional<Output> output;
     private final boolean completeInfo;
     private final Optional<ResourceGroupId> resourceGroupId;
+    private final Optional<QueryType> queryType;
 
     @JsonCreator
     public QueryInfo(
@@ -112,7 +114,8 @@ public class QueryInfo
             @JsonProperty("referencedTables") List<TableInfo> referencedTables,
             @JsonProperty("routines") List<RoutineInfo> routines,
             @JsonProperty("completeInfo") boolean completeInfo,
-            @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId)
+            @JsonProperty("resourceGroupId") Optional<ResourceGroupId> resourceGroupId,
+            @JsonProperty("queryType") Optional<QueryType> queryType)
     {
         requireNonNull(queryId, "queryId is null");
         requireNonNull(session, "session is null");
@@ -137,6 +140,7 @@ public class QueryInfo
         requireNonNull(routines, "routines is null");
         requireNonNull(resourceGroupId, "resourceGroupId is null");
         requireNonNull(warnings, "warnings is null");
+        requireNonNull(queryType, "queryType is null");
 
         this.queryId = queryId;
         this.session = session;
@@ -170,6 +174,7 @@ public class QueryInfo
         this.routines = ImmutableList.copyOf(routines);
         this.completeInfo = completeInfo;
         this.resourceGroupId = resourceGroupId;
+        this.queryType = queryType;
     }
 
     @JsonProperty
@@ -366,6 +371,12 @@ public class QueryInfo
     public Optional<ResourceGroupId> getResourceGroupId()
     {
         return resourceGroupId;
+    }
+
+    @JsonProperty
+    public Optional<QueryType> getQueryType()
+    {
+        return queryType;
     }
 
     @Override

@@ -27,17 +27,14 @@ public final class CallExpression
         extends RowExpression
 {
     private final ResolvedFunction resolvedFunction;
-    private final Type returnType;
     private final List<RowExpression> arguments;
 
-    public CallExpression(ResolvedFunction resolvedFunction, Type returnType, List<RowExpression> arguments)
+    public CallExpression(ResolvedFunction resolvedFunction, List<RowExpression> arguments)
     {
         requireNonNull(resolvedFunction, "resolvedFunction is null");
         requireNonNull(arguments, "arguments is null");
-        requireNonNull(returnType, "returnType is null");
 
         this.resolvedFunction = resolvedFunction;
-        this.returnType = returnType;
         this.arguments = ImmutableList.copyOf(arguments);
     }
 
@@ -49,7 +46,7 @@ public final class CallExpression
     @Override
     public Type getType()
     {
-        return returnType;
+        return resolvedFunction.getSignature().getReturnType();
     }
 
     public List<RowExpression> getArguments()
@@ -74,14 +71,13 @@ public final class CallExpression
         }
         CallExpression that = (CallExpression) o;
         return Objects.equals(resolvedFunction, that.resolvedFunction) &&
-                Objects.equals(returnType, that.returnType) &&
                 Objects.equals(arguments, that.arguments);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(resolvedFunction, returnType, arguments);
+        return Objects.hash(resolvedFunction, arguments);
     }
 
     @Override

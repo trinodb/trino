@@ -14,6 +14,7 @@
 package io.prestosql.operator.scalar.timestamp;
 
 import io.airlift.slice.Slice;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
@@ -22,15 +23,18 @@ import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.LongTimestampWithTimeZone;
 import io.prestosql.spi.type.TimeZoneKey;
+import io.prestosql.spi.type.TimeZoneNotSupportedException;
 import org.joda.time.DateTimeZone;
 
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.prestosql.type.Timestamps.getMicrosOfMilli;
 import static io.prestosql.type.Timestamps.scaleEpochMicrosToMillis;
 import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
+import static java.lang.String.format;
 
 @ScalarFunction("with_timezone")
 public class WithTimeZone
@@ -43,7 +47,13 @@ public class WithTimeZone
     {
         verify(precision <= 3, "Expected precision <= 3");
 
-        TimeZoneKey toTimeZoneKey = getTimeZoneKey(zoneId.toStringUtf8());
+        TimeZoneKey toTimeZoneKey = null;
+        try {
+            toTimeZoneKey = getTimeZoneKey(zoneId.toStringUtf8());
+        }
+        catch (TimeZoneNotSupportedException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("'%s' is not a valid time zone", zoneId.toStringUtf8()));
+        }
         DateTimeZone fromDateTimeZone = session.isLegacyTimestamp() ? getDateTimeZone(session.getTimeZoneKey()) : DateTimeZone.UTC;
         DateTimeZone toDateTimeZone = getDateTimeZone(toTimeZoneKey);
         return packDateTimeWithZone(fromDateTimeZone.getMillisKeepLocal(toDateTimeZone, timestamp), toTimeZoneKey);
@@ -68,7 +78,13 @@ public class WithTimeZone
 
     private static LongTimestampWithTimeZone toLong(long epochMicros, int picosOfMicro, Slice zoneId, ConnectorSession session)
     {
-        TimeZoneKey toTimeZoneKey = getTimeZoneKey(zoneId.toStringUtf8());
+        TimeZoneKey toTimeZoneKey = null;
+        try {
+            toTimeZoneKey = getTimeZoneKey(zoneId.toStringUtf8());
+        }
+        catch (TimeZoneNotSupportedException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("'%s' is not a valid time zone", zoneId.toStringUtf8()));
+        }
         DateTimeZone fromDateTimeZone = session.isLegacyTimestamp() ? getDateTimeZone(session.getTimeZoneKey()) : DateTimeZone.UTC;
         DateTimeZone toDateTimeZone = getDateTimeZone(toTimeZoneKey);
 

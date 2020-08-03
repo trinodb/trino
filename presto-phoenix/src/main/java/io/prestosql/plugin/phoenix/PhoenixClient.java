@@ -155,7 +155,7 @@ public class PhoenixClient
             ImmutableSet.Builder<String> schemaNames = ImmutableSet.builder();
             schemaNames.add(DEFAULT_SCHEMA);
             while (resultSet.next()) {
-                String schemaName = resultSet.getString("TABLE_SCHEM");
+                String schemaName = getTableSchemaName(resultSet);
                 // skip internal schemas
                 if (filterSchema(schemaName)) {
                     schemaNames.add(schemaName);
@@ -173,13 +173,10 @@ public class PhoenixClient
             throws SQLException
     {
         PhoenixSplit phoenixSplit = (PhoenixSplit) split;
-        PreparedStatement query = new QueryBuilder(identifierQuote).buildSql(
-                this,
+        PreparedStatement query = new QueryBuilder(this).buildSql(
                 session,
                 connection,
-                table.getCatalogName(),
-                table.getSchemaName(),
-                table.getTableName(),
+                table.getRemoteTableName(),
                 table.getGroupingSets(),
                 columnHandles,
                 phoenixSplit.getConstraint(),

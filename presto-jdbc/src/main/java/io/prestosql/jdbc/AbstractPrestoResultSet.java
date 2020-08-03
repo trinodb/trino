@@ -22,6 +22,7 @@ import io.prestosql.client.QueryError;
 import io.prestosql.client.QueryStatusInfo;
 import io.prestosql.jdbc.ColumnInfo.Nullable;
 import org.joda.time.DateTimeZone;
+import org.joda.time.LocalDate;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
@@ -52,10 +53,12 @@ import java.sql.Types;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.Calendar;
+import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -69,6 +72,8 @@ import static java.lang.String.format;
 import static java.math.BigDecimal.ROUND_HALF_UP;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.joda.time.DateTimeZone.UTC;
 
 abstract class AbstractPrestoResultSet
         implements ResultSet
@@ -107,14 +112,9 @@ abstract class AbstractPrestoResultSet
 
     static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
-    static final DateTimeFormatter TIMESTAMP_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
-            .append(DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ").getPrinter(),
-                    new DateTimeParser[] {
-                            DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS Z").getParser(),
-                            DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ").getParser(),
-                    })
-            .toFormatter()
-            .withOffsetParsed();
+    // Before 1900, Java Time and Joda Time are not consistent with java.sql.Date and java.util.Calendar
+    // Since January 1, 1900 UTC is still December 31, 1899 in other zones, we are adding a 1 year margin.
+    private static final long START_OF_MODERN_ERA = new LocalDate(1901, 1, 1).toDateTimeAtStartOfDay(UTC).getMillis();
 
     private final DateTimeZone resultTimeZone;
     protected final Iterator<List<Object>> results;
@@ -257,7 +257,23 @@ abstract class AbstractPrestoResultSet
         }
 
         try {
-            return new Date(DATE_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value)));
+            long millis = DATE_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value));
+            if (millis >= START_OF_MODERN_ERA) {
+                return new Date(millis);
+            }
+
+            // The chronology used by default by Joda is not historically accurate for dates
+            // preceding the introduction of the Gregorian calendar and is not consistent with
+            // java.sql.Date (the same millisecond value represents a different year/month/day)
+            // before the 20th century. For such dates we are falling back to using the more
+            // expensive GregorianCalendar; note that Joda also has a chronology that works for
+            // older dates, but it uses a slightly different algorithm and yields results that
+            // are not compatible with java.sql.Date.
+            LocalDate localDate = DATE_FORMATTER.parseLocalDate(String.valueOf(value));
+            Calendar calendar = new GregorianCalendar(localDate.getYear(), localDate.getMonthOfYear() - 1, localDate.getDayOfMonth());
+            calendar.setTimeZone(TimeZone.getTimeZone(localTimeZone.getID()));
+
+            return new Date(calendar.getTimeInMillis());
         }
         catch (IllegalArgumentException e) {
             throw new SQLException("Invalid date from server: " + value, e);
@@ -1616,7 +1632,15 @@ abstract class AbstractPrestoResultSet
     public <T> T getObject(int columnIndex, Class<T> type)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("getObject");
+        if (type == null) {
+            throw new SQLException("type is null");
+        }
+        Object object = getObject(columnIndex);
+        if (object == null || type.isInstance(object)) {
+            //noinspection unchecked
+            return (T) object;
+        }
+        throw new SQLException(format("Cannot convert an instance of %s to %s", object.getClass(), type));
     }
 
     @Override
@@ -1787,8 +1811,18 @@ abstract class AbstractPrestoResultSet
         long epochSecond = LocalDateTime.of(year, month, day, hour, minute, second, 0)
                 .atZone(zoneId)
                 .toEpochSecond();
+        long epochMillis = SECONDS.toMillis(epochSecond);
 
-        Timestamp timestamp = new Timestamp(epochSecond * 1000);
+        Timestamp timestamp;
+        if (epochMillis >= START_OF_MODERN_ERA) {
+            timestamp = new Timestamp(epochMillis);
+        }
+        else {
+            // slower path, but accurate for historical dates
+            GregorianCalendar calendar = new GregorianCalendar(year, month - 1, day, hour, minute, second);
+            calendar.setTimeZone(TimeZone.getTimeZone(zoneId));
+            timestamp = new Timestamp(calendar.getTimeInMillis());
+        }
         timestamp.setNanos((int) rescale(fractionValue, precision, 9));
         return timestamp;
     }

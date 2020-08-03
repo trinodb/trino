@@ -14,13 +14,13 @@
 package io.prestosql.plugin.iceberg;
 
 import io.prestosql.parquet.writer.ParquetWriterOptions;
+import io.prestosql.plugin.hive.HdfsEnvironment;
+import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.parquet.ParquetFileWriter;
 import io.prestosql.spi.type.Type;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.mapred.JobConf;
 import org.apache.iceberg.Metrics;
 import org.apache.iceberg.MetricsConfig;
-import org.apache.iceberg.hadoop.HadoopInputFile;
 import org.apache.iceberg.parquet.ParquetUtil;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
@@ -37,7 +37,8 @@ public class IcebergParquetFileWriter
         implements IcebergFileWriter
 {
     private final Path outputPath;
-    private final JobConf jobConf;
+    private final HdfsEnvironment hdfsEnvironment;
+    private final HdfsContext hdfsContext;
 
     public IcebergParquetFileWriter(
             OutputStream outputStream,
@@ -49,7 +50,8 @@ public class IcebergParquetFileWriter
             int[] fileInputColumnIndexes,
             CompressionCodecName compressionCodecName,
             Path outputPath,
-            JobConf jobConf)
+            HdfsEnvironment hdfsEnvironment,
+            HdfsContext hdfsContext)
     {
         super(outputStream,
                 rollbackAction,
@@ -60,12 +62,13 @@ public class IcebergParquetFileWriter
                 fileInputColumnIndexes,
                 compressionCodecName);
         this.outputPath = requireNonNull(outputPath, "outputPath is null");
-        this.jobConf = requireNonNull(jobConf, "jobConf is null");
+        this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
+        this.hdfsContext = requireNonNull(hdfsContext, "hdfsContext is null");
     }
 
     @Override
     public Metrics getMetrics()
     {
-        return ParquetUtil.fileMetrics(HadoopInputFile.fromPath(outputPath, jobConf), MetricsConfig.getDefault());
+        return hdfsEnvironment.doAs(hdfsContext.getIdentity().getUser(), () -> ParquetUtil.fileMetrics(new HdfsInputFile(outputPath, hdfsEnvironment, hdfsContext), MetricsConfig.getDefault()));
     }
 }

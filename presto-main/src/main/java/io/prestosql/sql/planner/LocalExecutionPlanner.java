@@ -38,7 +38,6 @@ import io.prestosql.execution.buffer.PagesSerdeFactory;
 import io.prestosql.index.IndexManager;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.operator.AggregationOperator.AggregationOperatorFactory;
 import io.prestosql.operator.AssignUniqueIdOperator;
@@ -939,15 +938,14 @@ public class LocalExecutionPlanner
                 }
                 Symbol symbol = entry.getKey();
                 WindowFunctionSupplier windowFunctionSupplier = metadata.getWindowFunctionImplementation(resolvedFunction);
-                Type type = metadata.getType(resolvedFunction.getSignature().getReturnType());
+                Type type = resolvedFunction.getSignature().getReturnType();
 
                 List<LambdaExpression> lambdaExpressions = function.getArguments().stream()
                         .filter(LambdaExpression.class::isInstance)
                         .map(LambdaExpression.class::cast)
                         .collect(toImmutableList());
                 List<FunctionType> functionTypes = resolvedFunction.getSignature().getArgumentTypes().stream()
-                        .filter(typeSignature -> typeSignature.getBase().equals(FunctionType.NAME))
-                        .map(metadata::getType)
+                        .filter(FunctionType.class::isInstance)
                         .map(FunctionType.class::cast)
                         .collect(toImmutableList());
 
@@ -1783,11 +1781,10 @@ public class LocalExecutionPlanner
 
         private SpatialPredicate spatialTest(FunctionCall functionCall, boolean probeFirst, Optional<ComparisonExpression.Operator> comparisonOperator)
         {
-            String functionName = ResolvedFunction.fromQualifiedName(functionCall.getName())
-                    .map(ResolvedFunction::getSignature)
-                    .map(Signature::getName)
-                    .map(name -> name.toLowerCase(Locale.ENGLISH))
-                    .orElse(functionCall.getName().toString());
+            String functionName = metadata.resolveFunction(functionCall.getName(), ImmutableList.of())
+                    .getSignature()
+                    .getName()
+                    .toLowerCase(Locale.ENGLISH);
             switch (functionName) {
                 case ST_CONTAINS:
                     if (probeFirst) {
@@ -2654,8 +2651,7 @@ public class LocalExecutionPlanner
                     .map(LambdaExpression.class::cast)
                     .collect(toImmutableList());
             List<FunctionType> functionTypes = aggregation.getResolvedFunction().getSignature().getArgumentTypes().stream()
-                    .filter(typeSignature -> typeSignature.getBase().equals(FunctionType.NAME))
-                    .map(metadata::getType)
+                    .filter(FunctionType.class::isInstance)
                     .map(FunctionType.class::cast)
                     .collect(toImmutableList());
 

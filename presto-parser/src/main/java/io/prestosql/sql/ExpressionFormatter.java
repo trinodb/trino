@@ -17,6 +17,7 @@ import com.google.common.base.CharMatcher;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.sql.tree.AllColumns;
+import io.prestosql.sql.tree.AllRows;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.ArithmeticUnaryExpression;
 import io.prestosql.sql.tree.ArrayConstructor;
@@ -223,6 +224,12 @@ public final class ExpressionFormatter
         protected String visitParameter(Parameter node, Void context)
         {
             return "?";
+        }
+
+        @Override
+        protected String visitAllRows(AllRows node, Void context)
+        {
+            return "ALL";
         }
 
         @Override

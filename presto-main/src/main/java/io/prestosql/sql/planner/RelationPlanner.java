@@ -94,6 +94,7 @@ import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.prestosql.sql.planner.QueryPlanner.coerce;
 import static io.prestosql.sql.planner.QueryPlanner.coerceIfNecessary;
+import static io.prestosql.sql.planner.QueryPlanner.pruneInvisibleFields;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.Join.Type.CROSS;
@@ -166,7 +167,7 @@ class RelationPlanner
                     .map(Field::getType)
                     .collect(toImmutableList());
 
-            NodeAndMappings coerced = coerce(subPlan.getRoot(), visibleFields(subPlan), types, symbolAllocator, idAllocator);
+            NodeAndMappings coerced = coerce(subPlan, types, symbolAllocator, idAllocator);
 
             plan = new RelationPlan(coerced.getNode(), scope, coerced.getFields(), outerContext);
         }
@@ -874,17 +875,16 @@ class RelationPlanner
         for (Relation child : node.getRelations()) {
             RelationPlan plan = process(child, null);
 
+            NodeAndMappings planAndMappings;
             List<Type> types = analysis.getRelationCoercion(child);
             if (types == null) {
-                // If there are no coercions, we still want to call the coerce method below to create a plan
-                // with just the visible fields
-                types = plan.getDescriptor()
-                        .getVisibleFields().stream()
-                        .map(Field::getType)
-                        .collect(toImmutableList());
+                // no coercion required, only prune invisible fields from child outputs
+                planAndMappings = pruneInvisibleFields(plan, idAllocator);
             }
-
-            NodeAndMappings planAndMappings = coerce(plan.getRoot(), visibleFields(plan), types, symbolAllocator, idAllocator);
+            else {
+                // apply required coercion and prune invisible fields from child outputs
+                planAndMappings = coerce(plan, types, symbolAllocator, idAllocator);
+            }
             for (int i = 0; i < outputFields.getAllFields().size(); i++) {
                 symbolMapping.put(outputs.get(i), planAndMappings.getFields().get(i));
             }
@@ -904,16 +904,6 @@ class RelationPlanner
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
                 Optional.empty());
-    }
-
-    private static List<Symbol> visibleFields(RelationPlan subPlan)
-    {
-        RelationType descriptor = subPlan.getDescriptor();
-        return descriptor.getAllFields().stream()
-                .filter(field -> !field.isHidden())
-                .map(descriptor::indexOf)
-                .map(subPlan.getFieldMappings()::get)
-                .collect(toImmutableList());
     }
 
     private static class SetOperationPlan

@@ -492,12 +492,6 @@ public class TestIcebergSmoke
         testWithAllFileFormats(this::testSchemaEvolution);
     }
 
-    @Test
-    public void testSchemaEvolutionParquet()
-    {
-        testSchemaEvolution(getSession(), FileFormat.PARQUET);
-    }
-
     private void testSchemaEvolution(Session session, FileFormat fileFormat)
     {
         assertUpdate(session, "CREATE TABLE test_schema_evolution_drop_end (col0 INTEGER, col1 INTEGER, col2 INTEGER) WITH (format = '" + fileFormat + "')");

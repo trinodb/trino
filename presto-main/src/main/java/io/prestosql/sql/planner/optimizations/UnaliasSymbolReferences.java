@@ -297,21 +297,22 @@ public class UnaliasSymbolReferences
                     }
                 }
             }
-
-            // 2. for multiple ExchangeNode sources, if different output symbols result from the same lists of canonical input symbols, map all those outputs to the same symbol
-            Map<List<Symbol>, Symbol> inputsToOutputs = new HashMap<>();
-            for (int i = 0; i < rewrittenOutputs.size(); i++) {
-                ImmutableList.Builder<Symbol> inputsBuilder = ImmutableList.builder();
-                for (List<Symbol> inputs : rewrittenInputs) {
-                    inputsBuilder.add(inputs.get(i));
-                }
-                List<Symbol> inputs = inputsBuilder.build();
-                Symbol previous = inputsToOutputs.get(inputs);
-                if (previous == null || rewrittenOutputs.get(i).equals(previous)) {
-                    inputsToOutputs.put(inputs, rewrittenOutputs.get(i));
-                }
-                else {
-                    newMapping.put(rewrittenOutputs.get(i), previous);
+            else {
+                // 2. for multiple ExchangeNode sources, if different output symbols result from the same lists of canonical input symbols, map all those outputs to the same symbol
+                Map<List<Symbol>, Symbol> inputsToOutputs = new HashMap<>();
+                for (int i = 0; i < rewrittenOutputs.size(); i++) {
+                    ImmutableList.Builder<Symbol> inputsBuilder = ImmutableList.builder();
+                    for (List<Symbol> inputs : rewrittenInputs) {
+                        inputsBuilder.add(inputs.get(i));
+                    }
+                    List<Symbol> inputs = inputsBuilder.build();
+                    Symbol previous = inputsToOutputs.get(inputs);
+                    if (previous == null || rewrittenOutputs.get(i).equals(previous)) {
+                        inputsToOutputs.put(inputs, rewrittenOutputs.get(i));
+                    }
+                    else {
+                        newMapping.put(rewrittenOutputs.get(i), previous);
+                    }
                 }
             }
 

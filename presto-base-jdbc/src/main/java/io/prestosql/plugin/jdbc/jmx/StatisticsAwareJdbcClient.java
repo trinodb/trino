@@ -22,6 +22,7 @@ import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
 import io.prestosql.plugin.jdbc.JdbcSplit;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
+import io.prestosql.plugin.jdbc.RemoteTableName;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.connector.AggregateFunction;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -271,5 +272,17 @@ public final class StatisticsAwareJdbcClient
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         return delegate().getSystemTable(session, tableName);
+    }
+
+    @Override
+    public String quoted(String name)
+    {
+        return delegate().quoted(name);
+    }
+
+    @Override
+    public String quoted(RemoteTableName remoteTableName)
+    {
+        return delegate().quoted(remoteTableName);
     }
 }
