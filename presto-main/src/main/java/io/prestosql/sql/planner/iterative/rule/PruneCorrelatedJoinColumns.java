@@ -18,11 +18,9 @@ import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 
-import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.intersection;
 import static io.prestosql.sql.planner.SymbolsExtractor.extractUnique;
 import static io.prestosql.sql.planner.iterative.rule.Util.restrictOutputs;
@@ -47,14 +45,8 @@ import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
  * - it is not a referenced output symbol,
  * - it is not present in join filetr.
  * <p>
- * A symbol can be removed from the correlation list, when
- * it is no longer present in the subquery.
- * <p>
- * Note: this rule does not remove any symbols from the subquery.
- * However, the correlated symbol might have been removed from
- * the subquery by another rule. This rule checks it so that it can
- * update the correlation list and take the advantage of
- * pruning the symbol if it is not referenced.
+ * Note: this rule does not remove any symbols from the correlation list.
+ * This is responsibility of PruneCorrelatedJoinCorrelation rule.
  * <p>
  * Transforms:
  * <pre>
@@ -69,9 +61,9 @@ import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
  * <pre>
  * - Project (a, c)
  *      - CorrelatedJoin
- *          correlation: []
+ *          correlation: [corr]
  *          filter: a > d
- *          - Project (a)
+ *          - Project (a, corr)
  *              - Input (a, b, corr)
  *          - Project (c, d)
  *              - Subquery (c, d, e)
@@ -103,15 +95,9 @@ public class PruneCorrelatedJoinColumns
             }
         }
 
-        // extract actual correlation symbols
-        Set<Symbol> subquerySymbols = extractUnique(subquery, context.getLookup());
-        List<Symbol> newCorrelation = correlatedJoinNode.getCorrelation().stream()
-                .filter(subquerySymbols::contains)
-                .collect(toImmutableList());
-
         Set<Symbol> referencedAndCorrelationSymbols = ImmutableSet.<Symbol>builder()
                 .addAll(referencedOutputs)
-                .addAll(newCorrelation)
+                .addAll(correlatedJoinNode.getCorrelation())
                 .build();
 
         // remove unused input node, retain subquery
@@ -137,21 +123,19 @@ public class PruneCorrelatedJoinColumns
 
         Set<Symbol> referencedAndFilterAndCorrelationSymbols = ImmutableSet.<Symbol>builder()
                 .addAll(referencedAndFilterSymbols)
-                .addAll(newCorrelation)
+                .addAll(correlatedJoinNode.getCorrelation())
                 .build();
 
         Optional<PlanNode> newInput = restrictOutputs(context.getIdAllocator(), input, referencedAndFilterAndCorrelationSymbols);
 
-        boolean pruned = newSubquery.isPresent()
-                || newInput.isPresent()
-                || newCorrelation.size() < correlatedJoinNode.getCorrelation().size();
+        boolean pruned = newSubquery.isPresent() || newInput.isPresent();
 
         if (pruned) {
             return Optional.of(new CorrelatedJoinNode(
                     correlatedJoinNode.getId(),
                     newInput.orElse(input),
                     newSubquery.orElse(subquery),
-                    newCorrelation,
+                    correlatedJoinNode.getCorrelation(),
                     correlatedJoinNode.getType(),
                     correlatedJoinNode.getFilter(),
                     correlatedJoinNode.getOriginSubquery()));

@@ -81,13 +81,12 @@ public class TestPruneCorrelatedJoinColumns
         tester().assertThat(new PruneCorrelatedJoinColumns())
                 .on(p -> {
                     Symbol a = p.symbol("a");
-                    Symbol correlationSymbol = p.symbol("correlation_symbol");
                     Symbol b = p.symbol("b");
                     return p.project(
                             Assignments.identity(b),
                             p.correlatedJoin(
-                                    ImmutableList.of(correlationSymbol),
-                                    p.values(1, a, correlationSymbol),
+                                    ImmutableList.of(),
+                                    p.values(1, a),
                                     p.values(b)));
                 })
                 .matches(
@@ -181,34 +180,7 @@ public class TestPruneCorrelatedJoinColumns
     }
 
     @Test
-    public void testRemoveSymbolFromCorrelationList()
-    {
-        // symbol is removed from the correlation list, but it cannot be pruned because it's present in the join filter
-        tester().assertThat(new PruneCorrelatedJoinColumns())
-                .on(p -> {
-                    Symbol a = p.symbol("a");
-                    Symbol correlationSymbol = p.symbol("correlation_symbol");
-                    Symbol b = p.symbol("b");
-                    return p.project(
-                            Assignments.identity(a, b),
-                            p.correlatedJoin(
-                                    ImmutableList.of(correlationSymbol),
-                                    p.values(a, correlationSymbol),
-                                    LEFT,
-                                    new ComparisonExpression(GREATER_THAN, b.toSymbolReference(), correlationSymbol.toSymbolReference()),
-                                    p.values(b)));
-                })
-                .matches(
-                        project(
-                                ImmutableMap.of("b", PlanMatchPattern.expression("b")),
-                                correlatedJoin(
-                                        ImmutableList.of(),
-                                        values("a", "correlation_symbol"),
-                                        values("b"))));
-    }
-
-    @Test
-    public void testPruneUnreferencedCorrelationSymbol()
+    public void testDoNotPruneUnreferencedCorrelationSymbol()
     {
         tester().assertThat(new PruneCorrelatedJoinColumns())
                 .on(p -> {
@@ -224,15 +196,7 @@ public class TestPruneCorrelatedJoinColumns
                                     TRUE_LITERAL,
                                     p.values(b)));
                 })
-                .matches(
-                        project(
-                                ImmutableMap.of("b", PlanMatchPattern.expression("b")),
-                                correlatedJoin(
-                                        ImmutableList.of(),
-                                        project(
-                                                ImmutableMap.of("a", PlanMatchPattern.expression("a")),
-                                                values("a", "correlation_symbol")),
-                                        values("b"))));
+                .doesNotFire();
     }
 
     @Test
