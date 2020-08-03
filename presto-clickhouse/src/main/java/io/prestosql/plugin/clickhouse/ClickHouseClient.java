@@ -31,7 +31,6 @@ import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
-import io.prestosql.plugin.jdbc.JdbcSplit;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
@@ -47,7 +46,6 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
 import ru.yandex.clickhouse.ClickHouseConnection;
-import ru.yandex.clickhouse.ClickHousePreparedStatement;
 import ru.yandex.clickhouse.except.ClickHouseErrorCode;
 
 import javax.inject.Inject;
@@ -57,7 +55,6 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
-import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -128,17 +125,7 @@ public class ClickHouseClient
     public void abortReadConnection(Connection connection)
             throws SQLException
     {
-        // Abort connection before closing. Without this, the clickhouse driver
-        // attempts to drain the connection by reading all the results.
         connection.abort(directExecutor());
-    }
-
-    @Override
-    public ClickHousePreparedStatement getPreparedStatement(Connection connection, String sql)
-            throws SQLException
-    {
-        ClickHousePreparedStatement statement = (ClickHousePreparedStatement) connection.prepareStatement(sql);
-        return statement;
     }
 
     @Override
@@ -288,7 +275,7 @@ public class ClickHouseClient
                             .setComment(comment)
                             .build());
                 }
-                if (!columnMapping.isPresent()) {
+                if (columnMapping.isEmpty()) {
                     UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
                     verify(unsupportedTypeHandling == IGNORE, "Unsupported type handling is set to %s, but toPrestoType() returned empty", unsupportedTypeHandling);
                 }
