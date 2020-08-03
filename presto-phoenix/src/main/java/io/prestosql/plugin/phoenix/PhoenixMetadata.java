@@ -246,25 +246,29 @@ public class PhoenixMetadata
     @Override
     public boolean supportsMissingColumnsOnInsert()
     {
-        return false;
+        return true;
     }
 
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle, List<ColumnHandle> columns)
     {
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
-        List<JdbcColumnHandle> allColumns = phoenixClient.getColumns(session, handle);
-        List<JdbcColumnHandle> nonRowkeyColumns = allColumns.stream()
-                .filter(column -> !ROWKEY.equalsIgnoreCase(column.getColumnName()))
+        Optional<String> rowkeyColumn = phoenixClient.getColumns(session, handle).stream()
+                .map(JdbcColumnHandle::getColumnName)
+                .filter(ROWKEY::equalsIgnoreCase)
+                .findFirst();
+
+        List<JdbcColumnHandle> columnHandles = columns.stream()
+                .map(JdbcColumnHandle.class::cast)
                 .collect(toImmutableList());
 
         return new PhoenixOutputTableHandle(
                 Optional.ofNullable(handle.getSchemaName()),
                 handle.getTableName(),
-                nonRowkeyColumns.stream().map(JdbcColumnHandle::getColumnName).collect(toImmutableList()),
-                nonRowkeyColumns.stream().map(JdbcColumnHandle::getColumnType).collect(toImmutableList()),
-                Optional.of(nonRowkeyColumns.stream().map(JdbcColumnHandle::getJdbcTypeHandle).collect(toImmutableList())),
-                nonRowkeyColumns.size() != allColumns.size());
+                columnHandles.stream().map(JdbcColumnHandle::getColumnName).collect(toImmutableList()),
+                columnHandles.stream().map(JdbcColumnHandle::getColumnType).collect(toImmutableList()),
+                Optional.of(columnHandles.stream().map(JdbcColumnHandle::getJdbcTypeHandle).collect(toImmutableList())),
+                rowkeyColumn);
     }
 
     @Override
@@ -337,13 +341,13 @@ public class PhoenixMetadata
             ImmutableList.Builder<String> columnList = ImmutableList.builder();
             Set<ColumnMetadata> rowkeyColumns = tableColumns.stream().filter(col -> isPrimaryKey(col, tableProperties)).collect(toSet());
             ImmutableList.Builder<String> pkNames = ImmutableList.builder();
-            boolean hasUUIDRowkey = false;
+            Optional<String> rowkeyColumn = Optional.empty();
             if (rowkeyColumns.isEmpty()) {
                 // Add a rowkey when not specified in DDL
                 columnList.add(ROWKEY + " bigint not null");
                 pkNames.add(ROWKEY);
                 phoenixClient.execute(session, format("CREATE SEQUENCE %s", getEscapedTableName(schema, table + "_sequence")));
-                hasUUIDRowkey = true;
+                rowkeyColumn = Optional.of(ROWKEY);
             }
             for (ColumnMetadata column : tableColumns) {
                 String columnName = column.getName();
@@ -388,7 +392,7 @@ public class PhoenixMetadata
                     columnNames.build(),
                     columnTypes.build(),
                     Optional.empty(),
-                    hasUUIDRowkey);
+                    rowkeyColumn);
         }
         catch (SQLException e) {
             if (e.getErrorCode() == SQLExceptionCode.TABLE_ALREADY_EXIST.getErrorCode()) {

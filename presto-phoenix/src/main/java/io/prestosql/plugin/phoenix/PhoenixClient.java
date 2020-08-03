@@ -55,6 +55,7 @@ import org.apache.phoenix.query.ConnectionQueryServices;
 import org.apache.phoenix.query.HBaseFactoryProvider;
 import org.apache.phoenix.schema.PName;
 import org.apache.phoenix.schema.types.PDataType;
+import org.apache.phoenix.util.SchemaUtil;
 
 import javax.inject.Inject;
 
@@ -109,6 +110,7 @@ import static java.sql.Types.TIMESTAMP_WITH_TIMEZONE;
 import static java.sql.Types.TIME_WITH_TIMEZONE;
 import static java.sql.Types.VARCHAR;
 import static java.util.Collections.nCopies;
+import static java.util.stream.Collectors.joining;
 import static org.apache.phoenix.coprocessor.BaseScannerRegionObserver.SKIP_REGION_BOUNDARY_CHECK;
 import static org.apache.phoenix.util.SchemaUtil.ESCAPE_CHARACTER;
 
@@ -205,15 +207,20 @@ public class PhoenixClient
     {
         PhoenixOutputTableHandle outputHandle = (PhoenixOutputTableHandle) handle;
         String params = join(",", nCopies(handle.getColumnNames().size(), "?"));
-        if (outputHandle.hasUUIDRowkey()) {
+        String columns = handle.getColumnNames().stream()
+                .map(SchemaUtil::getEscapedArgument)
+                .collect(joining(","));
+        if (outputHandle.rowkeyColumn().isPresent()) {
             String nextId = format(
                     "NEXT VALUE FOR %s, ",
                     quoted(null, handle.getSchemaName(), handle.getTableName() + "_sequence"));
             params = nextId + params;
+            columns = outputHandle.rowkeyColumn().get() + ", " + columns;
         }
         return format(
-                "UPSERT INTO %s VALUES (%s)",
+                "UPSERT INTO %s (%s) VALUES (%s)",
                 quoted(null, handle.getSchemaName(), handle.getTableName()),
+                columns,
                 params);
     }
 
