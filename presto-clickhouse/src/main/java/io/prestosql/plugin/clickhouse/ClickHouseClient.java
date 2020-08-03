@@ -375,7 +375,7 @@ public class ClickHouseClient
             throw new PrestoException(JDBC_ERROR, e);
         }
     }
-    
+
     @Override
     protected void copyTableSchema(Connection connection, String catalogName, String schemaName, String tableName, String newTableName, List<String> columnNames)
     {

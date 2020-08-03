@@ -144,27 +144,6 @@ public class ClickHouseMetadata
                 "");
     }
 
-    @Override
-    public boolean usesLegacyTableLayouts()
-    {
-        return true;
-    }
-
-//    private String toMetadataCasing(ConnectorSession session, String schemaName)
-//    {
-//        ClickHouseConnection connection = null;
-//        try {
-//            connection = clickhouseClient.getConnection(JdbcIdentity.from(session));
-//            boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
-//            if (uppercase) {
-//                schemaName = schemaName.toUpperCase(ENGLISH);
-//            }
-//        }
-//        catch (SQLException ex) {
-//            throw new PrestoException(NOT_SUPPORTED, "Couldn't get casing for the schema name", ex);
-//        }
-//        return schemaName;
-//    }
 
     @Override
     public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
