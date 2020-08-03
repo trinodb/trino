@@ -24,6 +24,7 @@ import com.google.inject.Module;
 import com.google.inject.TypeLiteral;
 import io.airlift.airline.Arguments;
 import io.airlift.airline.Command;
+import io.airlift.airline.HelpOption;
 import io.airlift.bootstrap.Bootstrap;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.airlift.event.client.EventClient;
@@ -60,6 +61,8 @@ import org.jdbi.v3.core.ConnectionFactory;
 import org.jdbi.v3.core.Jdbi;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
+import javax.inject.Inject;
+
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -90,13 +93,16 @@ import static io.prestosql.verifier.QueryType.READ;
 import static java.util.concurrent.Executors.newFixedThreadPool;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
-@Command(name = "verify", description = "verify")
+@Command(name = "verifier")
 public class VerifyCommand
         implements Runnable
 {
     private static final Logger LOG = Logger.get(VerifyCommand.class);
 
-    @Arguments(description = "Config filename")
+    @Inject
+    public HelpOption helpOption;
+
+    @Arguments(description = "Configuration file")
     public String configFilename;
 
     @Override
