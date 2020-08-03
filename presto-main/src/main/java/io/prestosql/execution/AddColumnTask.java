@@ -36,6 +36,7 @@ import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.prestosql.metadata.MetadataUtil.redirectToNewCatalogIfNecessary;
 import static io.prestosql.spi.StandardErrorCode.COLUMN_ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
@@ -64,6 +65,7 @@ public class AddColumnTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
+        tableName = redirectToNewCatalogIfNecessary(session, tableName, metadata);
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (tableHandle.isEmpty()) {
             if (!statement.isTableExists()) {
@@ -72,8 +74,9 @@ public class AddColumnTask
             return immediateFuture(null);
         }
 
-        CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
-                .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + tableName.getCatalogName()));
+        String catalog = tableName.getCatalogName();
+        CatalogName catalogName = metadata.getCatalogHandle(session, catalog)
+                .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + catalog));
 
         accessControl.checkCanAddColumns(session.toSecurityContext(), tableName);
 

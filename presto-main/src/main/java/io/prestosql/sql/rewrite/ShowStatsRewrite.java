@@ -75,6 +75,7 @@ import java.util.Set;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.prestosql.metadata.MetadataUtil.redirectToNewCatalogIfNecessary;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.prestosql.spi.type.DateType.DATE;
@@ -142,6 +143,7 @@ public class ShowStatsRewrite
 
             Table table = getTable(node, specification);
             QualifiedObjectName tableName = createQualifiedObjectName(session, node, table.getName());
+            tableName = redirectToNewCatalogIfNecessary(session, tableName, metadata);
             TableHandle tableHandle = metadata.getTableHandle(session, tableName)
                     .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' not found", table.getName()));
             TableMetadata tableMetadata = metadata.getTableMetadata(session, tableHandle);

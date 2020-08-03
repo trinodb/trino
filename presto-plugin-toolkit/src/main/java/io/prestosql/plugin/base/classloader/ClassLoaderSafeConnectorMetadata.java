@@ -740,4 +740,12 @@ public class ClassLoaderSafeConnectorMetadata
             delegate.validateScan(session, handle);
         }
     }
+
+    @Override
+    public Optional<String> redirectCatalog(ConnectorSession session, SchemaTableName tableName)
+    {
+        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
+            return delegate.redirectCatalog(session, tableName);
+        }
+    }
 }

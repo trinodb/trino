@@ -965,4 +965,12 @@ public interface ConnectorMetadata
      * <p>
      */
     default void validateScan(ConnectorSession session, ConnectorTableHandle handle) {}
+
+    /**
+     * Redirects to another catalog which may or may not use the same connector
+     */
+    default Optional<String> redirectCatalog(ConnectorSession session, SchemaTableName tableName)
+    {
+        return Optional.empty();
+    }
 }

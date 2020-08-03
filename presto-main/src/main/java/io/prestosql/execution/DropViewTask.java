@@ -28,6 +28,7 @@ import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.prestosql.metadata.MetadataUtil.redirectToNewCatalogIfNecessary;
 import static io.prestosql.spi.StandardErrorCode.TABLE_NOT_FOUND;
 import static io.prestosql.sql.analyzer.SemanticExceptions.semanticException;
 
@@ -45,6 +46,7 @@ public class DropViewTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
+        name = redirectToNewCatalogIfNecessary(session, name, metadata);
 
         Optional<ConnectorViewDefinition> view = metadata.getView(session, name);
         if (view.isEmpty()) {

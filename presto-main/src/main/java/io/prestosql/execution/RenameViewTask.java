@@ -28,7 +28,7 @@ import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
-import static io.prestosql.spi.StandardErrorCode.CATALOG_NOT_FOUND;
+import static io.prestosql.metadata.MetadataUtil.redirectToNewCatalogIfNecessary;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.TABLE_ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.TABLE_NOT_FOUND;
@@ -47,26 +47,27 @@ public class RenameViewTask
     public ListenableFuture<?> execute(RenameView statement, TransactionManager transactionManager, Metadata metadata, AccessControl accessControl, QueryStateMachine stateMachine, List<Expression> parameters)
     {
         Session session = stateMachine.getSession();
-        QualifiedObjectName viewName = createQualifiedObjectName(session, statement, statement.getSource());
-        Optional<ConnectorViewDefinition> viewDefinition = metadata.getView(session, viewName);
+        QualifiedObjectName originalViewName = createQualifiedObjectName(session, statement, statement.getSource());
+        QualifiedObjectName redirectedViewName = redirectToNewCatalogIfNecessary(session, originalViewName, metadata);
+        Optional<ConnectorViewDefinition> viewDefinition = metadata.getView(session, originalViewName);
         if (viewDefinition.isEmpty()) {
-            throw semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", viewName);
+            throw semanticException(TABLE_NOT_FOUND, statement, "View '%s' does not exist", originalViewName);
         }
 
         QualifiedObjectName target = createQualifiedObjectName(session, statement, statement.getTarget());
-        if (metadata.getCatalogHandle(session, target.getCatalogName()).isEmpty()) {
-            throw semanticException(CATALOG_NOT_FOUND, statement, "Target catalog '%s' does not exist", target.getCatalogName());
+        if (!redirectedViewName.getCatalogName().equals(target.getCatalogName())) {
+            if (!originalViewName.getCatalogName().equals(target.getCatalogName())) {
+                throw semanticException(NOT_SUPPORTED, statement, "View rename across catalogs is not supported");
+            }
+            target = new QualifiedObjectName(redirectedViewName.getCatalogName(), target.getSchemaName(), target.getObjectName());
         }
         if (metadata.getView(session, target).isPresent()) {
             throw semanticException(TABLE_ALREADY_EXISTS, statement, "Target view '%s' already exists", target);
         }
-        if (!viewName.getCatalogName().equals(target.getCatalogName())) {
-            throw semanticException(NOT_SUPPORTED, statement, "View rename across catalogs is not supported");
-        }
 
-        accessControl.checkCanRenameView(session.toSecurityContext(), viewName, target);
+        accessControl.checkCanRenameView(session.toSecurityContext(), redirectedViewName, target);
 
-        metadata.renameView(session, viewName, target);
+        metadata.renameView(session, redirectedViewName, target);
 
         return immediateFuture(null);
     }

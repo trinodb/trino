@@ -180,6 +180,7 @@ import static io.prestosql.SystemSessionProperties.getMaxGroupingSets;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.FunctionKind.WINDOW;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.prestosql.metadata.MetadataUtil.redirectToNewCatalogIfNecessary;
 import static io.prestosql.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.COLUMN_TYPE_UNKNOWN;
@@ -358,6 +359,7 @@ class StatementAnalyzer
         protected Scope visitInsert(Insert insert, Optional<Scope> scope)
         {
             QualifiedObjectName targetTable = createQualifiedObjectName(session, insert, insert.getTarget());
+            targetTable = redirectToNewCatalogIfNecessary(session, targetTable, metadata);
             if (metadata.getView(session, targetTable).isPresent()) {
                 throw semanticException(NOT_SUPPORTED, insert, "Inserting into views is not supported");
             }
@@ -503,12 +505,14 @@ class StatementAnalyzer
         {
             Table table = node.getTable();
             QualifiedObjectName tableName = createQualifiedObjectName(session, table, table.getName());
+            tableName = redirectToNewCatalogIfNecessary(session, tableName, metadata);
             if (metadata.getView(session, tableName).isPresent()) {
                 throw semanticException(NOT_SUPPORTED, node, "Deleting from views is not supported");
             }
 
+            QualifiedObjectName finalTableName = tableName;
             TableHandle handle = metadata.getTableHandle(session, tableName)
-                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", tableName));
+                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, table, "Table '%s' does not exist", finalTableName));
 
             accessControl.checkCanDeleteFromTable(session.toSecurityContext(), tableName);
 
@@ -546,6 +550,7 @@ class StatementAnalyzer
         protected Scope visitAnalyze(Analyze node, Optional<Scope> scope)
         {
             QualifiedObjectName tableName = createQualifiedObjectName(session, node, node.getTableName());
+            tableName = redirectToNewCatalogIfNecessary(session, tableName, metadata);
             analysis.setUpdateType("ANALYZE", tableName);
 
             // verify the target table exists and it's not a view
@@ -554,8 +559,9 @@ class StatementAnalyzer
             }
 
             validateProperties(node.getProperties(), scope);
+            QualifiedObjectName finalTableName = tableName;
             CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
-                    .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog not found: " + tableName.getCatalogName()));
+                    .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog not found: " + finalTableName.getCatalogName()));
 
             Map<String, Object> analyzeProperties = metadata.getAnalyzePropertyManager().getProperties(
                     catalogName,
@@ -566,7 +572,7 @@ class StatementAnalyzer
                     accessControl,
                     analysis.getParameters());
             TableHandle tableHandle = metadata.getTableHandleForStatisticsCollection(session, tableName, analyzeProperties)
-                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", tableName));
+                    .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, node, "Table '%s' does not exist", finalTableName));
 
             // user must have read and insert permission in order to analyze stats of a table
             analysis.addTableColumnReferences(
@@ -591,6 +597,7 @@ class StatementAnalyzer
         {
             // turn this into a query that has a new table writer node on top.
             QualifiedObjectName targetTable = createQualifiedObjectName(session, node, node.getName());
+            targetTable = redirectToNewCatalogIfNecessary(session, targetTable, metadata);
             analysis.setUpdateType("CREATE TABLE", targetTable);
 
             Optional<TableHandle> targetTableHandle = metadata.getTableHandle(session, targetTable);
@@ -637,8 +644,9 @@ class StatementAnalyzer
             }
 
             // create target table metadata
+            QualifiedObjectName finalTargetTable = targetTable;
             CatalogName catalogName = metadata.getCatalogHandle(session, targetTable.getCatalogName())
-                    .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + targetTable.getCatalogName()));
+                    .orElseThrow(() -> new PrestoException(NOT_FOUND, "Catalog does not exist: " + finalTargetTable.getCatalogName()));
 
             Map<String, Object> properties = metadata.getTablePropertyManager().getProperties(
                     catalogName,
@@ -685,6 +693,7 @@ class StatementAnalyzer
         protected Scope visitCreateView(CreateView node, Optional<Scope> scope)
         {
             QualifiedObjectName viewName = createQualifiedObjectName(session, node, node.getName());
+            viewName = redirectToNewCatalogIfNecessary(session, viewName, metadata);
             analysis.setUpdateType("CREATE VIEW", viewName);
 
             // analyze the query that creates the view
@@ -1044,6 +1053,7 @@ class StatementAnalyzer
             }
 
             QualifiedObjectName name = createQualifiedObjectName(session, table, table.getName());
+            name = redirectToNewCatalogIfNecessary(session, name, metadata);
             analysis.addEmptyColumnReferencesForTable(accessControl, session.getIdentity(), name);
 
             // is this a reference to a view?
@@ -1181,6 +1191,7 @@ class StatementAnalyzer
             if (statement instanceof CreateView) {
                 CreateView viewStatement = (CreateView) statement;
                 QualifiedObjectName viewNameFromStatement = createQualifiedObjectName(session, viewStatement, viewStatement.getName());
+                viewNameFromStatement = redirectToNewCatalogIfNecessary(session, viewNameFromStatement, metadata);
                 if (viewStatement.isReplace() && viewNameFromStatement.equals(name)) {
                     throw semanticException(VIEW_IS_RECURSIVE, table, "Statement would create a recursive view");
                 }

@@ -30,6 +30,7 @@ import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.prestosql.metadata.MetadataUtil.redirectToNewCatalogIfNecessary;
 import static io.prestosql.spi.StandardErrorCode.COLUMN_ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -51,6 +52,7 @@ public class RenameColumnTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
+        tableName = redirectToNewCatalogIfNecessary(session, tableName, metadata);
         Optional<TableHandle> tableHandleOptional = metadata.getTableHandle(session, tableName);
         if (tableHandleOptional.isEmpty()) {
             if (!statement.isTableExists()) {

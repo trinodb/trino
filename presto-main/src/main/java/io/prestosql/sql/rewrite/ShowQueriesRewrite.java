@@ -99,6 +99,7 @@ import static io.prestosql.metadata.MetadataListing.listCatalogs;
 import static io.prestosql.metadata.MetadataListing.listSchemas;
 import static io.prestosql.metadata.MetadataUtil.createCatalogSchemaName;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.prestosql.metadata.MetadataUtil.redirectToNewCatalogIfNecessary;
 import static io.prestosql.spi.StandardErrorCode.CATALOG_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.INVALID_COLUMN_PROPERTY;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
@@ -227,6 +228,7 @@ final class ShowQueriesRewrite
             Optional<QualifiedName> tableName = showGrants.getTableName();
             if (tableName.isPresent()) {
                 QualifiedObjectName qualifiedTableName = createQualifiedObjectName(session, showGrants, tableName.get());
+                qualifiedTableName = redirectToNewCatalogIfNecessary(session, qualifiedTableName, metadata);
 
                 if (metadata.getView(session, qualifiedTableName).isEmpty() &&
                         metadata.getTableHandle(session, qualifiedTableName).isEmpty()) {
@@ -373,6 +375,7 @@ final class ShowQueriesRewrite
         protected Node visitShowColumns(ShowColumns showColumns, Void context)
         {
             QualifiedObjectName tableName = createQualifiedObjectName(session, showColumns, showColumns.getTable());
+            tableName = redirectToNewCatalogIfNecessary(session, tableName, metadata);
 
             if (metadata.getView(session, tableName).isEmpty() &&
                     metadata.getTableHandle(session, tableName).isEmpty()) {
@@ -444,6 +447,7 @@ final class ShowQueriesRewrite
         {
             if (node.getType() == VIEW) {
                 QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
+                objectName = redirectToNewCatalogIfNecessary(session, objectName, metadata);
                 Optional<ConnectorViewDefinition> viewDefinition = metadata.getView(session, objectName);
 
                 if (viewDefinition.isEmpty()) {
@@ -467,6 +471,7 @@ final class ShowQueriesRewrite
 
             if (node.getType() == TABLE) {
                 QualifiedObjectName objectName = createQualifiedObjectName(session, node, node.getName());
+                objectName = redirectToNewCatalogIfNecessary(session, objectName, metadata);
                 Optional<ConnectorViewDefinition> viewDefinition = metadata.getView(session, objectName);
 
                 if (viewDefinition.isPresent()) {
@@ -483,10 +488,11 @@ final class ShowQueriesRewrite
 
                 Map<String, PropertyMetadata<?>> allColumnProperties = metadata.getColumnPropertyManager().getAllProperties().get(tableHandle.get().getCatalogName());
 
+                QualifiedObjectName finalObjectName = objectName;
                 List<TableElement> columns = connectorTableMetadata.getColumns().stream()
                         .filter(column -> !column.isHidden())
                         .map(column -> {
-                            List<Property> propertyNodes = buildProperties(objectName, Optional.of(column.getName()), INVALID_COLUMN_PROPERTY, column.getProperties(), allColumnProperties);
+                            List<Property> propertyNodes = buildProperties(finalObjectName, Optional.of(column.getName()), INVALID_COLUMN_PROPERTY, column.getProperties(), allColumnProperties);
                             return new ColumnDefinition(new Identifier(column.getName()), toSqlType(column.getType()), column.isNullable(), propertyNodes, Optional.ofNullable(column.getComment()));
                         })
                         .collect(toImmutableList());

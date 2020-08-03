@@ -1796,6 +1796,28 @@ public final class MetadataManager
         return analyzePropertyManager;
     }
 
+    @Override
+    public Optional<String> redirectCatalog(Session session, QualifiedObjectName tableName)
+    {
+        requireNonNull(tableName, "tableName is null");
+
+        if (tableName.getCatalogName().isEmpty() || tableName.getSchemaName().isEmpty() || tableName.getObjectName().isEmpty()) {
+            return Optional.empty();
+        }
+
+        Optional<CatalogMetadata> catalog = getOptionalCatalogMetadata(session, tableName.getCatalogName());
+        if (catalog.isPresent()) {
+            CatalogMetadata catalogMetadata = catalog.get();
+            CatalogName catalogName = catalogMetadata.getConnectorId(session, tableName);
+            ConnectorMetadata metadata = catalogMetadata.getMetadataFor(catalogName);
+
+            ConnectorSession connectorSession = session.toConnectorSession(catalogName);
+            return metadata.redirectCatalog(connectorSession, tableName.asSchemaTableName());
+        }
+
+        return Optional.empty();
+    }
+
     //
     // Helpers
     //

@@ -533,4 +533,9 @@ public interface Metadata
     ColumnPropertyManager getColumnPropertyManager();
 
     AnalyzePropertyManager getAnalyzePropertyManager();
+
+    /**
+     * Redirects to another catalog which may or may not use the same connector
+     */
+    Optional<String> redirectCatalog(Session session, QualifiedObjectName tableName);
 }

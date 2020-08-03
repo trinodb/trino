@@ -37,6 +37,7 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.prestosql.metadata.MetadataUtil.redirectToNewCatalogIfNecessary;
 import static io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import static io.prestosql.sql.ParameterUtils.parameterExtractor;
 import static io.prestosql.sql.SqlFormatterUtil.getFormattedSql;
@@ -72,7 +73,7 @@ public class CreateViewTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName name = createQualifiedObjectName(session, statement, statement.getName());
-
+        name = redirectToNewCatalogIfNecessary(session, name, metadata);
         accessControl.checkCanCreateView(session.toSecurityContext(), name);
 
         String sql = getFormattedSql(statement.getQuery(), sqlParser);

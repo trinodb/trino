@@ -31,10 +31,13 @@ import io.prestosql.sql.tree.Node;
 import io.prestosql.sql.tree.PrincipalSpecification;
 import io.prestosql.sql.tree.QualifiedName;
 
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.MISSING_CATALOG_NAME;
 import static io.prestosql.spi.StandardErrorCode.MISSING_SCHEMA_NAME;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
@@ -154,6 +157,24 @@ public final class MetadataUtil
                 semanticException(MISSING_CATALOG_NAME, node, "Catalog must be specified when session catalog is not set"));
 
         return new QualifiedObjectName(catalogName, schemaName, objectName);
+    }
+
+    public static QualifiedObjectName redirectToNewCatalogIfNecessary(Session session, QualifiedObjectName tableName, Metadata metadata)
+    {
+        requireNonNull(session, "session is null");
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(metadata, "metadata is null");
+        Set<String> visitedCatalogs = new HashSet<>();
+        while (true) {
+            Optional<String> redirectedCatalog = metadata.redirectCatalog(session, tableName);
+            if (redirectedCatalog.isEmpty()) {
+                return tableName;
+            }
+            if (!visitedCatalogs.add(redirectedCatalog.get())) {
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, "Catalog redirection forms a loop");
+            }
+            tableName = new QualifiedObjectName(redirectedCatalog.get(), tableName.getSchemaName(), tableName.getObjectName());
+        }
     }
 
     public static PrestoPrincipal createPrincipal(Session session, GrantorSpecification specification)

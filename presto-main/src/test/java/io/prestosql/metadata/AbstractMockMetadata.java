@@ -749,4 +749,10 @@ public abstract class AbstractMockMetadata
     {
         return Optional.empty();
     }
+
+    @Override
+    public Optional<String> redirectCatalog(Session session, QualifiedObjectName tableName)
+    {
+        return Optional.empty();
+    }
 }

@@ -31,6 +31,7 @@ import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
+import static io.prestosql.metadata.MetadataUtil.redirectToNewCatalogIfNecessary;
 import static io.prestosql.spi.StandardErrorCode.COLUMN_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.MISSING_TABLE;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -53,6 +54,7 @@ public class CommentTask
 
         if (statement.getType() == Comment.Type.TABLE) {
             QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
+            tableName = redirectToNewCatalogIfNecessary(session, tableName, metadata);
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
             if (tableHandle.isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: %s", tableName);
@@ -69,6 +71,7 @@ public class CommentTask
             }
 
             QualifiedObjectName tableName = createQualifiedObjectName(session, statement, prefix.get());
+            tableName = redirectToNewCatalogIfNecessary(session, tableName, metadata);
             Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
             if (tableHandle.isEmpty()) {
                 throw semanticException(TABLE_NOT_FOUND, statement, "Table does not exist: " + tableName);
