@@ -15,6 +15,8 @@ package io.prestosql.plugin.redis.decoder.hash;
 
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.FieldValueProvider;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
@@ -25,8 +27,6 @@ import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class ISO8601HashRedisFieldDecoder
@@ -57,10 +57,10 @@ class ISO8601HashRedisFieldDecoder
             if (type.equals(DATE)) {
                 return MILLISECONDS.toDays(millis);
             }
-            if (type.equals(TIMESTAMP) || type.equals(TIME)) {
+            if (type instanceof TimestampType || type.equals(TIME)) {
                 return millis;
             }
-            if (type.equals(TIMESTAMP_WITH_TIME_ZONE) || type.equals(TIME_WITH_TIME_ZONE)) {
+            if (type instanceof TimestampWithTimeZoneType || type.equals(TIME_WITH_TIME_ZONE)) {
                 return packDateTimeWithZone(millis, 0);
             }
 

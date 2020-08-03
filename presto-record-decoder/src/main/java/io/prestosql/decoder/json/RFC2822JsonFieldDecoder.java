@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.FieldValueProvider;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -30,8 +32,6 @@ import static io.prestosql.decoder.json.JsonRowDecoderFactory.throwUnsupportedCo
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -43,7 +43,7 @@ import static java.util.Objects.requireNonNull;
 public class RFC2822JsonFieldDecoder
         implements JsonFieldDecoder
 {
-    private static final Set<Type> SUPPORTED_TYPES = ImmutableSet.of(DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE);
+    private static final Set<Type> NON_PARAMETRIC_SUPPORTED_TYPES = ImmutableSet.of(DATE, TIME, TIME_WITH_TIME_ZONE);
 
     /**
      * Todo - configurable time zones and locales.
@@ -54,9 +54,16 @@ public class RFC2822JsonFieldDecoder
     public RFC2822JsonFieldDecoder(DecoderColumnHandle columnHandle)
     {
         this.columnHandle = requireNonNull(columnHandle, "columnHandle is null");
-        if (!SUPPORTED_TYPES.contains(columnHandle.getType())) {
+        if (!isSupportedType(columnHandle.getType())) {
             throwUnsupportedColumnType(columnHandle);
         }
+    }
+
+    private boolean isSupportedType(Type type)
+    {
+        return NON_PARAMETRIC_SUPPORTED_TYPES.contains(type) ||
+                type instanceof TimestampType ||
+                type instanceof TimestampWithTimeZoneType;
     }
 
     @Override

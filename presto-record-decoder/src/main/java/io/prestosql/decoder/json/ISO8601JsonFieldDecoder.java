@@ -18,6 +18,8 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.FieldValueProvider;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 
 import java.time.ZoneId;
@@ -33,8 +35,6 @@ import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_DATE;
 import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
@@ -55,16 +55,23 @@ import static java.util.Objects.requireNonNull;
 public class ISO8601JsonFieldDecoder
         implements JsonFieldDecoder
 {
-    private static final Set<Type> SUPPORTED_TYPES = ImmutableSet.of(DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE);
+    private static final Set<Type> NON_PARAMETRIC_SUPPORTED_TYPES = ImmutableSet.of(DATE, TIME, TIME_WITH_TIME_ZONE);
 
     private final DecoderColumnHandle columnHandle;
 
     public ISO8601JsonFieldDecoder(DecoderColumnHandle columnHandle)
     {
         this.columnHandle = requireNonNull(columnHandle, "columnHandle is null");
-        if (!SUPPORTED_TYPES.contains(columnHandle.getType())) {
+        if (!isSupportedType(columnHandle.getType())) {
             throwUnsupportedColumnType(columnHandle);
         }
+    }
+
+    private boolean isSupportedType(Type type)
+    {
+        return NON_PARAMETRIC_SUPPORTED_TYPES.contains(type) ||
+                type instanceof TimestampType ||
+                type instanceof TimestampWithTimeZoneType;
     }
 
     @Override
@@ -103,12 +110,12 @@ public class ISO8601JsonFieldDecoder
 
             try {
                 String textValue = value.asText();
-                if (columnType.equals(TIMESTAMP)) {
+                if (columnType instanceof TimestampType) {
                     // Equivalent to: ISO_DATE_TIME.parse(textValue, LocalDateTime::from).toInstant(UTC).toEpochMilli();
                     TemporalAccessor parseResult = ISO_DATE_TIME.parse(textValue);
                     return TimeUnit.DAYS.toMillis(parseResult.getLong(EPOCH_DAY)) + parseResult.getLong(MILLI_OF_DAY);
                 }
-                if (columnType.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+                if (columnType instanceof TimestampWithTimeZoneType) {
                     // Equivalent to:
                     // ZonedDateTime dateTime = ISO_OFFSET_DATE_TIME.parse(textValue, ZonedDateTime::from);
                     // packDateTimeWithZone(dateTime.toInstant().toEpochMilli(), getTimeZoneKey(dateTime.getZone().getId()));

@@ -17,6 +17,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.FieldValueProvider;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 
 import java.util.concurrent.TimeUnit;
@@ -26,8 +28,6 @@ import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.lang.String.format;
 
 public abstract class AbstractDateTimeJsonValueProvider
@@ -66,10 +66,10 @@ public abstract class AbstractDateTimeJsonValueProvider
         if (type.equals(DATE)) {
             return TimeUnit.MILLISECONDS.toDays(millis);
         }
-        if (type.equals(TIMESTAMP) || type.equals(TIME)) {
+        if (type instanceof TimestampType || type.equals(TIME)) {
             return millis;
         }
-        if (type.equals(TIMESTAMP_WITH_TIME_ZONE) || type.equals(TIME_WITH_TIME_ZONE)) {
+        if (type instanceof TimestampWithTimeZoneType || type.equals(TIME_WITH_TIME_ZONE)) {
             return packDateTimeWithZone(millis, 0);
         }
 

@@ -22,13 +22,13 @@ import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampType.createTimestampType;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static java.util.Arrays.asList;
 
 public class TestMillisecondsSinceEpochJsonFieldDecoder
 {
-    private JsonFieldDecoderTester tester = new JsonFieldDecoderTester("milliseconds-since-epoch");
+    private final JsonFieldDecoderTester tester = new JsonFieldDecoderTester("milliseconds-since-epoch");
 
     @Test
     public void testDecode()
@@ -37,16 +37,16 @@ public class TestMillisecondsSinceEpochJsonFieldDecoder
         tester.assertDecodedAs("\"33701000\"", TIME, 33701000);
         tester.assertDecodedAs("33701000", TIME_WITH_TIME_ZONE, packDateTimeWithZone(33701000, UTC_KEY));
         tester.assertDecodedAs("\"33701000\"", TIME_WITH_TIME_ZONE, packDateTimeWithZone(33701000, UTC_KEY));
-        tester.assertDecodedAs("1519032101123", TIMESTAMP, 1519032101123L);
-        tester.assertDecodedAs("\"1519032101123\"", TIMESTAMP, 1519032101123L);
-        tester.assertDecodedAs("1519032101123", TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(1519032101123L, UTC_KEY));
-        tester.assertDecodedAs("\"1519032101123\"", TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(1519032101123L, UTC_KEY));
+        tester.assertDecodedAs("1519032101123", createTimestampType(3), 1519032101123L);
+        tester.assertDecodedAs("\"1519032101123\"", createTimestampType(3), 1519032101123L);
+        tester.assertDecodedAs("1519032101123", createTimestampWithTimeZoneType(3), packDateTimeWithZone(1519032101123L, UTC_KEY));
+        tester.assertDecodedAs("\"1519032101123\"", createTimestampWithTimeZoneType(3), packDateTimeWithZone(1519032101123L, UTC_KEY));
     }
 
     @Test
     public void testDecodeNulls()
     {
-        for (Type type : asList(TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE)) {
+        for (Type type : asList(TIME, TIME_WITH_TIME_ZONE, createTimestampType(3), createTimestampWithTimeZoneType(3))) {
             tester.assertDecodedAsNull("null", type);
             tester.assertMissingDecodedAsNull(type);
         }
@@ -55,7 +55,7 @@ public class TestMillisecondsSinceEpochJsonFieldDecoder
     @Test
     public void testDecodeInvalid()
     {
-        for (Type type : asList(TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE)) {
+        for (Type type : asList(TIME, TIME_WITH_TIME_ZONE, createTimestampType(3), createTimestampWithTimeZoneType(3))) {
             tester.assertInvalidInput("{}", type, "could not parse non-value node as '.*' for column 'some_column'");
             tester.assertInvalidInput("[]", type, "could not parse non-value node as '.*' for column 'some_column'");
             tester.assertInvalidInput("[10]", type, "could not parse non-value node as '.*' for column 'some_column'");
