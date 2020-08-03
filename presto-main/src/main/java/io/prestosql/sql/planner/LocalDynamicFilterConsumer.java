@@ -23,14 +23,9 @@ import io.airlift.log.Logger;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
-import io.prestosql.sql.DynamicFilters;
-import io.prestosql.sql.planner.optimizations.PlanNodeSearcher;
 import io.prestosql.sql.planner.plan.DynamicFilterId;
-import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
-import io.prestosql.sql.planner.plan.TableScanNode;
-import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -42,9 +37,11 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.prestosql.sql.DynamicFilters.Descriptor;
 import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
+import static io.prestosql.sql.planner.ExpressionExtractor.extractExpressions;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
 
@@ -149,26 +146,20 @@ public class LocalDynamicFilterConsumer
         checkArgument(!planNode.getDynamicFilters().isEmpty(), "Join node dynamicFilters is empty.");
 
         Set<DynamicFilterId> joinDynamicFilters = planNode.getDynamicFilters().keySet();
-        List<FilterNode> filterNodes = PlanNodeSearcher
-                .searchFrom(planNode.getLeft())
-                .where(LocalDynamicFilterConsumer::isFilterAboveTableScan)
-                .findAll();
+        Set<Descriptor> consumedDynamicFilters = extractExpressions(planNode.getLeft()).stream()
+                .flatMap(expression -> extractDynamicFilters(expression).getDynamicConjuncts().stream())
+                .collect(toImmutableSet());
 
         // Mapping from probe-side dynamic filters' IDs to their matching probe symbols.
         ImmutableMultimap.Builder<DynamicFilterId, Symbol> probeSymbolsBuilder = ImmutableMultimap.builder();
-        for (FilterNode filterNode : filterNodes) {
-            DynamicFilters.ExtractResult extractResult = extractDynamicFilters(filterNode.getPredicate());
-            for (Descriptor descriptor : extractResult.getDynamicConjuncts()) {
-                if (descriptor.getInput() instanceof SymbolReference) {
-                    // Add descriptors that match the local dynamic filter (from the current join node).
-                    if (joinDynamicFilters.contains(descriptor.getId())) {
-                        Symbol probeSymbol = Symbol.from(descriptor.getInput());
-                        log.debug("Adding dynamic filter %s: %s", descriptor, probeSymbol);
-                        probeSymbolsBuilder.put(descriptor.getId(), probeSymbol);
-                    }
-                }
-            }
-        }
+        consumedDynamicFilters.stream()
+                // Add descriptors that match the local dynamic filter (from the current join node).
+                .filter(descriptor -> joinDynamicFilters.contains(descriptor.getId()))
+                .forEach(descriptor -> {
+                    Symbol probeSymbol = Symbol.from(descriptor.getInput());
+                    log.debug("Adding dynamic filter %s: %s", descriptor, probeSymbol);
+                    probeSymbolsBuilder.put(descriptor.getId(), probeSymbol);
+                });
 
         Multimap<DynamicFilterId, Symbol> probeSymbols = probeSymbolsBuilder.build();
         PlanNode buildNode = planNode.getRight();
@@ -190,11 +181,6 @@ public class LocalDynamicFilterConsumer
                         Map.Entry::getKey,
                         entry -> buildSourceTypes.get(entry.getValue())));
         return new LocalDynamicFilterConsumer(probeSymbols, buildChannels, filterBuildTypes, partitionCount);
-    }
-
-    private static boolean isFilterAboveTableScan(PlanNode node)
-    {
-        return node instanceof FilterNode && ((FilterNode) node).getSource() instanceof TableScanNode;
     }
 
     public Map<DynamicFilterId, Integer> getBuildChannels()
