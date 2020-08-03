@@ -87,6 +87,7 @@
         <module>presto-blackhole</module>
         <module>presto-cassandra</module>
         <module>presto-cli</module>
+        <module>presto-clickhouse</module>
         <module>presto-client</module>
         <module>presto-docs</module>
         <module>presto-druid</module>
@@ -148,7 +149,6 @@
         <module>presto-tpcds</module>
         <module>presto-tpch</module>
         <module>presto-verifier</module>
-        <module>presto-clickhouse</module>
     </modules>
 
     <dependencyManagement>
