@@ -199,7 +199,7 @@ public class SqlQueryExecution
         }
     }
 
-    private synchronized void registerDynamicFilteringQuery()
+    private synchronized void registerDynamicFilteringQuery(PlanRoot plan)
     {
         if (!isEnableDynamicFiltering(stateMachine.getSession())) {
             return;
@@ -210,7 +210,7 @@ public class SqlQueryExecution
             return;
         }
 
-        dynamicFilterService.registerQuery(this);
+        dynamicFilterService.registerQuery(this, plan.getRoot());
     }
 
     private synchronized void unregisterDynamicFilteringQuery()
@@ -365,7 +365,7 @@ public class SqlQueryExecution
                 PlanRoot plan = planQuery();
                 // DynamicFilterService needs plan for query to be registered.
                 // Query should be registered before dynamic filter suppliers are requested in distribution planning.
-                registerDynamicFilteringQuery();
+                registerDynamicFilteringQuery(plan);
                 planDistribution(plan);
 
                 if (!stateMachine.transitionToStarting()) {

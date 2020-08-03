@@ -53,16 +53,6 @@ public final class JoinUtils
         return pagesBuilder.build();
     }
 
-    public static boolean isBuildSideRepartitioned(JoinNode joinNode)
-    {
-        return PlanNodeSearcher.searchFrom(joinNode.getRight())
-                .recurseOnlyWhen(
-                        MorePredicates.<PlanNode>isInstanceOfAny(ProjectNode.class)
-                                .or(JoinUtils::isLocalRepartitionExchange))
-                .where(JoinUtils::isRemoteRepartitionedExchange)
-                .matches();
-    }
-
     public static boolean isBuildSideReplicated(JoinNode joinNode)
     {
         return PlanNodeSearcher.searchFrom(joinNode.getRight())
@@ -73,24 +63,14 @@ public final class JoinUtils
                 .matches();
     }
 
-    private static boolean isRemoteRepartitionedExchange(PlanNode node)
-    {
-        return isRemoteExchangeOfType(node, REPARTITION);
-    }
-
     private static boolean isRemoteReplicatedExchange(PlanNode node)
-    {
-        return isRemoteExchangeOfType(node, REPLICATE);
-    }
-
-    private static boolean isRemoteExchangeOfType(PlanNode node, ExchangeNode.Type exchangeType)
     {
         if (!(node instanceof ExchangeNode)) {
             return false;
         }
 
         ExchangeNode exchangeNode = (ExchangeNode) node;
-        return exchangeNode.getScope() == REMOTE && exchangeNode.getType() == exchangeType;
+        return exchangeNode.getScope() == REMOTE && exchangeNode.getType() == REPLICATE;
     }
 
     private static boolean isLocalRepartitionExchange(PlanNode node)
