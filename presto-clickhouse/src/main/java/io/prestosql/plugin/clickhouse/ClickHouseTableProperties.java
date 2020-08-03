@@ -60,6 +60,5 @@ public final class ClickHouseTableProperties
 
         String value = (String) tableProperties.get(DEFAULT_TABLE_ENGINE);
         return Optional.ofNullable(value);
-
     }
 }
