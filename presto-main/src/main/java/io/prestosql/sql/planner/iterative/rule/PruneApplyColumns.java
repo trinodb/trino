@@ -20,12 +20,10 @@ import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.tree.Expression;
 
-import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Sets.intersection;
 import static io.prestosql.sql.planner.SymbolsExtractor.extractUnique;
 import static io.prestosql.sql.planner.iterative.rule.Util.restrictOutputs;
@@ -46,14 +44,8 @@ import static io.prestosql.sql.planner.plan.Patterns.applyNode;
  * A subquery assignment can be removed, when
  * its key is not a referenced output symbol.
  * <p>
- * A symbol can be removed from the correlation list, when
- * it is no longer present in the subquery.
- * <p>
- * Note: this rule does not remove any symbols from the subquery.
- * However, the correlated symbol might have been removed from
- * the subquery by another rule. This rule checks it so that it can
- * update the correlation list and take the advantage of
- * pruning the symbol if it is not referenced.
+ * Note: this rule does not remove any symbols from the correlation list.
+ * This is responsibility of PruneApplyCorrelation rule.
  * <p>
  * Transforms:
  * <pre>
@@ -70,10 +62,10 @@ import static io.prestosql.sql.planner.plan.Patterns.applyNode;
  * <pre>
  * - Project (i1, r1)
  *      - Apply
- *          correlation: []
+ *          correlation: [corr]
  *          assignments:
  *              r1 -> a in s1,
- *          - Project (a)
+ *          - Project (a, corr)
  *              - Input (a, b, corr)
  *          - Project (s1)
  *              - Subquery (s1, s2)
@@ -111,16 +103,10 @@ public class PruneApplyColumns
         // prune subquery symbols
         Optional<PlanNode> newSubquery = restrictOutputs(context.getIdAllocator(), applyNode.getSubquery(), requiredAssignmentsSymbols.build());
 
-        // extract actual correlation symbols
-        Set<Symbol> subquerySymbols = extractUnique(newSubquery.orElse(applyNode.getSubquery()), context.getLookup());
-        List<Symbol> newCorrelation = applyNode.getCorrelation().stream()
-                .filter(subquerySymbols::contains)
-                .collect(toImmutableList());
-
         // prune input symbols
         Set<Symbol> requiredInputSymbols = ImmutableSet.<Symbol>builder()
                 .addAll(referencedOutputs)
-                .addAll(newCorrelation)
+                .addAll(applyNode.getCorrelation())
                 .addAll(requiredAssignmentsSymbols.build())
                 .build();
 
@@ -128,8 +114,7 @@ public class PruneApplyColumns
 
         boolean pruned = newSubquery.isPresent()
                 || newInput.isPresent()
-                || newSubqueryAssignments.build().size() < applyNode.getSubqueryAssignments().size()
-                || newCorrelation.size() < applyNode.getCorrelation().size();
+                || newSubqueryAssignments.build().size() < applyNode.getSubqueryAssignments().size();
 
         if (pruned) {
             return Optional.of(new ApplyNode(
@@ -137,7 +122,7 @@ public class PruneApplyColumns
                     newInput.orElse(applyNode.getInput()),
                     newSubquery.orElse(applyNode.getSubquery()),
                     newSubqueryAssignments.build(),
-                    newCorrelation,
+                    applyNode.getCorrelation(),
                     applyNode.getOriginSubquery()));
         }
 
