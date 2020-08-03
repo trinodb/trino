@@ -144,24 +144,6 @@ public class ClickHouseMetadata
                 "");
     }
 
-
-    @Override
-    public ConnectorInsertTableHandle beginInsert(ConnectorSession session, ConnectorTableHandle tableHandle)
-    {
-        JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
-        List<JdbcColumnHandle> allColumns = clickhouseClient.getColumns(session, handle);
-        List<JdbcColumnHandle> nonRowkeyColumns = allColumns.stream()
-                .collect(toImmutableList());
-
-        return new JdbcOutputTableHandle(null,
-                handle.getSchemaName(),
-                handle.getTableName(),
-                nonRowkeyColumns.stream().map(JdbcColumnHandle::getColumnName).collect(toImmutableList()),
-                nonRowkeyColumns.stream().map(JdbcColumnHandle::getColumnType).collect(toImmutableList()),
-                Optional.of(nonRowkeyColumns.stream().map(JdbcColumnHandle::getJdbcTypeHandle).collect(toImmutableList())),
-                "");
-    }
-
     @Override
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle insertHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
