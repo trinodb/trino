@@ -26,9 +26,10 @@ import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 import static java.util.Objects.requireNonNull;
 
 /**
- * Class contains all table properties for the Phoenix connector. Used when creating a table:
+ * Class contains all table properties for the Clickhouse connector. Used when creating a table:
  * <p>
- * <pre>CREATE TABLE foo (a VARCHAR with (primary_key = true), b INT) WITH (SALT_BUCKETS=10, VERSIONS=5, COMPRESSION='lz');</pre>
+ * <pre>CREATE TABLE foo (a VARCHAR , b INT) WITH (ENGINE='Log');</pre>
+ * </p>
  */
 public final class ClickHouseTableProperties
 {
@@ -58,9 +59,7 @@ public final class ClickHouseTableProperties
         requireNonNull(tableProperties);
 
         String value = (String) tableProperties.get(DEFAULT_TABLE_ENGINE);
-        if (value == null) {
-            return Optional.empty();
-        }
-        return Optional.of(value);
+        return Optional.ofNullable(value);
+
     }
 }
