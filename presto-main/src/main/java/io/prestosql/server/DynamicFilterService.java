@@ -308,8 +308,7 @@ public class DynamicFilterService
                 .collect(toImmutableSet());
     }
 
-    private static TupleDomain<ColumnHandle> translateSummaryToTupleDomain(DynamicFilterId filterId, Domain
-            summary, Map<DynamicFilterId, ColumnHandle> sourceColumnHandles)
+    private static TupleDomain<ColumnHandle> translateSummaryToTupleDomain(DynamicFilterId filterId, Domain summary, Map<DynamicFilterId, ColumnHandle> sourceColumnHandles)
     {
         ColumnHandle sourceColumnHandle = requireNonNull(sourceColumnHandles.get(filterId), () -> format("Source column handle for dynamic filter %s is null", filterId));
         return TupleDomain.withColumnDomains(ImmutableMap.of(sourceColumnHandle, summary));
