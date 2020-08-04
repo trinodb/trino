@@ -1,34 +1,32 @@
-=========
-Push down
-=========
+========
+Pushdown
+========
 
 Presto can push down the processing of queries, or parts of queries, into the
 connected data source. This means that a specific function, or other operation,
 is passed through to the underlying database or storage system for processing.
 
-
-
-The results of this push down can include the following benefits:
+The results of this pushdown can include the following benefits:
 
 * improved overall query performance
 * reduced network traffic between Presto and the data source
 * reduced load on the remote data source
 
-Support for push down is specific to each connector and the relevant underlying
+Support for pushdown is specific to each connector and the relevant underlying
 database or storage system.
 
 Analysis and Confirmation
 -------------------------
 
-Push down depends on a number of factors:
+Pushdown depends on a number of factors:
 
-* generic support for push down for that function in Presto
-* function or operation specific support for push down in the connector
+* generic support for pushdown for that function in Presto
+* function or operation specific support for pushdown in the connector
 * query that allows the detection of the function to push down
-* function needs to exist in the underlying system so it can process the push
-  down
+* function needs to exist in the underlying system so it can process the
+  pushdown
 
-The best way to analyze if push down for a specific query is performed is to
+The best way to analyze if pushdown for a specific query is performed is to
 take a closer look at the :doc:`EXPLAIN plan </sql/explain>` of the query. If an
 operation such as an aggregate function is successfully pushed down to the
 connector, the explain plan does **not** show that operator. The explain plan
@@ -36,7 +34,6 @@ only shows the operations that are performed by Presto.
 
 As an example, we loaded the TPCH data set into a PostgreSQL database and then
 queried it using the PostgreSQL connector::
-
 
     SELECT regionkey, count(*)
     FROM nation
@@ -81,12 +78,12 @@ operator. This shows you that the pushdown was successful.
 A number of factors can prevent a push down:
 
 * adding a condition to the query
-* using a different aggregate function without push down support in Presto
+* using a different aggregate function without pushdown support in Presto
 * using a function that has no native equivalent in the underlying data source
-* using a connector without push down support for the specific function
+* using a connector without pushdown support for the specific function
 
 As a result, the explain plan shows the ``Aggregate`` operation being performed
-by Presto. This is a clear sign that now push down to the database is not
+by Presto. This is a clear sign that now pushdown to the database is not
 performed, and instead Presto performs the aggregate processing.
 
 .. code-block:: none
@@ -135,7 +132,7 @@ performed, and instead Presto performs the aggregate processing.
 Limitations
 -----------
 
-Push down does not support a number of more complex statements:
+Pushdown does not support a number of more complex statements:
 
 * complex grouping operations such as ``ROLLUP``, ``CUBE``, or ``GROUPING SETS``
 * expressions inside the aggregation function call: ``sum(a * b)``
