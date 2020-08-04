@@ -80,6 +80,24 @@ public class TestKuduIntegrationDecimalColumns
         assertUpdate("DROP TABLE test_decimal");
     }
 
+    @Test
+    public void testDeleteByPrimaryKeyDecimalColumn()
+    {
+        assertUpdate("CREATE TABLE IF NOT EXISTS test_decimal (" +
+                "decimal_id decimal(18, 3) WITH (primary_key=true), " +
+                "col_decimal decimal(18, 3)" +
+                ") WITH (" +
+                " partition_by_hash_columns = ARRAY['decimal_id'], " +
+                " partition_by_hash_buckets = 2" +
+                ")");
+
+        assertUpdate("INSERT INTO test_decimal VALUES (1.1, 1.1), (2.2, 2.2)", 2);
+        assertUpdate("DELETE FROM test_decimal WHERE decimal_id = 2.2", 1);
+        assertQuery("SELECT * FROM test_decimal", "VALUES (1.1, 1.1)");
+
+        assertUpdate("DROP TABLE test_decimal");
+    }
+
     private void doTestCreateTableWithDecimalColumn(TestDecimal decimal)
     {
         String tableName = decimal.getTableName();
