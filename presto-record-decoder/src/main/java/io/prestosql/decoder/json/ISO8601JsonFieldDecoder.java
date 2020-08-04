@@ -119,8 +119,14 @@ public class ISO8601JsonFieldDecoder
                 String textValue = value.asText();
                 if (columnType instanceof TimestampType) {
                     // Equivalent to: ISO_DATE_TIME.parse(textValue, LocalDateTime::from).toInstant(UTC).toEpochMilli();
-                    TemporalAccessor parseResult = ISO_DATE_TIME.parse(textValue);
-                    return TimeUnit.DAYS.toMillis(parseResult.getLong(EPOCH_DAY)) + parseResult.getLong(MILLI_OF_DAY);
+                    try {
+                        TemporalAccessor parseResult = ISO_OFFSET_DATE_TIME.parse(textValue);
+                        return packDateTimeWithZone(TimeUnit.DAYS.toMillis(parseResult.getLong(EPOCH_DAY)) + parseResult.getLong(MILLI_OF_DAY), getTimeZoneKey(ZoneId.from(parseResult).getId()));
+                    }
+                    catch (DateTimeParseException e) {
+                        TemporalAccessor parseResult = ISO_DATE_TIME.parse(textValue);
+                        return packDateTimeWithZone(TimeUnit.DAYS.toMillis(parseResult.getLong(EPOCH_DAY)) + parseResult.getLong(MILLI_OF_DAY), session.getTimeZoneKey());
+                    }
                 }
                 if (columnType instanceof TimestampWithTimeZoneType) {
                     // Equivalent to:

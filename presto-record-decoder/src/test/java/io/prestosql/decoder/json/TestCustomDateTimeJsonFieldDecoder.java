@@ -17,13 +17,15 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.ObjectMapperProvider;
 import io.prestosql.decoder.DecoderTestColumnHandle;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.TimeZoneKey;
+import org.joda.time.format.DateTimeFormat;
+import org.joda.time.format.DateTimeFormatter;
 import org.testng.annotations.Test;
 
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
@@ -35,20 +37,19 @@ public class TestCustomDateTimeJsonFieldDecoder
     private final JsonFieldDecoderTester timestampTester = new JsonFieldDecoderTester("custom-date-time", "MM/yyyy/dd H:m:s");
     private final JsonFieldDecoderTester timestampWithTimeZoneTester = new JsonFieldDecoderTester("custom-date-time", "MM/yyyy/dd H:m:s Z");
     private final JsonFieldDecoderTester timeTester = new JsonFieldDecoderTester("custom-date-time", "mm:HH:ss");
+    private final JsonFieldDecoderTester timeWithTimeZoneTester = new JsonFieldDecoderTester("custom-date-time", "HH:mm:ss Z");
     private final JsonFieldDecoderTester dateTester = new JsonFieldDecoderTester("custom-date-time", "MM/yyyy/dd");
     private final JsonFieldDecoderTester timeJustHourTester = new JsonFieldDecoderTester("custom-date-time", "HH");
 
     @Test
     public void testDecode()
     {
-        timestampTester.assertDecodedAs("\"02/2018/19 9:20:11\"", createTimestampType(0), 1519032011000L);
-        timestampWithTimeZoneTester.assertDecodedAs("\"02/2018/19 11:20:11 +02:00\"", createTimestampType(0), 1519032011000L);
-        timestampTester.assertDecodedAs("\"02/2018/19 9:20:11\"", createTimestampWithTimeZoneType(0), packDateTimeWithZone(1519032011000L, UTC_KEY));
-        timestampWithTimeZoneTester.assertDecodedAs("\"02/2018/19 11:20:11 +02:00\"", createTimestampWithTimeZoneType(0), packDateTimeWithZone(1519032011000L, UTC_KEY)); // TODO: extract TZ from pattern
+        timestampTester.assertDecodedAs("\"02/2018/19 9:20:11\"", createTimestampType(0), packDateTimeWithZone(1519032011000L, SESSION.getTimeZoneKey()));
+        timestampWithTimeZoneTester.assertDecodedAs("\"02/2018/19 11:20:11 +02:00\"", createTimestampWithTimeZoneType(0), packDateTimeWithZone(1519032011000L, TimeZoneKey.getTimeZoneKeyForOffset(120))); // TODO: extract TZ from pattern
         timeTester.assertDecodedAs("\"15:13:18\"", TIME, 47718000);
         timeJustHourTester.assertDecodedAs("\"15\"", TIME, 54000000);
         timeJustHourTester.assertDecodedAs("15", TIME, 54000000);
-        timeTester.assertDecodedAs("\"15:13:18\"", TIME_WITH_TIME_ZONE, packDateTimeWithZone(47718000, UTC_KEY));
+        timeWithTimeZoneTester.assertDecodedAs("\"15:15:18 +02:00\"", TIME_WITH_TIME_ZONE, packDateTimeWithZone(47718000, TimeZoneKey.getTimeZoneKeyForOffset(120)));
         dateTester.assertDecodedAs("\"02/2018/11\"", DATE, 17573);
     }
 
@@ -96,6 +97,13 @@ public class TestCustomDateTimeJsonFieldDecoder
                 false);
         assertThatThrownBy(() -> new JsonRowDecoderFactory(new ObjectMapperProvider().get()).create(SESSION, emptyMap(), ImmutableSet.of(columnHandle)))
                 .isInstanceOf(PrestoException.class)
-                .hasMessageMatching("invalid joda pattern 'XXMM/yyyy/dd H:m:sXX' passed as format hint for column 'some_column'");
+                .hasMessageMatching("invalid Joda Time pattern 'XXMM/yyyy/dd H:m:sXX' passed as format hint for column 'some_column'");
+    }
+
+    public static void main(String[] args)
+    {
+        String literal = "15:15:18 +02:00";
+        DateTimeFormatter dtf = DateTimeFormat.forPattern("HH:mm:ss Z").withOffsetParsed();
+        System.out.println(dtf.withZoneUTC().parseMillis(literal));
     }
 }

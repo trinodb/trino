@@ -13,6 +13,7 @@
  */
 package io.prestosql.decoder.json;
 
+import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
@@ -23,6 +24,7 @@ import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.util.Arrays.asList;
 
 public class TestRFC2822JsonFieldDecoder
@@ -35,10 +37,10 @@ public class TestRFC2822JsonFieldDecoder
         tester.assertDecodedAs("\"Mon Feb 12 13:15:16 Z 2018\"", DATE, 17574); // TODO should it be supported really?
         tester.assertDecodedAs("\"Thu Jan 01 13:15:19 Z 1970\"", TIME, 47719000); // TODO should it be supported really?
         tester.assertDecodedAs("\"Thu Jan 01 13:15:19 Z 1970\"", TIME_WITH_TIME_ZONE, packDateTimeWithZone(47719000, UTC_KEY)); // TODO should it be supported really?
-        tester.assertDecodedAs("\"Fri Feb 09 13:15:19 Z 2018\"", createTimestampType(0), 1518182119000L);
+        tester.assertDecodedAs("\"Fri Feb 09 13:15:19 Z 2018\"", createTimestampType(0), packDateTimeWithZone(1518182119000L, SESSION.getTimeZoneKey()));
         tester.assertDecodedAs("\"Fri Feb 09 13:15:19 Z 2018\"", createTimestampWithTimeZoneType(0), packDateTimeWithZone(1518182119000L, UTC_KEY));
-        tester.assertDecodedAs("\"Fri Feb 09 15:15:19 +02:00 2018\"", createTimestampType(0), 1518182119000L);
-        tester.assertDecodedAs("\"Fri Feb 09 15:15:19 +02:00 2018\"", createTimestampWithTimeZoneType(0), packDateTimeWithZone(1518182119000L, UTC_KEY));
+        tester.assertDecodedAs("\"Fri Feb 09 15:15:19 +02:00 2018\"", createTimestampType(0), packDateTimeWithZone(1518182119000L, SESSION.getTimeZoneKey()));
+        tester.assertDecodedAs("\"Fri Feb 09 15:15:19 +02:00 2018\"", createTimestampWithTimeZoneType(0), packDateTimeWithZone(1518182119000L, TimeZoneKey.getTimeZoneKeyForOffset(120)));
     }
 
     @Test

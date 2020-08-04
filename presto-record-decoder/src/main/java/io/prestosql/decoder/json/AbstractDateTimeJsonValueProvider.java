@@ -18,6 +18,7 @@ import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.FieldValueProvider;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
@@ -54,12 +55,12 @@ public abstract class AbstractDateTimeJsonValueProvider
     @Override
     public final long getLong()
     {
-        long millis = getMillis();
+        long millisUtc = getMillisUtc();
 
         Type type = columnHandle.getType();
 
         if (type.equals(TIME) || type.equals(TIME_WITH_TIME_ZONE)) {
-            if (millis < 0 || millis >= TimeUnit.DAYS.toMillis(1)) {
+            if (millisUtc < 0 || millisUtc >= TimeUnit.DAYS.toMillis(1)) {
                 throw new PrestoException(
                         DECODER_CONVERSION_NOT_SUPPORTED,
                         format("could not parse value '%s' as '%s' for column '%s'", value.asText(), columnHandle.getType(), columnHandle.getName()));
@@ -67,20 +68,28 @@ public abstract class AbstractDateTimeJsonValueProvider
         }
 
         if (type.equals(DATE)) {
-            return TimeUnit.MILLISECONDS.toDays(millis);
+            return TimeUnit.MILLISECONDS.toDays(millisUtc);
         }
-        if (type instanceof TimestampType || type.equals(TIME)) {
-            return millis;
+        if (type.equals(TIME)) {
+            return millisUtc;
+        }
+        if (type instanceof TimestampType) {
+            return packDateTimeWithZone(millisUtc, session.getTimeZoneKey());
         }
         if (type instanceof TimestampWithTimeZoneType || type.equals(TIME_WITH_TIME_ZONE)) {
-            return packDateTimeWithZone(millis, 0);
+            return packDateTimeWithZone(millisUtc, getTimeZone());
         }
 
-        return millis;
+        return millisUtc;
     }
 
     /**
      * @return epoch milliseconds in UTC
      */
-    protected abstract long getMillis();
+    protected abstract long getMillisUtc();
+
+    /**
+     * @return TimeZoneKey for value
+     */
+    protected abstract TimeZoneKey getTimeZone();
 }

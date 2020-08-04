@@ -19,6 +19,7 @@ import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.FieldValueProvider;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
@@ -79,7 +80,7 @@ public class MillisecondsSinceEpochJsonFieldDecoder
         }
 
         @Override
-        protected long getMillis()
+        protected long getMillisUtc()
         {
             if (value.isIntegralNumber() && !value.isBigInteger()) {
                 return value.longValue();
@@ -97,6 +98,12 @@ public class MillisecondsSinceEpochJsonFieldDecoder
             throw new PrestoException(
                     DECODER_CONVERSION_NOT_SUPPORTED,
                     format("could not parse non-value node as '%s' for column '%s'", columnHandle.getType(), columnHandle.getName()));
+        }
+
+        @Override
+        protected TimeZoneKey getTimeZone()
+        {
+            return TimeZoneKey.UTC_KEY;
         }
     }
 }

@@ -37,10 +37,10 @@ public class TestSecondsSinceEpochJsonFieldDecoder
         tester.assertDecodedAs("\"33701\"", TIME, 33701000);
         tester.assertDecodedAs("33701", TIME_WITH_TIME_ZONE, packDateTimeWithZone(33701000, UTC_KEY));
         tester.assertDecodedAs("\"33701\"", TIME_WITH_TIME_ZONE, packDateTimeWithZone(33701000, UTC_KEY));
-        tester.assertDecodedAs("1519032101", createTimestampType(0), 1519032101000L);
-        tester.assertDecodedAs("\"1519032101\"", createTimestampType(0), 1519032101000L);
-        tester.assertDecodedAs("" + (Long.MAX_VALUE / 1000), createTimestampType(0), Long.MAX_VALUE / 1000 * 1000);
-        tester.assertDecodedAs("" + (Long.MIN_VALUE / 1000), createTimestampType(0), Long.MIN_VALUE / 1000 * 1000);
+        tester.assertDecodedAs("1519032101", createTimestampType(0), packDateTimeWithZone(1519032101000L, UTC_KEY));
+        tester.assertDecodedAs("\"1519032101\"", createTimestampType(0), packDateTimeWithZone(1519032101000L, UTC_KEY));
+        tester.assertDecodedAs("922337203", createTimestampType(0), packDateTimeWithZone(922337203000L, UTC_KEY));
+        tester.assertDecodedAs("\"922337203\"", createTimestampType(0), packDateTimeWithZone(922337203000L, UTC_KEY));
         tester.assertDecodedAs("1519032101", createTimestampWithTimeZoneType(0), packDateTimeWithZone(1519032101000L, UTC_KEY));
         tester.assertDecodedAs("\"1519032101\"", createTimestampWithTimeZoneType(0), packDateTimeWithZone(1519032101000L, UTC_KEY));
     }
