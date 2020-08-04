@@ -18,8 +18,20 @@
 
     <dependencies>
         <dependency>
+            <groupId>io.prestosql.benchto</groupId>
+            <artifactId>benchto-driver</artifactId>
+            <version>0.11</version>
+        </dependency>
+
+        <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-jdbc</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
