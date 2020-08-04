@@ -45,6 +45,10 @@ jobs:
           ./bin/retry ./mvnw verify -B -P ci -pl presto-server-rpm
       - name: Clean Maven Output
         run: ./mvnw clean -pl '!presto-server,!presto-cli'
+      - uses: crazy-max/ghaction-docker-buildx@v3
+        with:
+          buildx-version: latest
+          qemu-version: latest
       - name: Test Docker Image
         run: docker/build-local.sh
 

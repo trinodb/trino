@@ -26,6 +26,17 @@ INFO	main	io.prestosql.server.Server	======== SERVER STARTED ========
 
 The Presto server is now running on `localhost:8080` (the default port).
 
+#### Image supporting ARM64
+
+You can also launch a container supporting Arm architecture as well. 
+Since we publish the image supporting `linux/arm64` architecture, Docker engine transparently pulls the image corresponding to your platform.
+
+A script `push-images.sh` upload the images supporting `linux/amd64` and `linux/arm64` to Dockerhub.
+
+```
+$ ./push-images.sh <Presto Version>
+```  
+
 ### Run the Presto CLI
 
 Run the [Presto CLI](https://prestosql.io/docs/current/installation/cli.html),

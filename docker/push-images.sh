@@ -25,13 +25,10 @@ cp -R bin default ${WORK_DIR}/presto-server-${PRESTO_VERSION}
 curl -o ${WORK_DIR}/presto-cli-${PRESTO_VERSION}-executable.jar ${CLIENT_LOCATION}
 chmod +x ${WORK_DIR}/presto-cli-${PRESTO_VERSION}-executable.jar
 
-# Loading multi-arch images is not supported
-DOCKER_CLI_EXPERIMENTAL=enabled docker buildx build ${WORK_DIR} --platform linux/amd64  -f Dockerfile --build-arg "PRESTO_VERSION=${PRESTO_VERSION}" -t "presto:${PRESTO_VERSION}" --load
-
-rm -r ${WORK_DIR}
-
-# Source common testing functions
-. container-test.sh
-
-test_container "presto:${PRESTO_VERSION}"
-
+# Push multi-arch images supporting amd64 and arm64 architecture.
+DOCKER_CLI_EXPERIMENTAL=enabled \
+    docker buildx build ${WORK_DIR} \
+    --platform linux/amd64,linux/arm64/v8 \
+    -f Dockerfile \
+    --build-arg "PRESTO_VERSION=${PRESTO_VERSION}" \
+    -t "prestosql/presto:${PRESTO_VERSION}" --push
