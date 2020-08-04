@@ -45,6 +45,19 @@ String Functions
     This function provides the same functionality as the
     SQL-standard concatenation operator (``||``).
 
+.. function:: concat_ws(string0, string1, ..., stringN) -> varchar
+
+    Returns the concatenation of ``string1``, ``string2``, ``...``, ``stringN``
+    using ``string0`` as a separator. If ``string0`` is null, then the return
+    value is null. Any null values provided in the arguments after the
+    separator are skipped.
+
+.. function:: concat_ws(string0, array(varchar)) -> varchar
+
+    Returns the concatenation of elements in the array using ``string0`` as a
+    separator. If ``string0`` is null, then the return value is null. Any
+    null values in the array are skipped.
+
 .. function:: format(format, args...) -> varchar
     :noindex:
 

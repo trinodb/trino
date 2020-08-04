@@ -103,6 +103,7 @@ import io.prestosql.operator.scalar.BitwiseFunctions;
 import io.prestosql.operator.scalar.CharacterStringCasts;
 import io.prestosql.operator.scalar.ColorFunctions;
 import io.prestosql.operator.scalar.CombineHashFunction;
+import io.prestosql.operator.scalar.ConcatWsFunction;
 import io.prestosql.operator.scalar.DataSizeFunctions;
 import io.prestosql.operator.scalar.DateTimeFunctions;
 import io.prestosql.operator.scalar.EmptyMapConstructor;
@@ -299,6 +300,7 @@ import static io.prestosql.operator.scalar.ArrayTransformFunction.ARRAY_TRANSFOR
 import static io.prestosql.operator.scalar.CastFromUnknownOperator.CAST_FROM_UNKNOWN;
 import static io.prestosql.operator.scalar.ConcatFunction.VARBINARY_CONCAT;
 import static io.prestosql.operator.scalar.ConcatFunction.VARCHAR_CONCAT;
+import static io.prestosql.operator.scalar.ConcatWsFunction.CONCAT_WS;
 import static io.prestosql.operator.scalar.ElementToArrayConcatFunction.ELEMENT_TO_ARRAY_CONCAT_FUNCTION;
 import static io.prestosql.operator.scalar.FormatFunction.FORMAT_FUNCTION;
 import static io.prestosql.operator.scalar.Greatest.GREATEST;
@@ -537,6 +539,7 @@ public class FunctionRegistry
                 .scalar(EmptyMapConstructor.class)
                 .scalar(TypeOfFunction.class)
                 .scalar(TryFunction.class)
+                .scalar(ConcatWsFunction.ConcatArrayWs.class)
                 .scalar(DynamicFilters.Function.class)
                 .functions(ZIP_WITH_FUNCTION, MAP_ZIP_WITH_FUNCTION)
                 .functions(ZIP_FUNCTIONS)
@@ -573,6 +576,7 @@ public class FunctionRegistry
                 .function(COUNT_COLUMN)
                 .functions(ROW_TO_JSON, JSON_TO_ROW, JSON_STRING_TO_ROW, ROW_TO_ROW_CAST)
                 .functions(VARCHAR_CONCAT, VARBINARY_CONCAT)
+                .function(CONCAT_WS)
                 .function(DECIMAL_TO_DECIMAL_CAST)
                 .function(castVarcharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
                 .function(castCharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
