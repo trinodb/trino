@@ -82,6 +82,7 @@ public class ClickHouseMetadata
                 .orElse(null);
     }
 
+    @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
         JdbcTableHandle handle = (JdbcTableHandle) table;

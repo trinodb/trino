@@ -334,7 +334,7 @@ public class ClickHouseClient
             createTable(session, tableMetadata, tableMetadata.getTable().getTableName());
         }
         catch (SQLException e) {
-            boolean exists = ClickHouseErrorCode.TABLE_ALREADY_EXISTS.equals(e.getSQLState());
+            boolean exists = ClickHouseErrorCode.TABLE_ALREADY_EXISTS.toString().equals(e.getSQLState());
             throw new PrestoException(exists ? ALREADY_EXISTS : JDBC_ERROR, e);
         }
     }
@@ -356,7 +356,7 @@ public class ClickHouseClient
         }
         catch (SQLException e) {
             // clickhouse versions earlier than 8 do not support the above RENAME COLUMN syntax
-            if (ClickHouseErrorCode.UNKNOWN_EXCEPTION.equals(e.getSQLState())) {
+            if (ClickHouseErrorCode.UNKNOWN_EXCEPTION.toString().equals(e.getSQLState())) {
                 throw new PrestoException(NOT_SUPPORTED, format("Rename column not supported in catalog: '%s'", handle.getCatalogName()), e);
             }
             throw new PrestoException(JDBC_ERROR, e);
