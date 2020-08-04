@@ -21,6 +21,7 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
@@ -44,11 +45,12 @@ import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.StandardTypes.ARRAY;
 import static io.prestosql.spi.type.StandardTypes.MAP;
 import static io.prestosql.spi.type.StandardTypes.ROW;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.Preconditions.checkArgument;
+import static org.apache.parquet.schema.OriginalType.TIMESTAMP_MICROS;
+import static org.apache.parquet.schema.OriginalType.TIMESTAMP_MILLIS;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
 
 public class ParquetSchemaConverter
@@ -124,8 +126,19 @@ public class ParquetSchemaConverter
         if (DATE.equals(type)) {
             return Types.optional(PrimitiveType.PrimitiveTypeName.INT32).as(OriginalType.DATE).named(name);
         }
-        if (BIGINT.equals(type) || TIMESTAMP.equals(type)) {
+        if (BIGINT.equals(type)) {
             return Types.primitive(PrimitiveType.PrimitiveTypeName.INT64, OPTIONAL).named(name);
+        }
+
+        if (type instanceof TimestampType) {
+            TimestampType timestampType = (TimestampType) type;
+
+            if (timestampType.getPrecision() <= 3) {
+                return Types.primitive(PrimitiveType.PrimitiveTypeName.INT64, OPTIONAL).as(TIMESTAMP_MILLIS).named(name);
+            }
+            if (timestampType.getPrecision() <= 6) {
+                return Types.primitive(PrimitiveType.PrimitiveTypeName.INT64, OPTIONAL).as(TIMESTAMP_MICROS).named(name);
+            }
         }
         if (DOUBLE.equals(type)) {
             return Types.primitive(PrimitiveType.PrimitiveTypeName.DOUBLE, OPTIONAL).named(name);
