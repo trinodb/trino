@@ -141,7 +141,6 @@
         <module>presto-test-jdbc-compatibility</module>
         <module>presto-testing</module>
         <module>presto-testing-kafka</module>
-        <module>presto-testing-server-launcher</module>
         <module>presto-testng-services</module>
         <module>presto-tests</module>
         <module>presto-thrift</module>
