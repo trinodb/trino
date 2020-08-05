@@ -85,7 +85,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -603,10 +602,8 @@ public class UnaliasSymbolReferences
 
             // deduplicate assignments
             Map<Symbol, Expression> deduplicateAssignments = rewrittenAssignments.build().stream()
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (previous, current) -> {
-                        checkState(previous.equals(current), "different expressions projected to the same symbol");
-                        return previous;
-                    }));
+                    .distinct()
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
             // derive new mappings for ProjectNode output symbols
             Map<Symbol, Symbol> newMapping = mappingFromAssignments(deduplicateAssignments, ambiguousSymbolsPresent);
@@ -733,10 +730,8 @@ public class UnaliasSymbolReferences
 
             // deduplicate assignments
             Map<Symbol, Expression> deduplicateAssignments = rewrittenAssignments.build().stream()
-                    .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue, (previous, current) -> {
-                        checkState(previous.equals(current), "different expressions assigned to the same symbol");
-                        return previous;
-                    }));
+                    .distinct()
+                    .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue));
 
             // derive new mappings for Subquery assignments outputs
             Map<Symbol, Symbol> newMapping = mappingFromAssignments(deduplicateAssignments, false);
