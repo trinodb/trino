@@ -259,13 +259,18 @@ public class PlanBuilder
 
     public TopNNode topN(long count, List<Symbol> orderBy, TopNNode.Step step, PlanNode source)
     {
+        return topN(count, orderBy, step, SortOrder.ASC_NULLS_FIRST, source);
+    }
+
+    public TopNNode topN(long count, List<Symbol> orderBy, TopNNode.Step step, SortOrder sortOrder, PlanNode source)
+    {
         return new TopNNode(
                 idAllocator.getNextId(),
                 source,
                 count,
                 new OrderingScheme(
                         orderBy,
-                        Maps.toMap(orderBy, Functions.constant(SortOrder.ASC_NULLS_FIRST))),
+                        Maps.toMap(orderBy, Functions.constant(sortOrder))),
                 step);
     }
 
