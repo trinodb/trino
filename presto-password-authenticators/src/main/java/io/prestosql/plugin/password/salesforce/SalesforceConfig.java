@@ -28,7 +28,7 @@ import java.util.concurrent.TimeUnit;
 public class SalesforceConfig
 {
     private int cacheSize = 4096;
-    private Duration cacheExpireSeconds = Duration.succinctDuration(120, TimeUnit.SECONDS);
+    private Duration cacheExpireDuration = Duration.succinctDuration(2, TimeUnit.MINUTES);
     private String allowedOrganizations;
 
     @NotNull(message = "Must set salesforce.allowed-organization with one or more Salesforce 18 char Organization Ids, or \"all\"")
@@ -73,17 +73,17 @@ public class SalesforceConfig
         return this;
     }
 
-    @MaxDuration(value = "3600s")
-    public Duration getCacheExpireSeconds()
+    @MaxDuration(value = "1h")
+    public Duration getCacheExpireDuration()
     {
-        return cacheExpireSeconds;
+        return cacheExpireDuration;
     }
 
-    @Config("salesforce.cache-expire-seconds")
-    @ConfigDescription("Expire time in seconds for an entry in cache since last write.  Default is 120 seconds, max is 3600 seconds.")
-    public SalesforceConfig setCacheExpireSeconds(Duration cacheExpireSeconds)
+    @Config("salesforce.cache-expire-duration")
+    @ConfigDescription("Expire duration for an entry in cache since last write.")
+    public SalesforceConfig setCacheExpireDuration(Duration cacheExpireDuration)
     {
-        this.cacheExpireSeconds = cacheExpireSeconds;
+        this.cacheExpireDuration = cacheExpireDuration;
         return this;
     }
 }
