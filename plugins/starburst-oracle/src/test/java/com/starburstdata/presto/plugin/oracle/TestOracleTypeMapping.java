@@ -228,15 +228,15 @@ public class TestOracleTypeMapping
     public void testVarcharUnicodeMapping()
     {
         testTypeMapping("varchar_unicode",
-                unicodeTests(DataType::varcharDataType, codePoints(), MAX_VARCHAR2_ON_WRITE));
+                unicodeTests(DataType::varcharDataType, TestOracleTypeMapping::countCodePoints, MAX_VARCHAR2_ON_WRITE));
     }
 
     @Test
     public void testVarcharUnicodeReadMapping()
     {
         testTypeReadMapping("read_varchar_unicode",
-                unicodeTests(varchar2DataType(CHAR), codePoints(), MAX_VARCHAR2_ON_READ),
-                unicodeTests(varchar2DataType(BYTE), utf8Bytes(), MAX_VARCHAR2_ON_READ),
+                unicodeTests(varchar2DataType(CHAR), TestOracleTypeMapping::countCodePoints, MAX_VARCHAR2_ON_READ),
+                unicodeTests(varchar2DataType(BYTE), TestOracleTypeMapping::countUtf8Bytes, MAX_VARCHAR2_ON_READ),
                 unicodeTests(nvarchar2DataType(), String::length, MAX_NVARCHAR2));
     }
 
@@ -300,15 +300,15 @@ public class TestOracleTypeMapping
     public void testCharUnicodeMapping()
     {
         testTypeMapping("char_unicode",
-                unicodeTests(DataType::charDataType, codePoints(), MAX_CHAR_ON_WRITE));
+                unicodeTests(DataType::charDataType, TestOracleTypeMapping::countCodePoints, MAX_CHAR_ON_WRITE));
     }
 
     @Test
     public void testCharUnicodeReadMapping()
     {
         testTypeReadMapping("read_char_unicode",
-                unicodeTests(charDataType(CHAR), codePoints(), MAX_CHAR_ON_READ),
-                unicodeTests(charDataType(BYTE), utf8Bytes(), MAX_CHAR_ON_READ),
+                unicodeTests(charDataType(CHAR), TestOracleTypeMapping::countCodePoints, MAX_CHAR_ON_READ),
+                unicodeTests(charDataType(BYTE), TestOracleTypeMapping::countUtf8Bytes, MAX_CHAR_ON_READ),
                 unicodeTests(ncharDataType(), String::length, MAX_NCHAR));
     }
 
@@ -905,14 +905,14 @@ public class TestOracleTypeMapping
         return new JdbcSqlExecutor(TestingOracleServer.getJdbcUrl(), properties);
     }
 
-    private static ToIntFunction<String> codePoints()
+    private static int countCodePoints(String value)
     {
-        return s -> s.codePointCount(0, s.length());
+        return value.codePointCount(0, value.length());
     }
 
-    private static ToIntFunction<String> utf8Bytes()
+    private static int countUtf8Bytes(String value)
     {
-        return s -> s.getBytes(UTF_8).length;
+        return value.getBytes(UTF_8).length;
     }
 
     private TestTable oracleTable(String tableName, String schema, String data)
