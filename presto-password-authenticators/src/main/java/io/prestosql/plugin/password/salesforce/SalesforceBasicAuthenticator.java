@@ -17,6 +17,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.escape.Escaper;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.Request;
@@ -45,6 +46,7 @@ import java.util.Set;
 
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
+import static com.google.common.xml.XmlEscapers.xmlContentEscaper;
 import static io.airlift.http.client.StaticBodyGenerator.createStaticBodyGenerator;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -78,7 +80,7 @@ public class SalesforceBasicAuthenticator
 
         this.userCache = CacheBuilder.newBuilder()
                 .maximumSize(config.getCacheSize())
-                .expireAfterWrite(config.getCacheExpireSeconds().toMillis(), MILLISECONDS)
+                .expireAfterWrite(config.getCacheExpireDuration().toMillis(), MILLISECONDS)
                 .build(CacheLoader.from(this::doLogin));
     }
 
@@ -121,12 +123,13 @@ public class SalesforceBasicAuthenticator
                 "</env:Envelope>\n";
         String apiVersion = "46.0";
         String loginUrl = "https://login.salesforce.com/services/Soap/u/";
+        Escaper escaper = xmlContentEscaper();
         Request request = new Request.Builder()
                 .setUri(URI.create(loginUrl + apiVersion))
                 .setHeader("Content-Type", "text/xml;charset=UTF-8")
                 .setHeader("SOAPAction", "login")
                 .setMethod("POST")
-                .setBodyGenerator(createStaticBodyGenerator(String.format(loginSoapMessage, username, password), UTF_8))
+                .setBodyGenerator(createStaticBodyGenerator(String.format(loginSoapMessage, escaper.escape(username), escaper.escape(password)), UTF_8))
                 .build();
 
         StringResponseHandler.StringResponse response = httpClient.execute(request, StringResponseHandler.createStringResponseHandler());
@@ -156,11 +159,12 @@ public class SalesforceBasicAuthenticator
         String returnedOrg = getElementValue(xmlResponse, "organizationId");
         // If the only entry in the set is "all", don't bother to check, otherwise make sure the returned org is in the set.
         // The organizationId is always in Locale.US, regardless of the user's locale and language.
-        if (!(allowedOrganizations.size() == 1 && allowedOrganizations.contains("all"))
-                && !allowedOrganizations.contains(returnedOrg.toLowerCase(Locale.US))) {
-            throw new AccessDeniedException(String.format(
-                    "Login successful, but for wrong Salesforce org.  Got %s, but expected a different org.",
-                    returnedOrg));
+        if (!allowedOrganizations.equals(ImmutableSet.of("all"))) {
+            if (!allowedOrganizations.contains(returnedOrg.toLowerCase(Locale.US))) {
+                throw new AccessDeniedException(String.format(
+                        "Login successful, but for wrong Salesforce org.  Got %s, but expected a different org.",
+                        returnedOrg));
+            }
         }
         return new BasicPrincipal(username);
     }

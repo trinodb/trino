@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.password.salesforce;
 
-import com.google.common.net.MediaType;
 import io.airlift.http.client.HttpClient;
 import io.airlift.http.client.HttpStatus;
 import io.airlift.http.client.jetty.JettyHttpClient;
@@ -28,6 +27,8 @@ import java.security.Principal;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Strings.emptyToNull;
+import static com.google.common.net.MediaType.ANY_TEXT_TYPE;
+import static io.airlift.http.client.HttpStatus.OK;
 import static io.airlift.http.client.testing.TestingResponse.mockResponse;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -53,17 +54,17 @@ public class TestSalesforceBasicAuthenticator
     public void createAuthenticatedPrincipalSuccess()
             throws InterruptedException
     {
-        String org = "my18CharOrgId";  // As if from salesforce.org property.
+        String org = "my18CharOrgId";  // As if from salesforce.allowed-organizations property.
         String username = "user@salesforce.com";
         String password = "passtoken";
 
         SalesforceConfig config = new SalesforceConfig()
                 .setAllowedOrganizations(org)
-                .setCacheExpireSeconds(Duration.succinctDuration(1, TimeUnit.SECONDS)); // Test cache timeout.
+                .setCacheExpireDuration(Duration.succinctDuration(1, TimeUnit.SECONDS)); // Test cache timeout.
 
         String xmlResponse = String.format(successResponse, org, username);
 
-        HttpClient testHttpClient = new TestingHttpClient((request -> mockResponse(HttpStatus.OK, MediaType.ANY_TEXT_TYPE, xmlResponse)));
+        HttpClient testHttpClient = new TestingHttpClient((request -> mockResponse(OK, ANY_TEXT_TYPE, xmlResponse)));
         SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);
 
         Principal principal = authenticator.createAuthenticatedPrincipal(username, password);
@@ -80,16 +81,16 @@ public class TestSalesforceBasicAuthenticator
     @Test(expectedExceptions = AccessDeniedException.class)
     public void createAuthenticatedPrincipalWrongOrg()
     {
-        String org = "my18CharOrgId";  // As if from salesforce.org property.
+        String org = "my18CharOrgId";  // As if from ssalesforce.allowed-organizations property.
         String username = "user@salesforce.com";
         String password = "passtoken";
 
         SalesforceConfig config = new SalesforceConfig()
                 .setAllowedOrganizations(org);
 
-        final String xmlResponse = String.format(successResponse, "NotMyOrg", username);
+        String xmlResponse = String.format(successResponse, "NotMyOrg", username);
 
-        HttpClient testHttpClient = new TestingHttpClient((request -> mockResponse(HttpStatus.OK, MediaType.ANY_TEXT_TYPE, xmlResponse)));
+        HttpClient testHttpClient = new TestingHttpClient((request -> mockResponse(OK, ANY_TEXT_TYPE, xmlResponse)));
         SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);
         authenticator.createAuthenticatedPrincipal(username, password);
     }
@@ -97,16 +98,16 @@ public class TestSalesforceBasicAuthenticator
     @Test(expectedExceptions = AccessDeniedException.class)
     public void createAuthenticatedPrincipalBadPass()
     {
-        String org = "my18CharOrgId";  // As if from salesforce.org property.
+        String org = "my18CharOrgId";  // As if from salesforce.allowed-organizations property.
         String username = "user@salesforce.com";
         String password = "passtoken";
 
         SalesforceConfig config = new SalesforceConfig()
                 .setAllowedOrganizations(org);
 
-        final String xmlResponse = failedResponse;
+        String xmlResponse = failedResponse;
 
-        HttpClient testHttpClient = new TestingHttpClient((request -> mockResponse(HttpStatus.INTERNAL_SERVER_ERROR, MediaType.ANY_TEXT_TYPE, xmlResponse)));
+        HttpClient testHttpClient = new TestingHttpClient((request -> mockResponse(HttpStatus.INTERNAL_SERVER_ERROR, ANY_TEXT_TYPE, xmlResponse)));
         SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);
         authenticator.createAuthenticatedPrincipal(username, password);
     }
@@ -114,7 +115,7 @@ public class TestSalesforceBasicAuthenticator
     @Test
     public void createAuthenticatedPrincipalAllOrgs()
     {
-        String org = "all";  // As if from salesforce.org property.
+        String org = "all";  // As if from salesforce.allowed-organizations property.
         String username = "user@salesforce.com";
         String password = "passtoken";
 
@@ -123,7 +124,7 @@ public class TestSalesforceBasicAuthenticator
 
         String xmlResponse = String.format(successResponse, "some18CharOrgId", username);
 
-        HttpClient testHttpClient = new TestingHttpClient((request -> mockResponse(HttpStatus.OK, MediaType.ANY_TEXT_TYPE, xmlResponse)));
+        HttpClient testHttpClient = new TestingHttpClient((request -> mockResponse(OK, ANY_TEXT_TYPE, xmlResponse)));
         SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);
 
         Principal principal = authenticator.createAuthenticatedPrincipal(username, password);
@@ -133,7 +134,7 @@ public class TestSalesforceBasicAuthenticator
     @Test
     public void createAuthenticatedPrincipalFewOrgs()
     {
-        String org = "my18CharOrgId,your18CharOrgId, his18CharOrgId ,her18CharOrgId";  // As if from salesforce.org property.
+        String org = "my18CharOrgId,your18CharOrgId, his18CharOrgId ,her18CharOrgId";  // As if from salesforce.allowed-organizations property.
         String username = "user@salesforce.com";
         String password = "passtoken";
 
@@ -142,7 +143,7 @@ public class TestSalesforceBasicAuthenticator
 
         String xmlResponse = String.format(successResponse, "my18CharOrgId", username);
 
-        HttpClient testHttpClient = new TestingHttpClient((request -> mockResponse(HttpStatus.OK, MediaType.ANY_TEXT_TYPE, xmlResponse)));
+        HttpClient testHttpClient = new TestingHttpClient((request -> mockResponse(OK, ANY_TEXT_TYPE, xmlResponse)));
         SalesforceBasicAuthenticator authenticator = new SalesforceBasicAuthenticator(config, testHttpClient);
 
         Principal principal = authenticator.createAuthenticatedPrincipal(username, password);
