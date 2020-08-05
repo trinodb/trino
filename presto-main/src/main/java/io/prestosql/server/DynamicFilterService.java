@@ -54,7 +54,6 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.Future;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -65,9 +64,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
-import static io.airlift.concurrent.MoreFutures.getDone;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
-import static io.airlift.concurrent.MoreFutures.tryGetFutureValue;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.spi.connector.DynamicFilter.EMPTY;
@@ -136,12 +133,12 @@ public class DynamicFilterService
             Set<DynamicFilterId> lazyDynamicFilters,
             Set<DynamicFilterId> replicatedDynamicFilters)
     {
-        Map<DynamicFilterId, SettableFuture<Domain>> dynamicFilterFutures = dynamicFilters.stream()
+        Map<DynamicFilterId, SettableFuture<?>> lazyDynamicFilterFutures = lazyDynamicFilters.stream()
                 .collect(toImmutableMap(filter -> filter, filter -> SettableFuture.create()));
         dynamicFilterContexts.putIfAbsent(queryId, new DynamicFilterContext(
-                dynamicFilterFutures,
                 stageDynamicFiltersSupplier,
-                lazyDynamicFilters,
+                dynamicFilters,
+                lazyDynamicFilterFutures,
                 replicatedDynamicFilters));
     }
 
@@ -153,16 +150,14 @@ public class DynamicFilterService
             return DynamicFiltersStats.EMPTY;
         }
 
-        Map<DynamicFilterId, SettableFuture<Domain>> dynamicFilterFutures = context.getDynamicFilterSummaries();
         int lazyFilters = context.getLazyDynamicFilters().size();
         int replicatedFilters = context.getReplicatedDynamicFilters().size();
-        int totalDynamicFilters = dynamicFilterFutures.size();
+        int totalDynamicFilters = context.getTotalDynamicFilters();
 
-        List<DynamicFilterDomainStats> dynamicFilterDomainStats = dynamicFilterFutures.entrySet().stream()
-                .filter(entry -> entry.getValue().isDone())
+        List<DynamicFilterDomainStats> dynamicFilterDomainStats = context.getDynamicFilterSummaries().entrySet().stream()
                 .map(entry -> {
                     DynamicFilterId dynamicFilterId = entry.getKey();
-                    Domain domain = getDone(entry.getValue());
+                    Domain domain = entry.getValue();
                     // simplify for readability
                     String simplifiedDomain = domain.simplify(1).toString(session.toConnectorSession());
                     int rangeCount = domain.getValues().getValuesProcessor().transform(
@@ -201,12 +196,9 @@ public class DynamicFilterService
             return EMPTY;
         }
 
-        List<ListenableFuture<?>> futures = dynamicFilters.stream()
-                .map(context.getDynamicFilterSummaries()::get)
-                .collect(toImmutableList());
         List<ListenableFuture<?>> lazyDynamicFilterFutures = dynamicFilters.stream()
-                .filter(context.getLazyDynamicFilters()::contains)
-                .map(context.getDynamicFilterSummaries()::get)
+                .map(context.getLazyDynamicFilters()::get)
+                .filter(Objects::nonNull)
                 .collect(toImmutableList());
         AtomicReference<TupleDomain<ColumnHandle>> completedDynamicFilter = new AtomicReference<>();
 
@@ -230,8 +222,8 @@ public class DynamicFilterService
             @Override
             public boolean isComplete()
             {
-                return futures.stream()
-                        .allMatch(Future::isDone);
+                return dynamicFilters.stream()
+                        .allMatch(context.getDynamicFilterSummaries()::containsKey);
             }
 
             @Override
@@ -243,7 +235,7 @@ public class DynamicFilterService
                 }
 
                 dynamicFilter = dynamicFilters.stream()
-                        .map(filter -> tryGetFutureValue(context.getDynamicFilterSummaries().get(filter))
+                        .map(filter -> Optional.ofNullable(context.getDynamicFilterSummaries().get(filter))
                                 .map(summary -> translateSummaryToTupleDomain(filter, summary, sourceColumnHandles)))
                         .filter(Optional::isPresent)
                         .map(Optional::get)
@@ -294,7 +286,7 @@ public class DynamicFilterService
     @VisibleForTesting
     Optional<Domain> getSummary(QueryId queryId, DynamicFilterId filterId)
     {
-        return tryGetFutureValue(dynamicFilterContexts.get(queryId).getDynamicFilterSummaries().get(filterId));
+        return Optional.ofNullable(dynamicFilterContexts.get(queryId).getDynamicFilterSummaries().get(filterId));
     }
 
     private static TupleDomain<ColumnHandle> translateSummaryToTupleDomain(DynamicFilterId filterId, Domain summary, Map<DynamicFilterId, ColumnHandle> sourceColumnHandles)
@@ -521,44 +513,52 @@ public class DynamicFilterService
 
     private static class DynamicFilterContext
     {
-        final Map<DynamicFilterId, SettableFuture<Domain>> dynamicFilterSummaries;
+        final Map<DynamicFilterId, Domain> dynamicFilterSummaries = new ConcurrentHashMap<>();
         final Supplier<List<StageDynamicFilters>> dynamicFilterSupplier;
-        final Set<DynamicFilterId> lazyDynamicFilters;
+        final Set<DynamicFilterId> dynamicFilters;
+        final Map<DynamicFilterId, SettableFuture<?>> lazyDynamicFilters;
         final Set<DynamicFilterId> replicatedDynamicFilters;
         final AtomicBoolean completed = new AtomicBoolean();
 
         public DynamicFilterContext(
-                Map<DynamicFilterId, SettableFuture<Domain>> dynamicFilterSummaries,
                 Supplier<List<StageDynamicFilters>> dynamicFilterSupplier,
-                Set<DynamicFilterId> lazyDynamicFilters,
+                Set<DynamicFilterId> dynamicFilters,
+                Map<DynamicFilterId, SettableFuture<?>> lazyDynamicFilters,
                 Set<DynamicFilterId> replicatedDynamicFilters)
         {
-            this.dynamicFilterSummaries = requireNonNull(dynamicFilterSummaries, "dynamicFilterSummaries is null");
             this.dynamicFilterSupplier = requireNonNull(dynamicFilterSupplier, "dynamicFilterSupplier is null");
+            this.dynamicFilters = requireNonNull(dynamicFilters, "dynamicFilters is null");
             this.lazyDynamicFilters = requireNonNull(lazyDynamicFilters, "lazyDynamicFilters is null");
             this.replicatedDynamicFilters = requireNonNull(replicatedDynamicFilters, "replicatedDynamicFilters is null");
         }
 
+        private int getTotalDynamicFilters()
+        {
+            return dynamicFilters.size();
+        }
+
         private Set<DynamicFilterId> getUncollectedDynamicFilters()
         {
-            return dynamicFilterSummaries.entrySet().stream()
-                    .filter(entry -> !entry.getValue().isDone())
-                    .map(Map.Entry::getKey)
+            return dynamicFilters.stream()
+                    .filter(filter -> !dynamicFilterSummaries.containsKey(filter))
                     .collect(toImmutableSet());
         }
 
-        private void addDynamicFilters(Map<DynamicFilterId, Domain> dynamicFilters)
+        private void addDynamicFilters(Map<DynamicFilterId, Domain> newDynamicFilters)
         {
-            dynamicFilters.forEach((filter, domain) -> {
-                SettableFuture<Domain> future = requireNonNull(dynamicFilterSummaries.get(filter), "Future not found");
-                checkState(future.set(domain), "Same future set twice");
+            newDynamicFilters.forEach((filter, domain) -> {
+                dynamicFilterSummaries.put(filter, domain);
+                SettableFuture<?> future = lazyDynamicFilters.get(filter);
+                if (future != null) {
+                    checkState(future.set(null), "Same future set twice");
+                }
             });
 
             // stop collecting dynamic filters for query when all dynamic filters have been collected
-            completed.set(dynamicFilterSummaries.values().stream().allMatch(future -> future.isDone()));
+            completed.set(dynamicFilters.stream().allMatch(dynamicFilterSummaries::containsKey));
         }
 
-        private Map<DynamicFilterId, SettableFuture<Domain>> getDynamicFilterSummaries()
+        private Map<DynamicFilterId, Domain> getDynamicFilterSummaries()
         {
             return dynamicFilterSummaries;
         }
@@ -568,7 +568,7 @@ public class DynamicFilterService
             return dynamicFilterSupplier;
         }
 
-        public Set<DynamicFilterId> getLazyDynamicFilters()
+        public Map<DynamicFilterId, SettableFuture<?>> getLazyDynamicFilters()
         {
             return lazyDynamicFilters;
         }
