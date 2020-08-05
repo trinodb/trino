@@ -49,6 +49,7 @@ public class JdbcModule
         newOptionalBinder(binder, ConnectorAccessControl.class);
 
         procedureBinder(binder);
+        tablePropertiesProviderBinder(binder);
 
         binder.bind(JdbcMetadataFactory.class).in(Scopes.SINGLETON);
         newOptionalBinder(binder, ConnectorSplitManager.class).setDefault().to(JdbcSplitManager.class).in(Scopes.SINGLETON);
@@ -84,5 +85,15 @@ public class JdbcModule
     public static void bindProcedure(Binder binder, Class<? extends Provider<? extends Procedure>> type)
     {
         procedureBinder(binder).addBinding().toProvider(type).in(Scopes.SINGLETON);
+    }
+
+    public static Multibinder<TablePropertiesProvider> tablePropertiesProviderBinder(Binder binder)
+    {
+        return newSetBinder(binder, TablePropertiesProvider.class);
+    }
+
+    public static void bindTablePropertiesProvider(Binder binder, Class<? extends TablePropertiesProvider> type)
+    {
+        tablePropertiesProviderBinder(binder).addBinding().to(type).in(Scopes.SINGLETON);
     }
 }

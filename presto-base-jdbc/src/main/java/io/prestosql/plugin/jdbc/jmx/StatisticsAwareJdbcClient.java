@@ -291,4 +291,10 @@ public final class StatisticsAwareJdbcClient
     {
         return delegate().quoted(remoteTableName);
     }
+
+    @Override
+    public Map<String, Object> getTableProperties(JdbcIdentity identity, JdbcTableHandle tableHandle)
+    {
+        return delegate().getTableProperties(identity, tableHandle);
+    }
 }

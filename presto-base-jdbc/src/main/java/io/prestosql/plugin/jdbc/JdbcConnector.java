@@ -54,6 +54,7 @@ public class JdbcConnector
     private final Optional<ConnectorAccessControl> accessControl;
     private final Set<Procedure> procedures;
     private final List<PropertyMetadata<?>> sessionProperties;
+    private final List<PropertyMetadata<?>> tableProperties;
 
     private final ConcurrentMap<ConnectorTransactionHandle, JdbcMetadata> transactions = new ConcurrentHashMap<>();
 
@@ -66,7 +67,8 @@ public class JdbcConnector
             ConnectorPageSinkProvider jdbcPageSinkProvider,
             Optional<ConnectorAccessControl> accessControl,
             Set<Procedure> procedures,
-            Set<SessionPropertiesProvider> sessionProperties)
+            Set<SessionPropertiesProvider> sessionProperties,
+            Set<TablePropertiesProvider> tableProperties)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.jdbcMetadataFactory = requireNonNull(jdbcMetadataFactory, "jdbcMetadataFactory is null");
@@ -77,6 +79,9 @@ public class JdbcConnector
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
         this.sessionProperties = requireNonNull(sessionProperties, "sessionProperties is null").stream()
                 .flatMap(sessionPropertiesProvider -> sessionPropertiesProvider.getSessionProperties().stream())
+                .collect(toImmutableList());
+        this.tableProperties = requireNonNull(tableProperties, "tableProperties is null").stream()
+                .flatMap(tablePropertiesProvider -> tablePropertiesProvider.getTableProperties().stream())
                 .collect(toImmutableList());
     }
 
@@ -151,6 +156,12 @@ public class JdbcConnector
     public List<PropertyMetadata<?>> getSessionProperties()
     {
         return sessionProperties;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getTableProperties()
+    {
+        return tableProperties;
     }
 
     @Override
