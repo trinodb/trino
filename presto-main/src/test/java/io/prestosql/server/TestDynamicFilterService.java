@@ -300,7 +300,7 @@ public class TestDynamicFilterService
         assertEquals(stats.getDynamicFiltersCompleted(), 3);
         assertEquals(stats.getLazyDynamicFilters(), 3);
         assertEquals(stats.getReplicatedDynamicFilters(), 0);
-        assertEquals(stats.getDynamicFilterDomainStats(), ImmutableList.of(
+        assertEquals(ImmutableSet.copyOf(stats.getDynamicFilterDomainStats()), ImmutableSet.of(
                 new DynamicFilterDomainStats(
                         filterId1, getExpectedDomainString(1L, 2L), 2, 0),
                 new DynamicFilterDomainStats(
