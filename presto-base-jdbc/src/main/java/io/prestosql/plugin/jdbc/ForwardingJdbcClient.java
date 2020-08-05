@@ -274,4 +274,10 @@ public abstract class ForwardingJdbcClient
     {
         return delegate().quoted(remoteTableName);
     }
+
+    @Override
+    public Map<String, Object> getTableProperties(JdbcIdentity identity, JdbcTableHandle tableHandle)
+    {
+        return delegate().getTableProperties(identity, tableHandle);
+    }
 }

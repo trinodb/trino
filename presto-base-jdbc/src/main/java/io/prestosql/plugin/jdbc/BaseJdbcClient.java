@@ -105,6 +105,7 @@ import static java.lang.String.CASE_INSENSITIVE_ORDER;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.sql.DatabaseMetaData.columnNoNulls;
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.nCopies;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
@@ -941,6 +942,12 @@ public abstract class BaseJdbcClient
                 remoteTableName.getCatalogName().orElse(null),
                 remoteTableName.getSchemaName().orElse(null),
                 remoteTableName.getTableName());
+    }
+
+    @Override
+    public Map<String, Object> getTableProperties(JdbcIdentity identity, JdbcTableHandle tableHandle)
+    {
+        return emptyMap();
     }
 
     protected String quoted(@Nullable String catalog, @Nullable String schema, String table)
