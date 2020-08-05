@@ -423,7 +423,7 @@ public final class ScalarFunctionAdapter
 
         // caller will pass boolean true in the next argument for SQL null
         if (expectedArgumentConvention == BLOCK_POSITION) {
-            MethodHandle getBlockValue = getBlockValue(argumentType);
+            MethodHandle getBlockValue = getBlockValue(argumentType, methodHandle.type().parameterType(parameterIndex));
 
             if (actualArgumentConvention == NEVER_NULL) {
                 if (nullAdaptationPolicy == UNDEFINED_VALUE_FOR_NULL) {
@@ -487,7 +487,7 @@ public final class ScalarFunctionAdapter
         throw new IllegalArgumentException("Unsupported expected argument convention: " + expectedArgumentConvention);
     }
 
-    private static MethodHandle getBlockValue(Type argumentType)
+    private static MethodHandle getBlockValue(Type argumentType, Class<?> expectedType)
     {
         Class<?> methodArgumentType = argumentType.getJavaType();
         String getterName;
@@ -511,7 +511,7 @@ public final class ScalarFunctionAdapter
         try {
             MethodHandle getValue = lookup().findVirtual(Type.class, getterName, methodType(methodArgumentType, Block.class, int.class))
                     .bindTo(argumentType);
-            return explicitCastArguments(getValue, getValue.type().changeReturnType(argumentType.getJavaType()));
+            return explicitCastArguments(getValue, getValue.type().changeReturnType(expectedType));
         }
         catch (ReflectiveOperationException e) {
             throw new AssertionError(e);
