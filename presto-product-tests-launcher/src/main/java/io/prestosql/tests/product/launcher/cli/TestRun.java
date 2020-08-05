@@ -219,10 +219,10 @@ public final class TestRun
 
                 InspectContainerResponse containerInfo = container.getCurrentContainerInfo();
                 ContainerState containerState = containerInfo.getState();
-                Integer exitCode = containerState.getExitCode();
+                Long exitCode = containerState.getExitCodeLong();
                 log.info("Test container %s is %s, with exitCode %s", containerInfo.getId(), containerState.getStatus(), exitCode);
                 checkState(exitCode != null, "No exitCode for tests container %s in state %s", container, containerState);
-                if (exitCode != 0) {
+                if (exitCode != 0L) {
                     throw new RuntimeException("Tests exited with " + exitCode);
                 }
             }
