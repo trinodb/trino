@@ -333,6 +333,12 @@ public final class CachingJdbcClient
         return delegate.quoted(remoteTableName);
     }
 
+    @Override
+    public Map<String, Object> getTableProperties(JdbcIdentity identity, JdbcTableHandle tableHandle)
+    {
+        return delegate.getTableProperties(identity, tableHandle);
+    }
+
     private void invalidateSchemasCache()
     {
         schemaNamesCache.invalidateAll();

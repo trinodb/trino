@@ -129,4 +129,6 @@ public interface JdbcClient
     String quoted(String name);
 
     String quoted(RemoteTableName remoteTableName);
+
+    Map<String, Object> getTableProperties(JdbcIdentity identity, JdbcTableHandle tableHandle);
 }
