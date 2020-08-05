@@ -64,7 +64,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BiFunction;
-import java.util.function.UnaryOperator;
 
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -109,12 +108,7 @@ public class SnowflakeClient
     private static final LocalDate EPOCH_DAY = LocalDate.ofEpochDay(0);
     private static final DateTimeFormatter SNOWFLAKE_DATE_TIME_FORMATTER = DateTimeFormatter.ofPattern("y-MM-dd'T'HH:mm:ss.SSSSSSSSSXXX");
     private static final int SNOWFLAKE_MAX_LIST_EXPRESSIONS = 1000;
-    private static final UnaryOperator<Domain> SIMPLIFY_UNSUPPORTED_PUSHDOWN = domain -> {
-        if (domain.getValues().getRanges().getRangeCount() <= SNOWFLAKE_MAX_LIST_EXPRESSIONS) {
-            return domain;
-        }
-        return domain.simplify();
-    };
+
     private static final Map<Type, WriteMapping> WRITE_MAPPINGS = ImmutableMap.<Type, WriteMapping>builder()
             .put(BIGINT, WriteMapping.longMapping("number(19)", bigintWriteFunction()))
             .put(INTEGER, WriteMapping.longMapping("number(10)", integerWriteFunction()))
@@ -180,7 +174,7 @@ public class SnowflakeClient
         }
 
         if (typeName.equals("VARIANT")) {
-            return Optional.of(ColumnMapping.sliceMapping(createUnboundedVarcharType(), variantReadFunction(), varcharWriteFunction(), SIMPLIFY_UNSUPPORTED_PUSHDOWN));
+            return Optional.of(ColumnMapping.sliceMapping(createUnboundedVarcharType(), variantReadFunction(), varcharWriteFunction(), SnowflakeClient::simplifyUnsupportedPushdown));
         }
 
         if (typeName.equals("OBJECT") || typeName.equals("ARRAY")) {
@@ -217,7 +211,7 @@ public class SnowflakeClient
                 mapping.getType(),
                 mapping.getReadFunction(),
                 mapping.getWriteFunction(),
-                SIMPLIFY_UNSUPPORTED_PUSHDOWN);
+                SnowflakeClient::simplifyUnsupportedPushdown);
     }
 
     @Override
@@ -279,11 +273,13 @@ public class SnowflakeClient
         });
     }
 
+    @SuppressWarnings("UnnecessaryLambda")
     private static SliceReadFunction variantReadFunction()
     {
         return (resultSet, columnIndex) -> utf8Slice(resultSet.getString(columnIndex).replaceAll("^\"|\"$", ""));
     }
 
+    @SuppressWarnings("UnnecessaryLambda")
     private static SliceWriteFunction charWriteFunction(CharType charType)
     {
         return (statement, index, value) -> statement.setString(index, Chars.padSpaces(value, charType).toStringUtf8());
@@ -300,7 +296,7 @@ public class SnowflakeClient
                             timestamp.getZone().getId());
                 },
                 timestampWithTimezoneWriteFunction(),
-                SIMPLIFY_UNSUPPORTED_PUSHDOWN);
+                SnowflakeClient::simplifyUnsupportedPushdown);
     }
 
     private static LongWriteFunction timestampWithTimezoneWriteFunction()
@@ -463,5 +459,14 @@ public class SnowflakeClient
             tableStatistics.setRowCount(Estimate.of(rowCount));
             return Optional.of(tableStatistics.build());
         }
+    }
+
+    private static final Domain simplifyUnsupportedPushdown(Domain domain)
+    {
+        if (domain.getValues().getRanges().getRangeCount() <= SNOWFLAKE_MAX_LIST_EXPRESSIONS) {
+            return domain;
+        }
+
+        return domain.simplify();
     }
 }
