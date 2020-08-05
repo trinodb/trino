@@ -22,13 +22,13 @@ import java.util.Map;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
-import static java.util.concurrent.TimeUnit.SECONDS;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static org.testng.Assert.assertEquals;
 
 public class TestSalesforceConfig
 {
     private final int defaultCacheSize = 4096;
-    private final Duration defaultCacheExpireSeconds = Duration.succinctDuration(120, SECONDS);
+    private final Duration defaultCacheExpireSeconds = Duration.succinctDuration(2, MINUTES);
 
     @Test
     public void testDefault()
@@ -36,7 +36,7 @@ public class TestSalesforceConfig
         assertRecordedDefaults(recordDefaults(SalesforceConfig.class)
                 .setAllowedOrganizations(null)
                 .setCacheSize(defaultCacheSize)
-                .setCacheExpireSeconds(defaultCacheExpireSeconds));
+                .setCacheExpireDuration(defaultCacheExpireSeconds));
     }
 
     @Test
@@ -49,13 +49,13 @@ public class TestSalesforceConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("salesforce.allowed-organizations", org)
                 .put("salesforce.cache-size", cacheSize)
-                .put("salesforce.cache-expire-seconds", cacheExpire)
+                .put("salesforce.cache-expire-duration", cacheExpire)
                 .build();
 
         SalesforceConfig expected = new SalesforceConfig()
                 .setAllowedOrganizations(org)
                 .setCacheSize(Integer.valueOf(cacheSize))
-                .setCacheExpireSeconds(Duration.valueOf(cacheExpire));
+                .setCacheExpireDuration(Duration.valueOf(cacheExpire));
 
         assertFullMapping(properties, expected);
     }
