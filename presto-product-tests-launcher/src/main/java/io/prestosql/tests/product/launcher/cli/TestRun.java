@@ -30,6 +30,7 @@ import io.prestosql.tests.product.launcher.env.EnvironmentFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 import io.prestosql.tests.product.launcher.env.Environments;
+import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Container;
 
 import javax.inject.Inject;
@@ -38,10 +39,13 @@ import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.Socket;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static io.prestosql.tests.product.launcher.docker.ContainerUtil.exposePort;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
@@ -88,6 +92,9 @@ public final class TestRun
         @Option(name = "--environment", title = "environment", description = "the name of the environment to start", required = true)
         public String environment;
 
+        @Option(name = "--reports-dir", title = "reports dir", description = "location of the reports directory")
+        public String reportsDir;
+
         @Arguments(description = "test arguments")
         public List<String> testArguments = new ArrayList<>();
 
@@ -103,6 +110,7 @@ public final class TestRun
             implements Runnable
     {
         private static final int TESTS_READY_PORT = 1970;
+        private static final String CONTAINER_REPORTS_DIR = "/docker/test-reports";
 
         private final EnvironmentFactory environmentFactory;
         private final PathResolver pathResolver;
@@ -110,6 +118,7 @@ public final class TestRun
         private final File testJar;
         private final List<String> testArguments;
         private final String environment;
+        private final String reportsDir;
 
         @Inject
         public Execution(EnvironmentFactory environmentFactory, PathResolver pathResolver, EnvironmentOptions environmentOptions, TestRunOptions testRunOptions)
@@ -121,6 +130,7 @@ public final class TestRun
             this.testJar = requireNonNull(testRunOptions.testJar, "testOptions.testJar is null");
             this.testArguments = ImmutableList.copyOf(requireNonNull(testRunOptions.testArguments, "testOptions.testArguments is null"));
             this.environment = requireNonNull(testRunOptions.environment, "testRunOptions.environment is null");
+            this.reportsDir = testRunOptions.reportsDir;
         }
 
         @Override
@@ -155,6 +165,7 @@ public final class TestRun
         {
             Environment.Builder environment = environmentFactory.get(this.environment);
 
+            environment.configureContainer("tests", this::mountReportsDir);
             environment.configureContainer("tests", container -> {
                 container.addExposedPort(TESTS_READY_PORT);
 
@@ -193,10 +204,42 @@ public final class TestRun
                                                 .add(container.getEnvMap().getOrDefault("TEMPTO_CONFIG_FILES", "/dev/null"))
                                                 .build()))
                                 .addAll(testArguments)
+                                .addAll(reportsDirOptions(reportsDir))
                                 .build().toArray(new String[0]));
             });
 
             return environment.build();
+        }
+
+        private static Iterable<? extends String> reportsDirOptions(String path)
+        {
+            if (isNullOrEmpty(path)) {
+                return ImmutableList.of();
+            }
+
+            return ImmutableList.of("--report-dir", CONTAINER_REPORTS_DIR);
+        }
+
+        private void mountReportsDir(Container container)
+        {
+            if (isNullOrEmpty(reportsDir)) {
+                return;
+            }
+
+            Path reportsDirLocation = Path.of(reportsDir);
+
+            if (!Files.exists(reportsDirLocation)) {
+                try {
+                    Files.createDirectories(reportsDirLocation);
+                    log.info("Created reports dir %s", reportsDirLocation);
+                }
+                catch (IOException e) {
+                    throw new UncheckedIOException(e);
+                }
+            }
+
+            container.withFileSystemBind(reportsDir, CONTAINER_REPORTS_DIR, BindMode.READ_WRITE);
+            log.info("Bound host %s into container's %s report dir", reportsDirLocation, CONTAINER_REPORTS_DIR);
         }
 
         private void runTests(Environment environment)
