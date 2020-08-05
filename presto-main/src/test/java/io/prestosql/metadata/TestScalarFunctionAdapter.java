@@ -28,6 +28,9 @@ import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention;
 import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.CharType;
+import io.prestosql.spi.type.LongTimestamp;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
@@ -54,7 +57,9 @@ import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentC
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.CharType.createCharType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
@@ -69,7 +74,10 @@ import static org.testng.Assert.assertTrue;
 public class TestScalarFunctionAdapter
 {
     private static final ArrayType ARRAY_TYPE = new ArrayType(BIGINT);
+    private static final CharType CHAR_TYPE = createCharType(7);
+    private static final TimestampType TIMESTAMP_TYPE = createTimestampType(9);
     private static final List<Type> ARGUMENT_TYPES = ImmutableList.of(BOOLEAN, BIGINT, DOUBLE, VARCHAR, ARRAY_TYPE);
+    private static final List<Type> OBJECTS_ARGUMENT_TYPES = ImmutableList.of(VARCHAR, ARRAY_TYPE, CHAR_TYPE, TIMESTAMP_TYPE);
 
     @Test
     public void testAdaptFromNeverNull()
@@ -81,10 +89,26 @@ public class TestScalarFunctionAdapter
                 false,
                 true);
         String methodName = "neverNull";
-        verifyAllAdaptations(actualConvention, methodName, RETURN_NULL_ON_NULL);
-        verifyAllAdaptations(actualConvention, methodName, UNDEFINED_VALUE_FOR_NULL);
-        verifyAllAdaptations(actualConvention, methodName, THROW_ON_NULL);
-        verifyAllAdaptations(actualConvention, methodName, UNSUPPORTED);
+        verifyAllAdaptations(actualConvention, methodName, RETURN_NULL_ON_NULL, ARGUMENT_TYPES);
+        verifyAllAdaptations(actualConvention, methodName, UNDEFINED_VALUE_FOR_NULL, ARGUMENT_TYPES);
+        verifyAllAdaptations(actualConvention, methodName, THROW_ON_NULL, ARGUMENT_TYPES);
+        verifyAllAdaptations(actualConvention, methodName, UNSUPPORTED, ARGUMENT_TYPES);
+    }
+
+    @Test
+    public void testAdaptFromNeverNullObjects()
+            throws Throwable
+    {
+        InvocationConvention actualConvention = new InvocationConvention(
+                nCopies(OBJECTS_ARGUMENT_TYPES.size(), NEVER_NULL),
+                FAIL_ON_NULL,
+                false,
+                true);
+        String methodName = "neverNullObjects";
+        verifyAllAdaptations(actualConvention, methodName, RETURN_NULL_ON_NULL, OBJECTS_ARGUMENT_TYPES);
+        verifyAllAdaptations(actualConvention, methodName, UNDEFINED_VALUE_FOR_NULL, OBJECTS_ARGUMENT_TYPES);
+        verifyAllAdaptations(actualConvention, methodName, THROW_ON_NULL, OBJECTS_ARGUMENT_TYPES);
+        verifyAllAdaptations(actualConvention, methodName, UNSUPPORTED, OBJECTS_ARGUMENT_TYPES);
     }
 
     @Test
@@ -97,7 +121,20 @@ public class TestScalarFunctionAdapter
                 false,
                 true);
         String methodName = "boxedNull";
-        verifyAllAdaptations(actualConvention, methodName, UNSUPPORTED);
+        verifyAllAdaptations(actualConvention, methodName, UNSUPPORTED, ARGUMENT_TYPES);
+    }
+
+    @Test
+    public void testAdaptFromBoxedNullObjects()
+            throws Throwable
+    {
+        InvocationConvention actualConvention = new InvocationConvention(
+                nCopies(OBJECTS_ARGUMENT_TYPES.size(), BOXED_NULLABLE),
+                FAIL_ON_NULL,
+                false,
+                true);
+        String methodName = "boxedNullObjects";
+        verifyAllAdaptations(actualConvention, methodName, UNSUPPORTED, OBJECTS_ARGUMENT_TYPES);
     }
 
     @Test
@@ -110,29 +147,44 @@ public class TestScalarFunctionAdapter
                 false,
                 true);
         String methodName = "nullFlag";
-        verifyAllAdaptations(actualConvention, methodName, UNSUPPORTED);
+        verifyAllAdaptations(actualConvention, methodName, UNSUPPORTED, ARGUMENT_TYPES);
+    }
+
+    @Test
+    public void testAdaptFromNullFlagObjects()
+            throws Throwable
+    {
+        InvocationConvention actualConvention = new InvocationConvention(
+                nCopies(OBJECTS_ARGUMENT_TYPES.size(), NULL_FLAG),
+                FAIL_ON_NULL,
+                false,
+                true);
+        String methodName = "nullFlagObjects";
+        verifyAllAdaptations(actualConvention, methodName, UNSUPPORTED, OBJECTS_ARGUMENT_TYPES);
     }
 
     private static void verifyAllAdaptations(
             InvocationConvention actualConvention,
             String methodName,
-            NullAdaptationPolicy nullAdaptationPolicy)
+            NullAdaptationPolicy nullAdaptationPolicy,
+            List<Type> argumentTypes)
             throws Throwable
     {
-        MethodType type = methodType(actualConvention.getReturnConvention() == FAIL_ON_NULL ? boolean.class : Boolean.class, toCallArgumentTypes(actualConvention));
+        MethodType type = methodType(actualConvention.getReturnConvention() == FAIL_ON_NULL ? boolean.class : Boolean.class, toCallArgumentTypes(actualConvention, argumentTypes));
         MethodHandle methodHandle = lookup().findVirtual(Target.class, methodName, type);
-        verifyAllAdaptations(actualConvention, methodHandle, nullAdaptationPolicy);
+        verifyAllAdaptations(actualConvention, methodHandle, nullAdaptationPolicy, argumentTypes);
     }
 
     private static void verifyAllAdaptations(
             InvocationConvention actualConvention,
             MethodHandle methodHandle,
-            NullAdaptationPolicy nullAdaptationPolicy)
+            NullAdaptationPolicy nullAdaptationPolicy,
+            List<Type> argumentTypes)
             throws Throwable
     {
         List<List<InvocationArgumentConvention>> allArgumentConventions = allCombinations(
                 ImmutableList.of(NEVER_NULL, BOXED_NULLABLE, NULL_FLAG, BLOCK_POSITION),
-                ARGUMENT_TYPES.size());
+                argumentTypes.size());
         for (List<InvocationArgumentConvention> argumentConventions : allArgumentConventions) {
             for (InvocationReturnConvention returnConvention : InvocationReturnConvention.values()) {
                 InvocationConvention expectedConvention = new InvocationConvention(argumentConventions, returnConvention, false, true);
@@ -140,7 +192,7 @@ public class TestScalarFunctionAdapter
                         methodHandle,
                         actualConvention,
                         expectedConvention,
-                        nullAdaptationPolicy);
+                        nullAdaptationPolicy, argumentTypes);
             }
         }
     }
@@ -149,7 +201,8 @@ public class TestScalarFunctionAdapter
             MethodHandle methodHandle,
             InvocationConvention actualConvention,
             InvocationConvention expectedConvention,
-            NullAdaptationPolicy nullAdaptationPolicy)
+            NullAdaptationPolicy nullAdaptationPolicy,
+            List<Type> argumentTypes)
             throws Throwable
     {
         ScalarFunctionAdapter scalarFunctionAdapter = new ScalarFunctionAdapter(nullAdaptationPolicy);
@@ -157,7 +210,7 @@ public class TestScalarFunctionAdapter
         try {
             adaptedMethodHandle = scalarFunctionAdapter.adapt(
                     methodHandle,
-                    ARGUMENT_TYPES,
+                    argumentTypes,
                     actualConvention,
                     expectedConvention);
             assertTrue(scalarFunctionAdapter.canAdapt(actualConvention, expectedConvention));
@@ -189,7 +242,7 @@ public class TestScalarFunctionAdapter
                 continue;
             }
             Target target = new Target();
-            List<Object> argumentValues = toCallArgumentValues(newCallingConvention, nullArguments, target);
+            List<Object> argumentValues = toCallArgumentValues(newCallingConvention, nullArguments, target, argumentTypes);
             try {
                 Boolean result = (Boolean) exactInvoker.invokeWithArguments(argumentValues);
                 if (result == null) {
@@ -209,7 +262,7 @@ public class TestScalarFunctionAdapter
                 }
                 assertEquals(prestoException.getErrorCode(), INVALID_FUNCTION_ARGUMENT.toErrorCode());
             }
-            target.verify(actualConvention, nullArguments, nullAdaptationPolicy);
+            target.verify(actualConvention, nullArguments, nullAdaptationPolicy, argumentTypes);
         }
     }
 
@@ -246,21 +299,25 @@ public class TestScalarFunctionAdapter
         return false;
     }
 
-    private static List<Class<?>> toCallArgumentTypes(InvocationConvention callingConvention)
+    private static List<Class<?>> toCallArgumentTypes(InvocationConvention callingConvention, List<Type> argumentTypes)
     {
         List<Class<?>> expectedArguments = new ArrayList<>();
         for (int i = 0; i < callingConvention.getArgumentConventions().size(); i++) {
-            Type argumentType = ARGUMENT_TYPES.get(i);
+            Type argumentType = argumentTypes.get(i);
             InvocationArgumentConvention argumentConvention = callingConvention.getArgumentConvention(i);
+            Class<?> javaType = argumentType.getJavaType();
+            if (argumentType.equals(CHAR_TYPE) || argumentType.equals(TIMESTAMP_TYPE)) {
+                javaType = Object.class;
+            }
             switch (argumentConvention) {
                 case NEVER_NULL:
-                    expectedArguments.add(argumentType.getJavaType());
+                    expectedArguments.add(javaType);
                     break;
                 case BOXED_NULLABLE:
-                    expectedArguments.add(Primitives.wrap(argumentType.getJavaType()));
+                    expectedArguments.add(Primitives.wrap(javaType));
                     break;
                 case NULL_FLAG:
-                    expectedArguments.add(argumentType.getJavaType());
+                    expectedArguments.add(javaType);
                     expectedArguments.add(boolean.class);
                     break;
                 case BLOCK_POSITION:
@@ -274,12 +331,12 @@ public class TestScalarFunctionAdapter
         return expectedArguments;
     }
 
-    private static List<Object> toCallArgumentValues(InvocationConvention callingConvention, BitSet nullArguments, Target target)
+    private static List<Object> toCallArgumentValues(InvocationConvention callingConvention, BitSet nullArguments, Target target, List<Type> argumentTypes)
     {
         List<Object> callArguments = new ArrayList<>();
         callArguments.add(target);
         for (int i = 0; i < callingConvention.getArgumentConventions().size(); i++) {
-            Type argumentType = ARGUMENT_TYPES.get(i);
+            Type argumentType = argumentTypes.get(i);
             boolean nullArgument = nullArguments.get(i);
 
             Object testValue;
@@ -321,25 +378,32 @@ public class TestScalarFunctionAdapter
 
     private static Object getTestValue(Type argumentType)
     {
-        if (argumentType.getJavaType() == boolean.class) {
+        // BOOLEAN, BIGINT, DOUBLE, VARCHAR, ARRAY_TYPE, createCharType(7), createTimestampType(9)
+        if (argumentType.equals(BOOLEAN)) {
             return true;
         }
-        if (argumentType.getJavaType() == double.class) {
+        if (argumentType.equals(DOUBLE)) {
             return 33.33;
         }
-        if (argumentType.getJavaType() == long.class) {
+        if (argumentType.equals(BIGINT)) {
             return 42L;
         }
-        if (argumentType.getJavaType() == Slice.class) {
+        if (argumentType.equals(VARCHAR)) {
             return Slices.utf8Slice("test");
         }
-        if (argumentType.getJavaType() == Block.class) {
+        if (argumentType.equals(ARRAY_TYPE)) {
             BlockBuilder blockBuilder = BIGINT.createBlockBuilder(null, 4);
             blockBuilder.appendNull();
             blockBuilder.writeLong(99);
             blockBuilder.appendNull();
             blockBuilder.writeLong(100);
             return blockBuilder.build();
+        }
+        if (argumentType.equals(CHAR_TYPE)) {
+            return Slices.utf8Slice("1234567");
+        }
+        if (argumentType.equals(TIMESTAMP_TYPE)) {
+            return new LongTimestamp(5678, 123_000);
         }
         throw new IllegalArgumentException("Unsupported argument type: " + argumentType);
     }
@@ -369,17 +433,21 @@ public class TestScalarFunctionAdapter
     private static class Target
     {
         private boolean invoked;
+        private boolean objectsMethod;
         private Boolean booleanValue;
         private Long longValue;
         private Double doubleValue;
         private Slice sliceValue;
         private Block blockValue;
+        private Object objectCharValue;
+        private Object objectTimestampValue;
 
         @UsedByGeneratedCode
         public boolean neverNull(boolean booleanValue, long longValue, double doubleValue, Slice sliceValue, Block blockValue)
         {
             checkState(!invoked, "Already invoked");
             invoked = true;
+            objectsMethod = false;
 
             this.booleanValue = booleanValue;
             this.longValue = longValue;
@@ -390,16 +458,45 @@ public class TestScalarFunctionAdapter
         }
 
         @UsedByGeneratedCode
+        public boolean neverNullObjects(Slice sliceValue, Block blockValue, Object objectCharValue, Object objectTimestampValue)
+        {
+            checkState(!invoked, "Already invoked");
+            invoked = true;
+            objectsMethod = true;
+
+            this.sliceValue = sliceValue;
+            this.blockValue = blockValue;
+            this.objectCharValue = objectCharValue;
+            this.objectTimestampValue = objectTimestampValue;
+            return true;
+        }
+
+        @UsedByGeneratedCode
         public boolean boxedNull(Boolean booleanValue, Long longValue, Double doubleValue, Slice sliceValue, Block blockValue)
         {
             checkState(!invoked, "Already invoked");
             invoked = true;
+            objectsMethod = false;
 
             this.booleanValue = booleanValue;
             this.longValue = longValue;
             this.doubleValue = doubleValue;
             this.sliceValue = sliceValue;
             this.blockValue = blockValue;
+            return true;
+        }
+
+        @UsedByGeneratedCode
+        public boolean boxedNullObjects(Slice sliceValue, Block blockValue, Object objectCharValue, Object objectTimestampValue)
+        {
+            checkState(!invoked, "Already invoked");
+            invoked = true;
+            objectsMethod = true;
+
+            this.sliceValue = sliceValue;
+            this.blockValue = blockValue;
+            this.objectCharValue = objectCharValue;
+            this.objectTimestampValue = objectTimestampValue;
             return true;
         }
 
@@ -413,6 +510,7 @@ public class TestScalarFunctionAdapter
         {
             checkState(!invoked, "Already invoked");
             invoked = true;
+            objectsMethod = false;
 
             if (booleanNull) {
                 assertFalse(booleanValue);
@@ -456,18 +554,72 @@ public class TestScalarFunctionAdapter
             return true;
         }
 
+        @UsedByGeneratedCode
+        public boolean nullFlagObjects(
+                Slice sliceValue, boolean sliceNull,
+                Block blockValue, boolean blockNull,
+                Object objectCharValue, boolean objectCharNull,
+                Object objectTimestampValue, boolean objectTimestampNull)
+        {
+            checkState(!invoked, "Already invoked");
+            invoked = true;
+            objectsMethod = true;
+
+            if (sliceNull) {
+                assertNull(sliceValue);
+                this.sliceValue = null;
+            }
+            else {
+                this.sliceValue = sliceValue;
+            }
+
+            if (blockNull) {
+                assertNull(blockValue);
+                this.blockValue = null;
+            }
+            else {
+                this.blockValue = blockValue;
+            }
+
+            if (objectCharNull) {
+                assertNull(objectCharValue);
+                this.objectCharValue = null;
+            }
+            else {
+                this.objectCharValue = objectCharValue;
+            }
+
+            if (objectTimestampNull) {
+                assertNull(objectTimestampValue);
+                this.objectTimestampValue = null;
+            }
+            else {
+                this.objectTimestampValue = objectTimestampValue;
+            }
+            return true;
+        }
+
         public void verify(
                 InvocationConvention actualConvention,
                 BitSet nullArguments,
-                NullAdaptationPolicy nullAdaptationPolicy)
+                NullAdaptationPolicy nullAdaptationPolicy,
+                List<Type> argumentTypes)
         {
             if (shouldFunctionBeInvoked(actualConvention, nullArguments, nullAdaptationPolicy)) {
                 assertTrue(invoked, "function not invoked");
-                assertArgumentValue(this.booleanValue, 0, actualConvention, nullArguments);
-                assertArgumentValue(this.longValue, 1, actualConvention, nullArguments);
-                assertArgumentValue(this.doubleValue, 2, actualConvention, nullArguments);
-                assertArgumentValue(this.sliceValue, 3, actualConvention, nullArguments);
-                assertArgumentValue(this.blockValue, 4, actualConvention, nullArguments);
+                if (!objectsMethod) {
+                    assertArgumentValue(this.booleanValue, 0, actualConvention, nullArguments, argumentTypes);
+                    assertArgumentValue(this.longValue, 1, actualConvention, nullArguments, argumentTypes);
+                    assertArgumentValue(this.doubleValue, 2, actualConvention, nullArguments, argumentTypes);
+                    assertArgumentValue(this.sliceValue, 3, actualConvention, nullArguments, argumentTypes);
+                    assertArgumentValue(this.blockValue, 4, actualConvention, nullArguments, argumentTypes);
+                }
+                else {
+                    assertArgumentValue(this.sliceValue, 0, actualConvention, nullArguments, argumentTypes);
+                    assertArgumentValue(this.blockValue, 1, actualConvention, nullArguments, argumentTypes);
+                    assertArgumentValue(this.objectCharValue, 2, actualConvention, nullArguments, argumentTypes);
+                    assertArgumentValue(this.objectTimestampValue, 3, actualConvention, nullArguments, argumentTypes);
+                }
             }
             else {
                 assertFalse(invoked, "Function should not be invoked when null is passed to a NEVER_NULL argument and adaptation is " + nullAdaptationPolicy);
@@ -476,14 +628,19 @@ public class TestScalarFunctionAdapter
                 assertNull(this.doubleValue);
                 assertNull(this.sliceValue);
                 assertNull(this.blockValue);
+                assertNull(this.objectCharValue);
+                assertNull(this.objectTimestampValue);
             }
 
             this.invoked = false;
+            this.objectsMethod = false;
             this.booleanValue = null;
             this.longValue = null;
             this.doubleValue = null;
             this.sliceValue = null;
             this.blockValue = null;
+            this.objectCharValue = null;
+            this.objectTimestampValue = null;
         }
 
         private static boolean shouldFunctionBeInvoked(InvocationConvention actualConvention, BitSet nullArguments, NullAdaptationPolicy nullAdaptationPolicy)
@@ -504,9 +661,10 @@ public class TestScalarFunctionAdapter
                 Object actualValue,
                 int index,
                 InvocationConvention actualConvention,
-                BitSet nullArguments)
+                BitSet nullArguments,
+                List<Type> argumentTypes)
         {
-            assertArgumentValue(actualValue, actualConvention.getArgumentConvention(index), ARGUMENT_TYPES.get(index), nullArguments.get(index));
+            assertArgumentValue(actualValue, actualConvention.getArgumentConvention(index), argumentTypes.get(index), nullArguments.get(index));
         }
 
         private static void assertArgumentValue(
