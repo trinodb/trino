@@ -15,6 +15,7 @@ package io.prestosql.plugin.prometheus;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteSource;
+import io.airlift.json.JsonCodec;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordSet;
@@ -23,7 +24,9 @@ import io.prestosql.spi.type.Type;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
+import java.nio.ByteBuffer;
 import java.util.List;
+import java.util.Map;
 
 import static io.prestosql.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_UNKNOWN_ERROR;
 import static java.util.Objects.requireNonNull;
@@ -34,6 +37,7 @@ public class PrometheusRecordSet
     private final List<PrometheusColumnHandle> columnHandles;
     private final List<Type> columnTypes;
     private ByteSource byteSource;
+    private JsonCodec<Map<String, Object>> metricCodec;
 
     public PrometheusRecordSet(PrometheusSplit split, List<PrometheusColumnHandle> columnHandles)
     {
@@ -47,7 +51,8 @@ public class PrometheusRecordSet
         this.columnTypes = types.build();
 
         try {
-            byteSource = ByteSource.wrap(PrometheusClient.getHttpResponse(split.getUri()).bytes());
+            ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+            byteSource = ByteSource.wrap(buffer.putLong(PrometheusClient.getHttpResponse(split.getUri(), metricCodec)).array());
         }
         catch (MalformedURLException e) {
             throw new PrestoException(PROMETHEUS_UNKNOWN_ERROR, "split URL to use with Prometheus has an error: " + e.getMessage());
