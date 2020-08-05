@@ -18,16 +18,16 @@ import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.io.Files;
+import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpStatus;
+import io.airlift.http.client.Request;
+import io.airlift.http.client.Response;
 import io.airlift.json.JsonCodec;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TypeManager;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
-import okhttp3.ResponseBody;
 import org.apache.http.client.utils.URIBuilder;
 
 import javax.inject.Inject;
@@ -37,11 +37,14 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.ByteBuffer;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
+import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonResponseHandler;
+import static io.airlift.http.client.HttpStatus.familyForStatusCode;
 import static io.prestosql.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_TABLES_METRICS_RETRIEVE_ERROR;
 import static io.prestosql.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_UNKNOWN_ERROR;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
@@ -54,7 +57,7 @@ public class PrometheusClient
 {
     private PrometheusConnectorConfig config;
     static final String METRICS_ENDPOINT = "/api/v1/label/__name__/values";
-    private static final OkHttpClient httpClient = new OkHttpClient.Builder().build();
+    private static final HttpClient httpClient = null;
     private final Supplier<Map<String, Object>> tableSupplier;
     private final TypeManager typeManager;
 
@@ -131,7 +134,8 @@ public class PrometheusClient
     {
         return () -> {
             try {
-                byte[] json = getHttpResponse(metadataUri).bytes();
+                ByteBuffer buffer = ByteBuffer.allocate(Long.BYTES);
+                byte[] json = buffer.putLong(getHttpResponse(metadataUri, metricsCodec)).array();
                 Map<String, Object> metrics = metricsCodec.fromJson(json);
                 return metrics;
             }
@@ -141,22 +145,23 @@ public class PrometheusClient
         };
     }
 
-    static ResponseBody getHttpResponse(URI uri)
+    static long getHttpResponse(URI uri, JsonCodec metricsCodec)
             throws IOException, URISyntaxException
     {
         Request.Builder requestBuilder = new Request.Builder();
         if (new PrometheusConnectorConfig() != null) {
             getBearerAuthInfoFromFile().map(bearerToken ->
-                    requestBuilder.header("Authorization", "Bearer " + bearerToken));
+                    requestBuilder.addHeader("Authorization", "Bearer " + bearerToken));
         }
-        requestBuilder.url(uri.toURL());
+        requestBuilder.setUri(uri);
         Request request = requestBuilder.build();
-        Response response = httpClient.newCall(request).execute();
-        if (response.isSuccessful()) {
-            return response.body();
+        Response response = (Response) httpClient.execute(request, createFullJsonResponseHandler(metricsCodec));
+
+        if (familyForStatusCode(response.getStatusCode()) != HttpStatus.Family.SUCCESSFUL) {
+            return response.getBytesRead();
         }
         else {
-            throw new PrestoException(PROMETHEUS_UNKNOWN_ERROR, "Bad response " + response.code() + response.message());
+            throw new PrestoException(PROMETHEUS_UNKNOWN_ERROR, "Bad response " + response.getStatusCode());
         }
     }
 

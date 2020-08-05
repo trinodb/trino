@@ -13,20 +13,25 @@
  */
 package io.prestosql.plugin.prometheus;
 
+import io.airlift.http.client.HttpClient;
+import io.airlift.http.client.HttpClientConfig;
+import io.airlift.http.client.HttpUriBuilder;
+import io.airlift.http.client.Request;
+import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.log.Logger;
+import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
-import okhttp3.HttpUrl;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
 import org.testng.annotations.Test;
 
+import java.net.URI;
 import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
 
+import static io.airlift.http.client.StringResponseHandler.createStringResponseHandler;
 import static io.prestosql.plugin.prometheus.PrometheusQueryRunner.createPrometheusClient;
 import static io.prestosql.plugin.prometheus.PrometheusQueryRunner.createPrometheusQueryRunner;
 import static org.testng.Assert.assertEquals;
@@ -62,21 +67,21 @@ public class TestPrometheusIntegrationTests3
         runner = createQueryRunner();
         session = runner.getDefaultSession();
         int tries = 0;
-        final OkHttpClient httpClient = new OkHttpClient.Builder()
-                .connectTimeout(120, TimeUnit.SECONDS)
-                .readTimeout(120, TimeUnit.SECONDS)
-                .build();
+        HttpClientConfig config = new HttpClientConfig()
+                .setConnectTimeout(new Duration(120, TimeUnit.SECONDS));
+        final HttpClient httpClient = new JettyHttpClient(config);
         String prometheusServer = server.getAddress().toString();
-        HttpUrl.Builder urlBuilder = HttpUrl.parse("http://" + prometheusServer + "/api/v1/query").newBuilder();
-        urlBuilder.addQueryParameter("query", "up[1d]");
-        String url = urlBuilder.build().toString();
+        HttpUriBuilder uriBuilder = HttpUriBuilder.uriBuilderFrom(
+                new URI("http://" + prometheusServer + "/api/v1/query"));
+        uriBuilder.addParameter("query", "up[1d]");
+        URI uri = uriBuilder.build();
         Request request = new Request.Builder()
-                .url(url)
+                .setUri(uri)
                 .build();
         String responseBody;
         // this seems to be a reliable way to ensure Prometheus has `up` metric data
         while (tries < maxTries) {
-            responseBody = httpClient.newCall(request).execute().body().string();
+            responseBody = httpClient.execute(request, createStringResponseHandler()).getBody();
             if (responseBody.contains("values")) {
                 Logger log = Logger.get(TestPrometheusIntegrationTests3.class);
                 log.info("prometheus response: %s", responseBody);
