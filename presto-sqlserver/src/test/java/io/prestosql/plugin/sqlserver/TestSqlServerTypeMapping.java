@@ -91,6 +91,7 @@ import static java.math.RoundingMode.UNNECESSARY;
 import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
+import static java.util.Arrays.asList;
 import static java.util.function.Function.identity;
 
 @Test
@@ -98,7 +99,6 @@ public class TestSqlServerTypeMapping
         extends AbstractTestQueryFramework
 {
     private static final LocalDate EPOCH_DAY = LocalDate.ofEpochDay(0);
-    private static final JsonCodec<List<Map<String, String>>> HSTORE_CODEC = listJsonCodec(mapJsonCodec(String.class, String.class));
 
     private TestingSqlServer sqlServer;
 
@@ -145,7 +145,7 @@ public class TestSqlServerTypeMapping
 
         checkIsGap(kathmandu, timeGapInKathmandu);
 
-        JdbcSqlExecuter executer = new JdbcSqlExecuter(sqlServer.getJdbcUrl());
+        JdbcSqlExecutor executer = new JdbcSqlExecutor(sqlServer.getJdbcUrl());
     }
 
     @AfterClass(alwaysRun = true)
@@ -166,7 +166,6 @@ public class TestSqlServerTypeMapping
                 .addRoundTrip(integerDataType(), 1_234_567_890)
                 .addRoundTrip(smallintDataType(), (short) 32_456)
                 .addRoundTrip(tinyintDataType(), (byte) 125)
-                .addRoundTrip(doubleDataType(), 123.45d)
                 .addRoundTrip(realDataType(), 123.45f)
                 .execute(getQueryRunner(), prestoCreateAsSelect("test_basic_types"));
     }
@@ -227,7 +226,13 @@ public class TestSqlServerTypeMapping
     public void testSqlServerCreatedParameterizedVarCharUnicode()
     {
         unicodeDataTypeTest(DataType::charDataType)
-                .execute(getQueryRunner(), sqlServerCreateAsSelect("tpch.sqlserver_test_parameterized_varchar_unicode"));
+                .execute(getQueryRunner(), sqlServerCreateAndInsert("tpch.sqlserver_test_parameterized_varchar_unicode"));
+    }
+
+    private DataTypeTest unicodeVarcharDateTypeTest()
+    {
+        return unicodeDataTypeTest(DataType::varcharDataType)
+                .addRoundTrip(varcharDataType(), "\u041d\u0443, \u043f\u043e\u0433\u043e\u0434\u0438!");
     }
 
     @Test
@@ -289,42 +294,6 @@ public class TestSqlServerTypeMapping
                 .addRoundTrip(decimalDataType(30, 5), new BigDecimal("-3141592653589793238462643.38327"))
                 .addRoundTrip(decimalDataType(38, 0), new BigDecimal("27182818284590452353602874713526624977"))
                 .addRoundTrip(decimalDataType(38, 0), new BigDecimal("-27182818284590452353602874713526624977"));
-    }
-
-    @Test
-    public void testForcedMappingToVarchar()
-    {
-        JdbcSqlExecutor = new JdbcSqlExecutor(sqlServer.getJdbcUrl());
-        jdbcSqlExecutor.execute("CREATE TABLE tpch.test_forced_varchar_mapping(tsrange_col tsrange, inet_col inet, tsrange_arr_col tsrange[], unsupported_nonforced_column tstzrange)");
-        jdbcSqlExecutor.execute("INSERT INTO tpch.test_forced_varchar_mapping(tsrange_col, inet_col, tsrange_arr_col, unsupported_nonforced_column) " +
-                "VALUES ('[2010-01-01 14:30, 2010-01-01 15:30)'::tsrange, '172.0.0.1'::inet, array['[2010-01-01 14:30, 2010-01-01 15:30)'::tsrange], '[2010-01-01 14:30, 2010-01-01 15:30)'::tstzrange)");
-        try {
-            assertQuery(
-                    sessionWithArrayAsArray(),
-                    "SELECT column_name, data_type FROM information_schema.columns WHERE table_schema = 'tpch' AND table_name = 'test_forced_varchar_mapping'",
-                    "VALUES ('tsrange_col','varchar'),('inet_col','varchar'),('tsrange_arr_col','array(varchar)')"); // no 'unsupported_nonforced_column'
-
-            assertQuery(
-                    sessionWithArrayAsArray(),
-                    "SELECT * FROM tpch.test_forced_varchar_mapping",
-                    "VALUES ('[\"2010-01-01 14:30:00\",\"2010-01-01 15:30:00\")','172.0.0.1',ARRAY['[\"2010-01-01 14:30:00\",\"2010-01-01 15:30:00\")'])");
-
-            // test predicate pushdown to column that has forced varchar mapping
-            assertQuery(
-                    "SELECT 1 FROM tpch.test_forced_varchar_mapping WHERE tsrange_col = '[\"2010-01-01 14:30:00\",\"2010-01-01 15:30:00\")'",
-                    "VALUES 1");
-            assertQuery(
-                    "SELECT 1 FROM tpch.test_forced_varchar_mapping WHERE tsrange_col = 'some value'",
-                    "SELECT 1 WHERE false");
-
-            // test insert into column that has forced varchar mapping
-            assertQueryFails(
-                    "INSERT INTO tpch.test_forced_varchar_mapping (tsrange_col) VALUES ('some value')",
-                    "Underlying type that is mapped to VARCHAR is not supported for INSERT: tsrange");
-        }
-        finally {
-            jdbcSqlExecutor.execute("DROP TABLE tpch.test_forced_varchar_mapping");
-        }
     }
 
     @Test
