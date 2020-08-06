@@ -365,8 +365,6 @@ Property Name                                        Description
 ``hive.metastore.glue.default-warehouse-dir``        Default warehouse directory for schemas created without an
                                                      explicit ``location`` property.
 
-``hive.metastore.glue.catalogid``                    Glue Catalog ID (optional).
-
 ``hive.metastore.glue.aws-credentials-provider``     Fully qualified name of the Java class to use for obtaining
                                                      AWS credentials. Can be used to supply a custom credentials
                                                      provider.
