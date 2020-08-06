@@ -35,23 +35,23 @@ public class HashRedisRowDecoderFactory
     public RowDecoder create(ConnectorSession session, Map<String, String> decoderParams, Set<DecoderColumnHandle> columns)
     {
         requireNonNull(columns, "columns is null");
-        return new HashRedisRowDecoder(chooseFieldDecoders(columns));
+        return new HashRedisRowDecoder(chooseFieldDecoders(session, columns));
     }
 
-    private Map<DecoderColumnHandle, RedisFieldDecoder<String>> chooseFieldDecoders(Set<DecoderColumnHandle> columns)
+    private Map<DecoderColumnHandle, RedisFieldDecoder<String>> chooseFieldDecoders(ConnectorSession session, Set<DecoderColumnHandle> columns)
     {
         return columns.stream()
-                .collect(ImmutableMap.toImmutableMap(identity(), this::chooseFieldDecoder));
+                .collect(ImmutableMap.toImmutableMap(identity(), col -> chooseFieldDecoder(session, col)));
     }
 
-    private RedisFieldDecoder<String> chooseFieldDecoder(DecoderColumnHandle column)
+    private RedisFieldDecoder<String> chooseFieldDecoder(ConnectorSession session, DecoderColumnHandle column)
     {
         checkArgument(!column.isInternal(), "unexpected internal column '%s'", column.getName());
         if (column.getDataFormat() == null) {
             return new HashRedisFieldDecoder();
         }
         if (column.getType().getJavaType() == long.class && "iso8601".equals(column.getDataFormat())) {
-            return new ISO8601HashRedisFieldDecoder();
+            return new ISO8601HashRedisFieldDecoder(session);
         }
         throw new IllegalArgumentException(format("unknown data format '%s' for column '%s'", column.getDataFormat(), column.getName()));
     }

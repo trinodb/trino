@@ -16,6 +16,7 @@ package io.prestosql.plugin.redis.decoder.hash;
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.FieldValueProvider;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
@@ -29,13 +30,14 @@ import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 class ISO8601HashRedisFieldDecoder
         extends HashRedisFieldDecoder
 {
-    private static final DateTimeFormatter FORMATTER = ISODateTimeFormat.dateTimeParser().withLocale(Locale.ENGLISH).withZoneUTC();
+    private static final DateTimeFormatter FORMATTER = ISODateTimeFormat.dateTimeParser().withLocale(Locale.ENGLISH).withOffsetParsed();
 
     private final ConnectorSession session;
 
@@ -48,34 +50,41 @@ class ISO8601HashRedisFieldDecoder
     @Override
     public FieldValueProvider decode(String value, DecoderColumnHandle columnHandle)
     {
-        return new ISO8601HashRedisValueProvider(columnHandle, value);
+        return new ISO8601HashRedisValueProvider(session, columnHandle, value);
     }
 
     private static class ISO8601HashRedisValueProvider
             extends HashRedisValueProvider
     {
-        public ISO8601HashRedisValueProvider(DecoderColumnHandle columnHandle, String value)
+        private final ConnectorSession session;
+
+        public ISO8601HashRedisValueProvider(ConnectorSession session, DecoderColumnHandle columnHandle, String value)
         {
             super(columnHandle, value);
+            this.session = session;
         }
 
         @Override
         public long getLong()
         {
-            long millis = FORMATTER.parseMillis(getSlice().toStringAscii());
+            long millisUtc = FORMATTER.withZoneUTC().parseMillis(getSlice().toStringAscii());
+            TimeZoneKey timeZoneKey = getTimeZoneKey(FORMATTER.parseDateTime(getSlice().toStringAscii()).getZone().getID());
 
             Type type = columnHandle.getType();
             if (type.equals(DATE)) {
-                return MILLISECONDS.toDays(millis);
+                return MILLISECONDS.toDays(millisUtc);
             }
-            if (type instanceof TimestampType || type.equals(TIME)) {
-                return millis;
+            if (type.equals(TIME)) {
+                return millisUtc;
+            }
+            if (type instanceof TimestampType) {
+                packDateTimeWithZone(millisUtc, session.getTimeZoneKey());
             }
             if (type instanceof TimestampWithTimeZoneType || type.equals(TIME_WITH_TIME_ZONE)) {
-                return packDateTimeWithZone(millis, 0);
+                return packDateTimeWithZone(millisUtc, timeZoneKey);
             }
 
-            return millis;
+            return millisUtc;
         }
     }
 }
