@@ -38,7 +38,6 @@ import javax.inject.Inject;
 import java.io.File;
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.net.Socket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
@@ -109,7 +108,6 @@ public final class TestRun
     public static class Execution
             implements Runnable
     {
-        private static final int TESTS_READY_PORT = 1970;
         private static final String CONTAINER_REPORTS_DIR = "/docker/test-reports";
 
         private final EnvironmentFactory environmentFactory;
@@ -146,7 +144,7 @@ public final class TestRun
                 environment.start();
                 log.info("Environment '%s' started", environment);
 
-                runTests(environment);
+                awaitTestsCompletion(environment);
             }
             catch (Throwable e) {
                 // log failure (tersely) because cleanup may take some time
@@ -163,12 +161,11 @@ public final class TestRun
 
         private Environment getEnvironment()
         {
-            Environment.Builder environment = environmentFactory.get(this.environment);
+            Environment.Builder environment = environmentFactory.get(this.environment)
+                    .containerDependsOnRest("tests");
 
             environment.configureContainer("tests", this::mountReportsDir);
             environment.configureContainer("tests", container -> {
-                container.addExposedPort(TESTS_READY_PORT);
-
                 List<String> temptoJavaOptions = Splitter.on(" ").omitEmptyStrings().splitToList(
                         container.getEnvMap().getOrDefault("TEMPTO_JAVA_OPTS", ""));
 
@@ -182,8 +179,6 @@ public final class TestRun
                         // the test jar is hundreds MB and file system bind is much more efficient
                         .withFileSystemBind(pathResolver.resolvePlaceholders(testJar).getPath(), "/docker/test.jar", READ_ONLY)
                         .withCommand(ImmutableList.<String>builder()
-                                .add("bash", "-xeuc", "nc -l \"$1\" < /dev/null; shift; exec \"$@\"", "-")
-                                .add(Integer.toString(TESTS_READY_PORT))
                                 .add(
                                         "/usr/lib/jvm/zulu-11/bin/java",
                                         "-Xmx1g",
@@ -242,17 +237,9 @@ public final class TestRun
             log.info("Bound host %s into container's %s report dir", reportsDirLocation, CONTAINER_REPORTS_DIR);
         }
 
-        private void runTests(Environment environment)
+        private void awaitTestsCompletion(Environment environment)
         {
-            log.info("Starting test execution");
             Container<?> container = environment.getContainer("tests");
-            try {
-                // Release waiter to let the tests run
-                new Socket(container.getContainerIpAddress(), container.getMappedPort(TESTS_READY_PORT)).close();
-            }
-            catch (IOException e) {
-                throw new UncheckedIOException(e);
-            }
 
             log.info("Waiting for test completion");
             try {
