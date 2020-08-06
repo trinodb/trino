@@ -162,7 +162,7 @@ public class RaptorSplitManager
         }
 
         @Override
-        public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
+        public synchronized CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
         {
             checkState((future == null) || future.isDone(), "previous batch not completed");
             future = supplyAsync(batchSupplier(maxSize), executor);
