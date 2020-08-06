@@ -22,7 +22,6 @@ import com.qubole.rubix.bookkeeper.LocalDataTransferServer;
 import com.qubole.rubix.core.CachingFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoAdlFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoAzureBlobFileSystem;
-import com.qubole.rubix.prestosql.CachingPrestoDistributedFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoGoogleHadoopFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoNativeAzureFileSystem;
 import com.qubole.rubix.prestosql.CachingPrestoS3FileSystem;
@@ -32,7 +31,6 @@ import com.qubole.rubix.prestosql.PrestoClusterManager;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.base.CatalogName;
-import io.prestosql.plugin.hive.ConfigurationInitializer;
 import io.prestosql.plugin.hive.HdfsConfigurationInitializer;
 import io.prestosql.plugin.hive.util.RetryDriver;
 import io.prestosql.spi.HostAddress;
@@ -91,8 +89,6 @@ public class RubixInitializer
 
     private static final String RUBIX_GS_FS_CLASS_NAME = CachingPrestoGoogleHadoopFileSystem.class.getName();
 
-    private static final String RUBIX_DISTRIBUTED_FS_CLASS_NAME = CachingPrestoDistributedFileSystem.class.getName();
-
     private static final RetryDriver DEFAULT_COORDINATOR_RETRY_DRIVER = retry()
             // unlimited attempts
             .maxAttempts(MAX_VALUE)
@@ -116,7 +112,7 @@ public class RubixInitializer
     private final NodeManager nodeManager;
     private final CatalogName catalogName;
     private final HdfsConfigurationInitializer hdfsConfigurationInitializer;
-    private final Optional<ConfigurationInitializer> extraConfigInitializer;
+    private final RubixHdfsInitializer rubixHdfsInitializer;
 
     private volatile boolean cacheReady;
     @Nullable
@@ -130,9 +126,9 @@ public class RubixInitializer
             NodeManager nodeManager,
             CatalogName catalogName,
             HdfsConfigurationInitializer hdfsConfigurationInitializer,
-            @ForRubix Optional<ConfigurationInitializer> extraConfigInitializer)
+            RubixHdfsInitializer rubixHdfsInitializer)
     {
-        this(DEFAULT_COORDINATOR_RETRY_DRIVER, rubixConfig, nodeManager, catalogName, hdfsConfigurationInitializer, extraConfigInitializer);
+        this(DEFAULT_COORDINATOR_RETRY_DRIVER, rubixConfig, nodeManager, catalogName, hdfsConfigurationInitializer, rubixHdfsInitializer);
     }
 
     @VisibleForTesting
@@ -142,7 +138,7 @@ public class RubixInitializer
             NodeManager nodeManager,
             CatalogName catalogName,
             HdfsConfigurationInitializer hdfsConfigurationInitializer,
-            Optional<ConfigurationInitializer> extraConfigInitializer)
+            RubixHdfsInitializer rubixHdfsInitializer)
     {
         this.coordinatorRetryDriver = coordinatorRetryDriver;
         this.startServerOnCoordinator = rubixConfig.isStartServerOnCoordinator();
@@ -155,7 +151,7 @@ public class RubixInitializer
         this.nodeManager = nodeManager;
         this.catalogName = catalogName;
         this.hdfsConfigurationInitializer = hdfsConfigurationInitializer;
-        this.extraConfigInitializer = extraConfigInitializer;
+        this.rubixHdfsInitializer = rubixHdfsInitializer;
     }
 
     void initializeRubix()
@@ -312,8 +308,6 @@ public class RubixInitializer
 
         config.set("fs.gs.impl", RUBIX_GS_FS_CLASS_NAME);
 
-        config.set("fs.hdfs.impl", RUBIX_DISTRIBUTED_FS_CLASS_NAME);
-
-        extraConfigInitializer.ifPresent(initializer -> initializer.initializeConfiguration(config));
+        rubixHdfsInitializer.initializeConfiguration(config);
     }
 }

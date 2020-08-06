@@ -38,6 +38,7 @@ import io.prestosql.plugin.hive.HiveHdfsConfiguration;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.orc.OrcReaderConfig;
 import io.prestosql.plugin.hive.rubix.RubixConfig.ReadMode;
+import io.prestosql.plugin.hive.rubix.RubixModule.DefaultRubixHdfsInitializer;
 import io.prestosql.spi.Node;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.testing.TestingConnectorSession;
@@ -63,7 +64,6 @@ import java.lang.management.ManagementFactory;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -187,7 +187,7 @@ public class TestRubixCaching
                 nodeManager,
                 new CatalogName("catalog"),
                 configurationInitializer,
-                Optional.empty());
+                new DefaultRubixHdfsInitializer());
         rubixConfigInitializer = new RubixConfigurationInitializer(rubixInitializer);
         rubixInitializer.initializeRubix();
         retry().run("wait for rubix to startup", () -> {
@@ -303,7 +303,7 @@ public class TestRubixCaching
                 new TestingNodeManager(ImmutableList.of(workerNode)),
                 new CatalogName("catalog"),
                 configurationInitializer,
-                Optional.empty());
+                new DefaultRubixHdfsInitializer());
         assertThatThrownBy(rubixInitializer::initializeRubix)
                 .hasMessage("No coordinator node available");
     }
