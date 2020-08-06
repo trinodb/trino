@@ -275,7 +275,7 @@ public class RubixInitializer
         return configuration;
     }
 
-    void updateRubixConfiguration(Configuration config)
+    private void updateRubixConfiguration(Configuration config)
     {
         checkState(masterAddress != null, "masterAddress is not set");
         setCacheDataEnabled(config, true);
