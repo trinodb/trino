@@ -128,6 +128,20 @@ public final class Environment
             return this;
         }
 
+        public Builder containerDependsOnRest(String name)
+        {
+            checkState(containers.containsKey(name), "Container with name %s does not exist", name);
+            DockerContainer container = containers.get(name);
+
+            containers.entrySet()
+                    .stream()
+                    .filter(entry -> !entry.getKey().equals(name))
+                    .map(entry -> entry.getValue())
+                    .forEach(dependant -> container.dependsOn(dependant));
+
+            return this;
+        }
+
         public Builder configureContainer(String name, Consumer<DockerContainer> configurer)
         {
             requireNonNull(name, "name is null");
