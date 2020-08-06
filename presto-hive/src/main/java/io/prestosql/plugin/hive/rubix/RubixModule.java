@@ -20,6 +20,7 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import com.qubole.rubix.prestosql.CachingPrestoDistributedFileSystem;
 import io.prestosql.plugin.hive.DynamicConfigurationProvider;
+import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig;
 import org.apache.hadoop.conf.Configuration;
 
 import java.util.Set;
@@ -38,6 +39,7 @@ public class RubixModule
     public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(RubixConfig.class);
+        configBinder(binder).bindConfig(HiveAuthenticationConfig.class);
         binder.bind(RubixConfigurationInitializer.class).in(Scopes.SINGLETON);
         binder.bind(RubixInitializer.class).in(Scopes.SINGLETON);
         // Make initialization of Rubix happen just once.
@@ -65,6 +67,12 @@ public class RubixModule
     static class DefaultRubixHdfsInitializer
             implements RubixHdfsInitializer
     {
+        @Inject
+        public DefaultRubixHdfsInitializer(HiveAuthenticationConfig authenticationConfig)
+        {
+            checkArgument(!authenticationConfig.isHdfsImpersonationEnabled(), "Hdfs impersonation is not compatible with Hive caching");
+        }
+
         @Override
         public void initializeConfiguration(Configuration config)
         {
