@@ -9,20 +9,16 @@
  */
 package com.starburstdata.presto.plugin.snowflake.auth;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.jayway.jsonpath.DocumentContext;
+import com.starburstdata.presto.okta.OktaAuthenticationResult;
+import com.starburstdata.presto.okta.OktaClient;
 import io.airlift.log.Logger;
 import io.prestosql.spi.security.AccessDeniedException;
 import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
 import okhttp3.Call;
 import okhttp3.HttpUrl;
 import okhttp3.JavaNetCookieJar;
-import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
-import okhttp3.RequestBody;
 import okhttp3.Response;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -33,15 +29,10 @@ import java.io.IOException;
 import java.net.CookieManager;
 import java.net.HttpCookie;
 import java.nio.charset.StandardCharsets;
-import java.time.Duration;
-import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.starburstdata.presto.plugin.snowflake.auth.RestUtils.executeWithRetries;
-import static com.starburstdata.presto.plugin.snowflake.auth.RestUtils.jsonPath;
-import static com.starburstdata.presto.plugin.snowflake.auth.RestUtils.parseJsonResponse;
 import static com.starburstdata.presto.plugin.snowflake.auth.RestUtils.retryPolicy;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -55,7 +46,7 @@ public class NativeOktaAuthClient
     private final CookieManager cookieManager;
     private final HttpUrl accountUrl;
     private final OkHttpClient httpClient;
-    private final ObjectMapper objectMapper = new ObjectMapper();
+    private final OktaClient oktaClient;
 
     @Inject
     public NativeOktaAuthClient(OktaConfig oktaConfig)
@@ -72,77 +63,13 @@ public class NativeOktaAuthClient
                 .writeTimeout(oktaConfig.getHttpWriteTimeout().roundTo(SECONDS), SECONDS)
                 .cookieJar(new JavaNetCookieJar(cookieManager))
                 .build();
+        oktaClient = new OktaClient(httpClient, accountUrl);
     }
 
     @Override
     public OktaAuthenticationResult authenticate(String user, String password)
     {
-        try {
-            log.debug("Verifying credentials for user %s with Okta", user);
-            Response response = executeWithRetries(httpClient.newCall(
-                    new Request.Builder()
-                            .url(accountUrl.newBuilder()
-                                    .encodedPath("/api/v1/authn")
-                                    .build())
-                            .post(RequestBody.create(
-                                    MediaType.parse("application/json"),
-                                    objectMapper.writeValueAsString(new AuthenticationPayload(user, password))))
-                            .build()));
-            if (response.code() == 401) {
-                log.error("Authentication failed for user %s; response body was %s", user, response.body().string());
-                throw new AccessDeniedException("Invalid credentials for user " + user);
-            }
-            DocumentContext authenticationResult = parseJsonResponse(response);
-            String status = jsonPath(authenticationResult, "$.status");
-            if ("SUCCESS".equalsIgnoreCase(status)) {
-                // MFA is not enabled
-                log.debug("Successfully verified credentials for user %s with Okta (no MFA)", user);
-                return new OktaAuthenticationResult(jsonPath(authenticationResult, "$.sessionToken"), user);
-            }
-            if ("MFA_REQUIRED".equalsIgnoreCase(status)) {
-                String stateToken = jsonPath(authenticationResult, "$.stateToken");
-                // find the device where the MFA push notification should be sent
-                List<String> factors = jsonPath(authenticationResult, "$._embedded.factors[?(@.factorType == \"push\")].id");
-
-                log.debug("Sending push notification for user %s", user);
-                Call pushMfa = httpClient.newCall(
-                        new Request.Builder()
-                                .url(accountUrl.newBuilder()
-                                        .encodedPath("/api/v1/authn/factors")
-                                        .addPathSegment(factors.get(0))
-                                        .addPathSegment("verify")
-                                .build())
-                                .post(RequestBody.create(
-                                        MediaType.parse("application/json"),
-                                        objectMapper.writeValueAsString(new VerifyPayload(stateToken))))
-                                .build());
-                // poll for successful MFA
-                String sessionToken = Failsafe
-                        .with(new RetryPolicy<>()
-                                .withDelay(Duration.ofSeconds(2))
-                                .withMaxDuration(Duration.ofMinutes(2))
-                                .withMaxAttempts(Integer.MAX_VALUE) // limited by MaxDuration
-                                .onRetry(event -> log.debug("Waiting for MFA authorization for user %s [%s]...", user, event.getLastFailure().getMessage())))
-                        .get(() -> {
-                            DocumentContext pushMfaResponseJson = parseJsonResponse(pushMfa.clone());
-                            String mfaStatus = jsonPath(pushMfaResponseJson, "$.status");
-                            if ("SUCCESS".equals(mfaStatus)) {
-                                log.debug("User %s approved MFA push notification", user);
-                                return jsonPath(pushMfaResponseJson, "$.sessionToken");
-                            }
-                            throw new AccessDeniedException(format("Failed to get MFA authorization for user %s [status = %s]", user, status));
-                        });
-
-                return new OktaAuthenticationResult(stateToken, sessionToken, user);
-            }
-            throw new AccessDeniedException(format("Invalid authentication status for user %s: %s", user, status));
-        }
-        catch (AccessDeniedException e) {
-            throw e;
-        }
-        catch (Exception e) {
-            throw new RuntimeException(format("Okta authentication failed for user %s", user), e);
-        }
+        return oktaClient.authenticate(user, password);
     }
 
     @Override
@@ -151,7 +78,7 @@ public class NativeOktaAuthClient
         try {
             HttpUrl sessionCookieRedirectUri = accountUrl.newBuilder()
                     .encodedPath("/login/sessionCookieRedirect")
-                    .addQueryParameter("token", authenticationResult.getSessionToken())
+                    .addQueryParameter("token", authenticationResult.getSessionToken().getTokenValue())
                     .addQueryParameter("redirectUrl", samlRequest.getRedirectUrl())
                     .addQueryParameter("checkAccountSetupComplete", "true")
                     .build();
@@ -178,7 +105,7 @@ public class NativeOktaAuthClient
             Call saml = httpClient.newCall(
                     new Request.Builder()
                             .url(redirectUrl.newBuilder()
-                                    .addQueryParameter("fromLoginToken", authenticationResult.getSessionToken())
+                                    .addQueryParameter("fromLoginToken", authenticationResult.getSessionToken().getTokenValue())
                                     .build())
                             .header("Cookie", format("sid=%s", sessionCookie))
                             .get()
@@ -209,46 +136,6 @@ public class NativeOktaAuthClient
         }
         catch (IOException | RuntimeException e) {
             throw new RuntimeException(format("Failed to get SAML assertion for user %s", authenticationResult.getUser()), e);
-        }
-    }
-
-    private static class AuthenticationPayload
-    {
-        private final String username;
-        private final String password;
-
-        public AuthenticationPayload(String username, String password)
-        {
-            this.username = username;
-            this.password = password;
-        }
-
-        @JsonProperty("username")
-        public String getUsername()
-        {
-            return username;
-        }
-
-        @JsonProperty("password")
-        public String getPassword()
-        {
-            return password;
-        }
-    }
-
-    private static class VerifyPayload
-    {
-        private final String stateToken;
-
-        public VerifyPayload(String stateToken)
-        {
-            this.stateToken = stateToken;
-        }
-
-        @JsonProperty("stateToken")
-        public String getStateToken()
-        {
-            return stateToken;
         }
     }
 }

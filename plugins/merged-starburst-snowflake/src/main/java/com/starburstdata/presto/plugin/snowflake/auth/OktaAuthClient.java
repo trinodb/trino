@@ -9,6 +9,8 @@
  */
 package com.starburstdata.presto.plugin.snowflake.auth;
 
+import com.starburstdata.presto.okta.OktaAuthenticationResult;
+
 public interface OktaAuthClient
 {
     OktaAuthenticationResult authenticate(String user, String password);

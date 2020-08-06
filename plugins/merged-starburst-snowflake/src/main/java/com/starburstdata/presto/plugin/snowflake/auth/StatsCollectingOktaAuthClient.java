@@ -9,6 +9,7 @@
  */
 package com.starburstdata.presto.plugin.snowflake.auth;
 
+import com.starburstdata.presto.okta.OktaAuthenticationResult;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 

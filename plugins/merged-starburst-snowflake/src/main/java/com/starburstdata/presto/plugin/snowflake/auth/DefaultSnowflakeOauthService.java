@@ -9,6 +9,7 @@
  */
 package com.starburstdata.presto.plugin.snowflake.auth;
 
+import com.starburstdata.presto.okta.OktaAuthenticationResult;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 
