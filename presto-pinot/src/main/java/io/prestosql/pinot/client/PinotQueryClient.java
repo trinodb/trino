@@ -14,13 +14,11 @@
 package io.prestosql.pinot.client;
 
 import com.yammer.metrics.core.MetricsRegistry;
-import io.prestosql.pinot.PinotConfig;
 import io.prestosql.pinot.PinotException;
 import org.apache.helix.model.InstanceConfig;
 import org.apache.pinot.common.config.TableNameBuilder;
 import org.apache.pinot.common.metrics.BrokerMetrics;
 import org.apache.pinot.common.request.BrokerRequest;
-import org.apache.pinot.common.utils.CommonConstants;
 import org.apache.pinot.common.utils.DataTable;
 import org.apache.pinot.core.transport.AsyncQueryResponse;
 import org.apache.pinot.core.transport.QueryRouter;
@@ -38,12 +36,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.function.Function;
+import java.util.function.LongFunction;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.pinot.PinotErrorCode.PINOT_EXCEPTION;
 import static io.prestosql.pinot.PinotErrorCode.PINOT_INVALID_PQL_GENERATED;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class PinotQueryClient
 {
@@ -52,17 +50,14 @@ public class PinotQueryClient
     private static final String SERVER_INSTANCE_PREFIX = "Server";
     private static final boolean DEFAULT_EMIT_TABLE_LEVEL_METRICS = true;
 
-    private final String prestoHostId;
-    private final BrokerMetrics brokerMetrics;
     private final QueryRouter queryRouter;
     private final AtomicLong requestIdGenerator = new AtomicLong();
 
-    public PinotQueryClient(PinotConfig config)
+    public PinotQueryClient()
     {
-        requireNonNull(config, "config is null");
-        prestoHostId = getDefaultPrestoId();
+        String prestoHostId = getDefaultPrestoId();
         MetricsRegistry registry = new MetricsRegistry();
-        this.brokerMetrics = new BrokerMetrics(registry, DEFAULT_EMIT_TABLE_LEVEL_METRICS);
+        BrokerMetrics brokerMetrics = new BrokerMetrics(registry, DEFAULT_EMIT_TABLE_LEVEL_METRICS);
         brokerMetrics.initializeGlobalMeters();
         queryRouter = new QueryRouter(prestoHostId, brokerMetrics);
     }
@@ -98,9 +93,8 @@ public class PinotQueryClient
         Map<ServerInstance, List<String>> realtimeRoutingTable = TableNameBuilder.isRealtimeTableResource(tableName) ? routingTable : null;
         BrokerRequest offlineBrokerRequest = TableNameBuilder.isOfflineTableResource(tableName) ? brokerRequest : null;
         BrokerRequest realtimeBrokerRequest = TableNameBuilder.isRealtimeTableResource(tableName) ? brokerRequest : null;
-        CommonConstants.Helix.TableType tableType = TableNameBuilder.getTableTypeFromTableName(tableName);
-        AsyncQueryResponse asyncQueryResponse =
-                doWithRetries(pinotRetryCount, (requestId) -> queryRouter.submitQuery(requestId, rawTableName, offlineBrokerRequest, offlineRoutingTable, realtimeBrokerRequest, realtimeRoutingTable, connectionTimeoutInMillis));
+        AsyncQueryResponse asyncQueryResponse = doWithRetries(pinotRetryCount, requestId ->
+                queryRouter.submitQuery(requestId, rawTableName, offlineBrokerRequest, offlineRoutingTable, realtimeBrokerRequest, realtimeRoutingTable, connectionTimeoutInMillis));
         try {
             Map<ServerRoutingInstance, ServerResponse> response = asyncQueryResponse.getResponse();
             Map<ServerInstance, DataTable> dataTableMap = new HashMap<>();
@@ -121,12 +115,13 @@ public class PinotQueryClient
         return new ServerInstance(InstanceConfig.toInstanceConfig(format("%s_%s_%s", SERVER_INSTANCE_PREFIX, serverRoutingInstance.getHostname(), serverRoutingInstance.getPort())));
     }
 
-    private <T> T doWithRetries(int retries, Function<Long, T> caller)
+    private <T> T doWithRetries(int retries, LongFunction<T> callWithRequestId)
     {
+        checkArgument(retries >= 0, "retries is negative");
         PinotException firstError = null;
-        for (int i = 0; i < retries; ++i) {
+        for (int i = 0; i <= retries; i++) {
             try {
-                return caller.apply(requestIdGenerator.getAndIncrement());
+                return callWithRequestId.apply(requestIdGenerator.getAndIncrement());
             }
             catch (PinotException e) {
                 if (firstError == null) {

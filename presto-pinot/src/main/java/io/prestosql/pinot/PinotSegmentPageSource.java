@@ -57,7 +57,7 @@ public class PinotSegmentPageSource
     private static final Logger LOG = Logger.get(PinotSegmentPageSource.class);
 
     private final List<PinotColumnHandle> columnHandles;
-    private final PinotConfig pinotConfig;
+    private final int estimatedSizeInBytesForNonNumericColumn;
     private final PinotSplit split;
     private final PinotQueryClient pinotQueryClient;
     private final ConnectorSession session;
@@ -75,13 +75,13 @@ public class PinotSegmentPageSource
 
     public PinotSegmentPageSource(
             ConnectorSession session,
-            PinotConfig pinotConfig,
+            int estimatedSizeInBytesForNonNumericColumn,
             PinotQueryClient pinotQueryClient,
             PinotSplit split,
             List<PinotColumnHandle> columnHandles,
             String query)
     {
-        this.pinotConfig = requireNonNull(pinotConfig, "pinotConfig is null");
+        this.estimatedSizeInBytesForNonNumericColumn = estimatedSizeInBytesForNonNumericColumn;
         this.split = requireNonNull(split, "split is null");
         this.pinotQueryClient = requireNonNull(pinotQueryClient, "pinotQueryClient is null");
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
@@ -444,7 +444,7 @@ public class PinotSegmentPageSource
                     return Integer.BYTES;
             }
         }
-        return pinotConfig.getEstimatedSizeInBytesForNonNumericColumn();
+        return estimatedSizeInBytesForNonNumericColumn;
     }
 
     Type getTypeForBlock(PinotColumnHandle pinotColumnHandle)

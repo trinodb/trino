@@ -13,7 +13,6 @@
  */
 package io.prestosql.pinot;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.prestosql.pinot.client.PinotClient;
 import io.prestosql.pinot.client.PinotQueryClient;
 import io.prestosql.pinot.query.DynamicTable;
@@ -25,6 +24,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.predicate.TupleDomain;
 
 import javax.inject.Inject;
 
@@ -38,30 +38,26 @@ import static java.util.Objects.requireNonNull;
 public class PinotPageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private final PinotConfig pinotConfig;
-    private final PinotQueryClient pinotQueryClient;
+    private final PinotQueryClient pinotQueryClient = new PinotQueryClient();
+    private final int estimatedSizeInBytesForNonNumericColumn;
     private final PinotClient clusterInfoFetcher;
-    private final ObjectMapper objectMapper;
 
     @Inject
-    public PinotPageSourceProvider(
-            PinotConfig pinotConfig,
-            PinotClient clusterInfoFetcher,
-            ObjectMapper objectMapper)
+    public PinotPageSourceProvider(PinotConfig pinotConfig, PinotClient clusterInfoFetcher)
     {
-        this.pinotConfig = requireNonNull(pinotConfig, "pinotConfig is null");
-        this.pinotQueryClient = new PinotQueryClient(pinotConfig);
+        requireNonNull(pinotConfig, "pinotConfig is null");
+        this.estimatedSizeInBytesForNonNumericColumn = pinotConfig.getEstimatedSizeInBytesForNonNumericColumn();
         this.clusterInfoFetcher = requireNonNull(clusterInfoFetcher, "cluster info fetcher is null");
-        this.objectMapper = requireNonNull(objectMapper, "object mapper is null");
     }
 
     @Override
     public ConnectorPageSource createPageSource(
-            ConnectorTransactionHandle transactionHandle,
+            ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorSplit split,
             ConnectorTableHandle tableHandle,
-            List<ColumnHandle> columns)
+            List<ColumnHandle> columns,
+            TupleDomain<ColumnHandle> dynamicFilter)
     {
         requireNonNull(split, "split is null");
 
@@ -78,8 +74,8 @@ public class PinotPageSourceProvider
             case SEGMENT:
                 return new PinotSegmentPageSource(
                         session,
-                        this.pinotConfig,
-                        this.pinotQueryClient,
+                        estimatedSizeInBytesForNonNumericColumn,
+                        pinotQueryClient,
                         pinotSplit,
                         handles,
                         query);
