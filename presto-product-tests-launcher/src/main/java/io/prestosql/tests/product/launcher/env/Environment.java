@@ -14,6 +14,7 @@
 package io.prestosql.tests.product.launcher.env;
 
 import com.github.dockerjava.api.model.Bind;
+import com.github.dockerjava.api.model.HostConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.tests.product.launcher.testcontainers.PrintingLogConsumer;
@@ -162,10 +163,11 @@ public final class Environment
                         .withLogConsumer(new PrintingLogConsumer(out, format("%-20s| ", name)))
                         .withCreateContainerCmdModifier(createContainerCmd -> {
                             Map<String, Bind> binds = new HashMap<>();
-                            for (Bind bind : firstNonNull(createContainerCmd.getBinds(), new Bind[0])) {
+                            HostConfig hostConfig = createContainerCmd.getHostConfig();
+                            for (Bind bind : firstNonNull(hostConfig.getBinds(), new Bind[0])) {
                                 binds.put(bind.getVolume().getPath(), bind); // last bind wins
                             }
-                            createContainerCmd.withBinds(binds.values().toArray(new Bind[0]));
+                            hostConfig.setBinds(binds.values().toArray(new Bind[0]));
                         });
             });
 
