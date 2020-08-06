@@ -35,6 +35,7 @@ import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveHdfsConfiguration;
+import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.orc.OrcReaderConfig;
 import io.prestosql.plugin.hive.rubix.RubixConfig.ReadMode;
@@ -187,7 +188,7 @@ public class TestRubixCaching
                 nodeManager,
                 new CatalogName("catalog"),
                 configurationInitializer,
-                new DefaultRubixHdfsInitializer());
+                new DefaultRubixHdfsInitializer(new HiveAuthenticationConfig()));
         rubixConfigInitializer = new RubixConfigurationInitializer(rubixInitializer);
         rubixInitializer.initializeRubix();
         retry().run("wait for rubix to startup", () -> {
@@ -303,7 +304,7 @@ public class TestRubixCaching
                 new TestingNodeManager(ImmutableList.of(workerNode)),
                 new CatalogName("catalog"),
                 configurationInitializer,
-                new DefaultRubixHdfsInitializer());
+                new DefaultRubixHdfsInitializer(new HiveAuthenticationConfig()));
         assertThatThrownBy(rubixInitializer::initializeRubix)
                 .hasMessage("No coordinator node available");
     }
