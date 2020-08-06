@@ -14,13 +14,13 @@
 package io.prestosql.tests.product.launcher.env;
 
 import com.github.dockerjava.api.model.Bind;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.tests.product.launcher.testcontainers.PrintingLogConsumer;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
@@ -35,9 +35,9 @@ import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.testcontainers.shaded.com.google.common.base.Preconditions.checkState;
 
 public final class Environment
 {
