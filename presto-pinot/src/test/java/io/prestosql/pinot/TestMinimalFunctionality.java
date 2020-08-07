@@ -38,6 +38,7 @@ import java.util.Optional;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
@@ -162,6 +163,14 @@ public class TestMinimalFunctionality
         MaterializedResult result = computeActual("SELECT price FROM " + TOPIC_AND_TABLE + " WHERE vendor = 'vendor1'");
         assertEquals(getOnlyElement(result.getTypes()), REAL);
         assertEquals(result.getOnlyValue(), 3.5F);
+    }
+
+    @Test
+    public void testIntegerType()
+    {
+        MaterializedResult result = computeActual("SELECT lucky_number FROM " + TOPIC_AND_TABLE + " WHERE vendor = 'vendor1'");
+        assertEquals(getOnlyElement(result.getTypes()), INTEGER);
+        assertEquals(result.getOnlyValue(), 5);
     }
 
     private static Object createTestRecord(
