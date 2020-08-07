@@ -13,7 +13,6 @@
  */
 package io.prestosql.sql.gen;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ObjectArrays;
@@ -77,6 +76,7 @@ import java.util.Set;
 import java.util.function.BiPredicate;
 import java.util.stream.LongStream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.MoreExecutors.listeningDecorator;
 import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
@@ -1886,7 +1886,7 @@ public class TestExpressionCompiler
 
     private static List<String> formatExpression(String expressionPattern, List<Object> values, List<String> types)
     {
-        Preconditions.checkArgument(values.size() == types.size());
+        checkArgument(values.size() == types.size());
 
         List<Set<String>> unrolledValues = new ArrayList<>();
         for (int i = 0; i < values.size(); i++) {
