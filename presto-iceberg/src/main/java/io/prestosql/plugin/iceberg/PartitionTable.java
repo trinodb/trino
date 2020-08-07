@@ -59,7 +59,6 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getIdentityPartitions;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getTableScan;
 import static io.prestosql.plugin.iceberg.TypeConverter.toPrestoType;
@@ -344,7 +343,7 @@ public class PartitionTable
                 this.corruptedStats = nonPartitionPrimitiveColumns.stream()
                         .map(Types.NestedField::fieldId)
                         .filter(id -> !minValues.containsKey(id) && (!nullCounts.containsKey(id) || nullCounts.get(id) != recordCount))
-                        .collect(toImmutableSet());
+                        .collect(toSet());
                 this.nullCounts = new HashMap<>(nullCounts);
                 hasValidColumnMetrics = true;
             }

@@ -134,7 +134,6 @@ public class RaptorSplitManager
         private final OptionalLong transactionId;
         private final Optional<List<String>> bucketToNode;
         private final ResultIterator<BucketShards> iterator;
-        private final TupleDomain<RaptorColumnHandle> effectivePredicate;
 
         @GuardedBy("this")
         private CompletableFuture<ConnectorSplitBatch> future;
@@ -147,7 +146,6 @@ public class RaptorSplitManager
                 Optional<List<String>> bucketToNode)
         {
             this.tableId = tableId;
-            this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
             this.transactionId = requireNonNull(transactionId, "transactionId is null");
             this.bucketToNode = requireNonNull(bucketToNode, "bucketToNode is null");
 
@@ -162,7 +160,7 @@ public class RaptorSplitManager
         }
 
         @Override
-        public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
+        public synchronized CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
         {
             checkState((future == null) || future.isDone(), "previous batch not completed");
             future = supplyAsync(batchSupplier(maxSize), executor);

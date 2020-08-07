@@ -13,7 +13,6 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.prestosql.metadata.Metadata;
@@ -54,6 +53,7 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
+import static com.google.common.base.Verify.verify;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
@@ -77,7 +77,7 @@ public class BenchmarkArrayDistinct
     private static final List<Type> TYPES = ImmutableList.of(VARCHAR);
 
     static {
-        Verify.verify(NUM_TYPES == TYPES.size());
+        verify(NUM_TYPES == TYPES.size());
     }
 
     @Benchmark

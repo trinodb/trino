@@ -25,6 +25,7 @@ import io.prestosql.sql.tree.Expression;
 import io.prestosql.transaction.TransactionManager;
 
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.metadata.MetadataUtil.createQualifiedObjectName;
@@ -48,8 +49,15 @@ public class DropColumnTask
     {
         Session session = stateMachine.getSession();
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getTable());
-        TableHandle tableHandle = metadata.getTableHandle(session, tableName)
-                .orElseThrow(() -> semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName));
+        Optional<TableHandle> tableHandleOptional = metadata.getTableHandle(session, tableName);
+
+        if (tableHandleOptional.isEmpty()) {
+            if (!statement.isTableExists()) {
+                throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
+            }
+            return immediateFuture(null);
+        }
+        TableHandle tableHandle = tableHandleOptional.get();
 
         String column = statement.getColumn().getValue().toLowerCase(ENGLISH);
 
@@ -57,7 +65,10 @@ public class DropColumnTask
 
         ColumnHandle columnHandle = metadata.getColumnHandles(session, tableHandle).get(column);
         if (columnHandle == null) {
-            throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not exist", column);
+            if (!statement.isColumnExists()) {
+                throw semanticException(COLUMN_NOT_FOUND, statement, "Column '%s' does not exist", column);
+            }
+            return immediateFuture(null);
         }
 
         if (metadata.getColumnMetadata(session, tableHandle, columnHandle).isHidden()) {

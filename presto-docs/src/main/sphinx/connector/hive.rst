@@ -365,8 +365,6 @@ Property Name                                        Description
 ``hive.metastore.glue.default-warehouse-dir``        Default warehouse directory for schemas created without an
                                                      explicit ``location`` property.
 
-``hive.metastore.glue.catalogid``                    Glue Catalog ID (optional).
-
 ``hive.metastore.glue.aws-credentials-provider``     Fully qualified name of the Java class to use for obtaining
                                                      AWS credentials. Can be used to supply a custom credentials
                                                      provider.
@@ -593,6 +591,9 @@ Procedures
 * ``system.register_partition(schema_name, table_name, partition_columns, partition_values, location)``
 
   Registers existing location as a new partition in the metastore for the specified table.
+
+  When the ``location`` argument is omitted, the partition location is
+  constructed using ``partition_columns`` and ``partition_values``.
 
   Due to security reasons, the procedure is enabled only when ``hive.allow-register-partition-procedure``
   is set to ``true``.
