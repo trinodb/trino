@@ -25,7 +25,6 @@ import io.prestosql.orc.stream.LongInputStream;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.LongArrayBlock;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
-import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import org.joda.time.DateTimeZone;
@@ -39,7 +38,6 @@ import java.time.ZonedDateTime;
 import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.base.Verify.verify;
 import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
 import static io.prestosql.orc.metadata.Stream.StreamKind.PRESENT;
 import static io.prestosql.orc.metadata.Stream.StreamKind.SECONDARY;
@@ -58,9 +56,6 @@ public class TimestampColumnReader
     private final OrcColumn column;
 
     private long baseTimestampInSeconds;
-    @Nullable
-    private DateTimeZone storageDateTimeZone;
-    @Nullable
     private DateTimeZone fileDateTimeZone;
 
     private int readOffset;
@@ -170,17 +165,9 @@ public class TimestampColumnReader
         for (int i = 0; i < nextBatchSize; i++) {
             values[i] = decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds);
         }
-        if (storageDateTimeZone != fileDateTimeZone) {
-            verify(storageDateTimeZone != null && fileDateTimeZone != null);
-            if (fileDateTimeZone == DateTimeZone.UTC) {
-                for (int i = 0; i < nextBatchSize; i++) {
-                    values[i] = storageDateTimeZone.convertLocalToUTC(values[i], false);
-                }
-            }
-            else {
-                for (int i = 0; i < nextBatchSize; i++) {
-                    values[i] = fileDateTimeZone.getMillisKeepLocal(storageDateTimeZone, values[i]);
-                }
+        if (fileDateTimeZone != DateTimeZone.UTC) {
+            for (int i = 0; i < nextBatchSize; i++) {
+                values[i] = fileDateTimeZone.convertUTCToLocal(values[i]);
             }
         }
 
@@ -203,20 +190,10 @@ public class TimestampColumnReader
                 values[i] = decodeTimestamp(secondsStream.next(), nanosStream.next(), baseTimestampInSeconds);
             }
         }
-        if (storageDateTimeZone != fileDateTimeZone) {
-            verify(storageDateTimeZone != null && fileDateTimeZone != null);
-            if (fileDateTimeZone == DateTimeZone.UTC) {
-                for (int i = 0; i < nextBatchSize; i++) {
-                    if (!isNull[i]) {
-                        values[i] = storageDateTimeZone.convertLocalToUTC(values[i], false);
-                    }
-                }
-            }
-            else {
-                for (int i = 0; i < nextBatchSize; i++) {
-                    if (!isNull[i]) {
-                        values[i] = fileDateTimeZone.getMillisKeepLocal(storageDateTimeZone, values[i]);
-                    }
+        if (fileDateTimeZone != DateTimeZone.UTC) {
+            for (int i = 0; i < nextBatchSize; i++) {
+                if (!isNull[i]) {
+                    values[i] = fileDateTimeZone.convertUTCToLocal(values[i]);
                 }
             }
         }
@@ -235,27 +212,11 @@ public class TimestampColumnReader
     }
 
     @Override
-    public void startStripe(ZoneId fileTimeZone, ZoneId storageTimeZone, InputStreamSources dictionaryStreamSources, ColumnMetadata<ColumnEncoding> encoding)
+    public void startStripe(ZoneId fileTimeZone, InputStreamSources dictionaryStreamSources, ColumnMetadata<ColumnEncoding> encoding)
     {
         baseTimestampInSeconds = ZonedDateTime.of(2015, 1, 1, 0, 0, 0, 0, fileTimeZone).toEpochSecond();
 
-        /*
-         * In legacy semantics, timestamp represents a point in time. ORC effectively stores millis and zone (like ZonedDateTime).
-         * Hive interprets the ORC value as local date/time in file time zone.
-         * We need to calculate point in time corresponding to (local date/time read from ORC) at Hive warehouse time zone.
-         *
-         * TODO support new timestamp semantics
-         */
-        TimeZoneKey fileTimeZoneKey = TimeZoneKey.getTimeZoneKey(fileTimeZone.getId()); // normalize and detect UTC-equivalent zones
-        TimeZoneKey storageTimeZoneKey = TimeZoneKey.getTimeZoneKey(storageTimeZone.getId()); // normalize and detect UTC-equivalent zones
-        if (fileTimeZoneKey.equals(storageTimeZoneKey)) {
-            storageDateTimeZone = null;
-            fileDateTimeZone = null;
-        }
-        else {
-            storageDateTimeZone = DateTimeZone.forID(storageTimeZoneKey.getId());
-            fileDateTimeZone = DateTimeZone.forID(fileTimeZoneKey.getId());
-        }
+        fileDateTimeZone = DateTimeZone.forID(fileTimeZone.getId());
 
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
         secondsStreamSource = missingStreamSource(LongInputStream.class);

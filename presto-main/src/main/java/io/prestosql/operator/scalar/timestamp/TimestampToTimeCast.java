@@ -13,14 +13,12 @@
  */
 package io.prestosql.operator.scalar.timestamp;
 
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestamp;
 
-import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
@@ -47,7 +45,6 @@ public final class TimestampToTimeCast
     public static long cast(
             @LiteralParameter("sourcePrecision") long sourcePrecision,
             @LiteralParameter("targetPrecision") long targetPrecision,
-            ConnectorSession session,
             @SqlType("timestamp(sourcePrecision)") long timestamp)
     {
         long epochSeconds;
@@ -61,7 +58,7 @@ public final class TimestampToTimeCast
             microOfSecond = timestamp % MICROSECONDS_PER_SECOND;
         }
 
-        long microOfDay = multiplyExact(getSecondOfDay(session, epochSeconds), MICROSECONDS_PER_SECOND) + microOfSecond;
+        long microOfDay = multiplyExact(getSecondOfDay(epochSeconds), MICROSECONDS_PER_SECOND) + microOfSecond;
 
         if (targetPrecision < 6) {
             microOfDay = round(microOfDay, (int) (6 - targetPrecision));
@@ -74,11 +71,10 @@ public final class TimestampToTimeCast
     @SqlType("time(targetPrecision)")
     public static long cast(
             @LiteralParameter("targetPrecision") long targetPrecision,
-            ConnectorSession session,
             @SqlType("timestamp(sourcePrecision)") LongTimestamp timestamp)
     {
         long epochSeconds = scaleEpochMicrosToSeconds(timestamp.getEpochMicros());
-        long secondOfDay = getSecondOfDay(session, epochSeconds);
+        long secondOfDay = getSecondOfDay(epochSeconds);
 
         long picoOfDay = multiplyExact(secondOfDay, PICOSECONDS_PER_SECOND) +
                 multiplyExact(timestamp.getEpochMicros() % MICROSECONDS_PER_SECOND, PICOSECONDS_PER_MICROSECOND) +
@@ -87,17 +83,10 @@ public final class TimestampToTimeCast
         return round(picoOfDay, (int) (12 - targetPrecision)) % PICOSECONDS_PER_DAY;
     }
 
-    private static long getSecondOfDay(ConnectorSession session, long epochSeconds)
+    private static long getSecondOfDay(long epochSeconds)
     {
-        LocalDateTime dateTime;
-
-        if (session.isLegacyTimestamp()) {
-            dateTime = LocalDateTime.ofInstant(Instant.ofEpochSecond(epochSeconds), session.getTimeZoneKey().getZoneId());
-        }
-        else {
-            dateTime = LocalDateTime.ofEpochSecond(epochSeconds, 0, ZoneOffset.UTC);
-        }
-
-        return dateTime.toLocalTime().toSecondOfDay();
+        return LocalDateTime.ofEpochSecond(epochSeconds, 0, ZoneOffset.UTC)
+                .toLocalTime()
+                .toSecondOfDay();
     }
 }

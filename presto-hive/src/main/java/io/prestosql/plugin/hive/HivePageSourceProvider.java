@@ -35,7 +35,6 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
-import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
@@ -64,7 +63,6 @@ public class HivePageSourceProvider
         implements ConnectorPageSourceProvider
 {
     private final TypeManager typeManager;
-    private final DateTimeZone hiveStorageTimeZone;
     private final HdfsEnvironment hdfsEnvironment;
     private final Set<HivePageSourceFactory> pageSourceFactories;
     private final Set<HiveRecordCursorProvider> cursorProviders;
@@ -79,7 +77,6 @@ public class HivePageSourceProvider
             GenericHiveRecordCursorProvider genericCursorProvider)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        this.hiveStorageTimeZone = requireNonNull(hiveConfig, "hiveConfig is null").getDateTimeZone();
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.pageSourceFactories = ImmutableSet.copyOf(requireNonNull(pageSourceFactories, "pageSourceFactories is null"));
         this.cursorProviders = ImmutableSet.<HiveRecordCursorProvider>builder()
@@ -118,7 +115,6 @@ public class HivePageSourceProvider
                 hiveColumns,
                 hiveSplit.getPartitionName(),
                 hiveSplit.getPartitionKeys(),
-                hiveStorageTimeZone,
                 typeManager,
                 hiveSplit.getTableToPartitionMapping(),
                 hiveSplit.getBucketConversion(),
@@ -146,7 +142,6 @@ public class HivePageSourceProvider
             List<HiveColumnHandle> columns,
             String partitionName,
             List<HivePartitionKey> partitionKeys,
-            DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             TableToPartitionMapping tableToPartitionMapping,
             Optional<BucketConversion> bucketConversion,
@@ -166,8 +161,7 @@ public class HivePageSourceProvider
                 path,
                 bucketNumber,
                 fileSize,
-                fileModifiedTime,
-                hiveStorageTimeZone);
+                fileModifiedTime);
         List<ColumnMapping> regularAndInterimColumnMappings = ColumnMapping.extractRegularAndInterimColumnMappings(columnMappings);
 
         Optional<BucketAdaptation> bucketAdaptation = createBucketAdaptation(bucketConversion, bucketNumber, regularAndInterimColumnMappings);
@@ -185,7 +179,6 @@ public class HivePageSourceProvider
                     schema,
                     desiredColumns,
                     effectivePredicate,
-                    hiveStorageTimeZone,
                     acidInfo);
 
             if (readerWithProjections.isPresent()) {
@@ -201,7 +194,6 @@ public class HivePageSourceProvider
                         columnMappings,
                         bucketAdaptation,
                         adapter,
-                        hiveStorageTimeZone,
                         typeManager,
                         pageSource));
             }
@@ -222,7 +214,6 @@ public class HivePageSourceProvider
                     schema,
                     desiredColumns,
                     effectivePredicate,
-                    hiveStorageTimeZone,
                     typeManager,
                     s3SelectPushdownEnabled);
 
@@ -254,10 +245,7 @@ public class HivePageSourceProvider
                     delegate = new HiveCoercionRecordCursor(regularAndInterimColumnMappings, typeManager, delegate);
                 }
 
-                HiveRecordCursor hiveRecordCursor = new HiveRecordCursor(
-                        columnMappings,
-                        hiveStorageTimeZone,
-                        delegate);
+                HiveRecordCursor hiveRecordCursor = new HiveRecordCursor(columnMappings, delegate);
                 List<Type> columnTypes = columns.stream()
                         .map(HiveColumnHandle::getType)
                         .collect(toList());
@@ -355,8 +343,7 @@ public class HivePageSourceProvider
                 Path path,
                 OptionalInt bucketNumber,
                 long fileSize,
-                long fileModifiedTime,
-                DateTimeZone hiveStorageTimeZone)
+                long fileModifiedTime)
         {
             Map<String, HivePartitionKey> partitionKeysByName = uniqueIndex(partitionKeys, HivePartitionKey::getName);
 
@@ -392,7 +379,7 @@ public class HivePageSourceProvider
                 else {
                     columnMappings.add(prefilled(
                             column,
-                            getPrefilledColumnValue(column, partitionKeysByName.get(column.getName()), path, bucketNumber, fileSize, fileModifiedTime, hiveStorageTimeZone, partitionName),
+                            getPrefilledColumnValue(column, partitionKeysByName.get(column.getName()), path, bucketNumber, fileSize, fileModifiedTime, partitionName),
                             baseTypeCoercionFrom));
                 }
             }

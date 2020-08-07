@@ -42,11 +42,6 @@ public final class TimestampToTimeWithTimezoneCast
             value = scaleEpochMicrosToMillis(round(value, 3));
         }
 
-        if (session.isLegacyTimestamp()) {
-            int timeMillis = modulo24Hour(getChronology(session.getTimeZoneKey()), value);
-            return packDateTimeWithZone(timeMillis, session.getTimeZoneKey());
-        }
-
         ISOChronology localChronology = getChronology(session.getTimeZoneKey());
         // This cast does treat TIMESTAMP as wall time in session TZ. This means that in order to get
         // its UTC representation we need to shift the value by the offset of TZ.

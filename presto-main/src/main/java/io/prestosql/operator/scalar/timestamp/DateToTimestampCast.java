@@ -13,20 +13,17 @@
  */
 package io.prestosql.operator.scalar.timestamp;
 
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.StandardTypes;
-import org.joda.time.chrono.ISOChronology;
 
 import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
-import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 
 @ScalarOperator(CAST)
 public final class DateToTimestampCast
@@ -35,20 +32,9 @@ public final class DateToTimestampCast
 
     @LiteralParameters("p")
     @SqlType("timestamp(p)")
-    public static long cast(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType(StandardTypes.DATE) long date)
+    public static long cast(@LiteralParameter("p") long precision, @SqlType(StandardTypes.DATE) long date)
     {
-        long result;
-        if (session.isLegacyTimestamp()) {
-            long utcMillis = TimeUnit.DAYS.toMillis(date);
-
-            // date is encoded as milliseconds at midnight in UTC
-            // convert to midnight in the session timezone
-            ISOChronology chronology = getChronology(session.getTimeZoneKey());
-            result = utcMillis - chronology.getZone().getOffset(utcMillis);
-        }
-        else {
-            result = TimeUnit.DAYS.toMillis(date);
-        }
+        long result = TimeUnit.DAYS.toMillis(date);
 
         if (precision > 3) {
             return scaleEpochMillisToMicros(result);
@@ -59,8 +45,8 @@ public final class DateToTimestampCast
 
     @LiteralParameters("p")
     @SqlType("timestamp(p)")
-    public static LongTimestamp cast(ConnectorSession session, @SqlType(StandardTypes.DATE) long date)
+    public static LongTimestamp cast(@SqlType(StandardTypes.DATE) long date)
     {
-        return new LongTimestamp(cast(6, session, date), 0);
+        return new LongTimestamp(cast(6, date), 0);
     }
 }

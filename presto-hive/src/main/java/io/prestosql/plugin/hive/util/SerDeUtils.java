@@ -55,12 +55,9 @@ import org.apache.hadoop.hive.serde2.objectinspector.primitive.LongObjectInspect
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.ShortObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.StringObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.TimestampObjectInspector;
-import org.joda.time.DateTimeZone;
 
-import java.sql.Timestamp;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.type.Chars.truncateToLengthAndTrimSpaces;
@@ -75,7 +72,8 @@ public final class SerDeUtils
 
     public static Block getBlockObject(Type type, Object object, ObjectInspector objectInspector)
     {
-        return requireNonNull(serializeObject(type, null, object, objectInspector), "serialized result is null");
+        Block block = serializeObject(type, null, object, objectInspector);
+        return requireNonNull(block, "serialized result is null");
     }
 
     public static Block serializeObject(Type type, BlockBuilder builder, Object object, ObjectInspector inspector)
@@ -312,6 +310,7 @@ public final class SerDeUtils
         return null;
     }
 
+    @SuppressWarnings("deprecation")
     private static long formatDateAsLong(Object object, DateObjectInspector inspector)
     {
         if (object instanceof LazyDate) {
@@ -320,27 +319,14 @@ public final class SerDeUtils
         if (object instanceof DateWritable) {
             return ((DateWritable) object).getDays();
         }
-
-        // Hive will return java.sql.Date at midnight in JVM time zone
-        long millisLocal = inspector.getPrimitiveJavaObject(object).getTime();
-        // Convert it to midnight in UTC
-        long millisUtc = DateTimeZone.getDefault().getMillisKeepLocal(DateTimeZone.UTC, millisLocal);
-        // Convert midnight UTC to days
-        return TimeUnit.MILLISECONDS.toDays(millisUtc);
+        return inspector.getPrimitiveJavaObject(object).toEpochDay();
     }
 
     private static long formatTimestampAsLong(Object object, TimestampObjectInspector inspector)
     {
-        Timestamp timestamp = getTimestamp(object, inspector);
-        return timestamp.getTime();
-    }
-
-    private static Timestamp getTimestamp(Object object, TimestampObjectInspector inspector)
-    {
-        // handle broken ObjectInspectors
         if (object instanceof TimestampWritable) {
-            return ((TimestampWritable) object).getTimestamp();
+            return ((TimestampWritable) object).getTimestamp().getTime();
         }
-        return inspector.getPrimitiveJavaObject(object);
+        return inspector.getPrimitiveJavaObject(object).toEpochMilli();
     }
 }

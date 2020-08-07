@@ -37,7 +37,6 @@ import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.TimeZoneKey.MAX_TIME_ZONE_KEY;
-import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeys;
 import static io.prestosql.teradata.functions.dateformat.DateFormatParser.createDateTimeFormatter;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -67,7 +66,7 @@ public final class TeradataDateFunctions
     public static long toDate(ConnectorSession session, @SqlType(StandardTypes.VARCHAR) Slice dateTime, @SqlType(StandardTypes.VARCHAR) Slice formatString)
     {
         try {
-            long millis = parseMillis(UTC_KEY, session.getLocale(), dateTime, formatString);
+            long millis = parseMillis(session.getLocale(), dateTime, formatString);
             return MILLISECONDS.toDays(millis);
         }
         catch (Throwable t) {
@@ -90,17 +89,13 @@ public final class TeradataDateFunctions
 
     private static long parseMillis(ConnectorSession session, Slice dateTime, Slice formatString)
     {
-        TimeZoneKey timeZoneKey = UTC_KEY;
-        if (session.isLegacyTimestamp()) {
-            timeZoneKey = session.getTimeZoneKey();
-        }
-        return parseMillis(timeZoneKey, session.getLocale(), dateTime, formatString);
+        return parseMillis(session.getLocale(), dateTime, formatString);
     }
 
-    private static long parseMillis(TimeZoneKey timeZoneKey, Locale locale, Slice dateTime, Slice formatString)
+    private static long parseMillis(Locale locale, Slice dateTime, Slice formatString)
     {
         DateTimeFormatter formatter = DATETIME_FORMATTER_CACHE.get(formatString)
-                .withChronology(CHRONOLOGIES[timeZoneKey.getKey()])
+                .withZoneUTC()
                 .withLocale(locale);
 
         try {

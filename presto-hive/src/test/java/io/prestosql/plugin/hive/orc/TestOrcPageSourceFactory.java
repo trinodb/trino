@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.prestosql.plugin.hive.AcidInfo;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HiveColumnHandle;
+import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
 import io.prestosql.plugin.hive.HivePageSourceFactory.ReaderPageSourceWithProjections;
 import io.prestosql.spi.Page;
@@ -32,7 +33,6 @@ import io.prestosql.tpch.NationGenerator;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
-import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -75,7 +75,8 @@ public class TestOrcPageSourceFactory
     private static final HivePageSourceFactory PAGE_SOURCE_FACTORY = new OrcPageSourceFactory(
             new OrcReaderConfig(),
             HDFS_ENVIRONMENT,
-            new FileFormatDataSourceStats());
+            new FileFormatDataSourceStats(),
+            new HiveConfig());
 
     @Test
     public void testFullFileRead()
@@ -200,7 +201,6 @@ public class TestOrcPageSourceFactory
                 createSchema(),
                 columnHandles,
                 tupleDomain,
-                DateTimeZone.UTC,
                 acidInfo);
 
         checkArgument(pageSourceWithProjections.isPresent());

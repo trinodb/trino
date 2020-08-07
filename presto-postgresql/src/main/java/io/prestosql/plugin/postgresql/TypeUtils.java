@@ -35,10 +35,8 @@ import java.sql.Date;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoLegacyTimestamp;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoTimestamp;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -179,10 +177,6 @@ final class TypeUtils
         }
 
         if (TIMESTAMP.equals(prestoType)) {
-            if (session.isLegacyTimestamp()) {
-                ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
-                return toPgTimestamp(fromPrestoLegacyTimestamp((long) prestoNative, sessionZone));
-            }
             return toPgTimestamp(fromPrestoTimestamp((long) prestoNative));
         }
 

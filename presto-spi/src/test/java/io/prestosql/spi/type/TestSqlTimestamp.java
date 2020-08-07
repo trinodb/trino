@@ -16,7 +16,6 @@ package io.prestosql.spi.type;
 import org.testng.annotations.Test;
 
 import static io.prestosql.spi.type.SqlTimestamp.newInstance;
-import static io.prestosql.spi.type.SqlTimestamp.newLegacyInstance;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestSqlTimestamp
@@ -175,20 +174,5 @@ public class TestSqlTimestamp
         assertThat(newInstance(12, -444445, 555555).roundTo(10).toString()).isEqualTo("1969-12-31 23:59:59.5555555556");
         assertThat(newInstance(12, -444445, 555555).roundTo(11).toString()).isEqualTo("1969-12-31 23:59:59.55555555556");
         assertThat(newInstance(12, -444445, 555555).roundTo(12).toString()).isEqualTo("1969-12-31 23:59:59.555555555555");
-    }
-
-    @Test
-    public void testLegacy()
-    {
-        assertThat(newLegacyInstance(12, 0, 0, TimeZoneKey.getTimeZoneKey("America/Los_Angeles")).toString())
-                .isEqualTo("1969-12-31 16:00:00.000000000000");
-
-        // positive epoch
-        assertThat(newLegacyInstance(12, 123456, 789123, TimeZoneKey.getTimeZoneKey("America/Los_Angeles")).toString())
-                .isEqualTo("1969-12-31 16:00:00.123456789123");
-
-        // negative epoch
-        assertThat(newLegacyInstance(12, -876544, 789123, TimeZoneKey.getTimeZoneKey("America/Los_Angeles")).toString())
-                .isEqualTo("1969-12-31 15:59:59.123456789123");
     }
 }
