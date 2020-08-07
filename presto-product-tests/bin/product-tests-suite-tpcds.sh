@@ -8,12 +8,9 @@ DISTRO_SKIP_TEST="${DISTRO_SKIP_TEST:-}"
 suite_exit_code=0
 
 # TODO: Results for q72 need to be fixed. https://github.com/prestosql/presto/issues/4564
-presto-product-tests-launcher/bin/run-launcher test run \
-    --environment multinode \
-    --reports-dir="${BASH_SOURCE%/*}"/../../product-tests-reports/suite-tpcds/multinode \
-    -- -g tpcds -x "${DISTRO_SKIP_GROUP}" -e sql_tests.testcases.tpcds.q72,"${DISTRO_SKIP_TEST}" \
+presto-product-tests-launcher/bin/run-product-tests --suite tpcds --environment multinode \
+    -g tpcds -x "${DISTRO_SKIP_GROUP}" -e sql_tests.testcases.tpcds.q72,"${DISTRO_SKIP_TEST}" \
     || suite_exit_code=1
-
 
 echo "$0: exiting with ${suite_exit_code}"
 exit "${suite_exit_code}"

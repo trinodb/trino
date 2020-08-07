@@ -12,10 +12,8 @@ fi
 
 suite_exit_code=0
 
-presto-product-tests-launcher/bin/run-launcher test run \
-   --environment singlenode-hdp3 \
-   --reports-dir="${BASH_SOURCE%/*}"/../../product-tests-reports/suite-8-non-generic/singlenode-hdp3 \
-    -- -g hdp3_only,hive_transactional \
+presto-product-tests-launcher/bin/run-product-tests --suite suite-8-non-generic --environment singlenode-hdp3 \
+    -g hdp3_only,hive_transactional \
     || suite_exit_code=1
 
 echo "$0: exiting with ${suite_exit_code}"

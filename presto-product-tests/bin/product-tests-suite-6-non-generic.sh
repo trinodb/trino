@@ -13,49 +13,35 @@ fi
 suite_exit_code=0
 
 # Uses hadoop, but it irrelevant from these tests' perspective.
-presto-product-tests-launcher/bin/run-launcher test run \
-    --environment singlenode-ldap \
-    --reports-dir="${BASH_SOURCE%/*}"/../../product-tests-reports/suite-6-non-generic/singlenode-ldap \
-    -- -g ldap \
+presto-product-tests-launcher/bin/run-product-tests --suite suite-6-non-generic --environment singlenode-ldap \
+    -g ldap \
     || suite_exit_code=1
 
-presto-product-tests-launcher/bin/run-launcher test run \
-    --environment singlenode-ldap-insecure \
-    --reports-dir="${BASH_SOURCE%/*}"/../../product-tests-reports/suite-6-non-generic/singlenode-ldap-insecure \
-    -- -g ldap \
+presto-product-tests-launcher/bin/run-product-tests --suite suite-6-non-generic --environment singlenode-ldap-insecure \
+    -g ldap \
     || suite_exit_code=1
 
-presto-product-tests-launcher/bin/run-launcher test run \
-    --environment singlenode-ldap-referrals \
-    --reports-dir="${BASH_SOURCE%/*}"/../../product-tests-reports/suite-6-non-generic/singlenode-ldap-referrals \
-    -- -g ldap \
+presto-product-tests-launcher/bin/run-product-tests --suite suite-6-non-generic --environment singlenode-ldap-referrals \
+    -g ldap \
     || suite_exit_code=1
 
 # We have docker images with KMS on CDH only. TODO (https://github.com/prestosql/presto/issues/1652) create images with HDP and KMS
-presto-product-tests-launcher/bin/run-launcher test run \
-    --environment singlenode-kerberos-kms-hdfs-no-impersonation \
-    --reports-dir="${BASH_SOURCE%/*}"/../../product-tests-reports/suite-6-non-generic/singlenode-kerberos-kms-hdfs-no-impersonation \
-    -- -g storage_formats \
+presto-product-tests-launcher/bin/run-product-tests --suite suite-6-non-generic --environment singlenode-kerberos-kms-hdfs-no-impersonation \
+    -g storage_formats \
     || suite_exit_code=1
 
 # We have docker images with KMS on CDH only. TODO (https://github.com/prestosql/presto/issues/1652) create images with HDP and KMS
-presto-product-tests-launcher/bin/run-launcher test run \
-    --environment singlenode-kerberos-kms-hdfs-impersonation \
-    --reports-dir="${BASH_SOURCE%/*}"/../../product-tests-reports/suite-6-non-generic/singlenode-kerberos-kms-hdfs-impersonation \
-    -- -g storage_formats \
+presto-product-tests-launcher/bin/run-product-tests --suite suite-6-non-generic --environment singlenode-kerberos-kms-hdfs-impersonation \
+    -g storage_formats \
     || suite_exit_code=1
 
-presto-product-tests-launcher/bin/run-launcher test run \
-    --environment singlenode-cassandra \
-    --reports-dir="${BASH_SOURCE%/*}"/../../product-tests-reports/suite-6-non-generic/singlenode-cassandra \
-    -- -g cassandra \
+presto-product-tests-launcher/bin/run-product-tests --suite suite-6-non-generic --environment singlenode-cassandra \
+    -g cassandra \
     || suite_exit_code=1
 
 # Does not use hadoop
-presto-product-tests-launcher/bin/run-launcher test run \
-    --environment singlenode-kafka \
-    --reports-dir="${BASH_SOURCE%/*}"/../../product-tests-reports/suite-6-non-generic/singlenode-kafka \
-    -- -g kafka \
+presto-product-tests-launcher/bin/run-product-tests --suite suite-6-non-generic --environment singlenode-kafka \
+    -g kafka \
     || suite_exit_code=1
 
 echo "$0: exiting with ${suite_exit_code}"

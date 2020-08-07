@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+launcher="${BASH_SOURCE%/*}/run-launcher"
+
+# Script defaults
+RUNNER_ARGS=""
+TEMPTO_ARGS=""
+ENVIRONMENT=""
+SUITE="default"
+
+POSITIONAL=()
+while [[ $# -gt 0 ]]
+do
+    key="$1"
+    case $key in
+        --environment) # environment name
+        RUNNER_ARGS="--environment=${2} ${RUNNER_ARGS}"
+        ENVIRONMENT="${2}"
+        shift
+        shift
+        ;;
+        --startup-timeout) # timeout for environment startup
+        RUNNER_ARGS="--startup-timeout=${2} ${RUNNER_ARGS}"
+        shift
+        shift
+        ;;
+        --suite) # suite name
+        SUITE="$2"
+        shift
+        shift
+        ;;
+        -g|--groups) # test groups to run
+        TEMPTO_ARGS="-g ${2} ${TEMPTO_ARGS}"
+        shift
+        shift
+        ;;
+        -x|--exclude-groups) # groups to exclude
+        TEMPTO_ARGS="-x ${2} ${TEMPTO_ARGS}"
+        shift
+        shift
+        ;;
+        -t|--tests) # specific tests to run
+        TEMPTO_ARGS="-t ${2} ${TEMPTO_ARGS}"
+        shift
+        shift
+        ;;
+        -e|--exclude-tests) # tests to exclude
+        TEMPTO_ARGS="-e ${2} ${TEMPTO_ARGS}"
+        shift
+        shift
+        ;;
+        -d|--debug) # open debug ports
+        RUNNER_ARGS="${RUNNER_ARGS} --debug"
+        shift
+        ;;
+        -b|--bind) # bind ports on localhost
+        RUNNER_ARGS="${RUNNER_ARGS} --bind"
+        shift
+        ;;
+        *)
+        POSITIONAL+=("$1")
+        shift
+        ;;
+    esac
+done
+
+set -- "${POSITIONAL[@]}"
+
+if [ "${ENVIRONMENT}" = "" ]; then
+    echo "Environment name is missing (use --environment)"
+    exit 1
+fi
+
+if [ "$TEMPTO_ARGS" = "" ]; then
+    echo "Tempto run configuration is missing (use combination of -g -x -t -e)";
+    exit 1
+fi
+
+REPORTS_DIR="${BASH_SOURCE%/*}/../../presto-product-tests/target/${SUITE}-${ENVIRONMENT}"
+RUNNER_ARGS="--reports-dir=${REPORTS_DIR} ${RUNNER_ARGS}"
+
+echo "[Suite: ${SUITE}, environment: ${ENVIRONMENT}] Starting products tests with Tempto configuration: '${TEMPTO_ARGS}'"
+${launcher} test run ${RUNNER_ARGS} -- ${TEMPTO_ARGS} @$
+echo "[Suite: ${SUITE}, environment: ${ENVIRONMENT}] Tests have finished. Test reports can be found in: '${REPORTS_DIR}'"
