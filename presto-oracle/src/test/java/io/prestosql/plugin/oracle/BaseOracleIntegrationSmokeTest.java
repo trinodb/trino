@@ -13,11 +13,11 @@
  */
 package io.prestosql.plugin.oracle;
 
+import com.google.common.collect.ImmutableList;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.tpch.TpchTable;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.Test;
 
