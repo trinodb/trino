@@ -35,6 +35,7 @@ import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 
 import javax.inject.Inject;
 
@@ -234,7 +235,8 @@ public final class TestRun
                                                 .build()))
                                 .addAll(testArguments)
                                 .addAll(reportsDirOptions(reportsDir))
-                                .build().toArray(new String[0]));
+                                .build().toArray(new String[0]))
+                        .waitingFor(new LogMessageWaitStrategy().withRegEx(".*\\[TestNG] Running.*"));
             });
 
             return environment.build();
