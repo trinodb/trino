@@ -70,6 +70,12 @@ system| runtime| nodes| http_uri| varchar| YES| null| null|
 system| runtime| nodes| node_version| varchar| YES| null| null|
 system| runtime| nodes| coordinator| boolean| YES| null| null|
 system| runtime| nodes| state| varchar| YES| null| null|
+system| runtime| optimizer_rule_stats| rule_name| varchar| YES| null| null|
+system| runtime| optimizer_rule_stats| invocations| bigint| YES| null| null|
+system| runtime| optimizer_rule_stats| matches| bigint| YES| null| null|
+system| runtime| optimizer_rule_stats| failures| bigint| YES| null| null|
+system| runtime| optimizer_rule_stats| average_time| double| YES| null| null|
+system| runtime| optimizer_rule_stats| time_distribution_percentiles| map(double, double)| YES| null| null|
 system| runtime| queries| query_id| varchar| YES| null| null|
 system| runtime| queries| state| varchar| YES| null| null|
 system| runtime| queries| user| varchar| YES| null| null|
