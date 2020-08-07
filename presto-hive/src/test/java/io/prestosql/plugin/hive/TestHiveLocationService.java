@@ -16,6 +16,7 @@ package io.prestosql.plugin.hive;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.plugin.hive.LocationService.WriteInfo;
 import io.prestosql.plugin.hive.TestBackgroundHiveSplitLoader.TestingHdfsEnvironment;
+import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig;
 import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.fs.Path;
 import org.testng.annotations.Test;
@@ -83,7 +84,7 @@ public class TestHiveLocationService
         public Assertion(LocationHandle locationHandle, boolean overwrite)
         {
             HdfsEnvironment hdfsEnvironment = new TestingHdfsEnvironment(ImmutableList.of());
-            LocationService service = new HiveLocationService(hdfsEnvironment);
+            LocationService service = new HiveLocationService(hdfsEnvironment, new HiveAuthenticationConfig());
             this.actual = service.getTableWriteInfo(locationHandle, overwrite);
         }
 
