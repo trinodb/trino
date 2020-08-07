@@ -118,7 +118,7 @@ public class ArbitraryOutputBuffer
     @Override
     public boolean isOverutilized()
     {
-        return (memoryManager.getUtilization() >= 0.5) || !state.get().canAddPages();
+        return memoryManager.getUtilization() >= 0.5 && state.get().canAddPages();
     }
 
     @Override
