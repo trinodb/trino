@@ -70,7 +70,7 @@ public class RubixModule
         @Inject
         public DefaultRubixHdfsInitializer(HiveAuthenticationConfig authenticationConfig)
         {
-            checkArgument(!authenticationConfig.isHdfsImpersonationEnabled(), "Hdfs impersonation is not compatible with Hive caching");
+            checkArgument(!authenticationConfig.isHdfsImpersonationEnabled(), "HDFS impersonation is not compatible with Hive caching");
         }
 
         @Override
