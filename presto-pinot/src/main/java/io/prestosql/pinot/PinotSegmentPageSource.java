@@ -45,9 +45,11 @@ import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.prestosql.pinot.PinotErrorCode.PINOT_DECODE_ERROR;
 import static io.prestosql.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -320,14 +322,17 @@ public class PinotSegmentPageSource
         // Note columnType in the dataTable could be different from the original columnType in the columnHandle.
         // e.g. when original column type is int/long and aggregation value is requested, the returned dataType from Pinot would be double.
         // So need to cast it back to the original columnType.
-        if (dataType.equals(ColumnDataType.DOUBLE)) {
-            return (long) currentDataTable.getDataTable().getDouble(rowIndex, columnIndex);
-        }
-        if (dataType.equals(ColumnDataType.INT)) {
-            return currentDataTable.getDataTable().getInt(rowIndex, columnIndex);
-        }
-        else {
-            return currentDataTable.getDataTable().getLong(rowIndex, columnIndex);
+        switch (dataType) {
+            case DOUBLE:
+                return (long) currentDataTable.getDataTable().getDouble(rowIndex, columnIndex);
+            case INT:
+                return currentDataTable.getDataTable().getInt(rowIndex, columnIndex);
+            case FLOAT:
+                return floatToIntBits(currentDataTable.getDataTable().getFloat(rowIndex, columnIndex));
+            case LONG:
+                return currentDataTable.getDataTable().getLong(rowIndex, columnIndex);
+            default:
+                throw new PinotException(PINOT_DECODE_ERROR, Optional.empty(), format("Unexpected pinot type: '%s'", dataType));
         }
     }
 
@@ -366,8 +371,8 @@ public class PinotSegmentPageSource
             case FLOAT_ARRAY:
                 float[] floatArray = currentDataTable.getDataTable().getFloatArray(rowIndex, columnIndex);
                 blockBuilder = elementType.createBlockBuilder(null, floatArray.length);
-                for (double element : floatArray) {
-                    elementType.writeDouble(blockBuilder, element);
+                for (float element : floatArray) {
+                    blockBuilder.writeInt(floatToIntBits(element));
                 }
                 break;
             case DOUBLE_ARRAY:
