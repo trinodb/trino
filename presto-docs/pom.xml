@@ -26,6 +26,7 @@
                         <excludes combine.children="append">
                             <exclude>**/*.conf</exclude>
                             <exclude>**/*.css</exclude>
+                            <exclude>**/*.js</exclude>
                         </excludes>
                     </configuration>
                 </plugin>
