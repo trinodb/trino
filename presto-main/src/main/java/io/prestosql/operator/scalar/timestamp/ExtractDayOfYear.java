@@ -13,7 +13,6 @@
  */
 package io.prestosql.operator.scalar.timestamp;
 
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
@@ -24,7 +23,6 @@ import io.prestosql.spi.type.StandardTypes;
 import org.joda.time.chrono.ISOChronology;
 
 import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
-import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 
 @Description("Day of the year of the given timestamp")
 @ScalarFunction(value = "day_of_year", alias = "doy")
@@ -34,24 +32,19 @@ public class ExtractDayOfYear
 
     @LiteralParameters("p")
     @SqlType(StandardTypes.BIGINT)
-    public static long extract(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") long timestamp)
+    public static long extract(@LiteralParameter("p") long precision, @SqlType("timestamp(p)") long timestamp)
     {
         if (precision > 3) {
             timestamp = scaleEpochMicrosToMillis(timestamp);
         }
 
-        ISOChronology chronology = ISOChronology.getInstanceUTC();
-        if (session.isLegacyTimestamp()) {
-            chronology = getChronology(session.getTimeZoneKey());
-        }
-
-        return chronology.dayOfYear().get(timestamp);
+        return ISOChronology.getInstanceUTC().dayOfYear().get(timestamp);
     }
 
     @LiteralParameters("p")
     @SqlType(StandardTypes.BIGINT)
-    public static long extract(ConnectorSession session, @SqlType("timestamp(p)") LongTimestamp timestamp)
+    public static long extract(@SqlType("timestamp(p)") LongTimestamp timestamp)
     {
-        return extract(6, session, timestamp.getEpochMicros());
+        return extract(6, timestamp.getEpochMicros());
     }
 }

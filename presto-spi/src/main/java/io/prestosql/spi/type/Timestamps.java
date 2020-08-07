@@ -21,6 +21,7 @@ import java.time.format.DateTimeFormatter;
 import static io.prestosql.spi.type.TimestampType.MAX_PRECISION;
 import static java.lang.Math.floorMod;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 
 public class Timestamps
 {
@@ -100,11 +101,11 @@ public class Timestamps
         return (value + 1 - (factor / 2)) / factor;
     }
 
-    static String formatTimestamp(int precision, long epochMicros, int picosOfMicro, ZoneId zoneId)
+    static String formatTimestamp(int precision, long epochMicros, int picosOfMicro)
     {
         Instant instant = Instant.ofEpochSecond(Math.floorDiv(epochMicros, MICROSECONDS_PER_SECOND));
         long picoFraction = ((long) floorMod(epochMicros, MICROSECONDS_PER_SECOND)) * PICOSECONDS_PER_MICROSECOND + picosOfMicro;
-        LocalDateTime dateTime = LocalDateTime.ofInstant(instant, zoneId);
+        LocalDateTime dateTime = LocalDateTime.ofInstant(instant, UTC);
 
         return formatTimestamp(precision, dateTime, picoFraction).toString();
     }

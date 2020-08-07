@@ -32,11 +32,10 @@ import io.prestosql.orc.stream.PresentOutputStream;
 import io.prestosql.orc.stream.StreamDataOutput;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
-import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -48,6 +47,7 @@ import static io.prestosql.orc.metadata.ColumnEncoding.ColumnEncodingKind.DIRECT
 import static io.prestosql.orc.metadata.CompressionKind.NONE;
 import static io.prestosql.orc.metadata.Stream.StreamKind.DATA;
 import static io.prestosql.orc.metadata.Stream.StreamKind.SECONDARY;
+import static java.time.ZoneOffset.UTC;
 import static java.util.Objects.requireNonNull;
 
 public class TimestampColumnWriter
@@ -72,7 +72,7 @@ public class TimestampColumnWriter
 
     private boolean closed;
 
-    public TimestampColumnWriter(OrcColumnId columnId, Type type, CompressionKind compression, int bufferSize, DateTimeZone hiveStorageTimeZone)
+    public TimestampColumnWriter(OrcColumnId columnId, Type type, CompressionKind compression, int bufferSize)
     {
         this.columnId = requireNonNull(columnId, "columnId is null");
         this.type = requireNonNull(type, "type is null");
@@ -81,7 +81,7 @@ public class TimestampColumnWriter
         this.secondsStream = new LongOutputStreamV2(compression, bufferSize, true, DATA);
         this.nanosStream = new LongOutputStreamV2(compression, bufferSize, false, SECONDARY);
         this.presentStream = new PresentOutputStream(compression, bufferSize);
-        this.baseTimestampInSeconds = new DateTime(2015, 1, 1, 0, 0, requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null")).getMillis() / MILLIS_PER_SECOND;
+        this.baseTimestampInSeconds = OffsetDateTime.of(2015, 1, 1, 0, 0, 0, 0, UTC).toEpochSecond();
     }
 
     @Override

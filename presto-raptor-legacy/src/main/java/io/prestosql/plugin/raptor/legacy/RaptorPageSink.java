@@ -66,14 +66,12 @@ public class RaptorPageSink
     private final long maxBufferBytes;
     private final OptionalInt temporalColumnIndex;
     private final Optional<Type> temporalColumnType;
-    private final TemporalFunction temporalFunction;
 
     private final PageWriter pageWriter;
 
     public RaptorPageSink(
             PageSorter pageSorter,
             StorageManager storageManager,
-            TemporalFunction temporalFunction,
             long transactionId,
             List<Long> columnIds,
             List<Type> columnTypes,
@@ -86,7 +84,6 @@ public class RaptorPageSink
     {
         this.transactionId = transactionId;
         this.pageSorter = requireNonNull(pageSorter, "pageSorter is null");
-        this.temporalFunction = requireNonNull(temporalFunction, "temporalFunction is null");
         this.columnIds = ImmutableList.copyOf(requireNonNull(columnIds, "columnIds is null"));
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         this.storageManager = requireNonNull(storageManager, "storageManager is null");
@@ -222,7 +219,7 @@ public class RaptorPageSink
 
             for (int position = 0; position < page.getPositionCount(); position++) {
                 int bucket = bucketFunction.isPresent() ? bucketFunction.get().getBucket(bucketArgs, position) : 0;
-                int day = temporalColumnType.isPresent() ? temporalFunction.getDay(temporalColumnType.get(), temporalBlock, position) : 0;
+                int day = temporalColumnType.isPresent() ? TemporalFunction.getDay(temporalColumnType.get(), temporalBlock, position) : 0;
 
                 long partition = (((long) bucket) << 32) | (day & 0xFFFF_FFFFL);
                 PageStore store = pageStores.get(partition);

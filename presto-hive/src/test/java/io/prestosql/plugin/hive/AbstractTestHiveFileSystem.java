@@ -234,7 +234,7 @@ public abstract class AbstractTestHiveFileSystem
                 TYPE_MANAGER,
                 config,
                 hdfsEnvironment,
-                getDefaultHivePageSourceFactories(hdfsEnvironment),
+                getDefaultHivePageSourceFactories(hdfsEnvironment, config),
                 getDefaultHiveRecordCursorProviders(config, hdfsEnvironment),
                 new GenericHiveRecordCursorProvider(hdfsEnvironment, config));
 

@@ -71,7 +71,6 @@ import org.apache.hadoop.mapred.FileSplit;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.orc.NullMemoryManager;
 import org.apache.orc.impl.WriterImpl;
-import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -121,6 +120,7 @@ import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFacto
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaStringObjectInspector;
 import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_CODEC;
 import static org.apache.hadoop.mapreduce.lib.output.FileOutputFormat.COMPRESS_TYPE;
+import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -481,7 +481,7 @@ public class TestOrcPageSourceMemoryTracking
 
         public ConnectorPageSource newPageSource(FileFormatDataSourceStats stats, ConnectorSession session)
         {
-            OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_ENVIRONMENT, stats);
+            OrcPageSourceFactory orcPageSourceFactory = new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_ENVIRONMENT, stats, UTC);
             return HivePageSourceProvider.createHivePageSource(
                     ImmutableSet.of(orcPageSourceFactory),
                     ImmutableSet.of(),
@@ -498,7 +498,6 @@ public class TestOrcPageSourceMemoryTracking
                     columns,
                     partitonName,
                     partitionKeys,
-                    DateTimeZone.UTC,
                     TYPE_MANAGER,
                     TableToPartitionMapping.empty(),
                     Optional.empty(),

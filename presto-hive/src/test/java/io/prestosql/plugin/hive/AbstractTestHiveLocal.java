@@ -70,7 +70,8 @@ public abstract class AbstractTestHiveLocal
                         .build());
 
         HiveConfig hiveConfig = new HiveConfig()
-                .setTimeZone("America/Los_Angeles");
+                .setParquetTimeZone("America/Los_Angeles")
+                .setRcfileTimeZone("America/Los_Angeles");
 
         setup(testDbName, hiveConfig, metastore, HDFS_ENVIRONMENT);
     }

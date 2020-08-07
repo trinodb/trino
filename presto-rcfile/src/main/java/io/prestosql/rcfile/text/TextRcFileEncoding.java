@@ -18,7 +18,6 @@ import io.airlift.slice.Slices;
 import io.prestosql.rcfile.ColumnEncoding;
 import io.prestosql.rcfile.RcFileEncoding;
 import io.prestosql.spi.type.Type;
-import org.joda.time.DateTimeZone;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -61,24 +60,22 @@ public class TextRcFileEncoding
     };
     public static final Slice DEFAULT_NULL_SEQUENCE = Slices.utf8Slice("\\N");
 
-    private final DateTimeZone hiveStorageTimeZone;
     private final Slice nullSequence;
     private final byte[] separators;
     private final Byte escapeByte;
     private final boolean lastColumnTakesRest;
 
-    public TextRcFileEncoding(DateTimeZone hiveStorageTimeZone)
+    public TextRcFileEncoding()
     {
-        this(hiveStorageTimeZone,
+        this(
                 DEFAULT_NULL_SEQUENCE,
                 DEFAULT_SEPARATORS,
                 null,
                 false);
     }
 
-    public TextRcFileEncoding(DateTimeZone hiveStorageTimeZone, Slice nullSequence, byte[] separators, Byte escapeByte, boolean lastColumnTakesRest)
+    public TextRcFileEncoding(Slice nullSequence, byte[] separators, Byte escapeByte, boolean lastColumnTakesRest)
     {
-        this.hiveStorageTimeZone = hiveStorageTimeZone;
         this.nullSequence = nullSequence;
         this.separators = separators;
         this.escapeByte = escapeByte;
@@ -155,7 +152,7 @@ public class TextRcFileEncoding
     @Override
     public ColumnEncoding timestampEncoding(Type type)
     {
-        return new TimestampEncoding(type, nullSequence, hiveStorageTimeZone);
+        return new TimestampEncoding(type, nullSequence);
     }
 
     @Override

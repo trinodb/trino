@@ -13,7 +13,6 @@
  */
 package io.prestosql.operator.scalar.timestamp;
 
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
@@ -23,7 +22,6 @@ import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.StandardTypes;
 import org.joda.time.chrono.ISOChronology;
 
-import static io.prestosql.operator.scalar.DateTimeFunctions.lastDayOfMonthFromDate;
 import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -37,13 +35,8 @@ public class LastDayOfMonth
 
     @LiteralParameters("p")
     @SqlType(StandardTypes.DATE)
-    public static long lastDayOfMonth(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") long timestamp)
+    public static long lastDayOfMonth(@LiteralParameter("p") long precision, @SqlType("timestamp(p)") long timestamp)
     {
-        if (session.isLegacyTimestamp()) {
-            long date = TimestampToDateCast.cast(precision, session, timestamp);
-            return lastDayOfMonthFromDate(date);
-        }
-
         long epochMillis = timestamp;
         if (precision > 3) {
             epochMillis = scaleEpochMicrosToMillis(timestamp);
@@ -55,8 +48,8 @@ public class LastDayOfMonth
 
     @LiteralParameters("p")
     @SqlType(StandardTypes.DATE)
-    public static long lastDayOfMonth(ConnectorSession session, @SqlType("timestamp(p)") LongTimestamp timestamp)
+    public static long lastDayOfMonth(@SqlType("timestamp(p)") LongTimestamp timestamp)
     {
-        return lastDayOfMonth(6, session, timestamp.getEpochMicros());
+        return lastDayOfMonth(6, timestamp.getEpochMicros());
     }
 }

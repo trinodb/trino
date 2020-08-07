@@ -22,4 +22,3 @@ Presto also provides :doc:`numerous SQL functions and operators<functions>`.
 
     language/types
     language/reserved
-    language/timestamp

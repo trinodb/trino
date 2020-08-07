@@ -39,6 +39,7 @@ import org.apache.parquet.column.statistics.IntStatistics;
 import org.apache.parquet.column.statistics.LongStatistics;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
+import org.joda.time.DateTimeZone;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -68,11 +69,13 @@ public class TupleDomainParquetPredicate
 {
     private final TupleDomain<ColumnDescriptor> effectivePredicate;
     private final List<RichColumnDescriptor> columns;
+    private final DateTimeZone timeZone;
 
-    public TupleDomainParquetPredicate(TupleDomain<ColumnDescriptor> effectivePredicate, List<RichColumnDescriptor> columns)
+    public TupleDomainParquetPredicate(TupleDomain<ColumnDescriptor> effectivePredicate, List<RichColumnDescriptor> columns, DateTimeZone timeZone)
     {
         this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+        this.timeZone = requireNonNull(timeZone, "timeZone is null");
     }
 
     @Override
@@ -100,7 +103,7 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
-            Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnStatistics, id, column.toString(), failOnCorruptedParquetStatistics);
+            Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnStatistics, id, column.toString(), failOnCorruptedParquetStatistics, timeZone);
             if (!effectivePredicateDomain.overlaps(domain)) {
                 return false;
             }
@@ -129,7 +132,14 @@ public class TupleDomainParquetPredicate
     }
 
     @VisibleForTesting
-    public static Domain getDomain(Type type, long rowCount, Statistics<?> statistics, ParquetDataSourceId id, String column, boolean failOnCorruptedParquetStatistics)
+    public static Domain getDomain(
+            Type type,
+            long rowCount,
+            Statistics<?> statistics,
+            ParquetDataSourceId id,
+            String column,
+            boolean failOnCorruptedParquetStatistics,
+            DateTimeZone timeZone)
             throws ParquetCorruptionException
     {
         if (statistics == null || statistics.isEmpty()) {
@@ -240,7 +250,9 @@ public class TupleDomainParquetPredicate
         if (type instanceof TimestampType && statistics instanceof BinaryStatistics) {
             BinaryStatistics binaryStatistics = (BinaryStatistics) statistics;
             long max = getTimestampMillis(binaryStatistics.genericGetMax());
+            max = timeZone.convertUTCToLocal(max);
             long min = getTimestampMillis(binaryStatistics.genericGetMin());
+            min = timeZone.convertUTCToLocal(min);
             if (min > max) {
                 failWithCorruptionException(failOnCorruptedParquetStatistics, column, id, binaryStatistics);
                 return Domain.create(ValueSet.all(type), hasNullValue);

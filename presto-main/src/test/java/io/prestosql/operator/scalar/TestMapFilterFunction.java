@@ -87,7 +87,7 @@ public class TestMapFilterFunction
         assertFunction(
                 "map_filter(map(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789'], ARRAY[1, 2]), (k, v) -> year(k) = 1111)",
                 mapType(createTimestampType(9), INTEGER),
-                ImmutableMap.of(legacyTimestamp(9, "1111-05-10 12:34:56.123456789"), 2));
+                ImmutableMap.of(timestamp(9, "1111-05-10 12:34:56.123456789"), 2));
     }
 
     @Test

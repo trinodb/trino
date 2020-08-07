@@ -179,7 +179,7 @@ public class StructColumnReader
     }
 
     @Override
-    public void startStripe(ZoneId fileTimeZone, ZoneId storageTimeZone, InputStreamSources dictionaryStreamSources, ColumnMetadata<ColumnEncoding> encoding)
+    public void startStripe(ZoneId fileTimeZone, InputStreamSources dictionaryStreamSources, ColumnMetadata<ColumnEncoding> encoding)
             throws IOException
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
@@ -192,7 +192,7 @@ public class StructColumnReader
         rowGroupOpen = false;
 
         for (ColumnReader structField : structFields.values()) {
-            structField.startStripe(fileTimeZone, storageTimeZone, dictionaryStreamSources, encoding);
+            structField.startStripe(fileTimeZone, dictionaryStreamSources, encoding);
         }
     }
 

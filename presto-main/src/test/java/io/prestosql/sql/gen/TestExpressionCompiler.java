@@ -42,8 +42,6 @@ import io.prestosql.operator.scalar.timestamp.ExtractSecond;
 import io.prestosql.operator.scalar.timestamp.ExtractWeekOfYear;
 import io.prestosql.operator.scalar.timestamp.ExtractYear;
 import io.prestosql.operator.scalar.timestamp.ExtractYearOfWeek;
-import io.prestosql.operator.scalar.timestamptz.TimeZoneHour;
-import io.prestosql.operator.scalar.timestamptz.TimeZoneMinute;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.SqlDecimal;
@@ -86,7 +84,6 @@ import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.operator.scalar.JoniRegexpCasts.joniRegexp;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
@@ -97,18 +94,18 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.sql.tree.Extract.Field.TIMEZONE_HOUR;
+import static io.prestosql.sql.tree.Extract.Field.TIMEZONE_MINUTE;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.testing.SqlVarbinaryTestingUtil.sqlVarbinary;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.UnknownType.UNKNOWN;
-import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.prestosql.util.StructuralTestUtil.mapType;
 import static java.lang.Math.cos;
 import static java.lang.Runtime.getRuntime;
 import static java.lang.String.format;
 import static java.util.Collections.singletonList;
 import static java.util.concurrent.Executors.newFixedThreadPool;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.joda.time.DateTimeZone.UTC;
@@ -885,7 +882,7 @@ public class TestExpressionCompiler
         assertExecute("try_cast('foo' as varchar)", VARCHAR, "foo");
         assertExecute("try_cast('foo' as bigint)", BIGINT, null);
         assertExecute("try_cast('foo' as integer)", INTEGER, null);
-        assertExecute("try_cast('2001-08-22' as timestamp)", TIMESTAMP, sqlTimestampOf(3, 2001, 8, 22, 0, 0, 0, 0, TEST_SESSION));
+        assertExecute("try_cast('2001-08-22' as timestamp)", TIMESTAMP, sqlTimestampOf(3, 2001, 8, 22, 0, 0, 0, 0));
         assertExecute("try_cast(bound_string as bigint)", BIGINT, null);
         assertExecute("try_cast(cast(null as varchar) as bigint)", BIGINT, null);
         assertExecute("try_cast(bound_long / 13  as bigint)", BIGINT, 94L);
@@ -1527,19 +1524,19 @@ public class TestExpressionCompiler
     {
         for (DateTime left : dateTimeValues) {
             for (Field field : Field.values()) {
+                if (field == TIMEZONE_MINUTE || field == TIMEZONE_HOUR) {
+                    continue;
+                }
                 Long expected = null;
                 Long millis = null;
                 if (left != null) {
                     millis = left.getMillis();
                     expected = callExtractFunction(TEST_SESSION.toConnectorSession(), millis, 3, field);
                 }
-                DateTimeZone zone = getDateTimeZone(TEST_SESSION.getTimeZoneKey());
-                long zoneOffsetMinutes = millis != null ? MILLISECONDS.toMinutes(zone.getOffset(millis)) : 0;
                 String expressionPattern = format(
-                        "extract(%s from from_unixtime(%%s / 1000.0E0, %s, %s))",
+                        "extract(%s from from_unixtime(cast(%s as double) / 1000))",
                         field,
-                        zoneOffsetMinutes / 60,
-                        zoneOffsetMinutes % 60);
+                        millis);
                 assertExecute(generateExpression(expressionPattern, millis), BIGINT, expected);
             }
         }
@@ -1552,35 +1549,31 @@ public class TestExpressionCompiler
     {
         switch (field) {
             case YEAR:
-                return ExtractYear.extract(precision, session, value);
+                return ExtractYear.extract(precision, value);
             case QUARTER:
-                return ExtractQuarter.extract(precision, session, value);
+                return ExtractQuarter.extract(precision, value);
             case MONTH:
-                return ExtractMonth.extract(precision, session, value);
+                return ExtractMonth.extract(precision, value);
             case WEEK:
-                return ExtractWeekOfYear.extract(precision, session, value);
+                return ExtractWeekOfYear.extract(precision, value);
             case DAY:
             case DAY_OF_MONTH:
-                return ExtractDay.extract(precision, session, value);
+                return ExtractDay.extract(precision, value);
             case DAY_OF_WEEK:
             case DOW:
-                return ExtractDayOfWeek.extract(precision, session, value);
+                return ExtractDayOfWeek.extract(precision, value);
             case YEAR_OF_WEEK:
             case YOW:
-                return ExtractYearOfWeek.extract(precision, session, value);
+                return ExtractYearOfWeek.extract(precision, value);
             case DAY_OF_YEAR:
             case DOY:
-                return ExtractDayOfYear.extract(precision, session, value);
+                return ExtractDayOfYear.extract(precision, value);
             case HOUR:
-                return ExtractHour.extract(precision, session, value);
+                return ExtractHour.extract(precision, value);
             case MINUTE:
-                return ExtractMinute.extract(precision, session, value);
+                return ExtractMinute.extract(precision, value);
             case SECOND:
-                return ExtractSecond.extract(precision, session, value);
-            case TIMEZONE_MINUTE:
-                return TimeZoneMinute.extract(packDateTimeWithZone(value, session.getTimeZoneKey()));
-            case TIMEZONE_HOUR:
-                return TimeZoneHour.extract(packDateTimeWithZone(value, session.getTimeZoneKey()));
+                return ExtractSecond.extract(precision, value);
         }
         throw new AssertionError("Unhandled field: " + field);
     }

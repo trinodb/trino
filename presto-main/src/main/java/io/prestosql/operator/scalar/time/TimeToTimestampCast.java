@@ -21,10 +21,7 @@ import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.TimeType;
 
-import java.time.Instant;
 import java.time.LocalDate;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
 
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.type.DateTimes.MICROSECONDS_PER_SECOND;
@@ -76,14 +73,6 @@ public final class TimeToTimestampCast
                 .toEpochDay();
 
         long epochSecond = multiplyExact(epochDay, SECONDS_PER_DAY) + time / PICOSECONDS_PER_SECOND;
-
-        if (session.isLegacyTimestamp()) {
-            epochSecond = ZonedDateTime.ofInstant(Instant.ofEpochSecond(epochSecond), ZoneOffset.UTC)
-                    .withZoneSameLocal(session.getTimeZoneKey().getZoneId())
-                    .toInstant()
-                    .getEpochSecond();
-        }
-
         long picoFraction = time % PICOSECONDS_PER_SECOND;
         if (sourcePrecision > targetPrecision) {
             picoFraction = round(picoFraction, (int) (TimeType.MAX_PRECISION - targetPrecision));

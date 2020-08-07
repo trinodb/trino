@@ -122,7 +122,6 @@ public class TestPinotSplitManager
                         .put(PinotSessionProperties.SEGMENTS_PER_SPLIT, numSegmentsPerSplit)
                         .put(PinotSessionProperties.FORBID_SEGMENT_QUERIES, forbidSegmentQueries)
                         .build())
-                .setLegacyTimestamp(new FeaturesConfig().isLegacyTimestamp())
                 .setOmitTimestampPrecision(new FeaturesConfig().isOmitDateTimeTypePrecision())
                 .build();
     }
