@@ -14,7 +14,6 @@
 package io.prestosql.metadata;
 
 import com.google.common.base.Defaults;
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
@@ -43,6 +42,7 @@ import java.util.List;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.block.BlockAssertions.assertBlockEquals;
 import static io.prestosql.metadata.ScalarFunctionAdapter.NullAdaptationPolicy.RETURN_NULL_ON_NULL;
@@ -350,7 +350,7 @@ public class TestScalarFunctionAdapter
             InvocationArgumentConvention argumentConvention = callingConvention.getArgumentConvention(i);
             switch (argumentConvention) {
                 case NEVER_NULL:
-                    Verify.verify(testValue != null, "null can not be passed to a never null argument");
+                    verify(testValue != null, "null can not be passed to a never null argument");
                     callArguments.add(testValue);
                     break;
                 case BOXED_NULLABLE:
