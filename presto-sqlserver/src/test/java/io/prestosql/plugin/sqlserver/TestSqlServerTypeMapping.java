@@ -581,7 +581,7 @@ public class TestSqlServerTypeMapping
             Session session = Session.builder(getQueryRunner().getDefaultSession())
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
                     .build();
-            testCases.execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_date"));
+            testCases.execute(getQueryRunner(), session, sqlServerCreateAndInsert("tpch.test_date"));
             testCases.execute(getQueryRunner(), session, prestoCreateAsSelect("test_date"));
         }
     }
@@ -634,7 +634,7 @@ public class TestSqlServerTypeMapping
     @Test(dataProvider = "testTimestampDataProvider")
     public void testTimestamp(boolean legacyTimestamp, boolean insertWithPresto, ZoneId sessionZone)
     {
-        // using two non-JVM zones so that we don't need to worry what Postgres system zone is
+        // using two non-JVM zones so that we don't need to worry what Sql Server system zone is
         DataTypeTest tests = DataTypeTest.create(true)
                 .addRoundTrip(timestampDataType(), beforeEpoch)
                 .addRoundTrip(timestampDataType(), afterEpoch)
@@ -684,7 +684,7 @@ public class TestSqlServerTypeMapping
                 {true, false, jvmZone},
                 {false, false, jvmZone},
 
-                // using two non-JVM zones so that we don't need to worry what Postgres system zone is
+                // using two non-JVM zones so that we don't need to worry what Sql Server system zone is
                 {true, true, vilnius},
                 {false, true, vilnius},
                 {true, false, vilnius},
@@ -775,7 +775,7 @@ public class TestSqlServerTypeMapping
         singlePrecisionFloatingPointTests(realDataType())
                 .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_real"));
 
-        singlePrecisionFloatingPointTests(postgreSqlRealDataType())
+        singlePrecisionFloatingPointTests(sqlServerRealDataType())
                 .execute(getQueryRunner(), sqlServerCreateAndInsert("tpch.sqlserver_test_real"));
     }
 
@@ -857,7 +857,7 @@ public class TestSqlServerTypeMapping
     private Session withUnsupportedType(UnsupportedTypeHandling unsupportedTypeHandling)
     {
         return Session.builder(getSession())
-                .setCatalogSessionProperty("postgresql", UNSUPPORTED_TYPE_HANDLING, unsupportedTypeHandling.name())
+                .setCatalogSessionProperty("sqlserver", UNSUPPORTED_TYPE_HANDLING, unsupportedTypeHandling.name())
                 .build();
     }
 
