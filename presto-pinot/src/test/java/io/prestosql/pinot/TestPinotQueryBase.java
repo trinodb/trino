@@ -91,6 +91,11 @@ public class TestPinotQueryBase
                         .addSingleValueDimension("flowType", DataType.LONG)
                         .addSingleValueDimension("ts", DataType.LONG)
                         .build())
+                .put("test_table", new SchemaBuilder().setSchemaName("test_table")
+                        .addSingleValueDimension("col_1", DataType.STRING)
+                        .addSingleValueDimension("col_2", DataType.LONG)
+                        .addSingleValueDimension("col_3", DataType.STRING)
+                        .build())
                 .build();
     }
 }

@@ -90,6 +90,54 @@ public class TestMinimalFunctionality
     }
 
     @Test
+    public void testBrokerColumnMappingForSelectQueries()
+    {
+        String expected = "VALUES" +
+                "  ('3.5', 'vendor1')," +
+                "  ('4.5', 'vendor2')," +
+                "  ('5.5', 'vendor3')," +
+                "  ('6.5', 'vendor4')," +
+                "  ('7.5', 'vendor5')," +
+                "  ('8.5', 'vendor6')";
+        assertQuery("SELECT price, vendor FROM \"SELECT price, vendor FROM " + TOPIC_AND_TABLE + " WHERE vendor != 'vendor7'\"", expected);
+        assertQuery("SELECT price, vendor FROM \"SELECT * FROM " + TOPIC_AND_TABLE + " WHERE vendor != 'vendor7'\"", expected);
+        assertQuery("SELECT price, vendor FROM \"SELECT vendor, lucky_numbers, price FROM " + TOPIC_AND_TABLE + " WHERE vendor != 'vendor7'\"", expected);
+    }
+
+    @Test
+    public void testBrokerColumnMappingsForQueriesWithAggregates()
+    {
+        String passthroughQuery = "\"SELECT city, COUNT(*), MAX(price), SUM(lucky_number) " +
+                "  FROM " + TOPIC_AND_TABLE +
+                "  WHERE vendor != 'vendor7'" +
+                "  GROUP BY city\"";
+        assertQuery("SELECT * FROM " + passthroughQuery, "VALUES" +
+                "  ('New York', 2, 6.5, 14)," +
+                "  ('Los Angeles', 4, 8.5, 31)");
+        assertQuery("SELECT \"max(price)\", city, \"sum(lucky_number)\", \"count(*)\" FROM " + passthroughQuery, "VALUES" +
+                "  (6.5, 'New York', 14, 2)," +
+                "  (8.5, 'Los Angeles', 31, 4)");
+        assertQuery("SELECT \"max(price)\", city, \"count(*)\" FROM " + passthroughQuery, "VALUES" +
+                "  (6.5, 'New York', 2)," +
+                "  (8.5, 'Los Angeles', 4)");
+    }
+
+    @Test
+    public void testBrokerColumnMappingsForArrays()
+    {
+        assertQuery("SELECT ARRAY_MIN(unlucky_numbers), ARRAY_MAX(long_numbers), ELEMENT_AT(neighbors, 2), ARRAY_MIN(lucky_numbers), ARRAY_MAX(prices)" +
+                        "  FROM \"SELECT unlucky_numbers, long_numbers, neighbors, lucky_numbers, prices" +
+                        "  FROM " + TOPIC_AND_TABLE +
+                        "  WHERE vendor = 'vendor1'\"",
+                "VALUES (-3.7, 20000000, 'bar1', 5, 5.5)");
+        assertQuery("SELECT CARDINALITY(unlucky_numbers), CARDINALITY(long_numbers), CARDINALITY(neighbors), CARDINALITY(lucky_numbers), CARDINALITY(prices)" +
+                        "  FROM \"SELECT unlucky_numbers, long_numbers, neighbors, lucky_numbers, prices" +
+                        "  FROM " + TOPIC_AND_TABLE +
+                        "  WHERE vendor = 'vendor1'\"",
+                "VALUES (3, 3, 3, 3, 2)");
+    }
+
+    @Test
     public void testLimitForSegmentQueries()
     {
         assertQuerySucceeds("SELECT * FROM " + TOPIC_AND_TABLE + " WHERE vendor != 'vendor7'");
