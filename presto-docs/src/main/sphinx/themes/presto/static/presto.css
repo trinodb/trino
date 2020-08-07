@@ -18,6 +18,10 @@ pre.literal-block {
     padding: .525rem .6rem;
 }
 
+.md-nav code {
+    font-size: smaller;
+}
+
 .md-typeset .admonition, .md-typeset .admonition-title {
     font-size: 0.64rem
 }
