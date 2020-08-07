@@ -75,18 +75,22 @@ contents:
    access-control.name=file
    security.config-file=etc/rules.json
 
-The config file is specified in JSON format.
+The config file is specified in JSON format. It contains rules that define
+which users have access to which resources:
 
-* It contains the rules defining which catalog can be accessed by which user (see Catalog Rules below).
-* The query rules specifying which queries can be managed by which user (see Query Rules below).
-* The impersonation rules specify which user impersonations are allowed (see Impersonation Rules below).
-* The principal rules specifying what principals can identify as what users (see Principal Rules below).
-* The system information rules specifying what users can access system management information (see System Information Rules below).
+* `Catalogs <#catalog-rules>`__
+* `Schemas <#schema-rules>`__
+* `Tables <#table-rules>`__
+* `Queries <#query-rules>`__
+* `Impersonation <#impersonation-rules>`__
+* `Principals <#principal-rules>`__
+* `System Information <#system-information-rules>`__
 
-This plugin currently supports catalog access, query, impersonation, principal, and system information
-rules. If you want to limit access on a system level in any other way, you
-must implement a custom SystemAccessControl plugin
-(see :doc:`/develop/system-access-control`).
+The rules are read from top to bottom and the first matching rule
+is applied. If no rule matches, access is denied.
+
+If you want to limit access on a system level in any other way than the ones
+listed above, you must implement a custom :doc:`/develop/system-access-control`.
 
 Refresh
 --------
@@ -168,6 +172,101 @@ following rules:
 
 For group-based rules to match, users need to be assigned to groups by a
 :doc:`/develop/group-provider`.
+
+Schema Rules
+------------
+
+These rules allow you to grant ownership of a schema. Having ownership of an
+schema allows users to execute ``DROP SCHEMA``, ``ALTER SCHEMA`` (both renaming
+and setting authorization) and ``SHOW CREATE SCHEMA``. The user is granted
+ownership of a schema, based on the first matching rule read from top to
+bottom. If no rule matches, ownership is not granted. Each rule is composed of
+the following fields:
+
+* ``user`` (optional): regex to match against user name. Defaults to ``.*``.
+* ``group`` (optional): regex to match against group names. Defaults to ``.*``.
+* ``schema`` (optional): regex to match against schema name. Defaults to ``.*``.
+* ``owner`` (required): boolean indicating whether the user is to be considered
+  an owner of the schema. Defaults to ``false``.
+
+For example, to provide ownership of all schemas to user ``admin``, treat all
+users as owners of ``default`` schema and prevent user ``guest`` from ownership
+of any schema, you can use the following rules:
+
+.. code-block:: json
+
+    {
+      "catalogs": [
+        {
+          "allow": true
+        }
+      ],
+      "schemas": [
+        {
+          "user": "admin",
+          "schema": ".*",
+          "owner": true
+        },
+        {
+          "user": "guest",
+          "owner": false
+        },
+        {
+          "schema": "default",
+          "owner": true
+        }
+      ]
+    }
+
+Table Rules
+-----------
+
+These rules define the privileges for table access for users. If no table rules
+are specified, all users are treated as having all privileges by default. The
+user is granted privileges based on the first matching rule read from top to
+bottom. Each rule is composed of the following fields:
+
+* ``user`` (optional): regex to match against user name. Defaults to ``.*``.
+* ``group`` (optional): regex to match against group names. Defaults to ``.*``.
+* ``schema`` (optional): regex to match against schema name. Defaults to ``.*``.
+* ``table`` (optional): regex to match against table names. Defaults to ``.*``.
+* ``privileges`` (required): zero or more of ``SELECT``, ``INSERT``,
+  ``DELETE``, ``OWNERSHIP``, ``GRANT_SELECT``
+
+.. note::
+
+    These rules do not apply to ``information_schema``.
+
+The example below defines the following table access policy:
+
+* User ``admin`` has all privileges across all tables and schemas
+* User ``banned_user`` has no privileges
+* All users have ``SELECT`` privileges on all tables in ``default`` schema
+
+.. code-block:: json
+
+    {
+      "catalogs": [
+        {
+          "allow": true
+        }
+      ],
+      "tables": [
+        {
+          "user": "admin",
+          "privileges": ["SELECT", "INSERT", "DELETE", "OWNERSHIP"]
+        },
+        {
+          "user": "banned_user",
+          "privileges": []
+        },
+        {
+          "schema": "default",
+          "table": ".*",
+          "privileges": ["SELECT"]
+        }
+      ]
+    }
 
 .. _query_rules:
 
