@@ -34,7 +34,7 @@ public class TestingKafka
 
     public TestingKafka()
     {
-        container = new KafkaContainer("5.4.1");
+        container = new KafkaContainer("5.4.1").withNetworkAliases("kafka");
     }
 
     public void start()
