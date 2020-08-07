@@ -38,6 +38,7 @@ import java.util.Optional;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static java.util.Objects.requireNonNull;
@@ -171,6 +172,19 @@ public class TestMinimalFunctionality
         MaterializedResult result = computeActual("SELECT lucky_number FROM " + TOPIC_AND_TABLE + " WHERE vendor = 'vendor1'");
         assertEquals(getOnlyElement(result.getTypes()), INTEGER);
         assertEquals(result.getOnlyValue(), 5);
+    }
+
+    @Test
+    public void testBrokerQueriesWithAvg()
+    {
+        assertQuery("SELECT city, \"avg(lucky_number)\", \"avg(price)\", \"avg(long_number)\"" +
+                "  FROM \"SELECT city, AVG(price), AVG(lucky_number), AVG(long_number) FROM my_table WHERE vendor != 'vendor7' GROUP BY city\"", "VALUES" +
+                "  ('New York', 7.0, 5.5, 10000.0)," +
+                "  ('Los Angeles', 7.75, 6.25, 10000.0)");
+        MaterializedResult result = computeActual("SELECT \"avg(lucky_number)\"" +
+                "  FROM \"SELECT AVG(lucky_number) FROM my_table WHERE vendor in ('vendor2', 'vendor4')\"");
+        assertEquals(getOnlyElement(result.getTypes()), DOUBLE);
+        assertEquals(result.getOnlyValue(), 7.0);
     }
 
     private static Object createTestRecord(
