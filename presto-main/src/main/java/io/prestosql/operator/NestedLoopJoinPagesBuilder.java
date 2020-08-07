@@ -60,11 +60,12 @@ public class NestedLoopJoinPagesBuilder
     {
         checkState(!finished, "NestedLoopJoinPagesBuilder is finished");
 
-        pages.stream()
-                .forEach(Page::compact);
-        estimatedSize = pages.stream()
-                .mapToLong(Page::getRetainedSizeInBytes)
-                .sum();
+        long estimatedSize = 0L;
+        for (Page page : pages) {
+            page.compact();
+            estimatedSize += page.getRetainedSizeInBytes();
+        }
+        this.estimatedSize = estimatedSize;
     }
 
     public NestedLoopJoinPages build()

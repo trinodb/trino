@@ -15,11 +15,9 @@ package io.prestosql.split;
 
 import com.google.common.primitives.Ints;
 import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorPageSource;
 
 import java.io.IOException;
-import java.util.Arrays;
 import java.util.List;
 
 import static java.util.Objects.requireNonNull;
@@ -61,10 +59,7 @@ public class MappedPageSource
         if (nextPage == null) {
             return null;
         }
-        Block[] blocks = Arrays.stream(delegateFieldIndex)
-                .mapToObj(nextPage::getBlock)
-                .toArray(Block[]::new);
-        return new Page(nextPage.getPositionCount(), blocks);
+        return nextPage.getColumns(delegateFieldIndex);
     }
 
     @Override
