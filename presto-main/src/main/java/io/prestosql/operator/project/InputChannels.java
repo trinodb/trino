@@ -15,7 +15,6 @@ package io.prestosql.operator.project;
 
 import com.google.common.primitives.Ints;
 import io.prestosql.spi.Page;
-import io.prestosql.spi.block.Block;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -49,11 +48,7 @@ public class InputChannels
 
     public Page getInputChannels(Page page)
     {
-        Block[] blocks = new Block[inputChannels.length];
-        for (int i = 0; i < inputChannels.length; i++) {
-            blocks[i] = page.getBlock(inputChannels[i]);
-        }
-        return new Page(page.getPositionCount(), blocks);
+        return page.getColumns(inputChannels);
     }
 
     @Override
