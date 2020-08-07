@@ -35,6 +35,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -48,7 +49,6 @@ import static io.prestosql.spi.type.StandardTypes.ROW;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.apache.parquet.Preconditions.checkArgument;
 import static org.apache.parquet.schema.OriginalType.TIMESTAMP_MICROS;
 import static org.apache.parquet.schema.OriginalType.TIMESTAMP_MILLIS;
 import static org.apache.parquet.schema.Type.Repetition.OPTIONAL;
@@ -176,7 +176,7 @@ public class ParquetSchemaConverter
         parent = ImmutableList.<String>builder().addAll(parent).add(name).build();
         Types.GroupBuilder<GroupType> builder = Types.buildGroup(OPTIONAL);
         for (RowType.Field field : type.getFields()) {
-            com.google.common.base.Preconditions.checkArgument(field.getName().isPresent(), "field in struct type doesn't have name");
+            checkArgument(field.getName().isPresent(), "field in struct type doesn't have name");
             builder.addField(convert(field.getType(), field.getName().get(), parent));
         }
         return builder.named(name);

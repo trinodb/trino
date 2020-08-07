@@ -13,7 +13,6 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionBinding;
@@ -63,6 +62,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.base.Verify.verify;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
@@ -98,7 +98,7 @@ public class BenchmarkArrayFilter
     private static final List<Type> TYPES = ImmutableList.of(BIGINT);
 
     static {
-        Verify.verify(NUM_TYPES == TYPES.size());
+        verify(NUM_TYPES == TYPES.size());
     }
 
     @Benchmark
