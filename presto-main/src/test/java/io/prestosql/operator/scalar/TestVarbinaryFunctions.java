@@ -441,6 +441,15 @@ public class TestVarbinaryFunctions
         assertOperator(INDETERMINATE, "X'58'", BOOLEAN, false);
     }
 
+    @Test
+    public void testReverse()
+    {
+        assertFunction("REVERSE(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinary(""));
+        assertFunction("REVERSE(CAST('hello' AS VARBINARY))", VARBINARY, sqlVarbinary("olleh"));
+        assertFunction("REVERSE(CAST('Quadratically' AS VARBINARY))", VARBINARY, sqlVarbinary("yllacitardauQ"));
+        assertFunction("REVERSE(CAST('racecar' AS VARBINARY))", VARBINARY, sqlVarbinary("racecar"));
+    }
+
     private static String encodeBase64(byte[] value)
     {
         return Base64.getEncoder().encodeToString(value);
