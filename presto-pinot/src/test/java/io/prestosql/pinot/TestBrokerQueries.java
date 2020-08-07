@@ -122,4 +122,16 @@ public class TestBrokerQueries
         value = block.getSlice(0, 0, block.getSliceLength(0)).toStringUtf8();
         assertEquals(value, getOnlyElement(RESPONSE.getResultTable().getRows())[2]);
     }
+
+    @Test
+    public void testCountStarBrokerQuery()
+    {
+        PinotBrokerPageSource pageSource = new PinotBrokerPageSource(createSessionWithNumSplits(1, false, pinotConfig),
+                new PinotQuery("test_table", "SELECT COUNT(*) FROM test_table", 0),
+                ImmutableList.of(),
+                testingPinotClient);
+        Page page = pageSource.getNextPage();
+        assertEquals(page.getPositionCount(), RESPONSE.getResultTable().getRows().size());
+        assertEquals(page.getChannelCount(), 0);
+    }
 }

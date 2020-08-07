@@ -144,6 +144,14 @@ public class TestMinimalFunctionality
         assertQueryFails("SELECT * FROM " + TOPIC_AND_TABLE, "Segment query returned.*");
     }
 
+    @Test
+    public void testCountStarQueries()
+    {
+        assertQuery("SELECT COUNT(*) FROM \"SELECT * FROM " + TOPIC_AND_TABLE + " WHERE vendor != 'vendor7'\"", "VALUES(6)");
+        assertQuery("SELECT COUNT(*) FROM " + TOPIC_AND_TABLE + " WHERE vendor != 'vendor7'", "VALUES(6)");
+        assertQuery("SELECT \"count(*)\" FROM \"SELECT COUNT(*) FROM " + TOPIC_AND_TABLE + " WHERE vendor != 'vendor7'\"", "VALUES(6)");
+    }
+
     private static Object createTestRecord(
             String vendor,
             String city,
