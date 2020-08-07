@@ -20,20 +20,18 @@ import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
-import static java.util.Objects.requireNonNull;
 
 /**
  * Class contains all table properties for the Clickhouse connector. Used when creating a table:
  * <p>
- * <pre>CREATE TABLE foo (a VARCHAR , b INT) WITH (ENGINE='Log');</pre>
+ * <pre>CREATE TABLE foo (a VARCHAR , b INT) WITH (engine='Log');</pre>
  * </p>
  */
 public final class ClickHouseTableProperties
 {
-    public static final String ENGINE = "engine";
+    public static final String ENGINE_PROPERTY = "engine";
     public static final String DEFAULT_TABLE_ENGINE = "Log";
 
     private final List<PropertyMetadata<?>> tableProperties;
@@ -43,7 +41,7 @@ public final class ClickHouseTableProperties
     {
         tableProperties = ImmutableList.of(
                 stringProperty(
-                        ENGINE,
+                        ENGINE_PROPERTY,
                         "ClickHouse Table Engine, defaults to Log",
                         DEFAULT_TABLE_ENGINE,
                         false));
@@ -54,11 +52,8 @@ public final class ClickHouseTableProperties
         return tableProperties;
     }
 
-    public static Optional<String> getEngine(Map<String, Object> tableProperties)
+    public static String getEngine(Map<String, Object> tableProperties)
     {
-        requireNonNull(tableProperties);
-
-        String value = (String) tableProperties.get(DEFAULT_TABLE_ENGINE);
-        return Optional.ofNullable(value);
+        return (String) tableProperties.get(DEFAULT_TABLE_ENGINE);
     }
 }

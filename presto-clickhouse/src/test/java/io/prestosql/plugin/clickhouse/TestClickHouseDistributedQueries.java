@@ -71,25 +71,720 @@ public class TestClickHouseDistributedQueries
         return new TestTable(
                 new JdbcSqlExecutor(clickhouseServer.getJdbcUrl()),
                 "tpch.table",
-                "(col_required BIGINT NOT NULL," +
+                "(col_required BIGINT," +
                         "col_nullable BIGINT," +
-                        "col_default BIGINT DEFAULT 43," +
-                        "col_nonnull_default BIGINT NOT NULL DEFAULT 42," +
-                        "col_required2 BIGINT NOT NULL)");
+                        "col_default BIGINT," +
+                        "col_nonnull_default BIGINT ," +
+                        "col_required2 BIGINT) ENGINE='Log'");
+    }
+
+    @Override
+    public void testCreateTable()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testCreateTableAsSelect()
+    {
+        // currently does not support
     }
 
     @Override
     public void testCommentTable()
     {
-        // PostgreSQL connector currently does not support comment on table
-        assertQueryFails("COMMENT ON TABLE orders IS 'hello'", "This connector does not support setting table comments");
+        //  currently does not support comment on table
+    }
+
+    @Override
+    public void ensureDistributedQueryRunner()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testSetSession()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testResetSession()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testRenameTable()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testCommentColumn()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testRenameColumn()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testDropColumn()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testAddColumn()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testInsert()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testInsertWithCoercion()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testInsertUnicode()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testInsertArray()
+    {
+        // currently does not support
     }
 
     @Override
     public void testDelete()
     {
-        // delete is not supported
+        // currently does not support
     }
 
-    // PostgreSQL specific tests should normally go in TestClickHouseIntegrationSmokeTest
+    @Override
+    public void testDropTableIfExists()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testView()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testViewCaseSensitivity()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testCompatibleTypeChangeForView()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testCompatibleTypeChangeForView2()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testViewMetadata()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testShowCreateView()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testQueryLoggingCount()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testShowSchemasFromOther()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testSymbolAliasing()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testNonQueryAccessControl()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testViewColumnAccessControl()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testViewFunctionAccessControl()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testWrittenStats()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testCreateSchema()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testInsertForDefaultColumn()
+    {
+        // currently does not support
+    }
+
+    @Override
+    @Test(dataProvider = "testColumnNameDataProvider")
+    public void testColumnName(String columnName)
+    {
+        // currently does not support
+    }
+
+    @Override
+    @Test(dataProvider = "testDataMappingSmokeTestDataProvider")
+    public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testAggregationOverUnknown()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testLimitIntMax()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testNonDeterministic()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testComplexQuery()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testDistinctMultipleFields()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testArithmeticNegation()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testDistinct()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testDistinctHaving()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testDistinctLimit()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testDistinctWithOrderBy()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testRepeatedAggregations()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testRepeatedOutputs()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testRepeatedOutputs2()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testLimit()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testLimitWithAggregation()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testLimitInInlineView()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testCountAll()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testCountColumn()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testSelectAllFromTable()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testSelectAllFromOuterScopeTable()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testSelectAllFromRow()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testAverageAll()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testRollupOverUnion()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testIntersect()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testIntersectWithAggregation()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testExcept()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testExceptWithAggregation()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testSelectWithComparison()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testInlineView()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testAliasedInInlineView()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testInlineViewWithProjections()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testMaxBy()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testMaxByN()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testMinBy()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testMinByN()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testHaving()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testHaving2()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testHaving3()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testHavingWithoutGroupBy()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testColumnAliases()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testCast()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testQuotedIdentifiers()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testIn()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testLargeIn()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testShowSchemas()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testShowSchemasFrom()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testShowSchemasLike()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testShowSchemasLikeWithEscape()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testShowTables()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testShowTablesFrom()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testShowTablesLike()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testShowColumns()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testInformationSchemaFiltering()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testInformationSchemaUppercaseName()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testSelectColumnOfNulls()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testSelectCaseInsensitive()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testTopN()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testTopNByMultipleFields()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testLimitPushDown()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testScalarSubquery()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testExistsSubquery()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testScalarSubqueryWithGroupBy()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testExistsSubqueryWithGroupBy()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testCorrelatedScalarSubqueries()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testCorrelatedNonAggregationScalarSubqueries()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testCorrelatedScalarSubqueriesWithScalarAggregationAndEqualityPredicatesInWhere()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testCorrelatedScalarSubqueriesWithScalarAggregation()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testCorrelatedInPredicateSubqueries()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testCorrelatedExistsSubqueriesWithPrunedCorrelationSymbols()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testCorrelatedExistsSubqueriesWithEqualityPredicatesInWhere()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testCorrelatedExistsSubqueries()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testTwoCorrelatedExistsSubqueries()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testPredicatePushdown()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testGroupByKeyPredicatePushdown()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testNonDeterministicTableScanPredicatePushdown()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testNonDeterministicAggregationPredicatePushdown()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testUnionAllPredicateMoveAroundWithOverlappingProjections()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testTableSampleBernoulliBoundaryValues()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testTableSampleBernoulli()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testFilterPushdownWithAggregation()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testAccessControl()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testCorrelatedJoin()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testPruningCountAggregationOverScalar()
+    {
+        // currently does not support
+    }
+
+    @Override
+    public void testSubqueriesWithDisjunction()
+    {
+        // currently does not support
+    }
 }

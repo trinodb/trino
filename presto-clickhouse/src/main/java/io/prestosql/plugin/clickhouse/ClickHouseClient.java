@@ -330,6 +330,9 @@ public class ClickHouseClient
     @Override
     public void createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
+        log.info("entering createTable.........");
+        Map<String, Object> props = tableMetadata.getProperties();
+        log.info("props: {}", props.toString());
         try {
             createTable(session, tableMetadata, tableMetadata.getTable().getTableName());
         }

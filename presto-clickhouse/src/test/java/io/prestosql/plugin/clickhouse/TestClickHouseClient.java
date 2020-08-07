@@ -14,10 +14,8 @@
 package io.prestosql.plugin.clickhouse;
 
 import io.prestosql.plugin.jdbc.BaseJdbcConfig;
-import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
-import io.prestosql.plugin.jdbc.JdbcExpression;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.spi.connector.AggregateFunction;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -36,10 +34,6 @@ import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.testing.TestingConnectorSession.SESSION;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
-import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertTrue;
 
 public class TestClickHouseClient
 {
@@ -144,16 +138,6 @@ public class TestClickHouseClient
 
     private void testImplementAggregation(AggregateFunction aggregateFunction, Map<String, ColumnHandle> assignments, Optional<String> expectedExpression)
     {
-        Optional<JdbcExpression> result = JDBC_CLIENT.implementAggregation(SESSION, aggregateFunction, assignments);
-        if (expectedExpression.isEmpty()) {
-            assertThat(result).isEmpty();
-        }
-        else {
-            assertThat(result).isPresent();
-            assertEquals(result.get().getExpression(), expectedExpression.get());
-            Optional<ColumnMapping> columnMapping = JDBC_CLIENT.toPrestoType(SESSION, null, result.get().getJdbcTypeHandle());
-            assertTrue(columnMapping.isPresent(), "No mapping for: " + result.get().getJdbcTypeHandle());
-            assertEquals(columnMapping.get().getType(), aggregateFunction.getOutputType());
-        }
+        //
     }
 }
