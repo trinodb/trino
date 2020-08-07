@@ -17,16 +17,16 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.execution.StageId;
+import io.prestosql.execution.StageState;
 import io.prestosql.execution.TaskId;
-import io.prestosql.execution.TaskManagerConfig;
-import io.prestosql.server.DynamicFilterService.SourceDescriptor;
 import io.prestosql.server.DynamicFilterService.StageDynamicFilters;
 import io.prestosql.spi.QueryId;
-import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.TestingColumnHandle;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.DynamicFilters;
+import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.tree.Expression;
@@ -36,10 +36,12 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.execution.StageState.RUNNING;
+import static io.prestosql.execution.StageState.SCHEDULING;
 import static io.prestosql.spi.predicate.Domain.multipleValues;
 import static io.prestosql.spi.predicate.Domain.none;
 import static io.prestosql.spi.predicate.Domain.singleValue;
@@ -54,16 +56,15 @@ public class TestDynamicFilterService
     @Test
     public void testDynamicFilterSummaryCompletion()
     {
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(new TaskManagerConfig());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(new FeaturesConfig());
         DynamicFilterId filterId = new DynamicFilterId("df");
         QueryId queryId = new QueryId("query");
         StageId stageId = new StageId(queryId, 0);
         List<TaskId> taskIds = ImmutableList.of(new TaskId(stageId, 0), new TaskId(stageId, 1), new TaskId(stageId, 2));
 
-        assertFalse(dynamicFilterService.getSummary(queryId, filterId).isPresent());
-        TestDynamicFiltersStageSupplier dynamicFiltersStageSupplier = new TestDynamicFiltersStageSupplier();
+        TestDynamicFiltersStageSupplier dynamicFiltersStageSupplier = new TestDynamicFiltersStageSupplier(RUNNING);
         dynamicFiltersStageSupplier.addTasks(taskIds);
-        dynamicFilterService.registerQuery(queryId, dynamicFiltersStageSupplier, ImmutableSet.of(SourceDescriptor.of(queryId, filterId)));
+        dynamicFilterService.registerQuery(queryId, dynamicFiltersStageSupplier, ImmutableSet.of(filterId), ImmutableSet.of(), ImmutableSet.of());
         assertFalse(dynamicFilterService.getSummary(queryId, filterId).isPresent());
 
         dynamicFiltersStageSupplier.storeSummary(
@@ -98,9 +99,9 @@ public class TestDynamicFilterService
     }
 
     @Test
-    public void testDynamicFilterSupplier()
+    public void testDynamicFilter()
     {
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(new TaskManagerConfig());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(new FeaturesConfig());
         DynamicFilterId filterId1 = new DynamicFilterId("df1");
         DynamicFilterId filterId2 = new DynamicFilterId("df2");
         DynamicFilterId filterId3 = new DynamicFilterId("df3");
@@ -112,7 +113,20 @@ public class TestDynamicFilterService
         StageId stageId2 = new StageId(queryId, 2);
         StageId stageId3 = new StageId(queryId, 3);
 
-        Supplier<TupleDomain<ColumnHandle>> dynamicFilterSupplier = dynamicFilterService.createDynamicFilterSupplier(
+        TestDynamicFiltersStageSupplier dynamicFiltersStageSupplier = new TestDynamicFiltersStageSupplier(RUNNING);
+
+        dynamicFiltersStageSupplier.addTasks(ImmutableList.of(new TaskId(stageId1, 0), new TaskId(stageId1, 1)));
+        dynamicFiltersStageSupplier.addTasks(ImmutableList.of(new TaskId(stageId2, 0), new TaskId(stageId2, 1)));
+        dynamicFiltersStageSupplier.addTasks(ImmutableList.of(new TaskId(stageId3, 0), new TaskId(stageId3, 1)));
+
+        dynamicFilterService.registerQuery(
+                queryId,
+                dynamicFiltersStageSupplier,
+                ImmutableSet.of(filterId1, filterId2, filterId3),
+                ImmutableSet.of(filterId1, filterId2, filterId3),
+                ImmutableSet.of());
+
+        DynamicFilter dynamicFilter = dynamicFilterService.createDynamicFilter(
                 queryId,
                 ImmutableList.of(
                         new DynamicFilters.Descriptor(filterId1, df1),
@@ -123,28 +137,23 @@ public class TestDynamicFilterService
                         Symbol.from(df2), new TestingColumnHandle("probeColumnA"),
                         Symbol.from(df3), new TestingColumnHandle("probeColumnB")));
 
-        assertTrue(dynamicFilterSupplier.get().isAll());
-        TestDynamicFiltersStageSupplier dynamicFiltersStageSupplier = new TestDynamicFiltersStageSupplier();
+        assertTrue(dynamicFilter.getCurrentPredicate().isAll());
+        assertFalse(dynamicFilter.isComplete());
 
-        dynamicFiltersStageSupplier.addTasks(ImmutableList.of(new TaskId(stageId1, 0), new TaskId(stageId1, 1)));
-        dynamicFiltersStageSupplier.addTasks(ImmutableList.of(new TaskId(stageId2, 0), new TaskId(stageId2, 1)));
-        dynamicFiltersStageSupplier.addTasks(ImmutableList.of(new TaskId(stageId3, 0), new TaskId(stageId3, 1)));
-
-        dynamicFilterService.registerQuery(
-                queryId,
-                dynamicFiltersStageSupplier,
-                ImmutableSet.of(
-                        SourceDescriptor.of(queryId, filterId1),
-                        SourceDescriptor.of(queryId, filterId2),
-                        SourceDescriptor.of(queryId, filterId3)));
-        assertTrue(dynamicFilterSupplier.get().isAll());
+        // dynamic filter should be blocked waiting for tuple domain to be provided
+        CompletableFuture<?> blockedFuture = dynamicFilter.isBlocked();
+        assertFalse(blockedFuture.isDone());
 
         dynamicFiltersStageSupplier.storeSummary(
                 filterId1,
                 new TaskId(stageId1, 0),
                 singleValue(INTEGER, 1L));
         dynamicFilterService.collectDynamicFilters();
-        assertTrue(dynamicFilterSupplier.get().isAll());
+
+        // tuple domain from two tasks are needed for dynamic filter to be narrowed down
+        assertTrue(dynamicFilter.getCurrentPredicate().isAll());
+        assertFalse(dynamicFilter.isComplete());
+        assertFalse(blockedFuture.isDone());
         assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 1);
 
         dynamicFiltersStageSupplier.storeSummary(
@@ -152,19 +161,31 @@ public class TestDynamicFilterService
                 new TaskId(stageId1, 1),
                 singleValue(INTEGER, 2L));
         dynamicFilterService.collectDynamicFilters();
-        assertEquals(dynamicFilterSupplier.get(), TupleDomain.withColumnDomains(ImmutableMap.of(
+
+        // dynamic filter (id1) has been collected as tuple domains from two tasks have been provided
+        assertEquals(dynamicFilter.getCurrentPredicate(), TupleDomain.withColumnDomains(ImmutableMap.of(
                 new TestingColumnHandle("probeColumnA"),
                 multipleValues(INTEGER, ImmutableList.of(1L, 2L)))));
+        assertTrue(blockedFuture.isDone());
         assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 2);
+
+        // there are still more dynamic filters to be collected
+        assertFalse(dynamicFilter.isComplete());
+        blockedFuture = dynamicFilter.isBlocked();
+        assertFalse(blockedFuture.isDone());
 
         dynamicFiltersStageSupplier.storeSummary(
                 filterId2,
                 new TaskId(stageId2, 0),
                 singleValue(INTEGER, 2L));
         dynamicFilterService.collectDynamicFilters();
-        assertEquals(dynamicFilterSupplier.get(), TupleDomain.withColumnDomains(ImmutableMap.of(
+
+        // tuple domain from two tasks (stage 2) are needed for dynamic filter to be narrowed down
+        assertEquals(dynamicFilter.getCurrentPredicate(), TupleDomain.withColumnDomains(ImmutableMap.of(
                 new TestingColumnHandle("probeColumnA"),
                 multipleValues(INTEGER, ImmutableList.of(1L, 2L)))));
+        assertFalse(dynamicFilter.isComplete());
+        assertFalse(blockedFuture.isDone());
         assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 3);
 
         dynamicFiltersStageSupplier.storeSummary(
@@ -172,19 +193,47 @@ public class TestDynamicFilterService
                 new TaskId(stageId2, 1),
                 singleValue(INTEGER, 3L));
         dynamicFilterService.collectDynamicFilters();
-        assertEquals(dynamicFilterSupplier.get(), TupleDomain.withColumnDomains(ImmutableMap.of(
+
+        // dynamic filter (id2) has been collected as tuple domains from two tasks have been provided
+        assertEquals(dynamicFilter.getCurrentPredicate(), TupleDomain.withColumnDomains(ImmutableMap.of(
                 new TestingColumnHandle("probeColumnA"),
                 singleValue(INTEGER, 2L))));
+        assertTrue(blockedFuture.isDone());
         assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 4);
+
+        // there are still more dynamic filters to be collected for columns A and B
+        assertFalse(dynamicFilter.isComplete());
+        blockedFuture = dynamicFilter.isBlocked();
+        assertFalse(blockedFuture.isDone());
+
+        // make sure dynamic filter on just column A is now completed
+        DynamicFilter dynamicFilterColumnA = dynamicFilterService.createDynamicFilter(
+                queryId,
+                ImmutableList.of(
+                        new DynamicFilters.Descriptor(filterId1, df1),
+                        new DynamicFilters.Descriptor(filterId2, df2)),
+                ImmutableMap.of(
+                        Symbol.from(df1), new TestingColumnHandle("probeColumnA"),
+                        Symbol.from(df2), new TestingColumnHandle("probeColumnA")));
+
+        assertTrue(dynamicFilterColumnA.isComplete());
+        assertTrue(dynamicFilterColumnA.isBlocked().isDone());
+        assertEquals(dynamicFilterColumnA.getCurrentPredicate(), TupleDomain.withColumnDomains(ImmutableMap.of(
+                new TestingColumnHandle("probeColumnA"),
+                singleValue(INTEGER, 2L))));
 
         dynamicFiltersStageSupplier.storeSummary(
                 filterId3,
                 new TaskId(stageId3, 0),
                 none(INTEGER));
         dynamicFilterService.collectDynamicFilters();
-        assertEquals(dynamicFilterSupplier.get(), TupleDomain.withColumnDomains(ImmutableMap.of(
+
+        // tuple domain from two tasks (stage 3) are needed for dynamic filter to be narrowed down
+        assertEquals(dynamicFilter.getCurrentPredicate(), TupleDomain.withColumnDomains(ImmutableMap.of(
                 new TestingColumnHandle("probeColumnA"),
                 singleValue(INTEGER, 2L))));
+        assertFalse(dynamicFilter.isComplete());
+        assertFalse(blockedFuture.isDone());
         assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 5);
 
         dynamicFiltersStageSupplier.storeSummary(
@@ -192,20 +241,79 @@ public class TestDynamicFilterService
                 new TaskId(stageId3, 1),
                 none(INTEGER));
         dynamicFilterService.collectDynamicFilters();
-        assertEquals(dynamicFilterSupplier.get(), TupleDomain.none());
+
+        // "none" dynamic filter (id3) has been collected for column B as tuple domains from two tasks have been provided
+        assertEquals(dynamicFilter.getCurrentPredicate(), TupleDomain.none());
         assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 6);
+        assertTrue(blockedFuture.isDone());
 
         // all dynamic filters have been collected, no need for more requests
         dynamicFilterService.collectDynamicFilters();
+        assertTrue(dynamicFilter.isComplete());
+        assertTrue(dynamicFilter.isBlocked().isDone());
         assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 6);
+    }
+
+    @Test
+    public void testReplicatedDynamicFilter()
+    {
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(new FeaturesConfig());
+        DynamicFilterId filterId1 = new DynamicFilterId("df1");
+        Expression df1 = expression("DF_SYMBOL1");
+        QueryId queryId = new QueryId("query");
+        StageId stageId1 = new StageId(queryId, 1);
+
+        TestDynamicFiltersStageSupplier dynamicFiltersStageSupplier = new TestDynamicFiltersStageSupplier(SCHEDULING);
+        dynamicFiltersStageSupplier.addTasks(ImmutableList.of(new TaskId(stageId1, 0), new TaskId(stageId1, 1)));
+
+        dynamicFilterService.registerQuery(
+                queryId,
+                dynamicFiltersStageSupplier,
+                ImmutableSet.of(filterId1),
+                ImmutableSet.of(),
+                ImmutableSet.of(filterId1));
+
+        DynamicFilter dynamicFilter = dynamicFilterService.createDynamicFilter(
+                queryId,
+                ImmutableList.of(new DynamicFilters.Descriptor(filterId1, df1)),
+                ImmutableMap.of(
+                        Symbol.from(df1), new TestingColumnHandle("probeColumnA")));
+        assertTrue(dynamicFilter.getCurrentPredicate().isAll());
+        assertFalse(dynamicFilter.isComplete());
+
+        // replicated dynamic filters cannot be lazy due to replicated join task scheduling dependencies
+        assertTrue(dynamicFilter.isBlocked().isDone());
+
+        dynamicFiltersStageSupplier.storeSummary(
+                filterId1,
+                new TaskId(stageId1, 0),
+                singleValue(INTEGER, 1L));
+        dynamicFilterService.collectDynamicFilters();
+
+        // tuple domain from single broadcast join task is sufficient
+        assertEquals(dynamicFilter.getCurrentPredicate(), TupleDomain.withColumnDomains(ImmutableMap.of(
+                new TestingColumnHandle("probeColumnA"),
+                singleValue(INTEGER, 1L))));
+        assertTrue(dynamicFilter.isComplete());
+        assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 1);
+
+        // all dynamic filters have been collected, no need for more requests
+        dynamicFilterService.collectDynamicFilters();
+        assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 1);
     }
 
     private static class TestDynamicFiltersStageSupplier
             implements Supplier<List<StageDynamicFilters>>
     {
         private final Map<StageId, Map<TaskId, Map<DynamicFilterId, Domain>>> stageDynamicFilters = new HashMap<>();
+        private final StageState stageState;
 
         private int requestCount;
+
+        TestDynamicFiltersStageSupplier(StageState stageState)
+        {
+            this.stageState = stageState;
+        }
 
         void addTasks(List<TaskId> taskIds)
         {
@@ -232,7 +340,7 @@ public class TestDynamicFilterService
             requestCount++;
             return ImmutableList.copyOf(stageDynamicFilters.values().stream()
                     .map(stage -> new StageDynamicFilters(
-                            RUNNING,
+                            stageState,
                             stage.size(),
                             stage.values().stream()
                                     .collect(toImmutableList())))

@@ -14,6 +14,7 @@ suite_exit_code=0
 
 presto-product-tests-launcher/bin/run-launcher test run \
    --environment singlenode-hdp3 \
+   --reports-dir="${BASH_SOURCE%/*}"/../../product-tests-reports/suite-8-non-generic/singlenode-hdp3 \
     -- -g hdp3_only,hive_transactional \
     || suite_exit_code=1
 

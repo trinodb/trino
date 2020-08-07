@@ -2,8 +2,6 @@
 Comparison Functions and Operators
 ==================================
 
-.. contents:: :local:
-
 .. _comparison_operators:
 
 Comparison Operators

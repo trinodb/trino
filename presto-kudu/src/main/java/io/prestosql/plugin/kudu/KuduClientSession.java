@@ -122,7 +122,7 @@ public class KuduClientSession
 
     private List<SchemaTableName> listTablesSingleSchema(String schemaName)
     {
-        final String prefix = schemaEmulation.getPrefixForTablesOfSchema(schemaName);
+        String prefix = schemaEmulation.getPrefixForTablesOfSchema(schemaName);
 
         List<String> tables = internalListTables(prefix);
         if (schemaName.equals(DEFAULT_SCHEMA)) {
@@ -149,7 +149,7 @@ public class KuduClientSession
     public List<KuduSplit> buildKuduSplits(KuduTableHandle tableHandle)
     {
         KuduTable table = tableHandle.getTable(this);
-        final int primaryKeyColumnCount = table.getSchema().getPrimaryKeyColumnCount();
+        int primaryKeyColumnCount = table.getSchema().getPrimaryKeyColumnCount();
         KuduScanToken.KuduScanTokenBuilder builder = client.newScanTokenBuilder(table);
 
         TupleDomain<ColumnHandle> constraint = tableHandle.getConstraint();
@@ -203,9 +203,11 @@ public class KuduClientSession
         builder.setProjectedColumnIndexes(columnIndexes);
 
         List<KuduScanToken> tokens = builder.build();
-        return tokens.stream()
-                .map(token -> toKuduSplit(tableHandle, token, primaryKeyColumnCount))
-                .collect(toImmutableList());
+        ImmutableList.Builder<KuduSplit> tokenBuilder = ImmutableList.builder();
+        for (int tokenId = 0; tokenId < tokens.size(); tokenId++) {
+            tokenBuilder.add(toKuduSplit(tableHandle, tokens.get(tokenId), primaryKeyColumnCount, tokenId));
+        }
+        return tokenBuilder.build();
     }
 
     public KuduScanner createScanner(KuduSplit kuduSplit)
@@ -595,12 +597,11 @@ public class KuduClientSession
                 + columnSchema.getName() + ": " + javaValue + "(" + javaValue.getClass() + ")");
     }
 
-    private KuduSplit toKuduSplit(KuduTableHandle tableHandle, KuduScanToken token,
-            int primaryKeyColumnCount)
+    private KuduSplit toKuduSplit(KuduTableHandle tableHandle, KuduScanToken token, int primaryKeyColumnCount, int bucketNumber)
     {
         try {
             byte[] serializedScanToken = token.serialize();
-            return new KuduSplit(tableHandle, primaryKeyColumnCount, serializedScanToken);
+            return new KuduSplit(tableHandle, primaryKeyColumnCount, serializedScanToken, bucketNumber);
         }
         catch (IOException e) {
             throw new PrestoException(GENERIC_INTERNAL_ERROR, e);

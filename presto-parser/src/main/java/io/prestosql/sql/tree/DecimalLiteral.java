@@ -68,4 +68,15 @@ public class DecimalLiteral
     {
         return Objects.hash(value);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        DecimalLiteral otherLiteral = (DecimalLiteral) other;
+        return value.equals(otherLiteral.value);
+    }
 }

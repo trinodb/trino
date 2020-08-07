@@ -195,7 +195,7 @@ public final class Range
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final Range other = (Range) obj;
+        Range other = (Range) obj;
         return Objects.equals(this.low, other.low) &&
                 Objects.equals(this.high, other.high);
     }

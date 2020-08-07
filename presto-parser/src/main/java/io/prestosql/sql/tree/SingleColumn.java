@@ -107,4 +107,14 @@ public class SingleColumn
     {
         return ImmutableList.of(expression);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return alias.equals(((SingleColumn) other).alias);
+    }
 }

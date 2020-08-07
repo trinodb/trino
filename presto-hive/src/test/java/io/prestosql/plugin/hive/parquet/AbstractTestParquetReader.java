@@ -1566,7 +1566,7 @@ public abstract class AbstractTestParquetReader
 
     private static <T> Iterable<T> skipEvery(int n, Iterable<T> iterable)
     {
-        return () -> new AbstractIterator<T>()
+        return () -> new AbstractIterator<>()
         {
             private final Iterator<T> delegate = iterable.iterator();
             private int position;
@@ -1629,7 +1629,7 @@ public abstract class AbstractTestParquetReader
 
     private static <T> Iterable<T> repeatEach(int n, Iterable<T> iterable)
     {
-        return () -> new AbstractIterator<T>()
+        return () -> new AbstractIterator<>()
         {
             private final Iterator<T> delegate = iterable.iterator();
             private int position;
@@ -1666,7 +1666,7 @@ public abstract class AbstractTestParquetReader
 
     private static Iterable<Double> doubleSequence(double start, double step, int items)
     {
-        return () -> new AbstractSequentialIterator<Double>(start)
+        return () -> new AbstractSequentialIterator<>(start)
         {
             private int item;
 

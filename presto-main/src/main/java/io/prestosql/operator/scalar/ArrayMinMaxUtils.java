@@ -13,7 +13,6 @@
  */
 package io.prestosql.operator.scalar;
 
-import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
@@ -111,20 +110,20 @@ public final class ArrayMinMaxUtils
     }
 
     @UsedByGeneratedCode
-    public static Slice sliceArrayMinMax(MethodHandle compareMethodHandle, Type elementType, Block block)
+    public static Object objectArrayMinMax(MethodHandle compareMethodHandle, Type elementType, Block block)
     {
         try {
             if (block.getPositionCount() == 0) {
                 return null;
             }
 
-            Slice selectedValue = elementType.getSlice(block, 0);
+            Object selectedValue = elementType.getObject(block, 0);
             for (int i = 0; i < block.getPositionCount(); i++) {
                 if (block.isNull(i)) {
                     return null;
                 }
-                Slice value = elementType.getSlice(block, i);
-                if ((boolean) compareMethodHandle.invokeExact(value, selectedValue)) {
+                Object value = elementType.getObject(block, i);
+                if ((boolean) compareMethodHandle.invoke(value, selectedValue)) {
                     selectedValue = value;
                 }
             }

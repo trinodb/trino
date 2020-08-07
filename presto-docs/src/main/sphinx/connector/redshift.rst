@@ -62,8 +62,8 @@ Finally, you can access the ``clicks`` table in the ``web`` schema::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``redshift`` in the above examples.
 
-Redshift Connector Limitations
-------------------------------
+Limitations
+-----------
 
 The following SQL statements are not yet supported:
 

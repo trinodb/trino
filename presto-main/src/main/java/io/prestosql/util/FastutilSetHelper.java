@@ -14,6 +14,7 @@
 package io.prestosql.util;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.FunctionInvoker;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.Type;
@@ -31,35 +32,53 @@ import java.util.Collection;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static com.google.common.base.Verify.verifyNotNull;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static java.lang.Boolean.TRUE;
+import static java.util.Objects.requireNonNull;
 
 public final class FastutilSetHelper
 {
     private FastutilSetHelper() {}
 
-    @SuppressWarnings("unchecked")
     public static Set<?> toFastutilHashSet(Set<?> set, Type type, Metadata metadata)
     {
+        return toFastutilHashSet(
+                set,
+                type,
+                metadata.getScalarFunctionInvoker(metadata.resolveOperator(HASH_CODE, ImmutableList.of(type)), Optional.empty()),
+                metadata.getScalarFunctionInvoker(metadata.resolveOperator(EQUAL, ImmutableList.of(type, type)), Optional.empty()));
+    }
+
+    @SuppressWarnings("unchecked")
+    public static Set<?> toFastutilHashSet(Set<?> set, Type type, FunctionInvoker hashCode, FunctionInvoker equals)
+    {
+        requireNonNull(set, "set is null");
+        requireNonNull(type, "type is null");
+        requireNonNull(hashCode, "hashCode is null");
+        checkArgument(hashCode.getInstanceFactory().isEmpty(), "hashCode method has instance factory");
+        requireNonNull(equals, "equals is null");
+        checkArgument(equals.getInstanceFactory().isEmpty(), "equals method has instance factory");
+
         // 0.25 as the load factor is chosen because the argument set is assumed to be small (<10000),
         // and the return set is assumed to be read-heavy.
         // The performance of InCodeGenerator heavily depends on the load factor being small.
         Class<?> javaElementType = type.getJavaType();
         if (javaElementType == long.class) {
-            return new LongOpenCustomHashSet((Collection<Long>) set, 0.25f, new LongStrategy(metadata, type));
+            return new LongOpenCustomHashSet((Collection<Long>) set, 0.25f, new LongStrategy(hashCode, equals));
         }
         if (javaElementType == double.class) {
-            return new DoubleOpenCustomHashSet((Collection<Double>) set, 0.25f, new DoubleStrategy(metadata, type));
+            return new DoubleOpenCustomHashSet((Collection<Double>) set, 0.25f, new DoubleStrategy(hashCode, equals));
         }
         if (javaElementType == boolean.class) {
             return new BooleanOpenHashSet((Collection<Boolean>) set, 0.25f);
         }
         else if (!type.getJavaType().isPrimitive()) {
-            return new ObjectOpenCustomHashSet<>(set, 0.25f, new ObjectStrategy(metadata, type));
+            return new ObjectOpenCustomHashSet<>(set, 0.25f, new ObjectStrategy(hashCode, equals));
         }
         else {
             throw new UnsupportedOperationException("Unsupported native type in set: " + type.getJavaType() + " with type " + type.getTypeSignature());
@@ -92,10 +111,10 @@ public final class FastutilSetHelper
         private final MethodHandle hashCodeHandle;
         private final MethodHandle equalsHandle;
 
-        private LongStrategy(Metadata metadata, Type type)
+        private LongStrategy(FunctionInvoker hashCode, FunctionInvoker equals)
         {
-            hashCodeHandle = metadata.getScalarFunctionInvoker(metadata.resolveOperator(HASH_CODE, ImmutableList.of(type)), Optional.empty()).getMethodHandle();
-            equalsHandle = metadata.getScalarFunctionInvoker(metadata.resolveOperator(EQUAL, ImmutableList.of(type, type)), Optional.empty()).getMethodHandle();
+            hashCodeHandle = hashCode.getMethodHandle();
+            equalsHandle = equals.getMethodHandle();
         }
 
         @Override
@@ -134,10 +153,10 @@ public final class FastutilSetHelper
         private final MethodHandle hashCodeHandle;
         private final MethodHandle equalsHandle;
 
-        private DoubleStrategy(Metadata metadata, Type type)
+        private DoubleStrategy(FunctionInvoker hashCode, FunctionInvoker equals)
         {
-            hashCodeHandle = metadata.getScalarFunctionInvoker(metadata.resolveOperator(HASH_CODE, ImmutableList.of(type)), Optional.empty()).getMethodHandle();
-            equalsHandle = metadata.getScalarFunctionInvoker(metadata.resolveOperator(EQUAL, ImmutableList.of(type, type)), Optional.empty()).getMethodHandle();
+            hashCodeHandle = hashCode.getMethodHandle();
+            equalsHandle = equals.getMethodHandle();
         }
 
         @Override
@@ -176,14 +195,10 @@ public final class FastutilSetHelper
         private final MethodHandle hashCodeHandle;
         private final MethodHandle equalsHandle;
 
-        private ObjectStrategy(Metadata metadata, Type type)
+        private ObjectStrategy(FunctionInvoker hashCode, FunctionInvoker equals)
         {
-            hashCodeHandle = metadata.getScalarFunctionInvoker(metadata.resolveOperator(HASH_CODE, ImmutableList.of(type)), Optional.empty())
-                    .getMethodHandle()
-                    .asType(MethodType.methodType(long.class, Object.class));
-            equalsHandle = metadata.getScalarFunctionInvoker(metadata.resolveOperator(EQUAL, ImmutableList.of(type, type)), Optional.empty())
-                    .getMethodHandle()
-                    .asType(MethodType.methodType(Boolean.class, Object.class, Object.class));
+            hashCodeHandle = hashCode.getMethodHandle().asType(MethodType.methodType(long.class, Object.class));
+            equalsHandle = equals.getMethodHandle().asType(MethodType.methodType(Boolean.class, Object.class, Object.class));
         }
 
         @Override

@@ -34,8 +34,11 @@ import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.orc.metadata.Stream;
 import io.prestosql.orc.metadata.StripeFooter;
 import io.prestosql.orc.metadata.StripeInformation;
+import io.prestosql.orc.metadata.statistics.BloomFilterBuilder;
 import io.prestosql.orc.metadata.statistics.ColumnStatistics;
+import io.prestosql.orc.metadata.statistics.NoOpBloomFilterBuilder;
 import io.prestosql.orc.metadata.statistics.StripeStatistics;
+import io.prestosql.orc.metadata.statistics.Utf8BloomFilterBuilder;
 import io.prestosql.orc.stream.OrcDataOutput;
 import io.prestosql.orc.stream.StreamDataOutput;
 import io.prestosql.orc.writer.ColumnWriter;
@@ -59,6 +62,7 @@ import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -180,7 +184,15 @@ public final class OrcWriter
         for (int fieldId = 0; fieldId < types.size(); fieldId++) {
             OrcColumnId fieldColumnIndex = rootType.getFieldTypeIndex(fieldId);
             Type fieldType = types.get(fieldId);
-            ColumnWriter columnWriter = createColumnWriter(fieldColumnIndex, orcTypes, fieldType, compression, maxCompressionBufferSize, hiveStorageTimeZone, options.getMaxStringStatisticsLimit());
+            ColumnWriter columnWriter = createColumnWriter(
+                    fieldColumnIndex,
+                    orcTypes,
+                    fieldType,
+                    compression,
+                    maxCompressionBufferSize,
+                    hiveStorageTimeZone,
+                    options.getMaxStringStatisticsLimit(),
+                    getBloomFilterBuilder(options, columnNames.get(fieldId)));
             columnWriters.add(columnWriter);
 
             if (columnWriter instanceof SliceDictionaryColumnWriter) {
@@ -391,6 +403,11 @@ public final class OrcWriter
                 allStreams.add(indexStream.getStream());
                 indexLength += indexStream.size();
             }
+            for (StreamDataOutput bloomFilter : columnWriter.getBloomFilters(metadataWriter)) {
+                outputData.add(bloomFilter);
+                allStreams.add(bloomFilter.getStream());
+                indexLength += bloomFilter.size();
+            }
         }
 
         // data streams (sorted by size)
@@ -532,6 +549,14 @@ public final class OrcWriter
     {
         checkState(closed, "File statistics are not available until the writing has finished");
         return fileStats;
+    }
+
+    private static Supplier<BloomFilterBuilder> getBloomFilterBuilder(OrcWriterOptions options, String columnName)
+    {
+        if (options.isBloomFilterColumn(columnName)) {
+            return () -> new Utf8BloomFilterBuilder(options.getRowGroupMaxRowCount(), options.getBloomFilterFpp());
+        }
+        return NoOpBloomFilterBuilder::new;
     }
 
     private static <T> ColumnMetadata<T> toColumnMetadata(Map<OrcColumnId, T> data, int expectedSize)

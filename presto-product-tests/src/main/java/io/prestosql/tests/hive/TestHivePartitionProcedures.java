@@ -22,6 +22,7 @@ import io.prestosql.tempto.internal.hadoop.hdfs.HdfsDataSourceWriter;
 import io.prestosql.tempto.query.QueryResult;
 import org.testng.annotations.Test;
 
+import java.net.URISyntaxException;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -30,13 +31,13 @@ import static io.prestosql.tempto.fulfillment.table.hive.InlineDataSource.create
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.HIVE_PARTITIONING;
 import static io.prestosql.tests.TestGroups.SMOKE;
+import static io.prestosql.tests.hive.util.TableLocationUtils.getTablePath;
 import static java.lang.String.format;
 import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestHivePartitionProcedures
         extends ProductTest
 {
-    private static final String HDFS_DIRECTORY_PATH = "/user/hive/warehouse/";
     private static final String OUTSIDE_TABLES_DIRECTORY_PATH = "/user/hive/dangling";
     private static final String FIRST_TABLE = "first_table";
     private static final String SECOND_TABLE = "second_table";
@@ -50,6 +51,7 @@ public class TestHivePartitionProcedures
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
     public void testUnregisterPartition()
+            throws URISyntaxException
     {
         createPartitionedTable(FIRST_TABLE);
 
@@ -62,7 +64,7 @@ public class TestHivePartitionProcedures
         assertThat(getPartitionValues(FIRST_TABLE)).containsOnly("b", "c");
 
         // should not drop data
-        assertThat(hdfsClient.exist(HDFS_DIRECTORY_PATH + FIRST_TABLE + "/col=a/")).isTrue();
+        assertThat(hdfsClient.exist(getTablePath(FIRST_TABLE, 1) + "/col=a/")).isTrue();
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
@@ -165,7 +167,25 @@ public class TestHivePartitionProcedures
     }
 
     @Test(groups = {HIVE_PARTITIONING, SMOKE})
+    public void testRegisterPartitionWithDefaultPartitionLocation()
+    {
+        createPartitionedTable(FIRST_TABLE);
+        dropPartition(FIRST_TABLE, "col", "a");
+        dropPartition(FIRST_TABLE, "col", "c");
+
+        assertThat(getTableCount(FIRST_TABLE)).isEqualTo(1L);
+        assertThat(getPartitionValues(FIRST_TABLE)).containsOnly("b");
+
+        // Re-register partition using it's default location
+        addPartition(FIRST_TABLE, "col", "c");
+
+        assertThat(getTableCount(FIRST_TABLE)).isEqualTo(2L);
+        assertThat(getPartitionValues(FIRST_TABLE)).containsOnly("b", "c");
+    }
+
+    @Test(groups = {HIVE_PARTITIONING, SMOKE})
     public void testRegisterPartition()
+            throws URISyntaxException
     {
         createPartitionedTable(FIRST_TABLE);
         createPartitionedTable(SECOND_TABLE);
@@ -176,7 +196,7 @@ public class TestHivePartitionProcedures
         assertThat(getPartitionValues(SECOND_TABLE)).containsOnly("a", "b", "c", "f");
 
         // Move partition f from SECOND_TABLE to FIRST_TABLE
-        addPartition(FIRST_TABLE, "col", "f", HDFS_DIRECTORY_PATH + SECOND_TABLE + "/col=f");
+        addPartition(FIRST_TABLE, "col", "f", getTablePath(SECOND_TABLE, 1) + "/col=f");
         dropPartition(SECOND_TABLE, "col", "f");
 
         assertThat(getPartitionValues(SECOND_TABLE)).containsOnly("a", "b", "c");
@@ -220,6 +240,16 @@ public class TestHivePartitionProcedures
                         "    partition_values => ARRAY['%s'],\n" +
                         "    location => '%s')",
                 "default", tableName, partitionCol, partition, location));
+    }
+
+    private QueryResult addPartition(String tableName, String partitionCol, String partition)
+    {
+        return query(format("CALL system.register_partition(\n" +
+                        "    schema_name => '%s',\n" +
+                        "    table_name => '%s',\n" +
+                        "    partition_columns => ARRAY['%s'],\n" +
+                        "    partition_values => ARRAY['%s'])",
+                "default", tableName, partitionCol, partition));
     }
 
     private void createDanglingLocationWithData(String path, String tableName)

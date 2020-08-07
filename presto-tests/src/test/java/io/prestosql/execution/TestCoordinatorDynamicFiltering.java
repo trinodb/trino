@@ -37,49 +37,57 @@ import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.EmptyPageSource;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.transaction.IsolationLevel;
 import io.prestosql.split.EmptySplit;
-import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.TestingHandleResolver;
 import io.prestosql.testing.TestingMetadata;
 import io.prestosql.testing.TestingPageSinkProvider;
 import io.prestosql.testing.TestingTransactionHandle;
-import org.intellij.lang.annotations.Language;
-import org.testng.annotations.AfterMethod;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
-import static io.prestosql.spi.predicate.Domain.singleValue;
-import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
-import static io.prestosql.testing.TestingMetadata.TestingColumnHandle;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
-import static java.util.Collections.nCopies;
+import static java.lang.Thread.sleep;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
+import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 
-@Test(singleThreaded = true)
 public class TestCoordinatorDynamicFiltering
-        extends AbstractTestQueryFramework
+        extends AbstractCoordinatorDynamicFilteringTest
 {
-    private static final TestingColumnHandle suppKeyHandle = new TestingColumnHandle("suppkey", 2, BIGINT);
-    private final AtomicReference<TupleDomain<ColumnHandle>> expectedDynamicFilter = new AtomicReference<>(TupleDomain.all());
+    private ExecutorService executorService;
+
+    @BeforeClass
+    public void setup()
+    {
+        executorService = newSingleThreadScheduledExecutor();
+        getQueryRunner().installPlugin(new TestPlugin());
+        getQueryRunner().installPlugin(new TpchPlugin());
+        getQueryRunner().createCatalog("test", "test", ImmutableMap.of());
+        getQueryRunner().createCatalog("tpch", "tpch", ImmutableMap.of());
+        computeActual("CREATE TABLE lineitem AS SELECT * FROM tpch.tiny.lineitem");
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void tearDown()
+    {
+        executorService.shutdownNow();
+    }
 
     @Override
     protected QueryRunner createQueryRunner()
@@ -91,83 +99,14 @@ public class TestCoordinatorDynamicFiltering
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.name())
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
                 .build();
-        return DistributedQueryRunner.builder(session).build();
+        return DistributedQueryRunner.builder(session)
+                .setExtraProperties(ImmutableMap.of("query.min-schedule-split-batch-size", "1"))
+                .build();
     }
 
-    @BeforeClass
-    public void setUp()
-    {
-        getQueryRunner().installPlugin(new TestPlugin(expectedDynamicFilter));
-        getQueryRunner().installPlugin(new TpchPlugin());
-        getQueryRunner().createCatalog("test", "test", ImmutableMap.of());
-        getQueryRunner().createCatalog("tpch", "tpch", ImmutableMap.of());
-        computeActual("CREATE TABLE lineitem AS SELECT * FROM tpch.tiny.lineitem");
-    }
-
-    @AfterMethod(alwaysRun = true)
-    public void afterMethod()
-    {
-        expectedDynamicFilter.set(TupleDomain.all());
-    }
-
-    @Test
-    public void testJoinWithEmptyBuildSide()
-    {
-        assertQueryDynamicFilters(
-                "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name = 'abc'",
-                TupleDomain.none());
-    }
-
-    @Test
-    public void testJoinWithSelectiveBuildSide()
-    {
-        assertQueryDynamicFilters(
-                "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name = 'Supplier#000000001'",
-                TupleDomain.withColumnDomains(ImmutableMap.of(
-                        suppKeyHandle,
-                        singleValue(BIGINT, 1L))));
-    }
-
-    @Test
-    public void testJoinWithNonSelectiveBuildSide()
-    {
-        assertQueryDynamicFilters(
-                "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey",
-                TupleDomain.withColumnDomains(ImmutableMap.of(
-                        suppKeyHandle,
-                        Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, true, 100L, true)), false))));
-    }
-
-    @Test
-    public void testJoinWithMultipleDynamicFiltersOnProbe()
-    {
-        // supplier names Supplier#000000001 and Supplier#000000002 match suppkey 1 and 2
-        assertQueryDynamicFilters(
-                "SELECT * FROM (" +
-                        "SELECT supplier.suppkey FROM " +
-                            "lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')" +
-                        ") t JOIN tpch.tiny.partsupp ON t.suppkey = partsupp.suppkey AND partsupp.suppkey IN (2, 3)",
-                TupleDomain.withColumnDomains(ImmutableMap.of(
-                        suppKeyHandle,
-                        singleValue(BIGINT, 2L))));
-    }
-
-    private void assertQueryDynamicFilters(@Language("SQL") String query, TupleDomain<ColumnHandle> expectedTupleDomain)
-    {
-        expectedDynamicFilter.set(expectedTupleDomain);
-        computeActual(query);
-    }
-
-    private static class TestPlugin
+    private class TestPlugin
             implements Plugin
     {
-        private final AtomicReference<TupleDomain<ColumnHandle>> expectedDynamicFilter;
-
-        private TestPlugin(AtomicReference<TupleDomain<ColumnHandle>> expectedDynamicFilter)
-        {
-            this.expectedDynamicFilter = requireNonNull(expectedDynamicFilter, "expectedDynamicFilter is null");
-        }
-
         @Override
         public Iterable<ConnectorFactory> getConnectorFactories()
         {
@@ -190,24 +129,22 @@ public class TestCoordinatorDynamicFiltering
                 @Override
                 public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
                 {
-                    return new TestConnector(metadata, Duration.valueOf("10s"), expectedDynamicFilter);
+                    return new TestConnector(metadata, Duration.valueOf("10s"));
                 }
             });
         }
     }
 
-    private static class TestConnector
+    private class TestConnector
             implements Connector
     {
         private final ConnectorMetadata metadata;
         private final Duration scanDuration;
-        private final AtomicReference<TupleDomain<ColumnHandle>> expectedDynamicFilter;
 
-        private TestConnector(ConnectorMetadata metadata, Duration scanDuration, AtomicReference<TupleDomain<ColumnHandle>> expectedDynamicFilter)
+        private TestConnector(ConnectorMetadata metadata, Duration scanDuration)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
             this.scanDuration = requireNonNull(scanDuration, "scanDuration is null");
-            this.expectedDynamicFilter = requireNonNull(expectedDynamicFilter, "expectedDynamicFilter is null");
         }
 
         @Override
@@ -236,14 +173,32 @@ public class TestCoordinatorDynamicFiltering
                         Supplier<TupleDomain<ColumnHandle>> dynamicFilter)
                 {
                     long start = System.nanoTime();
+                    AtomicBoolean splitProduced = new AtomicBoolean();
+                    TupleDomain<ColumnHandle> expectedDynamicFilter = getExpectedDynamicFilter(session);
+
                     return new ConnectorSplitSource()
                     {
                         @Override
                         public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
                         {
-                            return completedFuture(new ConnectorSplitBatch(
-                                    nCopies(maxSize, new EmptySplit(new CatalogName("test"))),
-                                    isFinished()));
+                            // producing single empty split allows to assert that dynamic filters will be collected for broadcast
+                            // joins once the first probe side task starts running
+                            if (!splitProduced.get()) {
+                                splitProduced.set(true);
+                                return completedFuture(new ConnectorSplitBatch(ImmutableList.of(new EmptySplit(new CatalogName("test"))), false));
+                            }
+
+                            return CompletableFuture.supplyAsync(
+                                    () -> {
+                                        try {
+                                            sleep(50);
+                                            return new ConnectorSplitBatch(ImmutableList.of(), isFinished());
+                                        }
+                                        catch (InterruptedException e) {
+                                            throw new RuntimeException(e);
+                                        }
+                                    },
+                                    executorService);
                         }
 
                         @Override
@@ -254,16 +209,16 @@ public class TestCoordinatorDynamicFiltering
                         @Override
                         public boolean isFinished()
                         {
-                            if (dynamicFilter.get().equals(expectedDynamicFilter.get())) {
+                            if (dynamicFilter.get().equals(expectedDynamicFilter)) {
                                 // if we received expected dynamic filter then we are done
                                 return true;
                             }
                             else if (Duration.nanosSince(start).compareTo(scanDuration) > 0) {
                                 throw new AssertionError(format(
-                                            "Received %s instead of expected dynamic filter %s after waiting for %s",
-                                            dynamicFilter.get().toString(session),
-                                            expectedDynamicFilter.get().toString(session),
-                                            scanDuration));
+                                        "Received %s instead of expected dynamic filter %s after waiting for %s",
+                                        dynamicFilter.get().toString(session),
+                                        expectedDynamicFilter.toString(session),
+                                        scanDuration));
                             }
                             // expected dynamic filter is not set yet
                             return false;

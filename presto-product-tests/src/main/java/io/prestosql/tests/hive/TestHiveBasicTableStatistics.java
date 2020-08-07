@@ -25,8 +25,8 @@ import java.util.Optional;
 import java.util.OptionalLong;
 
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.tests.TestGroups.SKIP_ON_CDH;
+import static io.prestosql.tests.hive.util.TableLocationUtils.getTableLocation;
 import static io.prestosql.tests.utils.QueryExecutors.onHive;
 import static io.prestosql.tests.utils.QueryExecutors.onPresto;
 import static java.lang.String.format;
@@ -63,7 +63,7 @@ public class TestHiveBasicTableStatistics
         onPresto().executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
 
         try {
-            String location = getTableLocation("nation", false);
+            String location = getTableLocation("nation");
             onPresto().executeQuery(format("" +
                             "CREATE TABLE %s (" +
                             "   n_nationkey bigint, " +
@@ -445,15 +445,6 @@ public class TestHiveBasicTableStatistics
         OptionalLong rawDataSize = getTableParameterValue(result, "rawDataSize");
         OptionalLong totalSize = getTableParameterValue(result, "totalSize");
         return new BasicStatistics(numFiles, numRows, rawDataSize, totalSize);
-    }
-
-    private static String getTableLocation(String tableName, boolean partitioned)
-    {
-        String regex = "/[^/]*$";
-        if (partitioned) {
-            regex = "/[^/]*" + regex;
-        }
-        return getOnlyElement(onPresto().executeQuery(format("SELECT DISTINCT regexp_replace(\"$path\", '%s', '') FROM %s", regex, tableName)).column(1));
     }
 
     private static OptionalLong getTableParameterValue(QueryResult describeResult, String key)

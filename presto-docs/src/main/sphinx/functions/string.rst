@@ -81,6 +81,11 @@ String Functions
 
     Removes leading whitespace from ``string``.
 
+.. function:: luhn_check(string) -> boolean
+
+    Tests whether a ``string`` of digits is valid according to the
+    `Luhn algorithm <https://en.wikipedia.org/wiki/Luhn_algorithm>`_.
+
 .. function:: position(substring IN string) -> bigint
 
     Returns the starting position of the first instance of ``substring`` in
@@ -96,6 +101,7 @@ String Functions
     Removes all instances of ``search`` from ``string``.
 
 .. function:: replace(string, search, replace) -> varchar
+    :noindex:
 
     Replaces all instances of ``search`` with ``replace`` in ``string``.
 
@@ -119,6 +125,7 @@ String Functions
     Splits ``string`` on ``delimiter`` and returns an array.
 
 .. function:: split(string, delimiter, limit) -> array(varchar)
+    :noindex:
 
     Splits ``string`` on ``delimiter`` and returns an array of size at most
     ``limit``. The last element in the array always contain everything
@@ -149,6 +156,7 @@ String Functions
     ``string``. Positions start with ``1``. If not found, ``0`` is returned.
 
 .. function:: strpos(string, substring, instance) -> bigint
+    :noindex:
 
     Returns the position of the N-th ``instance`` of ``substring`` in ``string``.
     When ``instance`` is a negative number the search will start from the end of ``string``.
@@ -169,10 +177,12 @@ String Functions
     as being relative to the end of the string.
 
 .. function:: substr(string, start, length) -> varchar
+    :noindex:
 
     This is an alias for :func:`substring`.
 
 .. function:: substring(string, start, length) -> varchar
+    :noindex:
 
     Returns a substring from ``string`` of length ``length`` from the starting
     position ``start``. Positions start with ``1``. A negative starting
@@ -213,6 +223,7 @@ String Functions
     Returns the stem of ``word`` in the English language.
 
 .. function:: word_stem(word, lang) -> varchar
+    :noindex:
 
     Returns the stem of ``word`` in the ``lang`` language.
 
@@ -224,6 +235,7 @@ Unicode Functions
     Transforms ``string`` with NFC normalization form.
 
 .. function:: normalize(string, form) -> varchar
+    :noindex:
 
     Transforms ``string`` with the specified normalization form.
     ``form`` must be be one of the following keywords:
@@ -252,6 +264,7 @@ Unicode Functions
     are replaced with the Unicode replacement character ``U+FFFD``.
 
 .. function:: from_utf8(binary, replace) -> varchar
+    :noindex:
 
     Decodes a UTF-8 encoded string from ``binary``. Invalid UTF-8 sequences
     are replaced with ``replace``. The replacement string ``replace`` must either

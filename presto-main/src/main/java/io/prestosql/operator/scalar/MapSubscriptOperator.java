@@ -17,9 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
+import io.prestosql.metadata.FunctionInvoker;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
@@ -30,11 +32,12 @@ import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.InterpretedFunctionInvoker;
 
 import java.lang.invoke.MethodHandle;
+import java.util.Optional;
 
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.function.OperatorType.SUBSCRIPT;
 import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
@@ -48,7 +51,6 @@ public class MapSubscriptOperator
     private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(MapSubscriptOperator.class, "subscript", MissingKeyExceptionFactory.class, Type.class, Type.class, ConnectorSession.class, Block.class, boolean.class);
     private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(MapSubscriptOperator.class, "subscript", MissingKeyExceptionFactory.class, Type.class, Type.class, ConnectorSession.class, Block.class, long.class);
     private static final MethodHandle METHOD_HANDLE_DOUBLE = methodHandle(MapSubscriptOperator.class, "subscript", MissingKeyExceptionFactory.class, Type.class, Type.class, ConnectorSession.class, Block.class, double.class);
-    private static final MethodHandle METHOD_HANDLE_SLICE = methodHandle(MapSubscriptOperator.class, "subscript", MissingKeyExceptionFactory.class, Type.class, Type.class, ConnectorSession.class, Block.class, Slice.class);
     private static final MethodHandle METHOD_HANDLE_OBJECT = methodHandle(MapSubscriptOperator.class, "subscript", MissingKeyExceptionFactory.class, Type.class, Type.class, ConnectorSession.class, Block.class, Object.class);
 
     public MapSubscriptOperator()
@@ -62,10 +64,18 @@ public class MapSubscriptOperator
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    public FunctionDependencyDeclaration getFunctionDependencies()
     {
-        Type keyType = boundVariables.getTypeVariable("K");
-        Type valueType = boundVariables.getTypeVariable("V");
+        return FunctionDependencyDeclaration.builder()
+                .addOptionalCastSignature(new TypeSignature("K"), VARCHAR.getTypeSignature())
+                .build();
+    }
+
+    @Override
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    {
+        Type keyType = functionBinding.getTypeVariable("K");
+        Type valueType = functionBinding.getTypeVariable("V");
 
         MethodHandle methodHandle;
         if (keyType.getJavaType() == boolean.class) {
@@ -77,21 +87,16 @@ public class MapSubscriptOperator
         else if (keyType.getJavaType() == double.class) {
             methodHandle = METHOD_HANDLE_DOUBLE;
         }
-        else if (keyType.getJavaType() == Slice.class) {
-            methodHandle = METHOD_HANDLE_SLICE;
-        }
         else {
             methodHandle = METHOD_HANDLE_OBJECT;
         }
-        MissingKeyExceptionFactory missingKeyExceptionFactory = new MissingKeyExceptionFactory(metadata, keyType);
+        MissingKeyExceptionFactory missingKeyExceptionFactory = new MissingKeyExceptionFactory(functionDependencies, keyType);
         methodHandle = methodHandle.bindTo(missingKeyExceptionFactory).bindTo(keyType).bindTo(valueType);
         methodHandle = methodHandle.asType(methodHandle.type().changeReturnType(Primitives.wrap(valueType.getJavaType())));
 
         return new ScalarFunctionImplementation(
-                true,
-                ImmutableList.of(
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
+                NULLABLE_RETURN,
+                ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 methodHandle);
     }
 
@@ -129,7 +134,7 @@ public class MapSubscriptOperator
     }
 
     @UsedByGeneratedCode
-    public static Object subscript(MissingKeyExceptionFactory missingKeyExceptionFactory, Type keyType, Type valueType, ConnectorSession session, Block map, Slice key)
+    public static Object subscript(MissingKeyExceptionFactory missingKeyExceptionFactory, Type keyType, Type valueType, ConnectorSession session, Block map, Object key)
     {
         SingleMapBlock mapBlock = (SingleMapBlock) map;
         int valuePosition = mapBlock.seekKeyExact(key);
@@ -139,32 +144,22 @@ public class MapSubscriptOperator
         return readNativeValue(valueType, mapBlock, valuePosition);
     }
 
-    @UsedByGeneratedCode
-    public static Object subscript(MissingKeyExceptionFactory missingKeyExceptionFactory, Type keyType, Type valueType, ConnectorSession session, Block map, Object key)
-    {
-        SingleMapBlock mapBlock = (SingleMapBlock) map;
-        int valuePosition = mapBlock.seekKeyExact((Block) key);
-        if (valuePosition == -1) {
-            throw missingKeyExceptionFactory.create(session, key);
-        }
-        return readNativeValue(valueType, mapBlock, valuePosition);
-    }
-
     private static class MissingKeyExceptionFactory
     {
-        private final InterpretedFunctionInvoker functionInvoker;
-        private final ResolvedFunction castFunction;
+        private final FunctionMetadata castMetadata;
+        private final FunctionInvoker castFunction;
 
-        public MissingKeyExceptionFactory(Metadata metadata, Type keyType)
+        public MissingKeyExceptionFactory(FunctionDependencies functionDependencies, Type keyType)
         {
-            functionInvoker = new InterpretedFunctionInvoker(metadata);
-
-            ResolvedFunction castFunction = null;
+            FunctionMetadata castMetadata = null;
+            FunctionInvoker castFunction = null;
             try {
-                castFunction = metadata.getCoercion(keyType, VARCHAR);
+                castMetadata = functionDependencies.getCastMetadata(keyType, VARCHAR);
+                castFunction = functionDependencies.getCastInvoker(keyType, VARCHAR, Optional.empty());
             }
             catch (PrestoException ignored) {
             }
+            this.castMetadata = castMetadata;
             this.castFunction = castFunction;
         }
 
@@ -172,8 +167,9 @@ public class MapSubscriptOperator
         {
             if (castFunction != null) {
                 try {
-                    Slice varcharValue = (Slice) functionInvoker.invoke(castFunction, session, value);
-                    return new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Key not present in map: %s", varcharValue.toStringUtf8()));
+                    Slice varcharValue = (Slice) InterpretedFunctionInvoker.invoke(castMetadata, castFunction, session, ImmutableList.of(value));
+
+                    return new PrestoException(INVALID_FUNCTION_ARGUMENT, format("Key not present in map: %s", varcharValue == null ? "NULL" : varcharValue.toStringUtf8()));
                 }
                 catch (RuntimeException ignored) {
                 }

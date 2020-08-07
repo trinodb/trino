@@ -13,7 +13,6 @@
  */
 package io.prestosql.type;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
@@ -70,6 +69,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.type.JsonType.JSON;
+import static io.prestosql.type.Timestamps.parseLegacyTimestamp;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static io.prestosql.util.StructuralTestUtil.appendToBlockBuilder;
 import static io.prestosql.util.StructuralTestUtil.arrayBlockOf;
@@ -171,9 +171,9 @@ public class TestArrayOperators
         int size = toIntExact(MAX_FUNCTION_MEMORY.toBytes() + 1);
         assertInvalidFunction(
                 "array_distinct(ARRAY['" +
-                        Strings.repeat("x", size) + "', '" +
-                        Strings.repeat("y", size) + "', '" +
-                        Strings.repeat("z", size) +
+                        "x".repeat(size) + "', '" +
+                        "y".repeat(size) + "', '" +
+                        "z".repeat(size) +
                         "'])",
                 EXCEEDED_FUNCTION_MEMORY_LIMIT);
     }
@@ -527,7 +527,7 @@ public class TestArrayOperators
         assertFunction("CONTAINS(ARRAY [2.2, 001.20], 1.2)", BOOLEAN, true);
         assertFunction("CONTAINS(ARRAY [ARRAY [1.1, 2.2], ARRAY [3.3, 4.3]], ARRAY [3.3, 4.300])", BOOLEAN, true);
         assertFunction("CONTAINS(ARRAY [ARRAY [1.1, 2.2], ARRAY [3.3, 4.3]], ARRAY [1.3, null])", BOOLEAN, false);
-
+        assertFunction("CONTAINS(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789'], TIMESTAMP '1111-05-10 12:34:56.123456789')", BOOLEAN, true);
         assertInvalidFunction("CONTAINS(ARRAY [ARRAY [1.1, 2.2], ARRAY [3.3, 4.3]], ARRAY [1.1, null])", NOT_SUPPORTED);
         assertInvalidFunction("CONTAINS(ARRAY [ARRAY [1.1, null], ARRAY [3.3, 4.3]], ARRAY [1.1, null])", NOT_SUPPORTED);
     }
@@ -535,7 +535,9 @@ public class TestArrayOperators
     @Test
     public void testArrayJoin()
     {
+        assertFunction("array_join(ARRAY[NULL, 1, 2], ',')", VARCHAR, "1,2");
         assertFunction("array_join(ARRAY[1, NULL, 2], ',')", VARCHAR, "1,2");
+        assertFunction("array_join(ARRAY[1, 2, NULL], ',')", VARCHAR, "1,2");
         assertFunction("ARRAY_JOIN(ARRAY [1, 2, 3], ';', 'N/A')", VARCHAR, "1;2;3");
         assertFunction("ARRAY_JOIN(ARRAY [1, 2, null], ';', 'N/A')", VARCHAR, "1;2;N/A");
         assertFunction("ARRAY_JOIN(ARRAY [1, 2, 3], 'x')", VARCHAR, "1x2x3");
@@ -550,10 +552,16 @@ public class TestArrayOperators
         assertFunction("ARRAY_JOIN(ARRAY [null, null, null, null], 'X')", VARCHAR, "");
         assertFunction("ARRAY_JOIN(ARRAY [true, false], 'XX')", VARCHAR, "trueXXfalse");
         assertFunction("ARRAY_JOIN(ARRAY [sqrt(-1), infinity()], ',')", VARCHAR, "NaN,Infinity");
+        assertFunction("ARRAY_JOIN(ARRAY [JSON '\"a\"', JSON '\"b\"'], ',')", VARCHAR, "a,b");
+        assertFunction("ARRAY_JOIN(ARRAY [JSON '\"a\"', JSON 'null'], ',')", VARCHAR, "a");
+        assertFunction("ARRAY_JOIN(ARRAY [JSON '\"a\"', JSON 'null'], ',', 'N/A')", VARCHAR, "a,N/A");
         assertFunction("ARRAY_JOIN(ARRAY [TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1973-07-08 22:00:01'], '|')", VARCHAR, format(
                 "%s|%s",
                 sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0, TEST_SESSION),
                 sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0, TEST_SESSION)));
+        assertFunction("ARRAY_JOIN(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789'], '|')",
+                VARCHAR,
+                "2020-05-10 12:34:56.123456789|1111-05-10 12:34:56.123456789");
         assertFunction(
                 "ARRAY_JOIN(ARRAY [null, TIMESTAMP '1970-01-01 00:00:01'], '|')",
                 VARCHAR,
@@ -612,6 +620,9 @@ public class TestArrayOperators
         assertFunction("ARRAY_MIN(ARRAY ['puppies', 'kittens'])", createVarcharType(7), "kittens");
         assertFunction("ARRAY_MIN(ARRAY [TRUE, FALSE])", BOOLEAN, false);
         assertFunction("ARRAY_MIN(ARRAY [NULL, FALSE])", BOOLEAN, null);
+        assertFunction("ARRAY_MIN(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '2222-05-10 12:34:56.123456789'])",
+                createTimestampType(9),
+                legacyTimestamp(9, "2020-05-10 12:34:56.123456789"));
         assertDecimalFunction("ARRAY_MIN(ARRAY [2.1, 2.2, 2.3])", decimal("2.1"));
         assertDecimalFunction("ARRAY_MIN(ARRAY [2.111111222111111114111, 2.22222222222222222, 2.222222222222223])", decimal("2.111111222111111114111"));
         assertDecimalFunction("ARRAY_MIN(ARRAY [1.9, 2, 2.3])", decimal("0000000001.9"));
@@ -642,6 +653,9 @@ public class TestArrayOperators
         assertFunction("ARRAY_MAX(ARRAY ['puppies', 'kittens'])", createVarcharType(7), "puppies");
         assertFunction("ARRAY_MAX(ARRAY [TRUE, FALSE])", BOOLEAN, true);
         assertFunction("ARRAY_MAX(ARRAY [NULL, FALSE])", BOOLEAN, null);
+        assertFunction("ARRAY_MAX(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789'])",
+                createTimestampType(9),
+                legacyTimestamp(9, "2020-05-10 12:34:56.123456789"));
         assertDecimalFunction("ARRAY_MAX(ARRAY [2.1, 2.2, 2.3])", decimal("2.3"));
         assertDecimalFunction("ARRAY_MAX(ARRAY [2.111111222111111114111, 2.22222222222222222, 2.222222222222223])", decimal("2.222222222222223000000"));
         assertDecimalFunction("ARRAY_MAX(ARRAY [1.9, 2, 2.3])", decimal("0000000002.3"));
@@ -676,6 +690,7 @@ public class TestArrayOperators
         assertFunction("ARRAY_POSITION(ARRAY [1.0, 2.0, 3.0, 4.0], 3)", BIGINT, 3L);
         assertFunction("ARRAY_POSITION(ARRAY [1.0, 2.0, 3, 4.0], 4.0)", BIGINT, 4L);
         assertFunction("ARRAY_POSITION(ARRAY [ARRAY[1]], ARRAY[1])", BIGINT, 1L);
+        assertFunction("ARRAY_POSITION(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789'], TIMESTAMP '1111-05-10 12:34:56.123456789')", BIGINT, 2L);
 
         assertInvalidFunction("ARRAY_POSITION(ARRAY [ARRAY[null]], ARRAY[1])", NOT_SUPPORTED);
         assertInvalidFunction("ARRAY_POSITION(ARRAY [ARRAY[null]], ARRAY[null])", NOT_SUPPORTED);
@@ -707,6 +722,9 @@ public class TestArrayOperators
                 "ARRAY [TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1973-07-08 22:00:01'][1]",
                 createTimestampType(0),
                 sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0, TEST_SESSION));
+        assertFunction("ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789'][2]",
+                createTimestampType(9),
+                legacyTimestamp(9, "1111-05-10 12:34:56.123456789"));
         assertFunction("ARRAY [infinity()][1]", DOUBLE, POSITIVE_INFINITY);
         assertFunction("ARRAY [-infinity()][1]", DOUBLE, NEGATIVE_INFINITY);
         assertFunction("ARRAY [sqrt(-1)][1]", DOUBLE, NaN);
@@ -769,6 +787,10 @@ public class TestArrayOperators
         assertFunction("ELEMENT_AT(ARRAY [-infinity()], -1)", DOUBLE, NEGATIVE_INFINITY);
         assertFunction("ELEMENT_AT(ARRAY [sqrt(-1)], 1)", DOUBLE, NaN);
         assertFunction("ELEMENT_AT(ARRAY [sqrt(-1)], -1)", DOUBLE, NaN);
+        assertFunction(
+                "ELEMENT_AT(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789'], 2)",
+                createTimestampType(9),
+                legacyTimestamp(9, "1111-05-10 12:34:56.123456789"));
         assertDecimalFunction("ELEMENT_AT(ARRAY [2.1, 2.2, 2.3], 3)", decimal("2.3"));
         assertDecimalFunction("ELEMENT_AT(ARRAY [2.111111222111111114111, 2.22222222222222222, 2.222222222222223], 3)", decimal("2.222222222222223000000"));
         assertDecimalFunction("ELEMENT_AT(ARRAY [1.9, 2, 2.3], -1)", decimal("0000000002.3"));
@@ -907,6 +929,12 @@ public class TestArrayOperators
                         "ELSE -1 END)",
                 new ArrayType(createDecimalType(2, 1)),
                 asList(null, null, decimal("2.3"), decimal("2.2"), decimal("2.1")));
+        assertFunction(
+                "ARRAY_SORT(ARRAY[TIMESTAMP '1111-06-10 12:34:56.123456789', TIMESTAMP '2020-05-10 12:34:56.123456789'], (x, y) -> CASE " +
+                        "WHEN month(x) > month(y) THEN 1 " +
+                        "ELSE -1 END)",
+                new ArrayType(createTimestampType(9)),
+                ImmutableList.of(legacyTimestamp(9, "2020-05-10 12:34:56.123456789"), legacyTimestamp(9, "1111-06-10 12:34:56.123456789")));
 
         // with null in the array, should be in nulls-last order
         List<Integer> expected = asList(-1, 0, 1, null, null);
@@ -1849,6 +1877,11 @@ public class TestArrayOperators
     {
         assertArrayHashOperator("ARRAY[1, 2]", INTEGER, ImmutableList.of(1, 2));
         assertArrayHashOperator("ARRAY[true, false]", BOOLEAN, ImmutableList.of(true, false));
+        assertArrayHashOperator("ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789']",
+                createTimestampType(9),
+                ImmutableList.of(
+                        parseLegacyTimestamp(9, TEST_SESSION.getTimeZoneKey(), "2020-05-10 12:34:56.123456789"),
+                        parseLegacyTimestamp(9, TEST_SESSION.getTimeZoneKey(), "1111-05-10 12:34:56.123456789")));
 
         // test with ARRAY[ MAP( ARRAY[1], ARRAY[2] ) ]
         MapType mapType = mapType(INTEGER, INTEGER);

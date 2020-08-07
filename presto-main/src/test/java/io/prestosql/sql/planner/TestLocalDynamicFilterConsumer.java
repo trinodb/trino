@@ -29,7 +29,6 @@ import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.JoinNode;
 import org.testng.annotations.Test;
 
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutionException;
@@ -257,8 +256,8 @@ public class TestLocalDynamicFilterConsumer
                 .getBuildChannels()
                 .entrySet()
                 .stream()
-                .sorted(Comparator.comparing(e -> e.getValue()))
-                .map(e -> e.getKey())
+                .sorted(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey)
                 .collect(toImmutableList());
         filter.getTupleDomainConsumer().accept(TupleDomain.withColumnDomains(ImmutableMap.of(
                 filterIds.get(0), Domain.singleValue(BIGINT, 4L),
@@ -312,8 +311,10 @@ public class TestLocalDynamicFilterConsumer
 
         filter.getTupleDomainConsumer().accept(TupleDomain.withColumnDomains(ImmutableMap.of(
                 filterId, Domain.singleValue(BIGINT, 7L))));
+
+        // TODO: hard-coding symbol names makes tests brittle
         assertEquals(filter.getNodeLocalDynamicFilterForSymbols().get(), ImmutableMap.of(
-                new Symbol("partkey"), Domain.singleValue(BIGINT, 7L),
+                new Symbol("partkey_0"), Domain.singleValue(BIGINT, 7L),
                 new Symbol("suppkey"), Domain.singleValue(BIGINT, 7L)));
     }
 

@@ -30,6 +30,7 @@ import io.prestosql.operator.aggregation.ApproximateRealPercentileAggregations;
 import io.prestosql.operator.aggregation.ApproximateRealPercentileArrayAggregations;
 import io.prestosql.operator.aggregation.ApproximateSetAggregation;
 import io.prestosql.operator.aggregation.AverageAggregations;
+import io.prestosql.operator.aggregation.BigintApproximateMostFrequent;
 import io.prestosql.operator.aggregation.BitwiseAndAggregation;
 import io.prestosql.operator.aggregation.BitwiseOrAggregation;
 import io.prestosql.operator.aggregation.BooleanAndAggregation;
@@ -60,6 +61,7 @@ import io.prestosql.operator.aggregation.RealHistogramAggregation;
 import io.prestosql.operator.aggregation.RealRegressionAggregation;
 import io.prestosql.operator.aggregation.RealSumAggregation;
 import io.prestosql.operator.aggregation.SumDataSizeForStats;
+import io.prestosql.operator.aggregation.VarcharApproximateMostFrequent;
 import io.prestosql.operator.aggregation.VarianceAggregation;
 import io.prestosql.operator.aggregation.arrayagg.ArrayAggregationFunction;
 import io.prestosql.operator.aggregation.histogram.Histogram;
@@ -112,6 +114,7 @@ import io.prestosql.operator.scalar.JoniRegexpFunctions;
 import io.prestosql.operator.scalar.JoniRegexpReplaceLambdaFunction;
 import io.prestosql.operator.scalar.JsonFunctions;
 import io.prestosql.operator.scalar.JsonOperators;
+import io.prestosql.operator.scalar.LuhnCheckFunction;
 import io.prestosql.operator.scalar.MapCardinalityFunction;
 import io.prestosql.operator.scalar.MapDistinctFromOperator;
 import io.prestosql.operator.scalar.MapEntriesFunction;
@@ -129,9 +132,6 @@ import io.prestosql.operator.scalar.Re2JRegexpFunctions;
 import io.prestosql.operator.scalar.Re2JRegexpReplaceLambdaFunction;
 import io.prestosql.operator.scalar.RepeatFunction;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentType;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
 import io.prestosql.operator.scalar.SequenceFunction;
 import io.prestosql.operator.scalar.SessionFunctions;
 import io.prestosql.operator.scalar.SplitToMapFunction;
@@ -209,6 +209,7 @@ import io.prestosql.operator.window.RowNumberFunction;
 import io.prestosql.operator.window.SqlWindowFunction;
 import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.analyzer.FeaturesConfig;
@@ -247,8 +248,8 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -323,13 +324,10 @@ import static io.prestosql.operator.scalar.RowLessThanOrEqualOperator.ROW_LESS_T
 import static io.prestosql.operator.scalar.RowNotEqualOperator.ROW_NOT_EQUAL;
 import static io.prestosql.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static io.prestosql.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
 import static io.prestosql.operator.scalar.TryCastFunction.TRY_CAST;
 import static io.prestosql.operator.scalar.ZipFunction.ZIP_FUNCTIONS;
 import static io.prestosql.operator.scalar.ZipWithFunction.ZIP_WITH_FUNCTION;
 import static io.prestosql.operator.window.AggregateWindowFunction.supplier;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.prestosql.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
 import static io.prestosql.type.DecimalCasts.BOOLEAN_TO_DECIMAL_CAST;
 import static io.prestosql.type.DecimalCasts.DECIMAL_TO_BIGINT_CAST;
@@ -370,18 +368,17 @@ import static io.prestosql.type.DecimalSaturatedFloorCasts.INTEGER_TO_DECIMAL_SA
 import static io.prestosql.type.DecimalSaturatedFloorCasts.SMALLINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
 import static io.prestosql.type.DecimalSaturatedFloorCasts.TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
 import static io.prestosql.type.DecimalToDecimalCasts.DECIMAL_TO_DECIMAL_CAST;
-import static java.lang.Math.min;
 import static java.util.concurrent.TimeUnit.HOURS;
 
 @ThreadSafe
 public class FunctionRegistry
 {
-    private final Cache<SpecializedFunctionKey, ScalarFunctionImplementation> specializedScalarCache;
-    private final Cache<SpecializedFunctionKey, InternalAggregationFunction> specializedAggregationCache;
-    private final Cache<SpecializedFunctionKey, WindowFunctionSupplier> specializedWindowCache;
+    private final Cache<FunctionBinding, ScalarFunctionImplementation> specializedScalarCache;
+    private final Cache<FunctionBinding, InternalAggregationFunction> specializedAggregationCache;
+    private final Cache<FunctionBinding, WindowFunctionSupplier> specializedWindowCache;
     private volatile FunctionMap functions = new FunctionMap();
 
-    public FunctionRegistry(Metadata metadata, FeaturesConfig featuresConfig)
+    public FunctionRegistry(Supplier<BlockEncodingSerde> blockEncodingSerdeSupplier, FeaturesConfig featuresConfig)
     {
         // We have observed repeated compilation of MethodHandle that leads to full GCs.
         // We notice that flushing the following caches mitigate the problem.
@@ -535,6 +532,7 @@ public class FunctionRegistry
                 .scalars(JoniRegexpCasts.class)
                 .scalars(CharacterStringCasts.class)
                 .scalars(CharOperators.class)
+                .scalars(LuhnCheckFunction.class)
                 .scalar(CharOperators.CharDistinctFromOperator.class)
                 .scalar(DecimalOperators.Negation.class)
                 .scalar(DecimalOperators.HashCode.class)
@@ -633,12 +631,14 @@ public class FunctionRegistry
                 .functions(MAP_FILTER_FUNCTION, MAP_TRANSFORM_KEYS_FUNCTION, MAP_TRANSFORM_VALUES_FUNCTION)
                 .function(FORMAT_FUNCTION)
                 .function(TRY_CAST)
-                .function(new LiteralFunction())
+                .function(new LiteralFunction(blockEncodingSerdeSupplier))
                 .aggregate(MergeSetDigestAggregation.class)
                 .aggregate(BuildSetDigestAggregation.class)
                 .scalars(SetDigestFunctions.class)
                 .scalars(SetDigestOperators.class)
-                .scalars(WilsonInterval.class);
+                .scalars(WilsonInterval.class)
+                .aggregate(BigintApproximateMostFrequent.class)
+                .aggregate(VarcharApproximateMostFrequent.class);
 
         // timestamp operators and functions
         builder
@@ -792,28 +792,24 @@ public class FunctionRegistry
         return functions.get(functionId).getFunctionMetadata();
     }
 
-    public AggregationFunctionMetadata getAggregationFunctionMetadata(Metadata metadata, ResolvedFunction resolvedFunction)
+    public AggregationFunctionMetadata getAggregationFunctionMetadata(FunctionBinding functionBinding)
     {
-        SqlFunction function = functions.get(resolvedFunction.getFunctionId());
-        checkArgument(function instanceof SqlAggregationFunction, "%s is not an aggregation function", resolvedFunction);
+        SqlFunction function = functions.get(functionBinding.getFunctionId());
+        checkArgument(function instanceof SqlAggregationFunction, "%s is not an aggregation function", functionBinding.getBoundSignature());
 
         SqlAggregationFunction aggregationFunction = (SqlAggregationFunction) function;
-        if (!aggregationFunction.isDecomposable()) {
-            return new AggregationFunctionMetadata(aggregationFunction.isOrderSensitive(), Optional.empty());
-        }
-
-        InternalAggregationFunction implementation = getAggregateFunctionImplementation(metadata, resolvedFunction);
-        return new AggregationFunctionMetadata(aggregationFunction.isOrderSensitive(), Optional.of(implementation.getIntermediateType().getTypeSignature()));
+        return aggregationFunction.getAggregationMetadata(functionBinding);
     }
 
-    public WindowFunctionSupplier getWindowFunctionImplementation(Metadata metadata, ResolvedFunction resolvedFunction)
+    public WindowFunctionSupplier getWindowFunctionImplementation(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
-        SpecializedFunctionKey key = getSpecializedFunctionKey(metadata, resolvedFunction);
+        SqlFunction function = functions.get(functionBinding.getFunctionId());
         try {
-            if (key.getFunction() instanceof SqlAggregationFunction) {
-                return supplier(key.getFunction().getFunctionMetadata().getSignature(), specializedAggregationCache.get(key, () -> specializedAggregation(metadata, key)));
+            if (function instanceof SqlAggregationFunction) {
+                InternalAggregationFunction aggregationFunction = specializedAggregationCache.get(functionBinding, () -> specializedAggregation(functionBinding, functionDependencies));
+                return supplier(function.getFunctionMetadata().getSignature(), aggregationFunction);
             }
-            return specializedWindowCache.get(key, () -> specializeWindow(metadata, key));
+            return specializedWindowCache.get(functionBinding, () -> specializeWindow(functionBinding, functionDependencies));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), PrestoException.class);
@@ -821,17 +817,16 @@ public class FunctionRegistry
         }
     }
 
-    private static WindowFunctionSupplier specializeWindow(Metadata metadata, SpecializedFunctionKey key)
+    private WindowFunctionSupplier specializeWindow(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
-        return ((SqlWindowFunction) key.getFunction())
-                .specialize(key.getBoundVariables(), key.getArity(), metadata);
+        SqlWindowFunction function = (SqlWindowFunction) functions.get(functionBinding.getFunctionId());
+        return function.specialize(functionBinding, functionDependencies);
     }
 
-    public InternalAggregationFunction getAggregateFunctionImplementation(Metadata metadata, ResolvedFunction resolvedFunction)
+    public InternalAggregationFunction getAggregateFunctionImplementation(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
-        SpecializedFunctionKey key = getSpecializedFunctionKey(metadata, resolvedFunction);
         try {
-            return specializedAggregationCache.get(key, () -> specializedAggregation(metadata, key));
+            return specializedAggregationCache.get(functionBinding, () -> specializedAggregation(functionBinding, functionDependencies));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), PrestoException.class);
@@ -839,72 +834,39 @@ public class FunctionRegistry
         }
     }
 
-    private static InternalAggregationFunction specializedAggregation(Metadata metadata, SpecializedFunctionKey key)
+    private InternalAggregationFunction specializedAggregation(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
-        SqlAggregationFunction function = (SqlAggregationFunction) key.getFunction();
-        InternalAggregationFunction implementation = function.specialize(key.getBoundVariables(), key.getArity(), metadata);
-        checkArgument(
-                function.isOrderSensitive() == implementation.isOrderSensitive(),
-                "implementation order sensitivity doesn't match for: %s",
-                function.getFunctionMetadata().getSignature());
-        checkArgument(
-                function.isDecomposable() == implementation.isDecomposable(),
-                "implementation decomposable doesn't match for: %s",
-                function.getFunctionMetadata().getSignature());
-        return implementation;
+        SqlAggregationFunction function = (SqlAggregationFunction) functions.get(functionBinding.getFunctionId());
+        return function.specialize(functionBinding, functionDependencies);
     }
 
-    public FunctionInvoker getScalarFunctionInvoker(Metadata metadata, ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
+    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
     {
-        SpecializedFunctionKey key = getSpecializedFunctionKey(metadata, resolvedFunction);
+        SqlFunction function = functions.get(functionBinding.getFunctionId());
+        return function.getFunctionDependencies(functionBinding);
+    }
+
+    public FunctionInvoker getScalarFunctionInvoker(
+            FunctionBinding functionBinding,
+            FunctionDependencies functionDependencies,
+            InvocationConvention invocationConvention)
+    {
         ScalarFunctionImplementation scalarFunctionImplementation;
         try {
-            scalarFunctionImplementation = specializedScalarCache.get(key, () -> specializeScalarFunction(metadata, key));
+            scalarFunctionImplementation = specializedScalarCache.get(functionBinding, () -> specializeScalarFunction(functionBinding, functionDependencies));
         }
         catch (ExecutionException | UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), PrestoException.class);
             throw new RuntimeException(e.getCause());
         }
-        FunctionInvokerProvider functionInvokerProvider = new FunctionInvokerProvider(metadata);
-        return functionInvokerProvider.createFunctionInvoker(scalarFunctionImplementation, resolvedFunction.getSignature(), invocationConvention);
+        FunctionInvokerProvider functionInvokerProvider = new FunctionInvokerProvider();
+        return functionInvokerProvider.createFunctionInvoker(scalarFunctionImplementation, functionBinding.getBoundSignature(), invocationConvention);
     }
 
-    private static ScalarFunctionImplementation specializeScalarFunction(Metadata metadata, SpecializedFunctionKey key)
+    private ScalarFunctionImplementation specializeScalarFunction(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
-        SqlScalarFunction function = (SqlScalarFunction) key.getFunction();
-        ScalarFunctionImplementation specialize = function.specialize(key.getBoundVariables(), key.getArity(), metadata);
-        FunctionMetadata functionMetadata = function.getFunctionMetadata();
-        for (ScalarImplementationChoice choice : specialize.getAllChoices()) {
-            checkArgument(choice.isNullable() == functionMetadata.isNullable(), "choice nullability doesn't match for: " + functionMetadata.getSignature());
-            for (int i = 0; i < choice.getArgumentProperties().size(); i++) {
-                ArgumentProperty argumentProperty = choice.getArgumentProperty(i);
-                int functionArgumentIndex = functionMetadata.getSignature().isVariableArity() ? min(i, functionMetadata
-                        .getSignature().getArgumentTypes().size() - 1) : i;
-                boolean functionPropertyNullability = functionMetadata.getArgumentDefinitions().get(functionArgumentIndex).isNullable();
-                if (argumentProperty.getArgumentType() == ArgumentType.FUNCTION_TYPE) {
-                    checkArgument(!functionPropertyNullability, "choice function argument must not be nullable: " + functionMetadata.getSignature());
-                }
-                else if (argumentProperty.getNullConvention() != BLOCK_AND_POSITION) {
-                    boolean choiceNullability = argumentProperty.getNullConvention() != RETURN_NULL_ON_NULL;
-                    checkArgument(functionPropertyNullability == choiceNullability, "choice function argument nullability doesn't match for: " + functionMetadata
-                            .getSignature());
-                }
-            }
-        }
-        return specialize;
-    }
-
-    private SpecializedFunctionKey getSpecializedFunctionKey(Metadata metadata, ResolvedFunction resolvedFunction)
-    {
-        SqlFunction function = functions.get(resolvedFunction.getFunctionId());
-        Signature signature = resolvedFunction.getSignature();
-        BoundVariables boundVariables = new SignatureBinder(metadata, function.getFunctionMetadata().getSignature(), false)
-                .bindVariables(fromTypeSignatures(signature.getArgumentTypes()), signature.getReturnType())
-                .orElseThrow(() -> new IllegalArgumentException("Could not extract bound variables"));
-        return new SpecializedFunctionKey(
-                function,
-                boundVariables,
-                signature.getArgumentTypes().size());
+        SqlScalarFunction function = (SqlScalarFunction) functions.get(functionBinding.getFunctionId());
+        return function.specialize(functionBinding, functionDependencies);
     }
 
     private static class FunctionMap

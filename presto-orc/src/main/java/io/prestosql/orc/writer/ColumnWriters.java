@@ -20,11 +20,17 @@ import io.prestosql.orc.metadata.CompressionKind;
 import io.prestosql.orc.metadata.OrcColumnId;
 import io.prestosql.orc.metadata.OrcType;
 import io.prestosql.orc.metadata.statistics.BinaryStatisticsBuilder;
+import io.prestosql.orc.metadata.statistics.BloomFilterBuilder;
 import io.prestosql.orc.metadata.statistics.DateStatisticsBuilder;
+import io.prestosql.orc.metadata.statistics.DoubleStatisticsBuilder;
 import io.prestosql.orc.metadata.statistics.IntegerStatisticsBuilder;
+import io.prestosql.orc.metadata.statistics.StringStatisticsBuilder;
 import io.prestosql.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
+import java.util.function.Supplier;
+
+import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
 public final class ColumnWriters
@@ -38,7 +44,8 @@ public final class ColumnWriters
             CompressionKind compression,
             int bufferSize,
             DateTimeZone hiveStorageTimeZone,
-            DataSize stringStatisticsLimit)
+            DataSize stringStatisticsLimit,
+            Supplier<BloomFilterBuilder> bloomFilterBuilder)
     {
         requireNonNull(type, "type is null");
         OrcType orcType = orcTypes.get(columnId);
@@ -47,21 +54,21 @@ public final class ColumnWriters
                 return new BooleanColumnWriter(columnId, type, compression, bufferSize);
 
             case FLOAT:
-                return new FloatColumnWriter(columnId, type, compression, bufferSize);
+                return new FloatColumnWriter(columnId, type, compression, bufferSize, () -> new DoubleStatisticsBuilder(bloomFilterBuilder.get()));
 
             case DOUBLE:
-                return new DoubleColumnWriter(columnId, type, compression, bufferSize);
+                return new DoubleColumnWriter(columnId, type, compression, bufferSize, () -> new DoubleStatisticsBuilder(bloomFilterBuilder.get()));
 
             case BYTE:
                 return new ByteColumnWriter(columnId, type, compression, bufferSize);
 
             case DATE:
-                return new LongColumnWriter(columnId, type, compression, bufferSize, DateStatisticsBuilder::new);
+                return new LongColumnWriter(columnId, type, compression, bufferSize, () -> new DateStatisticsBuilder(bloomFilterBuilder.get()));
 
             case SHORT:
             case INT:
             case LONG:
-                return new LongColumnWriter(columnId, type, compression, bufferSize, IntegerStatisticsBuilder::new);
+                return new LongColumnWriter(columnId, type, compression, bufferSize, () -> new IntegerStatisticsBuilder(bloomFilterBuilder.get()));
 
             case DECIMAL:
                 return new DecimalColumnWriter(columnId, type, compression, bufferSize);
@@ -75,12 +82,12 @@ public final class ColumnWriters
             case CHAR:
             case VARCHAR:
             case STRING:
-                return new SliceDictionaryColumnWriter(columnId, type, compression, bufferSize, stringStatisticsLimit);
+                return new SliceDictionaryColumnWriter(columnId, type, compression, bufferSize, () -> new StringStatisticsBuilder(toIntExact(stringStatisticsLimit.toBytes()), bloomFilterBuilder.get()));
 
             case LIST: {
                 OrcColumnId fieldColumnIndex = orcType.getFieldTypeIndex(0);
                 Type fieldType = type.getTypeParameters().get(0);
-                ColumnWriter elementWriter = createColumnWriter(fieldColumnIndex, orcTypes, fieldType, compression, bufferSize, hiveStorageTimeZone, stringStatisticsLimit);
+                ColumnWriter elementWriter = createColumnWriter(fieldColumnIndex, orcTypes, fieldType, compression, bufferSize, hiveStorageTimeZone, stringStatisticsLimit, bloomFilterBuilder);
                 return new ListColumnWriter(columnId, compression, bufferSize, elementWriter);
             }
 
@@ -92,7 +99,8 @@ public final class ColumnWriters
                         compression,
                         bufferSize,
                         hiveStorageTimeZone,
-                        stringStatisticsLimit);
+                        stringStatisticsLimit,
+                        bloomFilterBuilder);
                 ColumnWriter valueWriter = createColumnWriter(
                         orcType.getFieldTypeIndex(1),
                         orcTypes,
@@ -100,7 +108,8 @@ public final class ColumnWriters
                         compression,
                         bufferSize,
                         hiveStorageTimeZone,
-                        stringStatisticsLimit);
+                        stringStatisticsLimit,
+                        bloomFilterBuilder);
                 return new MapColumnWriter(columnId, compression, bufferSize, keyWriter, valueWriter);
             }
 
@@ -109,7 +118,7 @@ public final class ColumnWriters
                 for (int fieldId = 0; fieldId < orcType.getFieldCount(); fieldId++) {
                     OrcColumnId fieldColumnIndex = orcType.getFieldTypeIndex(fieldId);
                     Type fieldType = type.getTypeParameters().get(fieldId);
-                    fieldWriters.add(createColumnWriter(fieldColumnIndex, orcTypes, fieldType, compression, bufferSize, hiveStorageTimeZone, stringStatisticsLimit));
+                    fieldWriters.add(createColumnWriter(fieldColumnIndex, orcTypes, fieldType, compression, bufferSize, hiveStorageTimeZone, stringStatisticsLimit, bloomFilterBuilder));
                 }
                 return new StructColumnWriter(columnId, compression, bufferSize, fieldWriters.build());
             }

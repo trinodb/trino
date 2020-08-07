@@ -18,6 +18,7 @@ import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.block.BlockBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
 
 import java.util.Objects;
@@ -134,6 +135,19 @@ public final class VarcharType
         int leftLength = leftBlock.getSliceLength(leftPosition);
         int rightLength = rightBlock.getSliceLength(rightPosition);
         return leftBlock.compareTo(leftPosition, 0, leftLength, rightBlock, rightPosition, 0, rightLength);
+    }
+
+    @Override
+    public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
+    {
+        return createBlockBuilder(
+                blockBuilderStatus,
+                expectedEntries,
+                getLength()
+                        // If bound on length is smaller than EXPECTED_BYTES_PER_ENTRY, use that as expectedBytesPerEntry
+                        // The data can take up to 4 bytes per character due to UTF-8 encoding, but we assume it is ASCII and only needs one byte.
+                        .map(length -> Math.min(length, EXPECTED_BYTES_PER_ENTRY))
+                        .orElse(EXPECTED_BYTES_PER_ENTRY));
     }
 
     @Override

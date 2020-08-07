@@ -1131,7 +1131,7 @@ public class RcFileTester
 
     private static <T> Iterable<T> insertNullEvery(int n, Iterable<T> iterable)
     {
-        return () -> new AbstractIterator<T>()
+        return () -> new AbstractIterator<>()
         {
             private final Iterator<T> delegate = iterable.iterator();
             private int position;

@@ -20,6 +20,7 @@ import com.google.common.io.Files;
 import io.airlift.json.JsonCodec;
 import io.airlift.json.JsonCodecFactory;
 import io.airlift.json.ObjectMapperProvider;
+import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.execution.QueryInfo;
@@ -104,6 +105,7 @@ import static io.prestosql.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY
 import static io.prestosql.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
+import static io.prestosql.plugin.hive.HiveType.toHiveType;
 import static io.prestosql.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.prestosql.spi.predicate.Marker.Bound.ABOVE;
 import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
@@ -129,6 +131,7 @@ import static io.prestosql.testing.TestingAccessControlManager.TestingPrivilegeT
 import static io.prestosql.testing.TestingAccessControlManager.privilege;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.prestosql.testing.assertions.Assert.assertEventually;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
@@ -138,6 +141,8 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static java.util.stream.Collectors.joining;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -154,13 +159,11 @@ public class TestHiveIntegrationSmokeTest
 {
     private final String catalog;
     private final Session bucketedSession;
-    private final TypeTranslator typeTranslator;
 
     public TestHiveIntegrationSmokeTest()
     {
         this.catalog = HIVE_CATALOG;
         this.bucketedSession = createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin"))));
-        this.typeTranslator = new HiveTypeTranslator();
     }
 
     @Override
@@ -3255,7 +3258,8 @@ public class TestHiveIntegrationSmokeTest
                         "   orc_bloom_filter_columns = ARRAY['c1','c2'],\n" +
                         "   orc_bloom_filter_fpp = 7E-1,\n" +
                         "   partitioned_by = ARRAY['c5'],\n" +
-                        "   sorted_by = ARRAY['c1','c 2 DESC']\n" +
+                        "   sorted_by = ARRAY['c1','c 2 DESC'],\n" +
+                        "   transactional = true\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
@@ -4129,10 +4133,19 @@ public class TestHiveIntegrationSmokeTest
                 "SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t > TIMESTAMP '2012-10-31 01:00'");
         assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
 
-        queryResult = queryRunner.executeWithQueryId(
-                getSession(),
-                "SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t = TIMESTAMP '2012-10-31 01:00'");
-        assertThat(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes()).isGreaterThan(0);
+        // TODO: replace this with a simple query stats check once we find a way to wait until all pending updates to query stats have been applied
+        ExponentialSleeper sleeper = new ExponentialSleeper(
+                new Duration(0, SECONDS),
+                new Duration(5, SECONDS),
+                new Duration(100, MILLISECONDS),
+                2.0);
+        assertEventually(new Duration(30, SECONDS), () -> {
+            ResultWithQueryId<MaterializedResult> result = queryRunner.executeWithQueryId(
+                    getSession(),
+                    "SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t = TIMESTAMP '2012-10-31 01:00'");
+            sleeper.sleep();
+            assertThat(getQueryInfo(queryRunner, result).getQueryStats().getProcessedInputDataSize().toBytes()).isGreaterThan(0);
+        });
     }
 
     private QueryInfo getQueryInfo(DistributedQueryRunner queryRunner, ResultWithQueryId<MaterializedResult> queryResult)
@@ -4319,6 +4332,19 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(b bigint, c varchar)");
             assertUpdate("INSERT INTO evolve_test values (2, row(2, 'def'), 2)", 1);
             assertQuery("SELECT a.c FROM evolve_test", "SELECT 'def' UNION SELECT null");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS evolve_test");
+        }
+
+        // Verify field access when the row evolves without changes to field type
+        try {
+            assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c varchar), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
+            assertUpdate("INSERT INTO evolve_test values (1, row(1, 'abc'), 1)", 1);
+            assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
+            assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(b bigint, c varchar, e int)");
+            assertUpdate("INSERT INTO evolve_test values (2, row(2, 'def', 2), 2)", 1);
+            assertQuery("SELECT a.b FROM evolve_test", "VALUES 1, 2");
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS evolve_test");
@@ -4545,6 +4571,24 @@ public class TestHiveIntegrationSmokeTest
         assertTrue(computeActual("SELECT foo FROM " + tableName + " WHERE foo = 'b' AND root.foo = 'b'").getMaterializedRows().isEmpty());
 
         assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
+    public void testParquetNaNStatistics()
+    {
+        String tableName = "test_parquet_nan_statistics";
+
+        assertUpdate("CREATE TABLE " + tableName + " (c_double DOUBLE, c_real REAL, c_string VARCHAR) WITH (format = 'PARQUET')");
+        assertUpdate("INSERT INTO " + tableName + " VALUES (nan(), cast(nan() as REAL), 'all nan')", 1);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (nan(), null, 'null real'), (null, nan(), 'null double')", 2);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (nan(), 4.2, '4.2 real'), (4.2, nan(), '4.2 double')", 2);
+        assertUpdate("INSERT INTO " + tableName + " VALUES (0.1, 0.1, 'both 0.1')", 1);
+
+        // These assertions are intended to make sure we are handling NaN values in Parquet statistics,
+        // however Parquet file stats created in Presto don't include such values; the test is here mainly to prevent
+        // regressions, should a new writer start recording such stats
+        assertQuery("SELECT c_string FROM " + tableName + " WHERE c_double > 4", "VALUES ('4.2 double')");
+        assertQuery("SELECT c_string FROM " + tableName + " WHERE c_real > 4", "VALUES ('4.2 real')");
     }
 
     @Test
@@ -6937,8 +6981,7 @@ public class TestHiveIntegrationSmokeTest
 
     private Type canonicalizeType(Type type)
     {
-        HiveType hiveType = HiveType.toHiveType(typeTranslator, type);
-        return TYPE_MANAGER.getType(hiveType.getTypeSignature());
+        return TYPE_MANAGER.getType(toHiveType(type).getTypeSignature());
     }
 
     private void assertColumnType(TableMetadata tableMetadata, String columnName, Type expectedType)
@@ -7054,6 +7097,41 @@ public class TestHiveIntegrationSmokeTest
         {
             this.type = requireNonNull(type, "type is null");
             this.estimate = requireNonNull(estimate, "estimate is null");
+        }
+    }
+
+    private static class ExponentialSleeper
+    {
+        private Duration nextSleepTime;
+        private final Duration maxSleepTime;
+        private final Duration minSleepIncrement;
+        private final double sleepIncrementFactor;
+
+        ExponentialSleeper(Duration minSleepTime, Duration maxSleepTime, Duration minSleepIncrement, double sleepIncrementFactor)
+        {
+            this.nextSleepTime = minSleepTime;
+            this.maxSleepTime = maxSleepTime;
+            this.minSleepIncrement = minSleepIncrement;
+            this.sleepIncrementFactor = sleepIncrementFactor;
+        }
+
+        public void sleep()
+        {
+            try {
+                Thread.sleep(nextSleepTime.toMillis());
+                long incrementMillis = (long) (nextSleepTime.toMillis() * sleepIncrementFactor - nextSleepTime.toMillis());
+                if (incrementMillis < minSleepIncrement.toMillis()) {
+                    incrementMillis = minSleepIncrement.toMillis();
+                }
+                nextSleepTime = new Duration(nextSleepTime.toMillis() + incrementMillis, MILLISECONDS);
+                if (nextSleepTime.compareTo(maxSleepTime) > 0) {
+                    nextSleepTime = maxSleepTime;
+                }
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
         }
     }
 }

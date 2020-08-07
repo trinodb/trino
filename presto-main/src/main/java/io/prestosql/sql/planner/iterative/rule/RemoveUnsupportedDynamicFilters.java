@@ -246,7 +246,7 @@ public class RemoveUnsupportedDynamicFilters
 
         private Expression removeNestedDynamicFilters(Expression expression)
         {
-            return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+            return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
             {
                 @Override
                 public Expression rewriteLogicalBinaryExpression(LogicalBinaryExpression node, Void context, ExpressionTreeRewriter<Void> treeRewriter)

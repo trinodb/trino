@@ -67,7 +67,7 @@ public class TestHivePartitionsTable
         return compose(
                 immutableTable(NATION),
                 mutableTable(partitionedTableDefinition(), PARTITIONED_TABLE, MutableTableRequirement.State.CREATED),
-                mutableTable(partitionedTableWithVariablePartitionsDefinition(), PARTITIONED_TABLE_WITH_VARIABLE_PARTITIONS, MutableTableRequirement.State.CREATED));
+                mutableTable(partitionedTableWithVariablePartitionsDefinition(configuration.getBoolean("databases.hive.enforce_non_transactional_tables")), PARTITIONED_TABLE_WITH_VARIABLE_PARTITIONS, MutableTableRequirement.State.CREATED));
     }
 
     private static TableDefinition partitionedTableDefinition()
@@ -85,11 +85,12 @@ public class TestHivePartitionsTable
                 .build();
     }
 
-    private static TableDefinition partitionedTableWithVariablePartitionsDefinition()
+    private static TableDefinition partitionedTableWithVariablePartitionsDefinition(Optional<Boolean> createTablesAsAcid)
     {
         String createTableDdl = "CREATE TABLE %NAME%(col INT) " +
                 "PARTITIONED BY (part_col INT) " +
-                "STORED AS ORC";
+                "STORED AS ORC " +
+                (createTablesAsAcid.orElse(false) ? "TBLPROPERTIES ('transactional_properties' = 'none', 'transactional' = 'false')" : "");
 
         return HiveTableDefinition.builder(PARTITIONED_TABLE_WITH_VARIABLE_PARTITIONS)
                 .setCreateTableDDLTemplate(createTableDdl)

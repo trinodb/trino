@@ -33,7 +33,7 @@ public class DesugarCurrentPath
 
     private static ExpressionRewriter createRewrite(Metadata metadata)
     {
-        return (expression, context) -> rewriteWith(new io.prestosql.sql.tree.ExpressionRewriter<Void>()
+        return (expression, context) -> rewriteWith(new io.prestosql.sql.tree.ExpressionRewriter<>()
         {
             @Override
             public Expression rewriteCurrentPath(CurrentPath node, Void context, ExpressionTreeRewriter<Void> treeRewriter)

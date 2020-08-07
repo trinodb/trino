@@ -135,7 +135,7 @@ public class TestOracleTypes
             throws Exception
     {
         this.oracleServer = new TestingOracleServer();
-        return createOracleQueryRunner(oracleServer);
+        return createOracleQueryRunner(oracleServer, ImmutableList.of());
     }
 
     @BeforeClass

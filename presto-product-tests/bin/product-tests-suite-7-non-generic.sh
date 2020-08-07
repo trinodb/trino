@@ -15,39 +15,52 @@ suite_exit_code=0
 # Does not use hadoop
 presto-product-tests-launcher/bin/run-launcher test run \
     --environment singlenode-mysql \
+    --reports-dir="${BASH_SOURCE%/*}"/../../product-tests-reports/suite-7-non-generic/singlenode-mysql \
     -- -g mysql \
     || suite_exit_code=1
 
 # Does not use hadoop
 presto-product-tests-launcher/bin/run-launcher test run \
     --environment singlenode-postgresql \
+    --reports-dir="${BASH_SOURCE%/*}"/../../product-tests-reports/suite-7-non-generic/singlenode-postgresql \
     -- -g postgresql \
     || suite_exit_code=1
 
 # Does not use hadoop
 presto-product-tests-launcher/bin/run-launcher test run \
     --environment singlenode-sqlserver \
+    --reports-dir="${BASH_SOURCE%/*}"/../../product-tests-reports/suite-7-non-generic/singlenode-sqlserver \
     -- -g sqlserver \
+    || suite_exit_code=1
+
+presto-product-tests-launcher/bin/run-launcher test run \
+    --environment singlenode-spark-iceberg \
+    --reports-dir="${BASH_SOURCE%/*}"/../../product-tests-reports/suite-7-non-generic/singlenode-spark-iceberg \
+    -- -g iceberg -x storage_formats \
     || suite_exit_code=1
 
 # Environment not set up on CDH. (TODO run on HDP 2.6 and HDP 3.1)
 presto-product-tests-launcher/bin/run-launcher test run \
     --environment singlenode-kerberos-hdfs-impersonation-cross-realm \
-    -- -g storage_formats,cli,hdfs_impersonation -x iceberg \
+    --reports-dir="${BASH_SOURCE%/*}"/../../product-tests-reports/suite-7-non-generic/singlenode-kerberos-hdfs-impersonation-cross-realm \
+    -- -g storage_formats,cli,hdfs_impersonation \
     || suite_exit_code=1
 
 presto-product-tests-launcher/bin/run-launcher test run \
     --environment two-mixed-hives \
+    --reports-dir="${BASH_SOURCE%/*}"/../../product-tests-reports/suite-7-non-generic/two-mixed-hives \
     -- -g two_hives \
     || suite_exit_code=1
 
 presto-product-tests-launcher/bin/run-launcher test run \
     --environment two-kerberos-hives \
+    --reports-dir="${BASH_SOURCE%/*}"/../../product-tests-reports/suite-7-non-generic/two-kerberos-hives \
     -- -g two_hives \
     || suite_exit_code=1
 
 presto-product-tests-launcher/bin/run-launcher test run \
     --environment singlenode-ldap-bind-dn \
+    --reports-dir="${BASH_SOURCE%/*}"/../../product-tests-reports/suite-7-non-generic/singlenode-ldap-bind-dn \
     -- -g ldap \
     || suite_exit_code=1
 

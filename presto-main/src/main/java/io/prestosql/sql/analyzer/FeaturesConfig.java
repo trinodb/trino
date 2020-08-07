@@ -23,6 +23,8 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
+import io.airlift.units.MaxDuration;
+import io.airlift.units.MinDuration;
 import io.prestosql.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import io.prestosql.operator.aggregation.histogram.HistogramGroupImplementation;
 import io.prestosql.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
@@ -41,6 +43,7 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.sql.analyzer.RegexLibrary.JONI;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
@@ -92,6 +95,7 @@ public class FeaturesConfig
     private boolean forceSingleNodeOutput = true;
     private boolean pagesIndexEagerCompactionEnabled;
     private boolean distributedSort = true;
+    private boolean omitDateTimeTypePrecision;
 
     private boolean dictionaryAggregation;
 
@@ -125,11 +129,13 @@ public class FeaturesConfig
     private boolean skipRedundantSort = true;
     private boolean predicatePushdownUseTableProperties = true;
     private boolean ignoreDownstreamPreferences;
+    private boolean iterativeRuleBasedColumnPruning = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
     private boolean enableDynamicFiltering = true;
     private int dynamicFilteringMaxPerDriverRowCount = 100;
     private DataSize dynamicFilteringMaxPerDriverSize = DataSize.of(10, KILOBYTE);
+    private Duration dynamicFilteringRefreshInterval = new Duration(200, MILLISECONDS);
 
     private DataSize filterAndProjectMinOutputPageSize = DataSize.of(500, KILOBYTE);
     private int filterAndProjectMinOutputPageRowCount = 256;
@@ -212,6 +218,18 @@ public class FeaturesConfig
     public FeaturesConfig setDistributedIndexJoinsEnabled(boolean distributedIndexJoinsEnabled)
     {
         this.distributedIndexJoinsEnabled = distributedIndexJoinsEnabled;
+        return this;
+    }
+
+    public boolean isOmitDateTimeTypePrecision()
+    {
+        return omitDateTimeTypePrecision;
+    }
+
+    @Config("deprecated.omit-datetime-type-precision")
+    public FeaturesConfig setOmitDateTimeTypePrecision(boolean value)
+    {
+        this.omitDateTimeTypePrecision = value;
         return this;
     }
 
@@ -773,6 +791,21 @@ public class FeaturesConfig
         return this;
     }
 
+    @MinDuration("1ms")
+    @MaxDuration("10s")
+    @NotNull
+    public Duration getDynamicFilteringRefreshInterval()
+    {
+        return dynamicFilteringRefreshInterval;
+    }
+
+    @Config("experimental.dynamic-filtering-refresh-interval")
+    public FeaturesConfig setDynamicFilteringRefreshInterval(Duration dynamicFilteringRefreshInterval)
+    {
+        this.dynamicFilteringRefreshInterval = dynamicFilteringRefreshInterval;
+        return this;
+    }
+
     public boolean isOptimizeMixedDistinctAggregations()
     {
         return optimizeMixedDistinctAggregations;
@@ -1028,6 +1061,18 @@ public class FeaturesConfig
     public FeaturesConfig setIgnoreDownstreamPreferences(boolean ignoreDownstreamPreferences)
     {
         this.ignoreDownstreamPreferences = ignoreDownstreamPreferences;
+        return this;
+    }
+
+    public boolean isIterativeRuleBasedColumnPruning()
+    {
+        return iterativeRuleBasedColumnPruning;
+    }
+
+    @Config("optimizer.iterative-rule-based-column-pruning")
+    public FeaturesConfig setIterativeRuleBasedColumnPruning(boolean iterativeRuleBasedColumnPruning)
+    {
+        this.iterativeRuleBasedColumnPruning = iterativeRuleBasedColumnPruning;
         return this;
     }
 }

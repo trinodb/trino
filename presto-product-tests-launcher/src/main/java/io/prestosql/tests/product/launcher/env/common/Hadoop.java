@@ -33,6 +33,7 @@ public final class Hadoop
         implements EnvironmentExtender
 {
     public static final String CONTAINER_PRESTO_HIVE_PROPERTIES = CONTAINER_PRESTO_ETC + "/catalog/hive.properties";
+    public static final String CONTAINER_PRESTO_HIVE_WITH_EXTERNAL_WRITES_PROPERTIES = CONTAINER_PRESTO_ETC + "/catalog/hive_with_external_writes.properties";
     public static final String CONTAINER_PRESTO_ICEBERG_PROPERTIES = CONTAINER_PRESTO_ETC + "/catalog/iceberg.properties";
 
     private final DockerFiles dockerFiles;
@@ -62,6 +63,7 @@ public final class Hadoop
         builder.configureContainer("presto-master", container -> {
             container
                     .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES)
+                    .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive_with_external_writes.properties")), CONTAINER_PRESTO_HIVE_WITH_EXTERNAL_WRITES_PROPERTIES)
                     .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/iceberg.properties")), CONTAINER_PRESTO_ICEBERG_PROPERTIES);
 
             if (System.getenv("HADOOP_PRESTO_INIT_SCRIPT") != null) {

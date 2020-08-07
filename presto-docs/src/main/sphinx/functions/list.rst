@@ -2,6 +2,8 @@
 List of Functions and Operators
 ===============================
 
+#
+-
 
 - :ref:`[] substring operator <subscript_operator>`
 - :ref:`|| concatenation operator <concatenation_operator>`
@@ -20,6 +22,7 @@ List of Functions and Operators
 - :ref:`% mathematical operator <mathematical_operators>`
 
 A
+-
 
 - :func:`abs`
 - :func:`acos`
@@ -29,6 +32,7 @@ A
 - :ref:`ANY <quantified_comparison_predicates>`
 - :func:`any_match`
 - :func:`approx_distinct`
+- :func:`approx_most_frequent`
 - :func:`approx_percentile`
 - :func:`approx_set`
 - :func:`arbitrary`
@@ -52,6 +56,7 @@ A
 - :func:`avg`
 
 B
+-
 
 - :func:`bar`
 - :func:`beta_cdf`
@@ -73,6 +78,7 @@ B
 - :func:`bool_or`
 
 C
+-
 
 - :func:`cardinality`
 - :ref:`CASE <case_expression>`
@@ -108,6 +114,7 @@ C
 - :data:`current_user`
 
 D
+-
 
 - :func:`date`
 - :func:`date_add`
@@ -126,6 +133,7 @@ D
 - :func:`doy`
 
 E
+-
 
 - :func:`e`
 - :func:`element_at`
@@ -135,6 +143,7 @@ E
 - :func:`exp`
 
 F
+-
 
 - :func:`features`
 - :func:`filter`
@@ -157,6 +166,7 @@ F
 - :func:`from_utf8`
 
 G
+-
 
 - :func:`geometric_mean`
 - :func:`geometry_from_hadoop_shape`
@@ -168,6 +178,7 @@ G
 - :func:`greatest`
 
 H
+-
 
 - :func:`hamming_distance`
 - :func:`histogram`
@@ -178,6 +189,7 @@ H
 - :func:`hour`
 
 I
+-
 
 - :ref:`if <if_function>`
 - :func:`index`
@@ -194,6 +206,7 @@ I
 - :ref:`IS NULL <is_null_operator>`
 
 J
+-
 
 - :func:`json_array_contains`
 - :func:`json_array_get`
@@ -205,10 +218,12 @@ J
 - :func:`json_size`
 
 K
+-
 
 - :func:`kurtosis`
 
 L
+-
 
 - :func:`lag`
 - :func:`last_day_of_month`
@@ -234,6 +249,7 @@ L
 - :func:`ltrim`
 
 M
+-
 
 - :func:`map`
 - :func:`map_agg`
@@ -258,6 +274,7 @@ M
 - :func:`multimap_from_entries`
 
 N
+-
 
 - :func:`nan`
 - :func:`ngrams`
@@ -273,10 +290,12 @@ N
 - :func:`numeric_histogram`
 
 O
+-
 
 - :ref:`OR <logical_operators>`
 
 P
+-
 
 - :func:`parse_datetime`
 - :func:`parse_duration`
@@ -288,11 +307,13 @@ P
 - :func:`power`
 
 Q
+-
 
 - :func:`qdigest_agg`
 - :func:`quarter`
 
 R
+-
 
 - :func:`radians`
 - :func:`rand`
@@ -321,6 +342,7 @@ R
 - :func:`rtrim`
 
 S
+-
 
 - :func:`second`
 - :func:`sequence`
@@ -407,6 +429,7 @@ S
 - :func:`sum`
 
 T
+-
 
 - :func:`tan`
 - :func:`tanh`
@@ -432,6 +455,7 @@ T
 - :func:`transform`
 - :func:`transform_keys`
 - :func:`transform_values`
+- :func:`translate`
 - :func:`trim`
 - :func:`truncate`
 - :ref:`try <try_function>`
@@ -439,6 +463,7 @@ T
 - :func:`typeof`
 
 U
+-
 
 - :func:`upper`
 - :func:`url_decode`
@@ -452,6 +477,7 @@ U
 - :func:`uuid`
 
 V
+-
 
 - :func:`value_at_quantile`
 - :func:`values_at_quantiles`
@@ -460,6 +486,7 @@ V
 - :func:`variance`
 
 W
+-
 
 - :func:`week`
 - :func:`week_of_year`
@@ -470,16 +497,19 @@ W
 - :func:`word_stem`
 
 X
+-
 
 - :func:`xxhash64`
 
 Y
+-
 
 - :func:`year`
 - :func:`year_of_week`
 - :func:`yow`
 
 Z
+-
 
 - :func:`zip`
 - :func:`zip_with`

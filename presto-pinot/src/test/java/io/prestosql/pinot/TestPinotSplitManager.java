@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableMap;
 import io.prestosql.pinot.query.DynamicTable;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitSource;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.sql.analyzer.FeaturesConfig;
@@ -122,13 +123,14 @@ public class TestPinotSplitManager
                         .put(PinotSessionProperties.FORBID_SEGMENT_QUERIES, forbidSegmentQueries)
                         .build())
                 .setLegacyTimestamp(new FeaturesConfig().isLegacyTimestamp())
+                .setOmitTimestampPrecision(new FeaturesConfig().isOmitDateTimeTypePrecision())
                 .build();
     }
 
     private List<PinotSplit> getSplitsHelper(PinotTableHandle pinotTable, int numSegmentsPerSplit, boolean forbidSegmentQueries)
     {
         ConnectorSession session = createSessionWithNumSplits(numSegmentsPerSplit, forbidSegmentQueries, pinotConfig);
-        ConnectorSplitSource splitSource = pinotSplitManager.getSplits(null, session, pinotTable, UNGROUPED_SCHEDULING);
+        ConnectorSplitSource splitSource = pinotSplitManager.getSplits(null, session, pinotTable, UNGROUPED_SCHEDULING, DynamicFilter.EMPTY);
         List<PinotSplit> splits = new ArrayList<>();
         while (!splitSource.isFinished()) {
             splits.addAll(getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, 1000)).getSplits().stream().map(s -> (PinotSplit) s).collect(toList()));

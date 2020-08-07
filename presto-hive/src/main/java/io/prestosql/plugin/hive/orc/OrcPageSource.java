@@ -34,6 +34,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -57,11 +58,15 @@ public class OrcPageSource
 
     private final FileFormatDataSourceStats stats;
 
+    // Row ID relative to all the original files of the same bucket ID before this file in lexicographic order
+    private Optional<Long> originalFileRowId = Optional.empty();
+
     public OrcPageSource(
             OrcRecordReader recordReader,
             List<ColumnAdaptation> columnAdaptations,
             OrcDataSource orcDataSource,
             Optional<OrcDeletedRows> deletedRows,
+            Optional<Long> originalFileRowId,
             AggregatedMemoryContext systemMemoryContext,
             FileFormatDataSourceStats stats)
     {
@@ -71,6 +76,7 @@ public class OrcPageSource
         this.deletedRows = requireNonNull(deletedRows, "deletedRows is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.systemMemoryContext = requireNonNull(systemMemoryContext, "systemMemoryContext is null");
+        this.originalFileRowId = requireNonNull(originalFileRowId, "originalFileRowId is null");
     }
 
     @Override
@@ -108,8 +114,11 @@ public class OrcPageSource
             return null;
         }
 
+        OptionalLong startRowId = originalFileRowId.isPresent() ?
+                OptionalLong.of(originalFileRowId.get() + recordReader.getFilePosition()) : OptionalLong.empty();
+
         MaskDeletedRowsFunction maskDeletedRowsFunction = deletedRows
-                .map(deletedRows -> deletedRows.getMaskDeletedRowsFunction(page))
+                .map(deletedRows -> deletedRows.getMaskDeletedRowsFunction(page, startRowId))
                 .orElseGet(() -> MaskDeletedRowsFunction.noMaskForPage(page));
         Block[] blocks = new Block[columnAdaptations.size()];
         for (int i = 0; i < columnAdaptations.size(); i++) {

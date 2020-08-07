@@ -40,7 +40,6 @@ import java.util.Properties;
 import static com.google.common.io.Files.asCharSource;
 import static com.google.common.io.Resources.getResource;
 import static io.jsonwebtoken.JwsHeader.KEY_ID;
-import static io.prestosql.jdbc.TestPrestoDriver.closeQuietly;
 import static io.prestosql.jdbc.TestPrestoDriver.waitForNodeRefresh;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.US_ASCII;
@@ -88,8 +87,9 @@ public class TestPrestoDriverAuth
 
     @AfterClass(alwaysRun = true)
     public void teardown()
+            throws Exception
     {
-        closeQuietly(server);
+        server.close();
     }
 
     @Test
@@ -239,7 +239,7 @@ public class TestPrestoDriverAuth
         properties.setProperty("SSL", "true");
         properties.setProperty("SSLTrustStorePath", getResource("localhost.truststore").getPath());
         properties.setProperty("SSLTrustStorePassword", "changeit");
-        properties.putAll(additionalProperties);
+        additionalProperties.forEach(properties::setProperty);
         return DriverManager.getConnection(url, properties);
     }
 }

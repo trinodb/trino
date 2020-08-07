@@ -68,9 +68,6 @@ public class HiveModule
     {
         binder.install(new HiveHdfsModule());
 
-        binder.bind(TypeTranslator.class).toInstance(new HiveTypeTranslator());
-        binder.bind(CoercionPolicy.class).to(HiveCoercionPolicy.class).in(Scopes.SINGLETON);
-
         binder.bind(DirectoryLister.class).to(CachingDirectoryLister.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(HiveConfig.class);
 

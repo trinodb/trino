@@ -83,6 +83,10 @@ public final class Timestamps
     {
         checkArgument(factor > 0, "factor must be positive");
 
+        if (factor == 1) {
+            return value;
+        }
+
         if (value >= 0) {
             return (value + (factor / 2)) / factor;
         }
@@ -420,7 +424,6 @@ public final class Timestamps
 
         long epochMillis = epochSecond * 1000 + rescale(fractionValue, precision, 3);
 
-        // TODO: parametric-timestamptz
         return DateTimeEncoding.packDateTimeWithZone(epochMillis, timezone);
     }
 

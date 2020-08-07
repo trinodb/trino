@@ -18,8 +18,6 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.metadata.Signature;
-import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.function.TypeParameter;
@@ -95,11 +93,7 @@ public final class DynamicFilters
         }
 
         FunctionCall functionCall = (FunctionCall) expression;
-        boolean isDynamicFilterFunction = ResolvedFunction.fromQualifiedName(functionCall.getName())
-                .map(ResolvedFunction::getSignature)
-                .map(Signature::getName)
-                .map(Function.NAME::equals)
-                .orElse(false);
+        boolean isDynamicFilterFunction = ResolvedFunction.extractFunctionName(functionCall.getName()).equals(Function.NAME);
         if (!isDynamicFilterFunction) {
             return Optional.empty();
         }
@@ -195,14 +189,7 @@ public final class DynamicFilters
 
         @TypeParameter("T")
         @SqlType(BOOLEAN)
-        public static boolean dynamicFilter(@SqlType(VARCHAR) Slice id, @SqlType("T") Block input)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @TypeParameter("T")
-        @SqlType(BOOLEAN)
-        public static boolean dynamicFilter(@SqlType(VARCHAR) Slice id, @SqlType("T") Slice input)
+        public static boolean dynamicFilter(@SqlType(VARCHAR) Slice id, @SqlType("T") Object input)
         {
             throw new UnsupportedOperationException();
         }

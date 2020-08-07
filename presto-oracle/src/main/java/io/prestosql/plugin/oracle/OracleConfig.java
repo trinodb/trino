@@ -16,6 +16,7 @@ package io.prestosql.plugin.oracle;
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
 
+import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -28,6 +29,9 @@ public class OracleConfig
     private boolean synonymsEnabled;
     private Integer defaultNumberScale;
     private RoundingMode numberRoundingMode = RoundingMode.UNNECESSARY;
+    private boolean connectionPoolEnabled = true;
+    private int connectionPoolMinSize = 1;
+    private int connectionPoolMaxSize = 30;
 
     @NotNull
     public boolean isSynonymsEnabled()
@@ -66,5 +70,50 @@ public class OracleConfig
     {
         this.numberRoundingMode = numberRoundingMode;
         return this;
+    }
+
+    @NotNull
+    public boolean isConnectionPoolEnabled()
+    {
+        return connectionPoolEnabled;
+    }
+
+    @Config("oracle.connection-pool.enabled")
+    public OracleConfig setConnectionPoolEnabled(boolean connectionPoolEnabled)
+    {
+        this.connectionPoolEnabled = connectionPoolEnabled;
+        return this;
+    }
+
+    @Min(0)
+    public int getConnectionPoolMinSize()
+    {
+        return connectionPoolMinSize;
+    }
+
+    @Config("oracle.connection-pool.min-size")
+    public OracleConfig setConnectionPoolMinSize(int connectionPoolMinSize)
+    {
+        this.connectionPoolMinSize = connectionPoolMinSize;
+        return this;
+    }
+
+    @Min(1)
+    public int getConnectionPoolMaxSize()
+    {
+        return connectionPoolMaxSize;
+    }
+
+    @Config("oracle.connection-pool.max-size")
+    public OracleConfig setConnectionPoolMaxSize(int connectionPoolMaxSize)
+    {
+        this.connectionPoolMaxSize = connectionPoolMaxSize;
+        return this;
+    }
+
+    @AssertTrue(message = "Pool min size cannot be larger than max size")
+    public boolean isPoolSizedProperly()
+    {
+        return getConnectionPoolMaxSize() >= getConnectionPoolMinSize();
     }
 }

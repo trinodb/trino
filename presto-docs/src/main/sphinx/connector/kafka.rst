@@ -2,10 +2,11 @@
 Kafka Connector
 ===============
 
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
+.. toctree::
+    :maxdepth: 1
+    :hidden:
+
+    Tutorial <kafka-tutorial>
 
 Overview
 --------
@@ -21,6 +22,8 @@ The connector reads message data from Kafka topics in parallel across workers to
 achieve a significant performance gain. The size of data sets for this
 parallelization is configurable and can therefore be adapted to your specific
 needs.
+
+See the :doc:`kafka-tutorial`.
 
 .. note::
 
@@ -59,7 +62,6 @@ Property Name                   Description
 ``kafka.table-names``           List of all tables provided by the catalog
 ``kafka.default-schema``        Default schema name for tables
 ``kafka.nodes``                 List of nodes in the Kafka cluster
-``kafka.connect-timeout``       Timeout for connecting to the Kafka cluster
 ``kafka.buffer-size``           Kafka read buffer size
 ``kafka.table-description-dir`` Directory containing topic description files
 ``kafka.hide-internal-columns`` Controls whether internal columns are part of the table schema or not
@@ -101,15 +103,6 @@ This property is required; there is no default and at least one node must be def
     Presto must still be able to connect to all nodes of the cluster
     even if only a subset is specified here as segment files may be
     located only on a specific node.
-
-``kafka.connect-timeout``
-^^^^^^^^^^^^^^^^^^^^^^^^^
-
-Timeout for connecting to a data node. A busy Kafka cluster may take quite
-some time before accepting a connection; when seeing failed queries due to
-timeouts, increasing this value is a good strategy.
-
-This property is optional; the default is 10 seconds (``10s``).
 
 ``kafka.buffer-size``
 ^^^^^^^^^^^^^^^^^^^^^
@@ -318,21 +311,21 @@ message used for decoding. It can be one or two numbers separated by a colon (``
 
 If only a start position is given:
 
- * For fixed width types the column will use the appropriate number of bytes for the specified ``dateFormat`` (see above).
- * When ``VARCHAR`` value is decoded all bytes from start position till the end of the message will be used.
+* For fixed width types the column will use the appropriate number of bytes for the specified ``dateFormat`` (see above).
+* When ``VARCHAR`` value is decoded all bytes from start position till the end of the message will be used.
 
 If start and end position are given, then:
 
- * For fixed width types the size must be equal to number of bytes used by specified ``dataFormat``.
- * For ``VARCHAR`` all bytes between start (inclusive) and end (exclusive) are used.
+* For fixed width types the size must be equal to number of bytes used by specified ``dataFormat``.
+* For ``VARCHAR`` all bytes between start (inclusive) and end (exclusive) are used.
 
 If no ``mapping`` attribute is specified, it is equivalent to setting start position to 0 and leaving end position undefined.
 
 Decoding scheme of numeric data types (``BIGINT``, ``INTEGER``, ``SMALLINT``, ``TINYINT``, ``DOUBLE``) is straightforward.
 A sequence of bytes is read from input message and decoded according to either:
 
- * big-endian encoding (for integer types)
- * IEEE 754 format for (for ``DOUBLE``).
+* big-endian encoding (for integer types)
+* IEEE 754 format for (for ``DOUBLE``).
 
 Length of decoded byte sequence is implied by the ``dataFormat``.
 

@@ -22,11 +22,11 @@ local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     scan call_center
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, ["cc_name_147", "i_brand_65", "i_category_69"])
-                        final aggregation over (cc_name_147, d_moy_121, d_year_119, i_brand_65, i_category_69)
+                    remote exchange (REPARTITION, HASH, ["cc_name_90", "i_brand_8", "i_category_12"])
+                        final aggregation over (cc_name_90, d_moy_64, d_year_62, i_brand_8, i_category_12)
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["cc_name_147", "d_moy_121", "d_year_119", "i_brand_65", "i_category_69"])
-                                    partial aggregation over (cc_name_147, d_moy_121, d_year_119, i_brand_65, i_category_69)
+                                remote exchange (REPARTITION, HASH, ["cc_name_90", "d_moy_64", "d_year_62", "i_brand_8", "i_category_12"])
+                                    partial aggregation over (cc_name_90, d_moy_64, d_year_62, i_brand_8, i_category_12)
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):
                                                 join (INNER, REPLICATED):
@@ -41,11 +41,11 @@ local exchange (GATHER, SINGLE, [])
                                                 remote exchange (REPLICATE, BROADCAST, [])
                                                     scan call_center
             local exchange (GATHER, SINGLE, [])
-                remote exchange (REPARTITION, HASH, ["cc_name_328", "i_brand_246", "i_category_250"])
-                    final aggregation over (cc_name_328, d_moy_302, d_year_300, i_brand_246, i_category_250)
+                remote exchange (REPARTITION, HASH, ["cc_name_213", "i_brand_131", "i_category_135"])
+                    final aggregation over (cc_name_213, d_moy_187, d_year_185, i_brand_131, i_category_135)
                         local exchange (GATHER, SINGLE, [])
-                            remote exchange (REPARTITION, HASH, ["cc_name_328", "d_moy_302", "d_year_300", "i_brand_246", "i_category_250"])
-                                partial aggregation over (cc_name_328, d_moy_302, d_year_300, i_brand_246, i_category_250)
+                            remote exchange (REPARTITION, HASH, ["cc_name_213", "d_moy_187", "d_year_185", "i_brand_131", "i_category_135"])
+                                partial aggregation over (cc_name_213, d_moy_187, d_year_185, i_brand_131, i_category_135)
                                     join (INNER, REPLICATED):
                                         join (INNER, REPLICATED):
                                             join (INNER, REPLICATED):

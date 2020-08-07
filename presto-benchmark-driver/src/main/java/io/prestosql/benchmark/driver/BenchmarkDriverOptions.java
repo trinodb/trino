@@ -98,6 +98,7 @@ public class BenchmarkDriverOptions
                 schema,
                 null,
                 ZoneId.systemDefault(),
+                false,
                 Locale.getDefault(),
                 ImmutableMap.of(),
                 toProperties(this.sessionProperties),

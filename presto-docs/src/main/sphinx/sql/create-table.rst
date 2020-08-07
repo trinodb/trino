@@ -9,8 +9,12 @@ Synopsis
 
     CREATE TABLE [ IF NOT EXISTS ]
     table_name (
-      { column_name data_type [ COMMENT comment ] [ WITH ( property_name = expression [, ...] ) ]
-      | LIKE existing_table_name [ { INCLUDING | EXCLUDING } PROPERTIES ] }
+      { column_name data_type
+          [ COMMENT comment ]
+          [ WITH ( property_name = expression [, ...] ) ]
+      | LIKE existing_table_name
+          [ { INCLUDING | EXCLUDING } PROPERTIES ]
+      }
       [, ...]
     )
     [ COMMENT table_comment ]

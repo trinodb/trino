@@ -77,4 +77,14 @@ public class BooleanLiteral
         BooleanLiteral other = (BooleanLiteral) obj;
         return Objects.equals(this.value, other.value);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return value == ((BooleanLiteral) other).value;
+    }
 }

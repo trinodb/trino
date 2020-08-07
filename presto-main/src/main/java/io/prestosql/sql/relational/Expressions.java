@@ -34,14 +34,14 @@ public final class Expressions
         return new ConstantExpression(null, type);
     }
 
-    public static CallExpression call(ResolvedFunction resolvedFunction, Type returnType, RowExpression... arguments)
+    public static CallExpression call(ResolvedFunction resolvedFunction, RowExpression... arguments)
     {
-        return new CallExpression(resolvedFunction, returnType, Arrays.asList(arguments));
+        return new CallExpression(resolvedFunction, Arrays.asList(arguments));
     }
 
-    public static CallExpression call(ResolvedFunction resolvedFunction, Type returnType, List<RowExpression> arguments)
+    public static CallExpression call(ResolvedFunction resolvedFunction, List<RowExpression> arguments)
     {
-        return new CallExpression(resolvedFunction, returnType, arguments);
+        return new CallExpression(resolvedFunction, arguments);
     }
 
     public static InputReferenceExpression field(int field, Type type)
@@ -51,7 +51,7 @@ public final class Expressions
 
     public static List<RowExpression> subExpressions(Iterable<RowExpression> expressions)
     {
-        final ImmutableList.Builder<RowExpression> builder = ImmutableList.builder();
+        ImmutableList.Builder<RowExpression> builder = ImmutableList.builder();
 
         for (RowExpression expression : expressions) {
             expression.accept(new RowExpressionVisitor<Void, Void>()

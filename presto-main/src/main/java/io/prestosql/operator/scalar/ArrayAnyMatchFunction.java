@@ -13,7 +13,6 @@
  */
 package io.prestosql.operator.scalar;
 
-import io.airlift.slice.Slice;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.ScalarFunction;
@@ -33,49 +32,20 @@ public final class ArrayAnyMatchFunction
     private ArrayAnyMatchFunction() {}
 
     @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = Block.class)
+    @TypeParameterSpecialization(name = "T", nativeContainerType = Object.class)
     @SqlType(StandardTypes.BOOLEAN)
     @SqlNullable
-    public static Boolean anyMatchBlock(
+    public static Boolean anyMatchObject(
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block arrayBlock,
-            @SqlType("function(T, boolean)") BlockToBooleanFunction function)
-    {
-        boolean hasNullResult = false;
-        for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-            Block element = null;
-            if (!arrayBlock.isNull(i)) {
-                element = (Block) elementType.getObject(arrayBlock, i);
-            }
-            Boolean match = function.apply(element);
-            if (TRUE.equals(match)) {
-                return true;
-            }
-            if (match == null) {
-                hasNullResult = true;
-            }
-        }
-        if (hasNullResult) {
-            return null;
-        }
-        return false;
-    }
-
-    @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = Slice.class)
-    @SqlType(StandardTypes.BOOLEAN)
-    @SqlNullable
-    public static Boolean anyMatchSlice(
-            @TypeParameter("T") Type elementType,
-            @SqlType("array(T)") Block arrayBlock,
-            @SqlType("function(T, boolean)") SliceToBooleanFunction function)
+            @SqlType("function(T, boolean)") ObjectToBooleanFunction function)
     {
         boolean hasNullResult = false;
         int positionCount = arrayBlock.getPositionCount();
         for (int i = 0; i < positionCount; i++) {
-            Slice element = null;
+            Object element = null;
             if (!arrayBlock.isNull(i)) {
-                element = elementType.getSlice(arrayBlock, i);
+                element = elementType.getObject(arrayBlock, i);
             }
             Boolean match = function.apply(element);
             if (TRUE.equals(match)) {

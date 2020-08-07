@@ -80,4 +80,14 @@ public class StringLiteral
     {
         return value.hashCode();
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return Objects.equals(value, ((StringLiteral) other).value);
+    }
 }

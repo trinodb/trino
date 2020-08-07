@@ -487,17 +487,8 @@ public class TestAnalyzer
     }
 
     @Test
-    public void testOffsetInvalidRowCount()
-    {
-        assertFails("SELECT * FROM t1 OFFSET 987654321098765432109876543210 ROWS")
-                .hasErrorCode(TYPE_MISMATCH);
-    }
-
-    @Test
     public void testFetchFirstInvalidRowCount()
     {
-        assertFails("SELECT * FROM t1 FETCH FIRST 987654321098765432109876543210 ROWS ONLY")
-                .hasErrorCode(TYPE_MISMATCH);
         assertFails("SELECT * FROM t1 FETCH FIRST 0 ROWS ONLY")
                 .hasErrorCode(NUMERIC_VALUE_OUT_OF_RANGE);
     }
@@ -511,13 +502,6 @@ public class TestAnalyzer
         // ORDER BY clause must be in the same scope as FETCH FIRST WITH TIES
         assertFails("SELECT * FROM (SELECT * FROM (values 1, 3, 2) t(a) ORDER BY a) FETCH FIRST 5 ROWS WITH TIES")
                 .hasErrorCode(MISSING_ORDER_BY);
-    }
-
-    @Test
-    public void testLimitInvalidRowCount()
-    {
-        assertFails("SELECT * FROM t1 LIMIT 987654321098765432109876543210")
-                .hasErrorCode(TYPE_MISMATCH);
     }
 
     @Test

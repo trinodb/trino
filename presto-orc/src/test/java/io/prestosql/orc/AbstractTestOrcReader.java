@@ -13,7 +13,6 @@
  */
 package io.prestosql.orc;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
@@ -239,8 +238,8 @@ public abstract class AbstractTestOrcReader
 
         Random random = new Random(0);
         List<SqlDecimal> values = new ArrayList<>();
-        values.add(new SqlDecimal(new BigInteger(Strings.repeat("9", 18)), DECIMAL_TYPE_PRECISION_18.getPrecision(), DECIMAL_TYPE_PRECISION_18.getScale()));
-        values.add(new SqlDecimal(new BigInteger("-" + Strings.repeat("9", 18)), DECIMAL_TYPE_PRECISION_18.getPrecision(), DECIMAL_TYPE_PRECISION_18.getScale()));
+        values.add(new SqlDecimal(new BigInteger("9".repeat(18)), DECIMAL_TYPE_PRECISION_18.getPrecision(), DECIMAL_TYPE_PRECISION_18.getScale()));
+        values.add(new SqlDecimal(new BigInteger("-" + "9".repeat(18)), DECIMAL_TYPE_PRECISION_18.getPrecision(), DECIMAL_TYPE_PRECISION_18.getScale()));
         BigInteger nextValue = BigInteger.ONE;
         for (int i = 0; i < 59; i++) {
             values.add(new SqlDecimal(nextValue, DECIMAL_TYPE_PRECISION_18.getPrecision(), DECIMAL_TYPE_PRECISION_18.getScale()));
@@ -258,8 +257,8 @@ public abstract class AbstractTestOrcReader
 
         random = new Random(0);
         values = new ArrayList<>();
-        values.add(new SqlDecimal(new BigInteger(Strings.repeat("9", 38)), DECIMAL_TYPE_PRECISION_38.getPrecision(), DECIMAL_TYPE_PRECISION_38.getScale()));
-        values.add(new SqlDecimal(new BigInteger("-" + Strings.repeat("9", 38)), DECIMAL_TYPE_PRECISION_38.getPrecision(), DECIMAL_TYPE_PRECISION_38.getScale()));
+        values.add(new SqlDecimal(new BigInteger("9".repeat(38)), DECIMAL_TYPE_PRECISION_38.getPrecision(), DECIMAL_TYPE_PRECISION_38.getScale()));
+        values.add(new SqlDecimal(new BigInteger("-" + "9".repeat(38)), DECIMAL_TYPE_PRECISION_38.getPrecision(), DECIMAL_TYPE_PRECISION_38.getScale()));
         nextValue = BigInteger.ONE;
         for (int i = 0; i < 127; i++) {
             values.add(new SqlDecimal(nextValue, 38, 16));
@@ -415,7 +414,7 @@ public abstract class AbstractTestOrcReader
 
     private static <T> Iterable<T> skipEvery(int n, Iterable<T> iterable)
     {
-        return () -> new AbstractIterator<T>()
+        return () -> new AbstractIterator<>()
         {
             private final Iterator<T> delegate = iterable.iterator();
             private int position;
@@ -441,7 +440,7 @@ public abstract class AbstractTestOrcReader
 
     private static <T> Iterable<T> repeatEach(int n, Iterable<T> iterable)
     {
-        return () -> new AbstractIterator<T>()
+        return () -> new AbstractIterator<>()
         {
             private final Iterator<T> delegate = iterable.iterator();
             private int position;

@@ -48,6 +48,7 @@ public class ThriftMetastoreConfig
     private File keystorePath;
     private String keystorePassword;
     private File truststorePath;
+    private String trustStorePassword;
 
     @NotNull
     public Duration getMetastoreTimeout()
@@ -231,7 +232,7 @@ public class ThriftMetastoreConfig
     }
 
     @Config("hive.metastore.thrift.client.ssl.key")
-    @ConfigDescription("Path to the PEM key store")
+    @ConfigDescription("Path to the key store")
     public ThriftMetastoreConfig setKeystorePath(File keystorePath)
     {
         this.keystorePath = keystorePath;
@@ -258,10 +259,23 @@ public class ThriftMetastoreConfig
     }
 
     @Config("hive.metastore.thrift.client.ssl.trust-certificate")
-    @ConfigDescription("Path to the PEM trust store")
+    @ConfigDescription("Path to the trust store")
     public ThriftMetastoreConfig setTruststorePath(File truststorePath)
     {
         this.truststorePath = truststorePath;
+        return this;
+    }
+
+    public String getTruststorePassword()
+    {
+        return trustStorePassword;
+    }
+
+    @Config("hive.metastore.thrift.client.ssl.trust-certificate-password")
+    @ConfigDescription("Password for the trust store")
+    public ThriftMetastoreConfig setTruststorePassword(String trustStorePassword)
+    {
+        this.trustStorePassword = trustStorePassword;
         return this;
     }
 

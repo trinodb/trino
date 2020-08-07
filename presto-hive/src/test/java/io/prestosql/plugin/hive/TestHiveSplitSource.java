@@ -34,6 +34,7 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.testing.Assertions.assertContains;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
 import static io.prestosql.spi.connector.NotPartitionedPartitionHandle.NOT_PARTITIONED;
 import static java.lang.Math.toIntExact;
@@ -75,6 +76,34 @@ public class TestHiveSplitSource
         // try to remove 20 splits, and verify we only got 5
         assertEquals(getSplits(hiveSplitSource, 20).size(), 5);
         assertEquals(hiveSplitSource.getBufferedInternalSplitCount(), 0);
+    }
+
+    @Test
+    public void testEvenlySizedSplitRemainder()
+    {
+        DataSize initialSplitSize = getMaxInitialSplitSize(SESSION);
+        HiveSplitSource hiveSplitSource = HiveSplitSource.allAtOnce(
+                SESSION,
+                "database",
+                "table",
+                10,
+                10,
+                DataSize.of(1, MEGABYTE),
+                Integer.MAX_VALUE,
+                new TestingHiveSplitLoader(),
+                Executors.newSingleThreadExecutor(),
+                new CounterStat());
+
+        // One byte larger than the initial split max size
+        DataSize fileSize = DataSize.ofBytes(initialSplitSize.toBytes() + 1);
+        long halfOfSize = fileSize.toBytes() / 2;
+        hiveSplitSource.addToQueue(new TestSplit(1, OptionalInt.empty(), fileSize));
+
+        HiveSplit first = (HiveSplit) getSplits(hiveSplitSource, 1).get(0);
+        assertEquals(first.getLength(), halfOfSize);
+
+        HiveSplit second = (HiveSplit) getSplits(hiveSplitSource, 1).get(0);
+        assertEquals(second.getLength(), fileSize.toBytes() - halfOfSize);
     }
 
     @Test
@@ -154,20 +183,15 @@ public class TestHiveSplitSource
 
         // create a thread that will get a split
         CountDownLatch started = new CountDownLatch(1);
-        Thread getterThread = new Thread(new Runnable()
-        {
-            @Override
-            public void run()
-            {
-                try {
-                    started.countDown();
-                    List<ConnectorSplit> batch = getSplits(hiveSplitSource, 1);
-                    assertEquals(batch.size(), 1);
-                    splits.set(batch.get(0));
-                }
-                catch (Throwable e) {
-                    splits.setException(e);
-                }
+        Thread getterThread = new Thread(() -> {
+            try {
+                started.countDown();
+                List<ConnectorSplit> batch = getSplits(hiveSplitSource, 1);
+                assertEquals(batch.size(), 1);
+                splits.set(batch.get(0));
+            }
+            catch (Throwable e) {
+                splits.setException(e);
             }
         });
         getterThread.start();
@@ -292,16 +316,21 @@ public class TestHiveSplitSource
 
         private TestSplit(int id, OptionalInt bucketNumber)
         {
+            this(id, bucketNumber, DataSize.ofBytes(100));
+        }
+
+        private TestSplit(int id, OptionalInt bucketNumber, DataSize fileSize)
+        {
             super(
                     "partition-name",
                     "path",
                     0,
-                    100,
-                    100,
+                    fileSize.toBytes(),
+                    fileSize.toBytes(),
                     Instant.now().toEpochMilli(),
                     properties("id", String.valueOf(id)),
                     ImmutableList.of(),
-                    ImmutableList.of(new InternalHiveBlock(0, 100, ImmutableList.of())),
+                    ImmutableList.of(new InternalHiveBlock(0, fileSize.toBytes(), ImmutableList.of())),
                     bucketNumber,
                     true,
                     false,
@@ -314,7 +343,7 @@ public class TestHiveSplitSource
         private static Properties properties(String key, String value)
         {
             Properties properties = new Properties();
-            properties.put(key, value);
+            properties.setProperty(key, value);
             return properties;
         }
     }

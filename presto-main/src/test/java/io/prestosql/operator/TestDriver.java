@@ -43,7 +43,6 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 import java.util.List;
-import java.util.concurrent.Callable;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -131,7 +130,7 @@ public class TestDriver
         Driver driver = Driver.createDriver(driverContext, source, sink);
         // let these threads race
         scheduledExecutor.submit(() -> driver.processFor(new Duration(1, TimeUnit.NANOSECONDS))); // don't want to call isFinishedInternal in processFor
-        scheduledExecutor.submit(() -> driver.close());
+        scheduledExecutor.submit(driver::close);
         while (!driverContext.isDone()) {
             Uninterruptibles.sleepUninterruptibly(1, TimeUnit.MILLISECONDS);
         }
@@ -166,7 +165,7 @@ public class TestDriver
     public void testAddSourceFinish()
     {
         PlanNodeId sourceId = new PlanNodeId("source");
-        final List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
         TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "values"),
                 sourceId,
                 (session, split, table, columns, dynamicFilter) -> new FixedPageSource(rowPagesBuilder(types)
@@ -200,19 +199,12 @@ public class TestDriver
             throws Exception
     {
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"), false);
-        final Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(ImmutableList.of()));
+        Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(ImmutableList.of()));
 
         assertSame(driver.getDriverContext(), driverContext);
 
         // block thread in operator processing
-        Future<Boolean> driverProcessFor = executor.submit(new Callable<Boolean>()
-        {
-            @Override
-            public Boolean call()
-            {
-                return driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone();
-            }
-        });
+        Future<Boolean> driverProcessFor = executor.submit(() -> driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
         brokenOperator.waitForLocked();
 
         driver.close();
@@ -232,19 +224,14 @@ public class TestDriver
             throws Exception
     {
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"), true);
-        final Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(ImmutableList.of()));
+        Driver driver = Driver.createDriver(driverContext, brokenOperator, createSinkOperator(ImmutableList.of()));
 
         assertSame(driver.getDriverContext(), driverContext);
 
         // block thread in operator close
-        Future<Boolean> driverClose = executor.submit(new Callable<Boolean>()
-        {
-            @Override
-            public Boolean call()
-            {
-                driver.close();
-                return true;
-            }
+        Future<Boolean> driverClose = executor.submit(() -> {
+            driver.close();
+            return true;
         });
         brokenOperator.waitForLocked();
 
@@ -280,7 +267,7 @@ public class TestDriver
             throws Exception
     {
         PlanNodeId sourceId = new PlanNodeId("source");
-        final List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
+        List<Type> types = ImmutableList.of(VARCHAR, BIGINT, BIGINT);
         // create a table scan operator that does not block, which will cause the driver loop to busy wait
         TableScanOperator source = new NotBlockedTableScanOperator(driverContext.addOperatorContext(99, new PlanNodeId("test"), "values"),
                 sourceId,
@@ -291,17 +278,10 @@ public class TestDriver
                 ImmutableList.of());
 
         BrokenOperator brokenOperator = new BrokenOperator(driverContext.addOperatorContext(0, new PlanNodeId("test"), "source"));
-        final Driver driver = Driver.createDriver(driverContext, source, brokenOperator);
+        Driver driver = Driver.createDriver(driverContext, source, brokenOperator);
 
         // block thread in operator processing
-        Future<Boolean> driverProcessFor = executor.submit(new Callable<Boolean>()
-        {
-            @Override
-            public Boolean call()
-            {
-                return driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone();
-            }
-        });
+        Future<Boolean> driverProcessFor = executor.submit(() -> driver.processFor(new Duration(1, TimeUnit.MILLISECONDS)).isDone());
         brokenOperator.waitForLocked();
 
         assertSame(driver.getDriverContext(), driverContext);

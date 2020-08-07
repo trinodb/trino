@@ -90,6 +90,7 @@ import static io.prestosql.plugin.hive.AbstractTestHive.createTableProperties;
 import static io.prestosql.plugin.hive.AbstractTestHive.filterNonHiddenColumnHandles;
 import static io.prestosql.plugin.hive.AbstractTestHive.filterNonHiddenColumnMetadata;
 import static io.prestosql.plugin.hive.AbstractTestHive.getAllSplits;
+import static io.prestosql.plugin.hive.AbstractTestHive.getSplits;
 import static io.prestosql.plugin.hive.HiveTestUtils.PAGE_SORTER;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveFileWriterFactories;
@@ -98,7 +99,6 @@ import static io.prestosql.plugin.hive.HiveTestUtils.getDefaultHiveRecordCursorP
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSessionProperties;
 import static io.prestosql.plugin.hive.HiveTestUtils.getTypes;
-import static io.prestosql.spi.connector.ConnectorSplitManager.SplitSchedulingStrategy.UNGROUPED_SCHEDULING;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.testing.MaterializedResult.materializeSourceDataStream;
 import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
@@ -196,9 +196,8 @@ public abstract class AbstractTestHiveFileSystem
                 TYPE_MANAGER,
                 locationService,
                 partitionUpdateCodec,
-                new HiveTypeTranslator(),
                 new NodeVersion("test_version"),
-                (metastore) -> new SqlStandardAccessControlMetadata(metastore));
+                SqlStandardAccessControlMetadata::new);
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 transactionHandle -> ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore(),
@@ -207,7 +206,6 @@ public abstract class AbstractTestHiveFileSystem
                 hdfsEnvironment,
                 new CachingDirectoryLister(new HiveConfig()),
                 new BoundedExecutor(executor, config.getMaxSplitIteratorThreads()),
-                new HiveCoercionPolicy(TYPE_MANAGER),
                 new CounterStat(),
                 config.getMaxOutstandingSplits(),
                 config.getMaxOutstandingSplitsSize(),
@@ -447,7 +445,7 @@ public abstract class AbstractTestHiveFileSystem
 
             // verify the data
             metadata.beginQuery(session);
-            ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle, UNGROUPED_SCHEDULING);
+            ConnectorSplitSource splitSource = getSplits(splitManager, transaction, session, tableHandle);
             ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
 
             try (ConnectorPageSource pageSource = pageSourceProvider.createPageSource(transaction.getTransactionHandle(), session, split, tableHandle, columnHandles, TupleDomain.all())) {
@@ -478,7 +476,7 @@ public abstract class AbstractTestHiveFileSystem
             List<ColumnHandle> columnHandles = ImmutableList.copyOf(metadata.getColumnHandles(session, table).values());
 
             metadata.beginQuery(session);
-            ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, table, UNGROUPED_SCHEDULING);
+            ConnectorSplitSource splitSource = getSplits(splitManager, transaction, session, table);
 
             List<Type> allTypes = getTypes(columnHandles);
             List<Type> dataTypes = getTypes(columnHandles.stream()
@@ -520,7 +518,7 @@ public abstract class AbstractTestHiveFileSystem
 
         public TestingHiveMetastore(HiveMetastore delegate, Executor executor, Path basePath, HdfsEnvironment hdfsEnvironment)
         {
-            super(delegate, executor, OptionalLong.empty(), OptionalLong.empty(), 0);
+            super(delegate, executor, OptionalLong.empty(), OptionalLong.empty(), 0, StatsRecording.ENABLED);
             this.basePath = basePath;
             this.hdfsEnvironment = hdfsEnvironment;
         }

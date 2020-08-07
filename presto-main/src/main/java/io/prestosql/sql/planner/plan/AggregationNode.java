@@ -22,7 +22,6 @@ import com.google.common.collect.Iterables;
 import io.prestosql.metadata.AggregationFunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.tree.Expression;
@@ -466,8 +465,7 @@ public class AggregationNode
             else {
                 // Intermediate and final steps get the intermediate value and the lambda functions
                 expectedArgumentCount = 1 + (int) resolvedFunction.getSignature().getArgumentTypes().stream()
-                        .map(TypeSignature::getBase)
-                        .filter(FunctionType.NAME::equals)
+                        .filter(FunctionType.class::isInstance)
                         .count();
             }
 

@@ -35,6 +35,7 @@ import java.io.Closeable;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -60,14 +61,12 @@ public class ParquetWriter
 
     private final List<ColumnWriter> columnWriters;
     private final OutputStreamSliceOutput outputStream;
-    private final List<Type> types;
     private final ParquetWriterOptions writerOption;
-    private final List<String> names;
     private final MessageType messageType;
 
     private final int chunkMaxLogicalBytes;
 
-    private ImmutableList.Builder<RowGroup> rowGroupBuilder = ImmutableList.builder();
+    private final ImmutableList.Builder<RowGroup> rowGroupBuilder = ImmutableList.builder();
 
     private int rows;
     private long bufferedBytes;
@@ -78,28 +77,23 @@ public class ParquetWriter
 
     public ParquetWriter(
             OutputStream outputStream,
-            List<String> columnNames,
-            List<Type> types,
+            MessageType messageType,
+            Map<List<String>, Type> primitiveTypes,
             ParquetWriterOptions writerOption,
             CompressionCodecName compressionCodecName)
     {
         this.outputStream = new OutputStreamSliceOutput(requireNonNull(outputStream, "outputstream is null"));
-        this.names = ImmutableList.copyOf(requireNonNull(columnNames, "columnNames is null"));
-        this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.messageType = requireNonNull(messageType, "messageType is null");
+        requireNonNull(primitiveTypes, "primitiveTypes is null");
         this.writerOption = requireNonNull(writerOption, "writerOption is null");
         requireNonNull(compressionCodecName, "compressionCodecName is null");
-
-        checkArgument(types.size() == columnNames.size(), "type size %s is not equal to name size %s", types.size(), columnNames.size());
-
-        ParquetSchemaConverter parquetSchemaConverter = new ParquetSchemaConverter(types, columnNames);
-        this.messageType = parquetSchemaConverter.getMessageType();
 
         ParquetProperties parquetProperties = ParquetProperties.builder()
                 .withWriterVersion(PARQUET_2_0)
                 .withPageSize(writerOption.getMaxPageSize())
                 .build();
 
-        this.columnWriters = ParquetWriters.getColumnWriters(messageType, parquetSchemaConverter.getPrimitiveTypes(), parquetProperties, compressionCodecName);
+        this.columnWriters = ParquetWriters.getColumnWriters(messageType, primitiveTypes, parquetProperties, compressionCodecName);
 
         this.chunkMaxLogicalBytes = max(1, CHUNK_MAX_BYTES / 2);
     }

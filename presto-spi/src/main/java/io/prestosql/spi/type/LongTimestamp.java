@@ -16,6 +16,7 @@ package io.prestosql.spi.type;
 import java.util.Objects;
 
 public final class LongTimestamp
+        implements Comparable<LongTimestamp>
 {
     private static final int PICOSECONDS_PER_MICROSECOND = 1_000_000;
 
@@ -62,5 +63,15 @@ public final class LongTimestamp
     public int hashCode()
     {
         return Objects.hash(epochMicros, picosOfMicro);
+    }
+
+    @Override
+    public int compareTo(LongTimestamp other)
+    {
+        int value = Long.compare(epochMicros, other.epochMicros);
+        if (value != 0) {
+            return value;
+        }
+        return Integer.compareUnsigned(picosOfMicro, other.picosOfMicro);
     }
 }

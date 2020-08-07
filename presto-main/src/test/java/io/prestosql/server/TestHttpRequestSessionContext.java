@@ -70,7 +70,7 @@ public class TestHttpRequestSessionContext
                 .put(PRESTO_EXTRA_CREDENTIAL, "test.token.abc=xyz")
                 .build());
 
-        SessionContext context = new HttpRequestSessionContext(headers, "testRemote", Optional.empty(), user -> ImmutableSet.of(user));
+        SessionContext context = new HttpRequestSessionContext(headers, "testRemote", Optional.empty(), ImmutableSet::of);
         assertEquals(context.getSource(), "testSource");
         assertEquals(context.getCatalog(), "testCatalog");
         assertEquals(context.getSchema(), "testSchema");
@@ -99,17 +99,17 @@ public class TestHttpRequestSessionContext
         MultivaluedMap<String, String> userHeaders = new GuavaMultivaluedMap<>(ImmutableListMultimap.of(PRESTO_USER, "testUser"));
         MultivaluedMap<String, String> emptyHeaders = new MultivaluedHashMap<>();
 
-        HttpRequestSessionContext context = new HttpRequestSessionContext(userHeaders, "testRemote", Optional.empty(), user -> ImmutableSet.of(user));
+        HttpRequestSessionContext context = new HttpRequestSessionContext(userHeaders, "testRemote", Optional.empty(), ImmutableSet::of);
         assertEquals(context.getIdentity(), Identity.forUser("testUser").withGroups(ImmutableSet.of("testUser")).build());
 
         context = new HttpRequestSessionContext(
                 emptyHeaders,
                 "testRemote",
                 Optional.of(Identity.forUser("mappedUser").withGroups(ImmutableSet.of("test")).build()),
-                user -> ImmutableSet.of(user));
+                ImmutableSet::of);
         assertEquals(context.getIdentity(), Identity.forUser("mappedUser").withGroups(ImmutableSet.of("test", "mappedUser")).build());
 
-        context = new HttpRequestSessionContext(userHeaders, "testRemote", Optional.of(Identity.ofUser("mappedUser")), user -> ImmutableSet.of(user));
+        context = new HttpRequestSessionContext(userHeaders, "testRemote", Optional.of(Identity.ofUser("mappedUser")), ImmutableSet::of);
         assertEquals(context.getIdentity(), Identity.forUser("testUser").withGroups(ImmutableSet.of("testUser")).build());
 
         assertThatThrownBy(() -> new HttpRequestSessionContext(emptyHeaders, "testRemote", Optional.empty(), user -> ImmutableSet.of()))

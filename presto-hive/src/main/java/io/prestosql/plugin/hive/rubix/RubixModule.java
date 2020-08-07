@@ -13,13 +13,15 @@
  */
 package io.prestosql.plugin.hive.rubix;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.inject.Binder;
 import com.google.inject.Inject;
-import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.Scopes;
-import io.prestosql.plugin.hive.ConfigurationInitializer;
+import com.qubole.rubix.prestosql.CachingPrestoDistributedFileSystem;
 import io.prestosql.plugin.hive.DynamicConfigurationProvider;
+import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig;
+import org.apache.hadoop.conf.Configuration;
 
 import java.util.Set;
 
@@ -31,10 +33,13 @@ import static io.airlift.configuration.ConfigBinder.configBinder;
 public class RubixModule
         implements Module
 {
+    private static final String RUBIX_DISTRIBUTED_FS_CLASS_NAME = CachingPrestoDistributedFileSystem.class.getName();
+
     @Override
     public void configure(Binder binder)
     {
         configBinder(binder).bindConfig(RubixConfig.class);
+        configBinder(binder).bindConfig(HiveAuthenticationConfig.class);
         binder.bind(RubixConfigurationInitializer.class).in(Scopes.SINGLETON);
         binder.bind(RubixInitializer.class).in(Scopes.SINGLETON);
         // Make initialization of Rubix happen just once.
@@ -43,7 +48,8 @@ public class RubixModule
         // dependency for many objects) whenever initialization error happens
         // (Guice doesn't fail-fast)
         binder.bind(RubixStarter.class).asEagerSingleton();
-        newOptionalBinder(binder, Key.get(ConfigurationInitializer.class, ForRubix.class));
+        newOptionalBinder(binder, RubixHdfsInitializer.class)
+                .setDefault().to(DefaultRubixHdfsInitializer.class).in(Scopes.SINGLETON);
         newSetBinder(binder, DynamicConfigurationProvider.class).addBinding().to(RubixConfigurationInitializer.class).in(Scopes.SINGLETON);
     }
 
@@ -54,6 +60,23 @@ public class RubixModule
         {
             checkArgument(configProviders.size() == 1, "Rubix cache does not work with dynamic configuration providers");
             rubixInitializer.initializeRubix();
+        }
+    }
+
+    @VisibleForTesting
+    static class DefaultRubixHdfsInitializer
+            implements RubixHdfsInitializer
+    {
+        @Inject
+        public DefaultRubixHdfsInitializer(HiveAuthenticationConfig authenticationConfig)
+        {
+            checkArgument(!authenticationConfig.isHdfsImpersonationEnabled(), "HDFS impersonation is not compatible with Hive caching");
+        }
+
+        @Override
+        public void initializeConfiguration(Configuration config)
+        {
+            config.set("fs.hdfs.impl", RUBIX_DISTRIBUTED_FS_CLASS_NAME);
         }
     }
 }

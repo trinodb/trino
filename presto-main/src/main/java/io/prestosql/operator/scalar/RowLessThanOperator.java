@@ -14,8 +14,9 @@
 package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
@@ -23,8 +24,8 @@ import io.prestosql.spi.type.Type;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.util.Reflection.methodHandle;
 
@@ -40,15 +41,19 @@ public final class RowLessThanOperator
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
     {
-        Type type = boundVariables.getTypeVariable("T");
+        return getFunctionDependencies((RowType) functionBinding.getTypeVariable("T"), LESS_THAN);
+    }
+
+    @Override
+    public ScalarFunctionImplementation specialize(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    {
+        Type type = functionBinding.getTypeVariable("T");
         return new ScalarFunctionImplementation(
-                false,
-                ImmutableList.of(
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL),
-                        valueTypeArgumentProperty(RETURN_NULL_ON_NULL)),
-                METHOD_HANDLE.bindTo(type).bindTo(getMethodHandles((RowType) type, metadata, LESS_THAN)));
+                FAIL_ON_NULL,
+                ImmutableList.of(NEVER_NULL, NEVER_NULL),
+                METHOD_HANDLE.bindTo(type).bindTo(getMethodHandles((RowType) type, functionDependencies, LESS_THAN)));
     }
 
     public static boolean less(

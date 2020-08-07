@@ -17,7 +17,8 @@ Java Runtime Environment
 ^^^^^^^^^^^^^^^^^^^^^^^^
 
 * 64-bit required
-* version 11 recommended (higher versions are less tested)
+* version 11 recommended (lower versions not supported, higher versions less
+  tested)
 * Azul Zulu recommended (most tested)
 
 Python
@@ -108,6 +109,8 @@ The following provides a good starting point for creating ``etc/jvm.config``:
     -XX:+ExitOnOutOfMemoryError
     -XX:+HeapDumpOnOutOfMemoryError
     -XX:ReservedCodeCacheSize=512M
+    -XX:PerMethodRecompilationCutoff=10000
+    -XX:PerBytecodeRecompilationCutoff=10000
     -Djdk.attach.allowAttachSelf=true
     -Djdk.nio.maxCachedBufferSize=2000000
 

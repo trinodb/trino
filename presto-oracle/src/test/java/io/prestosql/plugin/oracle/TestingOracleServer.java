@@ -14,6 +14,7 @@
 package io.prestosql.plugin.oracle;
 
 import org.testcontainers.containers.OracleContainer;
+import org.testcontainers.utility.MountableFile;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -37,6 +38,8 @@ public class TestingOracleServer
     public TestingOracleServer()
     {
         super("wnameless/oracle-xe-11g-r2");
+
+        withCopyFileToContainer(MountableFile.forClasspathResource("init.sql"), "/docker-entrypoint-initdb.d/init.sql");
 
         start();
 
@@ -71,6 +74,12 @@ public class TestingOracleServer
         catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    public String getJdbcUrl()
+    {
+        return "jdbc:oracle:thin:@" + getHost() + ":" + getOraclePort() + ":" + getSid();
     }
 
     public void execute(String sql)

@@ -104,7 +104,7 @@ public class TestHiveHadoop2Plugin
                         .build(),
                 new TestingConnectorContext())
                 .shutdown())
-                .hasMessageContaining("Hdfs impersonation is not compatible with Hive caching");
+                .hasMessageContaining("HDFS impersonation is not compatible with Hive caching");
     }
 
     @Test

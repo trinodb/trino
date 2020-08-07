@@ -16,6 +16,7 @@ package io.prestosql.type;
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.annotation.UsedByGeneratedCode;
+import io.prestosql.metadata.PolymorphicScalarFunctionBuilder;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.type.Type;
@@ -24,7 +25,6 @@ import io.prestosql.spi.type.TypeSignature;
 import java.math.BigDecimal;
 import java.math.BigInteger;
 
-import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.spi.function.OperatorType.SATURATED_FLOOR_CAST;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.Decimals.bigIntegerTenToNth;
@@ -42,9 +42,8 @@ public final class DecimalSaturatedFloorCasts
 {
     private DecimalSaturatedFloorCasts() {}
 
-    public static final SqlScalarFunction DECIMAL_TO_DECIMAL_SATURATED_FLOOR_CAST = SqlScalarFunction.builder(DecimalSaturatedFloorCasts.class)
+    public static final SqlScalarFunction DECIMAL_TO_DECIMAL_SATURATED_FLOOR_CAST = new PolymorphicScalarFunctionBuilder(DecimalSaturatedFloorCasts.class)
             .signature(Signature.builder()
-                    .kind(SCALAR)
                     .operatorType(SATURATED_FLOOR_CAST)
                     .argumentTypes(new TypeSignature("decimal", typeVariable("source_precision"), typeVariable("source_scale")))
                     .returnType(new TypeSignature("decimal", typeVariable("result_precision"), typeVariable("result_scale")))
@@ -113,9 +112,8 @@ public final class DecimalSaturatedFloorCasts
 
     private static SqlScalarFunction decimalToGenericIntegerTypeSaturatedFloorCast(Type type, long minValue, long maxValue)
     {
-        return SqlScalarFunction.builder(DecimalSaturatedFloorCasts.class)
+        return new PolymorphicScalarFunctionBuilder(DecimalSaturatedFloorCasts.class)
                 .signature(Signature.builder()
-                        .kind(SCALAR)
                         .operatorType(SATURATED_FLOOR_CAST)
                         .argumentTypes(new TypeSignature("decimal", typeVariable("source_precision"), typeVariable("source_scale")))
                         .returnType(type.getTypeSignature())
@@ -163,9 +161,8 @@ public final class DecimalSaturatedFloorCasts
 
     private static SqlScalarFunction genericIntegerTypeToDecimalSaturatedFloorCast(Type integerType)
     {
-        return SqlScalarFunction.builder(DecimalSaturatedFloorCasts.class)
+        return new PolymorphicScalarFunctionBuilder(DecimalSaturatedFloorCasts.class)
                 .signature(Signature.builder()
-                        .kind(SCALAR)
                         .operatorType(SATURATED_FLOOR_CAST)
                         .argumentTypes(integerType.getTypeSignature())
                         .returnType(new TypeSignature("decimal", typeVariable("result_precision"), typeVariable("result_scale")))

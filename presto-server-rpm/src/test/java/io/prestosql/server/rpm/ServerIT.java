@@ -103,7 +103,7 @@ public class ServerIT
                     Statement statement = connection.createStatement()) {
                 try (ResultSet resultSet = statement.executeQuery(sql)) {
                     ImmutableSet.Builder<List<String>> rows = ImmutableSet.builder();
-                    final int columnCount = resultSet.getMetaData().getColumnCount();
+                    int columnCount = resultSet.getMetaData().getColumnCount();
                     while (resultSet.next()) {
                         ImmutableList.Builder<String> row = ImmutableList.builder();
                         for (int column = 1; column <= columnCount; column++) {

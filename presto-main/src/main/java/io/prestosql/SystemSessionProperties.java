@@ -67,6 +67,7 @@ public final class SystemSessionProperties
     public static final String QUERY_MAX_RUN_TIME = "query_max_run_time";
     public static final String RESOURCE_OVERCOMMIT = "resource_overcommit";
     public static final String QUERY_MAX_CPU_TIME = "query_max_cpu_time";
+    public static final String QUERY_MAX_SCAN_PHYSICAL_BYTES = "query_max_scan_physical_bytes";
     public static final String QUERY_MAX_STAGE_COUNT = "query_max_stage_count";
     public static final String REDISTRIBUTE_WRITES = "redistribute_writes";
     public static final String USE_PREFERRED_WRITE_PARTITIONING = "use_preferred_write_partitioning";
@@ -125,9 +126,11 @@ public final class SystemSessionProperties
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_ROW_COUNT = "dynamic_filtering_max_per_driver_row_count";
     public static final String DYNAMIC_FILTERING_MAX_PER_DRIVER_SIZE = "dynamic_filtering_max_per_driver_size";
     public static final String IGNORE_DOWNSTREAM_PREFERENCES = "ignore_downstream_preferences";
+    public static final String ITERATIVE_COLUMN_PRUNING = "iterative_rule_based_column_pruning";
     public static final String REQUIRED_WORKERS_COUNT = "required_workers_count";
     public static final String REQUIRED_WORKERS_MAX_WAIT_TIME = "required_workers_max_wait_time";
     public static final String COST_ESTIMATION_WORKER_COUNT = "cost_estimation_worker_count";
+    public static final String OMIT_DATETIME_TYPE_PRECISION = "omit_datetime_type_precision";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -264,6 +267,11 @@ public final class SystemSessionProperties
                         "Maximum amount of distributed total memory a query can use",
                         memoryManagerConfig.getMaxQueryTotalMemory(),
                         true),
+                dataSizeProperty(
+                        QUERY_MAX_SCAN_PHYSICAL_BYTES,
+                        "Maximum scan physical bytes of a query",
+                        queryManagerConfig.getQueryMaxScanPhysicalBytes().orElse(null),
+                        false),
                 booleanProperty(
                         RESOURCE_OVERCOMMIT,
                         "Use resources which are not guaranteed to be available to the query",
@@ -544,6 +552,11 @@ public final class SystemSessionProperties
                         "Ignore Parent's PreferredProperties in AddExchange optimizer",
                         featuresConfig.isIgnoreDownstreamPreferences(),
                         false),
+                booleanProperty(
+                        ITERATIVE_COLUMN_PRUNING,
+                        "Use iterative rules to prune unreferenced columns",
+                        featuresConfig.isIterativeRuleBasedColumnPruning(),
+                        false),
                 integerProperty(
                         REQUIRED_WORKERS_COUNT,
                         "Minimum number of active workers that must be available before the query will start",
@@ -558,7 +571,12 @@ public final class SystemSessionProperties
                         COST_ESTIMATION_WORKER_COUNT,
                         "Set the estimate count of workers while planning",
                         null,
-                        true));
+                        true),
+                booleanProperty(
+                        OMIT_DATETIME_TYPE_PRECISION,
+                        "Omit precision when rendering datetime type names with default precision",
+                        featuresConfig.isOmitDateTimeTypePrecision(),
+                        false));
     }
 
     public List<PropertyMetadata<?>> getSessionProperties()
@@ -763,6 +781,11 @@ public final class SystemSessionProperties
     public static Duration getQueryMaxCpuTime(Session session)
     {
         return session.getSystemProperty(QUERY_MAX_CPU_TIME, Duration.class);
+    }
+
+    public static Optional<DataSize> getQueryMaxScanPhysicalBytes(Session session)
+    {
+        return Optional.ofNullable(session.getSystemProperty(QUERY_MAX_SCAN_PHYSICAL_BYTES, DataSize.class));
     }
 
     public static boolean isSpillEnabled(Session session)
@@ -989,6 +1012,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(IGNORE_DOWNSTREAM_PREFERENCES, Boolean.class);
     }
 
+    public static boolean isIterativeRuleBasedColumnPruning(Session session)
+    {
+        return session.getSystemProperty(ITERATIVE_COLUMN_PRUNING, Boolean.class);
+    }
+
     public static int getRequiredWorkers(Session session)
     {
         return session.getSystemProperty(REQUIRED_WORKERS_COUNT, Integer.class);
@@ -1002,5 +1030,10 @@ public final class SystemSessionProperties
     public static Integer getCostEstimationWorkerCount(Session session)
     {
         return session.getSystemProperty(COST_ESTIMATION_WORKER_COUNT, Integer.class);
+    }
+
+    public static boolean isOmitDateTimeTypePrecision(Session session)
+    {
+        return session.getSystemProperty(OMIT_DATETIME_TYPE_PRECISION, Boolean.class);
     }
 }

@@ -113,4 +113,15 @@ public class Extract
     {
         return Objects.hash(expression, field);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        Extract otherExtract = (Extract) other;
+        return field.equals(otherExtract.field);
+    }
 }

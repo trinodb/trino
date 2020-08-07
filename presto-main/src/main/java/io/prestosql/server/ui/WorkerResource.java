@@ -101,7 +101,7 @@ public class WorkerResource
     @GET
     @Path("{nodeId}/task/{taskId}")
     public Response getThreads(
-            @PathParam("taskId") final TaskId task,
+            @PathParam("taskId") TaskId task,
             @PathParam("nodeId") String nodeId,
             @Context HttpServletRequest servletRequest,
             @Context HttpHeaders httpHeaders)

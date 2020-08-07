@@ -61,6 +61,11 @@ public class InterpretedFunctionInvoker
     {
         FunctionMetadata functionMetadata = metadata.getFunctionMetadata(function);
         FunctionInvoker invoker = metadata.getScalarFunctionInvoker(function, Optional.of(getInvocationConvention(function, functionMetadata)));
+        return invoke(functionMetadata, invoker, session, arguments);
+    }
+
+    public static Object invoke(FunctionMetadata functionMetadata, FunctionInvoker invoker, ConnectorSession session, List<Object> arguments)
+    {
         MethodHandle method = invoker.getMethodHandle();
 
         List<Object> actualArguments = new ArrayList<>();
@@ -108,7 +113,7 @@ public class InterpretedFunctionInvoker
     {
         ImmutableList.Builder<InvocationArgumentConvention> argumentConventions = ImmutableList.builder();
         for (int i = 0; i < functionMetadata.getArgumentDefinitions().size(); i++) {
-            if (function.getSignature().getArgumentTypes().get(i).getBase().equalsIgnoreCase(FunctionType.NAME)) {
+            if (function.getSignature().getArgumentTypes().get(i) instanceof FunctionType) {
                 argumentConventions.add(FUNCTION);
             }
             else if (functionMetadata.getArgumentDefinitions().get(i).isNullable()) {

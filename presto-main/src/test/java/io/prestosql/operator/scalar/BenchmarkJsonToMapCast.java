@@ -115,7 +115,6 @@ public class BenchmarkJsonToMapCast
             MapType mapType = mapType(VARCHAR, valueType);
             List<RowExpression> projections = ImmutableList.of(new CallExpression(
                     metadata.getCoercion(JSON, mapType),
-                    mapType,
                     ImmutableList.of(field(0, JSON))));
 
             pageProcessor = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0))

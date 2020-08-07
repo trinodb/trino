@@ -95,4 +95,14 @@ public class BinaryLiteral
     {
         return value.hashCode();
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return Objects.equals(value, ((BinaryLiteral) other).value);
+    }
 }

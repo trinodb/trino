@@ -84,4 +84,10 @@ public class InPredicate
     {
         return Objects.hash(value, valueList);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

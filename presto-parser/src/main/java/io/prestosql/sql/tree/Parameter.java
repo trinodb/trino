@@ -76,4 +76,14 @@ public class Parameter
     {
         return position;
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return position == ((Parameter) other).position;
+    }
 }

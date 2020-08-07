@@ -21,6 +21,7 @@ import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.orc.OrcWriterStats;
 import io.prestosql.orc.OutputStreamOrcDataSink;
 import io.prestosql.orc.metadata.OrcType;
+import io.prestosql.parquet.writer.ParquetSchemaConverter;
 import io.prestosql.parquet.writer.ParquetWriter;
 import io.prestosql.parquet.writer.ParquetWriterOptions;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
@@ -34,9 +35,7 @@ import io.prestosql.plugin.hive.HiveRecordCursorProvider.ReaderRecordCursorWithP
 import io.prestosql.plugin.hive.HiveStorageFormat;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.HiveTypeName;
-import io.prestosql.plugin.hive.HiveTypeTranslator;
 import io.prestosql.plugin.hive.RecordFileWriter;
-import io.prestosql.plugin.hive.TypeTranslator;
 import io.prestosql.plugin.hive.benchmark.BenchmarkHiveFileFormat.TestData;
 import io.prestosql.plugin.hive.orc.OrcPageSourceFactory;
 import io.prestosql.plugin.hive.parquet.ParquetPageSourceFactory;
@@ -76,6 +75,7 @@ import static io.prestosql.plugin.hive.HiveTestUtils.createGenericHiveRecordCurs
 import static io.prestosql.plugin.hive.HiveType.toHiveType;
 import static io.prestosql.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
 import static io.prestosql.plugin.hive.util.CompressionConfigUtil.configureCompression;
+import static java.lang.String.join;
 import static java.util.stream.Collectors.joining;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.FILE_INPUT_FORMAT;
 import static org.apache.hadoop.hive.metastore.api.hive_metastoreConstants.META_TABLE_COLUMNS;
@@ -298,11 +298,10 @@ public enum FileFormat
             ConnectorSession session, File targetFile, List<String> columnNames, List<Type> columnTypes, HiveStorageFormat format)
     {
         List<HiveColumnHandle> columnHandles = new ArrayList<>(columnNames.size());
-        TypeTranslator typeTranslator = new HiveTypeTranslator();
         for (int i = 0; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
             Type columnType = columnTypes.get(i);
-            columnHandles.add(createBaseColumn(columnName, i, toHiveType(typeTranslator, columnType), columnType, REGULAR, Optional.empty()));
+            columnHandles.add(createBaseColumn(columnName, i, toHiveType(columnType), columnType, REGULAR, Optional.empty()));
         }
 
         Optional<ReaderRecordCursorWithProjections> recordCursorWithProjections = cursorProvider
@@ -335,11 +334,10 @@ public enum FileFormat
             HiveStorageFormat format)
     {
         List<HiveColumnHandle> columnHandles = new ArrayList<>(columnNames.size());
-        TypeTranslator typeTranslator = new HiveTypeTranslator();
         for (int i = 0; i < columnNames.size(); i++) {
             String columnName = columnNames.get(i);
             Type columnType = columnTypes.get(i);
-            columnHandles.add(createBaseColumn(columnName, i, toHiveType(typeTranslator, columnType), columnType, REGULAR, Optional.empty()));
+            columnHandles.add(createBaseColumn(columnName, i, toHiveType(columnType), columnType, REGULAR, Optional.empty()));
         }
 
         Optional<ReaderPageSourceWithProjections> readerPageSourceWithProjections = pageSourceFactory
@@ -407,13 +405,11 @@ public enum FileFormat
     private static Properties createSchema(HiveStorageFormat format, List<String> columnNames, List<Type> columnTypes)
     {
         Properties schema = new Properties();
-        TypeTranslator typeTranslator = new HiveTypeTranslator();
         schema.setProperty(SERIALIZATION_LIB, format.getSerDe());
         schema.setProperty(FILE_INPUT_FORMAT, format.getInputFormat());
-        schema.setProperty(META_TABLE_COLUMNS, columnNames.stream()
-                .collect(joining(",")));
+        schema.setProperty(META_TABLE_COLUMNS, join(",", columnNames));
         schema.setProperty(META_TABLE_COLUMN_TYPES, columnTypes.stream()
-                .map(type -> toHiveType(typeTranslator, type))
+                .map(HiveType::toHiveType)
                 .map(HiveType::getHiveTypeName)
                 .map(HiveTypeName::toString)
                 .collect(joining(":")));
@@ -499,10 +495,12 @@ public enum FileFormat
         public PrestoParquetFormatWriter(File targetFile, List<String> columnNames, List<Type> types, HiveCompressionCodec compressionCodec)
                 throws IOException
         {
+            ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(types, columnNames);
+
             writer = new ParquetWriter(
                     new FileOutputStream(targetFile),
-                    columnNames,
-                    types,
+                    schemaConverter.getMessageType(),
+                    schemaConverter.getPrimitiveTypes(),
                     ParquetWriterOptions.builder().build(),
                     compressionCodec.getParquetCompressionCodec());
         }

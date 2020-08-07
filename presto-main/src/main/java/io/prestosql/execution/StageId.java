@@ -84,7 +84,7 @@ public class StageId
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final StageId other = (StageId) obj;
+        StageId other = (StageId) obj;
         return Objects.equals(this.id, other.id) &&
                 Objects.equals(this.queryId, other.queryId);
     }

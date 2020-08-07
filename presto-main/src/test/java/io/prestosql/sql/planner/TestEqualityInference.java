@@ -340,12 +340,12 @@ public class TestEqualityInference
         }
     }
 
-    private static Predicate<Expression> matchesSymbolScope(final Predicate<Symbol> symbolScope)
+    private static Predicate<Expression> matchesSymbolScope(Predicate<Symbol> symbolScope)
     {
         return expression -> Iterables.all(SymbolsExtractor.extractUnique(expression), symbolScope);
     }
 
-    private static Predicate<Expression> matchesStraddlingScope(final Predicate<Symbol> symbolScope)
+    private static Predicate<Expression> matchesStraddlingScope(Predicate<Symbol> symbolScope)
     {
         return expression -> {
             Set<Symbol> symbols = SymbolsExtractor.extractUnique(expression);
@@ -417,7 +417,7 @@ public class TestEqualityInference
 
     private static Predicate<Symbol> matchesSymbols(Collection<String> symbols)
     {
-        final Set<Symbol> symbolSet = symbols.stream()
+        Set<Symbol> symbolSet = symbols.stream()
                 .map(Symbol::new)
                 .collect(toImmutableSet());
 
@@ -429,7 +429,7 @@ public class TestEqualityInference
         return symbolBeginsWith(Arrays.asList(prefixes));
     }
 
-    private static Predicate<Symbol> symbolBeginsWith(final Iterable<String> prefixes)
+    private static Predicate<Symbol> symbolBeginsWith(Iterable<String> prefixes)
     {
         return symbol -> {
             for (String prefix : prefixes) {

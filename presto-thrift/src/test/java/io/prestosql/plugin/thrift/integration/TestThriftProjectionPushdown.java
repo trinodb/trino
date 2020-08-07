@@ -116,7 +116,7 @@ public class TestThriftProjectionPushdown
         if (servers != null) {
             try (Closer closer = Closer.create()) {
                 for (DriftServer server : servers) {
-                    closer.register(() -> server.shutdown());
+                    closer.register(server::shutdown);
                 }
             }
             catch (IOException e) {

@@ -96,7 +96,7 @@ public class TestSetSessionTask
                         Integer.class,
                         null,
                         false,
-                        value -> validatePositive(value),
+                        TestSetSessionTask::validatePositive,
                         value -> value));
 
         metadata.getSessionPropertyManager().addConnectorSessionProperties(bogusTestingCatalog.getConnectorCatalogName(), sessionProperties);
@@ -184,7 +184,8 @@ public class TestSetSessionTask
                 accessControl,
                 executor,
                 metadata,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                Optional.empty());
         getFutureValue(new SetSessionTask().execute(new SetSession(qualifiedPropName, expression), transactionManager, metadata, accessControl, stateMachine, parameters));
 
         Map<String, String> sessionProperties = stateMachine.getSetSessionProperties();

@@ -13,7 +13,6 @@
  */
 package io.prestosql.operator.scalar;
 
-import io.airlift.slice.Slice;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.function.Description;
@@ -104,43 +103,19 @@ public final class ArrayFilterFunction
     }
 
     @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = Slice.class)
+    @TypeParameterSpecialization(name = "T", nativeContainerType = Object.class)
     @SqlType("array(T)")
-    public static Block filterSlice(
+    public static Block filterObject(
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block arrayBlock,
-            @SqlType("function(T, boolean)") SliceToBooleanFunction function)
+            @SqlType("function(T, boolean)") ObjectToBooleanFunction function)
     {
         int positionCount = arrayBlock.getPositionCount();
         BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
         for (int position = 0; position < positionCount; position++) {
-            Slice input = null;
+            Object input = null;
             if (!arrayBlock.isNull(position)) {
-                input = elementType.getSlice(arrayBlock, position);
-            }
-
-            Boolean keep = function.apply(input);
-            if (TRUE.equals(keep)) {
-                elementType.appendTo(arrayBlock, position, resultBuilder);
-            }
-        }
-        return resultBuilder.build();
-    }
-
-    @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = Block.class)
-    @SqlType("array(T)")
-    public static Block filterBlock(
-            @TypeParameter("T") Type elementType,
-            @SqlType("array(T)") Block arrayBlock,
-            @SqlType("function(T, boolean)") BlockToBooleanFunction function)
-    {
-        int positionCount = arrayBlock.getPositionCount();
-        BlockBuilder resultBuilder = elementType.createBlockBuilder(null, positionCount);
-        for (int position = 0; position < positionCount; position++) {
-            Block input = null;
-            if (!arrayBlock.isNull(position)) {
-                input = (Block) elementType.getObject(arrayBlock, position);
+                input = elementType.getObject(arrayBlock, position);
             }
 
             Boolean keep = function.apply(input);

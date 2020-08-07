@@ -40,6 +40,8 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 
@@ -47,6 +49,7 @@ import javax.inject.Inject;
 
 import java.sql.DatabaseMetaData;
 import java.sql.Types;
+import java.time.ZoneId;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
@@ -60,6 +63,7 @@ import java.util.stream.Collectors;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.airlift.slice.Slices.utf8Slice;
+import static io.prestosql.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.prestosql.connector.system.jdbc.FilterUtil.tablePrefix;
 import static io.prestosql.connector.system.jdbc.FilterUtil.tryGetSingleVarcharValue;
 import static io.prestosql.metadata.MetadataListing.listCatalogs;
@@ -77,12 +81,12 @@ import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
+import static io.prestosql.type.TypeUtils.getDisplayLabel;
+import static java.lang.Math.min;
 import static java.util.Objects.requireNonNull;
 
 public class ColumnJdbcTable
@@ -91,6 +95,10 @@ public class ColumnJdbcTable
     public static final SchemaTableName NAME = new SchemaTableName("jdbc", "columns");
 
     private static final int MAX_DOMAIN_SIZE = 100;
+    private static final int MAX_TIMEZONE_LENGTH = ZoneId.getAvailableZoneIds().stream()
+            .map(String::length)
+            .max(Integer::compareTo)
+            .get();
 
     private static final ColumnHandle TABLE_CATALOG_COLUMN = new SystemColumnHandle("table_cat");
     private static final ColumnHandle TABLE_SCHEMA_COLUMN = new SystemColumnHandle("table_schem");
@@ -232,6 +240,7 @@ public class ColumnJdbcTable
         }
 
         Session session = ((FullConnectorSession) connectorSession).getSession();
+        boolean omitDateTimeTypePrecision = isOmitDateTimeTypePrecision(session);
         Optional<String> catalogFilter = tryGetSingleVarcharValue(constraint, 0);
         Optional<String> schemaFilter = tryGetSingleVarcharValue(constraint, 1);
         Optional<String> tableFilter = tryGetSingleVarcharValue(constraint, 2);
@@ -248,7 +257,7 @@ public class ColumnJdbcTable
             if ((schemaDomain.isAll() && tableDomain.isAll()) || (schemaFilter.isPresent() && tableFilter.isPresent())) {
                 QualifiedTablePrefix tablePrefix = tablePrefix(catalog, schemaFilter, tableFilter);
                 Map<SchemaTableName, List<ColumnMetadata>> tableColumns = listTableColumns(session, metadata, accessControl, tablePrefix);
-                addColumnsRow(table, catalog, tableColumns);
+                addColumnsRow(table, catalog, tableColumns, omitDateTimeTypePrecision);
             }
             else {
                 Collection<String> schemas = listSchemas(session, metadata, accessControl, catalog, schemaFilter);
@@ -268,7 +277,7 @@ public class ColumnJdbcTable
                         }
 
                         Map<SchemaTableName, List<ColumnMetadata>> tableColumns = listTableColumns(session, metadata, accessControl, new QualifiedTablePrefix(catalog, schema, tableName));
-                        addColumnsRow(table, catalog, tableColumns);
+                        addColumnsRow(table, catalog, tableColumns, omitDateTimeTypePrecision);
                     }
                 }
             }
@@ -276,14 +285,14 @@ public class ColumnJdbcTable
         return table.build().cursor();
     }
 
-    private static void addColumnsRow(Builder builder, String catalog, Map<SchemaTableName, List<ColumnMetadata>> columns)
+    private static void addColumnsRow(Builder builder, String catalog, Map<SchemaTableName, List<ColumnMetadata>> columns, boolean isOmitTimestampPrecision)
     {
         for (Entry<SchemaTableName, List<ColumnMetadata>> entry : columns.entrySet()) {
-            addColumnRows(builder, catalog, entry.getKey(), entry.getValue());
+            addColumnRows(builder, catalog, entry.getKey(), entry.getValue(), isOmitTimestampPrecision);
         }
     }
 
-    private static void addColumnRows(Builder builder, String catalog, SchemaTableName tableName, List<ColumnMetadata> columns)
+    private static void addColumnRows(Builder builder, String catalog, SchemaTableName tableName, List<ColumnMetadata> columns, boolean isOmitTimestampPrecision)
     {
         int ordinalPosition = 1;
         for (ColumnMetadata column : columns) {
@@ -296,7 +305,7 @@ public class ColumnJdbcTable
                     tableName.getTableName(),
                     column.getName(),
                     jdbcDataType(column.getType()),
-                    column.getType().getDisplayName(),
+                    getDisplayLabel(column.getType(), isOmitTimestampPrecision),
                     columnSize(column.getType()),
                     0,
                     decimalDigits(column.getType()),
@@ -360,10 +369,10 @@ public class ColumnJdbcTable
         if (type.equals(TIME_WITH_TIME_ZONE)) {
             return Types.TIME_WITH_TIMEZONE;
         }
-        if (type.equals(TIMESTAMP)) {
+        if (type instanceof TimestampType) {
             return Types.TIMESTAMP;
         }
-        if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+        if (type instanceof TimestampWithTimeZoneType) {
             return Types.TIMESTAMP_WITH_TIMEZONE;
         }
         if (type.equals(DATE)) {
@@ -416,11 +425,25 @@ public class ColumnJdbcTable
         if (type.equals(DATE)) {
             return 14; // +5881580-07-11 (2**31-1 days)
         }
-        if (type.equals(TIMESTAMP)) {
-            return 15 + 8;
+        if (type instanceof TimestampType) {
+            // 1 digit for year sign
+            // 5 digits for year
+            // 15 characters for "-MM-DD HH:MM:SS"
+            // min(p, 1) for the fractional second period (i.e., no period if p == 0)
+            // p for the fractional digits
+            int precision = ((TimestampType) type).getPrecision();
+            return 1 + 5 + 15 + min(precision, 1) + precision;
         }
-        if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
-            return 15 + 8 + 6;
+        if (type instanceof TimestampWithTimeZoneType) {
+            // 1 digit for year sign
+            // 6 digits for year
+            // 15 characters for "-MM-DD HH:MM:SS"
+            // min(p, 1) for the fractional second period (i.e., no period if p == 0)
+            // p for the fractional digits
+            // 1 for space after timestamp
+            // MAX_TIMEZONE_LENGTH for timezone
+            int precision = ((TimestampWithTimeZoneType) type).getPrecision();
+            return 1 + 6 + 15 + min(precision, 1) + precision + 1 + MAX_TIMEZONE_LENGTH;
         }
         return null;
     }

@@ -137,9 +137,7 @@ Property Name                                                 Description
 ``cassandra.load-policy.shuffle-replicas``                    Set to ``true`` to use ``TokenAwarePolicy`` with shuffling of replicas,
                                                               defaults to ``false``.
 
-``cassandra.load-policy.use-white-list``                      Set to ``true`` to use ``WhiteListPolicy``, defaults to ``false``.
-
-``cassandra.load-policy.white-list.addresses``                Comma-separated list of hosts for ``WhiteListPolicy``.
+``cassandra.load-policy.allowed-addresses``                   Comma-separated list of hosts to allow.
 
 ``cassandra.no-host-available-retry-timeout``                 Retry timeout for ``NoHostAvailableException``, defaults to ``1m``.
 

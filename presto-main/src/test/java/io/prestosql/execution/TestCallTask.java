@@ -144,7 +144,8 @@ public class TestCallTask
                 accessControl,
                 executor,
                 metadata,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                Optional.empty());
     }
 
     private Session testSession(TransactionManager transactionManager)

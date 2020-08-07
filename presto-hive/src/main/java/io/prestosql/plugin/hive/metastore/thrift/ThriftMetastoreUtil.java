@@ -232,7 +232,7 @@ public final class ThriftMetastoreUtil
 
     public static Stream<RoleGrant> listApplicableRoles(HivePrincipal principal, Function<HivePrincipal, Set<RoleGrant>> listRoleGrants)
     {
-        return Streams.stream(new AbstractIterator<RoleGrant>()
+        return Streams.stream(new AbstractIterator<>()
         {
             private final Queue<RoleGrant> output = new ArrayDeque<>();
             private final Set<RoleGrant> seenRoles = new HashSet<>();
@@ -444,6 +444,13 @@ public final class ThriftMetastoreUtil
     public static boolean isCsvTable(org.apache.hadoop.hive.metastore.api.Table table)
     {
         return CSV.getSerDe().equals(getSerdeInfo(table).getSerializationLib());
+    }
+
+    public static List<FieldSchema> csvSchemaFields(List<FieldSchema> schemas)
+    {
+        return schemas.stream()
+                .map(schema -> new FieldSchema(schema.getName(), HiveType.HIVE_STRING.toString(), schema.getComment()))
+                .collect(toImmutableList());
     }
 
     private static SerDeInfo getSerdeInfo(org.apache.hadoop.hive.metastore.api.Table table)

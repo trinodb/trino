@@ -17,6 +17,7 @@ import com.google.common.base.Joiner;
 import com.google.common.base.Splitter;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.compress.lzo.LzoCodec;
 import io.airlift.compress.lzo.LzopCodec;
 import io.airlift.json.JsonCodec;
@@ -26,6 +27,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceUtf8;
 import io.airlift.slice.Slices;
 import io.prestosql.hadoop.TextLineLengthLimitExceededException;
+import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.plugin.base.CatalogName;
 import io.prestosql.plugin.hive.HiveColumnHandle;
 import io.prestosql.plugin.hive.HivePartitionKey;
@@ -132,7 +134,9 @@ import static io.prestosql.plugin.hive.HiveMetadata.SKIP_FOOTER_COUNT_KEY;
 import static io.prestosql.plugin.hive.HiveMetadata.SKIP_HEADER_COUNT_KEY;
 import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.prestosql.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
-import static io.prestosql.plugin.hive.HiveQlTranslation.translateHiveQlToPrestoSql;
+import static io.prestosql.plugin.hive.HiveQlToPrestoTranslator.translateHiveViewToPresto;
+import static io.prestosql.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_COLUMNS;
+import static io.prestosql.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
 import static io.prestosql.plugin.hive.HiveType.toHiveTypes;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.copy;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
@@ -252,7 +256,8 @@ public final class HiveUtil
             RecordReader<WritableComparable, Writable> recordReader = (RecordReader<WritableComparable, Writable>) inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL);
 
             int headerCount = getHeaderCount(schema);
-            if (headerCount > 0) {
+            //  Only skip header rows when the split is at the beginning of the file
+            if (start == 0 && headerCount > 0) {
                 Utilities.skipHeader(recordReader, headerCount, recordReader.createKey(), recordReader.createValue());
             }
 
@@ -432,7 +437,7 @@ public final class HiveUtil
         // see also https://issues.apache.org/jira/browse/HIVE-16922
         if (name.equals("org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe")) {
             if (schema.containsKey("colelction.delim") && !schema.containsKey(COLLECTION_DELIM)) {
-                schema.put(COLLECTION_DELIM, schema.getProperty("colelction.delim"));
+                schema.setProperty(COLLECTION_DELIM, schema.getProperty("colelction.delim"));
             }
         }
 
@@ -687,7 +692,7 @@ public final class HiveUtil
         String viewText = view.getViewExpandedText()
                 .orElseThrow(() -> new PrestoException(HIVE_INVALID_METADATA, "No view expanded text: " + view.getSchemaTableName()));
         return new ConnectorViewDefinition(
-                translateHiveQlToPrestoSql(viewText),
+                translateHiveViewToPresto(viewText),
                 Optional.of(catalogName.toString()),
                 Optional.ofNullable(view.getDatabaseName()),
                 view.getDataColumns().stream()
@@ -1064,5 +1069,27 @@ public final class HiveUtil
     public static List<HiveType> getColumnTypes(Properties schema)
     {
         return toHiveTypes(schema.getProperty(IOConstants.COLUMNS_TYPES, ""));
+    }
+
+    public static OrcWriterOptions getOrcWriterOptions(Properties schema, OrcWriterOptions orcWriterOptions)
+    {
+        if (schema.contains(ORC_BLOOM_FILTER_COLUMNS)) {
+            if (!schema.contains(ORC_BLOOM_FILTER_FPP)) {
+                throw new PrestoException(HIVE_INVALID_METADATA, format("FPP for bloom filter is missing"));
+            }
+            try {
+                double fpp = parseDouble(schema.getProperty(ORC_BLOOM_FILTER_FPP));
+                if (fpp > 0.0 && fpp < 1.0) {
+                    throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Invalid value for bloom filter: %f", fpp));
+                }
+                return orcWriterOptions
+                        .withBloomFilterColumns(ImmutableSet.copyOf(COLUMN_NAMES_SPLITTER.splitToList(schema.getProperty(ORC_BLOOM_FILTER_COLUMNS))))
+                        .withBloomFilterFpp(fpp);
+            }
+            catch (NumberFormatException e) {
+                throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, format("Invalid value for %s property: %s", ORC_BLOOM_FILTER_FPP, schema.getProperty(ORC_BLOOM_FILTER_FPP)));
+            }
+        }
+        return orcWriterOptions;
     }
 }

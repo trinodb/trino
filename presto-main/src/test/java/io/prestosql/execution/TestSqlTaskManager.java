@@ -54,9 +54,11 @@ import static io.prestosql.execution.buffer.OutputBuffers.BufferType.PARTITIONED
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 @Test
 public class TestSqlTaskManager
@@ -110,21 +112,20 @@ public class TestSqlTaskManager
     {
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
             TaskId taskId = TASK_ID;
-            TaskInfo taskInfo = createTask(sqlTaskManager, taskId, ImmutableSet.of(SPLIT), createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
-            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+            createTask(sqlTaskManager, taskId, ImmutableSet.of(SPLIT), createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
 
-            taskInfo = sqlTaskManager.getTaskInfo(taskId);
-            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+            TaskInfo taskInfo = sqlTaskManager.getTaskInfo(taskId, TaskState.RUNNING).get(1, TimeUnit.SECONDS);
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FLUSHING);
 
             BufferResult results = sqlTaskManager.getTaskResults(taskId, OUT, 0, DataSize.of(1, Unit.MEGABYTE)).get();
-            assertEquals(results.isBufferComplete(), false);
+            assertFalse(results.isBufferComplete());
             assertEquals(results.getSerializedPages().size(), 1);
             assertEquals(results.getSerializedPages().get(0).getPositionCount(), 1);
 
             for (boolean moreResults = true; moreResults; moreResults = !results.isBufferComplete()) {
                 results = sqlTaskManager.getTaskResults(taskId, OUT, results.getToken() + results.getSerializedPages().size(), DataSize.of(1, Unit.MEGABYTE)).get();
             }
-            assertEquals(results.isBufferComplete(), true);
+            assertTrue(results.isBufferComplete());
             assertEquals(results.getSerializedPages().size(), 0);
 
             // complete the task by calling abort on it
@@ -190,11 +191,10 @@ public class TestSqlTaskManager
     {
         try (SqlTaskManager sqlTaskManager = createSqlTaskManager(new TaskManagerConfig())) {
             TaskId taskId = TASK_ID;
-            TaskInfo taskInfo = createTask(sqlTaskManager, taskId, ImmutableSet.of(SPLIT), createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
-            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+            createTask(sqlTaskManager, taskId, ImmutableSet.of(SPLIT), createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds());
 
-            taskInfo = sqlTaskManager.getTaskInfo(taskId);
-            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+            TaskInfo taskInfo = sqlTaskManager.getTaskInfo(taskId, TaskState.RUNNING).get(1, TimeUnit.SECONDS);
+            assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FLUSHING);
 
             sqlTaskManager.abortTaskResults(taskId, OUT);
 

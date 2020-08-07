@@ -22,6 +22,7 @@ import com.google.common.collect.Lists;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
+import io.prestosql.parquet.writer.ParquetSchemaConverter;
 import io.prestosql.parquet.writer.ParquetWriter;
 import io.prestosql.parquet.writer.ParquetWriterOptions;
 import io.prestosql.plugin.hive.HiveConfig;
@@ -676,7 +677,7 @@ public class ParquetTester
 
     static <T> Iterable<T> insertNullEvery(int n, Iterable<T> iterable)
     {
-        return () -> new AbstractIterator<T>()
+        return () -> new AbstractIterator<>()
         {
             private final Iterator<T> delegate = iterable.iterator();
             private int position;
@@ -712,10 +713,11 @@ public class ParquetTester
             throws Exception
     {
         checkArgument(types.size() == columnNames.size() && types.size() == values.length);
+        ParquetSchemaConverter schemaConverter = new ParquetSchemaConverter(types, columnNames);
         ParquetWriter writer = new ParquetWriter(
                 new FileOutputStream(outputFile),
-                columnNames,
-                types,
+                schemaConverter.getMessageType(),
+                schemaConverter.getPrimitiveTypes(),
                 ParquetWriterOptions.builder()
                         .setMaxPageSize(DataSize.ofBytes(100))
                         .setMaxBlockSize(DataSize.ofBytes(100000))

@@ -413,7 +413,7 @@ public final class GraphvizPrinter
         }
 
         @Override
-        public Void visitTopN(final TopNNode node, Void context)
+        public Void visitTopN(TopNNode node, Void context)
         {
             String keys = node.getOrderingScheme()
                     .getOrderBy().stream()

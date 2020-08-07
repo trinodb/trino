@@ -98,7 +98,8 @@ public class RowType
         }
 
         List<TypeSignatureParameter> parameters = fields.stream()
-                .map(field -> TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(field.getName().map(name -> new RowFieldName(name)), field.getType().getTypeSignature())))
+                .map(field -> new NamedTypeSignature(field.getName().map(RowFieldName::new), field.getType().getTypeSignature()))
+                .map(TypeSignatureParameter::namedTypeParameter)
                 .collect(Collectors.toList());
 
         return new TypeSignature(ROW, parameters);

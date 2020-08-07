@@ -60,6 +60,7 @@ import java.util.stream.IntStream;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.metadata.ResolvedFunction.extractFunctionName;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
@@ -73,7 +74,6 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.sql.ExpressionFormatter.formatExpression;
 import static io.prestosql.sql.ExpressionTestUtils.assertExpressionEquals;
-import static io.prestosql.sql.ExpressionTestUtils.getFunctionName;
 import static io.prestosql.sql.ExpressionTestUtils.getTypes;
 import static io.prestosql.sql.ExpressionTestUtils.resolveFunctionCalls;
 import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferences;
@@ -1430,7 +1430,7 @@ public class TestExpressionInterpreter
         assertEquals(evaluate(predicate), expected);
     }
 
-    private static StringLiteral rawStringLiteral(final Slice slice)
+    private static StringLiteral rawStringLiteral(Slice slice)
     {
         return new StringLiteral(slice.toStringUtf8())
         {
@@ -1558,7 +1558,7 @@ public class TestExpressionInterpreter
         @Override
         public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)
         {
-            if (getFunctionName(node).equals(QualifiedName.of("fail"))) {
+            if (extractFunctionName(node.getName()).equals("fail")) {
                 return new FunctionCallBuilder(METADATA)
                         .setName(QualifiedName.of("fail"))
                         .addArgument(VARCHAR, new StringLiteral("fail"))

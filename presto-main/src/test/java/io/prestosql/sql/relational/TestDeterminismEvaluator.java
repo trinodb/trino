@@ -22,7 +22,6 @@ import org.testng.annotations.Test;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.relational.Expressions.constant;
 import static io.prestosql.sql.relational.Expressions.field;
@@ -40,17 +39,16 @@ public class TestDeterminismEvaluator
 
         CallExpression random = new CallExpression(
                 metadata.resolveFunction(QualifiedName.of("random"), fromTypes(BIGINT)),
-                BIGINT,
                 singletonList(constant(10L, BIGINT)));
         assertFalse(determinismEvaluator.isDeterministic(random));
 
         InputReferenceExpression col0 = field(0, BIGINT);
         ResolvedFunction lessThan = metadata.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT));
 
-        CallExpression lessThanExpression = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(col0, constant(10L, BIGINT)));
+        CallExpression lessThanExpression = new CallExpression(lessThan, ImmutableList.of(col0, constant(10L, BIGINT)));
         assertTrue(determinismEvaluator.isDeterministic(lessThanExpression));
 
-        CallExpression lessThanRandomExpression = new CallExpression(lessThan, BOOLEAN, ImmutableList.of(col0, random));
+        CallExpression lessThanRandomExpression = new CallExpression(lessThan, ImmutableList.of(col0, random));
         assertFalse(determinismEvaluator.isDeterministic(lessThanRandomExpression));
     }
 }

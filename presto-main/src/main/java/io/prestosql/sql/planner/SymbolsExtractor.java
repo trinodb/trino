@@ -26,6 +26,7 @@ import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.SubqueryExpression;
 import io.prestosql.sql.tree.SymbolReference;
 
 import java.util.List;
@@ -124,7 +125,14 @@ public final class SymbolsExtractor
     public static Set<QualifiedName> extractNames(Expression expression, Set<NodeRef<Expression>> columnReferences)
     {
         ImmutableSet.Builder<QualifiedName> builder = ImmutableSet.builder();
-        new QualifiedNameBuilderVisitor(columnReferences).process(expression, builder);
+        new QualifiedNameBuilderVisitor(columnReferences, true).process(expression, builder);
+        return builder.build();
+    }
+
+    public static Set<QualifiedName> extractNamesNoSubqueries(Expression expression, Set<NodeRef<Expression>> columnReferences)
+    {
+        ImmutableSet.Builder<QualifiedName> builder = ImmutableSet.builder();
+        new QualifiedNameBuilderVisitor(columnReferences, false).process(expression, builder);
         return builder.build();
     }
 
@@ -157,10 +165,12 @@ public final class SymbolsExtractor
             extends DefaultTraversalVisitor<ImmutableSet.Builder<QualifiedName>>
     {
         private final Set<NodeRef<Expression>> columnReferences;
+        private final boolean recurseIntoSubqueries;
 
-        private QualifiedNameBuilderVisitor(Set<NodeRef<Expression>> columnReferences)
+        private QualifiedNameBuilderVisitor(Set<NodeRef<Expression>> columnReferences, boolean recurseIntoSubqueries)
         {
             this.columnReferences = requireNonNull(columnReferences, "columnReferences is null");
+            this.recurseIntoSubqueries = recurseIntoSubqueries;
         }
 
         @Override
@@ -180,6 +190,16 @@ public final class SymbolsExtractor
         {
             builder.add(QualifiedName.of(node.getValue()));
             return null;
+        }
+
+        @Override
+        protected Void visitSubqueryExpression(SubqueryExpression node, ImmutableSet.Builder<QualifiedName> context)
+        {
+            if (!recurseIntoSubqueries) {
+                return null;
+            }
+
+            return super.visitSubqueryExpression(node, context);
         }
     }
 }

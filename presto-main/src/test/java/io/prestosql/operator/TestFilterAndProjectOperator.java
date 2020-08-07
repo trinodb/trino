@@ -43,7 +43,6 @@ import static io.prestosql.spi.function.OperatorType.ADD;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.relational.Expressions.call;
 import static io.prestosql.sql.relational.Expressions.constant;
@@ -87,14 +86,12 @@ public class TestFilterAndProjectOperator
         Metadata metadata = createTestMetadataManager();
         RowExpression filter = call(
                 metadata.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(BIGINT, BIGINT)),
-                BOOLEAN,
                 field(1, BIGINT),
                 constant(9L, BIGINT));
 
         RowExpression field0 = field(0, VARCHAR);
         RowExpression add5 = call(
                 metadata.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
-                BIGINT,
                 field(1, BIGINT),
                 constant(5L, BIGINT));
 
@@ -139,7 +136,6 @@ public class TestFilterAndProjectOperator
         Metadata metadata = createTestMetadataManager();
         RowExpression filter = call(
                 metadata.resolveOperator(EQUAL, ImmutableList.of(BIGINT, BIGINT)),
-                BOOLEAN,
                 field(1, BIGINT),
                 constant(10L, BIGINT));
 

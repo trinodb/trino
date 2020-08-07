@@ -145,7 +145,7 @@ public class TypeSignatureTranslator
                 .map(field -> namedTypeParameter(new NamedTypeSignature(
                         field.getName()
                                 .map(TypeSignatureTranslator::canonicalize)
-                                .map(value -> new RowFieldName(value)),
+                                .map(RowFieldName::new),
                         toTypeSignature(field.getType(), typeVariables))))
                 .collect(toImmutableList());
 

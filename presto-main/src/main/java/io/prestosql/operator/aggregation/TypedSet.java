@@ -89,7 +89,7 @@ public class TypedSet
         elementIsDistinctFrom.ifPresent(methodHandle -> checkArgument(methodHandle.type().equals(MethodType.methodType(boolean.class, Block.class, int.class, Block.class, int.class))));
         this.elementBlock = requireNonNull(blockBuilder, "blockBuilder must not be null");
         this.functionName = functionName;
-        this.maxBlockMemoryInBytes = maxBlockMemory.map(value -> value.toBytes()).orElse(Long.MAX_VALUE);
+        this.maxBlockMemoryInBytes = maxBlockMemory.map(DataSize::toBytes).orElse(Long.MAX_VALUE);
 
         initialElementBlockOffset = elementBlock.getPositionCount();
         initialElementBlockSizeInBytes = elementBlock.getSizeInBytes();
@@ -122,7 +122,7 @@ public class TypedSet
             return containsNullElement;
         }
         else {
-            return blockPositionByHash.get(getHashPositionOfElement(block, position)) != EMPTY_SLOT;
+            return blockPositionByHash.getInt(getHashPositionOfElement(block, position)) != EMPTY_SLOT;
         }
     }
 
@@ -137,7 +137,7 @@ public class TypedSet
         }
 
         int hashPosition = getHashPositionOfElement(block, position);
-        if (blockPositionByHash.get(hashPosition) == EMPTY_SLOT) {
+        if (blockPositionByHash.getInt(hashPosition) == EMPTY_SLOT) {
             addNewElement(hashPosition, block, position);
         }
     }
@@ -149,7 +149,7 @@ public class TypedSet
 
     public int positionOf(Block block, int position)
     {
-        return blockPositionByHash.get(getHashPositionOfElement(block, position));
+        return blockPositionByHash.getInt(getHashPositionOfElement(block, position));
     }
 
     /**
@@ -159,7 +159,7 @@ public class TypedSet
     {
         int hashPosition = getMaskedHash(hashPosition(elementType, block, position));
         while (true) {
-            int blockPosition = blockPositionByHash.get(hashPosition);
+            int blockPosition = blockPositionByHash.getInt(hashPosition);
             if (blockPosition == EMPTY_SLOT) {
                 // Doesn't have this element
                 return hashPosition;

@@ -52,10 +52,7 @@ import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.statistics.ComputedStatistics;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TypeManager;
-import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.AppendFiles;
 import org.apache.iceberg.DataFiles;
@@ -67,9 +64,9 @@ import org.apache.iceberg.SchemaParser;
 import org.apache.iceberg.TableMetadata;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.Transaction;
-import org.apache.iceberg.hadoop.HadoopInputFile;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.TypeUtil;
+import org.apache.iceberg.types.Types;
 import org.apache.iceberg.types.Types.NestedField;
 
 import java.io.IOException;
@@ -86,7 +83,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.prestosql.plugin.hive.util.HiveWriteUtils.getTableDefaultLocation;
-import static io.prestosql.plugin.iceberg.DomainConverter.convertTupleDomainTypes;
 import static io.prestosql.plugin.iceberg.ExpressionConverter.toIcebergExpression;
 import static io.prestosql.plugin.iceberg.IcebergSchemaProperties.getSchemaLocation;
 import static io.prestosql.plugin.iceberg.IcebergTableProperties.FILE_FORMAT_PROPERTY;
@@ -114,7 +110,6 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toList;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
-import static org.apache.iceberg.FileFormat.ORC;
 import static org.apache.iceberg.TableMetadata.newTableMetadata;
 import static org.apache.iceberg.TableProperties.DEFAULT_FILE_FORMAT;
 import static org.apache.iceberg.Transactions.createTableTransaction;
@@ -381,7 +376,7 @@ public class IcebergMetadata
 
         TableMetadata metadata = newTableMetadata(operations, schema, partitionSpec, targetPath, propertiesBuilder.build());
 
-        transaction = createTableTransaction(operations, metadata);
+        transaction = createTableTransaction(tableName, operations, metadata);
 
         return new IcebergWritableTableHandle(
                 schemaName,
@@ -404,17 +399,6 @@ public class IcebergMetadata
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
         org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
-        boolean orcFormat = ORC == getFileFormat(icebergTable);
-
-        for (NestedField column : icebergTable.schema().columns()) {
-            io.prestosql.spi.type.Type type = toPrestoType(column.type(), typeManager);
-            if (type instanceof DecimalType && !orcFormat) {
-                throw new PrestoException(NOT_SUPPORTED, "Writing to columns of type decimal not yet supported");
-            }
-            if (type instanceof TimestampType && !orcFormat) {
-                throw new PrestoException(NOT_SUPPORTED, "Writing to columns of type timestamp not yet supported for PARQUET format");
-            }
-        }
 
         transaction = icebergTable.newTransaction();
 
@@ -446,10 +430,9 @@ public class IcebergMetadata
         AppendFiles appendFiles = transaction.newFastAppend();
         for (CommitTaskData task : commitTasks) {
             HdfsContext context = new HdfsContext(session, table.getSchemaName(), table.getTableName());
-            Configuration configuration = hdfsEnvironment.getConfiguration(context, new Path(task.getPath()));
 
             DataFiles.Builder builder = DataFiles.builder(icebergTable.spec())
-                    .withInputFile(HadoopInputFile.fromLocation(task.getPath(), configuration))
+                    .withInputFile(new HdfsInputFile(new Path(task.getPath()), hdfsEnvironment, context))
                     .withFormat(table.getFileFormat())
                     .withMetrics(task.getMetrics().metrics());
 
@@ -563,9 +546,10 @@ public class IcebergMetadata
                 icebergColumns.add(field);
             }
         }
-        Schema schema = new Schema(icebergColumns);
+        Type icebergSchema = Types.StructType.of(icebergColumns);
         AtomicInteger nextFieldId = new AtomicInteger(1);
-        return TypeUtil.assignFreshIds(schema, nextFieldId::getAndIncrement);
+        icebergSchema = TypeUtil.assignFreshIds(icebergSchema, nextFieldId::getAndIncrement);
+        return new Schema(icebergSchema.asStructType().fields());
     }
 
     @Override
@@ -616,10 +600,9 @@ public class IcebergMetadata
     {
         IcebergTableHandle table = (IcebergTableHandle) handle;
         // TODO: Remove TupleDomain#simplify once Iceberg supports IN expression
-        TupleDomain<IcebergColumnHandle> newDomain = convertTupleDomainTypes(
-                constraint.getSummary()
-                        .transform(IcebergColumnHandle.class::cast)
-                        .simplify())
+        TupleDomain<IcebergColumnHandle> newDomain = constraint.getSummary()
+                .transform(IcebergColumnHandle.class::cast)
+                .simplify()
                 .intersect(table.getPredicate());
 
         if (newDomain.equals(table.getPredicate())) {

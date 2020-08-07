@@ -139,7 +139,6 @@ public class BenchmarkArraySubscript
             for (int i = 0; i < arraySize; i++) {
                 projectionsBuilder.add(new CallExpression(
                         resolvedFunction,
-                        arrayType.getElementType(),
                         ImmutableList.of(field(0, arrayType), constant((long) i + 1, BIGINT))));
             }
 

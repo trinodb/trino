@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.prestosql.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.prestosql.sql.ParsingUtil.createParsingOptions;
 import static io.prestosql.sql.QueryUtil.aliased;
 import static io.prestosql.sql.QueryUtil.identifier;
@@ -50,6 +51,7 @@ import static io.prestosql.sql.QueryUtil.row;
 import static io.prestosql.sql.QueryUtil.selectList;
 import static io.prestosql.sql.QueryUtil.simpleQuery;
 import static io.prestosql.sql.QueryUtil.values;
+import static io.prestosql.type.TypeUtils.getDisplayLabel;
 import static java.util.Objects.requireNonNull;
 
 final class DescribeOutputRewrite
@@ -116,7 +118,7 @@ final class DescribeOutputRewrite
             if (rows.length == 0) {
                 NullLiteral nullLiteral = new NullLiteral();
                 rows = new Row[] {row(nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral, nullLiteral)};
-                limit = Optional.of(new Limit("0"));
+                limit = Optional.of(new Limit(new LongLiteral("0")));
             }
             return simpleQuery(
                     selectList(
@@ -139,7 +141,7 @@ final class DescribeOutputRewrite
                     limit);
         }
 
-        private static Row createDescribeOutputRow(Field field, Analysis analysis)
+        private Row createDescribeOutputRow(Field field, Analysis analysis)
         {
             LongLiteral typeSize = new LongLiteral("0");
             if (field.getType() instanceof FixedWidthType) {
@@ -162,7 +164,7 @@ final class DescribeOutputRewrite
                     new StringLiteral(originTable.map(QualifiedObjectName::getCatalogName).orElse("")),
                     new StringLiteral(originTable.map(QualifiedObjectName::getSchemaName).orElse("")),
                     new StringLiteral(originTable.map(QualifiedObjectName::getObjectName).orElse("")),
-                    new StringLiteral(field.getType().getDisplayName()),
+                    new StringLiteral(getDisplayLabel(field.getType(), isOmitDateTimeTypePrecision(session))),
                     typeSize,
                     new BooleanLiteral(String.valueOf(field.isAliased())));
         }

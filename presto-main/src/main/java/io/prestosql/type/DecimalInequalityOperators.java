@@ -30,12 +30,11 @@ import java.util.Optional;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
-import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.PolymorphicScalarFunctionBuilder.constant;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.ArgumentProperty.valueTypeArgumentProperty;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.BLOCK_AND_POSITION;
-import static io.prestosql.operator.scalar.ScalarFunctionImplementation.NullConvention.USE_NULL_FLAG;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
@@ -109,12 +108,11 @@ public final class DecimalInequalityOperators
     private static PolymorphicScalarFunctionBuilder makeBinaryOperatorFunctionBuilder(OperatorType operatorType)
     {
         Signature signature = Signature.builder()
-                .kind(SCALAR)
                 .operatorType(operatorType)
                 .argumentTypes(DECIMAL_SIGNATURE, DECIMAL_SIGNATURE)
                 .returnType(BOOLEAN.getTypeSignature())
                 .build();
-        return SqlScalarFunction.builder(DecimalInequalityOperators.class)
+        return new PolymorphicScalarFunctionBuilder(DecimalInequalityOperators.class)
                 .signature(signature)
                 .deterministic(true);
     }
@@ -124,7 +122,7 @@ public final class DecimalInequalityOperators
         return makeBinaryOperatorFunctionBuilder(operatorType)
                 .nullableResult(true)
                 .choice(choice -> choice
-                        .nullableResult(true)
+                        .returnConvention(NULLABLE_RETURN)
                         .implementation(methodsGroup -> methodsGroup
                                 .methods("boxedShortShort", "boxedLongLong")
                                 .withExtraParameters(constant(getResultMethodHandle))))
@@ -174,15 +172,11 @@ public final class DecimalInequalityOperators
                         new FunctionArgumentDefinition(true),
                         new FunctionArgumentDefinition(true))
                 .choice(choice -> choice
-                        .argumentProperties(
-                                valueTypeArgumentProperty(USE_NULL_FLAG),
-                                valueTypeArgumentProperty(USE_NULL_FLAG))
+                        .argumentProperties(NULL_FLAG, NULL_FLAG)
                         .implementation(methodsGroup -> methodsGroup
                                 .methods("distinctShortShort", "distinctLongLong")))
                 .choice(choice -> choice
-                        .argumentProperties(
-                                valueTypeArgumentProperty(BLOCK_AND_POSITION),
-                                valueTypeArgumentProperty(BLOCK_AND_POSITION))
+                        .argumentProperties(BLOCK_POSITION, BLOCK_POSITION)
                         .implementation(methodsGroup -> methodsGroup
                                 .methodWithExplicitJavaTypes("distinctBlockPositionLongLong",
                                         asList(Optional.of(Slice.class), Optional.of(Slice.class)))

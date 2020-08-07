@@ -21,7 +21,6 @@ import java.util.function.Supplier;
 
 import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -39,14 +38,32 @@ public class IntegerDecoder
     public void decode(SearchHit hit, Supplier<Object> getter, BlockBuilder output)
     {
         Object value = getter.get();
+
         if (value == null) {
             output.appendNull();
+            return;
         }
-        else if (value instanceof Number) {
-            INTEGER.writeLong(output, toIntExact(((Number) value).longValue()));
+
+        long decoded;
+        if (value instanceof Number) {
+            decoded = ((Number) value).longValue();
+        }
+        else if (value instanceof String) {
+            try {
+                decoded = Long.parseLong((String) value);
+            }
+            catch (NumberFormatException e) {
+                throw new PrestoException(TYPE_MISMATCH, format("Cannot parse value for field '%s' as INTEGER: %s", path, value));
+            }
         }
         else {
-            throw new PrestoException(TYPE_MISMATCH, format("Expected a string value for field '%s' of type INTEGER: %s [%s]", path, value, value.getClass().getSimpleName()));
+            throw new PrestoException(TYPE_MISMATCH, format("Expected a numeric value for field '%s' of type INTEGER: %s [%s]", path, value, value.getClass().getSimpleName()));
         }
+
+        if (decoded < Integer.MIN_VALUE || decoded > Integer.MAX_VALUE) {
+            throw new PrestoException(TYPE_MISMATCH, format("Value out of range for field '%s' of type INTEGER: %s", path, decoded));
+        }
+
+        INTEGER.writeLong(output, decoded);
     }
 }

@@ -115,4 +115,14 @@ public class ArithmeticUnaryExpression
     {
         return Objects.hash(value, sign);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return sign == ((ArithmeticUnaryExpression) other).sign;
+    }
 }

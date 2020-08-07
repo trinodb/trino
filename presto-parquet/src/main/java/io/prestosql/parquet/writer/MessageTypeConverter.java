@@ -87,7 +87,7 @@ class MessageTypeConverter
                 visitChildren(result, groupType, element);
             }
 
-            private void visitChildren(final List<SchemaElement> result,
+            private void visitChildren(List<SchemaElement> result,
                     GroupType groupType, SchemaElement element)
             {
                 element.setNum_children(groupType.getFieldCount());
@@ -149,6 +149,8 @@ class MessageTypeConverter
                 return ConvertedType.TIME_MILLIS;
             case TIMESTAMP_MILLIS:
                 return ConvertedType.TIMESTAMP_MILLIS;
+            case TIMESTAMP_MICROS:
+                return ConvertedType.TIMESTAMP_MICROS;
             case INTERVAL:
                 return ConvertedType.INTERVAL;
             case INT_8:

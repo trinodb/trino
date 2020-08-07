@@ -26,6 +26,7 @@ import static io.prestosql.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILU
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.planner.assertions.PlanAssert.assertPlan;
 import static io.prestosql.testing.QueryAssertions.assertContains;
+import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
@@ -376,6 +377,19 @@ public abstract class AbstractTestIntegrationSmokeTest
                         "WHERE table_catalog = '" + catalog + "' AND table_schema LIKE '" + schema + "' AND table_name LIKE '%orders'",
                 "VALUES 'orders'");
         assertQuery("SELECT table_name FROM information_schema.tables WHERE table_catalog = 'something_else'", "SELECT '' WHERE false");
+
+        assertQuery(
+                "SELECT DISTINCT table_name FROM information_schema.tables WHERE table_schema = 'information_schema' OR rand() = 42 ORDER BY 1",
+                "VALUES " +
+                        "('applicable_roles'), " +
+                        "('columns'), " +
+                        "('enabled_roles'), " +
+                        "('role_authorization_descriptors'), " +
+                        "('roles'), " +
+                        "('schemata'), " +
+                        "('table_privileges'), " +
+                        "('tables'), " +
+                        "('views')");
     }
 
     @Test
@@ -413,20 +427,35 @@ public abstract class AbstractTestIntegrationSmokeTest
         assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_catalog = '" + catalog + "' AND table_schema = '" + schema + "' AND table_name LIKE '_rders'", ordersTableWithColumns);
         assertQuerySucceeds("SELECT * FROM information_schema.columns WHERE table_catalog = '" + catalog + "' AND table_name LIKE '%'");
         assertQuery("SELECT column_name FROM information_schema.columns WHERE table_catalog = 'something_else'", "SELECT '' WHERE false");
+
+        assertQuery(
+                "SELECT DISTINCT table_name FROM information_schema.columns WHERE table_schema = 'information_schema' OR rand() = 42 ORDER BY 1",
+                "VALUES " +
+                        "('applicable_roles'), " +
+                        "('columns'), " +
+                        "('enabled_roles'), " +
+                        "('role_authorization_descriptors'), " +
+                        "('roles'), " +
+                        "('schemata'), " +
+                        "('table_privileges'), " +
+                        "('tables'), " +
+                        "('views')");
     }
 
-    protected void assertPushedDown(String sql)
+    protected void assertAggregationPushedDown(@Language("SQL") String sql)
     {
-        assertPushedDown(sql, sql);
-    }
+        String catalog = getSession().getCatalog().orElseThrow();
+        Session withoutPushdown = Session.builder(getSession())
+                .setCatalogSessionProperty(catalog, "allow_aggregation_pushdown", "false")
+                .build();
 
-    protected void assertPushedDown(String actual, String expectedOnH2)
-    {
-        assertQuery(actual, expectedOnH2);
+        MaterializedResult actualResults = computeActual(sql);
+        MaterializedResult expectedResults = computeActual(withoutPushdown, sql);
+        assertEqualsIgnoreOrder(actualResults.getMaterializedRows(), expectedResults.getMaterializedRows());
 
         transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
                 .execute(getSession(), session -> {
-                    Plan plan = getQueryRunner().createPlan(session, actual, WarningCollector.NOOP);
+                    Plan plan = getQueryRunner().createPlan(session, sql, WarningCollector.NOOP);
                     assertPlan(
                             session,
                             getQueryRunner().getMetadata(),

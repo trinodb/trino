@@ -59,7 +59,7 @@ class AwsRequestSigner
     }
 
     @Override
-    public void process(final HttpRequest request, final HttpContext context)
+    public void process(HttpRequest request, HttpContext context)
             throws IOException
     {
         String method = request.getRequestLine().getMethod();

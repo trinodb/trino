@@ -35,7 +35,9 @@ import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.LimitApplicationResult;
 import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.connector.SampleType;
+import io.prestosql.spi.connector.SortItem;
 import io.prestosql.spi.connector.SystemTable;
+import io.prestosql.spi.connector.TopNApplicationResult;
 import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.OperatorType;
@@ -367,6 +369,13 @@ public interface Metadata
             Map<String, ColumnHandle> assignments,
             List<List<ColumnHandle>> groupingSets);
 
+    Optional<TopNApplicationResult<TableHandle>> applyTopN(
+            Session session,
+            TableHandle handle,
+            long topNCount,
+            List<SortItem> sortItems,
+            Map<String, ColumnHandle> assignments);
+
     default void validateScan(Session session, TableHandle table) {}
 
     //
@@ -468,6 +477,8 @@ public interface Metadata
     void addFunctions(List<? extends SqlFunction> functions);
 
     List<FunctionMetadata> listFunctions();
+
+    ResolvedFunction decodeFunction(QualifiedName name);
 
     ResolvedFunction resolveFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes);
 

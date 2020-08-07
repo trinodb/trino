@@ -130,6 +130,7 @@ public class MockManagedQueryExecution
                         9,
                         DataSize.ofBytes(14),
                         15,
+                        DataSize.ofBytes(13),
                         16.0,
                         memoryUsage,
                         memoryUsage,
@@ -141,7 +142,8 @@ public class MockManagedQueryExecution
                         ImmutableSet.of(),
                         OptionalDouble.empty()),
                 null,
-                null);
+                null,
+                Optional.empty());
     }
 
     @Override
@@ -241,6 +243,7 @@ public class MockManagedQueryExecution
                 ImmutableList.of(),
                 ImmutableList.of(),
                 state.isDone(),
+                Optional.empty(),
                 Optional.empty());
     }
 

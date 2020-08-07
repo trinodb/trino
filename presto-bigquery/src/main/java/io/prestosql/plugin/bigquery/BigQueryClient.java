@@ -90,7 +90,7 @@ class BigQueryClient
 
     Iterable<Dataset> listDatasets(String projectId)
     {
-        final Iterator<Dataset> datasets = bigQuery.listDatasets(projectId).iterateAll().iterator();
+        Iterator<Dataset> datasets = bigQuery.listDatasets(projectId).iterateAll().iterator();
         return () -> Iterators.transform(datasets, this::addDataSetMappingIfNeeded);
     }
 

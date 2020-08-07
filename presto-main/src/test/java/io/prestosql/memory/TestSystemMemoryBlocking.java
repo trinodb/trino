@@ -95,7 +95,7 @@ public class TestSystemMemoryBlocking
     public void testTableScanSystemMemoryBlocking()
     {
         PlanNodeId sourceId = new PlanNodeId("source");
-        final List<Type> types = ImmutableList.of(VARCHAR);
+        List<Type> types = ImmutableList.of(VARCHAR);
         TableScanOperator source = new TableScanOperator(driverContext.addOperatorContext(1, new PlanNodeId("test"), "values"),
                 sourceId,
                 (session, split, table, columns, dynamicFilter) -> new FixedPageSource(rowPagesBuilder(types)

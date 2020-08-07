@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
-import io.airlift.slice.Slice;
 import io.prestosql.Session;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
@@ -123,7 +122,6 @@ public class ExpressionEquivalence
         {
             call = new CallExpression(
                     call.getResolvedFunction(),
-                    call.getType(),
                     call.getArguments().stream()
                             .map(expression -> expression.accept(this, context))
                             .collect(toImmutableList()));
@@ -134,7 +132,6 @@ public class ExpressionEquivalence
                 // sort arguments
                 return new CallExpression(
                         call.getResolvedFunction(),
-                        call.getType(),
                         ROW_EXPRESSION_ORDERING.sortedCopy(call.getArguments()));
             }
 
@@ -142,10 +139,8 @@ public class ExpressionEquivalence
                 // convert greater than to less than
                 ResolvedFunction newFunction = metadata.resolveOperator(
                         callName.equals(mangleOperatorName(GREATER_THAN)) ? LESS_THAN : LESS_THAN_OR_EQUAL,
-                        swapPair(call.getResolvedFunction().getSignature().getArgumentTypes()).stream()
-                                .map(metadata::getType)
-                                .collect(toImmutableList()));
-                return new CallExpression(newFunction, call.getType(), swapPair(call.getArguments()));
+                        swapPair(call.getResolvedFunction().getSignature().getArgumentTypes()));
+                return new CallExpression(newFunction, swapPair(call.getArguments()));
             }
 
             return call;
@@ -159,7 +154,8 @@ public class ExpressionEquivalence
                     specialForm.getType(),
                     specialForm.getArguments().stream()
                             .map(expression -> expression.accept(this, context))
-                            .collect(toImmutableList()));
+                            .collect(toImmutableList()),
+                    specialForm.getFunctionDependencies());
 
             if (specialForm.getForm() == AND || specialForm.getForm() == OR) {
                 // if we have nested calls (of the same type) flatten them
@@ -174,7 +170,7 @@ public class ExpressionEquivalence
                 // canonicalize the argument order (i.e., sort them)
                 List<RowExpression> sortedArguments = ROW_EXPRESSION_ORDERING.sortedCopy(distinctArguments);
 
-                return new SpecialForm(specialForm.getForm(), BOOLEAN, sortedArguments);
+                return new SpecialForm(specialForm.getForm(), BOOLEAN, sortedArguments, specialForm.getFunctionDependencies());
             }
 
             return specialForm;
@@ -285,8 +281,13 @@ public class ExpressionEquivalence
                 if (javaType == float.class || javaType == double.class) {
                     return Double.compare(((Number) leftValue).doubleValue(), ((Number) rightValue).doubleValue());
                 }
-                if (javaType == Slice.class) {
-                    return ((Slice) leftValue).compareTo((Slice) rightValue);
+                if (leftValue instanceof Comparable) {
+                    try {
+                        //noinspection unchecked,rawtypes
+                        return ((Comparable) leftValue).compareTo(rightValue);
+                    }
+                    catch (RuntimeException ignored) {
+                    }
                 }
 
                 // value is some random type (say regex), so we just randomly choose a greater value

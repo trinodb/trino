@@ -410,7 +410,7 @@ public final class SortedRangeSet
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final SortedRangeSet other = (SortedRangeSet) obj;
+        SortedRangeSet other = (SortedRangeSet) obj;
         return Objects.equals(this.lowIndexedRanges, other.lowIndexedRanges);
     }
 
@@ -463,7 +463,7 @@ public final class SortedRangeSet
 
         SortedRangeSet build()
         {
-            Collections.sort(ranges, Comparator.comparing(Range::getLow));
+            ranges.sort(Comparator.comparing(Range::getLow));
 
             NavigableMap<Marker, Range> result = new TreeMap<>();
 

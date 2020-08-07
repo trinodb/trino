@@ -27,6 +27,7 @@ import io.prestosql.spi.connector.FixedPageSource;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
 import org.apache.iceberg.ManifestFile.PartitionFieldSummary;
 import org.apache.iceberg.PartitionField;
@@ -69,10 +70,10 @@ public class ManifestsTable
                         .add(new ColumnMetadata("added_data_files_count", INTEGER))
                         .add(new ColumnMetadata("existing_data_files_count", INTEGER))
                         .add(new ColumnMetadata("deleted_data_files_count", INTEGER))
-                        .add(new ColumnMetadata("partitions", RowType.rowType(
+                        .add(new ColumnMetadata("partitions", new ArrayType(RowType.rowType(
                                 RowType.field("contains_null", BOOLEAN),
                                 RowType.field("lower_bound", VARCHAR),
-                                RowType.field("upper_bound", VARCHAR))))
+                                RowType.field("upper_bound", VARCHAR)))))
                         .build());
         this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
     }
@@ -109,7 +110,7 @@ public class ManifestsTable
         }
         Map<Integer, PartitionSpec> partitionSpecsById = icebergTable.specs();
 
-        snapshot.manifests().forEach(file -> {
+        snapshot.allManifests().forEach(file -> {
             pagesBuilder.beginRow();
             pagesBuilder.appendVarchar(file.path());
             pagesBuilder.appendBigint(file.length());
@@ -125,20 +126,22 @@ public class ManifestsTable
         return pagesBuilder.build();
     }
 
-    private static void writePartitionSummaries(BlockBuilder blockBuilder, List<PartitionFieldSummary> summaries, PartitionSpec partitionSpec)
+    private static void writePartitionSummaries(BlockBuilder arrayBlockBuilder, List<PartitionFieldSummary> summaries, PartitionSpec partitionSpec)
     {
+        BlockBuilder singleArrayWriter = arrayBlockBuilder.beginBlockEntry();
         for (int i = 0; i < summaries.size(); i++) {
             PartitionFieldSummary summary = summaries.get(i);
             PartitionField field = partitionSpec.fields().get(i);
             Type nestedType = partitionSpec.partitionType().fields().get(i).type();
 
-            BlockBuilder rowBuilder = blockBuilder.beginBlockEntry();
+            BlockBuilder rowBuilder = singleArrayWriter.beginBlockEntry();
             BOOLEAN.writeBoolean(rowBuilder, summary.containsNull());
             VARCHAR.writeString(rowBuilder, field.transform().toHumanString(
                     Conversions.fromByteBuffer(nestedType, summary.lowerBound())));
             VARCHAR.writeString(rowBuilder, field.transform().toHumanString(
                     Conversions.fromByteBuffer(nestedType, summary.upperBound())));
-            blockBuilder.closeEntry();
+            singleArrayWriter.closeEntry();
         }
+        arrayBlockBuilder.closeEntry();
     }
 }

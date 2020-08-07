@@ -49,9 +49,9 @@ import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.SystemSessionProperties.isLegacyTimestamp;
+import static io.prestosql.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.prestosql.operator.scalar.DateTimeFunctions.currentDate;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
@@ -171,6 +171,7 @@ public abstract class TestDateTimeFunctionsBase
                 .setStart(instant)
                 .setTimeZoneKey(timeZoneKey)
                 .setLegacyTimestamp(isLegacyTimestamp(session))
+                .setOmitTimestampPrecision(isOmitDateTimeTypePrecision(session))
                 .build();
         long dateTimeCalculation = currentDate(connectorSession);
         assertEquals(dateTimeCalculation, expectedDays);
@@ -1238,7 +1239,7 @@ public abstract class TestDateTimeFunctionsBase
                 TIMESTAMP_WITH_TIME_ZONE,
                 toTimestampWithTimeZone(new DateTime(2001, 12, 1, 3, 4, 5, 321, getDateTimeZone(getTimeZoneKey("America/Los_Angeles")))));
 
-        assertInvalidFunction("with_timezone(TIMESTAMP '2001-08-22 03:04:05.321', 'invalidzoneid')", NOT_SUPPORTED, "Time zone not supported: invalidzoneid");
+        assertInvalidFunction("with_timezone(TIMESTAMP '2001-08-22 03:04:05.321', 'invalidzoneid')", INVALID_FUNCTION_ARGUMENT, "'invalidzoneid' is not a valid time zone");
     }
 
     private void assertFunctionString(String projection, Type expectedType, String expected)

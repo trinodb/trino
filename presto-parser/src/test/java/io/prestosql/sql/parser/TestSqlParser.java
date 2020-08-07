@@ -20,6 +20,7 @@ import com.google.common.collect.Lists;
 import io.prestosql.sql.tree.AddColumn;
 import io.prestosql.sql.tree.AliasedRelation;
 import io.prestosql.sql.tree.AllColumns;
+import io.prestosql.sql.tree.AllRows;
 import io.prestosql.sql.tree.Analyze;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.ArrayConstructor;
@@ -574,7 +575,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.of(new Limit("2"))));
+                        Optional.of(new Limit(new LongLiteral("2")))));
 
         assertStatement("SELECT * FROM table1 LIMIT ALL",
                 simpleQuery(
@@ -585,7 +586,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.of(new Limit("ALL"))));
+                        Optional.of(new Limit(new AllRows()))));
 
         Query valuesQuery = query(values(
                 row(new LongLiteral("1"), new StringLiteral("1")),
@@ -599,7 +600,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.of(new Limit("ALL"))));
+                        Optional.of(new Limit(new AllRows()))));
     }
 
     @Test
@@ -888,7 +889,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.of(new Offset("2")),
+                        Optional.of(new Offset(new LongLiteral("2"))),
                         Optional.empty()));
 
         assertStatement("SELECT * FROM table1 OFFSET 2",
@@ -899,7 +900,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.of(new Offset("2")),
+                        Optional.of(new Offset(new LongLiteral("2"))),
                         Optional.empty()));
 
         Query valuesQuery = query(values(
@@ -913,7 +914,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.of(new Offset("2")),
+                        Optional.of(new Offset(new LongLiteral("2"))),
                         Optional.empty()));
 
         assertStatement("SELECT * FROM (VALUES (1, '1'), (2, '2')) OFFSET 2",
@@ -923,7 +924,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.of(new Offset("2")),
+                        Optional.of(new Offset(new LongLiteral("2"))),
                         Optional.empty()));
     }
 
@@ -939,7 +940,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.of(new FetchFirst("2"))));
+                        Optional.of(new FetchFirst(new LongLiteral("2")))));
 
         assertStatement("SELECT * FROM table1 FETCH NEXT ROW ONLY",
                 simpleQuery(
@@ -987,7 +988,7 @@ public class TestSqlParser
                         Optional.empty(),
                         Optional.empty(),
                         Optional.empty(),
-                        Optional.of(new FetchFirst("2", true))));
+                        Optional.of(new FetchFirst(new LongLiteral("2"), true))));
 
         assertStatement("SELECT * FROM table1 FETCH NEXT ROW WITH TIES",
                 simpleQuery(
@@ -1518,7 +1519,8 @@ public class TestSqlParser
     @Test
     public void testRenameTable()
     {
-        assertStatement("ALTER TABLE a RENAME TO b", new RenameTable(QualifiedName.of("a"), QualifiedName.of("b")));
+        assertStatement("ALTER TABLE a RENAME TO b", new RenameTable(QualifiedName.of("a"), QualifiedName.of("b"), false));
+        assertStatement("ALTER TABLE IF EXISTS a RENAME TO b", new RenameTable(QualifiedName.of("a"), QualifiedName.of("b"), true));
     }
 
     @Test
@@ -1544,7 +1546,10 @@ public class TestSqlParser
     @Test
     public void testRenameColumn()
     {
-        assertStatement("ALTER TABLE foo.t RENAME COLUMN a TO b", new RenameColumn(QualifiedName.of("foo", "t"), identifier("a"), identifier("b")));
+        assertStatement("ALTER TABLE foo.t RENAME COLUMN a TO b", new RenameColumn(QualifiedName.of("foo", "t"), identifier("a"), identifier("b"), false, false));
+        assertStatement("ALTER TABLE IF EXISTS foo.t RENAME COLUMN a TO b", new RenameColumn(QualifiedName.of("foo", "t"), identifier("a"), identifier("b"), true, false));
+        assertStatement("ALTER TABLE foo.t RENAME COLUMN IF EXISTS a TO b", new RenameColumn(QualifiedName.of("foo", "t"), identifier("a"), identifier("b"), false, true));
+        assertStatement("ALTER TABLE IF EXISTS foo.t RENAME COLUMN IF EXISTS a TO b", new RenameColumn(QualifiedName.of("foo", "t"), identifier("a"), identifier("b"), true, true));
     }
 
     @Test
@@ -1579,20 +1584,41 @@ public class TestSqlParser
                 .ignoringLocation()
                 .isEqualTo(new AddColumn(
                         QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("c"), simpleType(location(1, 31), "bigint"), true, emptyList(), Optional.empty())));
+                        new ColumnDefinition(identifier("c"), simpleType(location(1, 31), "bigint"), true, emptyList(), Optional.empty()), false, false));
 
         assertThat(statement("ALTER TABLE foo.t ADD COLUMN d double NOT NULL"))
                 .ignoringLocation()
                 .isEqualTo(new AddColumn(
                         QualifiedName.of("foo", "t"),
-                        new ColumnDefinition(identifier("d"), simpleType(location(1, 31), "double"), false, emptyList(), Optional.empty())));
+                        new ColumnDefinition(identifier("d"), simpleType(location(1, 31), "double"), false, emptyList(), Optional.empty()), false, false));
+
+        assertThat(statement("ALTER TABLE IF EXISTS foo.t ADD COLUMN d double NOT NULL"))
+                .ignoringLocation()
+                .isEqualTo(new AddColumn(
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(identifier("d"), simpleType(location(1, 31), "double"), false, emptyList(), Optional.empty()), true, false));
+
+        assertThat(statement("ALTER TABLE foo.t ADD COLUMN IF NOT EXISTS d double NOT NULL"))
+                .ignoringLocation()
+                .isEqualTo(new AddColumn(
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(identifier("d"), simpleType(location(1, 31), "double"), false, emptyList(), Optional.empty()), false, true));
+
+        assertThat(statement("ALTER TABLE IF EXISTS foo.t ADD COLUMN IF NOT EXISTS d double NOT NULL"))
+                .ignoringLocation()
+                .isEqualTo(new AddColumn(
+                        QualifiedName.of("foo", "t"),
+                        new ColumnDefinition(identifier("d"), simpleType(location(1, 31), "double"), false, emptyList(), Optional.empty()), true, true));
     }
 
     @Test
     public void testDropColumn()
     {
-        assertStatement("ALTER TABLE foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c")));
-        assertStatement("ALTER TABLE \"t x\" DROP COLUMN \"c d\"", new DropColumn(QualifiedName.of("t x"), quotedIdentifier("c d")));
+        assertStatement("ALTER TABLE foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), false, false));
+        assertStatement("ALTER TABLE \"t x\" DROP COLUMN \"c d\"", new DropColumn(QualifiedName.of("t x"), quotedIdentifier("c d"), false, false));
+        assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), true, false));
+        assertStatement("ALTER TABLE foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), false, true));
+        assertStatement("ALTER TABLE IF EXISTS foo.t DROP COLUMN IF EXISTS c", new DropColumn(QualifiedName.of("foo", "t"), identifier("c"), true, true));
     }
 
     @Test
@@ -2105,6 +2131,83 @@ public class TestSqlParser
                 new Prepare(identifier("myquery"), simpleQuery(
                         selectList(new Parameter(0), new Parameter(1)),
                         table(QualifiedName.of("foo")))));
+
+        assertStatement("PREPARE myquery FROM SELECT * FROM foo LIMIT ?",
+                new Prepare(identifier("myquery"), simpleQuery(
+                        selectList(new AllColumns()),
+                        table(QualifiedName.of("foo")),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new Limit(new Parameter(0))))));
+
+        assertStatement("PREPARE myquery FROM SELECT ?, ? FROM foo LIMIT ?",
+                new Prepare(identifier("myquery"), simpleQuery(
+                        selectList(new Parameter(0), new Parameter(1)),
+                        table(QualifiedName.of("foo")),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new Limit(new Parameter(2))))));
+
+        assertStatement("PREPARE myquery FROM SELECT ? FROM foo FETCH FIRST ? ROWS ONLY",
+                new Prepare(identifier("myquery"), simpleQuery(
+                        selectList(new Parameter(0)),
+                        table(QualifiedName.of("foo")),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new FetchFirst(new Parameter(1))))));
+
+        assertStatement("PREPARE myquery FROM SELECT ?, ? FROM foo FETCH NEXT ? ROWS WITH TIES",
+                new Prepare(identifier("myquery"), simpleQuery(
+                        selectList(new Parameter(0), new Parameter(1)),
+                        table(QualifiedName.of("foo")),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new FetchFirst(new Parameter(2), true)))));
+
+        assertStatement("PREPARE myquery FROM SELECT ?, ? FROM foo OFFSET ? ROWS",
+                new Prepare(identifier("myquery"), simpleQuery(
+                        selectList(new Parameter(0), new Parameter(1)),
+                        table(QualifiedName.of("foo")),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new Offset(new Parameter(2))),
+                        Optional.empty())));
+
+        assertStatement("PREPARE myquery FROM SELECT ? FROM foo OFFSET ? ROWS LIMIT ?",
+                new Prepare(identifier("myquery"), simpleQuery(
+                        selectList(new Parameter(0)),
+                        table(QualifiedName.of("foo")),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new Offset(new Parameter(1))),
+                        Optional.of(new Limit(new Parameter(2))))));
+
+        assertStatement("PREPARE myquery FROM SELECT ? FROM foo OFFSET ? ROWS FETCH FIRST ? ROWS WITH TIES",
+                new Prepare(identifier("myquery"), simpleQuery(
+                        selectList(new Parameter(0)),
+                        table(QualifiedName.of("foo")),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.of(new Offset(new Parameter(1))),
+                        Optional.of(new FetchFirst(new Parameter(2), true)))));
     }
 
     @Test

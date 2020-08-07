@@ -44,6 +44,7 @@ import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -152,7 +153,7 @@ public class TestingPrestoClient
         }
     }
 
-    private static Function<List<Object>, MaterializedRow> dataToRow(final List<Type> types)
+    private static Function<List<Object>, MaterializedRow> dataToRow(List<Type> types)
     {
         return data -> {
             checkArgument(data.size() == types.size(), "columns size does not match types size");
@@ -250,8 +251,8 @@ public class TestingPrestoClient
         }
         else if (type instanceof RowType) {
             List<Type> fieldTypes = type.getTypeParameters();
-            List<Object> fieldValues = ImmutableList.copyOf(((Map<?, ?>) value).values());
-            return dataToRow(fieldTypes).apply(fieldValues);
+            Collection<?> values = ((Map<?, ?>) value).values();
+            return dataToRow(fieldTypes).apply(new ArrayList(values));
         }
         else if (type instanceof DecimalType) {
             return new BigDecimal((String) value);

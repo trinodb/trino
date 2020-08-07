@@ -20,6 +20,7 @@ import com.google.common.collect.Lists;
 import io.prestosql.sql.tree.AddColumn;
 import io.prestosql.sql.tree.AliasedRelation;
 import io.prestosql.sql.tree.AllColumns;
+import io.prestosql.sql.tree.AllRows;
 import io.prestosql.sql.tree.Analyze;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.ArithmeticUnaryExpression;
@@ -117,6 +118,7 @@ import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.NumericParameter;
 import io.prestosql.sql.tree.Offset;
 import io.prestosql.sql.tree.OrderBy;
+import io.prestosql.sql.tree.Parameter;
 import io.prestosql.sql.tree.PathElement;
 import io.prestosql.sql.tree.PathSpecification;
 import io.prestosql.sql.tree.Prepare;
@@ -392,7 +394,7 @@ class AstBuilder
     @Override
     public Node visitRenameTable(SqlBaseParser.RenameTableContext context)
     {
-        return new RenameTable(getLocation(context), getQualifiedName(context.from), getQualifiedName(context.to));
+        return new RenameTable(getLocation(context), getQualifiedName(context.from), getQualifiedName(context.to), context.EXISTS() != null);
     }
 
     @Override
@@ -426,7 +428,9 @@ class AstBuilder
                 getLocation(context),
                 getQualifiedName(context.tableName),
                 (Identifier) visit(context.from),
-                (Identifier) visit(context.to));
+                (Identifier) visit(context.to),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
     }
 
     @Override
@@ -445,13 +449,21 @@ class AstBuilder
     @Override
     public Node visitAddColumn(SqlBaseParser.AddColumnContext context)
     {
-        return new AddColumn(getLocation(context), getQualifiedName(context.qualifiedName()), (ColumnDefinition) visit(context.columnDefinition()));
+        return new AddColumn(getLocation(context),
+                getQualifiedName(context.qualifiedName()),
+                (ColumnDefinition) visit(context.columnDefinition()),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
     }
 
     @Override
     public Node visitDropColumn(SqlBaseParser.DropColumnContext context)
     {
-        return new DropColumn(getLocation(context), getQualifiedName(context.tableName), (Identifier) visit(context.column));
+        return new DropColumn(getLocation(context),
+                getQualifiedName(context.tableName),
+                (Identifier) visit(context.column),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() < context.COLUMN().getSymbol().getTokenIndex()),
+                context.EXISTS().stream().anyMatch(node -> node.getSymbol().getTokenIndex() > context.COLUMN().getSymbol().getTokenIndex()));
     }
 
     @Override
@@ -643,17 +655,50 @@ class AstBuilder
             orderBy = Optional.of(new OrderBy(getLocation(context.ORDER()), visit(context.sortItem(), SortItem.class)));
         }
 
-        Optional<Node> limit = Optional.empty();
-        if (context.FETCH() != null) {
-            limit = Optional.of(new FetchFirst(Optional.of(getLocation(context.FETCH())), getTextIfPresent(context.fetchFirst), context.TIES() != null));
-        }
-        else if (context.LIMIT() != null) {
-            limit = Optional.of(new Limit(Optional.of(getLocation(context.LIMIT())), getTextIfPresent(context.limit).orElseThrow(() -> new IllegalStateException("Missing LIMIT value"))));
-        }
-
         Optional<Offset> offset = Optional.empty();
         if (context.OFFSET() != null) {
-            offset = Optional.of(new Offset(Optional.of(getLocation(context.OFFSET())), getTextIfPresent(context.offset).orElseThrow(() -> new IllegalStateException("Missing OFFSET row count"))));
+            Expression rowCount;
+            if (context.offset.INTEGER_VALUE() != null) {
+                rowCount = new LongLiteral(getLocation(context.offset.INTEGER_VALUE()), context.offset.getText());
+            }
+            else {
+                rowCount = new Parameter(getLocation(context.offset.PARAMETER()), parameterPosition);
+                parameterPosition++;
+            }
+            offset = Optional.of(new Offset(Optional.of(getLocation(context.OFFSET())), rowCount));
+        }
+
+        Optional<Node> limit = Optional.empty();
+        if (context.FETCH() != null) {
+            Optional<Expression> rowCount = Optional.empty();
+            if (context.fetchFirst != null) {
+                if (context.fetchFirst.INTEGER_VALUE() != null) {
+                    rowCount = Optional.of(new LongLiteral(getLocation(context.fetchFirst.INTEGER_VALUE()), context.fetchFirst.getText()));
+                }
+                else {
+                    rowCount = Optional.of(new Parameter(getLocation(context.fetchFirst.PARAMETER()), parameterPosition));
+                    parameterPosition++;
+                }
+            }
+            limit = Optional.of(new FetchFirst(Optional.of(getLocation(context.FETCH())), rowCount, context.TIES() != null));
+        }
+        else if (context.LIMIT() != null) {
+            if (context.limit == null) {
+                throw new IllegalStateException("Missing LIMIT value");
+            }
+            Expression rowCount;
+            if (context.limit.ALL() != null) {
+                rowCount = new AllRows(getLocation(context.limit.ALL()));
+            }
+            else if (context.limit.rowCount().INTEGER_VALUE() != null) {
+                rowCount = new LongLiteral(getLocation(context.limit.rowCount().INTEGER_VALUE()), context.limit.getText());
+            }
+            else {
+                rowCount = new Parameter(getLocation(context.limit.rowCount().PARAMETER()), parameterPosition);
+                parameterPosition++;
+            }
+
+            limit = Optional.of(new Limit(Optional.of(getLocation(context.LIMIT())), rowCount));
         }
 
         if (term instanceof QuerySpecification) {

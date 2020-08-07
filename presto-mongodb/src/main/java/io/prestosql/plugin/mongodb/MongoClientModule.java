@@ -54,6 +54,7 @@ public class MongoClientModule
                 .socketKeepAlive(config.getSocketKeepAlive())
                 .sslEnabled(config.getSslEnabled())
                 .maxWaitTime(config.getMaxWaitTime())
+                .maxConnectionIdleTime(config.getMaxConnectionIdleTime())
                 .minConnectionsPerHost(config.getMinConnectionsPerHost())
                 .readPreference(config.getReadPreference().getReadPreference())
                 .writeConcern(config.getWriteConcern().getWriteConcern());

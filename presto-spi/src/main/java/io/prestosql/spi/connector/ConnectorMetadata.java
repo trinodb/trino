@@ -934,6 +934,30 @@ public interface ConnectorMetadata
     }
 
     /**
+     * Attempt to push down the TopN into the table scan.
+     * <p>
+     * Connectors can indicate whether they don't support topN pushdown or that the action had no effect
+     * by returning {@link Optional#empty()}. Connectors should expect this method may be called multiple times.
+     * </p>
+     * <b>Note</b>: it's critical for connectors to return {@link Optional#empty()} if calling this method has no effect for that
+     * invocation, even if the connector generally supports topN pushdown. Doing otherwise can cause the optimizer
+     * to loop indefinitely.
+     * <p>
+     * If the connector can handle TopN Pushdown and guarantee it will produce fewer rows than it should return a
+     * non-empty result with "topN guaranteed" flag set to true.
+     * @return
+     */
+    default Optional<TopNApplicationResult<ConnectorTableHandle>> applyTopN(
+            ConnectorSession session,
+            ConnectorTableHandle handle,
+            long topNCount,
+            List<SortItem> sortItems,
+            Map<String, ColumnHandle> assignments)
+    {
+        return Optional.empty();
+    }
+
+    /**
      * Allows the connector to reject the table scan produced by the planner.
      * <p>
      * Connectors can choose to reject a query based on the table scan potentially being too expensive, for example

@@ -87,7 +87,7 @@ public class TestOptimizeMixedDistinctAggregations
                         project(
                                 aggregation(singleGroupingSet(groupByKeysFirst), aggregationsFirst, ImmutableMap.of(), Optional.empty(), SINGLE,
                                         groupId(groups.build(), group,
-                                                anyTree(tableScan))))));
+                                                tableScan)))));
 
         assertUnitPlan(sql, expectedPlanPattern);
     }

@@ -331,3 +331,9 @@ can use the following rules:
 
 .. literalinclude:: system-information-access.json
     :language: json
+
+A fixed user can be set for management interfaces using the ``management.user``
+configuration property.  When this is configured, system information rules must still be set
+to authorize this user to read or write to management information. The fixed management user
+only applies to HTTP by default. To enable the fixed user over HTTPS, set the
+``management.user.https-enabled`` configuration property.

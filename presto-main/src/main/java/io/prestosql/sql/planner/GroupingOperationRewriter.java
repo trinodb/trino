@@ -15,6 +15,7 @@ package io.prestosql.sql.planner;
 
 import io.prestosql.sql.analyzer.FieldId;
 import io.prestosql.sql.analyzer.RelationId;
+import io.prestosql.sql.analyzer.ResolvedField;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
 import io.prestosql.sql.tree.ArrayConstructor;
 import io.prestosql.sql.tree.Expression;
@@ -38,7 +39,7 @@ public final class GroupingOperationRewriter
 {
     private GroupingOperationRewriter() {}
 
-    public static Expression rewriteGroupingOperation(GroupingOperation expression, List<Set<Integer>> groupingSets, Map<NodeRef<Expression>, FieldId> columnReferenceFields, Optional<Symbol> groupIdSymbol)
+    public static Expression rewriteGroupingOperation(GroupingOperation expression, List<Set<Integer>> groupingSets, Map<NodeRef<Expression>, ResolvedField> columnReferenceFields, Optional<Symbol> groupIdSymbol)
     {
         requireNonNull(groupIdSymbol, "groupIdSymbol is null");
 
@@ -53,12 +54,13 @@ public final class GroupingOperationRewriter
         else {
             checkState(groupIdSymbol.isPresent(), "groupId symbol is missing");
 
-            RelationId relationId = columnReferenceFields.get(NodeRef.of(expression.getGroupingColumns().get(0))).getRelationId();
+            RelationId relationId = columnReferenceFields.get(NodeRef.of(expression.getGroupingColumns().get(0))).getFieldId().getRelationId();
 
             List<Integer> columns = expression.getGroupingColumns().stream()
                     .map(NodeRef::of)
                     .peek(groupingColumn -> checkState(columnReferenceFields.containsKey(groupingColumn), "the grouping column is not in the columnReferencesField map"))
                     .map(columnReferenceFields::get)
+                    .map(ResolvedField::getFieldId)
                     .map(fieldId -> translateFieldToInteger(fieldId, relationId))
                     .collect(toImmutableList());
 

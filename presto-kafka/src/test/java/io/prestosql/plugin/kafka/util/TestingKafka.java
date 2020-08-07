@@ -48,12 +48,12 @@ public class TestingKafka
         container.close();
     }
 
-    public void createTopics(String topic)
+    public void createTopic(String topic)
     {
-        createTopics(2, 1, topic);
+        createTopic(2, 1, topic);
     }
 
-    private void createTopics(int partitions, int replication, String topic)
+    private void createTopic(int partitions, int replication, String topic)
     {
         try {
             List<String> command = new ArrayList<>();

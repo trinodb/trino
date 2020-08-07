@@ -70,4 +70,15 @@ public class TimeLiteral
     {
         return value.hashCode();
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        TimeLiteral otherLiteral = (TimeLiteral) other;
+        return Objects.equals(this.value, otherLiteral.value);
+    }
 }

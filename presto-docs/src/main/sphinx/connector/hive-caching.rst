@@ -9,11 +9,6 @@ storage, by multiple workers and processed on these workers. Repeated queries
 with different parameters, or even different queries from different users, often
 access, and therefore transfer, the same objects.
 
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
-
 Benefits
 --------
 
@@ -61,12 +56,19 @@ systems.
 Architecture
 ------------
 
-Caching for distributed storage provides a read-through cache. After first
-retrieval from storage by any query, objects are cached in the local cache
-storage on the workers. Objects are cached on local storage of each worker and
-managed by a BookKeeper component. Workers can request cached objects from other
-workers to avoid requests from the object storage. The cache chunks are 1MB in
-size and are well suited for ORC or Parquet format objects.
+Caching can operate in two modes. The default async mode provides the queried
+data directly and caches any objects asynchronously afterwards. Any following
+queries requesting the cached objects are served directly from the cache.
+
+The other mode is a read-through cache. After first retrieval from storage by
+any query, objects are cached in the local cache storage on the workers.
+
+In both modes objects are cached on local storage of each worker and managed by
+a BookKeeper component. Workers can request cached objects from other workers to
+avoid requests from the object storage.
+
+The cache chunks are 1MB in size and are well suited for ORC or Parquet file
+formats.
 
 Configuration
 -------------
@@ -110,11 +112,10 @@ directories  and different BookKeeper and data-transfer ports.
   * - ``hive.cache.bookkeeper-port``
     -  The TCP/IP port used by the BookKeeper managing the cache.
     - ``8899``
-  * - ``hive.cache.parallel-warmup-enabled``
-    - Toggle to enable that during the first retrieval of objects, they are
-      returned and cached in parallel. This can reduce the impact of a cold
-      cache.
-    - ``true``
+  * - ``hive.cache.read-mode``
+    - Operational mode for the cache as described earlier in the architecture
+      section. ``async`` and ``read-through`` are the supported.
+    - ``async``
   * - ``hive.cache.ttl``
     - Time to live for objects in the cache. Objects, which have not been
       requested for the TTL value, are removed from the cache.
@@ -135,9 +136,9 @@ disk used as in-memory.
 
 In all cases, you should avoid using the root partition and disk of the node and
 instead attach at multiple dedicated storage devices for the cache on each node.
-The cache uses the drive up to a configurable percentage. Storage should be
-local on each coordinator and worker node. The directory needs to exist before
-Presto starts.
+The cache uses the disk up to a configurable percentage. Storage should be local
+on each coordinator and worker node. The directory needs to exist before Presto
+starts. We recommend using multiple devices to improve performance of the cache.
 
 The capacity of the attached storage devices should be about 20-30% larger than
 the size of the queried object storage workload. For example, your current query
@@ -158,8 +159,8 @@ The following object storage systems are tested:
 
 * HDFS
 * HDFS secured by Kerberos access
-* :ref:`Amazon S3 and S3-compatible systems <hive-s3>`
-* :doc:`Azure storage systems </connector/hive-azure>`
+* :doc:`Amazon S3 and S3-compatible systems <hive-s3>`
+* :doc:`Azure storage systems <hive-azure>`
 * Google Cloud Storage
 
 Metrics

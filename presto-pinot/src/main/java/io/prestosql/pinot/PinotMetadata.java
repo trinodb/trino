@@ -86,7 +86,7 @@ public class PinotMetadata
         this.pinotTableColumnCache =
                 CacheBuilder.newBuilder()
                         .refreshAfterWrite(metadataCacheExpiryMillis, TimeUnit.MILLISECONDS)
-                        .build(asyncReloading(new CacheLoader<String, List<PinotColumn>>()
+                        .build(asyncReloading(new CacheLoader<>()
                         {
                             @Override
                             public List<PinotColumn> load(String tableName)

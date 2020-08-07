@@ -23,6 +23,7 @@ import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.TypeSignature;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -63,7 +64,7 @@ public class Signature
         this.variableArity = variableArity;
     }
 
-    public Signature(String name, FunctionKind kind, TypeSignature returnType, TypeSignature... argumentTypes)
+    public Signature(String name, TypeSignature returnType, TypeSignature... argumentTypes)
     {
         this(name, returnType, ImmutableList.copyOf(argumentTypes));
     }
@@ -71,6 +72,11 @@ public class Signature
     public Signature(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
     {
         this(name, ImmutableList.of(), ImmutableList.of(), returnType, argumentTypes, false);
+    }
+
+    public static boolean isOperatorName(String mangledName)
+    {
+        return mangledName.startsWith(OPERATOR_PREFIX);
     }
 
     public static String mangleOperatorName(OperatorType operatorType)
@@ -82,7 +88,7 @@ public class Signature
     public static OperatorType unmangleOperator(String mangledName)
     {
         checkArgument(mangledName.startsWith(OPERATOR_PREFIX), "not a mangled operator name: %s", mangledName);
-        return OperatorType.valueOf(mangledName.substring(OPERATOR_PREFIX.length()));
+        return OperatorType.valueOf(mangledName.substring(OPERATOR_PREFIX.length()).toUpperCase(Locale.ENGLISH));
     }
 
     @JsonProperty
@@ -124,7 +130,7 @@ public class Signature
     @Override
     public int hashCode()
     {
-        return Objects.hash(name, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, variableArity);
+        return Objects.hash(name.toLowerCase(Locale.US), typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, variableArity);
     }
 
     @Override
@@ -137,7 +143,7 @@ public class Signature
             return false;
         }
         Signature other = (Signature) obj;
-        return Objects.equals(this.name, other.name) &&
+        return name.equalsIgnoreCase(other.name) &&
                 Objects.equals(this.typeVariableConstraints, other.typeVariableConstraints) &&
                 Objects.equals(this.longVariableConstraints, other.longVariableConstraints) &&
                 Objects.equals(this.returnType, other.returnType) &&

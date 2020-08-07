@@ -138,49 +138,44 @@ public class SqlTask
     {
         requireNonNull(onDone, "onDone is null");
         requireNonNull(failedTasks, "failedTasks is null");
-        taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
-        {
-            @Override
-            public void stateChanged(TaskState newState)
-            {
-                if (!newState.isDone()) {
+        taskStateMachine.addStateChangeListener(newState -> {
+            if (!newState.isDone()) {
+                return;
+            }
+
+            // Update failed tasks counter
+            if (newState == FAILED) {
+                failedTasks.update(1);
+            }
+
+            // store final task info
+            while (true) {
+                TaskHolder taskHolder = taskHolderReference.get();
+                if (taskHolder.isFinished()) {
+                    // another concurrent worker already set the final state
                     return;
                 }
 
-                // Update failed tasks counter
-                if (newState == FAILED) {
-                    failedTasks.update(1);
+                if (taskHolderReference.compareAndSet(taskHolder, new TaskHolder(createTaskInfo(taskHolder), taskHolder.getIoStats()))) {
+                    break;
                 }
+            }
 
-                // store final task info
-                while (true) {
-                    TaskHolder taskHolder = taskHolderReference.get();
-                    if (taskHolder.isFinished()) {
-                        // another concurrent worker already set the final state
-                        return;
-                    }
+            // make sure buffers are cleaned up
+            if (newState == FAILED || newState == ABORTED) {
+                // don't close buffers for a failed query
+                // closed buffers signal to upstream tasks that everything finished cleanly
+                outputBuffer.fail();
+            }
+            else {
+                outputBuffer.destroy();
+            }
 
-                    if (taskHolderReference.compareAndSet(taskHolder, new TaskHolder(createTaskInfo(taskHolder), taskHolder.getIoStats()))) {
-                        break;
-                    }
-                }
-
-                // make sure buffers are cleaned up
-                if (newState == FAILED || newState == ABORTED) {
-                    // don't close buffers for a failed query
-                    // closed buffers signal to upstream tasks that everything finished cleanly
-                    outputBuffer.fail();
-                }
-                else {
-                    outputBuffer.destroy();
-                }
-
-                try {
-                    onDone.apply(SqlTask.this);
-                }
-                catch (Exception e) {
-                    log.warn(e, "Error running task cleanup callback %s", SqlTask.this.taskId);
-                }
+            try {
+                onDone.apply(SqlTask.this);
+            }
+            catch (Exception e) {
+                log.warn(e, "Error running task cleanup callback %s", SqlTask.this.taskId);
             }
         });
     }

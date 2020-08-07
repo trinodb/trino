@@ -334,15 +334,16 @@ public final class SqlFormatter
         @Override
         protected Void visitOffset(Offset node, Integer indent)
         {
-            append(indent, "OFFSET " + node.getRowCount() + " ROWS")
-                    .append('\n');
+            append(indent, "OFFSET ")
+                    .append(formatExpression(node.getRowCount()))
+                    .append(" ROWS\n");
             return null;
         }
 
         @Override
         protected Void visitFetchFirst(FetchFirst node, Integer indent)
         {
-            append(indent, "FETCH FIRST " + node.getRowCount().map(c -> c + " ROWS ").orElse("ROW "))
+            append(indent, "FETCH FIRST " + node.getRowCount().map(count -> formatExpression(count) + " ROWS ").orElse("ROW "))
                     .append(node.isWithTies() ? "WITH TIES" : "ONLY")
                     .append('\n');
             return null;
@@ -351,7 +352,8 @@ public final class SqlFormatter
         @Override
         protected Void visitLimit(Limit node, Integer indent)
         {
-            append(indent, "LIMIT " + node.getLimit())
+            append(indent, "LIMIT ")
+                    .append(formatExpression(node.getRowCount()))
                     .append('\n');
             return null;
         }
@@ -1039,8 +1041,11 @@ public final class SqlFormatter
         @Override
         protected Void visitRenameTable(RenameTable node, Integer context)
         {
-            builder.append("ALTER TABLE ")
-                    .append(node.getSource())
+            builder.append("ALTER TABLE ");
+            if (node.isExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(node.getSource())
                     .append(" RENAME TO ")
                     .append(node.getTarget());
 
@@ -1073,10 +1078,16 @@ public final class SqlFormatter
         @Override
         protected Void visitRenameColumn(RenameColumn node, Integer context)
         {
-            builder.append("ALTER TABLE ")
-                    .append(node.getTable())
-                    .append(" RENAME COLUMN ")
-                    .append(node.getSource())
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(node.getTable())
+                    .append(" RENAME COLUMN ");
+            if (node.isColumnExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(node.getSource())
                     .append(" TO ")
                     .append(node.getTarget());
 
@@ -1086,10 +1097,16 @@ public final class SqlFormatter
         @Override
         protected Void visitDropColumn(DropColumn node, Integer context)
         {
-            builder.append("ALTER TABLE ")
-                    .append(formatName(node.getTable()))
-                    .append(" DROP COLUMN ")
-                    .append(formatExpression(node.getColumn()));
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatName(node.getTable()))
+                    .append(" DROP COLUMN ");
+            if (node.isColumnExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(formatExpression(node.getColumn()));
 
             return null;
         }
@@ -1106,10 +1123,16 @@ public final class SqlFormatter
         @Override
         protected Void visitAddColumn(AddColumn node, Integer indent)
         {
-            builder.append("ALTER TABLE ")
-                    .append(node.getName())
-                    .append(" ADD COLUMN ")
-                    .append(formatColumnDefinition(node.getColumn()));
+            builder.append("ALTER TABLE ");
+            if (node.isTableExists()) {
+                builder.append("IF EXISTS ");
+            }
+            builder.append(node.getName())
+                    .append(" ADD COLUMN ");
+            if (node.isColumnNotExists()) {
+                builder.append("IF NOT EXISTS ");
+            }
+            builder.append(formatColumnDefinition(node.getColumn()));
 
             return null;
         }

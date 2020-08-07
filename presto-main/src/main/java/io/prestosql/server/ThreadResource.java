@@ -35,6 +35,7 @@ import java.util.stream.Collectors;
 
 import static io.prestosql.server.ThreadResource.Info.byName;
 import static io.prestosql.server.security.ResourceSecurity.AccessType.MANAGEMENT_READ;
+import static java.util.Comparator.comparing;
 
 @Path("/v1/thread")
 public class ThreadResource
@@ -134,14 +135,7 @@ public class ThreadResource
 
         public static Comparator<Info> byName()
         {
-            return new Comparator<Info>()
-            {
-                @Override
-                public int compare(Info info, Info info2)
-                {
-                    return info.getName().compareTo(info2.getName());
-                }
-            };
+            return comparing(Info::getName);
         }
     }
 

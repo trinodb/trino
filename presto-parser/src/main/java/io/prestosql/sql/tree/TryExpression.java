@@ -77,4 +77,10 @@ public class TryExpression
     {
         return Objects.hash(innerExpression);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

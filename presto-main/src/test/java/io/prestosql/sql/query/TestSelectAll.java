@@ -205,7 +205,7 @@ public class TestSelectAll
         // limit in subquery
         assertThat(assertions.query("SELECT (SELECT t.* FROM (VALUES 0) LIMIT 1) FROM (VALUES 1, 2) t(a)")).matches("VALUES 1, 2");
         assertThat(assertions.query("SELECT (SELECT t.* FROM (VALUES 0) LIMIT 5) FROM (VALUES 1, 2) t(a)")).matches("VALUES 1, 2");
-        assertThatThrownBy(() -> assertions.query("SELECT (SELECT t.* FROM (VALUES 0) LIMIT 0) FROM (VALUES 1, 2) t(a)")).hasMessageMatching(UNSUPPORTED_DECORRELATION_MESSAGE);
+        assertThat(assertions.query("SELECT (SELECT t.* FROM (VALUES 0) LIMIT 0) FROM (VALUES 1, 2) t(a)")).matches("VALUES CAST(NULL AS INTEGER), CAST(NULL AS INTEGER)");
         assertThatThrownBy(() -> assertions.query("SELECT (SELECT t.* FROM (VALUES 0, 1) LIMIT 1) FROM (VALUES 2, 3) t(a)")).hasMessageMatching(UNSUPPORTED_DECORRELATION_MESSAGE);
         assertThatThrownBy(() -> assertions.query("SELECT (SELECT t.* FROM (SELECT * FROM (VALUES 0, 1) LIMIT 1)) FROM (VALUES 2, 3) t(a)")).hasMessageMatching(UNSUPPORTED_DECORRELATION_MESSAGE);
         // alias shadowing

@@ -81,4 +81,14 @@ public class LongLiteral
     {
         return (int) (value ^ (value >>> 32));
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return value == ((LongLiteral) other).value;
+    }
 }
