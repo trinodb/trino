@@ -179,7 +179,7 @@ public abstract class TestTime
     {
         assertFunction("cast(TIME '03:04:05.321' as timestamp)",
                 TIMESTAMP,
-                sqlTimestampOf(3, 1970, 1, 1, 3, 4, 5, 321, session));
+                sqlTimestampOf(3, 1970, 1, 1, 3, 4, 5, 321));
     }
 
     @Test

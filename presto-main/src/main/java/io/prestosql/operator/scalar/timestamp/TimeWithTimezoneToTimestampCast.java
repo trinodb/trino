@@ -13,7 +13,6 @@
  */
 package io.prestosql.operator.scalar.timestamp;
 
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarOperator;
@@ -41,21 +40,15 @@ public final class TimeWithTimezoneToTimestampCast
 
     @LiteralParameters("p")
     @SqlType("timestamp(p)")
-    public static long cast(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long time)
+    public static long cast(@LiteralParameter("p") long precision, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long time)
     {
-        long epochMillis;
-        if (session.isLegacyTimestamp()) {
-            epochMillis = unpackMillisUtc(time);
-        }
-        else {
-            // This is hack that we need to use as the timezone interpretation depends on date (not only on time)
-            // TODO remove REFERENCE_TIMESTAMP_UTC when removing support for political time zones in TIME WITH TIME ZONE
-            long currentMillisOfDay = ChronoField.MILLI_OF_DAY.getFrom(Instant.ofEpochMilli(REFERENCE_TIMESTAMP_UTC).atZone(ZoneOffset.UTC));
-            long timeMillisUtcInCurrentDay = REFERENCE_TIMESTAMP_UTC - currentMillisOfDay + unpackMillisUtc(time);
+        // This is hack that we need to use as the timezone interpretation depends on date (not only on time)
+        // TODO remove REFERENCE_TIMESTAMP_UTC when removing support for political time zones in TIME WITH TIME ZONE
+        long currentMillisOfDay = ChronoField.MILLI_OF_DAY.getFrom(Instant.ofEpochMilli(REFERENCE_TIMESTAMP_UTC).atZone(ZoneOffset.UTC));
+        long timeMillisUtcInCurrentDay = REFERENCE_TIMESTAMP_UTC - currentMillisOfDay + unpackMillisUtc(time);
 
-            ISOChronology chronology = getChronology(unpackZoneKey(time));
-            epochMillis = unpackMillisUtc(time) + chronology.getZone().getOffset(timeMillisUtcInCurrentDay);
-        }
+        ISOChronology chronology = getChronology(unpackZoneKey(time));
+        long epochMillis = unpackMillisUtc(time) + chronology.getZone().getOffset(timeMillisUtcInCurrentDay);
 
         if (precision > 3) {
             return scaleEpochMillisToMicros(epochMillis);
@@ -70,8 +63,8 @@ public final class TimeWithTimezoneToTimestampCast
 
     @LiteralParameters("p")
     @SqlType("timestamp(p)")
-    public static LongTimestamp cast(ConnectorSession session, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long time)
+    public static LongTimestamp cast(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long time)
     {
-        return new LongTimestamp(cast(6, session, time), 0);
+        return new LongTimestamp(cast(6, time), 0);
     }
 }

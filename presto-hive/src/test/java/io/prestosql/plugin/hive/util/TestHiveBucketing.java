@@ -38,8 +38,8 @@ import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
+import org.apache.hadoop.hive.common.type.Date;
 import org.apache.hadoop.hive.common.type.HiveVarchar;
-import org.apache.hadoop.hive.serde2.io.DateWritable;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspector;
 import org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorUtils;
 import org.apache.hadoop.hive.serde2.objectinspector.primitive.JavaHiveVarcharObjectInspector;
@@ -47,7 +47,6 @@ import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfoUtils;
 import org.testng.annotations.Test;
 
-import java.sql.Date;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -424,9 +423,7 @@ public class TestHiveBucketing
             return Slices.utf8Slice(hiveValue.toString());
         }
         if (type instanceof DateType) {
-            long daysSinceEpochInLocalZone = ((Date) hiveValue).toLocalDate().toEpochDay();
-            assertEquals(daysSinceEpochInLocalZone, DateWritable.dateToDays((Date) hiveValue));
-            return daysSinceEpochInLocalZone;
+            return (long) ((Date) hiveValue).toEpochDay();
         }
 
         throw new IllegalArgumentException("Unsupported bucketing type: " + type);

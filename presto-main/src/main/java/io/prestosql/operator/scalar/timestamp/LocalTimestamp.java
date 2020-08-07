@@ -44,12 +44,8 @@ public final class LocalTimestamp
             ConnectorSession session,
             @SqlNullable @SqlType("timestamp(p)") Long dummy) // need a dummy value since the type inferencer can't bind type arguments exclusively from return type
     {
-        Instant start = session.getStart();
-
-        if (!session.isLegacyTimestamp()) {
-            start = LocalDateTime.ofInstant(session.getStart(), session.getTimeZoneKey().getZoneId())
-                    .toInstant(ZoneOffset.UTC);
-        }
+        Instant start = LocalDateTime.ofInstant(session.getStart(), session.getTimeZoneKey().getZoneId())
+                .toInstant(ZoneOffset.UTC);
 
         long epochMicros = epochSecondToMicrosWithRounding(start.getEpochSecond(), ((long) start.getNano()) * PICOSECONDS_PER_NANOSECOND);
         epochMicros = round(epochMicros, (int) (MAX_SHORT_PRECISION - precision));
@@ -68,12 +64,8 @@ public final class LocalTimestamp
             ConnectorSession session,
             @SqlNullable @SqlType("timestamp(p)") LongTimestamp dummy) // need a dummy value since the type inferencer can't bind type arguments exclusively from return type
     {
-        Instant start = session.getStart();
-
-        if (!session.isLegacyTimestamp()) {
-            start = LocalDateTime.ofInstant(session.getStart(), session.getTimeZoneKey().getZoneId())
-                    .toInstant(ZoneOffset.UTC);
-        }
+        Instant start = LocalDateTime.ofInstant(session.getStart(), session.getTimeZoneKey().getZoneId())
+                .toInstant(ZoneOffset.UTC);
 
         return DateTimes.longTimestamp(precision, start);
     }

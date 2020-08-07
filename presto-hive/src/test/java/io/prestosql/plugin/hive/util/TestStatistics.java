@@ -50,7 +50,6 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.RealType.REAL;
 import static java.lang.Float.floatToIntBits;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class TestStatistics
 {
@@ -82,7 +81,7 @@ public class TestStatistics
 
     private static HiveColumnStatistics createRealColumnStatistics(ImmutableMap<ColumnStatisticType, Block> computedStatistics)
     {
-        return createHiveColumnStatistics(SESSION, UTC, computedStatistics, REAL, 1);
+        return createHiveColumnStatistics(SESSION, computedStatistics, REAL, 1);
     }
 
     @Test
@@ -113,7 +112,7 @@ public class TestStatistics
 
     private static HiveColumnStatistics createDoubleColumnStatistics(ImmutableMap<ColumnStatisticType, Block> computedStatistics)
     {
-        return createHiveColumnStatistics(SESSION, UTC, computedStatistics, DOUBLE, 1);
+        return createHiveColumnStatistics(SESSION, computedStatistics, DOUBLE, 1);
     }
 
     @Test

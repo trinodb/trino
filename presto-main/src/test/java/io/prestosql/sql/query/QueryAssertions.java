@@ -283,12 +283,11 @@ public class QueryAssertions
                 if (object instanceof SqlTimestamp) {
                     SqlTimestamp timestamp = (SqlTimestamp) object;
                     return String.format(
-                            "%s [p = %s, epochMicros = %s, fraction = %s, tz = %s]",
+                            "%s [p = %s, epochMicros = %s, fraction = %s]",
                             timestamp,
                             timestamp.getPrecision(),
                             timestamp.getEpochMicros(),
-                            timestamp.getPicosOfMicros(),
-                            timestamp.getSessionTimeZoneKey().map(Object::toString).orElse("ø"));
+                            timestamp.getPicosOfMicros());
                 }
                 else if (object instanceof SqlTimestampWithTimeZone) {
                     SqlTimestampWithTimeZone timestamp = (SqlTimestampWithTimeZone) object;

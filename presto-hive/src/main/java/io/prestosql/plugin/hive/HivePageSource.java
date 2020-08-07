@@ -98,6 +98,7 @@ import static io.prestosql.spi.block.ColumnarRow.toColumnarRow;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.Chars.isCharType;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.Decimals.isLongDecimal;
 import static io.prestosql.spi.type.Decimals.isShortDecimal;
@@ -129,12 +130,10 @@ public class HivePageSource
             List<ColumnMapping> columnMappings,
             Optional<BucketAdaptation> bucketAdaptation,
             Optional<ReaderProjectionsAdapter> projectionsAdapter,
-            DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             ConnectorPageSource delegate)
     {
         requireNonNull(columnMappings, "columnMappings is null");
-        requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         requireNonNull(typeManager, "typeManager is null");
 
         this.delegate = requireNonNull(delegate, "delegate is null");
@@ -215,8 +214,12 @@ public class HivePageSource
                 else if (type.equals(DATE)) {
                     prefilledValue = datePartitionKey(columnValue, name);
                 }
-                else if (type.equals(TIMESTAMP) || type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
-                    prefilledValue = timestampPartitionKey(columnValue, hiveStorageTimeZone, name, type.equals(TIMESTAMP_WITH_TIME_ZONE));
+                else if (type.equals(TIMESTAMP)) {
+                    prefilledValue = timestampPartitionKey(columnValue, name);
+                }
+                else if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+                    // used for $file_modified_time
+                    prefilledValue = packDateTimeWithZone(timestampPartitionKey(columnValue, name), DateTimeZone.getDefault().getID());
                 }
                 else if (isShortDecimal(type)) {
                     prefilledValue = shortDecimalPartitionKey(columnValue, (DecimalType) type, name);

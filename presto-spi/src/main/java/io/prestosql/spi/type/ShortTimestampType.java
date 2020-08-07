@@ -133,12 +133,7 @@ class ShortTimestampType
             value = scaleEpochMillisToMicros(value);
         }
 
-        if (session.isLegacyTimestamp()) {
-            return SqlTimestamp.newLegacyInstance(getPrecision(), value, 0, session.getTimeZoneKey());
-        }
-        else {
-            return SqlTimestamp.newInstance(getPrecision(), value, 0);
-        }
+        return SqlTimestamp.newInstance(getPrecision(), value, 0);
     }
 
     private static long scaleEpochMillisToMicros(long epochMillis)

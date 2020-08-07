@@ -4121,6 +4121,7 @@ public class TestHiveIntegrationSmokeTest
     {
         assertUpdate("CREATE TABLE test_parquet_timestamp_predicate_pushdown (t TIMESTAMP) WITH (format = 'PARQUET')");
         assertUpdate("INSERT INTO test_parquet_timestamp_predicate_pushdown VALUES (TIMESTAMP '2012-10-31 01:00')", 1);
+        assertQuery("SELECT * FROM test_parquet_timestamp_predicate_pushdown", "VALUES (TIMESTAMP '2012-10-31 01:00')");
 
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
         ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(

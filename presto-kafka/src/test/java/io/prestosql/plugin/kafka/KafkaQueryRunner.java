@@ -31,6 +31,7 @@ import io.prestosql.testing.TestingPrestoClient;
 import io.prestosql.testing.kafka.TestingKafka;
 import io.prestosql.tpch.TpchTable;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -138,38 +139,18 @@ public final class KafkaQueryRunner
 
             Map<SchemaTableName, KafkaTopicDescription> tpchTopicDescriptions = createTpchTopicDescriptions(queryRunner.getCoordinator().getMetadata(), tables);
 
-            List<String> tableNames = new ArrayList<>(4);
-            tableNames.add("all_datatypes_avro");
-            tableNames.add("all_datatypes_csv");
-            tableNames.add("all_datatypes_raw");
-            tableNames.add("all_datatypes_json");
+            List<SchemaTableName> tableNames = new ArrayList<>();
+            tableNames.add(new SchemaTableName("read_test", "all_datatypes_json"));
+            tableNames.add(new SchemaTableName("write_test", "all_datatypes_avro"));
+            tableNames.add(new SchemaTableName("write_test", "all_datatypes_csv"));
+            tableNames.add(new SchemaTableName("write_test", "all_datatypes_raw"));
+            tableNames.add(new SchemaTableName("write_test", "all_datatypes_json"));
 
             JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec = new CodecSupplier<>(KafkaTopicDescription.class, queryRunner.getMetadata()).get();
 
             ImmutableMap.Builder<SchemaTableName, KafkaTopicDescription> testTopicDescriptions = ImmutableMap.builder();
-            for (String tableName : tableNames) {
-                testingKafka.createTopic("write_test." + tableName);
-                SchemaTableName table = new SchemaTableName("write_test", tableName);
-                KafkaTopicDescription tableTemplate = topicDescriptionJsonCodec.fromJson(toByteArray(KafkaQueryRunner.class.getResourceAsStream(format("/write_test/%s.json", tableName))));
-
-                Optional<KafkaTopicFieldGroup> key = tableTemplate.getKey()
-                        .map(keyTemplate -> new KafkaTopicFieldGroup(
-                                keyTemplate.getDataFormat(),
-                                keyTemplate.getDataSchema().map(schema -> KafkaQueryRunner.class.getResource(schema).getPath()),
-                                keyTemplate.getFields()));
-
-                Optional<KafkaTopicFieldGroup> message = tableTemplate.getMessage()
-                        .map(keyTemplate -> new KafkaTopicFieldGroup(
-                                keyTemplate.getDataFormat(),
-                                keyTemplate.getDataSchema().map(schema -> KafkaQueryRunner.class.getResource(schema).getPath()),
-                                keyTemplate.getFields()));
-
-                testTopicDescriptions.put(table,
-                        new KafkaTopicDescription(table.getTableName(),
-                                Optional.of(table.getSchemaName()),
-                                table.toString(),
-                                key,
-                                message));
+            for (SchemaTableName tableName : tableNames) {
+                testTopicDescriptions.put(tableName, createTable(tableName, testingKafka, topicDescriptionJsonCodec));
             }
 
             Map<SchemaTableName, KafkaTopicDescription> topicDescriptions = ImmutableMap.<SchemaTableName, KafkaTopicDescription>builder()
@@ -206,6 +187,33 @@ public final class KafkaQueryRunner
             closeAllSuppress(e, queryRunner);
             throw e;
         }
+    }
+
+    private static KafkaTopicDescription createTable(SchemaTableName table, TestingKafka testingKafka, JsonCodec<KafkaTopicDescription> topicDescriptionJsonCodec)
+            throws IOException
+    {
+        testingKafka.createTopic(table.toString());
+        String fileName = format("/%s/%s.json", table.getSchemaName(), table.getTableName());
+        KafkaTopicDescription tableTemplate = topicDescriptionJsonCodec.fromJson(toByteArray(KafkaQueryRunner.class.getResourceAsStream(fileName)));
+
+        Optional<KafkaTopicFieldGroup> key = tableTemplate.getKey()
+                .map(keyTemplate -> new KafkaTopicFieldGroup(
+                        keyTemplate.getDataFormat(),
+                        keyTemplate.getDataSchema().map(schema -> KafkaQueryRunner.class.getResource(schema).getPath()),
+                        keyTemplate.getFields()));
+
+        Optional<KafkaTopicFieldGroup> message = tableTemplate.getMessage()
+                .map(keyTemplate -> new KafkaTopicFieldGroup(
+                        keyTemplate.getDataFormat(),
+                        keyTemplate.getDataSchema().map(schema -> KafkaQueryRunner.class.getResource(schema).getPath()),
+                        keyTemplate.getFields()));
+
+        return new KafkaTopicDescription(
+                table.getTableName(),
+                Optional.of(table.getSchemaName()),
+                table.toString(),
+                key,
+                message);
     }
 
     private static void loadTpchTopic(TestingKafka testingKafka, TestingPrestoClient prestoClient, TpchTable<?> table)

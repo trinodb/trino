@@ -39,7 +39,7 @@ public class TestArrayFilterFunction
         assertFunction(
                 "filter(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789'], t -> year(t) = 1111)",
                 new ArrayType(createTimestampType(9)),
-                ImmutableList.of(legacyTimestamp(9, "1111-05-10 12:34:56.123456789")));
+                ImmutableList.of(timestamp(9, "1111-05-10 12:34:56.123456789")));
     }
 
     @Test
