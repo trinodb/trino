@@ -20,7 +20,6 @@ import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DoubleWriteFunction;
-import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.LongWriteFunction;
 import io.prestosql.plugin.jdbc.SliceWriteFunction;
@@ -207,7 +206,7 @@ public class OracleClient
     }
 
     @Override
-    protected void renameTable(JdbcIdentity identity, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
+    protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
     {
         if (!schemaName.equalsIgnoreCase(newTable.getSchemaName())) {
             throw new PrestoException(NOT_SUPPORTED, "Table rename across schemas is not supported in Oracle");
@@ -219,7 +218,7 @@ public class OracleClient
                 quoted(catalogName, schemaName, tableName),
                 quoted(newTableName));
 
-        try (Connection connection = connectionFactory.openConnection(identity)) {
+        try (Connection connection = connectionFactory.openConnection(session)) {
             execute(connection, sql);
         }
         catch (SQLException e) {
@@ -228,7 +227,7 @@ public class OracleClient
     }
 
     @Override
-    public void createSchema(JdbcIdentity identity, String schemaName)
+    public void createSchema(ConnectorSession session, String schemaName)
     {
         // ORA-02420: missing schema authorization clause
         throw new PrestoException(NOT_SUPPORTED, "This connector does not support creating schemas");

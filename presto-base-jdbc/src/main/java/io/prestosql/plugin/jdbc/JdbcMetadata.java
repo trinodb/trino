@@ -82,19 +82,19 @@ public class JdbcMetadata
     @Override
     public boolean schemaExists(ConnectorSession session, String schemaName)
     {
-        return jdbcClient.schemaExists(JdbcIdentity.from(session), schemaName);
+        return jdbcClient.schemaExists(session, schemaName);
     }
 
     @Override
     public List<String> listSchemaNames(ConnectorSession session)
     {
-        return ImmutableList.copyOf(jdbcClient.getSchemaNames(JdbcIdentity.from(session)));
+        return ImmutableList.copyOf(jdbcClient.getSchemaNames(session));
     }
 
     @Override
     public JdbcTableHandle getTableHandle(ConnectorSession session, SchemaTableName tableName)
     {
-        return jdbcClient.getTableHandle(JdbcIdentity.from(session), tableName)
+        return jdbcClient.getTableHandle(session, tableName)
                 .orElse(null);
     }
 
@@ -296,7 +296,7 @@ public class JdbcMetadata
     @Override
     public List<SchemaTableName> listTables(ConnectorSession session, Optional<String> schemaName)
     {
-        return jdbcClient.getTableNames(JdbcIdentity.from(session), schemaName);
+        return jdbcClient.getTableNames(session, schemaName);
     }
 
     @Override
@@ -321,7 +321,7 @@ public class JdbcMetadata
                 .orElseGet(() -> listTables(session, prefix.getSchema()));
         for (SchemaTableName tableName : tables) {
             try {
-                jdbcClient.getTableHandle(JdbcIdentity.from(session), tableName)
+                jdbcClient.getTableHandle(session, tableName)
                         .ifPresent(tableHandle -> columns.put(tableName, getTableMetadata(session, tableHandle).getColumns()));
             }
             catch (TableNotFoundException e) {
@@ -345,14 +345,14 @@ public class JdbcMetadata
         }
         JdbcTableHandle handle = (JdbcTableHandle) tableHandle;
         verify(!handle.isSynthetic(), "Not a table reference: %s", handle);
-        jdbcClient.dropTable(JdbcIdentity.from(session), handle);
+        jdbcClient.dropTable(session, handle);
     }
 
     @Override
     public ConnectorOutputTableHandle beginCreateTable(ConnectorSession session, ConnectorTableMetadata tableMetadata, Optional<ConnectorNewTableLayout> layout)
     {
         JdbcOutputTableHandle handle = jdbcClient.beginCreateTable(session, tableMetadata);
-        setRollback(() -> jdbcClient.rollbackCreateTable(JdbcIdentity.from(session), handle));
+        setRollback(() -> jdbcClient.rollbackCreateTable(session, handle));
         return handle;
     }
 
@@ -366,7 +366,7 @@ public class JdbcMetadata
     public Optional<ConnectorOutputMetadata> finishCreateTable(ConnectorSession session, ConnectorOutputTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         JdbcOutputTableHandle handle = (JdbcOutputTableHandle) tableHandle;
-        jdbcClient.commitCreateTable(JdbcIdentity.from(session), handle);
+        jdbcClient.commitCreateTable(session, handle);
         clearRollback();
         return Optional.empty();
     }
@@ -395,7 +395,7 @@ public class JdbcMetadata
                 .peek(columnHandle -> verify(!columnHandle.isSynthetic(), "Not a column reference: %s", columnHandle))
                 .collect(toImmutableList());
         JdbcOutputTableHandle handle = jdbcClient.beginInsertTable(session, (JdbcTableHandle) tableHandle, columnHandles);
-        setRollback(() -> jdbcClient.rollbackCreateTable(JdbcIdentity.from(session), handle));
+        setRollback(() -> jdbcClient.rollbackCreateTable(session, handle));
         return handle;
     }
 
@@ -409,7 +409,7 @@ public class JdbcMetadata
     public Optional<ConnectorOutputMetadata> finishInsert(ConnectorSession session, ConnectorInsertTableHandle tableHandle, Collection<Slice> fragments, Collection<ComputedStatistics> computedStatistics)
     {
         JdbcOutputTableHandle jdbcInsertHandle = (JdbcOutputTableHandle) tableHandle;
-        jdbcClient.finishInsertTable(JdbcIdentity.from(session), jdbcInsertHandle);
+        jdbcClient.finishInsertTable(session, jdbcInsertHandle);
         return Optional.empty();
     }
 
@@ -428,7 +428,7 @@ public class JdbcMetadata
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
         verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
         verify(!columnHandle.isSynthetic(), "Not a column reference: %s", columnHandle);
-        jdbcClient.dropColumn(JdbcIdentity.from(session), tableHandle, columnHandle);
+        jdbcClient.dropColumn(session, tableHandle, columnHandle);
     }
 
     @Override
@@ -438,7 +438,7 @@ public class JdbcMetadata
         JdbcColumnHandle columnHandle = (JdbcColumnHandle) column;
         verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
         verify(!columnHandle.isSynthetic(), "Not a column reference: %s", columnHandle);
-        jdbcClient.renameColumn(JdbcIdentity.from(session), tableHandle, columnHandle, target);
+        jdbcClient.renameColumn(session, tableHandle, columnHandle, target);
     }
 
     @Override
@@ -446,7 +446,7 @@ public class JdbcMetadata
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         verify(!tableHandle.isSynthetic(), "Not a table reference: %s", tableHandle);
-        jdbcClient.renameTable(JdbcIdentity.from(session), tableHandle, newTableName);
+        jdbcClient.renameTable(session, tableHandle, newTableName);
     }
 
     @Override
@@ -459,13 +459,13 @@ public class JdbcMetadata
     @Override
     public void createSchema(ConnectorSession session, String schemaName, Map<String, Object> properties, PrestoPrincipal owner)
     {
-        jdbcClient.createSchema(JdbcIdentity.from(session), schemaName);
+        jdbcClient.createSchema(session, schemaName);
     }
 
     @Override
     public void dropSchema(ConnectorSession session, String schemaName)
     {
-        jdbcClient.dropSchema(JdbcIdentity.from(session), schemaName);
+        jdbcClient.dropSchema(session, schemaName);
     }
 
     private static boolean containSameElements(Iterable<? extends ColumnHandle> first, Iterable<? extends ColumnHandle> second)

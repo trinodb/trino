@@ -35,7 +35,6 @@ import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DoubleReadFunction;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
 import io.prestosql.plugin.jdbc.JdbcExpression;
-import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.LongReadFunction;
@@ -220,7 +219,7 @@ public class PostgreSqlClient
     }
 
     @Override
-    protected void renameTable(JdbcIdentity identity, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
+    protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
     {
         if (!schemaName.equals(newTable.getSchemaName())) {
             throw new PrestoException(NOT_SUPPORTED, "Table rename across schemas is not supported in PostgreSQL");
@@ -230,7 +229,7 @@ public class PostgreSqlClient
                 "ALTER TABLE %s RENAME TO %s",
                 quoted(catalogName, schemaName, tableName),
                 quoted(newTable.getTableName()));
-        execute(identity, sql);
+        execute(session, sql);
     }
 
     @Override
@@ -258,7 +257,7 @@ public class PostgreSqlClient
     @Override
     public List<JdbcColumnHandle> getColumns(ConnectorSession session, JdbcTableHandle tableHandle)
     {
-        try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session))) {
+        try (Connection connection = connectionFactory.openConnection(session)) {
             Map<String, Integer> arrayColumnDimensions = ImmutableMap.of();
             if (getArrayMapping(session) == AS_ARRAY) {
                 arrayColumnDimensions = getArrayColumnDimensions(connection, tableHandle);

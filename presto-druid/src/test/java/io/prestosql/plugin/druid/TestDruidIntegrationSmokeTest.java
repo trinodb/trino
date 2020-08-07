@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.druid;
 
-import io.prestosql.plugin.jdbc.JdbcIdentity;
+import io.prestosql.plugin.jdbc.JdbcClient;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -226,7 +226,7 @@ public class TestDruidIntegrationSmokeTest
      * This test verifies that the filtering we have in place to overcome Druid's limitation of
      * not handling the escaping of search characters like % and _, works correctly.
      * <p>
-     * See {@link DruidJdbcClient#getTableHandle(JdbcIdentity, SchemaTableName)} and
+     * See {@link JdbcClient#getTableHandle(ConnectorSession, SchemaTableName)} and
      * {@link DruidJdbcClient#getColumns(ConnectorSession, JdbcTableHandle)}
      */
     @Test

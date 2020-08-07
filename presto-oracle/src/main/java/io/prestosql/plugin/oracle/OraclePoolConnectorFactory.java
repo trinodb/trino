@@ -14,8 +14,8 @@
 package io.prestosql.plugin.oracle;
 
 import io.prestosql.plugin.jdbc.ConnectionFactory;
-import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
+import io.prestosql.spi.connector.ConnectorSession;
 import oracle.jdbc.pool.OracleDataSource;
 import oracle.ucp.jdbc.PoolDataSource;
 import oracle.ucp.jdbc.PoolDataSourceFactory;
@@ -71,7 +71,7 @@ public class OraclePoolConnectorFactory
     }
 
     @Override
-    public Connection openConnection(JdbcIdentity identity)
+    public Connection openConnection(ConnectorSession session)
             throws SQLException
     {
         return dataSource.getConnection();

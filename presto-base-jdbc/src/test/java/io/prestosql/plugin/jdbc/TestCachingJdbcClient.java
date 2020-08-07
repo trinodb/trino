@@ -14,6 +14,7 @@
 package io.prestosql.plugin.jdbc;
 
 import com.google.common.collect.ImmutableSet;
+import io.prestosql.spi.connector.ConnectorSession;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Method;
@@ -33,7 +34,7 @@ public class TestCachingJdbcClient
     {
         try {
             return ImmutableSet.<Method>builder()
-                    .add(JdbcClient.class.getMethod("schemaExists", JdbcIdentity.class, String.class))
+                    .add(JdbcClient.class.getMethod("schemaExists", ConnectorSession.class, String.class))
                     .build();
         }
         catch (NoSuchMethodException e) {

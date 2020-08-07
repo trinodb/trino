@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
-import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcMetadata;
 import io.prestosql.plugin.jdbc.JdbcMetadataConfig;
 import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
@@ -101,7 +100,7 @@ public class PhoenixMetadata
     @Override
     public JdbcTableHandle getTableHandle(ConnectorSession session, SchemaTableName schemaTableName)
     {
-        return phoenixClient.getTableHandle(JdbcIdentity.from(session), schemaTableName)
+        return phoenixClient.getTableHandle(session, schemaTableName)
                 .map(tableHandle -> new JdbcTableHandle(
                         schemaTableName,
                         tableHandle.getCatalogName(),
@@ -130,7 +129,7 @@ public class PhoenixMetadata
     {
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
 
-        try (PhoenixConnection connection = phoenixClient.getConnection(JdbcIdentity.from(session));
+        try (PhoenixConnection connection = phoenixClient.getConnection(session);
                 HBaseAdmin admin = connection.getQueryServices().getAdmin()) {
             String schemaName = toPhoenixSchemaName(Optional.ofNullable(handle.getSchemaName())).orElse(null);
             PTable table = getTable(connection, SchemaUtil.getTableName(schemaName, handle.getTableName()));
@@ -213,7 +212,7 @@ public class PhoenixMetadata
 
     private String toMetadataCasing(ConnectorSession session, String schemaName)
     {
-        try (Connection connection = phoenixClient.getConnection(JdbcIdentity.from(session))) {
+        try (Connection connection = phoenixClient.getConnection(session)) {
             boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
             if (uppercase) {
                 schemaName = schemaName.toUpperCase(ENGLISH);
@@ -307,7 +306,7 @@ public class PhoenixMetadata
             JdbcTableHandle jdbcHandle = (JdbcTableHandle) tableHandle;
             phoenixClient.execute(session, format("DROP SEQUENCE %s", getEscapedTableName(Optional.ofNullable(jdbcHandle.getSchemaName()), jdbcHandle.getTableName() + "_sequence")));
         }
-        phoenixClient.dropTable(JdbcIdentity.from(session), (JdbcTableHandle) tableHandle);
+        phoenixClient.dropTable(session, (JdbcTableHandle) tableHandle);
     }
 
     private JdbcOutputTableHandle createTable(ConnectorSession session, ConnectorTableMetadata tableMetadata)
@@ -316,11 +315,11 @@ public class PhoenixMetadata
         Optional<String> schema = Optional.of(schemaTableName.getSchemaName());
         String table = schemaTableName.getTableName();
 
-        if (!phoenixClient.getSchemaNames(JdbcIdentity.from(session)).contains(schema.orElse(null))) {
+        if (!phoenixClient.getSchemaNames(session).contains(schema.orElse(null))) {
             throw new SchemaNotFoundException(schema.orElse(null));
         }
 
-        try (Connection connection = phoenixClient.getConnection(JdbcIdentity.from(session))) {
+        try (Connection connection = phoenixClient.getConnection(session)) {
             boolean uppercase = connection.getMetaData().storesUpperCaseIdentifiers();
             if (uppercase) {
                 schema = schema.map(schemaName -> schemaName.toUpperCase(ENGLISH));

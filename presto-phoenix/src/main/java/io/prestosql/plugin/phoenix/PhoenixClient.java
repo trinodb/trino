@@ -18,7 +18,6 @@ import io.prestosql.plugin.jdbc.BaseJdbcClient;
 import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
-import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
 import io.prestosql.plugin.jdbc.JdbcSplit;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
@@ -131,21 +130,16 @@ public class PhoenixClient
         getConnectionProperties(config).forEach((k, v) -> configuration.set((String) k, (String) v));
     }
 
-    public PhoenixConnection getConnection(JdbcIdentity identity)
+    public PhoenixConnection getConnection(ConnectorSession session)
             throws SQLException
     {
-        return connectionFactory.openConnection(identity).unwrap(PhoenixConnection.class);
+        return connectionFactory.openConnection(session).unwrap(PhoenixConnection.class);
     }
 
     public org.apache.hadoop.hbase.client.Connection getHConnection()
             throws IOException
     {
         return HBaseFactoryProvider.getHConnectionFactory().createConnection(configuration);
-    }
-
-    public void execute(ConnectorSession session, String statement)
-    {
-        execute(JdbcIdentity.from(session), statement);
     }
 
     @Override

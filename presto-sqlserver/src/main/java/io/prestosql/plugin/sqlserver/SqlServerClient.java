@@ -19,7 +19,6 @@ import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ColumnMapping;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcColumnHandle;
-import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.WriteMapping;
@@ -71,7 +70,7 @@ public class SqlServerClient
     }
 
     @Override
-    protected void renameTable(JdbcIdentity identity, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
+    protected void renameTable(ConnectorSession session, String catalogName, String schemaName, String tableName, SchemaTableName newTable)
     {
         if (!schemaName.equals(newTable.getSchemaName())) {
             throw new PrestoException(NOT_SUPPORTED, "Table rename across schemas is not supported");
@@ -81,17 +80,17 @@ public class SqlServerClient
                 "sp_rename %s, %s",
                 singleQuote(catalogName, schemaName, tableName),
                 singleQuote(newTable.getTableName()));
-        execute(identity, sql);
+        execute(session, sql);
     }
 
     @Override
-    public void renameColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
+    public void renameColumn(ConnectorSession session, JdbcTableHandle handle, JdbcColumnHandle jdbcColumn, String newColumnName)
     {
         String sql = format(
                 "sp_rename %s, %s, 'COLUMN'",
                 singleQuote(handle.getCatalogName(), handle.getSchemaName(), handle.getTableName(), jdbcColumn.getColumnName()),
                 singleQuote(newColumnName));
-        execute(identity, sql);
+        execute(session, sql);
     }
 
     @Override

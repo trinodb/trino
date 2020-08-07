@@ -90,7 +90,7 @@ final class TestingDatabase
 
     public JdbcTableHandle getTableHandle(ConnectorSession session, SchemaTableName table)
     {
-        return jdbcClient.getTableHandle(JdbcIdentity.from(session), table)
+        return jdbcClient.getTableHandle(session, table)
                 .orElseThrow(() -> new IllegalArgumentException("table not found: " + table));
     }
 
