@@ -430,11 +430,11 @@ public class PinotClient
         }
     }
 
-    private Map<String, Integer> getColumnIndices(List<PinotColumnHandle> columnHandles)
+    private static Map<String, Integer> getColumnIndices(String[] columnNames)
     {
         ImmutableMap.Builder<String, Integer> columnIndicesBuilder = ImmutableMap.builder();
-        for (int index = 0; index < columnHandles.size(); index++) {
-            columnIndicesBuilder.put(columnHandles.get(index).getColumnName(), index);
+        for (int index = 0; index < columnNames.length; index++) {
+            columnIndicesBuilder.put(columnNames[index], index);
         }
         return columnIndicesBuilder.build();
     }
@@ -481,12 +481,19 @@ public class PinotClient
     public Iterator<BrokerResultRow> createResultIterator(ConnectorSession session, PinotQuery query, List<PinotColumnHandle> columnHandles)
     {
         BrokerResponseNative response = submitBrokerQueryJson(session, query);
-        Map<String, Integer> columnIndices = getColumnIndices(columnHandles);
-        ResultTable resultTable = response.getResultTable();
+        return fromResultTable(response.getResultTable(), columnHandles);
+    }
+
+    @VisibleForTesting
+    public static ResultsIterator fromResultTable(ResultTable resultTable, List<PinotColumnHandle> columnHandles)
+    {
+        requireNonNull(resultTable, "resultTable is null");
+        requireNonNull(columnHandles, "columnHandles is null");
         String[] columnNames = resultTable.getDataSchema().getColumnNames();
+        Map<String, Integer> columnIndices = getColumnIndices(columnNames);
         int[] indices = new int[columnNames.length];
-        for (int i = 0; i < columnNames.length; i++) {
-            indices[i] = columnIndices.getOrDefault(columnNames[i], -1);
+        for (int i = 0; i < columnHandles.size(); i++) {
+            indices[i] = columnIndices.get(columnHandles.get(i).getColumnName());
         }
         return new ResultsIterator(resultTable, indices);
     }
