@@ -43,6 +43,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.nio.ByteOrder;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -160,7 +161,7 @@ public class OrcMetadataReader
     }
 
     @Override
-    public StripeFooter readStripeFooter(ColumnMetadata<OrcType> types, InputStream inputStream)
+    public StripeFooter readStripeFooter(ColumnMetadata<OrcType> types, InputStream inputStream, ZoneId legacyFileTimeZone)
             throws IOException
     {
         CodedInputStream input = CodedInputStream.newInstance(inputStream);
@@ -169,7 +170,8 @@ public class OrcMetadataReader
                 toStream(stripeFooter.getStreamsList()),
                 toColumnEncoding(stripeFooter.getColumnsList()),
                 Optional.ofNullable(emptyToNull(stripeFooter.getWriterTimezone()))
-                        .map(zone -> TimeZone.getTimeZone(zone).toZoneId()));
+                        .map(zone -> TimeZone.getTimeZone(zone).toZoneId())
+                        .orElse(legacyFileTimeZone));
     }
 
     private static Stream toStream(OrcProto.Stream stream)

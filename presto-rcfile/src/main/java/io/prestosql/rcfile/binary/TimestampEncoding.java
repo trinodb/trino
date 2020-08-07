@@ -20,6 +20,7 @@ import io.prestosql.rcfile.EncodeOutput;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
+import org.joda.time.DateTimeZone;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.prestosql.rcfile.RcFileDecoderUtils.decodeVIntSize;
@@ -29,15 +30,18 @@ import static io.prestosql.rcfile.RcFileDecoderUtils.writeVInt;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
+import static java.util.Objects.requireNonNull;
 
 public class TimestampEncoding
         implements BinaryColumnEncoding
 {
     private final Type type;
+    private final DateTimeZone timeZone;
 
-    public TimestampEncoding(Type type)
+    public TimestampEncoding(Type type, DateTimeZone timeZone)
     {
-        this.type = type;
+        this.type = requireNonNull(type, "type is null");
+        this.timeZone = requireNonNull(timeZone, "timeZone is null");
     }
 
     @Override
@@ -112,7 +116,7 @@ public class TimestampEncoding
         return (b >> 7) != 0;
     }
 
-    private static long getTimestamp(Slice slice, int offset)
+    private long getTimestamp(Slice slice, int offset)
     {
         // read seconds (low 32 bits)
         int lowest31BitsOfSecondsAndFlag = Integer.reverseBytes(slice.getInt(offset));
@@ -139,7 +143,8 @@ public class TimestampEncoding
         }
 
         long millis = (seconds * 1000) + (nanos / 1_000_000);
-        return millis;
+
+        return timeZone.convertUTCToLocal(millis);
     }
 
     @SuppressWarnings("NonReproducibleMathCall")
@@ -167,8 +172,9 @@ public class TimestampEncoding
         return nanos;
     }
 
-    private static void writeTimestamp(SliceOutput output, long millis)
+    private void writeTimestamp(SliceOutput output, long millis)
     {
+        millis = timeZone.convertLocalToUTC(millis, false);
         long seconds = floorDiv(millis, 1000);
         int nanos = toIntExact(floorMod(millis, 1000) * 1_000_000);
         writeTimestamp(seconds, nanos, output);

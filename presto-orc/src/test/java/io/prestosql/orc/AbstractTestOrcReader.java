@@ -24,7 +24,6 @@ import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.SqlDecimal;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlVarbinary;
-import io.prestosql.spi.type.TimeZoneKey;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -55,7 +54,6 @@ import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
-import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
@@ -193,7 +191,7 @@ public abstract class AbstractTestOrcReader
         tester.testRoundTrip(
                 TIMESTAMP,
                 writeValues.stream()
-                        .map(timestamp -> sqlTimestampOf(timestamp, SESSION))
+                        .map(timestamp -> sqlTimestampOf(timestamp))
                         .collect(toList()));
     }
 
@@ -290,16 +288,16 @@ public abstract class AbstractTestOrcReader
     }
 
     @Test
-    public void testLegacyTimestamp()
+    public void testTimestamp()
             throws Exception
     {
         @SuppressWarnings("deprecation")
         List<SqlTimestamp> values = ImmutableList.of(
-                SqlTimestamp.legacyFromMillis(3, 0, TimeZoneKey.UTC_KEY),
-                SqlTimestamp.legacyFromMillis(3, 10, TimeZoneKey.UTC_KEY),
-                SqlTimestamp.legacyFromMillis(3, 1123456789L, TimeZoneKey.UTC_KEY), // 1970-01-14T00:04:16.789Z
-                SqlTimestamp.legacyFromMillis(3, 1000123456789L, TimeZoneKey.UTC_KEY), // 2001-09-10T12:04:16.789Z
-                SqlTimestamp.legacyFromMillis(3, 1575553299564L, TimeZoneKey.UTC_KEY)); // 2019-12-05T13:41:39.564Z
+                SqlTimestamp.fromMillis(3, 0),
+                SqlTimestamp.fromMillis(3, 10),
+                SqlTimestamp.fromMillis(3, 1123456789L), // 1970-01-14T00:04:16.789Z
+                SqlTimestamp.fromMillis(3, 1000123456789L), // 2001-09-10T12:04:16.789Z
+                SqlTimestamp.fromMillis(3, 1575553299564L)); // 2019-12-05T13:41:39.564Z
         tester.testRoundTrip(TIMESTAMP, newArrayList(limit(cycle(values), 30_000)));
     }
 

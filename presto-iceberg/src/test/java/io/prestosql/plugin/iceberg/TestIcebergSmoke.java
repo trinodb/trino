@@ -616,24 +616,29 @@ public class TestIcebergSmoke
         assertQuery(session, "SELECT COUNT(*) FROM \"test_hour_transform$partitions\"", "SELECT 3");
 
         assertQuery(session, "SELECT b FROM test_hour_transform WHERE hour(d) = 10 ORDER BY d", "SELECT b FROM (VALUES (1), (2), (3)) AS t(b)");
-        // 394460 = (2015 - 1970) * 365 * 24 + leap day hours + 10
+        // 16436 days = DATE '2015-01-01' - DATE '1970-01-01'
+        // 394474 = (16436 * 24) + 10
         // Parquet has min/max for timestamps but ORC does not.
         String expectedQuery = format == FileFormat.PARQUET ?
-                "VALUES(394460, 3, TIMESTAMP '2015-01-01 10:01:23', TIMESTAMP '2015-01-01 10:55:00', 1, 3)" :
-                "VALUES(394460, 3, NULL, NULL, 1, 3)";
-        assertQuery(session, select + " WHERE d_hour = 394460", expectedQuery);
+                "VALUES(394474, 3, TIMESTAMP '2015-01-01 10:01:23', TIMESTAMP '2015-01-01 10:55:00', 1, 3)" :
+                "VALUES(394474, 3, NULL, NULL, 1, 3)";
+        assertQuery(session, select + " WHERE d_hour = 394474", expectedQuery);
 
+        // 16570  days = DATE '2015-05-15' - DATE '1970-01-01'
+        // 397692 = (16570 * 24) + 12
         assertQuery(session, "SELECT b FROM test_hour_transform WHERE hour(d) = 12", "SELECT b FROM (VALUES (4), (5)) AS t(b)");
         expectedQuery = format == FileFormat.PARQUET ?
-                "VALUES(397679, 2, TIMESTAMP '2015-05-15 12:05:01', TIMESTAMP '2015-05-15 12:21:02', 4, 5)" :
-                "VALUES(397679, 2, NULL, NULL, 4, 5)";
-        assertQuery(session, select + " WHERE d_hour = 397679", expectedQuery);
+                "VALUES(397692, 2, TIMESTAMP '2015-05-15 12:05:01', TIMESTAMP '2015-05-15 12:21:02', 4, 5)" :
+                "VALUES(397692, 2, NULL, NULL, 4, 5)";
+        assertQuery(session, select + " WHERE d_hour = 397692", expectedQuery);
 
+        // 16487  days = DATE '2015-02-21' - DATE '1970-01-01'
+        // 397692 = (16487 * 24) + 13
         assertQuery(session, "SELECT b FROM test_hour_transform WHERE hour(d) = 13", "SELECT b FROM (VALUES (6), (7)) AS t(b)");
         expectedQuery = format == FileFormat.PARQUET ?
-                "VALUES(395687, 2, TIMESTAMP '2015-02-21 13:11:11', TIMESTAMP '2015-02-21 13:12:12', 6, 7)" :
-                "VALUES(395687, 2, NULL, NULL, 6, 7)";
-        assertQuery(session, select + " WHERE d_hour = 395687", expectedQuery);
+                "VALUES(395701, 2, TIMESTAMP '2015-02-21 13:11:11', TIMESTAMP '2015-02-21 13:12:12', 6, 7)" :
+                "VALUES(395701, 2, NULL, NULL, 6, 7)";
+        assertQuery(session, select + " WHERE d_hour = 395701", expectedQuery);
 
         dropTable(session, "test_hour_transform");
     }

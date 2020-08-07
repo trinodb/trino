@@ -210,7 +210,7 @@ public final class FormatFunction
             return (session, block) -> toZonedDateTime(((TimestampWithTimeZoneType) type), block, position);
         }
         if (type instanceof TimestampType) {
-            return (session, block) -> toLocalDateTime(((TimestampType) type), session, block, position);
+            return (session, block) -> toLocalDateTime(((TimestampType) type), block, position);
         }
         if (type instanceof TimeType) {
             return (session, block) -> toLocalTime(type.getLong(block, position));

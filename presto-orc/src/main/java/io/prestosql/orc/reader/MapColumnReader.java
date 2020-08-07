@@ -225,7 +225,7 @@ public class MapColumnReader
     }
 
     @Override
-    public void startStripe(ZoneId fileTimeZone, ZoneId storageTimeZone, InputStreamSources dictionaryStreamSources, ColumnMetadata<ColumnEncoding> encoding)
+    public void startStripe(ZoneId fileTimeZone, InputStreamSources dictionaryStreamSources, ColumnMetadata<ColumnEncoding> encoding)
             throws IOException
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
@@ -239,8 +239,8 @@ public class MapColumnReader
 
         rowGroupOpen = false;
 
-        keyColumnReader.startStripe(fileTimeZone, storageTimeZone, dictionaryStreamSources, encoding);
-        valueColumnReader.startStripe(fileTimeZone, storageTimeZone, dictionaryStreamSources, encoding);
+        keyColumnReader.startStripe(fileTimeZone, dictionaryStreamSources, encoding);
+        valueColumnReader.startStripe(fileTimeZone, dictionaryStreamSources, encoding);
     }
 
     @Override

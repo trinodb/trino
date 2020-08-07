@@ -34,13 +34,11 @@ public class CompactionSetCreator
 {
     private final DataSize maxShardSize;
     private final long maxShardRows;
-    private final TemporalFunction temporalFunction;
 
-    public CompactionSetCreator(TemporalFunction temporalFunction, DataSize maxShardSize, long maxShardRows)
+    public CompactionSetCreator(DataSize maxShardSize, long maxShardRows)
     {
         checkArgument(maxShardRows > 0, "maxShardRows must be > 0");
 
-        this.temporalFunction = requireNonNull(temporalFunction, "temporalFunction is null");
         this.maxShardSize = requireNonNull(maxShardSize, "maxShardSize is null");
         this.maxShardRows = maxShardRows;
     }
@@ -49,7 +47,7 @@ public class CompactionSetCreator
     // All shards provided to this method will be considered for creating a compaction set.
     public Set<OrganizationSet> createCompactionSets(Table tableInfo, Collection<ShardIndexInfo> shards)
     {
-        Collection<Collection<ShardIndexInfo>> shardsByDaysBuckets = getShardsByDaysBuckets(tableInfo, shards, temporalFunction);
+        Collection<Collection<ShardIndexInfo>> shardsByDaysBuckets = getShardsByDaysBuckets(tableInfo, shards);
 
         ImmutableSet.Builder<OrganizationSet> compactionSets = ImmutableSet.builder();
         for (Collection<ShardIndexInfo> shardInfos : shardsByDaysBuckets) {

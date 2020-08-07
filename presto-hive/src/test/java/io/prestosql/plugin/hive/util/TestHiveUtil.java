@@ -43,7 +43,7 @@ public class TestHiveUtil
     @Test
     public void testParseHiveTimestamp()
     {
-        DateTime time = new DateTime(2011, 5, 6, 7, 8, 9, 123, nonDefaultTimeZone());
+        DateTime time = new DateTime(2011, 5, 6, 7, 8, 9, 123, DateTimeZone.UTC);
         assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss"), unixTime(time, 0));
         assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.S"), unixTime(time, 1));
         assertEquals(parse(time, "yyyy-MM-dd HH:mm:ss.SSS"), unixTime(time, 3));
@@ -88,7 +88,7 @@ public class TestHiveUtil
 
     private static long parse(DateTime time, String pattern)
     {
-        return parseHiveTimestamp(DateTimeFormat.forPattern(pattern).print(time), nonDefaultTimeZone());
+        return parseHiveTimestamp(DateTimeFormat.forPattern(pattern).print(time));
     }
 
     private static long unixTime(DateTime time, int factionalDigits)

@@ -59,7 +59,6 @@ public class HiveColumnHandle
 
     public static final int FILE_MODIFIED_TIME_COLUMN_INDEX = -14;
     public static final String FILE_MODIFIED_TIME_COLUMN_NAME = "$file_modified_time";
-    // TODO introduce HiveType.HIVE_TIMESTAMP_WITH_TIME_ZONE
     public static final HiveType FILE_MODIFIED_TIME_TYPE = HiveType.HIVE_TIMESTAMP;
     public static final Type FILE_MODIFIED_TIME_TYPE_SIGNATURE = TIMESTAMP_WITH_TIME_ZONE;
 

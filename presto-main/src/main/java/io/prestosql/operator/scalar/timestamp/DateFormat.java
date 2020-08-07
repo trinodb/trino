@@ -27,7 +27,6 @@ import org.joda.time.chrono.ISOChronology;
 import static io.prestosql.operator.scalar.DateTimeFunctions.dateFormat;
 import static io.prestosql.type.DateTimes.round;
 import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
-import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 
 @ScalarFunction
 @Description("Formats the given timestamp by the given format")
@@ -42,10 +41,6 @@ public class DateFormat
         // TODO: currently, date formatting only supports up to millis, so round to that unit
         if (precision > 3) {
             timestamp = scaleEpochMicrosToMillis(round(timestamp, 3));
-        }
-
-        if (session.isLegacyTimestamp()) {
-            return dateFormat(getChronology(session.getTimeZoneKey()), session.getLocale(), timestamp, formatString);
         }
 
         return dateFormat(ISOChronology.getInstanceUTC(), session.getLocale(), timestamp, formatString);

@@ -523,7 +523,7 @@ public class TestHiveTableStatistics
                 row("c_double", null, 2.0, 0.0, null, "234.561", "235.567"),
                 row("c_decimal", null, 2.0, 0.0, null, "345.0", "346.0"),
                 row("c_decimal_w_params", null, 2.0, 0.0, null, "345.671", "345.678"),
-                row("c_timestamp", null, 2.0, 0.0, null, null, null), // timestamp is shifted by hive.time-zone on read
+                row("c_timestamp", null, 2.0, 0.0, null, null, null),
                 isHiveVersionBefore12()
                         ? row("c_date", null, null, null, null, null, null)
                         : row("c_date", null, 2.0, 0.0, null, "2015-05-09", "2015-06-10"),

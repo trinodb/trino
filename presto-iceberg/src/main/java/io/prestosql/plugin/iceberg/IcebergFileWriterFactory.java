@@ -71,7 +71,6 @@ import static io.prestosql.plugin.iceberg.util.PrimitiveTypeMapBuilder.makeTypeM
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
 import static org.apache.iceberg.parquet.ParquetSchemaUtil.convert;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class IcebergFileWriterFactory
 {
@@ -226,7 +225,6 @@ public class IcebergFileWriterFactory
                             .put(PRESTO_VERSION_NAME, nodeVersion.toString())
                             .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
                             .build(),
-                    UTC,
                     validationInputFactory,
                     getOrcWriterValidateMode(session),
                     orcWriterStats);

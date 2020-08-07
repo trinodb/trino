@@ -122,7 +122,6 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -130,6 +129,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -141,7 +141,6 @@ import java.util.OptionalDouble;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -255,7 +254,6 @@ import static io.prestosql.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
@@ -595,8 +593,6 @@ public abstract class AbstractTestHive
     protected List<HivePartition> tablePartitionFormatPartitions;
     protected List<HivePartition> tableUnpartitionedPartitions;
 
-    protected DateTimeZone timeZone;
-
     protected HdfsEnvironment hdfsEnvironment;
     protected LocationService locationService;
 
@@ -630,7 +626,7 @@ public abstract class AbstractTestHive
         }
     }
 
-    protected void setupHive(String databaseName, String timeZoneId)
+    protected void setupHive(String databaseName)
     {
         database = databaseName;
         tablePartitionFormat = new SchemaTableName(database, "presto_test_partition_format");
@@ -713,13 +709,13 @@ public abstract class AbstractTestHive
                                 dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(INTEGER, 4L)), false)))))),
                 ImmutableList.of());
         tableUnpartitionedProperties = new ConnectorTableProperties();
-        timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(timeZoneId));
     }
 
     protected final void setup(String host, int port, String databaseName, String timeZone)
     {
-        HiveConfig hiveConfig = getHiveConfig();
-        hiveConfig.setTimeZone(timeZone);
+        HiveConfig hiveConfig = getHiveConfig()
+                .setParquetTimeZone(timeZone)
+                .setRcfileTimeZone(timeZone);
 
         Optional<HostAndPort> proxy = Optional.ofNullable(System.getProperty("hive.metastore.thrift.client.socks-proxy"))
                 .map(HostAndPort::fromString);
@@ -728,7 +724,7 @@ public abstract class AbstractTestHive
 
         hdfsEnvironment = new HdfsEnvironment(createTestHdfsConfiguration(), new HdfsConfig(), new NoHdfsAuthentication());
         HiveMetastore metastore = cachingHiveMetastore(
-                new BridgingHiveMetastore(new ThriftHiveMetastore(metastoreLocator, new HiveConfig(), new ThriftMetastoreConfig(), hdfsEnvironment, false)),
+                new BridgingHiveMetastore(new ThriftHiveMetastore(metastoreLocator, hiveConfig, new ThriftMetastoreConfig(), hdfsEnvironment, false)),
                 executor,
                 Duration.valueOf("1m"),
                 Optional.of(Duration.valueOf("15s")),
@@ -739,7 +735,7 @@ public abstract class AbstractTestHive
 
     protected final void setup(String databaseName, HiveConfig hiveConfig, HiveMetastore hiveMetastore, HdfsEnvironment hdfsConfiguration)
     {
-        setupHive(databaseName, hiveConfig.getTimeZone());
+        setupHive(databaseName);
 
         metastoreClient = hiveMetastore;
         hdfsEnvironment = hdfsConfiguration;
@@ -751,10 +747,8 @@ public abstract class AbstractTestHive
                 metastoreClient,
                 hdfsEnvironment,
                 partitionManager,
-                timeZone,
                 10,
                 10,
-                true,
                 false,
                 false,
                 false,
@@ -775,7 +769,7 @@ public abstract class AbstractTestHive
                 partitionManager,
                 new NamenodeStats(),
                 hdfsEnvironment,
-                new CachingDirectoryLister(new HiveConfig()),
+                new CachingDirectoryLister(hiveConfig),
                 directExecutor(),
                 new CounterStat(),
                 100,
@@ -805,7 +799,7 @@ public abstract class AbstractTestHive
                 TYPE_MANAGER,
                 hiveConfig,
                 hdfsEnvironment,
-                getDefaultHivePageSourceFactories(hdfsEnvironment),
+                getDefaultHivePageSourceFactories(hdfsEnvironment, hiveConfig),
                 getDefaultHiveRecordCursorProviders(hiveConfig, hdfsEnvironment),
                 new GenericHiveRecordCursorProvider(hdfsEnvironment, hiveConfig));
     }
@@ -814,7 +808,10 @@ public abstract class AbstractTestHive
     {
         return new HiveHdfsConfiguration(
                 new HdfsConfigurationInitializer(
-                        new HdfsConfig(),
+                        new HdfsConfig()
+                                .setSocksProxy(Optional.ofNullable(System.getProperty("hive.hdfs.socks-proxy"))
+                                        .map(HostAndPort::fromString)
+                                        .orElse(null)),
                         ImmutableSet.of(
                                 new PrestoS3ConfigurationInitializer(new HiveS3Config()),
                                 new GoogleGcsConfigurationInitializer(new HiveGcsConfig()),
@@ -4198,7 +4195,7 @@ public abstract class AbstractTestHive
                         assertNull(row.getField(index));
                     }
                     else {
-                        SqlTimestamp expected = sqlTimestampOf(3, 2011, 5, 6, 7, 8, 9, 123, timeZone, UTC_KEY, SESSION);
+                        SqlTimestamp expected = sqlTimestampOf(3, 2011, 5, 6, 7, 8, 9, 123);
                         assertEquals(row.getField(index), expected);
                     }
                 }
@@ -4279,6 +4276,18 @@ public abstract class AbstractTestHive
                     }
                     else {
                         assertEquals(row.getField(index), ImmutableList.of("abc", "xyz", "data"));
+                    }
+                }
+
+                // ARRAY<TIMESTAMP>
+                index = columnIndex.get("t_array_timestamp");
+                if (index != null) {
+                    if ((rowNumber % 43) == 0) {
+                        assertNull(row.getField(index));
+                    }
+                    else {
+                        SqlTimestamp expected = sqlTimestampOf(3, LocalDateTime.of(2011, 5, 6, 7, 8, 9, 123_000_000));
+                        assertEquals(row.getField(index), ImmutableList.of(expected));
                     }
                 }
 
