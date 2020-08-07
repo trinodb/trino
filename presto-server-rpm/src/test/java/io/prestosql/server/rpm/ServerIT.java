@@ -13,10 +13,10 @@
  */
 package io.prestosql.server.rpm;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
