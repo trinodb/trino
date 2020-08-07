@@ -21,6 +21,7 @@ import io.prestosql.pinot.client.PinotHostMapper;
 import io.prestosql.pinot.util.TestingPinotCluster;
 import io.prestosql.pinot.util.TestingPinotHostMapper;
 import io.prestosql.testing.AbstractTestQueryFramework;
+import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.kafka.TestingKafka;
 import org.apache.kafka.clients.producer.KafkaProducer;
@@ -34,9 +35,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static io.prestosql.spi.type.RealType.REAL;
 import static java.util.Objects.requireNonNull;
+import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestMinimalFunctionality
@@ -86,6 +90,14 @@ public class TestMinimalFunctionality
     public void tearDown()
     {
         closeAllRuntimeException(pinot, kafka);
+    }
+
+    @Test
+    public void testRealType()
+    {
+        MaterializedResult result = computeActual("SELECT price FROM " + TOPIC_AND_TABLE + " WHERE vendor = 'vendor1'");
+        assertEquals(getOnlyElement(result.getTypes()), REAL);
+        assertEquals(result.getOnlyValue(), 3.5F);
     }
 
     private static Object createTestRecord(
