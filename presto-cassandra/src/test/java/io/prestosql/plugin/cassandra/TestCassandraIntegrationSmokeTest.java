@@ -106,7 +106,7 @@ public class TestCassandraIntegrationSmokeTest
                 .row("custkey", "bigint", "", "")
                 .row("orderstatus", "varchar", "", "")
                 .row("totalprice", "double", "", "")
-                .row("orderdate", "varchar", "", "")
+                .row("orderdate", "date", "", "")
                 .row("orderpriority", "varchar", "", "")
                 .row("clerk", "varchar", "", "")
                 .row("shippriority", "integer", "", "")
@@ -125,7 +125,7 @@ public class TestCassandraIntegrationSmokeTest
                         "   custkey bigint,\n" +
                         "   orderstatus varchar,\n" +
                         "   totalprice double,\n" +
-                        "   orderdate varchar,\n" +
+                        "   orderdate date,\n" +
                         "   orderpriority varchar,\n" +
                         "   clerk varchar,\n" +
                         "   shippriority integer,\n" +
