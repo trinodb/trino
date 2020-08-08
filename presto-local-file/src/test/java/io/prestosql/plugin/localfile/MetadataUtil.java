@@ -28,7 +28,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 
@@ -56,7 +56,7 @@ final class MetadataUtil
                 .put(BOOLEAN.getTypeId(), BOOLEAN)
                 .put(BIGINT.getTypeId(), BIGINT)
                 .put(DOUBLE.getTypeId(), DOUBLE)
-                .put(TIMESTAMP.getTypeId(), TIMESTAMP)
+                .put(createTimestampWithTimeZoneType(3).getTypeId(), createTimestampWithTimeZoneType(3))
                 .put(DATE.getTypeId(), DATE)
                 .put(VARCHAR.getTypeId(), createUnboundedVarcharType())
                 .build();
