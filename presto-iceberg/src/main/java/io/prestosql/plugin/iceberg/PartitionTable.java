@@ -14,7 +14,6 @@
 package io.prestosql.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.classloader.ThreadContextClassLoader;
@@ -38,7 +37,6 @@ import org.apache.iceberg.StructLike;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableScan;
 import org.apache.iceberg.io.CloseableIterable;
-import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 import org.apache.iceberg.util.StructLikeWrapper;
@@ -70,28 +68,18 @@ public class PartitionTable
     private final IcebergTableHandle tableHandle;
     private final TypeManager typeManager;
     private final Table icebergTable;
-    private Map<Integer, Type.PrimitiveType> idToTypeMapping;
-    private List<Types.NestedField> nonPartitionPrimitiveColumns;
-    private List<io.prestosql.spi.type.Type> partitionColumnTypes;
-    private List<io.prestosql.spi.type.Type> resultTypes;
-    private List<RowType> columnMetricTypes;
+    private final Map<Integer, Type.PrimitiveType> idToTypeMapping;
+    private final List<Types.NestedField> nonPartitionPrimitiveColumns;
+    private final List<io.prestosql.spi.type.Type> partitionColumnTypes;
+    private final List<io.prestosql.spi.type.Type> resultTypes;
+    private final List<RowType> columnMetricTypes;
+    private final ConnectorTableMetadata connectorTableMetadata;
 
     public PartitionTable(IcebergTableHandle tableHandle, TypeManager typeManager, Table icebergTable)
     {
         this.tableHandle = requireNonNull(tableHandle, "tableHandle is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
-    }
-
-    @Override
-    public Distribution getDistribution()
-    {
-        return Distribution.SINGLE_COORDINATOR;
-    }
-
-    @Override
-    public ConnectorTableMetadata getTableMetadata()
-    {
         this.idToTypeMapping = icebergTable.schema().columns().stream()
                 .filter(column -> column.type().isPrimitiveType())
                 .collect(Collectors.toMap(Types.NestedField::fieldId, (column) -> column.type().asPrimitiveType()));
@@ -127,7 +115,19 @@ public class PartitionTable
         this.resultTypes = columnMetadata.stream()
                 .map(ColumnMetadata::getType)
                 .collect(toImmutableList());
-        return new ConnectorTableMetadata(tableHandle.getSchemaTableNameWithType(), columnMetadata);
+        this.connectorTableMetadata = new ConnectorTableMetadata(tableHandle.getSchemaTableNameWithType(), columnMetadata);
+    }
+
+    @Override
+    public Distribution getDistribution()
+    {
+        return Distribution.SINGLE_COORDINATOR;
+    }
+
+    @Override
+    public ConnectorTableMetadata getTableMetadata()
+    {
+        return connectorTableMetadata;
     }
 
     private List<ColumnMetadata> getPartitionColumnsMetadata(List<PartitionField> fields, Schema schema)
@@ -179,7 +179,8 @@ public class PartitionTable
                             dataFile.fileSizeInBytes(),
                             toMap(dataFile.lowerBounds()),
                             toMap(dataFile.upperBounds()),
-                            dataFile.nullValueCounts());
+                            dataFile.nullValueCounts(),
+                            dataFile.columnSizes());
                     partitions.put(partitionWrapper, partition);
                     continue;
                 }
@@ -269,18 +270,10 @@ public class PartitionTable
 
     private Map<Integer, Object> toMap(Map<Integer, ByteBuffer> idToMetricMap)
     {
-        if (idToMetricMap == null) {
-            return null;
-        }
-        ImmutableMap.Builder<Integer, Object> map = ImmutableMap.builder();
-        idToMetricMap.forEach((id, value) -> {
-            Type.PrimitiveType type = idToTypeMapping.get(id);
-            map.put(id, Conversions.fromByteBuffer(type, value));
-        });
-        return map.build();
+        return Partition.toMap(idToTypeMapping, idToMetricMap);
     }
 
-    private static Object convert(Object value, Type type)
+    public static Object convert(Object value, Type type)
     {
         if (value == null) {
             return null;
