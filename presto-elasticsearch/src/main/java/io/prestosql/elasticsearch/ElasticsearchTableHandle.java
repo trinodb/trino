@@ -131,6 +131,19 @@ public final class ElasticsearchTableHandle
     @Override
     public String toString()
     {
-        return type + ":" + index;
+        StringBuilder builder = new StringBuilder();
+        builder.append(type + ":" + index);
+
+        StringBuilder attributes = new StringBuilder();
+        limit.ifPresent(value -> attributes.append("limit=" + value));
+        query.ifPresent(value -> attributes.append("query" + value));
+
+        if (attributes.length() > 0) {
+            builder.append("(");
+            builder.append(attributes);
+            builder.append(")");
+        }
+
+        return builder.toString();
     }
 }
