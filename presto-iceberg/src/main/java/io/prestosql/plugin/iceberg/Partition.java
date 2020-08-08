@@ -17,9 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import org.apache.iceberg.StructLike;
 import org.apache.iceberg.types.Comparators;
+import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 
+import java.nio.ByteBuffer;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -27,8 +29,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.function.Predicate;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toSet;
 
 class Partition
 {
@@ -41,6 +43,7 @@ class Partition
     private final Map<Integer, Object> minValues;
     private final Map<Integer, Object> maxValues;
     private final Map<Integer, Long> nullCounts;
+    private final Map<Integer, Long> columnSizes;
     private final Set<Integer> corruptedStats;
     private boolean hasValidColumnMetrics;
 
@@ -52,7 +55,8 @@ class Partition
             long size,
             Map<Integer, Object> minValues,
             Map<Integer, Object> maxValues,
-            Map<Integer, Long> nullCounts)
+            Map<Integer, Long> nullCounts,
+            Map<Integer, Long> columnSizes)
     {
         this.idToTypeMapping = ImmutableMap.copyOf(requireNonNull(idToTypeMapping, "idToTypeMapping is null"));
         this.nonPartitionPrimitiveColumns = ImmutableList.copyOf(requireNonNull(nonPartitionPrimitiveColumns, "nonPartitionPrimitiveColumns is null"));
@@ -64,6 +68,7 @@ class Partition
             this.minValues = null;
             this.maxValues = null;
             this.nullCounts = null;
+            this.columnSizes = null;
             corruptedStats = null;
         }
         else {
@@ -73,10 +78,21 @@ class Partition
             this.corruptedStats = nonPartitionPrimitiveColumns.stream()
                     .map(Types.NestedField::fieldId)
                     .filter(id -> !minValues.containsKey(id) && (!nullCounts.containsKey(id) || nullCounts.get(id) != recordCount))
-                    .collect(toImmutableSet());
+                    .collect(toSet());
             this.nullCounts = new HashMap<>(nullCounts);
+            this.columnSizes = columnSizes != null ? new HashMap<>(columnSizes) : null;
             hasValidColumnMetrics = true;
         }
+    }
+
+    public Map<Integer, Type.PrimitiveType> getIdToTypeMapping()
+    {
+        return idToTypeMapping;
+    }
+
+    public List<Types.NestedField> getNonPartitionPrimitiveColumns()
+    {
+        return nonPartitionPrimitiveColumns;
     }
 
     public StructLike getValues()
@@ -112,6 +128,16 @@ class Partition
     public Map<Integer, Long> getNullCounts()
     {
         return nullCounts;
+    }
+
+    public Map<Integer, Long> getColumnSizes()
+    {
+        return columnSizes;
+    }
+
+    public Set<Integer> getCorruptedStats()
+    {
+        return corruptedStats;
     }
 
     public boolean hasValidColumnMetrics()
@@ -151,7 +177,7 @@ class Partition
         updateStats(this.maxValues, upperBounds, nullCounts, recordCount, i -> (i < 0));
     }
 
-    private void updateStats(Map<Integer, Object> current, Map<Integer, Object> newStat, Map<Integer, Long> nullCounts, long recordCount, Predicate<Integer> predicate)
+    public void updateStats(Map<Integer, Object> current, Map<Integer, Object> newStat, Map<Integer, Long> nullCounts, long recordCount, Predicate<Integer> predicate)
     {
         if (!hasValidColumnMetrics) {
             return;
@@ -199,5 +225,18 @@ class Partition
         }
         nullCounts.forEach((key, counts) ->
                 this.nullCounts.merge(key, counts, Long::sum));
+    }
+
+    public static Map<Integer, Object> toMap(Map<Integer, Type.PrimitiveType> idToTypeMapping, Map<Integer, ByteBuffer> idToMetricMap)
+    {
+        if (idToMetricMap == null) {
+            return null;
+        }
+        ImmutableMap.Builder<Integer, Object> map = ImmutableMap.builder();
+        idToMetricMap.forEach((id, value) -> {
+            Type.PrimitiveType type = idToTypeMapping.get(id);
+            map.put(id, Conversions.fromByteBuffer(type, value));
+        });
+        return map.build();
     }
 }

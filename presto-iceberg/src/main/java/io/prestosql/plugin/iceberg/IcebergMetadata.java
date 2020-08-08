@@ -53,6 +53,7 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.statistics.ComputedStatistics;
+import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.fs.Path;
 import org.apache.iceberg.AppendFiles;
@@ -652,5 +653,13 @@ public class IcebergMetadata
                         table.getSnapshotId(),
                         enforcedTupleDomain),
                 remainingTupleDomain));
+    }
+
+    @Override
+    public TableStatistics getTableStatistics(ConnectorSession session, ConnectorTableHandle tableHandle, Constraint constraint)
+    {
+        IcebergTableHandle handle = (IcebergTableHandle) tableHandle;
+        org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, handle.getSchemaTableName());
+        return TableStatisticsMaker.getTableStatistics(typeManager, session, constraint, handle, icebergTable);
     }
 }
