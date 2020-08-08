@@ -23,7 +23,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static org.testng.Assert.assertEquals;
 
@@ -34,7 +34,7 @@ public class TestLocalFileColumnHandle
             new LocalFileColumnHandle("columnName", BIGINT, 0),
             new LocalFileColumnHandle("columnName", DOUBLE, 0),
             new LocalFileColumnHandle("columnName", DATE, 0),
-            new LocalFileColumnHandle("columnName", TIMESTAMP, 0),
+            new LocalFileColumnHandle("columnName", createTimestampWithTimeZoneType(3), 0),
             new LocalFileColumnHandle("columnName", BOOLEAN, 0));
 
     @Test
