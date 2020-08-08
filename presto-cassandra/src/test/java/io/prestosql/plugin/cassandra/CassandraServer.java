@@ -62,7 +62,7 @@ public class CassandraServer
     {
         log.info("Starting cassandra...");
 
-        this.dockerContainer = new GenericContainer<>("cassandra:2.1.16")
+        this.dockerContainer = new GenericContainer<>("cassandra:2.2")
                 .withExposedPorts(PORT)
                 .withCopyFileToContainer(forHostPath(prepareCassandraYaml()), "/etc/cassandra/cassandra.yaml");
         this.dockerContainer.start();
