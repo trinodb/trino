@@ -138,7 +138,6 @@
         <module>presto-spi</module>
         <module>presto-sqlserver</module>
         <module>presto-teradata-functions</module>
-        <module>presto-test-jdbc-compatibility</module>
         <module>presto-testing</module>
         <module>presto-testing-server-launcher</module>
         <module>presto-tests</module>
@@ -285,12 +284,6 @@
             <dependency>
                 <groupId>io.prestosql</groupId>
                 <artifactId>presto-memory-context</artifactId>
-                <version>${project.version}</version>
-            </dependency>
-
-            <dependency>
-                <groupId>io.prestosql</groupId>
-                <artifactId>presto-mongodb</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
