@@ -14,30 +14,52 @@
 package io.prestosql.plugin.iceberg;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
+import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.QualifiedObjectName;
+import io.prestosql.metadata.TableHandle;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.predicate.NullableValue;
+import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.statistics.ColumnStatistics;
+import io.prestosql.spi.statistics.DoubleRange;
+import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
+import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.assertions.Assert;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
+import java.util.Map;
+import java.util.Optional;
 import java.util.function.BiConsumer;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.plugin.iceberg.IcebergQueryRunner.createIcebergQueryRunner;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
+import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
+import static java.util.Locale.ENGLISH;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.IntStream.range;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 
 public class TestIcebergSmoke
         extends AbstractTestIntegrationSmokeTest
@@ -417,13 +439,13 @@ public class TestIcebergSmoke
     {
         Session session = getSession();
         String createTableTemplate = "" +
-                        "CREATE TABLE iceberg.tpch.test_table_comments (\n" +
-                        "   _x bigint\n" +
-                        ")\n" +
-                        "COMMENT '%s'\n" +
-                        "WITH (\n" +
-                        "   format = 'ORC'\n" +
-                        ")";
+                "CREATE TABLE iceberg.tpch.test_table_comments (\n" +
+                "   _x bigint\n" +
+                ")\n" +
+                "COMMENT '%s'\n" +
+                "WITH (\n" +
+                "   format = 'ORC'\n" +
+                ")";
         String createTableSql = format(createTableTemplate, "test table comment");
         assertUpdate(createTableSql);
         MaterializedResult resultOfCreate = computeActual("SHOW CREATE TABLE test_table_comments");
@@ -893,6 +915,305 @@ public class TestIcebergSmoke
         // This proves that SELECTs with large IN phrases work correctly
         MaterializedResult result = computeActual(format("SELECT col1 FROM test_in_set WHERE col1 IN (%s)", inList));
         dropTable(session, "test_in_set");
+    }
+
+    @Test
+    public void testBasicTableStatistics()
+    {
+        testWithAllFileFormats(this::testBasicTableStatisticsForFormat);
+    }
+
+    private void testBasicTableStatisticsForFormat(Session session, FileFormat format)
+    {
+        String tableName = format("iceberg.tpch.test_basic_%s_table_statistics", format.name().toLowerCase(ENGLISH));
+        assertUpdate(format("CREATE TABLE %s (col REAL) WITH (format = '%s')", tableName, format.name().toLowerCase(ENGLISH)));
+        String insertStart = format("INSERT INTO %s", tableName);
+        assertUpdate(session, insertStart + " VALUES -10", 1);
+        assertUpdate(session, insertStart + " VALUES 100", 1);
+
+        // SHOW STATS returns rows of the form: column_name, data_size, distinct_values_count, nulls_fractions, row_count, low_value, high_value
+
+        MaterializedResult result = computeActual("SHOW STATS FOR " + tableName);
+        MaterializedResult expectedStatistics =
+                resultBuilder(session, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                        .row("col", columnSizeForFormat(format, 96.0), null, 0.0, null, "-10.0", "100.0")
+                        .row(null, null, null, null, 2.0, null, null)
+                        .build();
+        assertEquals(result, expectedStatistics);
+
+        assertUpdate(session, insertStart + " VALUES 200", 1);
+
+        result = computeActual("SHOW STATS FOR " + tableName);
+        expectedStatistics =
+                resultBuilder(getSession(), VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                        .row("col", columnSizeForFormat(format, 144.0), null, 0.0, null, "-10.0", "200.0")
+                        .row(null, null, null, null, 3.0, null, null)
+                        .build();
+        assertEquals(result, expectedStatistics);
+
+        dropTable(session, tableName);
+    }
+
+    private Double columnSizeForFormat(FileFormat format, double size)
+    {
+        return format == FileFormat.PARQUET ? size : null;
+    }
+
+    @Test
+    public void testMultipleColumnTableStatistics()
+    {
+        testWithAllFileFormats(this::testMultipleColumnTableStatisticsForFormat);
+    }
+
+    private void testMultipleColumnTableStatisticsForFormat(Session session, FileFormat format)
+    {
+        String tableName = format("iceberg.tpch.test_multiple_%s_table_statistics", format.name().toLowerCase(ENGLISH));
+        assertUpdate(format("CREATE TABLE %s (col1 REAL, col2 INTEGER, col3 DATE) WITH (format = '%s')", tableName, format.name()));
+        String insertStart = format("INSERT INTO %s", tableName);
+        assertUpdate(session, insertStart + " VALUES (-10, -1, DATE '2019-06-28')", 1);
+        assertUpdate(session, insertStart + " VALUES (100, 10, DATE '2020-01-01')", 1);
+
+        MaterializedResult result = computeActual("SHOW STATS FOR " + tableName);
+
+        MaterializedResult expectedStatistics =
+                resultBuilder(session, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                        .row("col1", columnSizeForFormat(format, 96.0), null, 0.0, null, "-10.0", "100.0")
+                        .row("col2", columnSizeForFormat(format, 98.0), null, 0.0, null, "-1", "10")
+                        .row("col3", columnSizeForFormat(format, 102.0), null, 0.0, null, "2019-06-28", "2020-01-01")
+                        .row(null, null, null, null, 2.0, null, null)
+                        .build();
+        assertEquals(result, expectedStatistics);
+
+        assertUpdate(session, insertStart + " VALUES (200, 20, DATE '2020-06-28')", 1);
+        result = computeActual("SHOW STATS FOR " + tableName);
+        expectedStatistics =
+                resultBuilder(session, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                        .row("col1", columnSizeForFormat(format, 144.0), null, 0.0, null, "-10.0", "200.0")
+                        .row("col2", columnSizeForFormat(format, 147), null, 0.0, null, "-1", "20")
+                        .row("col3", columnSizeForFormat(format, 153), null, 0.0, null, "2019-06-28", "2020-06-28")
+                        .row(null, null, null, null, 3.0, null, null)
+                        .build();
+        assertEquals(result, expectedStatistics);
+
+        assertUpdate(insertStart + " VALUES " + IntStream.rangeClosed(21, 25)
+                .mapToObj(i -> format("(200, %d, DATE '2020-07-%d')", i, i))
+                .collect(Collectors.joining(", ")), 5);
+
+        assertUpdate(insertStart + " VALUES " + IntStream.rangeClosed(26, 30)
+                .mapToObj(i -> format("(NULL, %d, DATE '2020-06-%d')", i, i))
+                .collect(Collectors.joining(", ")), 5);
+
+        result = computeActual("SHOW STATS FOR " + tableName);
+
+        expectedStatistics =
+                resultBuilder(session, VARCHAR, DOUBLE, DOUBLE, DOUBLE, DOUBLE, VARCHAR, VARCHAR)
+                        .row("col1", columnSizeForFormat(format, 271.0), null, 5.0 / 13.0, null, "-10.0", "200.0")
+                        .row("col2", columnSizeForFormat(format, 251.0), null, 0.0, null, "-1", "30")
+                        .row("col3", columnSizeForFormat(format, 261), null, 0.0, null, "2019-06-28", "2020-07-25")
+                        .row(null, null, null, null, 13.0, null, null)
+                        .build();
+        assertEquals(result, expectedStatistics);
+
+        dropTable(session, tableName);
+    }
+
+    @Test
+    public void testPartitionedTableStatistics()
+    {
+        testWithAllFileFormats(this::testPartitionedTableStatisticsForFormat);
+    }
+
+    private void testPartitionedTableStatisticsForFormat(Session session, FileFormat format)
+    {
+        String tableName = format("iceberg.tpch.test_partitioned_%s_table_statistics", format.name().toLowerCase(ENGLISH));
+        assertUpdate(format("CREATE TABLE %s (col1 REAL, col2 BIGINT) WITH (format = '%s', partitioning = ARRAY['col2'])", tableName, format.name()));
+
+        String insertStart = format("INSERT INTO %s", tableName);
+        assertUpdate(session, insertStart + " VALUES (-10, -1)", 1);
+        assertUpdate(session, insertStart + " VALUES (100, 10)", 1);
+
+        MaterializedResult result = computeActual("SHOW STATS FOR " + tableName);
+        assertEquals(result.getRowCount(), 3);
+
+        MaterializedRow row0 = result.getMaterializedRows().get(0);
+        org.testng.Assert.assertEquals(row0.getField(0), "col1");
+        org.testng.Assert.assertEquals(row0.getField(3), 0.0);
+        org.testng.Assert.assertEquals(row0.getField(5), "-10.0");
+        org.testng.Assert.assertEquals(row0.getField(6), "100.0");
+
+        MaterializedRow row1 = result.getMaterializedRows().get(1);
+        assertEquals(row1.getField(0), "col2");
+        assertEquals(row1.getField(3), 0.0);
+        assertEquals(row1.getField(5), "-1");
+        assertEquals(row1.getField(6), "10");
+
+        MaterializedRow row2 = result.getMaterializedRows().get(2);
+        assertEquals(row2.getField(4), 2.0);
+
+        assertUpdate(insertStart + " VALUES " + IntStream.rangeClosed(1, 5)
+                .mapToObj(i -> format("(%d, 10)", i + 100))
+                .collect(Collectors.joining(", ")), 5);
+
+        assertUpdate(insertStart + " VALUES " + IntStream.rangeClosed(6, 10)
+                .mapToObj(i -> "(NULL, 10)")
+                .collect(Collectors.joining(", ")), 5);
+
+        result = computeActual("SHOW STATS FOR " + tableName);
+        assertEquals(result.getRowCount(), 3);
+        row0 = result.getMaterializedRows().get(0);
+        assertEquals(row0.getField(0), "col1");
+        assertEquals(row0.getField(3), 5.0 / 12.0);
+        assertEquals(row0.getField(5), "-10.0");
+        assertEquals(row0.getField(6), "105.0");
+
+        row1 = result.getMaterializedRows().get(1);
+        assertEquals(row1.getField(0), "col2");
+        assertEquals(row1.getField(3), 0.0);
+        assertEquals(row1.getField(5), "-1");
+        assertEquals(row1.getField(6), "10");
+
+        row2 = result.getMaterializedRows().get(2);
+        assertEquals(row2.getField(4), 12.0);
+
+        assertUpdate(insertStart + " VALUES " + IntStream.rangeClosed(6, 10)
+                .mapToObj(i -> "(100, NULL)")
+                .collect(Collectors.joining(", ")), 5);
+
+        result = computeActual("SHOW STATS FOR " + tableName);
+        row0 = result.getMaterializedRows().get(0);
+        assertEquals(row0.getField(0), "col1");
+        assertEquals(row0.getField(3), 5.0 / 17.0);
+        assertEquals(row0.getField(5), "-10.0");
+        assertEquals(row0.getField(6), "105.0");
+
+        row1 = result.getMaterializedRows().get(1);
+        assertEquals(row1.getField(0), "col2");
+        assertEquals(row1.getField(3), 5.0 / 17.0);
+        assertEquals(row1.getField(5), "-1");
+        assertEquals(row1.getField(6), "10");
+
+        row2 = result.getMaterializedRows().get(2);
+        assertEquals(row2.getField(4), 17.0);
+
+        dropTable(session, tableName);
+    }
+
+    @Test
+    public void testStatisticsConstraints()
+    {
+        testWithAllFileFormats(this::testStatisticsConstraintsForFormat);
+    }
+
+    private void testStatisticsConstraintsForFormat(Session session, FileFormat format)
+    {
+        String tableName = format("iceberg.tpch.test_simple_partitioned_%s_table_statistics", format.name().toLowerCase(ENGLISH));
+        assertUpdate(format("CREATE TABLE %s (col1 BIGINT, col2 BIGINT) WITH (format = '%s', partitioning = ARRAY['col1'])", tableName, format.name()));
+
+        String insertStart = format("INSERT INTO %s", tableName);
+        assertUpdate(session, insertStart + " VALUES (1, 101), (2, 102), (3, 103), (4, 104)", 4);
+        TableStatistics tableStatistics = getTableStatistics(tableName, new Constraint(TupleDomain.all()));
+
+        // TODO Change to use SHOW STATS FOR table_name when Iceberg applyFilter allows pushdown.
+        // Then I can get rid of the helper methods and direct use of TableStatistics
+
+        Predicate<Map<ColumnHandle, NullableValue>> predicate = new TestRelationalNumberPredicate("col1", 3, i -> i >= 0);
+        IcebergColumnHandle col1Handle = getColumnHandleFromStatistics(tableStatistics, "col1");
+        Constraint constraint = new Constraint(TupleDomain.all(), Optional.of(predicate), Optional.of(ImmutableSet.of(col1Handle)));
+        tableStatistics = getTableStatistics(tableName, constraint);
+        assertEquals(tableStatistics.getRowCount().getValue(), 2.0);
+        ColumnStatistics columnStatistics = getStatisticsForColumn(tableStatistics, "col1", format);
+        assertEquals(columnStatistics.getRange().get(), new DoubleRange(3, 4));
+
+        // This shows that Predicate<ColumnHandle, NullableValue> only filters rows for partitioned columns.
+        predicate = new TestRelationalNumberPredicate("col2", 102, i -> i >= 0);
+        IcebergColumnHandle col2Handle = getColumnHandleFromStatistics(tableStatistics, "col2");
+        tableStatistics = getTableStatistics(tableName, new Constraint(TupleDomain.all(), Optional.of(predicate), Optional.empty()));
+        assertEquals(tableStatistics.getRowCount().getValue(), 4.0);
+        columnStatistics = getStatisticsForColumn(tableStatistics, "col2", format);
+        assertEquals(columnStatistics.getRange().get(), new DoubleRange(101, 104));
+
+        dropTable(session, tableName);
+    }
+
+    private static class TestRelationalNumberPredicate
+            implements Predicate<Map<ColumnHandle, NullableValue>>
+    {
+        private final String columnName;
+        private final Number comparand;
+        private final Predicate<Integer> comparePredicate;
+
+        public TestRelationalNumberPredicate(String columnName, Number comparand, Predicate<Integer> comparePredicate)
+        {
+            this.columnName = columnName;
+            this.comparand = comparand;
+            this.comparePredicate = comparePredicate;
+        }
+
+        @Override
+        public boolean test(Map<ColumnHandle, NullableValue> nullableValues)
+        {
+            for (Map.Entry<ColumnHandle, NullableValue> entry : nullableValues.entrySet()) {
+                IcebergColumnHandle handle = (IcebergColumnHandle) entry.getKey();
+                if (columnName.equals(handle.getName())) {
+                    Object object = entry.getValue().getValue();
+                    if (object instanceof Long) {
+                        return comparePredicate.test(((Long) object).compareTo(comparand.longValue()));
+                    }
+                    else if (object instanceof Double) {
+                        return comparePredicate.test(((Double) object).compareTo(comparand.doubleValue()));
+                    }
+                    throw new IllegalArgumentException(format("NullableValue is neither Long or Double, but %s", object));
+                }
+            }
+            return false;
+        }
+    }
+
+    private ColumnStatistics getStatisticsForColumn(TableStatistics tableStatistics, String columnName, FileFormat format)
+    {
+        for (Map.Entry<ColumnHandle, ColumnStatistics> entry : tableStatistics.getColumnStatistics().entrySet()) {
+            IcebergColumnHandle handle = (IcebergColumnHandle) entry.getKey();
+            if (handle.getName().equals(columnName)) {
+                return checkColumnStatistics(entry.getValue(), format);
+            }
+        }
+        throw new IllegalArgumentException("TableStatistics did not contain column named " + columnName);
+    }
+
+    private IcebergColumnHandle getColumnHandleFromStatistics(TableStatistics tableStatistics, String columnName)
+    {
+        for (ColumnHandle columnHandle : tableStatistics.getColumnStatistics().keySet()) {
+            IcebergColumnHandle handle = (IcebergColumnHandle) columnHandle;
+            if (handle.getName().equals(columnName)) {
+                return handle;
+            }
+        }
+        throw new IllegalArgumentException("TableStatistics did not contain column named " + columnName);
+    }
+
+    private ColumnStatistics checkColumnStatistics(ColumnStatistics statistics, FileFormat format)
+    {
+        assertNotNull(statistics, "statistics is null");
+        // Sadly, statistics.getDataSize().isUnknown() for columns in ORC files. See the TODO
+        // in IcebergOrcFileWriter.
+        if (format != FileFormat.ORC) {
+            assertFalse(statistics.getDataSize().isUnknown());
+        }
+        assertFalse(statistics.getNullsFraction().isUnknown(), "statistics nulls fraction is unknown");
+        assertFalse(statistics.getRange().isEmpty(), "statistics range is not present");
+        return statistics;
+    }
+
+    private TableStatistics getTableStatistics(String tableName, Constraint constraint)
+    {
+        Metadata metadata = ((DistributedQueryRunner) getQueryRunner()).getCoordinator().getMetadata();
+        QualifiedObjectName qualifiedName = QualifiedObjectName.valueOf(tableName);
+        return transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
+                .execute(getSession(), session -> {
+                    Optional<TableHandle> optionalHandle = metadata.getTableHandle(session, qualifiedName);
+                    checkArgument(optionalHandle.isPresent(), "Could not create table handle for table %s", tableName);
+                    return metadata.getTableStatistics(session, optionalHandle.get(), constraint);
+                });
     }
 
     @Test
