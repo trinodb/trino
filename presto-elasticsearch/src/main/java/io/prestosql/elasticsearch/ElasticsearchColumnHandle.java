@@ -20,7 +20,6 @@ import io.prestosql.spi.type.Type;
 
 import java.util.Objects;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
 public final class ElasticsearchColumnHandle
@@ -84,9 +83,6 @@ public final class ElasticsearchColumnHandle
     @Override
     public String toString()
     {
-        return toStringHelper(this)
-                .add("columnName", getName())
-                .add("columnType", getType())
-                .toString();
+        return getName() + "::" + getType();
     }
 }
