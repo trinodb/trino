@@ -15,7 +15,9 @@ package io.prestosql.plugin.hive;
 
 import io.airlift.units.DataSize;
 import io.airlift.units.DataSize.Unit;
+import io.prestosql.plugin.hive.metastore.StorageFormat;
 import io.prestosql.spi.PrestoException;
+import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.ql.io.HiveIgnoreKeyTextOutputFormat;
 import org.apache.hadoop.hive.ql.io.HiveSequenceFileOutputFormat;
 import org.apache.hadoop.hive.ql.io.RCFileInputFormat;
@@ -38,15 +40,21 @@ import org.apache.hadoop.hive.serde2.objectinspector.PrimitiveObjectInspector.Pr
 import org.apache.hadoop.hive.serde2.typeinfo.MapTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.PrimitiveTypeInfo;
 import org.apache.hadoop.hive.serde2.typeinfo.TypeInfo;
+import org.apache.hadoop.io.compress.CompressionCodec;
+import org.apache.hadoop.io.compress.DefaultCodec;
+import org.apache.hadoop.mapred.JobConf;
 import org.apache.hadoop.mapred.SequenceFileInputFormat;
 import org.apache.hadoop.mapred.TextInputFormat;
+import org.apache.hive.common.util.ReflectionUtil;
 import org.apache.hive.hcatalog.data.JsonSerDe;
 
 import java.util.List;
 
+import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNSUPPORTED_FORMAT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static org.apache.hadoop.hive.conf.HiveConf.ConfVars.COMPRESSRESULT;
 
 public enum HiveStorageFormat
 {
@@ -54,59 +62,70 @@ public enum HiveStorageFormat
             OrcSerde.class.getName(),
             OrcInputFormat.class.getName(),
             OrcOutputFormat.class.getName(),
-            DataSize.of(256, Unit.MEGABYTE)),
+            DataSize.of(256, Unit.MEGABYTE),
+            ".orc"),
     PARQUET(
             ParquetHiveSerDe.class.getName(),
             MapredParquetInputFormat.class.getName(),
             MapredParquetOutputFormat.class.getName(),
-            DataSize.of(128, Unit.MEGABYTE)),
+            DataSize.of(128, Unit.MEGABYTE),
+            ".parquet"),
     AVRO(
             AvroSerDe.class.getName(),
             AvroContainerInputFormat.class.getName(),
             AvroContainerOutputFormat.class.getName(),
-            DataSize.of(64, Unit.MEGABYTE)),
+            DataSize.of(64, Unit.MEGABYTE),
+            ".avro"),
     RCBINARY(
             LazyBinaryColumnarSerDe.class.getName(),
             RCFileInputFormat.class.getName(),
             RCFileOutputFormat.class.getName(),
-            DataSize.of(8, Unit.MEGABYTE)),
+            DataSize.of(8, Unit.MEGABYTE),
+            ".rc"),
     RCTEXT(
             ColumnarSerDe.class.getName(),
             RCFileInputFormat.class.getName(),
             RCFileOutputFormat.class.getName(),
-            DataSize.of(8, Unit.MEGABYTE)),
+            DataSize.of(8, Unit.MEGABYTE),
+            ".rc"),
     SEQUENCEFILE(
             LazySimpleSerDe.class.getName(),
             SequenceFileInputFormat.class.getName(),
             HiveSequenceFileOutputFormat.class.getName(),
-            DataSize.of(8, Unit.MEGABYTE)),
+            DataSize.of(8, Unit.MEGABYTE),
+            ".seq"),
     JSON(
             JsonSerDe.class.getName(),
             TextInputFormat.class.getName(),
             HiveIgnoreKeyTextOutputFormat.class.getName(),
-            DataSize.of(8, Unit.MEGABYTE)),
+            DataSize.of(8, Unit.MEGABYTE),
+            ".json"),
     TEXTFILE(
             LazySimpleSerDe.class.getName(),
             TextInputFormat.class.getName(),
             HiveIgnoreKeyTextOutputFormat.class.getName(),
-            DataSize.of(8, Unit.MEGABYTE)),
+            DataSize.of(8, Unit.MEGABYTE),
+            ".txt"),
     CSV(
             OpenCSVSerde.class.getName(),
             TextInputFormat.class.getName(),
             HiveIgnoreKeyTextOutputFormat.class.getName(),
-            DataSize.of(8, Unit.MEGABYTE));
+            DataSize.of(8, Unit.MEGABYTE),
+            ".csv");
 
     private final String serde;
     private final String inputFormat;
     private final String outputFormat;
     private final DataSize estimatedWriterSystemMemoryUsage;
+    private final String fileExtension;
 
-    HiveStorageFormat(String serde, String inputFormat, String outputFormat, DataSize estimatedWriterSystemMemoryUsage)
+    HiveStorageFormat(String serde, String inputFormat, String outputFormat, DataSize estimatedWriterSystemMemoryUsage, String fileExtension)
     {
         this.serde = requireNonNull(serde, "serde is null");
         this.inputFormat = requireNonNull(inputFormat, "inputFormat is null");
         this.outputFormat = requireNonNull(outputFormat, "outputFormat is null");
         this.estimatedWriterSystemMemoryUsage = requireNonNull(estimatedWriterSystemMemoryUsage, "estimatedWriterSystemMemoryUsage is null");
+        this.fileExtension = requireNonNull(fileExtension, "fileExtension is null");
     }
 
     public String getSerDe()
@@ -127,6 +146,11 @@ public enum HiveStorageFormat
     public DataSize getEstimatedWriterSystemMemoryUsage()
     {
         return estimatedWriterSystemMemoryUsage;
+    }
+
+    public String getFileExtension()
+    {
+        return fileExtension;
     }
 
     public void validateColumns(List<HiveColumnHandle> handles)
@@ -168,5 +192,29 @@ public enum HiveStorageFormat
     private static MapTypeInfo mapTypeInfo(TypeInfo typeInfo)
     {
         return (MapTypeInfo) typeInfo;
+    }
+
+    public static String getFileExtension(JobConf conf, StorageFormat storageFormat)
+    {
+        // text format files must have the correct extension when compressed
+        if (!HiveConf.getBoolVar(conf, COMPRESSRESULT) || !HiveIgnoreKeyTextOutputFormat.class.getName().equals(storageFormat.getOutputFormat())) {
+            return storageFormat.getFileExtension();
+        }
+
+        String compressionCodecClass = conf.get("mapred.output.compression.codec");
+        if (compressionCodecClass == null) {
+            return new DefaultCodec().getDefaultExtension();
+        }
+
+        try {
+            Class<? extends CompressionCodec> codecClass = conf.getClassByName(compressionCodecClass).asSubclass(CompressionCodec.class);
+            return ReflectionUtil.newInstance(codecClass, conf).getDefaultExtension();
+        }
+        catch (ClassNotFoundException e) {
+            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Compression codec not found: " + compressionCodecClass, e);
+        }
+        catch (RuntimeException e) {
+            throw new PrestoException(HIVE_UNSUPPORTED_FORMAT, "Failed to load compression codec: " + compressionCodecClass, e);
+        }
     }
 }
