@@ -19,18 +19,16 @@ import com.fasterxml.jackson.databind.JsonDeserializer;
 import io.prestosql.spi.PrestoException;
 
 import java.io.IOException;
-import java.sql.Timestamp;
 import java.time.Instant;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
 
 import static io.prestosql.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_UNKNOWN_ERROR;
+import static java.time.Instant.ofEpochMilli;
 
 public class PrometheusTimestampDeserializer
-        extends JsonDeserializer<Timestamp>
+        extends JsonDeserializer<Instant>
 {
     @Override
-    public Timestamp deserialize(JsonParser jsonParser, DeserializationContext context)
+    public Instant deserialize(JsonParser jsonParser, DeserializationContext context)
             throws IOException
     {
         String timestamp = jsonParser.getText().trim();
@@ -42,10 +40,9 @@ public class PrometheusTimestampDeserializer
         }
     }
 
-    static Timestamp decimalEpochTimestampToSQLTimestamp(String timestamp)
+    static Instant decimalEpochTimestampToSQLTimestamp(String timestamp)
     {
         long promTimestampMillis = (long) (Double.parseDouble(timestamp) * 1000);
-        ZonedDateTime zonedDateTimeFromPrometheusDecimalTimestamp = Instant.ofEpochMilli(promTimestampMillis).atZone(ZoneId.systemDefault());
-        return new Timestamp(zonedDateTimeFromPrometheusDecimalTimestamp.toInstant().toEpochMilli());
+        return ofEpochMilli(promTimestampMillis);
     }
 }

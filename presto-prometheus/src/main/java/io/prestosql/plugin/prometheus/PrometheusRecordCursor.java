@@ -31,7 +31,8 @@ import io.prestosql.spi.type.VarcharType;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -44,6 +45,7 @@ import static io.prestosql.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_T
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
@@ -139,8 +141,10 @@ public class PrometheusRecordCursor
     {
         Type type = getType(field);
         if (type.equals(TIMESTAMP_COLUMN_TYPE)) {
-            Timestamp timestamp = (Timestamp) requireNonNull(getFieldValue(field));
-            return timestamp.toInstant().toEpochMilli();
+            Instant dateTime = (Instant) requireNonNull(getFieldValue(field));
+            // render with the fixed offset of the Presto server
+            int offsetMinutes = dateTime.atZone(ZoneId.systemDefault()).getOffset().getTotalSeconds() / 60;
+            return packDateTimeWithZone(dateTime.toEpochMilli(), offsetMinutes);
         }
         else {
             throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + getType(field));
