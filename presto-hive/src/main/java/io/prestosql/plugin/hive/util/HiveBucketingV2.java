@@ -106,7 +106,6 @@ final class HiveBucketingV2
                     case DATE:
                         // day offset from 1970-01-01
                         return Murmur3.hash32(bytes(toIntExact(prestoType.getLong(block, position))));
-                    // case TIMESTAMP: // TODO (https://github.com/prestosql/presto/issues/1706): support bucketing v2 for timestamp
                     default:
                         throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory);
                 }
@@ -158,7 +157,6 @@ final class HiveBucketingV2
                     case DATE:
                         // day offset from 1970-01-01
                         return Murmur3.hash32(bytes(toIntExact((long) value)));
-                    // case TIMESTAMP: // TODO (https://github.com/prestosql/presto/issues/1706): support bucketing v2 for timestamp
                     default:
                         throw new UnsupportedOperationException("Computation of Hive bucket hashCode is not supported for Hive primitive category: " + primitiveCategory);
                 }
