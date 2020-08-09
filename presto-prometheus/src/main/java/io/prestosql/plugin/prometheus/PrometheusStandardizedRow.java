@@ -21,14 +21,29 @@ import static java.util.Objects.requireNonNull;
 
 public class PrometheusStandardizedRow
 {
-    protected final Block labels;
-    Timestamp timestamp;
-    Double value;
+    private final Block labels;
+    private final Timestamp timestamp;
+    private final Double value;
 
     public PrometheusStandardizedRow(Block labels, Timestamp timestamp, Double value)
     {
         this.labels = requireNonNull(labels, "labels is null");
         this.timestamp = requireNonNull(timestamp, "timestamp is null");
         this.value = requireNonNull(value, "value is null");
+    }
+
+    public Block getLabels()
+    {
+        return labels;
+    }
+
+    public Timestamp getTimestamp()
+    {
+        return timestamp;
+    }
+
+    public Double getValue()
+    {
+        return value;
     }
 }

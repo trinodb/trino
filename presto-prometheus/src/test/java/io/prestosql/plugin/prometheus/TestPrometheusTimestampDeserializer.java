@@ -29,7 +29,6 @@ public class TestPrometheusTimestampDeserializer
         long nowEpochMillis = now.toInstant().toEpochMilli();
         String nowTimeStr = PrometheusSplitManager.decimalSecondString(nowEpochMillis);
         Timestamp nowTimestampActual = PrometheusTimestampDeserializer.decimalEpochTimestampToSQLTimestamp(nowTimeStr);
-        assertEquals(nowTimestampActual,
-                new Timestamp(now.toInstant().toEpochMilli()));
+        assertEquals(nowTimestampActual, new Timestamp(now.toInstant().toEpochMilli()));
     }
 }

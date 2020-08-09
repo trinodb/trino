@@ -14,7 +14,6 @@
 package io.prestosql.plugin.prometheus;
 
 import com.fasterxml.jackson.core.JsonParser;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
 import io.prestosql.spi.PrestoException;
@@ -31,10 +30,10 @@ public class PrometheusTimestampDeserializer
         extends JsonDeserializer<Timestamp>
 {
     @Override
-    public Timestamp deserialize(JsonParser jp, DeserializationContext context)
-            throws IOException, JsonProcessingException
+    public Timestamp deserialize(JsonParser jsonParser, DeserializationContext context)
+            throws IOException
     {
-        String timestamp = jp.getText().trim();
+        String timestamp = jsonParser.getText().trim();
         try {
             return decimalEpochTimestampToSQLTimestamp(timestamp);
         }
