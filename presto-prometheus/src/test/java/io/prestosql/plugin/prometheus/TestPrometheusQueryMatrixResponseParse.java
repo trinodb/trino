@@ -69,7 +69,6 @@ public class TestPrometheusQueryMatrixResponseParse
 
     @Test
     public void verifyOnErrorResponse()
-            throws IOException
     {
         assertThatThrownBy(() -> new PrometheusQueryResponseParse(promErrorResponse))
                 .isInstanceOf(PrestoException.class)
@@ -80,11 +79,11 @@ public class TestPrometheusQueryMatrixResponseParse
     public void setUp()
             throws Exception
     {
-        URL promMatrixResponse = Resources.getResource(TestPrometheusClient.class, "/prometheus-data/up_matrix_response.json");
+        URL promMatrixResponse = Resources.getResource(getClass(), "/prometheus-data/up_matrix_response.json");
         assertNotNull(promMatrixResponse, "metadataUrl is null");
         this.promMatrixResponse = promMatrixResponse.openStream();
 
-        URL promErrorResponse = Resources.getResource(TestPrometheusClient.class, "/prometheus-data/prom_error_response.json");
+        URL promErrorResponse = Resources.getResource(getClass(), "/prometheus-data/prom_error_response.json");
         assertNotNull(promMatrixResponse, "metadataUrl is null");
         this.promErrorResponse = promErrorResponse.openStream();
     }

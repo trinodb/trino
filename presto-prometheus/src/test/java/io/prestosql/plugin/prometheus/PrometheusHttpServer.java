@@ -44,7 +44,6 @@ public class PrometheusHttpServer
     private final URI baseUri;
 
     public PrometheusHttpServer()
-            throws Exception
     {
         Bootstrap app = new Bootstrap(
                 new TestingNodeModule(),
@@ -61,7 +60,6 @@ public class PrometheusHttpServer
     }
 
     public void stop()
-            throws Exception
     {
         lifeCycleManager.stop();
     }
@@ -92,10 +90,10 @@ public class PrometheusHttpServer
             URL dataUrl;
             // allow for special response on Prometheus metrics endpoint
             if (request.getPathInfo().contains(METRICS_ENDPOINT)) {
-                dataUrl = Resources.getResource(TestPrometheusClient.class, request.getPathInfo().split(METRICS_ENDPOINT)[0]);
+                dataUrl = Resources.getResource(getClass(), request.getPathInfo().split(METRICS_ENDPOINT)[0]);
             }
             else {
-                dataUrl = Resources.getResource(TestPrometheusClient.class, request.getPathInfo());
+                dataUrl = Resources.getResource(getClass(), request.getPathInfo());
             }
             Resources.asByteSource(dataUrl).copyTo(response.getOutputStream());
         }

@@ -67,7 +67,7 @@ public class TestPrometheusQueryScalarResponseParse
     public void setUp()
             throws Exception
     {
-        URL promMatrixResponse = Resources.getResource(TestPrometheusClient.class, "/prometheus-data/up_scalar_response.json");
+        URL promMatrixResponse = Resources.getResource(getClass(), "/prometheus-data/up_scalar_response.json");
         assertNotNull(promMatrixResponse, "metadataUrl is null");
         this.promVectorResponse = promMatrixResponse.openStream();
     }

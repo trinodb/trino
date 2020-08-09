@@ -22,11 +22,23 @@ import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.RecordSet;
 
+import javax.inject.Inject;
+
 import java.util.List;
+
+import static java.util.Objects.requireNonNull;
 
 public class PrometheusRecordSetProvider
         implements ConnectorRecordSetProvider
 {
+    private final PrometheusClient prometheusClient;
+
+    @Inject
+    public PrometheusRecordSetProvider(PrometheusClient prometheusClient)
+    {
+        this.prometheusClient = requireNonNull(prometheusClient, "prometheusClient is null");
+    }
+
     @Override
     public RecordSet getRecordSet(ConnectorTransactionHandle transaction, ConnectorSession session, ConnectorSplit split, ConnectorTableHandle table, List<? extends ColumnHandle> columns)
     {
@@ -37,6 +49,6 @@ public class PrometheusRecordSetProvider
             handles.add((PrometheusColumnHandle) handle);
         }
 
-        return new PrometheusRecordSet(prometheusSplit, handles.build());
+        return new PrometheusRecordSet(prometheusClient, prometheusSplit, handles.build());
     }
 }

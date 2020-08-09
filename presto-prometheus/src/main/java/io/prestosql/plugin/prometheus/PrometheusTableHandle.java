@@ -30,15 +30,21 @@ public final class PrometheusTableHandle
 {
     private final String schemaName;
     private final String tableName;
-    private Optional<TupleDomain<ColumnHandle>> predicate = Optional.empty();
+    private final Optional<TupleDomain<ColumnHandle>> predicate;
 
     @JsonCreator
     public PrometheusTableHandle(
             @JsonProperty("schemaName") String schemaName,
             @JsonProperty("tableName") String tableName)
     {
+        this(schemaName, tableName, Optional.empty());
+    }
+
+    private PrometheusTableHandle(String schemaName, String tableName, Optional<TupleDomain<ColumnHandle>> predicate)
+    {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
+        this.predicate = requireNonNull(predicate, "predicate is null");
     }
 
     @JsonProperty
@@ -53,9 +59,19 @@ public final class PrometheusTableHandle
         return tableName;
     }
 
+    public Optional<TupleDomain<ColumnHandle>> getPredicate()
+    {
+        return this.predicate;
+    }
+
     public SchemaTableName toSchemaTableName()
     {
         return new SchemaTableName(schemaName, tableName);
+    }
+
+    public PrometheusTableHandle withPredicate(TupleDomain<ColumnHandle> predicate)
+    {
+        return new PrometheusTableHandle(schemaName, tableName, Optional.of(predicate));
     }
 
     @Override
@@ -83,15 +99,5 @@ public final class PrometheusTableHandle
     public String toString()
     {
         return schemaName + ":" + tableName;
-    }
-
-    public Optional<TupleDomain<ColumnHandle>> getPredicate()
-    {
-        return this.predicate;
-    }
-
-    public void setPredicate(Optional<TupleDomain<ColumnHandle>> predicate)
-    {
-        this.predicate = predicate;
     }
 }
