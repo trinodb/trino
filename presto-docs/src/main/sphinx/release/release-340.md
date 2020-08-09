@@ -4,11 +4,11 @@
 
 * Add support for query parameters in `LIMIT`, `OFFSET` and `FETCH FIRST` clauses. ({issue}`4529`, {issue}`4601`)
 * Add experimental support for recursive queries. ({issue}`4250`)
-* Add {func}`bitwise_left_shift`, {func}`bitwise_right_shift` and {func}`bitwise_right_shift_arithmetic`. ({issue}`772`)
+* Add {func}`bitwise_left_shift`, {func}`bitwise_right_shift` and {func}`bitwise_right_shift_arithmetic`. ({issue}`740`)
 * Add {func}`luhn_check`. ({issue}`4011`)
 * Add `IF EXISTS `and `IF NOT EXISTS` syntax to `ALTER TABLE`. ({issue}`4651`)
 * Include remote host in error info for page transport errors. ({issue}`4511`)
-* Improve minimum latency for dynamic partition pruning. ({issue}`4388`}
+* Improve minimum latency for dynamic partition pruning. ({issue}`4388`)
 * Reduce cluster load by cancelling query stages from which data is no longer required. ({issue}`4290`)
 * Reduce query memory usage by improving retained size estimation for `VARCHAR` and `CHAR` types. ({issue}`4123`)
 * Improve query performance for queries containing {func}`starts_with`. ({issue}`4669`)
