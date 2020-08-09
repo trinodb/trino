@@ -65,8 +65,8 @@ public final class MetadataUtil
         private final Map<String, Type> types = ImmutableMap.<String, Type>builder()
                 .put(varcharMapType.getTypeSignature().toString(), varcharMapType)
                 .put(StandardTypes.BIGINT, BIGINT)
-                .put(StandardTypes.TIMESTAMP, TIMESTAMP_COLUMN_TYPE)
-                .put("timestamp(3)", TIMESTAMP_COLUMN_TYPE)
+                .put(StandardTypes.TIMESTAMP_WITH_TIME_ZONE, TIMESTAMP_COLUMN_TYPE)
+                .put("timestamp(3) with time zone", TIMESTAMP_COLUMN_TYPE)
                 .put(StandardTypes.DOUBLE, DOUBLE)
                 .put(StandardTypes.VARCHAR, createUnboundedVarcharType())
                 .build();
