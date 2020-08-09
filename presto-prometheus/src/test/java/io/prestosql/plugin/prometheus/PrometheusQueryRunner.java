@@ -23,8 +23,6 @@ import io.prestosql.spi.type.TypeManager;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.type.InternalTypeManager;
 
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Map;
 
 import static io.airlift.testing.Closeables.closeAllSuppress;
@@ -36,7 +34,6 @@ public final class PrometheusQueryRunner
 {
     private static final Metadata METADATA = createTestMetadataManager();
     private static final TypeManager TYPE_MANAGER = new InternalTypeManager(METADATA);
-    private static URI prometheusURI;
 
     private PrometheusQueryRunner() {}
 
@@ -49,7 +46,7 @@ public final class PrometheusQueryRunner
 
             queryRunner.installPlugin(new PrometheusPlugin());
             Map<String, String> properties = ImmutableMap.of(
-                    "prometheus.uri", prometheusURI.toString());
+                    "prometheus.uri", server.getUri().toString());
             queryRunner.createCatalog("prometheus", "prometheus", properties);
             return queryRunner;
         }
@@ -59,7 +56,7 @@ public final class PrometheusQueryRunner
         }
     }
 
-    public static Session createSession()
+    private static Session createSession()
     {
         return testSessionBuilder()
                 .setCatalog("prometheus")
@@ -68,11 +65,9 @@ public final class PrometheusQueryRunner
     }
 
     public static PrometheusClient createPrometheusClient(PrometheusServer server)
-            throws URISyntaxException
     {
-        prometheusURI = new URI("http://" + server.getAddress().getHost() + ":" + server.getAddress().getPort() + "/");
         PrometheusConnectorConfig config = new PrometheusConnectorConfig();
-        config.setPrometheusURI(prometheusURI);
+        config.setPrometheusURI(server.getUri());
         config.setQueryChunkSizeDuration(Duration.valueOf("1d"));
         config.setMaxQueryRangeDuration(Duration.valueOf("21d"));
         config.setCacheDuration(Duration.valueOf("30s"));

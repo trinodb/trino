@@ -44,7 +44,6 @@ public class TestPrometheusConnectorConfig
 
     @Test
     public void testExplicitPropertyMappings()
-            throws Exception
     {
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("prometheus.uri", "file://test.json")
@@ -74,7 +73,7 @@ public class TestPrometheusConnectorConfig
         config.setQueryChunkSizeDuration(Duration.valueOf("21d"));
         config.setMaxQueryRangeDuration(Duration.valueOf("1d"));
         config.setCacheDuration(Duration.valueOf("30s"));
-        assertThatThrownBy(() -> config.checkConfig())
+        assertThatThrownBy(config::checkConfig)
                 .isInstanceOf(ConfigurationException.class)
                 .hasMessageContaining("prometheus.max.query.range.duration must be greater than prometheus.query.chunk.size.duration");
     }

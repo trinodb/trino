@@ -16,15 +16,17 @@ package io.prestosql.plugin.prometheus;
 import java.time.ZonedDateTime;
 import java.util.Optional;
 
+import static java.util.Objects.requireNonNull;
+
 public class PrometheusPredicateTimeInfo
 {
-    final Optional<ZonedDateTime> predicateLowerTimeBound;
-    final Optional<ZonedDateTime> predicateUpperTimeBound;
+    private final Optional<ZonedDateTime> predicateLowerTimeBound;
+    private final Optional<ZonedDateTime> predicateUpperTimeBound;
 
-    private PrometheusPredicateTimeInfo(Builder builder)
+    private PrometheusPredicateTimeInfo(Optional<ZonedDateTime> predicateLowerTimeBound, Optional<ZonedDateTime> predicateUpperTimeBound)
     {
-        predicateLowerTimeBound = builder.predicateLowerTimeBound;
-        predicateUpperTimeBound = builder.predicateUpperTimeBound;
+        this.predicateLowerTimeBound = requireNonNull(predicateLowerTimeBound, "predicateLowerTimeBound is null");
+        this.predicateUpperTimeBound = requireNonNull(predicateUpperTimeBound, "predicateUpperTimeBound is null");
     }
 
     public Optional<ZonedDateTime> getPredicateLowerTimeBound()
@@ -37,11 +39,6 @@ public class PrometheusPredicateTimeInfo
         return predicateUpperTimeBound;
     }
 
-    public Builder toBuilder()
-    {
-        return new Builder(this);
-    }
-
     public static Builder builder()
     {
         return new Builder();
@@ -49,23 +46,24 @@ public class PrometheusPredicateTimeInfo
 
     public static final class Builder
     {
-        Optional<ZonedDateTime> predicateLowerTimeBound = Optional.empty();
-        Optional<ZonedDateTime> predicateUpperTimeBound = Optional.empty();
+        private Optional<ZonedDateTime> predicateLowerTimeBound = Optional.empty();
+        private Optional<ZonedDateTime> predicateUpperTimeBound = Optional.empty();
 
-        public Builder()
+        private Builder() {}
+
+        public void setPredicateLowerTimeBound(Optional<ZonedDateTime> predicateLowerTimeBound)
         {
-            // Empty constructor
+            this.predicateLowerTimeBound = predicateLowerTimeBound;
         }
 
-        public Builder(PrometheusPredicateTimeInfo prometheusPredicateTimeInfo)
+        public void setPredicateUpperTimeBound(Optional<ZonedDateTime> predicateUpperTimeBound)
         {
-            this.predicateLowerTimeBound = prometheusPredicateTimeInfo.predicateLowerTimeBound;
-            this.predicateUpperTimeBound = prometheusPredicateTimeInfo.predicateUpperTimeBound;
+            this.predicateUpperTimeBound = predicateUpperTimeBound;
         }
 
         public PrometheusPredicateTimeInfo build()
         {
-            return new PrometheusPredicateTimeInfo(this);
+            return new PrometheusPredicateTimeInfo(predicateLowerTimeBound, predicateUpperTimeBound);
         }
     }
 }

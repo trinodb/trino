@@ -23,13 +23,9 @@ import java.sql.Timestamp;
 @JsonFormat(shape = JsonFormat.Shape.ARRAY)
 public class PrometheusTimeSeriesValue
 {
-    public String getValue()
-    {
-        return value;
-    }
-
     @JsonDeserialize(using = PrometheusTimestampDeserializer.class)
     private final Timestamp timestamp;
+
     @JsonProperty
     private final String value;
 
@@ -45,5 +41,10 @@ public class PrometheusTimeSeriesValue
     public Timestamp getTimestamp()
     {
         return timestamp;
+    }
+
+    public String getValue()
+    {
+        return value;
     }
 }

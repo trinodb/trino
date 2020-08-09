@@ -49,6 +49,7 @@ public class PrometheusModule
         binder.bind(PrometheusMetadata.class).in(Scopes.SINGLETON);
         binder.bind(PrometheusClient.class).in(Scopes.SINGLETON);
         binder.bind(PrometheusSplitManager.class).in(Scopes.SINGLETON);
+        binder.bind(PrometheusClock.class).in(Scopes.SINGLETON);
         binder.bind(PrometheusRecordSetProvider.class).in(Scopes.SINGLETON);
         configBinder(binder).bindConfig(PrometheusConnectorConfig.class);
 
