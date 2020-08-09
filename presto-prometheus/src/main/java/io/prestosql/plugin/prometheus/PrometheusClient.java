@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.json.JsonCodec;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.DoubleType;
-import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import okhttp3.OkHttpClient;
@@ -41,6 +40,7 @@ import java.util.function.Supplier;
 
 import static io.prestosql.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_TABLES_METRICS_RETRIEVE_ERROR;
 import static io.prestosql.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_UNKNOWN_ERROR;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -50,7 +50,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class PrometheusClient
 {
-    static final Type TIMESTAMP_COLUMN_TYPE = TimestampType.createTimestampType(3);
+    static final Type TIMESTAMP_COLUMN_TYPE = createTimestampWithTimeZoneType(3);
     static final String METRICS_ENDPOINT = "/api/v1/label/__name__/values";
     private static final OkHttpClient httpClient = new Builder().build();
 
