@@ -216,7 +216,7 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - config-empty
+          - config-default
           - config-hdp3
           - config-cdh5
         suite:
@@ -263,5 +263,5 @@ jobs:
       - name: Product Tests
         run: |
           export PTL_BIND_PORTS=false &&
-          source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
-            presto-product-tests/bin/product-tests-${{ matrix.suite }}.sh
+          presto-product-tests-launcher/bin/run-launcher suite run --suite ${{ matrix.suite }} --suite-config ${{ matrix.config }}
+
