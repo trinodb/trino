@@ -17,7 +17,6 @@ import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.TestingSession;
 import io.prestosql.testing.sql.SqlExecutor;
 import io.prestosql.testing.sql.TestTable;
-import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.sql.SQLException;
@@ -160,23 +159,13 @@ public abstract class BaseSnowflakeIntegrationSmokeTest
         assertQuery("SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = '" + schema + "' AND table_name LIKE '%rders'", ordersTableWithColumns);
     }
 
-    @DataProvider
-    public Object[][] testLegacyFlagProvider()
-    {
-        return new Object[][] {
-                {true},
-                {false}
-        };
-    }
-
-    @Test(dataProvider = "testLegacyFlagProvider")
-    public void testTimeRounding(boolean legacyTimestamp)
+    @Test
+    public void testTimeRounding()
     {
         String tableName = TEST_SCHEMA + ".test_time";
         for (ZoneId sessionZone : ImmutableList.of(ZoneOffset.UTC, ZoneId.systemDefault(), ZoneId.of("Europe/Vilnius"), ZoneId.of("Asia/Kathmandu"), ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
             Session session = Session.builder(getQueryRunner().getDefaultSession())
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                    .setSystemProperty("legacy_timestamp", Boolean.toString(legacyTimestamp))
                     .build();
             try (TestTable testTable = new TestTable(
                     snowflakeExecutor,
@@ -217,7 +206,6 @@ public abstract class BaseSnowflakeIntegrationSmokeTest
         String tableName = TEST_SCHEMA + ".test_tstz_";
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(ZoneOffset.UTC.getId()))
-                .setSystemProperty("legacy_timestamp", "false")
                 .build();
 
         // Snowflake literals cannot have a 5-digit year, nor a negative year, so need to use DATEADD for some values

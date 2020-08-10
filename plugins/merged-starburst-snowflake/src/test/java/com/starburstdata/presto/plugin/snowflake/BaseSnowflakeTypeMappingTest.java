@@ -11,6 +11,7 @@ package com.starburstdata.presto.plugin.snowflake;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.starburstdata.presto.testing.DataProviders;
 import io.prestosql.Session;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.DoubleType;
@@ -308,12 +309,14 @@ public abstract class BaseSnowflakeTypeMappingTest
                 .addRoundTrip(arrayDataType("[\"foo\",\"bar\"]"), ImmutableList.of("'foo'", "'bar'")));
     }
 
-    @Test(dataProvider = "testTimestampDataProvider")
-    public void testTime(boolean legacyTimestamp, boolean insertWithPresto)
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testTime(boolean insertWithPresto)
     {
         // using two non-JVM zones so that we don't need to worry what Postgres system zone is
         for (ZoneId sessionZone : ImmutableList.of(UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
             DataTypeTest tests = DataTypeTest.create()
+                    .addRoundTrip(timeDataType(), LocalTime.of(0, 0, 0)) // gap in JVM zone on Epoch day
+                    .addRoundTrip(timeDataType(), LocalTime.of(0, 13, 42)) // gap in JVM
                     .addRoundTrip(timeDataType(), LocalTime.of(13, 18, 3, 123_000_000))
                     .addRoundTrip(timeDataType(), LocalTime.of(14, 18, 3, 423_000_000))
                     .addRoundTrip(timeDataType(), LocalTime.of(15, 18, 3, 523_000_000))
@@ -327,15 +330,8 @@ public abstract class BaseSnowflakeTypeMappingTest
                     .addRoundTrip(timeDataType(), LocalTime.of(22, 59, 59, 0))
                     .addRoundTrip(timeDataType(), LocalTime.of(22, 59, 59, 999_000_000));
 
-            if (!legacyTimestamp) {
-                // 0 hour TIME values are not valid in Bahia_Banderas timezone in legacy timestamp semantics
-                tests.addRoundTrip(timeDataType(), LocalTime.of(0, 0, 0))
-                        .addRoundTrip(timeDataType(), LocalTime.of(0, 13, 42));
-            }
-
             Session session = Session.builder(getQueryRunner().getDefaultSession())
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                    .setSystemProperty("legacy_timestamp", Boolean.toString(legacyTimestamp))
                     .build();
 
             if (insertWithPresto) {
@@ -347,10 +343,10 @@ public abstract class BaseSnowflakeTypeMappingTest
         }
     }
 
-    @Test(dataProvider = "testTimestampArrayDataProvider")
-    public void testTimeArray(boolean legacyTimestamp)
+    @Test
+    public void testTimeArray()
     {
-        // using two non-JVM zones so that we don't need to worry what Postgres system zone is
+        // using two non-JVM zones so that we don't need to worry what Snowflake system zone is
         for (ZoneId sessionZone : ImmutableList.of(UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
             DataTypeTest tests = DataTypeTest.create()
                     .addRoundTrip(timeArrayDataType("[" +
@@ -380,15 +376,14 @@ public abstract class BaseSnowflakeTypeMappingTest
 
             Session session = Session.builder(getQueryRunner().getDefaultSession())
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                    .setSystemProperty("legacy_timestamp", Boolean.toString(legacyTimestamp))
                     .build();
 
             tests.execute(getQueryRunner(), session, snowflakeCreateAsSelect());
         }
     }
 
-    @Test(dataProvider = "testTimestampDataProvider")
-    public void testTimestamp(boolean legacyTimestamp, boolean insertWithPresto)
+    @Test(dataProviderClass = DataProviders.class, dataProvider = "trueFalse")
+    public void testTimestamp(boolean insertWithPresto)
     {
         // using two non-JVM zones so that we don't need to worry what Postgres system zone is
         for (ZoneId sessionZone : ImmutableList.of(UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
@@ -399,17 +394,16 @@ public abstract class BaseSnowflakeTypeMappingTest
                     .addRoundTrip(timestampDataType(), dateTimeDoubledInVilnius);
 
             if (!insertWithPresto) {
-                addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dateTimeEpoch); // epoch also is a gap in JVM zone
-                addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dateTimeGapInJvmZone1);
-                addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dateTimeGapInJvmZone2);
+                addTimestampTestIfSupported(tests, dateTimeEpoch); // epoch also is a gap in JVM zone
+                addTimestampTestIfSupported(tests, dateTimeGapInJvmZone1);
+                addTimestampTestIfSupported(tests, dateTimeGapInJvmZone2);
             }
 
-            addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dateTimeGapInVilnius);
-            addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dateTimeGapInKathmandu);
+            addTimestampTestIfSupported(tests, dateTimeGapInVilnius);
+            addTimestampTestIfSupported(tests, dateTimeGapInKathmandu);
 
             Session session = Session.builder(getQueryRunner().getDefaultSession())
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                    .setSystemProperty("legacy_timestamp", Boolean.toString(legacyTimestamp))
                     .build();
 
             if (insertWithPresto) {
@@ -421,8 +415,8 @@ public abstract class BaseSnowflakeTypeMappingTest
         }
     }
 
-    @Test(dataProvider = "testTimestampArrayDataProvider")
-    public void testTimestampArray(boolean legacyTimestamp)
+    @Test
+    public void testTimestampArray()
     {
         // using two non-JVM zones so that we don't need to worry what Postgres system zone is
         for (ZoneId sessionZone : ImmutableList.of(UTC, jvmZone, vilnius, kathmandu, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId()))) {
@@ -450,20 +444,14 @@ public abstract class BaseSnowflakeTypeMappingTest
 
             Session session = Session.builder(getQueryRunner().getDefaultSession())
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                    .setSystemProperty("legacy_timestamp", Boolean.toString(legacyTimestamp))
                     .build();
 
             tests.execute(getQueryRunner(), session, snowflakeCreateAsSelect());
         }
     }
 
-    private void addTimestampTestIfSupported(DataTypeTest tests, boolean legacyTimestamp, ZoneId sessionZone, LocalDateTime dateTime)
+    private void addTimestampTestIfSupported(DataTypeTest tests, LocalDateTime dateTime)
     {
-        if (legacyTimestamp && isGap(sessionZone, dateTime)) {
-            // in legacy timestamp semantics we cannot represent this dateTime
-            return;
-        }
-
         tests.addRoundTrip(timestampDataType(), dateTime);
     }
 
@@ -530,26 +518,6 @@ public abstract class BaseSnowflakeTypeMappingTest
                 {false, "TIMESTAMP_TZ", ZoneId.of("UTC")},
                 {true, "TIMESTAMP_LTZ", ZoneId.of("UTC")},
                 {false, "TIMESTAMP_LTZ", ZoneId.of("America/Bahia_Banderas")},
-        };
-    }
-
-    @DataProvider
-    public Object[][] testTimestampDataProvider()
-    {
-        return new Object[][] {
-                {true, true},
-                {false, true},
-                {true, false},
-                {false, false}
-        };
-    }
-
-    @DataProvider
-    public Object[][] testTimestampArrayDataProvider()
-    {
-        return new Object[][] {
-                {true},
-                {false}
         };
     }
 

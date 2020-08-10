@@ -183,14 +183,14 @@ public class SnowflakeClient
         }
 
         if (typeHandle.getJdbcType() == Types.TIME) {
-            return Optional.of(withSimplifiedPushdownConverter(timeColumnMapping(session)));
+            return Optional.of(withSimplifiedPushdownConverter(timeColumnMapping()));
         }
 
         if (typeHandle.getJdbcType() == Types.TIMESTAMP) {
             if (typeName.equals("TIMESTAMPTZ") || typeName.equals("TIMESTAMPLTZ")) {
                 return Optional.of(timestampWithTimezoneColumnMapping());
             }
-            return Optional.of(timestampColumnMapping(session));
+            return Optional.of(timestampColumnMapping());
         }
 
         if (typeHandle.getJdbcType() == VARCHAR && distributedConnector) {
@@ -201,7 +201,7 @@ public class SnowflakeClient
             return Optional.of(varbinaryColumnMapping());
         }
 
-        return jdbcTypeToPrestoType(session, typeHandle).map(this::withSimplifiedPushdownConverter);
+        return jdbcTypeToPrestoType(typeHandle).map(this::withSimplifiedPushdownConverter);
     }
 
     private ColumnMapping withSimplifiedPushdownConverter(ColumnMapping mapping)
@@ -223,11 +223,11 @@ public class SnowflakeClient
         }
 
         if (type instanceof TimeType) {
-            return WriteMapping.longMapping("time", timeWriteFunction(session));
+            return WriteMapping.longMapping("time", timeWriteFunction());
         }
 
         if (type instanceof TimestampType) {
-            return WriteMapping.longMapping("timestamp_ntz", timestampWriteFunction(session));
+            return WriteMapping.longMapping("timestamp_ntz", timestampWriteFunction());
         }
 
         if (type instanceof TimestampWithTimeZoneType) {
@@ -308,77 +308,35 @@ public class SnowflakeClient
         };
     }
 
-    private static ColumnMapping timestampColumnMapping(ConnectorSession session)
+    private static ColumnMapping timestampColumnMapping()
     {
-        if (session.isLegacyTimestamp()) {
-            ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
-            return ColumnMapping.longMapping(
-                    TIMESTAMP,
-                    (resultSet, columnIndex) -> toPrestoLegacyTimestamp(toLocalDateTime(resultSet, columnIndex), sessionZone),
-                    timestampWriteFunction(session));
-        }
-
         return ColumnMapping.longMapping(
                 TIMESTAMP,
                 (resultSet, columnIndex) -> toPrestoTimestamp(toLocalDateTime(resultSet, columnIndex)),
-                timestampWriteFunction(session));
+                timestampWriteFunction());
     }
 
-    private static LongWriteFunction timestampWriteFunction(ConnectorSession session)
+    private static LongWriteFunction timestampWriteFunction()
     {
-        if (session.isLegacyTimestamp()) {
-            ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
-            return (statement, index, value) -> statement.setString(index, fromPrestoLegacyTimestamp(value, sessionZone).toString());
-        }
         return (statement, index, value) -> statement.setString(index, fromPrestoTimestamp(value).toString());
     }
 
-    private static ColumnMapping timeColumnMapping(ConnectorSession session)
+    private static ColumnMapping timeColumnMapping()
     {
-        if (session.isLegacyTimestamp()) {
-            ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
-            return ColumnMapping.longMapping(
-                    TIME,
-                    (resultSet, columnIndex) -> toPrestoLegacyTime(toLocalTime(resultSet, columnIndex), sessionZone),
-                    timeWriteFunction(session));
-        }
-
         return ColumnMapping.longMapping(
                 TIME,
                 (resultSet, columnIndex) -> toPrestoTime(toLocalTime(resultSet, columnIndex)),
-                timeWriteFunction(session));
+                timeWriteFunction());
     }
 
-    private static LongWriteFunction timeWriteFunction(ConnectorSession session)
+    private static LongWriteFunction timeWriteFunction()
     {
-        if (session.isLegacyTimestamp()) {
-            ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
-            return (statement, index, value) -> statement.setString(index, fromPrestoLegacyTime(value, sessionZone).toString());
-        }
         return (statement, index, value) -> statement.setString(index, fromPrestoTime(value).toString());
-    }
-
-    /**
-     * @deprecated applicable in legacy timestamp semantics only
-     */
-    @Deprecated
-    private static long toPrestoLegacyTimestamp(LocalDateTime localDateTime, ZoneId sessionZone)
-    {
-        return localDateTime.atZone(sessionZone).toInstant().toEpochMilli();
     }
 
     private static long toPrestoTimestamp(LocalDateTime localDateTime)
     {
         return localDateTime.atZone(UTC).toInstant().toEpochMilli();
-    }
-
-    /**
-     * @deprecated applicable in legacy timestamp semantics only
-     */
-    @Deprecated
-    private static LocalDateTime fromPrestoLegacyTimestamp(long value, ZoneId sessionZone)
-    {
-        return Instant.ofEpochMilli(value).atZone(sessionZone).toLocalDateTime();
     }
 
     private static LocalDateTime fromPrestoTimestamp(long value)
@@ -393,27 +351,9 @@ public class SnowflakeClient
         return LocalDateTime.ofInstant(Instant.ofEpochMilli(ts.getTime()), UTC);
     }
 
-    /**
-     * @deprecated applicable in legacy timestamp semantics only
-     */
-    @Deprecated
-    private static long toPrestoLegacyTime(LocalTime localTime, ZoneId sessionZone)
-    {
-        return localTime.atDate(EPOCH_DAY).atZone(sessionZone).toInstant().toEpochMilli();
-    }
-
     private static long toPrestoTime(LocalTime localTime)
     {
         return localTime.atDate(EPOCH_DAY).atZone(UTC).toInstant().toEpochMilli();
-    }
-
-    /**
-     * @deprecated applicable in legacy timestamp semantics only
-     */
-    @Deprecated
-    private static LocalTime fromPrestoLegacyTime(long value, ZoneId sessionZone)
-    {
-        return Instant.ofEpochMilli(value).atZone(sessionZone).toLocalTime();
     }
 
     private static LocalTime fromPrestoTime(long value)

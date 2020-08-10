@@ -16,29 +16,22 @@ import io.prestosql.spi.block.LazyBlock;
 import io.prestosql.spi.block.LazyBlockLoader;
 import io.prestosql.spi.block.LongArrayBlock;
 import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
-import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 
 import java.io.IOException;
 import java.math.BigInteger;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Verify.verify;
-import static com.starburstdata.presto.plugin.snowflake.distributed.LegacyDateTimeConversionUtils.toPrestoLegacyTime;
-import static com.starburstdata.presto.plugin.snowflake.distributed.LegacyDateTimeConversionUtils.toPrestoLegacyTimestamp;
 import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeQueryBuilder.TIMESTAMP_WITH_TIME_ZONE_MILLIS_SHIFT;
 import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeQueryBuilder.TIMESTAMP_WITH_TIME_ZONE_ZONE_MASK;
 import static com.starburstdata.presto.plugin.snowflake.distributed.SnowflakeQueryBuilder.ZONE_OFFSET_MINUTES_BIAS;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.prestosql.spi.type.TimeType.TIME;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -50,18 +43,12 @@ public class TranslatingPageSource
 {
     private final ConnectorPageSource delegate;
     private final List<HiveColumnHandle> columns;
-    private final ConnectorSession session;
-    private final TranslateToLong legacyTimestampTranslation;
-    private final TranslateToLong legacyTimeTranslation;
     private final TranslateToLong timestampWithTimeZoneTranslation;
 
-    public TranslatingPageSource(ConnectorPageSource delegate, List<HiveColumnHandle> columns, ConnectorSession session)
+    public TranslatingPageSource(ConnectorPageSource delegate, List<HiveColumnHandle> columns)
     {
         this.delegate = requireNonNull(delegate, "delegate was null");
         this.columns = requireNonNull(columns, "columns was null");
-        this.session = requireNonNull(session, "session was null");
-        legacyTimestampTranslation = new LegacyTimestampTranslation();
-        legacyTimeTranslation = new LegacyTimeTranslation();
         timestampWithTimeZoneTranslation = new TimestampWithTimeZoneTranslation();
     }
 
@@ -81,22 +68,7 @@ public class TranslatingPageSource
         for (int index = 0; index < translatedBlocks.length; index++) {
             Block originalBlock = originalPage.getBlock(index);
             Type type = columns.get(index).getType();
-            if (TIME.equals(type) && session.isLegacyTimestamp()) {
-                translatedBlocks[index] = new LazyBlock(
-                        originalBlock.getPositionCount(),
-                        new TranslateToLongBlockLoader(
-                                originalBlock,
-                                legacyTimeTranslation));
-            }
-            else if (type instanceof TimestampType && session.isLegacyTimestamp()) {
-                verify(((TimestampType) type).getPrecision() == 3, "Unsupported TimestampType: %s", type);
-                translatedBlocks[index] = new LazyBlock(
-                        originalBlock.getPositionCount(),
-                        new TranslateToLongBlockLoader(
-                                originalBlock,
-                                legacyTimestampTranslation));
-            }
-            else if (type instanceof TimestampWithTimeZoneType) {
+            if (type instanceof TimestampWithTimeZoneType) {
                 translatedBlocks[index] = new LazyBlock(
                         originalBlock.getPositionCount(),
                         new TranslateToLongBlockLoader(
@@ -200,38 +172,6 @@ public class TranslatingPageSource
         long extractLong(Block block, int position);
 
         long mapLong(long value);
-    }
-
-    private class LegacyTimeTranslation
-            implements TranslateToLong
-    {
-        @Override
-        public long extractLong(Block block, int position)
-        {
-            return block.getLong(position, 0);
-        }
-
-        @Override
-        public long mapLong(long value)
-        {
-            return toPrestoLegacyTime(value, ZoneId.of(session.getTimeZoneKey().getId()));
-        }
-    }
-
-    private class LegacyTimestampTranslation
-            implements TranslateToLong
-    {
-        @Override
-        public long extractLong(Block block, int position)
-        {
-            return block.getLong(position, 0);
-        }
-
-        @Override
-        public long mapLong(long value)
-        {
-            return toPrestoLegacyTimestamp(value, ZoneId.of(session.getTimeZoneKey().getId()));
-        }
     }
 
     private static class TimestampWithTimeZoneTranslation

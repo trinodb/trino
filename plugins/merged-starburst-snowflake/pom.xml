@@ -5,7 +5,7 @@
     <parent>
         <groupId>com.starburstdata.presto</groupId>
         <artifactId>starburst-presto-root</artifactId>
-        <version>340-e-SNAPSHOT</version>
+        <version>341-e-SNAPSHOT</version>
         <relativePath>../..</relativePath>
     </parent>
 
@@ -157,6 +157,11 @@
         </dependency>
 
         <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>net.jodah</groupId>
             <artifactId>failsafe</artifactId>
         </dependency>
@@ -220,6 +225,12 @@
             <groupId>com.starburstdata.presto</groupId>
             <artifactId>starburst-license</artifactId>
             <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.starburstdata.presto</groupId>
+            <artifactId>starburst-testing</artifactId>
             <scope>test</scope>
         </dependency>
 

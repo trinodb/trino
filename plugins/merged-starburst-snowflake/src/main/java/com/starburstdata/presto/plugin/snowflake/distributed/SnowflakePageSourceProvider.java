@@ -31,6 +31,7 @@ import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.FSDataInputStream;
 import org.apache.hadoop.fs.Path;
+import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
@@ -59,6 +60,8 @@ class SnowflakePageSourceProvider
 {
     private final FileFormatDataSourceStats stats;
     private final ParquetReaderConfig parquetReaderConfig;
+    // TODO should there be a config for this
+    private final DateTimeZone parquetTimeZone = DateTimeZone.getDefault();
 
     @Inject
     public SnowflakePageSourceProvider(FileFormatDataSourceStats stats, SnowflakeDistributedConfig config)
@@ -141,13 +144,14 @@ class SnowflakePageSourceProvider
                 hdfsEnvironment,
                 configuration,
                 session.getUser(),
+                parquetTimeZone,
                 stats,
                 parquetReaderConfig.toParquetReaderOptions()
                         .withMaxReadBlockSize(getParquetMaxReadBlockSize(session)));
 
         verify(pageSource.getProjectedReaderColumns().isEmpty(), "All columns expected to be base columns");
 
-        return new TranslatingPageSource(pageSource.getConnectorPageSource(), hiveColumns, session);
+        return new TranslatingPageSource(pageSource.getConnectorPageSource(), hiveColumns);
     }
 
     // for more information see https://en.wikipedia.org/wiki/Padding_(cryptography)#PKCS%235_and_PKCS%237
