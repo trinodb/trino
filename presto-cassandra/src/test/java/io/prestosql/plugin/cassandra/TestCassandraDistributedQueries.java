@@ -22,6 +22,8 @@ import io.prestosql.tpch.TpchTable;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
 
+import java.util.Optional;
+
 import static io.prestosql.plugin.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
@@ -152,11 +154,17 @@ public class TestCassandraDistributedQueries
     }
 
     @Override
-    public void testDataMappingSmokeTest(DataMappingTestSetup dataMappingTestSetup)
+    protected Optional<DataMappingTestSetup> filterDataMappingSmokeTestData(DataMappingTestSetup dataMappingTestSetup)
     {
-        // TODO Enable after fixing the following error messages
-        // - Multiple definition of identifier id
-        // - unsupported type: char(3), decimal(5,3), decimal(15,3), time, timestamp with time zone
-        // - Invalid (reserved) user type name smallint
+        String typeName = dataMappingTestSetup.getPrestoTypeName();
+        if (typeName.equals("time")
+                || typeName.equals("timestamp(3) with time zone")
+                || typeName.equals("decimal(5,3)")
+                || typeName.equals("decimal(15,3)")
+                || typeName.equals("char(3)")) {
+            // TODO this should either work or fail cleanly
+            return Optional.empty();
+        }
+        return Optional.of(dataMappingTestSetup);
     }
 }
