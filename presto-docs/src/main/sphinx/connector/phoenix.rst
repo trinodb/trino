@@ -160,6 +160,6 @@ Property Name               Default Value    Description
 
 ``ttl``                     ``FOREVER``      Time To Live for each cell.
 
-``bloomfilter``             ``ROW``          Bloomfilter to use. Valid values are ``NONE``, ``ROW`` (default), or ``ROWCOL``.
+``bloomfilter``             ``NONE``         Bloomfilter to use. Valid values are ``NONE`` (default), ``ROW``, or ``ROWCOL``.
 =========================== ================ ==============================================================================================================
 
