@@ -13,6 +13,7 @@
  */
 package io.prestosql.tests.product.launcher.env.common;
 
+import com.google.common.base.Strings;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
@@ -41,6 +42,7 @@ public final class Hadoop
 
     private final String hadoopBaseImage;
     private final String hadoopImagesVersion;
+    private final String hadoopInitScript;
 
     @Inject
     public Hadoop(
@@ -53,6 +55,7 @@ public final class Hadoop
         requireNonNull(environmentOptions, "environmentOptions is null");
         hadoopBaseImage = requireNonNull(environmentOptions.hadoopBaseImage, "environmentOptions.hadoopBaseImage is null");
         hadoopImagesVersion = requireNonNull(environmentOptions.hadoopImagesVersion, "environmentOptions.hadoopImagesVersion is null");
+        hadoopInitScript = requireNonNull(environmentOptions.hadoopInitScript, "environmentOptions.hadoopInitScript is null");
     }
 
     @Override
@@ -66,10 +69,10 @@ public final class Hadoop
                     .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive_with_external_writes.properties")), CONTAINER_PRESTO_HIVE_WITH_EXTERNAL_WRITES_PROPERTIES)
                     .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/iceberg.properties")), CONTAINER_PRESTO_ICEBERG_PROPERTIES);
 
-            if (System.getenv("HADOOP_PRESTO_INIT_SCRIPT") != null) {
+            if (!Strings.isNullOrEmpty(hadoopInitScript)) {
                 container
                         .withCopyFileToContainer(
-                                forHostPath(dockerFiles.getDockerFilesHostPath(System.getenv("HADOOP_PRESTO_INIT_SCRIPT"))),
+                                forHostPath(dockerFiles.getDockerFilesHostPath(hadoopInitScript)),
                                 "/docker/presto-init.d/hadoop-presto-init.sh");
             }
         });

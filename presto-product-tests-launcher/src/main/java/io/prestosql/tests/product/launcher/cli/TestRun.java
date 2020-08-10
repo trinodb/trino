@@ -125,6 +125,7 @@ public final class TestRun
         private final String environment;
         private final int startupRetries;
         private final Path reportsDirBase;
+        private final String temptoEnvironmentConfigurationFile;
 
         @Inject
         public Execution(EnvironmentFactory environmentFactory, PathResolver pathResolver, EnvironmentOptions environmentOptions, TestRunOptions testRunOptions)
@@ -133,6 +134,7 @@ public final class TestRun
             this.pathResolver = requireNonNull(pathResolver, "pathResolver is null");
             requireNonNull(environmentOptions, "environmentOptions is null");
             this.debug = environmentOptions.debug;
+            this.temptoEnvironmentConfigurationFile = environmentOptions.temptoEnvironmentConfigFile;
             this.testJar = requireNonNull(testRunOptions.testJar, "testOptions.testJar is null");
             this.testArguments = ImmutableList.copyOf(requireNonNull(testRunOptions.testArguments, "testOptions.testArguments is null"));
             this.environment = requireNonNull(testRunOptions.environment, "testRunOptions.environment is null");
@@ -216,7 +218,7 @@ public final class TestRun
                                                 .add("tempto-configuration.yaml") // this comes from classpath
                                                 .add("/docker/presto-product-tests/conf/tempto/tempto-configuration-for-docker-default.yaml")
                                                 .add(CONTAINER_TEMPTO_PROFILE_CONFIG)
-                                                .add(System.getenv().getOrDefault("TEMPTO_ENVIRONMENT_CONFIG_FILE", "/dev/null"))
+                                                .add(temptoEnvironmentConfigurationFile)
                                                 .add(container.getEnvMap().getOrDefault("TEMPTO_CONFIG_FILES", "/dev/null"))
                                                 .build()))
                                 .addAll(testArguments)
