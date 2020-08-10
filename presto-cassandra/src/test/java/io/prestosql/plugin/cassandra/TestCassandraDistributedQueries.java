@@ -158,7 +158,7 @@ public class TestCassandraDistributedQueries
     {
         String typeName = dataMappingTestSetup.getPrestoTypeName();
         if (typeName.equals("time")
-                || typeName.equals("timestamp(3) with time zone")
+                || typeName.equals("timestamp")
                 || typeName.equals("decimal(5,3)")
                 || typeName.equals("decimal(15,3)")
                 || typeName.equals("char(3)")) {
@@ -166,5 +166,11 @@ public class TestCassandraDistributedQueries
             return Optional.empty();
         }
         return Optional.of(dataMappingTestSetup);
+    }
+
+    @Override
+    protected String dataMappingTableName(String prestoTypeName)
+    {
+        return "presto_tmp_" + System.nanoTime();
     }
 }
