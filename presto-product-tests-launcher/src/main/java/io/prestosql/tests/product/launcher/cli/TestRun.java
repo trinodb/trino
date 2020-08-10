@@ -44,6 +44,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -55,6 +56,7 @@ import static io.prestosql.tests.product.launcher.docker.ContainerUtil.exposePor
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.time.Duration.ofMillis;
 import static java.util.Objects.requireNonNull;
+import static java.util.UUID.randomUUID;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 
 @Command(name = "run", description = "Presto product test launcher")
@@ -98,7 +100,7 @@ public final class TestRun
         public String environment;
 
         @Option(name = "--reports-dir", title = "reports dir", description = "location of the reports directory")
-        public String reportsDir;
+        public Path reportsDirBase = Paths.get("presto-product-tests/target/reports/");
 
         @Option(name = "--startup-timeout", title = "startup timeout", description = "environment startup timeout")
         public Duration startupTimeout = Duration.valueOf("5m");
@@ -133,9 +135,9 @@ public final class TestRun
         private final File testJar;
         private final List<String> testArguments;
         private final String environment;
-        private final String reportsDir;
         private final Duration startupTimeout;
         private final int startupRetries;
+        private final Path reportsDirBase;
 
         @Inject
         public Execution(EnvironmentFactory environmentFactory, PathResolver pathResolver, EnvironmentOptions environmentOptions, TestRunOptions testRunOptions)
@@ -147,9 +149,9 @@ public final class TestRun
             this.testJar = requireNonNull(testRunOptions.testJar, "testOptions.testJar is null");
             this.testArguments = ImmutableList.copyOf(requireNonNull(testRunOptions.testArguments, "testOptions.testArguments is null"));
             this.environment = requireNonNull(testRunOptions.environment, "testRunOptions.environment is null");
-            this.reportsDir = testRunOptions.reportsDir;
             this.startupTimeout = requireNonNull(testRunOptions.startupTimeout, "testRunOptions.startupTimeout is null");
             this.startupRetries = testRunOptions.startupRetries;
+            this.reportsDirBase = buildFinalReportsDir(requireNonNull(testRunOptions.reportsDirBase, "testRunOptions.reportsDirBase is empty"), testRunOptions.environment);
         }
 
         @Override
@@ -234,7 +236,7 @@ public final class TestRun
                                                 .add(container.getEnvMap().getOrDefault("TEMPTO_CONFIG_FILES", "/dev/null"))
                                                 .build()))
                                 .addAll(testArguments)
-                                .addAll(reportsDirOptions(reportsDir))
+                                .addAll(reportsDirOptions(reportsDirBase))
                                 .build().toArray(new String[0]))
                         .waitingFor(new LogMessageWaitStrategy().withRegEx(".*\\[TestNG] Running.*"));
             });
@@ -242,9 +244,9 @@ public final class TestRun
             return environment.build();
         }
 
-        private static Iterable<? extends String> reportsDirOptions(String path)
+        private static Iterable<? extends String> reportsDirOptions(Path path)
         {
-            if (isNullOrEmpty(path)) {
+            if (isNullOrEmpty(path.toString())) {
                 return ImmutableList.of();
             }
 
@@ -253,24 +255,22 @@ public final class TestRun
 
         private void mountReportsDir(Container container)
         {
-            if (isNullOrEmpty(reportsDir)) {
+            if (isNullOrEmpty(reportsDirBase.toString())) {
                 return;
             }
 
-            Path reportsDirLocation = Path.of(reportsDir);
-
-            if (!Files.exists(reportsDirLocation)) {
+            if (!Files.exists(reportsDirBase)) {
                 try {
-                    Files.createDirectories(reportsDirLocation);
-                    log.info("Created reports dir %s", reportsDirLocation);
+                    Files.createDirectories(reportsDirBase);
+                    log.info("Created reports dir %s", reportsDirBase);
                 }
                 catch (IOException e) {
                     throw new UncheckedIOException(e);
                 }
             }
 
-            container.withFileSystemBind(reportsDir, CONTAINER_REPORTS_DIR, BindMode.READ_WRITE);
-            log.info("Bound host %s into container's %s report dir", reportsDirLocation, CONTAINER_REPORTS_DIR);
+            container.withFileSystemBind(reportsDirBase.toAbsolutePath().toString(), CONTAINER_REPORTS_DIR, BindMode.READ_WRITE);
+            log.info("Bound host %s into container's %s report dir", reportsDirBase, CONTAINER_REPORTS_DIR);
         }
 
         private void awaitTestsCompletion(Environment environment)
@@ -296,6 +296,13 @@ public final class TestRun
                 Thread.currentThread().interrupt();
                 throw new RuntimeException("Interrupted", e);
             }
+        }
+
+        private static Path buildFinalReportsDir(Path reportsDirBase, String environment)
+        {
+            return reportsDirBase
+                    .resolve(environment)
+                    .resolve(randomUUID().toString().replace("-", ""));
         }
     }
 
