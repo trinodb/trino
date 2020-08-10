@@ -17,7 +17,6 @@ import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.HostConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 import io.prestosql.tests.product.launcher.testcontainers.PrintingLogConsumer;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -34,8 +33,6 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -58,16 +55,16 @@ public final class Environment
         this.containers = requireNonNull(containers, "containers is null");
     }
 
-    public void start(Duration timeout)
+    public void start()
     {
         try {
-            Startables.deepStart(ImmutableList.copyOf(containers.values())).get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+            Startables.deepStart(ImmutableList.copyOf(containers.values())).get();
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             throw new RuntimeException(e);
         }
-        catch (ExecutionException | TimeoutException e) {
+        catch (ExecutionException e) {
             throw new RuntimeException(e);
         }
     }
