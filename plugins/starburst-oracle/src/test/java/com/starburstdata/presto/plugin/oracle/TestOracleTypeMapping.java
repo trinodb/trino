@@ -12,7 +12,6 @@ package com.starburstdata.presto.plugin.oracle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
-import io.prestosql.SystemSessionProperties;
 import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.testing.AbstractTestQueryFramework;
@@ -553,18 +552,18 @@ public class TestOracleTypeMapping
     /* Datetime tests */
 
     @Test
-    public void testLegacyDateMapping()
+    public void testDateMapping()
     {
-        legacyDateTests(s -> prestoCreateAsSelect("legacy_date_in_" + s));
+        runDateTests(s -> prestoCreateAsSelect("date_in_" + s));
     }
 
     @Test
-    public void testLegacyDateReadMapping()
+    public void testDateReadMapping()
     {
-        legacyDateTests(s -> oracleCreateAndInsert("legacy_read_date_in_" + s));
+        runDateTests(s -> oracleCreateAndInsert("read_date_in_" + s));
     }
 
-    private void legacyDateTests(Function<String, DataSetup> dataSetup)
+    private void runDateTests(Function<String, DataSetup> dataSetup)
     {
         Map<String, TimeZoneKey> zonesBySqlName = ImmutableMap.of(
                 "UTC", UTC_KEY,
@@ -572,65 +571,14 @@ public class TestOracleTypeMapping
                 "other", getTimeZoneKey(ZoneId.of("Europe/Vilnius").getId()));
 
         for (Map.Entry<String, TimeZoneKey> zone : zonesBySqlName.entrySet()) {
-            runLegacyTimestampTestInZone(
+            runTimestampTestInZone(
                     dataSetup.apply(zone.getKey()),
                     zone.getValue().getId(),
-                    legacyDateTests());
+                    dateTests());
         }
     }
 
-    private static DataTypeTest legacyDateTests()
-    {
-        ZoneId someZone = ZoneId.of("Europe/Vilnius");
-
-        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone =
-                LocalDate.of(1983, 10, 1);
-
-        verify(someZone.getRules().getValidOffsets(
-                dateOfLocalTimeChangeBackwardAtMidnightInSomeZone
-                        .atStartOfDay().minusMinutes(1)).size() == 2);
-
-        return DataTypeTest.create()
-                // before epoch
-                .addRoundTrip(dateDataType(), LocalDate.of(1952, 4, 3))
-                .addRoundTrip(dateDataType(), LocalDate.of(1970, 2, 3))
-                // summer on northern hemisphere (possible DST)
-                .addRoundTrip(dateDataType(), LocalDate.of(2017, 7, 1))
-                // winter on northern hemisphere
-                // (possible DST on southern hemisphere)
-                .addRoundTrip(dateDataType(), LocalDate.of(2017, 1, 1))
-                .addRoundTrip(dateDataType(),
-                        dateOfLocalTimeChangeBackwardAtMidnightInSomeZone);
-    }
-
-    @Test
-    public void testNonLegacyDateMapping()
-    {
-        nonLegacyDateTests(s -> prestoCreateAsSelect("non_legacy_date_in_" + s));
-    }
-
-    @Test
-    public void testNonLegacyDateReadMapping()
-    {
-        nonLegacyDateTests(s -> oracleCreateAndInsert("non_legacy_read_date_in_" + s));
-    }
-
-    void nonLegacyDateTests(Function<String, DataSetup> dataSetup)
-    {
-        Map<String, TimeZoneKey> zonesBySqlName = ImmutableMap.of(
-                "UTC", UTC_KEY,
-                "JVM", getTimeZoneKey(ZoneId.systemDefault().getId()),
-                "other", getTimeZoneKey(ZoneId.of("Europe/Vilnius").getId()));
-
-        for (Map.Entry<String, TimeZoneKey> zone : zonesBySqlName.entrySet()) {
-            runNonLegacyTimestampTestInZone(
-                    dataSetup.apply(zone.getKey()),
-                    zone.getValue().getId(),
-                    nonLegacyDateTests());
-        }
-    }
-
-    private DataTypeTest nonLegacyDateTests()
+    private DataTypeTest dateTests()
     {
         // Note: these test cases are duplicates of those for PostgreSQL and MySQL.
 
@@ -676,7 +624,7 @@ public class TestOracleTypeMapping
     }
 
     @Test(dataProvider = "testTimestampDataProvider")
-    public void testTimestamp(boolean legacyTimestamp, boolean insertWithPresto, ZoneId sessionZone)
+    public void testTimestamp(boolean insertWithPresto, ZoneId sessionZone)
     {
         // using two non-JVM zones so that we don't need to worry what Oracle system zone is
         DataTypeTest tests = DataTypeTest.create()
@@ -685,15 +633,14 @@ public class TestOracleTypeMapping
                 .addRoundTrip(timestampDataType(), timeDoubledInJvmZone)
                 .addRoundTrip(timestampDataType(), timeDoubledInVilnius);
 
-        addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, epoch); // epoch also is a gap in JVM zone
-        addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInJvmZone1);
-        addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInJvmZone2);
-        addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInVilnius);
-        addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInKathmandu);
+        addTimestampTestIfSupported(tests, epoch); // epoch also is a gap in JVM zone
+        addTimestampTestIfSupported(tests, timeGapInJvmZone1);
+        addTimestampTestIfSupported(tests, timeGapInJvmZone2);
+        addTimestampTestIfSupported(tests, timeGapInVilnius);
+        addTimestampTestIfSupported(tests, timeGapInKathmandu);
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                .setSystemProperty("legacy_timestamp", Boolean.toString(legacyTimestamp))
                 .build();
 
         if (insertWithPresto) {
@@ -704,13 +651,8 @@ public class TestOracleTypeMapping
         }
     }
 
-    private void addTimestampTestIfSupported(DataTypeTest tests, boolean legacyTimestamp, ZoneId sessionZone, LocalDateTime dateTime)
+    private void addTimestampTestIfSupported(DataTypeTest tests, LocalDateTime dateTime)
     {
-        if (legacyTimestamp && isGap(sessionZone, dateTime)) {
-            // in legacy timestamp semantics we cannot represent this dateTime
-            return;
-        }
-
         tests.addRoundTrip(timestampDataType(), dateTime);
     }
 
@@ -718,31 +660,21 @@ public class TestOracleTypeMapping
     public Object[][] testTimestampDataProvider()
     {
         return new Object[][] {
-                {true, true, ZoneOffset.UTC},
-                {false, true, ZoneOffset.UTC},
-                {true, false, ZoneOffset.UTC},
-                {false, false, ZoneOffset.UTC},
+                {true, ZoneOffset.UTC},
+                {false, ZoneOffset.UTC},
 
-                {true, true, jvmZone},
-                {false, true, jvmZone},
-                {true, false, jvmZone},
-                {false, false, jvmZone},
+                {true, jvmZone},
+                {false, jvmZone},
 
                 // using two non-JVM zones so that we don't need to worry what Oracle system zone is
-                {true, true, vilnius},
-                {false, true, vilnius},
-                {true, false, vilnius},
-                {false, false, vilnius},
+                {true, vilnius},
+                {false, vilnius},
 
-                {true, true, kathmandu},
-                {false, true, kathmandu},
-                {true, false, kathmandu},
-                {false, false, kathmandu},
+                {true, kathmandu},
+                {false, kathmandu},
 
-                {true, true, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
-                {false, true, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
-                {true, false, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
-                {false, false, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+                {true, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+                {false, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
         };
     }
 
@@ -869,28 +801,13 @@ public class TestOracleTypeMapping
     }
 
     /**
-     * Run a {@link DataTypeTest} in the given time zone, using legacy timestamps.
+     * Run a {@link DataTypeTest} in the given time zone
      * <p>
      * If the given time zone is {@code null}, use the default session time zone.
      */
-    private void runLegacyTimestampTestInZone(DataSetup dataSetup, String zone, DataTypeTest test)
+    private void runTimestampTestInZone(DataSetup dataSetup, String zone, DataTypeTest test)
     {
         Session.SessionBuilder session = Session.builder(getQueryRunner().getDefaultSession());
-        if (zone != null) {
-            session.setTimeZoneKey(getTimeZoneKey(zone));
-        }
-        test.execute(getQueryRunner(), session.build(), dataSetup);
-    }
-
-    /**
-     * Run a {@link DataTypeTest} in the given time zone, using non-legacy timestamps.
-     * <p>
-     * If the given time zone is {@code null}, use the default session time zone.
-     */
-    private void runNonLegacyTimestampTestInZone(DataSetup dataSetup, String zone, DataTypeTest test)
-    {
-        Session.SessionBuilder session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(SystemSessionProperties.LEGACY_TIMESTAMP, "false");
         if (zone != null) {
             session.setTimeZoneKey(getTimeZoneKey(zone));
         }
