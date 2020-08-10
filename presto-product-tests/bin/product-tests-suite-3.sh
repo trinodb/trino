@@ -9,26 +9,22 @@ suite_exit_code=0
 
 presto-product-tests-launcher/bin/run-launcher test run \
     --environment multinode-tls \
-    --reports-dir="${BASH_SOURCE%/*}"/../../product-tests-reports/suite-3/multinode-tls \
     -- -g smoke,cli,group-by,join,tls -x "${DISTRO_SKIP_GROUP}" -e "${DISTRO_SKIP_TEST}" \
     || suite_exit_code=1
 
 presto-product-tests-launcher/bin/run-launcher test run \
     --environment multinode-tls-kerberos \
-    --reports-dir="${BASH_SOURCE%/*}"/../../product-tests-reports/suite-3/multinode-tls-kerberos \
     -- -g cli,group-by,join,tls -x "${DISTRO_SKIP_GROUP}" -e "${DISTRO_SKIP_TEST}" \
     || suite_exit_code=1
 
 presto-product-tests-launcher/bin/run-launcher test run \
     --environment singlenode-kerberos-hdfs-impersonation-with-wire-encryption \
-    --reports-dir="${BASH_SOURCE%/*}"/../../product-tests-reports/suite-3/singlenode-kerberos-hdfs-impersonation-with-wire-encryption \
     -- -g storage_formats,cli,hdfs_impersonation,authorization -x "${DISTRO_SKIP_GROUP}" -e "${DISTRO_SKIP_TEST}" \
     || suite_exit_code=1
 
 # Smoke run af a few tests in environment with dfs.data.transfer.protection=true. Arbitrary tests which access HDFS data were chosen.
 presto-product-tests-launcher/bin/run-launcher test run \
     --environment singlenode-kerberos-hdfs-impersonation-with-data-protection \
-    --reports-dir="${BASH_SOURCE%/*}"/../../product-tests-reports/suite-3/singlenode-kerberos-hdfs-impersonation-with-data-protection \
     -- -t TestHiveStorageFormats.testOrcTableCreatedInPresto,TestHiveCreateTable.testCreateTable  -x "${DISTRO_SKIP_GROUP}" -e "${DISTRO_SKIP_TEST}" \
     || suite_exit_code=1
 
