@@ -48,11 +48,11 @@ public class OracleConfig
 
     public Optional<@Min(0) @Max(38) Integer> getDefaultNumberScale()
     {
-        return Optional.ofNullable(defaultNumberScale);
+        return Optional.of(defaultNumberScale == null ? 10 : defaultNumberScale);
     }
 
     @Config("oracle.number.default-scale")
-    @ConfigDescription("Default Presto DECIMAL scale for Oracle NUMBER data type")
+    @ConfigDescription("Default Presto DECIMAL scale for Oracle NUMBER data type, default value is 10")
     public OracleConfig setDefaultNumberScale(Integer defaultNumberScale)
     {
         this.defaultNumberScale = defaultNumberScale;
