@@ -125,7 +125,7 @@ public final class EnvironmentUp
             Environment environment = builder.build();
 
             log.info("Starting the environment '%s'", this.environment);
-            environment.start(startupTimeout);
+            environment.start();
             log.info("Environment '%s' started", this.environment);
 
             if (background) {
