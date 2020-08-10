@@ -43,6 +43,9 @@ import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HConstants;
 import org.apache.hadoop.hbase.HTableDescriptor;
 import org.apache.hadoop.hbase.client.HBaseAdmin;
+import org.apache.hadoop.hbase.io.compress.Compression;
+import org.apache.hadoop.hbase.io.encoding.DataBlockEncoding;
+import org.apache.hadoop.hbase.regionserver.BloomType;
 import org.apache.phoenix.exception.SQLExceptionCode;
 import org.apache.phoenix.jdbc.PhoenixConnection;
 import org.apache.phoenix.query.QueryConstants;
@@ -164,8 +167,8 @@ public class PhoenixMetadata
             HColumnDescriptor[] columnFamilies = tableDesc.getColumnFamilies();
             for (HColumnDescriptor columnFamily : columnFamilies) {
                 if (columnFamily.getNameAsString().equals(defaultFamilyName)) {
-                    if (!"NONE".equals(columnFamily.getBloomFilterType().toString())) {
-                        properties.put(PhoenixTableProperties.BLOOMFILTER, columnFamily.getBloomFilterType().toString());
+                    if (columnFamily.getBloomFilterType() != BloomType.NONE) {
+                        properties.put(PhoenixTableProperties.BLOOMFILTER, columnFamily.getBloomFilterType());
                     }
                     if (columnFamily.getMaxVersions() != 1) {
                         properties.put(PhoenixTableProperties.VERSIONS, columnFamily.getMaxVersions());
@@ -173,14 +176,14 @@ public class PhoenixMetadata
                     if (columnFamily.getMinVersions() > 0) {
                         properties.put(PhoenixTableProperties.MIN_VERSIONS, columnFamily.getMinVersions());
                     }
-                    if (!columnFamily.getCompression().toString().equals("NONE")) {
-                        properties.put(PhoenixTableProperties.COMPRESSION, columnFamily.getCompression().toString());
+                    if (columnFamily.getCompression() != Compression.Algorithm.NONE) {
+                        properties.put(PhoenixTableProperties.COMPRESSION, columnFamily.getCompression());
                     }
                     if (columnFamily.getTimeToLive() < FOREVER) {
                         properties.put(PhoenixTableProperties.TTL, columnFamily.getTimeToLive());
                     }
-                    if (!columnFamily.getDataBlockEncoding().toString().equals("NONE")) {
-                        properties.put(PhoenixTableProperties.DATA_BLOCK_ENCODING, columnFamily.getDataBlockEncoding().toString());
+                    if (columnFamily.getDataBlockEncoding() != DataBlockEncoding.NONE) {
+                        properties.put(PhoenixTableProperties.DATA_BLOCK_ENCODING, columnFamily.getDataBlockEncoding());
                     }
                     break;
                 }
