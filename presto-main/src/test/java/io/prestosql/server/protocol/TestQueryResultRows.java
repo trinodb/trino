@@ -23,6 +23,8 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.IntegerType;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.SmallintType;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
@@ -40,9 +42,11 @@ import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
 import static io.prestosql.client.ClientStandardTypes.BIGINT;
 import static io.prestosql.client.ClientStandardTypes.BOOLEAN;
 import static io.prestosql.client.ClientStandardTypes.INTEGER;
+import static io.prestosql.client.ClientStandardTypes.ROW;
 import static io.prestosql.client.ClientStandardTypes.TIMESTAMP;
 import static io.prestosql.client.ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.server.protocol.QueryResultRows.queryResultRowsBuilder;
+import static java.util.Collections.singletonList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -274,6 +278,40 @@ public class TestQueryResultRows
         assertThat(getAllValues(rows))
                 .hasSize(1)
                 .containsExactly(newArrayList(null, null));
+    }
+
+    @Test
+    public void shouldHandleRowTypeWithNullFieldValue()
+    {
+        List<Column> columns = ImmutableList.of(new Column("_col0", ROW, new ClientTypeSignature(ROW)));
+        List<Type> types = ImmutableList.of(RowType.from(ImmutableList.of(RowType.field("first", SmallintType.SMALLINT), RowType.field("second", SmallintType.SMALLINT))));
+
+        List<Object> values = new ArrayList<>();
+        values.add(null);
+        values.add((short) 1);
+
+        List<Page> pages = rowPagesBuilder(types)
+                .row(values)
+                .build();
+
+        TestExceptionConsumer exceptionConsumer = new TestExceptionConsumer();
+        QueryResultRows rows = queryResultRowsBuilder(getSession())
+                .withColumnsAndTypes(columns, types)
+                .withExceptionConsumer(exceptionConsumer)
+                .addPages(pages)
+                .build();
+
+        assertThat(exceptionConsumer.getExceptions()).isEmpty();
+        assertFalse(rows.isEmpty(), "rows are empty");
+        assertThat(rows.getTotalRowsCount()).isEqualTo(1);
+
+        List<List<Object>> allValues = getAllValues(rows);
+
+        assertThat(allValues)
+                .hasSize(1)
+                .containsOnly(singletonList(newArrayList(null, (short) 1)));
+
+        assertThat(exceptionConsumer.getExceptions()).isEmpty();
     }
 
     @Test

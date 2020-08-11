@@ -245,11 +245,11 @@ public class QueryResultRows
                         .map(RowType.Field::getType)
                         .collect(toImmutableList());
 
-                ImmutableList.Builder<Object> result = ImmutableList.builder();
+                List<Object> result = new ArrayList<>(values.size());
                 for (int i = 0; i < values.size(); i++) {
-                    result.add(getLegacyValue(values.get(i), types.get(i)));
+                    result.add(i, getLegacyValue(values.get(i), types.get(i)));
                 }
-                return result.build();
+                return result;
             }
         }
 
