@@ -18,8 +18,10 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.Session;
 import io.prestosql.client.ClientTypeSignature;
 import io.prestosql.client.Column;
+import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.IntegerType;
@@ -39,14 +41,19 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
+import static io.prestosql.client.ClientStandardTypes.ARRAY;
 import static io.prestosql.client.ClientStandardTypes.BIGINT;
 import static io.prestosql.client.ClientStandardTypes.BOOLEAN;
 import static io.prestosql.client.ClientStandardTypes.INTEGER;
+import static io.prestosql.client.ClientStandardTypes.MAP;
 import static io.prestosql.client.ClientStandardTypes.ROW;
 import static io.prestosql.client.ClientStandardTypes.TIMESTAMP;
 import static io.prestosql.client.ClientStandardTypes.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.server.protocol.QueryResultRows.queryResultRowsBuilder;
+import static io.prestosql.spi.type.TypeSignature.mapType;
 import static java.util.Collections.singletonList;
+import static java.util.Collections.singletonMap;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -57,6 +64,8 @@ public class TestQueryResultRows
     private static final Function<String, Column> BOOLEAN_COLUMN = name -> new Column(name, BOOLEAN, new ClientTypeSignature(BOOLEAN));
     private static final Function<String, Column> BIGINT_COLUMN = name -> new Column(name, BIGINT, new ClientTypeSignature(BIGINT));
     private static final Function<String, Column> INT_COLUMN = name -> new Column(name, INTEGER, new ClientTypeSignature(INTEGER));
+
+    private static final Metadata METADATA = createTestMetadataManager();
 
     @Test
     public void shouldNotReturnValues()
@@ -281,7 +290,63 @@ public class TestQueryResultRows
     }
 
     @Test
-    public void shouldHandleRowTypeWithNullFieldValue()
+    public void shouldHandleNullValuesInArray()
+    {
+        List<Column> columns = ImmutableList.of(new Column("_col0", ARRAY, new ClientTypeSignature(ARRAY)));
+        List<Type> types = ImmutableList.of(new ArrayType(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE));
+
+        List<Page> pages = rowPagesBuilder(types)
+                .row(singletonList(null))
+                .build();
+
+        TestExceptionConsumer exceptionConsumer = new TestExceptionConsumer();
+        QueryResultRows rows = queryResultRowsBuilder(getSession())
+                .withColumnsAndTypes(columns, types)
+                .withExceptionConsumer(exceptionConsumer)
+                .addPages(pages)
+                .build();
+
+        assertThat(exceptionConsumer.getExceptions()).isEmpty();
+        assertFalse(rows.isEmpty(), "rows are empty");
+        assertThat(rows.getTotalRowsCount()).isEqualTo(1);
+
+        assertThat(getAllValues(rows))
+                .hasSize(1)
+                .containsOnly(singletonList(singletonList(null)));
+
+        assertThat(exceptionConsumer.getExceptions()).isEmpty();
+    }
+
+    @Test
+    public void shouldHandleNullValuesInMap()
+    {
+        List<Column> columns = ImmutableList.of(new Column("_col0", MAP, new ClientTypeSignature(MAP)));
+        List<Type> types = ImmutableList.of(createMapType(BigintType.BIGINT, BigintType.BIGINT));
+
+        List<Page> pages = rowPagesBuilder(types)
+                .row(singletonMap(10, null))
+                .build();
+
+        TestExceptionConsumer exceptionConsumer = new TestExceptionConsumer();
+        QueryResultRows rows = queryResultRowsBuilder(getSession())
+                .withColumnsAndTypes(columns, types)
+                .withExceptionConsumer(exceptionConsumer)
+                .addPages(pages)
+                .build();
+
+        assertThat(exceptionConsumer.getExceptions()).isEmpty();
+        assertFalse(rows.isEmpty(), "rows are empty");
+        assertThat(rows.getTotalRowsCount()).isEqualTo(1);
+
+        assertThat(getAllValues(rows))
+                .hasSize(1)
+                .containsOnly(singletonList(singletonMap(10L, null)));
+
+        assertThat(exceptionConsumer.getExceptions()).isEmpty();
+    }
+
+    @Test
+    public void shouldHandleNullValuesInRow()
     {
         List<Column> columns = ImmutableList.of(new Column("_col0", ROW, new ClientTypeSignature(ROW)));
         List<Type> types = ImmutableList.of(RowType.from(ImmutableList.of(RowType.field("first", SmallintType.SMALLINT), RowType.field("second", SmallintType.SMALLINT))));
@@ -419,5 +484,10 @@ public class TestQueryResultRows
         {
             return exceptions;
         }
+    }
+
+    private static Type createMapType(Type keyType, Type valueType)
+    {
+        return METADATA.getType(mapType(keyType.getTypeSignature(), keyType.getTypeSignature()));
     }
 }
