@@ -14,6 +14,7 @@
 package io.prestosql.parquet;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.math.LongMath;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 import io.prestosql.spi.PrestoException;
@@ -21,11 +22,13 @@ import io.prestosql.spi.type.TimestampType;
 import org.apache.parquet.io.api.Binary;
 import org.apache.parquet.schema.OriginalType;
 
+import java.math.RoundingMode;
 import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static java.util.concurrent.TimeUnit.MICROSECONDS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.parquet.schema.OriginalType.TIMESTAMP_MICROS;
+import static org.apache.parquet.schema.OriginalType.TIMESTAMP_MILLIS;
 
 /**
  * Utility class for decoding INT96 encoded parquet timestamp to timestamp millis in GMT.
@@ -66,25 +69,30 @@ public final class ParquetTimestampUtils
         return (julianDay - JULIAN_EPOCH_OFFSET_DAYS) * MILLIS_IN_DAY;
     }
 
-    public static TimeUnit prestoTimestampRepresentationUnit(TimestampType timestampType)
+    public static long scaleParquetTimestamp(OriginalType originalType, TimestampType prestoType, long parquetTimestampValue)
     {
-        if (timestampType.getPrecision() <= 3) {
-            return MILLISECONDS;
+        int parquetScale;
+        if (originalType == TIMESTAMP_MILLIS) {
+            parquetScale = 3;
         }
-        if (timestampType.getPrecision() <= 6) {
-            return MICROSECONDS;
+        else if (originalType == TIMESTAMP_MICROS) {
+            parquetScale = 6;
         }
-        throw new IllegalArgumentException("Unsupported type: " + timestampType);
-    }
+        else {
+            throw new IllegalArgumentException("Unsupported original type: " + originalType);
+        }
 
-    public static TimeUnit parquetTimestampRepresentationUnit(OriginalType originalType)
-    {
-        switch (originalType) {
-            case TIMESTAMP_MILLIS:
-                return MILLISECONDS;
-            case TIMESTAMP_MICROS:
-                return MICROSECONDS;
+        int prestoPrecision = prestoType.getPrecision();
+        if (prestoPrecision == parquetScale) {
+            return parquetTimestampValue;
         }
-        throw new IllegalArgumentException("Unsupported original type: " + originalType);
+        else if (prestoPrecision > parquetScale) {
+            long scale = (long) Math.pow(10, prestoPrecision - parquetScale);
+            return parquetTimestampValue * scale;
+        }
+        else {
+            long scale = (long) Math.pow(10, parquetScale - prestoPrecision);
+            return LongMath.divide(parquetTimestampValue, scale, RoundingMode.HALF_UP);
+        }
     }
 }

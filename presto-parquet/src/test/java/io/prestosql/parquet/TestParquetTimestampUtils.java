@@ -14,13 +14,20 @@
 package io.prestosql.parquet;
 
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.TimestampType;
 import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.parquet.io.api.Binary;
 import org.testng.annotations.Test;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+
 import static io.prestosql.parquet.ParquetTimestampUtils.getTimestampMillis;
+import static io.prestosql.parquet.ParquetTimestampUtils.scaleParquetTimestamp;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static org.apache.hadoop.hive.ql.io.parquet.timestamp.NanoTimeUtils.getNanoTime;
+import static org.apache.parquet.schema.OriginalType.TIMESTAMP_MICROS;
+import static org.apache.parquet.schema.OriginalType.TIMESTAMP_MILLIS;
 import static org.testng.Assert.assertEquals;
 
 public class TestParquetTimestampUtils
@@ -52,5 +59,22 @@ public class TestParquetTimestampUtils
         Binary timestampBytes = getNanoTime(timestamp, false).toBinary();
         long decodedTimestampMillis = getTimestampMillis(timestampBytes);
         assertEquals(decodedTimestampMillis, timestamp.toEpochMilli());
+    }
+
+    @Test
+    public void testScaleParquetTimestamps()
+    {
+        long epochMillis = LocalDateTime.of(2012, 11, 10, 9, 8, 7, 6).toInstant(ZoneOffset.UTC).toEpochMilli();
+        long epochMicros1 = (epochMillis * 1000) + 345;
+        long epochMicros2 = (epochMillis * 1000) + 543;
+        TimestampType prestoMilliType = TimestampType.createTimestampType(3);
+        assertEquals(scaleParquetTimestamp(TIMESTAMP_MILLIS, prestoMilliType, epochMillis), epochMillis);
+        assertEquals(scaleParquetTimestamp(TIMESTAMP_MICROS, prestoMilliType, epochMicros1), epochMillis); // Round down
+        assertEquals(scaleParquetTimestamp(TIMESTAMP_MICROS, prestoMilliType, epochMicros2), epochMillis + 1); // Round up
+
+        TimestampType prestoMicroType = TimestampType.createTimestampType(6);
+        assertEquals(scaleParquetTimestamp(TIMESTAMP_MILLIS, prestoMicroType, epochMillis), epochMillis * 1000);
+        assertEquals(scaleParquetTimestamp(TIMESTAMP_MICROS, prestoMicroType, epochMicros1), epochMicros1);
+        assertEquals(scaleParquetTimestamp(TIMESTAMP_MICROS, prestoMicroType, epochMicros2), epochMicros2);
     }
 }

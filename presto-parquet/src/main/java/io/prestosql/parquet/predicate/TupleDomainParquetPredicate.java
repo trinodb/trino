@@ -38,6 +38,7 @@ import org.apache.parquet.column.statistics.FloatStatistics;
 import org.apache.parquet.column.statistics.IntStatistics;
 import org.apache.parquet.column.statistics.LongStatistics;
 import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.joda.time.DateTimeZone;
 
@@ -46,12 +47,10 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
 import static io.prestosql.parquet.ParquetTimestampUtils.getTimestampMillis;
-import static io.prestosql.parquet.ParquetTimestampUtils.parquetTimestampRepresentationUnit;
-import static io.prestosql.parquet.ParquetTimestampUtils.prestoTimestampRepresentationUnit;
+import static io.prestosql.parquet.ParquetTimestampUtils.scaleParquetTimestamp;
 import static io.prestosql.parquet.predicate.PredicateUtils.isStatisticsOverflow;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -275,14 +274,12 @@ public class TupleDomainParquetPredicate
                 return Domain.create(ValueSet.all(type), hasNullValue);
             }
 
-            TimeUnit prestoTimestampRepresentationUnit = prestoTimestampRepresentationUnit(timestampType);
-            TimeUnit parquetTimestampRepresentationUnit = parquetTimestampRepresentationUnit(statistics.type().getOriginalType());
+            OriginalType parquetType = statistics.type().getOriginalType();
             ParquetTimestampStatistics parquetTimestampStatistics = new ParquetTimestampStatistics(
-                    prestoTimestampRepresentationUnit.convert(longStatistics.getMin(), parquetTimestampRepresentationUnit),
-                    prestoTimestampRepresentationUnit.convert(longStatistics.getMax(), parquetTimestampRepresentationUnit));
+                    scaleParquetTimestamp(parquetType, timestampType, min),
+                    scaleParquetTimestamp(parquetType, timestampType, max));
             return createDomain(type, hasNullValue, parquetTimestampStatistics);
         }
-
         return Domain.create(ValueSet.all(type), hasNullValue);
     }
 
