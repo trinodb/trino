@@ -57,4 +57,9 @@ public final class JdbcDriverCapabilities
         // JDBC client 335 and 336 are broken in regard to handling timestamp with time zone correctly.
         return driverVersion() == 335 || driverVersion() == 336;
     }
+
+    public static boolean hasBrokenParametricTimeSupport()
+    {
+        return driverVersion() >= 337 && driverVersion() <= 340;
+    }
 }
