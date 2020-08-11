@@ -461,17 +461,43 @@ public class UnaliasSymbolReferences
             Map<Symbol, Symbol> mapping = new HashMap<>(context.getCorrelationMapping());
             SymbolMapper mapper = symbolMapper(mapping);
 
-            List<List<Expression>> newRows = node.getRows().stream()
-                    .map(row -> row.stream()
-                            .map(mapper::map)
-                            .collect(toImmutableList()))
+            ImmutableList.Builder<SimpleEntry<Symbol, List<Expression>>> rewrittenAssignmentsBuilder = ImmutableList.builder();
+            for (int i = 0; i < node.getOutputSymbols().size(); i++) {
+                ImmutableList.Builder<Expression> expressionsBuilder = ImmutableList.builder();
+                for (List<Expression> row : node.getRows()) {
+                    expressionsBuilder.add(mapper.map(row.get(i)));
+                }
+                rewrittenAssignmentsBuilder.add(new SimpleEntry<>(mapper.map(node.getOutputSymbols().get(i)), expressionsBuilder.build()));
+            }
+            List<SimpleEntry<Symbol, List<Expression>>> rewrittenAssignments = rewrittenAssignmentsBuilder.build();
+
+            // prune duplicate outputs and corresponding expressions. assert that duplicate outputs result from same input expressions
+            Map<Symbol, List<Expression>> deduplicateAssignments = rewrittenAssignments.stream()
+                    .collect(toImmutableMap(SimpleEntry::getKey, SimpleEntry::getValue, (previous, current) -> {
+                        checkState(previous.equals(current), "different expressions mapped to the same output symbol");
+                        return previous;
+                    }));
+
+            List<Symbol> newOutputs = deduplicateAssignments.keySet().stream()
                     .collect(toImmutableList());
 
-            List<Symbol> newOutputSymbols = mapper.mapAndDistinct(node.getOutputSymbols());
-            checkState(node.getOutputSymbols().size() == newOutputSymbols.size(), "Values output symbols were pruned");
+            List<ImmutableList.Builder<Expression>> newRows = new ArrayList<>(node.getRows().size());
+            for (int i = 0; i < node.getRows().size(); i++) {
+                newRows.add(ImmutableList.builder());
+            }
+            for (List<Expression> expressions : deduplicateAssignments.values()) {
+                for (int i = 0; i < expressions.size(); i++) {
+                    newRows.get(i).add(expressions.get(i));
+                }
+            }
 
             return new PlanAndMappings(
-                    new ValuesNode(node.getId(), newOutputSymbols, newRows),
+                    new ValuesNode(
+                            node.getId(),
+                            newOutputs,
+                            newRows.stream()
+                                    .map(ImmutableList.Builder::build)
+                                    .collect(toImmutableList())),
                     mapping);
         }
 
