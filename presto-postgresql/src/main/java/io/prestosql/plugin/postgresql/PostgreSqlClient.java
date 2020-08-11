@@ -56,6 +56,8 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.connector.SortItem;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.DecimalType;
@@ -139,6 +141,7 @@ import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.sql.DatabaseMetaData.columnNoNulls;
 import static java.util.Collections.addAll;
+import static java.util.stream.Collectors.joining;
 
 public class PostgreSqlClient
         extends BaseJdbcClient
@@ -470,6 +473,20 @@ public class PostgreSqlClient
     protected Optional<BiFunction<String, Long, String>> limitFunction()
     {
         return Optional.of((sql, limit) -> sql + " LIMIT " + limit);
+    }
+
+    @Override
+    protected Optional<BiFunction<String, List<SortItem>, String>> orderByFunction()
+    {
+        return Optional.of((sql, sortItems) -> sql + " ORDER BY " + sortItems.stream()
+                .map(orderByColumn -> orderByColumn.getName() + " " + getSortOrderSql(orderByColumn.getSortOrder()))
+                .collect(joining(",")));
+    }
+
+    private static String getSortOrderSql(SortOrder sortOrder)
+    {
+        String sql = sortOrder.isAscending() ? "ASC " : "DESC ";
+        return sql + (sortOrder.isNullsFirst() ? "NULLS FIRST" : "NULLS LAST");
     }
 
     @Override

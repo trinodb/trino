@@ -54,6 +54,7 @@ import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static java.util.function.Function.identity;
 
 public class DruidJdbcClient
         extends BaseJdbcClient
@@ -164,6 +165,7 @@ public class DruidJdbcClient
                         columns,
                         table.getConstraint(),
                         split.getAdditionalPredicate(),
+                        identity(),
                         tryApplyLimit(table.getLimit()));
     }
 

@@ -85,6 +85,8 @@ public interface JdbcClient
 
     boolean isLimitGuaranteed(ConnectorSession session);
 
+    boolean supportsTopNPushDown();
+
     void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column);
 
     void dropColumn(JdbcIdentity identity, JdbcTableHandle handle, JdbcColumnHandle column);

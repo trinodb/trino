@@ -110,6 +110,25 @@ public abstract class AbstractTestIntegrationSmokeTest
     }
 
     @Test
+    public void testTopN()
+    {
+        assertQueryOrdered("SELECT orderkey FROM orders order by orderkey limit 10");
+        assertQueryOrdered("SELECT orderkey FROM orders order by orderkey desc limit 10");
+
+        // multiple sort columns with different sort orders
+        assertQueryOrdered("SELECT orderpriority, totalprice FROM orders order by orderpriority desc, totalprice asc limit 10");
+
+        //TopN with Filter
+        assertQueryOrdered("SELECT orderkey FROM orders WHERE orderkey > 10 order by orderkey desc limit 10");
+
+        //TopN with aggregation over aggregation column
+        assertQueryOrdered("SELECT sum(totalprice) FROM orders order by sum(totalprice) limit 10");
+
+        // TopN over topN
+        assertQueryOrdered("SELECT orderkey, totalprice from (SELECT orderkey, totalprice FROM orders order by 1,2 limit 10) order by 2,1 limit 5");
+    }
+
+    @Test
     public void testExactPredicate()
     {
         assertQueryReturnsEmptyResult("SELECT * FROM orders WHERE orderkey = 10");

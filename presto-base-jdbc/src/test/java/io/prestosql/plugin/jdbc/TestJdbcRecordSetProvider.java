@@ -184,6 +184,7 @@ public class TestJdbcRecordSetProvider
                 domain,
                 Optional.empty(),
                 OptionalLong.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         ConnectorSplitSource splits = jdbcClient.getSplits(SESSION, jdbcTableHandle);

@@ -378,6 +378,19 @@ public class TestPostgreSqlIntegrationSmokeTest
     }
 
     @Test
+    public void testTopNPushdown()
+    {
+        assertTopNPushedDown("SELECT orderkey FROM orders order by orderkey limit 10");
+        assertTopNPushedDown("SELECT orderkey FROM orders order by orderkey desc limit 10");
+
+        // multiple sort columns with different sort orders
+        assertTopNPushedDown("SELECT * FROM orders order by orderpriority desc, totalprice asc limit 10");
+
+        //TopN with aggregation over aggregation column
+        assertTopNPushedDown("SELECT sum(totalprice) FROM orders order by sum(totalprice) limit 10");
+    }
+
+    @Test
     public void testColumnComment()
             throws Exception
     {

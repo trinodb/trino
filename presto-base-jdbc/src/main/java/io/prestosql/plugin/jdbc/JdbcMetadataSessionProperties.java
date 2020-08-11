@@ -27,6 +27,7 @@ public class JdbcMetadataSessionProperties
         implements SessionPropertiesProvider
 {
     public static final String ALLOW_AGGREGATION_PUSHDOWN = "allow_aggregation_pushdown";
+    public static final String ALLOW_TOPN_PUSHDOWN = "allow_topn_pushdown";
 
     private final List<PropertyMetadata<?>> properties;
 
@@ -38,6 +39,11 @@ public class JdbcMetadataSessionProperties
                         ALLOW_AGGREGATION_PUSHDOWN,
                         "Allow aggregation pushdown",
                         jdbcMetadataConfig.isAllowAggregationPushdown(),
+                        false))
+                .add(booleanProperty(
+                        ALLOW_TOPN_PUSHDOWN,
+                        "Allow TopN pushdown",
+                        jdbcMetadataConfig.isAllowTopNPushdown(),
                         false))
                 .build();
     }
@@ -51,5 +57,10 @@ public class JdbcMetadataSessionProperties
     public static boolean isAllowAggregationPushdown(ConnectorSession session)
     {
         return session.getProperty(ALLOW_AGGREGATION_PUSHDOWN, Boolean.class);
+    }
+
+    public static boolean isAllowTopNPushdown(ConnectorSession session)
+    {
+        return session.getProperty(ALLOW_TOPN_PUSHDOWN, Boolean.class);
     }
 }

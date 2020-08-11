@@ -31,6 +31,7 @@ import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.FixedSplitSource;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.connector.SortItem;
 import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.TableStatistics;
@@ -409,6 +410,7 @@ public abstract class BaseJdbcClient
                 columns,
                 table.getConstraint(),
                 split.getAdditionalPredicate(),
+                tryApplyOrderby(table.getSortOrder()),
                 tryApplyLimit(table.getLimit()));
     }
 
@@ -910,6 +912,16 @@ public abstract class BaseJdbcClient
                 .orElseGet(Function::identity);
     }
 
+    protected Function<String, String> tryApplyOrderby(Optional<List<SortItem>> sortItems)
+    {
+        if (!sortItems.isPresent() || sortItems.get().isEmpty()) {
+            return Function.identity();
+        }
+        return orderByFunction()
+                .map(orderByFunction -> (Function<String, String>) sql -> orderByFunction.apply(sql, sortItems.get()))
+                .orElseGet(Function::identity);
+    }
+
     @Override
     public boolean supportsLimit()
     {
@@ -917,6 +929,17 @@ public abstract class BaseJdbcClient
     }
 
     protected Optional<BiFunction<String, Long, String>> limitFunction()
+    {
+        return Optional.empty();
+    }
+
+    @Override
+    public boolean supportsTopNPushDown()
+    {
+        return orderByFunction().isPresent();
+    }
+
+    protected Optional<BiFunction<String, List<SortItem>, String>> orderByFunction()
     {
         return Optional.empty();
     }

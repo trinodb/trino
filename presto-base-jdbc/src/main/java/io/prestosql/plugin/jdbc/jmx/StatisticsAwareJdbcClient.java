@@ -257,6 +257,12 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public boolean supportsTopNPushDown()
+    {
+        return delegate().supportsTopNPushDown();
+    }
+
+    @Override
     public boolean isLimitGuaranteed(ConnectorSession session)
     {
         return delegate().isLimitGuaranteed(session);

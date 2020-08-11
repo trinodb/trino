@@ -13,6 +13,9 @@
  */
 package io.prestosql.spi.connector;
 
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
 import java.util.Objects;
 
 import static java.util.Objects.requireNonNull;
@@ -22,17 +25,20 @@ public class SortItem
     private final String name;
     private final SortOrder sortOrder;
 
-    public SortItem(String name, SortOrder sortOrder)
+    @JsonCreator
+    public SortItem(@JsonProperty("name") String name, @JsonProperty("sortOrder") SortOrder sortOrder)
     {
         this.name = requireNonNull(name, "name is null");
         this.sortOrder = requireNonNull(sortOrder, "name is null");
     }
 
+    @JsonProperty
     public String getName()
     {
         return name;
     }
 
+    @JsonProperty
     public SortOrder getSortOrder()
     {
         return sortOrder;

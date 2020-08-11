@@ -94,6 +94,7 @@ public class QueryBuilder
             List<JdbcColumnHandle> columns,
             TupleDomain<ColumnHandle> tupleDomain,
             Optional<String> additionalPredicate,
+            Function<String, String> orderByFunction,
             Function<String, String> sqlFunction)
             throws SQLException
     {
@@ -115,6 +116,7 @@ public class QueryBuilder
 
         sql += getGroupBy(groupingSets);
 
+        sql = orderByFunction.apply(sql);
         String query = sqlFunction.apply(sql);
         log.debug("Preparing query: %s", query);
         PreparedStatement statement = client.getPreparedStatement(connection, query);

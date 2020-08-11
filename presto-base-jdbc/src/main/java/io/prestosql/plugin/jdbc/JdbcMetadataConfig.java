@@ -20,6 +20,7 @@ public class JdbcMetadataConfig
 {
     private boolean allowDropTable;
     private boolean allowAggregationPushdown = true;
+    private boolean allowTopNPushdown = true;
 
     public boolean isAllowDropTable()
     {
@@ -45,5 +46,18 @@ public class JdbcMetadataConfig
     {
         this.allowAggregationPushdown = allowAggregationPushdown;
         return this;
+    }
+
+    @Config("allow-topn-pushdown")
+    @ConfigDescription("Allow TopN pushdown")
+    public JdbcMetadataConfig setAllowTopNPushdown(boolean allowTopNPushdown)
+    {
+        this.allowTopNPushdown = allowTopNPushdown;
+        return this;
+    }
+
+    public Boolean isAllowTopNPushdown()
+    {
+        return this.allowTopNPushdown;
     }
 }

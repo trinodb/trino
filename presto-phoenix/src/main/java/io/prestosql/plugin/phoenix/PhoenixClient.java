@@ -183,6 +183,7 @@ public class PhoenixClient
                 columnHandles,
                 phoenixSplit.getConstraint(),
                 split.getAdditionalPredicate(),
+                tryApplyOrderby(table.getSortOrder()),
                 tryApplyLimit(table.getLimit()));
         QueryPlan queryPlan = getQueryPlan((PhoenixPreparedStatement) query);
         ResultSet resultSet = getResultSet(phoenixSplit.getPhoenixInputSplit(), queryPlan);

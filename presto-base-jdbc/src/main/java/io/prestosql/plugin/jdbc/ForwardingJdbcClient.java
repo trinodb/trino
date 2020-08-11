@@ -216,6 +216,12 @@ public abstract class ForwardingJdbcClient
     }
 
     @Override
+    public boolean supportsTopNPushDown()
+    {
+        return delegate().supportsTopNPushDown();
+    }
+
+    @Override
     public void addColumn(ConnectorSession session, JdbcTableHandle handle, ColumnMetadata column)
     {
         delegate().addColumn(session, handle, column);

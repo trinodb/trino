@@ -39,8 +39,10 @@ import io.prestosql.spi.connector.LimitApplicationResult;
 import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
+import io.prestosql.spi.connector.SortItem;
 import io.prestosql.spi.connector.SystemTable;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.connector.TopNApplicationResult;
 import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.expression.Variable;
 import io.prestosql.spi.predicate.Domain;
@@ -56,6 +58,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Functions.identity;
 import static com.google.common.base.Preconditions.checkState;
@@ -63,6 +66,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.plugin.jdbc.JdbcMetadataSessionProperties.isAllowAggregationPushdown;
+import static io.prestosql.plugin.jdbc.JdbcMetadataSessionProperties.isAllowTopNPushdown;
 import static io.prestosql.spi.StandardErrorCode.PERMISSION_DENIED;
 import static java.util.Objects.requireNonNull;
 
@@ -160,6 +164,7 @@ public class JdbcMetadata
                 newDomain,
                 Optional.empty(), // groupBy
                 handle.getLimit(),
+                handle.getSortOrder(), // orderBy
                 handle.getColumns());
 
         return Optional.of(new ConstraintApplicationResult<>(handle, remainingFilter));
@@ -189,6 +194,7 @@ public class JdbcMetadata
                         handle.getConstraint(),
                         handle.getGroupingSets(),
                         handle.getLimit(),
+                        handle.getSortOrder(), //order by
                         Optional.of(newColumns)),
                 projections,
                 assignments.entrySet().stream()
@@ -272,10 +278,56 @@ public class JdbcMetadata
                                 .map(JdbcColumnHandle.class::cast)
                                 .collect(toImmutableList()))
                         .collect(toImmutableList())),
-                OptionalLong.empty(), // limit
+                handle.getLimit(), // limit
+                handle.getSortOrder(), //orderby
                 Optional.of(newColumns.build()));
 
         return Optional.of(new AggregationApplicationResult<>(handle, projections.build(), resultAssignments.build(), ImmutableMap.of()));
+    }
+
+    @Override
+    public Optional<TopNApplicationResult<ConnectorTableHandle>> applyTopN(
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            long topNCount,
+            List<SortItem> sortItems,
+            Map<String, ColumnHandle> assignments)
+    {
+        if (!isAllowTopNPushdown(session) || !jdbcClient.supportsTopNPushDown() || !jdbcClient.supportsLimit()) {
+            return Optional.empty();
+        }
+
+        JdbcTableHandle handle = (JdbcTableHandle) table;
+
+        if (!sortItems.stream().allMatch(sortItem -> assignments.containsKey(sortItem.getName()))) {
+            return Optional.empty();
+        }
+
+        List<SortItem> sortOrder = sortItems.stream()
+                .map(sortItem -> new SortItem(((JdbcColumnHandle) assignments.get(sortItem.getName())).getColumnName(), sortItem.getSortOrder()))
+                .collect(Collectors.toList());
+
+        if (handle.getSortOrder().isPresent() && handle.getLimit().isPresent()) {
+            // This might be unnecessary defensive check
+            if (handle.getLimit().getAsLong() == topNCount && handle.getSortOrder().get().equals(sortOrder)) {
+                // we return a result instead of empty so the top level TopN node with stage=Final also gets
+                // removed when both the sort order and limit count match.
+                return Optional.of(new TopNApplicationResult<>(handle, jdbcClient.isLimitGuaranteed(session)));
+            }
+            else {
+                return Optional.empty();
+            }
+        }
+
+        handle = new JdbcTableHandle(
+                handle.getSchemaTableName(),
+                handle.getRemoteTableName(),
+                handle.getConstraint(),
+                handle.getGroupingSets(),
+                OptionalLong.of(topNCount),
+                Optional.of(sortOrder), //order by
+                handle.getColumns());
+        return Optional.of(new TopNApplicationResult<>(handle, jdbcClient.isLimitGuaranteed(session)));
     }
 
     @Override
@@ -297,6 +349,7 @@ public class JdbcMetadata
                 handle.getConstraint(),
                 handle.getGroupingSets(),
                 OptionalLong.of(limit),
+                handle.getSortOrder(), //order by
                 handle.getColumns());
 
         return Optional.of(new LimitApplicationResult<>(handle, jdbcClient.isLimitGuaranteed(session)));

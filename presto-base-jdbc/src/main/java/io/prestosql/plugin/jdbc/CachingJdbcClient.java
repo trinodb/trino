@@ -186,6 +186,12 @@ public final class CachingJdbcClient
     }
 
     @Override
+    public boolean supportsTopNPushDown()
+    {
+        return delegate.supportsTopNPushDown();
+    }
+
+    @Override
     public Optional<JdbcTableHandle> getTableHandle(JdbcIdentity identity, SchemaTableName schemaTableName)
     {
         TableHandleCacheKey key = new TableHandleCacheKey(identity, schemaTableName);

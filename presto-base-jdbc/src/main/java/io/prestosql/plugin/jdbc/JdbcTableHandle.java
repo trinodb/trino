@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.connector.SortItem;
 import io.prestosql.spi.predicate.TupleDomain;
 
 import javax.annotation.Nullable;
@@ -49,6 +50,8 @@ public final class JdbcTableHandle
     // columns of the relation described by this handle, after projections, aggregations, etc.
     private final Optional<List<JdbcColumnHandle>> columns;
 
+    private final Optional<List<SortItem>> sortOrder;
+
     @Deprecated
     public JdbcTableHandle(SchemaTableName schemaTableName, @Nullable String catalogName, @Nullable String schemaName, String tableName)
     {
@@ -63,6 +66,7 @@ public final class JdbcTableHandle
                 TupleDomain.all(),
                 Optional.empty(),
                 OptionalLong.empty(),
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -73,6 +77,7 @@ public final class JdbcTableHandle
             @JsonProperty("constraint") TupleDomain<ColumnHandle> constraint,
             @JsonProperty("groupingSets") Optional<List<List<JdbcColumnHandle>>> groupingSets,
             @JsonProperty("limit") OptionalLong limit,
+            @JsonProperty("sortOrder") Optional<List<SortItem>> sortOrder,
             @JsonProperty("columns") Optional<List<JdbcColumnHandle>> columns)
     {
         this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
@@ -84,6 +89,7 @@ public final class JdbcTableHandle
         this.groupingSets = groupingSets.map(JdbcTableHandle::copy);
 
         this.limit = requireNonNull(limit, "limit is null");
+        this.sortOrder = requireNonNull(sortOrder, "sortOrder is null");
 
         requireNonNull(columns, "columns is null");
         checkArgument(groupingSets.isEmpty() || columns.isPresent(), "columns should be present when groupingSets is present");
@@ -141,6 +147,12 @@ public final class JdbcTableHandle
     }
 
     @JsonProperty
+    public Optional<List<SortItem>> getSortOrder()
+    {
+        return sortOrder;
+    }
+
+    @JsonProperty
     public Optional<List<JdbcColumnHandle>> getColumns()
     {
         return columns;
@@ -149,7 +161,7 @@ public final class JdbcTableHandle
     @JsonIgnore
     public boolean isSynthetic()
     {
-        return !constraint.isAll() || groupingSets.isPresent() || limit.isPresent();
+        return !constraint.isAll() || groupingSets.isPresent() || limit.isPresent() || sortOrder.isPresent();
     }
 
     @Override

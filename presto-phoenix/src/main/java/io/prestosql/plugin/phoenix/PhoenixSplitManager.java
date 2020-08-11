@@ -85,6 +85,7 @@ public class PhoenixSplitManager
                     columns,
                     tableHandle.getConstraint(),
                     Optional.empty(),
+                    Function.identity(),
                     Function.identity());
 
             List<ConnectorSplit> splits = getSplits(inputQuery).stream()
