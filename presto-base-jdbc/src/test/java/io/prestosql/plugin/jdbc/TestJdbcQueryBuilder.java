@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
 import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.SortedRangeSet;
@@ -339,9 +338,9 @@ public class TestJdbcQueryBuilder
                         false),
                 columns.get(5), Domain.create(SortedRangeSet.copyOf(TIME,
                         ImmutableList.of(
-                                Range.range(TIME, toTimeRepresentation(SESSION, 6, 12, 23), false, toTimeRepresentation(SESSION, 8, 23, 37), true),
-                                Range.equal(TIME, toTimeRepresentation(SESSION, 2, 3, 4)),
-                                Range.equal(TIME, toTimeRepresentation(SESSION, 20, 23, 37)))),
+                                Range.range(TIME, toTimeRepresentation(6, 12, 23), false, toTimeRepresentation(8, 23, 37), true),
+                                Range.equal(TIME, toTimeRepresentation(2, 3, 4)),
+                                Range.equal(TIME, toTimeRepresentation(20, 23, 37)))),
                         false)));
 
         Connection connection = database.getConnection();
@@ -540,13 +539,10 @@ public class TestJdbcQueryBuilder
         return Time.valueOf(LocalTime.of(hour, minute, second));
     }
 
-    private static long toTimeRepresentation(ConnectorSession session, int hour, int minute, int second)
+    private static long toTimeRepresentation(int hour, int minute, int second)
     {
-        SqlTime time = sqlTimeOf(hour, minute, second, 0, session);
-        if (session.isLegacyTimestamp()) {
-            return time.getMillisUtc();
-        }
-        return time.getMillis();
+        SqlTime time = sqlTimeOf(hour, minute, second, 0);
+        return time.getPicos();
     }
 
     private static Multiset<List<Object>> read(ResultSet resultSet)

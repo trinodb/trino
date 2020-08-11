@@ -21,8 +21,8 @@ import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.StandardTypes;
 
 import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.type.Timestamps.round;
-import static io.prestosql.type.Timestamps.scaleEpochMillisToMicros;
+import static io.prestosql.type.DateTimes.round;
+import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
 
 @ScalarOperator(CAST)
 public final class TimeToTimestampCast

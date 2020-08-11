@@ -176,7 +176,7 @@ public class TestJdbcResultSet
     public void testTime()
             throws Exception
     {
-        checkRepresentation("TIME '09:39:05'", Types.TIME, (rs, column) -> {
+        checkRepresentation("TIME '09:39:05.000'", Types.TIME, (rs, column) -> {
             assertEquals(rs.getObject(column), Time.valueOf(LocalTime.of(9, 39, 5)));
             assertEquals(rs.getObject(column, Time.class), Time.valueOf(LocalTime.of(9, 39, 5)));
             assertThrows(() -> rs.getDate(column));

@@ -59,7 +59,8 @@ public class OracleClientModule
                     connectionProperties,
                     credentialProvider,
                     oracleConfig.getConnectionPoolMinSize(),
-                    oracleConfig.getConnectionPoolMaxSize());
+                    oracleConfig.getConnectionPoolMaxSize(),
+                    oracleConfig.getInactiveConnectionTimeout());
         }
 
         return new DriverConnectionFactory(

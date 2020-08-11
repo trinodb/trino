@@ -46,6 +46,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
@@ -323,8 +324,8 @@ public final class PartitionTransforms
     private static Block bucketTime(Block block, int count)
     {
         return bucketBlock(block, count, position -> {
-            long value = TIME.getLong(block, position);
-            return bucketHash(MILLISECONDS.toMicros(value));
+            long picos = TIME.getLong(block, position);
+            return bucketHash(picos / PICOSECONDS_PER_MICROSECOND);
         });
     }
 

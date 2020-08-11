@@ -30,9 +30,9 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
@@ -65,8 +65,8 @@ public final class MetadataUtil
         private final Map<String, Type> types = ImmutableMap.<String, Type>builder()
                 .put(varcharMapType.getTypeSignature().toString(), varcharMapType)
                 .put(StandardTypes.BIGINT, BIGINT)
-                .put(StandardTypes.TIMESTAMP, TIMESTAMP)
-                .put("timestamp(3)", TIMESTAMP)
+                .put(StandardTypes.TIMESTAMP_WITH_TIME_ZONE, TIMESTAMP_COLUMN_TYPE)
+                .put("timestamp(3) with time zone", TIMESTAMP_COLUMN_TYPE)
                 .put(StandardTypes.DOUBLE, DOUBLE)
                 .put(StandardTypes.VARCHAR, createUnboundedVarcharType())
                 .build();

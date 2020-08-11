@@ -49,6 +49,9 @@ public final class RowHelper
                 case FLOAT:
                     to.addFloat(i, from.getFloat(i));
                     break;
+                case DECIMAL:
+                    to.addDecimal(i, from.getDecimal(i));
+                    break;
                 case BOOL:
                     to.addBoolean(i, from.getBoolean(i));
                     break;
@@ -87,6 +90,9 @@ public final class RowHelper
                     break;
                 case FLOAT:
                     to.addFloat(i, from.getFloat(i));
+                    break;
+                case DECIMAL:
+                    to.addDecimal(i, from.getDecimal(i));
                     break;
                 case BOOL:
                     to.addBoolean(i, from.getBoolean(i));

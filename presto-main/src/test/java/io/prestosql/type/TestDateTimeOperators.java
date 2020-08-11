@@ -16,7 +16,6 @@ package io.prestosql.type;
 
 import io.prestosql.Session;
 import io.prestosql.operator.scalar.FunctionAssertions;
-import io.prestosql.spi.type.SqlTime;
 import io.prestosql.spi.type.SqlTimeWithTimeZone;
 import io.prestosql.spi.type.Type;
 import org.joda.time.DateTime;
@@ -28,7 +27,6 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static com.google.common.base.Verify.verify;
-import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.spi.type.TimestampType.createTimestampType;
@@ -169,26 +167,6 @@ public class TestDateTimeOperators
                 "TIME '03:30:00.000 America/Los_Angeles'",
                 TIME_WITH_TIME_ZONE,
                 new SqlTimeWithTimeZone(41400000, getTimeZoneKey("America/Los_Angeles")));
-    }
-
-    @Test
-    public void testTimeRepresentation()
-    {
-        // PST -> PDT date
-        testTimeRepresentationOnDate(new DateTime(2017, 3, 12, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '02:30:00.000'", TIME, new SqlTime(9000000));
-        testTimeRepresentationOnDate(new DateTime(2017, 3, 12, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '03:30:00.000'", TIME, new SqlTime(12600000));
-
-        // PDT -> PST date
-        testTimeRepresentationOnDate(new DateTime(2017, 10, 4, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '02:30:00.000'", TIME, new SqlTime(9000000));
-        testTimeRepresentationOnDate(new DateTime(2017, 10, 4, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '03:30:00.000'", TIME, new SqlTime(12600000));
-
-        // PDT date
-        testTimeRepresentationOnDate(new DateTime(2017, 6, 6, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '02:30:00.000'", TIME, new SqlTime(9000000));
-        testTimeRepresentationOnDate(new DateTime(2017, 6, 6, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '03:30:00.000'", TIME, new SqlTime(12600000));
-
-        // PST date
-        testTimeRepresentationOnDate(new DateTime(2017, 11, 1, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '02:30:00.000'", TIME, new SqlTime(9000000));
-        testTimeRepresentationOnDate(new DateTime(2017, 11, 1, 10, 0, 0, 0, DateTimeZone.UTC), "TIME '03:30:00.000'", TIME, new SqlTime(12600000));
     }
 
     private void testTimeRepresentationOnDate(DateTime date, String timeLiteral, Type expectedType, Object expected)

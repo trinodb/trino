@@ -29,6 +29,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
@@ -37,11 +38,8 @@ import io.prestosql.sql.tree.QualifiedName;
 
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.IllegalFormatException;
 import java.util.List;
 import java.util.Optional;
@@ -67,20 +65,20 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimeType.TIME;
+import static io.prestosql.spi.type.Timestamps.roundDiv;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
+import static io.prestosql.type.DateTimes.toLocalDateTime;
+import static io.prestosql.type.DateTimes.toZonedDateTime;
 import static io.prestosql.type.JsonType.JSON;
-import static io.prestosql.type.Timestamps.toLocalDateTime;
-import static io.prestosql.type.Timestamps.toZonedDateTime;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static io.prestosql.util.Failures.internalError;
 import static io.prestosql.util.Reflection.methodHandle;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class FormatFunction
         extends SqlScalarFunction
@@ -129,7 +127,7 @@ public final class FormatFunction
                 type.equals(DATE) ||
                 type instanceof TimestampWithTimeZoneType ||
                 type instanceof TimestampType ||
-                type.equals(TIME) ||
+                type instanceof TimeType ||
                 isShortDecimal(type) ||
                 isLongDecimal(type) ||
                 isVarcharType(type) ||
@@ -214,8 +212,8 @@ public final class FormatFunction
         if (type instanceof TimestampType) {
             return (session, block) -> toLocalDateTime(((TimestampType) type), session, block, position);
         }
-        if (type.equals(TIME)) {
-            return (session, block) -> toLocalTime(session, type.getLong(block, position));
+        if (type instanceof TimeType) {
+            return (session, block) -> toLocalTime(type.getLong(block, position));
         }
         // TODO: support TIME WITH TIME ZONE by https://github.com/prestosql/presto/issues/191 + mapping to java.time.OffsetTime
         if (type.equals(JSON)) {
@@ -259,14 +257,10 @@ public final class FormatFunction
         return (session, block) -> convertToString(handle, function.apply(session, block));
     }
 
-    private static LocalTime toLocalTime(ConnectorSession session, long value)
+    private static LocalTime toLocalTime(long value)
     {
-        if (session.isLegacyTimestamp()) {
-            Instant instant = Instant.ofEpochMilli(value);
-            ZoneId zoneId = ZoneId.of(session.getTimeZoneKey().getId());
-            return ZonedDateTime.ofInstant(instant, zoneId).toLocalTime();
-        }
-        return LocalTime.ofNanoOfDay(MILLISECONDS.toNanos(value));
+        long nanoOfDay = roundDiv(value, PICOSECONDS_PER_NANOSECOND);
+        return LocalTime.ofNanoOfDay(nanoOfDay);
     }
 
     private static Object convertToString(MethodHandle handle, Object value)

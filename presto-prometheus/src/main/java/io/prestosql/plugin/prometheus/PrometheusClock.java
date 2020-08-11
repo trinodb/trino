@@ -13,34 +13,38 @@
  */
 package io.prestosql.plugin.prometheus;
 
+import javax.inject.Inject;
+
 import java.time.Clock;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
+import java.time.Instant;
+
+import static java.time.ZoneOffset.UTC;
 
 /**
  * allow for settable Clock for testing
  */
-public class PrometheusTimeMachine
+public final class PrometheusClock
 {
-    private PrometheusTimeMachine()
+    private final Clock clock;
+
+    @Inject
+    public PrometheusClock()
     {
+        this(Clock.systemUTC());
     }
 
-    private static Clock clock = Clock.systemDefaultZone();
-    private static ZoneId zoneId = ZoneId.systemDefault();
-
-    public static LocalDateTime now()
+    private PrometheusClock(Clock clock)
     {
-        return LocalDateTime.now(getClock());
+        this.clock = clock;
     }
 
-    public static void useFixedClockAt(LocalDateTime date)
+    public Instant now()
     {
-        clock = Clock.fixed(date.atZone(zoneId).toInstant(), zoneId);
+        return clock.instant();
     }
 
-    private static Clock getClock()
+    public static PrometheusClock fixedClockAt(Instant fixedInstant)
     {
-        return clock;
+        return new PrometheusClock(Clock.fixed(fixedInstant, UTC));
     }
 }

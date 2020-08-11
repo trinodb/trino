@@ -42,8 +42,8 @@ import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.TimestampWithTimeZoneTypes.hashLongTimestampWithTimeZone;
 import static io.prestosql.spi.type.TimestampWithTimeZoneTypes.hashShortTimestampWithTimeZone;
-import static io.prestosql.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
-import static io.prestosql.type.Timestamps.roundToNearest;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MILLISECOND;
+import static io.prestosql.type.DateTimes.roundToNearest;
 
 @SuppressWarnings("UtilityClassWithoutPrivateConstructor")
 public final class TimestampWithTimeZoneOperators

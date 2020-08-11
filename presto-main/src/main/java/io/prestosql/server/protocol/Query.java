@@ -103,6 +103,7 @@ import static io.prestosql.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.SERIALIZATION_ERROR;
 import static io.prestosql.spi.type.StandardTypes.ROW;
+import static io.prestosql.spi.type.StandardTypes.TIME;
 import static io.prestosql.spi.type.StandardTypes.TIMESTAMP;
 import static io.prestosql.spi.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.util.Failures.toFailure;
@@ -613,12 +614,15 @@ class Query
     {
         if (type instanceof DateTimeDataType) {
             DateTimeDataType dataTimeType = (DateTimeDataType) type;
-            if (dataTimeType.getType() == DateTimeDataType.Type.TIMESTAMP && !supportsParametricDateTime) {
-                if (dataTimeType.isWithTimeZone()) {
+            if (!supportsParametricDateTime) {
+                if (dataTimeType.getType() == DateTimeDataType.Type.TIMESTAMP && dataTimeType.isWithTimeZone()) {
                     return TIMESTAMP_WITH_TIME_ZONE;
                 }
-                else {
+                if (dataTimeType.getType() == DateTimeDataType.Type.TIMESTAMP && !dataTimeType.isWithTimeZone()) {
                     return TIMESTAMP;
+                }
+                else if (dataTimeType.getType() == DateTimeDataType.Type.TIME && !dataTimeType.isWithTimeZone()) {
+                    return TIME;
                 }
             }
 
@@ -663,6 +667,9 @@ class Query
             }
             else if (signature.getBase().equalsIgnoreCase(TIMESTAMP_WITH_TIME_ZONE)) {
                 return new ClientTypeSignature(TIMESTAMP_WITH_TIME_ZONE);
+            }
+            else if (signature.getBase().equalsIgnoreCase(TIME)) {
+                return new ClientTypeSignature(TIME);
             }
         }
 

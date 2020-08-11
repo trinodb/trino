@@ -11,8 +11,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.prometheus;
+package io.prestosql;
 
-public class TestPrometheusClient
+public class Dummy
 {
+    // This class is here so that maven produces a source and javadoc artifact, which are
+    // needed by Sonatype in order to publish a release
 }

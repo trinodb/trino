@@ -19,44 +19,85 @@ import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestamp;
-import io.prestosql.spi.type.StandardTypes;
-import org.joda.time.chrono.ISOChronology;
 
-import static io.prestosql.operator.scalar.DateTimeFunctions.valueToSessionTimeZoneOffsetDiff;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+
 import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.type.DateTimeOperators.modulo24Hour;
-import static io.prestosql.type.Timestamps.round;
-import static io.prestosql.type.Timestamps.scaleEpochMicrosToMillis;
-import static io.prestosql.util.DateTimeZoneIndex.getChronology;
-import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
+import static io.prestosql.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
+import static io.prestosql.type.DateTimes.MICROSECONDS_PER_SECOND;
+import static io.prestosql.type.DateTimes.MILLISECONDS_PER_SECOND;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_DAY;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_SECOND;
+import static io.prestosql.type.DateTimes.rescale;
+import static io.prestosql.type.DateTimes.round;
+import static io.prestosql.type.DateTimes.scaleEpochMicrosToSeconds;
+import static io.prestosql.type.DateTimes.scaleEpochMillisToSeconds;
+import static java.lang.Math.multiplyExact;
 
 @ScalarOperator(CAST)
 public final class TimestampToTimeCast
 {
     private TimestampToTimeCast() {}
 
-    @LiteralParameters("p")
-    @SqlType(StandardTypes.TIME)
-    public static long cast(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") long value)
+    @LiteralParameters({"sourcePrecision", "targetPrecision"})
+    @SqlType("time(targetPrecision)")
+    public static long cast(
+            @LiteralParameter("sourcePrecision") long sourcePrecision,
+            @LiteralParameter("targetPrecision") long targetPrecision,
+            ConnectorSession session,
+            @SqlType("timestamp(sourcePrecision)") long timestamp)
     {
-        if (precision > 3) {
-            value = scaleEpochMicrosToMillis(round(value, 3));
+        long epochSeconds;
+        long microOfSecond;
+        if (sourcePrecision <= 3) {
+            epochSeconds = scaleEpochMillisToSeconds(timestamp);
+            microOfSecond = (timestamp % MILLISECONDS_PER_SECOND) * MICROSECONDS_PER_MILLISECOND;
+        }
+        else {
+            epochSeconds = scaleEpochMicrosToSeconds(timestamp);
+            microOfSecond = timestamp % MICROSECONDS_PER_SECOND;
         }
 
-        if (session.isLegacyTimestamp()) {
-            ISOChronology chronology = getChronology(session.getTimeZoneKey());
-            long result = chronology.millisOfDay().get(value) - chronology.getZone().getOffset(value);
-            result -= valueToSessionTimeZoneOffsetDiff(value, getDateTimeZone(session.getTimeZoneKey()));
-            return result;
+        long microOfDay = multiplyExact(getSecondOfDay(session, epochSeconds), MICROSECONDS_PER_SECOND) + microOfSecond;
+
+        if (targetPrecision < 6) {
+            microOfDay = round(microOfDay, (int) (6 - targetPrecision));
         }
 
-        return modulo24Hour(value);
+        return rescale(microOfDay, 6, 12) % PICOSECONDS_PER_DAY;
     }
 
-    @LiteralParameters("p")
-    @SqlType(StandardTypes.TIME)
-    public static long cast(ConnectorSession session, @SqlType("timestamp(p)") LongTimestamp timestamp)
+    @LiteralParameters({"sourcePrecision", "targetPrecision"})
+    @SqlType("time(targetPrecision)")
+    public static long cast(
+            @LiteralParameter("targetPrecision") long targetPrecision,
+            ConnectorSession session,
+            @SqlType("timestamp(sourcePrecision)") LongTimestamp timestamp)
     {
-        return cast(6, session, timestamp.getEpochMicros());
+        long epochSeconds = scaleEpochMicrosToSeconds(timestamp.getEpochMicros());
+        long secondOfDay = getSecondOfDay(session, epochSeconds);
+
+        long picoOfDay = multiplyExact(secondOfDay, PICOSECONDS_PER_SECOND) +
+                multiplyExact(timestamp.getEpochMicros() % MICROSECONDS_PER_SECOND, PICOSECONDS_PER_MICROSECOND) +
+                timestamp.getPicosOfMicro();
+
+        return round(picoOfDay, (int) (12 - targetPrecision)) % PICOSECONDS_PER_DAY;
+    }
+
+    private static long getSecondOfDay(ConnectorSession session, long epochSeconds)
+    {
+        LocalDateTime dateTime;
+
+        if (session.isLegacyTimestamp()) {
+            dateTime = LocalDateTime.ofInstant(Instant.ofEpochSecond(epochSeconds), session.getTimeZoneKey().getZoneId());
+        }
+        else {
+            dateTime = LocalDateTime.ofEpochSecond(epochSeconds, 0, ZoneOffset.UTC);
+        }
+
+        return dateTime.toLocalTime().toSecondOfDay();
     }
 }

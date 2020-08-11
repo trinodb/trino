@@ -25,12 +25,12 @@ import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
-import static io.prestosql.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
-import static io.prestosql.type.Timestamps.round;
-import static io.prestosql.type.Timestamps.roundToNearest;
-import static io.prestosql.type.Timestamps.scaleEpochMillisToMicros;
-import static io.prestosql.type.Timestamps.toEpochMicros;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MILLISECOND;
+import static io.prestosql.type.DateTimes.round;
+import static io.prestosql.type.DateTimes.roundToNearest;
+import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
+import static io.prestosql.type.DateTimes.toEpochMicros;
 import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 
 @ScalarOperator(CAST)

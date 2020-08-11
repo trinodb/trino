@@ -23,7 +23,7 @@ import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.StandardTypes;
 import org.joda.time.chrono.ISOChronology;
 
-import static io.prestosql.type.Timestamps.scaleEpochMicrosToMillis;
+import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 
 @Description("Millisecond of the second of the given timestamp")

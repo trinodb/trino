@@ -52,6 +52,7 @@ import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
@@ -213,7 +214,7 @@ public class IcebergPageSource
                 return parseLong(valueString);
             }
             if (type.equals(TIME)) {
-                return parseLong(valueString);
+                return parseLong(valueString) * PICOSECONDS_PER_MILLISECOND;
             }
             if (type.equals(TIMESTAMP)) {
                 return MICROSECONDS.toMillis(parseLong(valueString));

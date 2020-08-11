@@ -27,8 +27,8 @@ import java.time.ZoneOffset;
 import java.time.format.DateTimeFormatter;
 
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.type.Timestamps.formatTimestamp;
-import static io.prestosql.type.Timestamps.scaleEpochMillisToMicros;
+import static io.prestosql.type.DateTimes.formatTimestamp;
+import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
 
 @ScalarFunction("to_iso8601")
 public final class ToIso8601

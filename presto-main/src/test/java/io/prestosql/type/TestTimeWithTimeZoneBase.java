@@ -23,11 +23,13 @@ import org.testng.annotations.Test;
 
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.testing.DateTimeTestingUtils.sqlTimeOf;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 
@@ -198,7 +200,12 @@ public abstract class TestTimeWithTimeZoneBase
     }
 
     @Test
-    public abstract void testCastToTime();
+    public void testCastToTime()
+    {
+        assertFunction("cast(TIME '03:04:05.321 +07:09' as time)",
+                TIME,
+                sqlTimeOf(3, 4, 5, 321));
+    }
 
     @Test
     public abstract void testCastToTimestamp();

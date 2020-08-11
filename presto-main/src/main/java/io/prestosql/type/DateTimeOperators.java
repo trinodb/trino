@@ -14,7 +14,6 @@
 package io.prestosql.type;
 
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
@@ -28,7 +27,6 @@ import static io.prestosql.spi.function.OperatorType.ADD;
 import static io.prestosql.spi.function.OperatorType.SUBTRACT;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.updateMillisUtc;
-import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 import static io.prestosql.util.DateTimeZoneIndex.unpackChronology;
 
 public final class DateTimeOperators
@@ -55,20 +53,6 @@ public final class DateTimeOperators
     public static long intervalDayToSecondPlusDate(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval, @SqlType(StandardTypes.DATE) long date)
     {
         return datePlusIntervalDayToSecond(date, interval);
-    }
-
-    @ScalarOperator(ADD)
-    @SqlType(StandardTypes.TIME)
-    public static long timePlusIntervalDayToSecond(ConnectorSession session, @SqlType(StandardTypes.TIME) long time, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
-    {
-        return modulo24Hour(getChronology(session.getTimeZoneKey()), time + interval);
-    }
-
-    @ScalarOperator(ADD)
-    @SqlType(StandardTypes.TIME)
-    public static long intervalDayToSecondPlusTime(ConnectorSession session, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval, @SqlType(StandardTypes.TIME) long time)
-    {
-        return timePlusIntervalDayToSecond(session, time, interval);
     }
 
     @ScalarOperator(ADD)
@@ -108,13 +92,6 @@ public final class DateTimeOperators
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "Cannot subtract hour, minutes or seconds from a date");
         }
         return date - TimeUnit.MILLISECONDS.toDays(interval);
-    }
-
-    @ScalarOperator(SUBTRACT)
-    @SqlType(StandardTypes.TIME)
-    public static long timeMinusIntervalDayToSecond(ConnectorSession session, @SqlType(StandardTypes.TIME) long time, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
-    {
-        return timePlusIntervalDayToSecond(session, time, -interval);
     }
 
     @ScalarOperator(SUBTRACT)

@@ -147,6 +147,7 @@ import io.prestosql.sql.tree.SubqueryExpression;
 import io.prestosql.sql.tree.SubscriptExpression;
 import io.prestosql.sql.tree.Table;
 import io.prestosql.sql.tree.TableSubquery;
+import io.prestosql.sql.tree.Union;
 import io.prestosql.sql.tree.Unnest;
 import io.prestosql.sql.tree.Use;
 import io.prestosql.sql.tree.Values;
@@ -164,6 +165,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -190,13 +192,17 @@ import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_WINDOW;
 import static io.prestosql.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.prestosql.spi.StandardErrorCode.INVALID_COLUMN_REFERENCE;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.StandardErrorCode.INVALID_LIMIT_CLAUSE;
+import static io.prestosql.spi.StandardErrorCode.INVALID_RECURSIVE_REFERENCE;
 import static io.prestosql.spi.StandardErrorCode.INVALID_ROW_FILTER;
 import static io.prestosql.spi.StandardErrorCode.INVALID_VIEW;
 import static io.prestosql.spi.StandardErrorCode.INVALID_WINDOW_FRAME;
 import static io.prestosql.spi.StandardErrorCode.MISMATCHED_COLUMN_ALIASES;
+import static io.prestosql.spi.StandardErrorCode.MISSING_COLUMN_ALIASES;
 import static io.prestosql.spi.StandardErrorCode.MISSING_COLUMN_NAME;
 import static io.prestosql.spi.StandardErrorCode.MISSING_GROUP_BY;
 import static io.prestosql.spi.StandardErrorCode.MISSING_ORDER_BY;
+import static io.prestosql.spi.StandardErrorCode.NESTED_RECURSIVE;
 import static io.prestosql.spi.StandardErrorCode.NESTED_WINDOW;
 import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -240,8 +246,10 @@ import static io.prestosql.sql.tree.FrameBound.Type.UNBOUNDED_FOLLOWING;
 import static io.prestosql.sql.tree.FrameBound.Type.UNBOUNDED_PRECEDING;
 import static io.prestosql.sql.tree.Join.Type.FULL;
 import static io.prestosql.sql.tree.Join.Type.INNER;
+import static io.prestosql.sql.tree.Join.Type.LEFT;
 import static io.prestosql.sql.tree.Join.Type.RIGHT;
 import static io.prestosql.sql.tree.WindowFrame.Type.RANGE;
+import static io.prestosql.sql.util.AstUtils.preOrder;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static io.prestosql.util.MoreLists.mappedCopy;
 import static java.lang.Math.toIntExact;
@@ -1021,6 +1029,17 @@ class StatementAnalyzer
                 Optional<WithQuery> withQuery = createScope(scope).getNamedQuery(table.getName().getSuffix());
                 if (withQuery.isPresent()) {
                     return createScopeForCommonTableExpression(table, scope, withQuery.get());
+                }
+                // is this a recursive reference in expandable WITH query? If so, there's base scope recorded.
+                Optional<Scope> expandableBaseScope = analysis.getExpandableBaseScope(table);
+                if (expandableBaseScope.isPresent()) {
+                    Scope baseScope = expandableBaseScope.get();
+                    // adjust local and outer parent scopes accordingly to the local context of the recursive reference
+                    Scope resultScope = scopeBuilder(scope)
+                            .withRelationType(baseScope.getRelationId(), baseScope.getRelationType())
+                            .build();
+                    analysis.setScope(table, resultScope);
+                    return resultScope;
                 }
             }
 
@@ -2515,40 +2534,274 @@ class StatementAnalyzer
 
         private Scope analyzeWith(Query node, Optional<Scope> scope)
         {
-            // analyze WITH clause
             if (node.getWith().isEmpty()) {
                 return createScope(scope);
             }
+
+            // analyze WITH clause
             With with = node.getWith().get();
-            if (with.isRecursive()) {
-                throw semanticException(NOT_SUPPORTED, with, "Recursive WITH queries are not supported");
-            }
-
             Scope.Builder withScopeBuilder = scopeBuilder(scope);
-            for (WithQuery withQuery : with.getQueries()) {
-                Query query = withQuery.getQuery();
-                process(query, withScopeBuilder.build());
 
+            for (WithQuery withQuery : with.getQueries()) {
                 String name = withQuery.getName().getValue().toLowerCase(ENGLISH);
                 if (withScopeBuilder.containsNamedQuery(name)) {
                     throw semanticException(DUPLICATE_NAMED_QUERY, withQuery, "WITH query name '%s' specified more than once", name);
                 }
 
-                // check if all or none of the columns are explicitly alias
-                if (withQuery.getColumnNames().isPresent()) {
-                    List<Identifier> columnNames = withQuery.getColumnNames().get();
-                    RelationType queryDescriptor = analysis.getOutputDescriptor(query);
-                    if (columnNames.size() != queryDescriptor.getVisibleFieldCount()) {
-                        throw semanticException(MISMATCHED_COLUMN_ALIASES, withQuery, "WITH column alias list has %s entries but WITH query(%s) has %s columns", columnNames.size(), name, queryDescriptor.getVisibleFieldCount());
+                boolean isRecursive = false;
+                if (with.isRecursive()) {
+                    isRecursive = tryProcessRecursiveQuery(withQuery, name, withScopeBuilder);
+                    // WITH query is not shaped accordingly to the rules for expandable query and will be processed like a plain WITH query.
+                    // Since RECURSIVE is specified, any reference to WITH query name is considered a recursive reference and is not allowed.
+                    if (!isRecursive) {
+                        List<Node> recursiveReferences = findReferences(withQuery.getQuery(), withQuery.getName());
+                        if (!recursiveReferences.isEmpty()) {
+                            throw semanticException(INVALID_RECURSIVE_REFERENCE, recursiveReferences.get(0), "recursive reference not allowed in this context");
+                        }
                     }
                 }
 
-                withScopeBuilder.withNamedQuery(name, withQuery);
-            }
+                if (!isRecursive) {
+                    Query query = withQuery.getQuery();
+                    process(query, withScopeBuilder.build());
 
+                    // check if all or none of the columns are explicitly alias
+                    if (withQuery.getColumnNames().isPresent()) {
+                        validateColumnAliases(withQuery.getColumnNames().get(), analysis.getOutputDescriptor(query).getVisibleFieldCount());
+                    }
+
+                    withScopeBuilder.withNamedQuery(name, withQuery);
+                }
+            }
             Scope withScope = withScopeBuilder.build();
             analysis.setScope(with, withScope);
             return withScope;
+        }
+
+        private boolean tryProcessRecursiveQuery(WithQuery withQuery, String name, Scope.Builder withScopeBuilder)
+        {
+            if (withQuery.getColumnNames().isEmpty()) {
+                throw semanticException(MISSING_COLUMN_ALIASES, withQuery, "missing column aliases in recursive WITH query");
+            }
+            preOrder(withQuery.getQuery())
+                    .filter(child -> child instanceof With && ((With) child).isRecursive())
+                    .findFirst()
+                    .ifPresent(child -> {
+                        throw semanticException(NESTED_RECURSIVE, child, "nested recursive WITH query");
+                    });
+            // if RECURSIVE is specified, all queries in the WITH list are considered potentially recursive
+            // try resolve WITH query as expandable query
+            // a) validate shape of the query and location of recursive reference
+            if (!(withQuery.getQuery().getQueryBody() instanceof Union)) {
+                return false;
+            }
+            Union union = (Union) withQuery.getQuery().getQueryBody();
+            if (union.getRelations().size() != 2) {
+                return false;
+            }
+            Relation anchor = union.getRelations().get(0);
+            Relation step = union.getRelations().get(1);
+            List<Node> anchorReferences = findReferences(anchor, withQuery.getName());
+            if (!anchorReferences.isEmpty()) {
+                throw semanticException(INVALID_RECURSIVE_REFERENCE, anchorReferences.get(0), "WITH table name is referenced in the base relation of recursion");
+            }
+            // a WITH query is linearly recursive if it has a single recursive reference
+            List<Node> stepReferences = findReferences(step, withQuery.getName());
+            if (stepReferences.size() > 1) {
+                throw semanticException(INVALID_RECURSIVE_REFERENCE, stepReferences.get(1), "multiple recursive references in the step relation of recursion");
+            }
+            if (stepReferences.size() != 1) {
+                return false;
+            }
+            // search for QuerySpecification in parenthesized subquery
+            Relation specification = step;
+            while (specification instanceof TableSubquery) {
+                Query query = ((TableSubquery) specification).getQuery();
+                query.getLimit().ifPresent(limit -> {
+                    throw semanticException(INVALID_LIMIT_CLAUSE, limit, "FETCH FIRST / LIMIT clause in the step relation of recursion");
+                });
+                specification = query.getQueryBody();
+            }
+            if (!(specification instanceof QuerySpecification) || ((QuerySpecification) specification).getFrom().isEmpty()) {
+                throw semanticException(INVALID_RECURSIVE_REFERENCE, stepReferences.get(0), "recursive reference outside of FROM clause of the step relation of recursion");
+            }
+            Relation from = ((QuerySpecification) specification).getFrom().get();
+            List<Node> fromReferences = findReferences(from, withQuery.getName());
+            if (fromReferences.size() == 0) {
+                throw semanticException(INVALID_RECURSIVE_REFERENCE, stepReferences.get(0), "recursive reference outside of FROM clause of the step relation of recursion");
+            }
+
+            // b) validate top-level shape of recursive query
+            withQuery.getQuery().getWith().ifPresent(innerWith -> {
+                throw semanticException(NOT_SUPPORTED, innerWith, "immediate WITH clause in recursive query");
+            });
+            withQuery.getQuery().getOrderBy().ifPresent(orderBy -> {
+                throw semanticException(NOT_SUPPORTED, orderBy, "immediate ORDER BY clause in recursive query");
+            });
+            withQuery.getQuery().getOffset().ifPresent(offset -> {
+                throw semanticException(NOT_SUPPORTED, offset, "immediate OFFSET clause in recursive query");
+            });
+            withQuery.getQuery().getLimit().ifPresent(limit -> {
+                throw semanticException(INVALID_LIMIT_CLAUSE, limit, "immediate FETCH FIRST / LIMIT clause in recursive query");
+            });
+
+            // c) validate recursion step has no illegal clauses
+            validateFromClauseOfRecursiveTerm(from, withQuery.getName());
+
+            // shape validation complete - process query as expandable query
+            Scope parentScope = withScopeBuilder.build();
+            // process expandable query -- anchor
+            Scope anchorScope = process(anchor, parentScope);
+            // set aliases in anchor scope as defined for WITH query. Recursion step will refer to anchor fields by aliases.
+            Scope aliasedAnchorScope = setAliases(anchorScope, withQuery.getName(), withQuery.getColumnNames().get());
+            // record expandable query base scope for recursion step analysis
+            Node recursiveReference = fromReferences.get(0);
+            analysis.setExpandableBaseScope(recursiveReference, aliasedAnchorScope);
+            // process expandable query -- recursion step
+            Scope stepScope = process(step, parentScope);
+
+            // verify anchor and step have matching descriptors
+            RelationType anchorType = aliasedAnchorScope.getRelationType().withOnlyVisibleFields();
+            RelationType stepType = stepScope.getRelationType().withOnlyVisibleFields();
+            if (anchorType.getVisibleFieldCount() != stepType.getVisibleFieldCount()) {
+                throw semanticException(TYPE_MISMATCH, step, "base and step relations of recursion have different number of fields: %s, %s", anchorType.getVisibleFieldCount(), stepType.getVisibleFieldCount());
+            }
+
+            List<Type> anchorFieldTypes = anchorType.getVisibleFields().stream()
+                    .map(Field::getType)
+                    .collect(toImmutableList());
+            List<Type> stepFieldTypes = stepType.getVisibleFields().stream()
+                    .map(Field::getType)
+                    .collect(toImmutableList());
+
+            for (int i = 0; i < anchorFieldTypes.size(); i++) {
+                if (!typeCoercion.canCoerce(stepFieldTypes.get(i), anchorFieldTypes.get(i))) {
+                    // TODO for more precise error location, pass the mismatching select expression instead of `step`
+                    throw semanticException(
+                            TYPE_MISMATCH,
+                            step,
+                            "recursion step relation output type (%s) is not coercible to recursion base relation output type (%s) at column %s",
+                            stepFieldTypes.get(i),
+                            anchorFieldTypes.get(i),
+                            i + 1);
+                }
+            }
+
+            if (!anchorFieldTypes.equals(stepFieldTypes)) {
+                analysis.addRelationCoercion(step, anchorFieldTypes.toArray(Type[]::new));
+            }
+
+            analysis.setScope(withQuery.getQuery(), aliasedAnchorScope);
+            analysis.registerExpandableQuery(withQuery.getQuery(), recursiveReference);
+            withScopeBuilder.withNamedQuery(name, withQuery);
+            return true;
+        }
+
+        private List<Node> findReferences(Node node, Identifier name)
+        {
+            Stream<Node> allReferences = preOrder(node)
+                    .filter(isTableWithName(name));
+
+            // TODO: recursive references could be supported in subquery before the point of shadowing.
+            //currently, the recursive query name is considered shadowed in the whole subquery if the subquery defines a common table with the same name
+            Set<Node> shadowedReferences = preOrder(node)
+                    .filter(isQueryWithNameShadowed(name))
+                    .flatMap(query -> preOrder(query)
+                            .filter(isTableWithName(name)))
+                    .collect(toImmutableSet());
+
+            return allReferences
+                    .filter(reference -> !shadowedReferences.contains(reference))
+                    .collect(toImmutableList());
+        }
+
+        private Predicate<Node> isTableWithName(Identifier name)
+        {
+            return node -> {
+                if (!(node instanceof Table)) {
+                    return false;
+                }
+                Table table = (Table) node;
+                QualifiedName tableName = table.getName();
+                return tableName.getPrefix().isEmpty() && tableName.hasSuffix(QualifiedName.of(name.getValue()));
+            };
+        }
+
+        private Predicate<Node> isQueryWithNameShadowed(Identifier name)
+        {
+            return node -> {
+                if (!(node instanceof Query)) {
+                    return false;
+                }
+                Query query = (Query) node;
+                if (query.getWith().isEmpty()) {
+                    return false;
+                }
+                return query.getWith().get().getQueries().stream()
+                        .map(WithQuery::getName)
+                        .map(Identifier::getValue)
+                        .anyMatch(withQueryName -> withQueryName.equalsIgnoreCase(name.getValue()));
+            };
+        }
+
+        private void validateFromClauseOfRecursiveTerm(Relation from, Identifier name)
+        {
+            preOrder(from)
+                    .filter(node -> node instanceof Join)
+                    .forEach(node -> {
+                        Join join = (Join) node;
+                        Join.Type type = join.getType();
+                        if (type == LEFT || type == RIGHT || type == FULL) {
+                            List<Node> leftRecursiveReferences = findReferences(join.getLeft(), name);
+                            List<Node> rightRecursiveReferences = findReferences(join.getRight(), name);
+                            if (!leftRecursiveReferences.isEmpty() && (type == RIGHT || type == FULL)) {
+                                throw semanticException(INVALID_RECURSIVE_REFERENCE, leftRecursiveReferences.get(0), "recursive reference in left source of %s join", type);
+                            }
+                            if (!rightRecursiveReferences.isEmpty() && (type == LEFT || type == FULL)) {
+                                throw semanticException(INVALID_RECURSIVE_REFERENCE, rightRecursiveReferences.get(0), "recursive reference in right source of %s join", type);
+                            }
+                        }
+                    });
+
+            preOrder(from)
+                    .filter(node -> node instanceof Intersect && !((Intersect) node).isDistinct())
+                    .forEach(node -> {
+                        Intersect intersect = (Intersect) node;
+                        intersect.getRelations().stream()
+                                .flatMap(relation -> findReferences(relation, name).stream())
+                                .findFirst()
+                                .ifPresent(reference -> {
+                                    throw semanticException(INVALID_RECURSIVE_REFERENCE, reference, "recursive reference in INTERSECT ALL");
+                                });
+                    });
+
+            preOrder(from)
+                    .filter(node -> node instanceof Except)
+                    .forEach(node -> {
+                        Except except = (Except) node;
+                        List<Node> rightRecursiveReferences = findReferences(except.getRight(), name);
+                        if (!rightRecursiveReferences.isEmpty()) {
+                            throw semanticException(
+                                    INVALID_RECURSIVE_REFERENCE,
+                                    rightRecursiveReferences.get(0),
+                                    "recursive reference in right relation of EXCEPT %s",
+                                    except.isDistinct() ? "DISTINCT" : "ALL");
+                        }
+                        if (!except.isDistinct()) {
+                            List<Node> leftRecursiveReferences = findReferences(except.getLeft(), name);
+                            if (!leftRecursiveReferences.isEmpty()) {
+                                throw semanticException(INVALID_RECURSIVE_REFERENCE, leftRecursiveReferences.get(0), "recursive reference in left relation of EXCEPT ALL");
+                            }
+                        }
+                    });
+        }
+
+        private Scope setAliases(Scope scope, Identifier tableName, List<Identifier> columnNames)
+        {
+            RelationType oldDescriptor = scope.getRelationType();
+            validateColumnAliases(columnNames, oldDescriptor.getVisibleFieldCount());
+            RelationType newDescriptor = oldDescriptor.withAlias(tableName.getValue(), columnNames.stream().map(Identifier::getValue).collect(toImmutableList()));
+            return scope.withRelationType(newDescriptor);
         }
 
         private void verifySelectDistinct(QuerySpecification node, List<Expression> orderByExpressions, List<Expression> outputExpressions, Scope sourceScope, Scope orderByScope)

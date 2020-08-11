@@ -96,6 +96,7 @@ public class FeaturesConfig
     private boolean pagesIndexEagerCompactionEnabled;
     private boolean distributedSort = true;
     private boolean omitDateTimeTypePrecision;
+    private int maxRecursionDepth = 10;
 
     private boolean dictionaryAggregation;
 
@@ -1000,6 +1001,18 @@ public class FeaturesConfig
     public FeaturesConfig setDistributedSortEnabled(boolean enabled)
     {
         distributedSort = enabled;
+        return this;
+    }
+
+    public int getMaxRecursionDepth()
+    {
+        return maxRecursionDepth;
+    }
+
+    @Config("max-recursion-depth")
+    public FeaturesConfig setMaxRecursionDepth(int maxRecursionDepth)
+    {
+        this.maxRecursionDepth = maxRecursionDepth;
         return this;
     }
 

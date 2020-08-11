@@ -28,6 +28,7 @@ import io.prestosql.spi.type.FixedWidthType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
@@ -182,6 +183,9 @@ public final class TypeUtils
         }
         if (type instanceof TimestampWithTimeZoneType && ((TimestampWithTimeZoneType) type).getPrecision() == TimestampWithTimeZoneType.DEFAULT_PRECISION) {
             return StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
+        }
+        if (type instanceof TimeType && ((TimeType) type).getPrecision() == TimeType.DEFAULT_PRECISION) {
+            return StandardTypes.TIME;
         }
         if (type instanceof ArrayType) {
             return ARRAY + "(" + getDisplayLabelForLegacyClients(((ArrayType) type).getElementType()) + ")";
