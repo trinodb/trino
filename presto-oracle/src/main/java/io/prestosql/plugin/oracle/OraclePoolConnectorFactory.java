@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.oracle;
 
+import io.airlift.units.Duration;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
@@ -25,6 +26,9 @@ import java.sql.SQLException;
 import java.util.Optional;
 import java.util.Properties;
 
+import static java.lang.Math.toIntExact;
+import static java.util.concurrent.TimeUnit.SECONDS;
+
 public class OraclePoolConnectorFactory
         implements ConnectionFactory
 {
@@ -35,7 +39,8 @@ public class OraclePoolConnectorFactory
             Properties connectionProperties,
             CredentialProvider credentialProvider,
             int connectionPoolMinSize,
-            int connectionPoolMaxSize)
+            int connectionPoolMaxSize,
+            Duration inactiveConnectionTimeout)
             throws SQLException
     {
         this.dataSource = PoolDataSourceFactory.getPoolDataSource();
@@ -50,6 +55,7 @@ public class OraclePoolConnectorFactory
         this.dataSource.setMaxPoolSize(connectionPoolMaxSize);
         this.dataSource.setValidateConnectionOnBorrow(true);
         this.dataSource.setConnectionProperties(connectionProperties);
+        this.dataSource.setInactiveConnectionTimeout(toIntExact(inactiveConnectionTimeout.roundTo(SECONDS)));
         credentialProvider.getConnectionUser(Optional.empty())
                 .ifPresent(user -> {
                     try {
