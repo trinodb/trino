@@ -13,7 +13,6 @@
  */
 package io.prestosql.pinot;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.prestosql.pinot.client.PinotClient;
 import io.prestosql.pinot.client.PinotQueryClient;
 import io.prestosql.pinot.query.DynamicTable;
@@ -41,18 +40,15 @@ public class PinotPageSourceProvider
     private final PinotConfig pinotConfig;
     private final PinotQueryClient pinotQueryClient;
     private final PinotClient clusterInfoFetcher;
-    private final ObjectMapper objectMapper;
 
     @Inject
     public PinotPageSourceProvider(
             PinotConfig pinotConfig,
-            PinotClient clusterInfoFetcher,
-            ObjectMapper objectMapper)
+            PinotClient clusterInfoFetcher)
     {
         this.pinotConfig = requireNonNull(pinotConfig, "pinotConfig is null");
         this.pinotQueryClient = new PinotQueryClient(pinotConfig);
         this.clusterInfoFetcher = requireNonNull(clusterInfoFetcher, "cluster info fetcher is null");
-        this.objectMapper = requireNonNull(objectMapper, "object mapper is null");
     }
 
     @Override
