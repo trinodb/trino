@@ -716,7 +716,7 @@ public class LongOutputStreamV2
             return;
         }
 
-        if (fixedRunLength >= MIN_REPEAT && fixedRunLength <= MAX_SHORT_REPEAT_LENGTH) {
+        if (fixedRunLength <= MAX_SHORT_REPEAT_LENGTH) {
             writeValues(EncodingType.SHORT_REPEAT);
             return;
         }
