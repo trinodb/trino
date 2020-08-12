@@ -38,6 +38,7 @@ public class HiveS3Config
     private String s3AwsAccessKey;
     private String s3AwsSecretKey;
     private String s3Endpoint;
+    private String s3LocalEndpoint;
     private PrestoS3StorageClass s3StorageClass = PrestoS3StorageClass.STANDARD;
     private PrestoS3SignerType s3SignerType;
     private String s3SignerClass;
@@ -100,6 +101,18 @@ public class HiveS3Config
     public HiveS3Config setS3Endpoint(String s3Endpoint)
     {
         this.s3Endpoint = s3Endpoint;
+        return this;
+    }
+
+    public String getS3LocalEndpoint()
+    {
+        return s3LocalEndpoint;
+    }
+
+    @Config("hive.s3.local-endpoint")
+    public HiveS3Config setS3LocalEndpoint(String s3LocalEndpoint)
+    {
+        this.s3LocalEndpoint = s3LocalEndpoint;
         return this;
     }
 

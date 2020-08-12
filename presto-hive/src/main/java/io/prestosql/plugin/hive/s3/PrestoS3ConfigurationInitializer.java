@@ -21,6 +21,7 @@ import org.apache.hadoop.conf.Configuration;
 import javax.inject.Inject;
 
 import java.io.File;
+import java.util.Optional;
 
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ACCESS_KEY;
 import static io.prestosql.plugin.hive.s3.PrestoS3FileSystem.S3_ACL_TYPE;
@@ -92,7 +93,7 @@ public class PrestoS3ConfigurationInitializer
     {
         this.awsAccessKey = config.getS3AwsAccessKey();
         this.awsSecretKey = config.getS3AwsSecretKey();
-        this.endpoint = config.getS3Endpoint();
+        this.endpoint = Optional.ofNullable(config.getS3LocalEndpoint()).orElse(config.getS3Endpoint());
         this.s3StorageClass = config.getS3StorageClass();
         this.signerType = config.getS3SignerType();
         this.signerClass = config.getS3SignerClass();
