@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.testing.TestingHttpClient;
 import io.airlift.json.JsonCodec;
+import io.prestosql.pinot.client.IdentityPinotHostMapper;
 import io.prestosql.pinot.client.PinotClient;
 import org.apache.pinot.spi.data.Schema;
 
@@ -51,6 +52,7 @@ public class MockPinotClient
     {
         super(
                 pinotConfig,
+                new IdentityPinotHostMapper(),
                 new PinotMetrics(),
                 new TestingHttpClient(request -> null),
                 TABLES_JSON_CODEC,
