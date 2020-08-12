@@ -1,0 +1,70 @@
+{
+  "schemaName": "my_table",
+  "dimensionFieldSpecs": [
+    {
+      "name": "vendor",
+      "dataType": "STRING"
+    },
+    {
+      "name": "city",
+      "dataType": "STRING"
+    },
+    {
+      "name": "neighbors",
+      "dataType": "STRING",
+      "singleValueField": false
+    },
+    {
+      "name": "lucky_numbers",
+      "dataType": "INT",
+      "singleValueField": false,
+      "defaultNullValue": 0
+    },
+    {
+      "name": "prices",
+      "dataType": "FLOAT",
+      "singleValueField": false
+    },
+    {
+      "name": "unlucky_numbers",
+      "dataType": "DOUBLE",
+      "singleValueField": false
+    },
+    {
+      "name": "long_numbers",
+      "dataType": "LONG",
+      "singleValueField": false
+    }
+  ],
+  "metricFieldSpecs": [
+    {
+      "name": "lucky_number",
+      "dataType": "INT"
+    },
+    {
+      "name": "price",
+      "dataType": "FLOAT"
+    },
+    {
+      "name": "unlucky_number",
+      "dataType": "DOUBLE"
+    },
+    {
+      "name": "long_number",
+      "dataType": "LONG"
+    }
+  ],
+  "timeFieldSpec": {
+    "incomingGranularitySpec": {
+      "name": "updatedAt",
+      "dataType": "LONG",
+      "timeType": "SECONDS"
+    },
+    "outgoingGranularitySpec": {
+      "name": "updatedAtHours",
+      "dataType": "INT",
+      "timeFormat" : "EPOCH",
+      "timeType": "HOURS"
+    }
+  }
+}
