@@ -23,8 +23,8 @@ import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Properties;
 
-import static io.prestosql.plugin.kafka.util.TestUtils.toProperties;
 import static org.testcontainers.containers.KafkaContainer.KAFKA_PORT;
 
 public class TestingKafka
@@ -88,5 +88,14 @@ public class TestingKafka
                 .build();
 
         return new KafkaProducer<>(toProperties(properties));
+    }
+
+    private static Properties toProperties(Map<String, String> map)
+    {
+        Properties properties = new Properties();
+        for (Map.Entry<String, String> entry : map.entrySet()) {
+            properties.setProperty(entry.getKey(), entry.getValue());
+        }
+        return properties;
     }
 }
