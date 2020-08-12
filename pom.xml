@@ -140,6 +140,7 @@
         <module>presto-teradata-functions</module>
         <module>presto-test-jdbc-compatibility</module>
         <module>presto-testing</module>
+        <module>presto-testing-kafka</module>
         <module>presto-testing-server-launcher</module>
         <module>presto-tests</module>
         <module>presto-thrift</module>
@@ -427,6 +428,12 @@
             <dependency>
                 <groupId>io.prestosql</groupId>
                 <artifactId>presto-testing</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-testing-kafka</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
@@ -1112,6 +1119,12 @@
                 <groupId>org.apache.commons</groupId>
                 <artifactId>commons-math3</artifactId>
                 <version>3.6.1</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.apache.kafka</groupId>
+                <artifactId>kafka-clients</artifactId>
+                <version>2.4.1</version>
             </dependency>
 
             <dependency>
