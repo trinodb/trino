@@ -29,6 +29,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static java.util.Objects.requireNonNull;
 
 public class RubixModule
         implements Module
@@ -67,15 +68,18 @@ public class RubixModule
     static class DefaultRubixHdfsInitializer
             implements RubixHdfsInitializer
     {
+        private HiveAuthenticationConfig authenticationConfig;
+
         @Inject
         public DefaultRubixHdfsInitializer(HiveAuthenticationConfig authenticationConfig)
         {
-            checkArgument(!authenticationConfig.isHdfsImpersonationEnabled(), "HDFS impersonation is not compatible with Hive caching");
+            this.authenticationConfig = requireNonNull(authenticationConfig, "authenticationConfig is null");
         }
 
         @Override
         public void initializeConfiguration(Configuration config)
         {
+            checkArgument(!authenticationConfig.isHdfsImpersonationEnabled(), "HDFS impersonation is not compatible with Hive caching");
             config.set("fs.hdfs.impl", RUBIX_DISTRIBUTED_FS_CLASS_NAME);
         }
     }
