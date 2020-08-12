@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.kafka.encoder.raw;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slices;
 import io.prestosql.plugin.kafka.KafkaColumnHandle;
 import io.prestosql.plugin.kafka.encoder.EncoderColumnHandle;
@@ -21,7 +22,6 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.LongArrayBlockBuilder;
 import io.prestosql.spi.block.VariableWidthBlockBuilder;
 import io.prestosql.testing.TestingConnectorSession;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 import org.testng.annotations.Test;
 
 import java.nio.ByteBuffer;
