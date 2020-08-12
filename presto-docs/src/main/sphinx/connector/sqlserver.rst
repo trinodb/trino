@@ -19,22 +19,26 @@ connection properties as appropriate for your setup:
 .. code-block:: none
 
     connector.name=sqlserver
-    connection-url=jdbc:sqlserver://[serverName[\instanceName][:portNumber]]
+    connection-url=jdbc:sqlserver://<host>:<port>;database=<database>
     connection-user=root
     connection-password=secret
 
-Multiple SQL Server Databases or Servers
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Using multiple SQL Server databases or servers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-The SQL Server connector can only access a single database within
-a SQL Server server. Thus, if you have multiple SQL Server databases,
-or want to connect to multiple instances of the SQL Server, you must configure
-multiple catalogs, one for each instance.
+SQL Server connectors can't access more than one database using a single
+catalog. 
 
-To add another catalog, simply add another properties file to ``etc/catalog``
-with a different name, making sure it ends in ``.properties``. For example,
-if you name the property file ``sales.properties``, Presto creates a
-catalog named ``sales`` using the configured connector.
+If you have multiple SQL Server databases, or want to connect multiple instances
+of the SQL Server, you need to configure one catalog for each instance.
+
+To add another catalog:
+
+- Add another properties file to ``etc/catalog`` 
+- Save it with a different name that ends in ``.properties``
+
+For example, if you name the property file ``sales.properties``, Presto uses the
+configured connector to create a catalog named ``sales``.
 
 Querying SQL Server
 -------------------
