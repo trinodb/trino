@@ -12,7 +12,7 @@ General Changes
 Security Changes
 ----------------
 
-* Add table access rules to :ref:`file-based-system-access-control`. (:issue:`3951`)
+* Add table access rules to :doc:`/security/file-system-access-control`. (:issue:`3951`)
 * Add new ``default`` system access control that allows all operations except user impersonation. (:issue:`4040`)
 
 Hive Connector Changes
