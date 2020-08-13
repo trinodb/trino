@@ -21,7 +21,7 @@ appropriate for your setup:
 .. code-block:: properties
 
     connector.name=sqlserver
-    connection-url=jdbc:sqlserver://[serverName[\instanceName][:portNumber]]
+    connection-url=jdbc:sqlserver://<host>:<port>;database=<database>
     connection-user=root
     connection-password=secret
 
