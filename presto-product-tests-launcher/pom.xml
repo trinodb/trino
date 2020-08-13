@@ -63,6 +63,13 @@
             <artifactId>javax.inject</artifactId>
         </dependency>
 
+        <!-- for ReusableNetwork (TestContainers design issue) -->
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.12</version>
+        </dependency>
+
         <dependency>
             <groupId>net.jodah</groupId>
             <artifactId>failsafe</artifactId>

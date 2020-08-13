@@ -20,6 +20,7 @@ import java.io.File;
 import java.util.Locale;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static io.prestosql.tests.product.launcher.testcontainers.TestContainersUtil.isContainerReuseEnabled;
 import static java.util.Objects.requireNonNull;
 
 public final class EnvironmentOptions
@@ -41,8 +42,9 @@ public final class EnvironmentOptions
     @Option(name = "--without-presto", title = "without Presto", description = "do not start presto-master")
     public boolean withoutPrestoMaster;
 
+    // to avoid port conflicts, by default don't bind in TestContainers reuse mode
     @Option(name = "--bind", description = "bind ports on localhost")
-    public boolean bindPorts = toBoolean(firstNonNull(System.getenv("PTL_BIND_PORTS"), "true"));
+    public boolean bindPorts = toBoolean(firstNonNull(System.getenv("PTL_BIND_PORTS"), isContainerReuseEnabled() ? "false" : "true"));
 
     @Option(name = "--debug", description = "open Java debug ports")
     public boolean debug;

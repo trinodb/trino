@@ -165,7 +165,7 @@ public final class TestRun
         private Environment tryStartEnvironment()
         {
             log.info("Pruning old environment(s)");
-            Environments.pruneEnvironment();
+            Environments.pruneEnvironments();
 
             Environment environment = getEnvironment();
             log.info("Starting the environment '%s'", environment);
@@ -177,7 +177,7 @@ public final class TestRun
         private void cleanUp()
         {
             log.info("Done, cleaning up");
-            Environments.pruneEnvironment();
+            Environments.pruneEnvironments();
         }
 
         private Environment getEnvironment()

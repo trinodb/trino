@@ -39,6 +39,7 @@ import java.io.UncheckedIOException;
 import java.util.Collection;
 
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
+import static io.prestosql.tests.product.launcher.testcontainers.TestContainersUtil.isContainerReuseEnabled;
 import static java.util.Objects.requireNonNull;
 
 @Command(name = "up", description = "start an environment")
@@ -76,7 +77,7 @@ public final class EnvironmentUp
     public static class EnvironmentUpOptions
     {
         @Option(name = "--background", title = "background", description = "keep containers running in the background once they are started")
-        public boolean background;
+        public boolean background = isContainerReuseEnabled();
 
         @Option(name = "--environment", title = "environment", description = "the name of the environment to start", required = true)
         public String environment;
@@ -113,7 +114,7 @@ public final class EnvironmentUp
         public void run()
         {
             log.info("Pruning old environment(s)");
-            Environments.pruneEnvironment();
+            Environments.pruneEnvironments();
 
             Environment.Builder builder = environmentFactory.get(environment)
                     .removeContainer("tests");

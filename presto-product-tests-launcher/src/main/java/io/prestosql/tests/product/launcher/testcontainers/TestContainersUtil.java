@@ -11,22 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.tests.product.launcher.cli;
+package io.prestosql.tests.product.launcher.testcontainers;
 
-import io.airlift.airline.Command;
-import io.airlift.log.Logger;
-import io.prestosql.tests.product.launcher.env.Environments;
+import org.testcontainers.utility.TestcontainersConfiguration;
 
-@Command(name = "down", description = "shutdown environment created by Launcher")
-public final class EnvironmentDown
-        implements Runnable
+public final class TestContainersUtil
 {
-    private static final Logger log = Logger.get(EnvironmentDown.class);
+    private TestContainersUtil() {}
 
-    @Override
-    public void run()
+    public static boolean isContainerReuseEnabled()
     {
-        log.info("Pruning old environment(s)");
-        Environments.pruneEnvironmentForcefully();
+        return TestcontainersConfiguration.getInstance().environmentSupportsReuse();
     }
 }

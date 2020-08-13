@@ -16,8 +16,8 @@ package io.prestosql.tests.product.launcher.env;
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.HostConfig;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
 import io.prestosql.tests.product.launcher.testcontainers.PrintingLogConsumer;
+import io.prestosql.tests.product.launcher.testcontainers.ReusableNetwork;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
@@ -37,6 +37,7 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -44,7 +45,6 @@ public final class Environment
 {
     public static final String PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME = Environment.class.getName() + ".ptl-started";
     public static final String PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE = "true";
-    public static final String PRODUCT_TEST_LAUNCHER_NETWORK = "ptl-network";
 
     private final String name;
     private final Map<String, DockerContainer> containers;
@@ -58,6 +58,10 @@ public final class Environment
     public void start()
     {
         try {
+            containers.entrySet().stream()
+                    .filter(e -> !e.getKey().equals("tests"))
+                    .map(Map.Entry::getValue)
+                    .forEach(c -> c.withReuse(true));
             Startables.deepStart(ImmutableList.copyOf(containers.values())).get();
         }
         catch (InterruptedException e) {
@@ -96,18 +100,14 @@ public final class Environment
         private final String name;
 
         @SuppressWarnings("resource")
-        private Network network = Network.builder()
-                .createNetworkCmdModifier(createNetworkCmd ->
-                        createNetworkCmd
-                                .withName(PRODUCT_TEST_LAUNCHER_NETWORK)
-                                .withLabels(ImmutableMap.of(PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME, PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE)))
-                .build();
+        private final Network network;
 
-        private Map<String, DockerContainer> containers = new HashMap<>();
+        private final Map<String, DockerContainer> containers = new HashMap<>();
 
         public Builder(String name)
         {
             this.name = requireNonNull(name, "name is null");
+            this.network = new ReusableNetwork("ptl-" + name);
         }
 
         public Builder addContainer(String name, DockerContainer container)
@@ -116,13 +116,18 @@ public final class Environment
             checkState(!containers.containsKey(name), "Container with name %s is already registered", name);
             containers.put(name, requireNonNull(container, "container is null"));
 
-            String containerName = "ptl-" + name;
+            String containerName = "ptl-" + this.name + "-" + name;
             container
                     .withNetwork(network)
                     .withNetworkAliases(name)
                     .withLabel(PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME, PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE)
                     .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd
                             .withName(containerName)
+                            // remove tc-xxxx random alias - it's not needed, and makes containers non-reusable
+                            .withAliases(Optional.ofNullable(createContainerCmd.getAliases()).orElse(ImmutableList.of())
+                                    .stream()
+                                    .filter(a -> !a.startsWith("tc-"))
+                                    .collect(toImmutableList()))
                             .withHostName(name));
 
             return this;
