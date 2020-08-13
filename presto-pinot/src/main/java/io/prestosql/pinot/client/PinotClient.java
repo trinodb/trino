@@ -310,9 +310,7 @@ public class PinotClient
 
     public Map<String, Map<String, List<String>>> getRoutingTableForTable(String tableName)
     {
-        LOG.info("Trying to get routingTable for %s from broker", tableName);
         Map<String, Map<String, List<String>>> routingTable = sendHttpGetToBrokerJson(tableName, format(ROUTING_TABLE_API_TEMPLATE, tableName), ROUTING_TABLE_CODEC);
-        LOG.info("Got routingTable for %s from broker: %s", tableName, routingTable);
         ImmutableMap.Builder<String, Map<String, List<String>>> routingTableMap = ImmutableMap.builder();
         for (Map.Entry<String, Map<String, List<String>>> entry : routingTable.entrySet()) {
             String tablenameWithType = entry.getKey();
