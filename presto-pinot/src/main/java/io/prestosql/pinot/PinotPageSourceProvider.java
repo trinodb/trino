@@ -40,6 +40,7 @@ public class PinotPageSourceProvider
     private final PinotConfig pinotConfig;
     private final PinotQueryClient pinotQueryClient;
     private final PinotClient clusterInfoFetcher;
+    private final int limitForSegmentQueries;
 
     @Inject
     public PinotPageSourceProvider(
@@ -50,6 +51,7 @@ public class PinotPageSourceProvider
         this.pinotConfig = requireNonNull(pinotConfig, "pinotConfig is null");
         this.pinotQueryClient = requireNonNull(pinotQueryClient, "pinotQueryClient is null");
         this.clusterInfoFetcher = requireNonNull(clusterInfoFetcher, "cluster info fetcher is null");
+        this.limitForSegmentQueries = pinotConfig.getMaxRowsPerSplitForSegmentQueries();
     }
 
     @Override
@@ -69,13 +71,14 @@ public class PinotPageSourceProvider
             handles.add((PinotColumnHandle) handle);
         }
         PinotTableHandle pinotTableHandle = (PinotTableHandle) tableHandle;
-        String query = generatePql(pinotTableHandle, handles, pinotSplit.getSuffix(), pinotSplit.getTimePredicate());
+        String query = generatePql(pinotTableHandle, handles, pinotSplit.getSuffix(), pinotSplit.getTimePredicate(), limitForSegmentQueries);
 
         switch (pinotSplit.getSplitType()) {
             case SEGMENT:
                 return new PinotSegmentPageSource(
                         session,
                         this.pinotConfig,
+                        limitForSegmentQueries,
                         this.pinotQueryClient,
                         pinotSplit,
                         handles,
