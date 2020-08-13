@@ -191,7 +191,7 @@ default async mode:
 Limitations
 -----------
 
-Caching does support user impersonation. It does not take any user-specific
+Caching does not support user impersonation. It does not take any user-specific
 access rights to the object storage into account. The cached objects are simply
 transparent binary blobs to the caching system and full access to all content is
 available.
