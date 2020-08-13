@@ -57,6 +57,7 @@
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.4.0</dep.errorprone.version>
         <dep.joda.version>2.10.6</dep.joda.version>
+        <dep.guava.version>28.2-jre</dep.guava.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -973,6 +974,18 @@
                 <groupId>com.google.errorprone</groupId>
                 <artifactId>error_prone_annotations</artifactId>
                 <version>${dep.errorprone.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.google.guava</groupId>
+                <artifactId>guava</artifactId>
+                <version>${dep.guava.version}</version>
+                <exclusions>
+                    <exclusion>
+                        <groupId>com.google.guava</groupId>
+                        <artifactId>listenablefuture</artifactId>
+                    </exclusion>
+                </exclusions>
             </dependency>
 
             <dependency>
