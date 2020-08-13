@@ -15,9 +15,6 @@ package io.prestosql.pinot.query;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.JsonCodec;
-import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import io.prestosql.pinot.PinotColumnHandle;
 import io.prestosql.pinot.PinotTableHandle;
@@ -31,8 +28,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 
-import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
-import static com.fasterxml.jackson.databind.SerializationFeature.FAIL_ON_EMPTY_BEANS;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -42,10 +37,6 @@ import static java.util.stream.Collectors.joining;
 
 public final class PinotQueryBuilder
 {
-    public static final JsonCodec<DynamicTable> CODEC = new JsonCodecFactory(
-            () -> new ObjectMapperProvider().get().enable(FAIL_ON_UNKNOWN_PROPERTIES).disable(FAIL_ON_EMPTY_BEANS))
-            .jsonCodec(DynamicTable.class);
-
     private PinotQueryBuilder()
     {
     }
