@@ -6972,6 +6972,20 @@ public class TestHiveIntegrationSmokeTest
                 .build();
     }
 
+    @Test
+    public void testHiveExtraProperties()
+    {
+        String sql = "CREATE TABLE test (\n" +
+                "  key int\n" +
+                ")\n" +
+                "WITH (\n" +
+                "  extra_properties = MAP(ARRAY['key1', 'key2'], ARRAY['value1', 'value2'])\n" +
+                ")";
+        getQueryRunner().execute(getSession(), sql).toTestTypes();
+        MaterializedResult results = getQueryRunner().execute(getSession(), "show create table test").toTestTypes();
+        assertTrue(results.getMaterializedRows().get(0).getField(0).toString().contains("extra_properties = map_from_entries(ARRAY[ROW('key1', 'value1'),ROW('key2', 'value2')])"));
+    }
+
     private void assertOneNotNullResult(@Language("SQL") String query)
     {
         MaterializedResult results = getQueryRunner().execute(getSession(), query).toTestTypes();

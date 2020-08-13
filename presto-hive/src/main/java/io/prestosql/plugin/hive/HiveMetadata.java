@@ -132,6 +132,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Streams.stream;
+import static io.airlift.json.JsonCodec.mapJsonCodec;
 import static io.prestosql.plugin.hive.HiveAnalyzeProperties.getColumnNames;
 import static io.prestosql.plugin.hive.HiveAnalyzeProperties.getPartitionList;
 import static io.prestosql.plugin.hive.HiveApplyProjectionUtil.extractSupportedProjectedColumns;
@@ -174,6 +175,7 @@ import static io.prestosql.plugin.hive.HiveTableProperties.CSV_ESCAPE;
 import static io.prestosql.plugin.hive.HiveTableProperties.CSV_QUOTE;
 import static io.prestosql.plugin.hive.HiveTableProperties.CSV_SEPARATOR;
 import static io.prestosql.plugin.hive.HiveTableProperties.EXTERNAL_LOCATION_PROPERTY;
+import static io.prestosql.plugin.hive.HiveTableProperties.EXTRA_PROPERTIES;
 import static io.prestosql.plugin.hive.HiveTableProperties.NULL_FORMAT_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_COLUMNS;
 import static io.prestosql.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
@@ -188,6 +190,7 @@ import static io.prestosql.plugin.hive.HiveTableProperties.getAnalyzeColumns;
 import static io.prestosql.plugin.hive.HiveTableProperties.getAvroSchemaUrl;
 import static io.prestosql.plugin.hive.HiveTableProperties.getBucketProperty;
 import static io.prestosql.plugin.hive.HiveTableProperties.getExternalLocation;
+import static io.prestosql.plugin.hive.HiveTableProperties.getExtraProperties;
 import static io.prestosql.plugin.hive.HiveTableProperties.getFooterSkipCount;
 import static io.prestosql.plugin.hive.HiveTableProperties.getHeaderSkipCount;
 import static io.prestosql.plugin.hive.HiveTableProperties.getHiveStorageFormat;
@@ -626,6 +629,12 @@ public class HiveMetadata
 
         Optional<String> comment = Optional.ofNullable(table.getParameters().get(TABLE_COMMENT));
 
+        String extraProperties = table.getParameters().get(EXTRA_PROPERTIES);
+
+        if (extraProperties != null) {
+            properties.put(EXTRA_PROPERTIES, mapJsonCodec(String.class, String.class).fromJson(extraProperties));
+        }
+
         return new ConnectorTableMetadata(tableName, columns.build(), properties.build(), comment);
     }
 
@@ -967,6 +976,12 @@ public class HiveMetadata
         // external table over large data set.
         tableProperties.put("numFiles", "-1");
         tableProperties.put("totalSize", "-1");
+
+        // Extra properties
+        Map<String, String> extraProperties = getExtraProperties(tableMetadata.getProperties());
+        if (extraProperties != null) {
+            tableProperties.put(EXTRA_PROPERTIES, mapJsonCodec(String.class, String.class).toJson(extraProperties));
+        }
 
         // Table comment property
         tableMetadata.getComment().ifPresent(value -> tableProperties.put(TABLE_COMMENT, value));

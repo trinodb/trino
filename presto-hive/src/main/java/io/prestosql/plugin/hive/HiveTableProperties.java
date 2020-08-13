@@ -20,6 +20,7 @@ import io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.TypeManager;
 
 import javax.inject.Inject;
 
@@ -41,6 +42,7 @@ import static io.prestosql.spi.session.PropertyMetadata.doubleProperty;
 import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
+import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -71,13 +73,15 @@ public class HiveTableProperties
     public static final String CSV_QUOTE = "csv_quote";
     public static final String CSV_ESCAPE = "csv_escape";
     public static final String TRANSACTIONAL = "transactional";
+    public static final String EXTRA_PROPERTIES = "extra_properties";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
     @Inject
     public HiveTableProperties(
             HiveConfig config,
-            OrcWriterConfig orcWriterConfig)
+            OrcWriterConfig orcWriterConfig,
+            TypeManager typeManager)
     {
         tableProperties = ImmutableList.of(
                 stringProperty(
@@ -156,7 +160,16 @@ public class HiveTableProperties
                 stringProperty(CSV_SEPARATOR, "CSV separator character", null, false),
                 stringProperty(CSV_QUOTE, "CSV quote character", null, false),
                 stringProperty(CSV_ESCAPE, "CSV escape character", null, false),
-                booleanProperty(TRANSACTIONAL, "Table is transactional", null, false));
+                booleanProperty(TRANSACTIONAL, "Table is transactional", null, false),
+                new PropertyMetadata<>(
+                        EXTRA_PROPERTIES,
+                        "Extra table properties",
+                        typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature())),
+                        Map.class,
+                        null,
+                        false,
+                        value -> ((Map<String, String>) value),
+                        value -> value));
     }
 
     public List<PropertyMetadata<?>> getTableProperties()
@@ -298,5 +311,10 @@ public class HiveTableProperties
     public static Optional<Boolean> isTransactional(Map<String, Object> tableProperties)
     {
         return Optional.ofNullable((Boolean) tableProperties.get(TRANSACTIONAL));
+    }
+
+    public static Map<String, String> getExtraProperties(Map<String, Object> tableProperties)
+    {
+        return (Map<String, String>) tableProperties.get(EXTRA_PROPERTIES);
     }
 }
