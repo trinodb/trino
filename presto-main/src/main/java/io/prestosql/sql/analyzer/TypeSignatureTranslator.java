@@ -102,8 +102,9 @@ public class TypeSignatureTranslator
     {
         ImmutableList.Builder<TypeSignatureParameter> parameters = ImmutableList.builder();
 
-        if (type.getName().getValue().equalsIgnoreCase(StandardTypes.VARCHAR) && type.getArguments().isEmpty()) {
+        if ((type.getName().getValue().equalsIgnoreCase(StandardTypes.VARCHAR) || type.getName().getValue().equalsIgnoreCase(StandardTypes.STRING)) && type.getArguments().isEmpty()) {
             // We treat VARCHAR specially because currently, the unbounded VARCHAR type is modeled in the system as a VARCHAR(n) with a "magic" length
+            // We treat String of Hive as VARCHAR
             // TODO: Eventually, we should split the types into VARCHAR and VARCHAR(n)
             return VarcharType.VARCHAR.getTypeSignature();
         }

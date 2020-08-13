@@ -98,4 +98,13 @@ public class TestTypeSignatureTranslator
     {
         assertRoundTrip("ROW(x BIGINT, y DOUBLE PRECISION, z ROW(m array<bigint>,n map<double,varchar>))");
     }
+
+    @Test
+    public void testStringToVarchar()
+    {
+        assertThat(type("varchar"))
+                .ignoringLocation()
+                .withComparatorForType(Comparator.comparing(identifier -> identifier.getValue().toLowerCase(Locale.ENGLISH)), Identifier.class)
+                .isEqualTo(toDataType(toTypeSignature(SQL_PARSER.createType("string"))));
+    }
 }
