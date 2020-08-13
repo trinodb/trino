@@ -37,10 +37,10 @@ import static java.util.Objects.requireNonNull;
 public class PinotPageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private final PinotConfig pinotConfig;
     private final PinotQueryClient pinotQueryClient;
     private final PinotClient clusterInfoFetcher;
     private final int limitForSegmentQueries;
+    private final int estimatedNonNumericColumnSize;
 
     @Inject
     public PinotPageSourceProvider(
@@ -48,10 +48,11 @@ public class PinotPageSourceProvider
             PinotClient clusterInfoFetcher,
             PinotQueryClient pinotQueryClient)
     {
-        this.pinotConfig = requireNonNull(pinotConfig, "pinotConfig is null");
+        requireNonNull(pinotConfig, "pinotConfig is null");
         this.pinotQueryClient = requireNonNull(pinotQueryClient, "pinotQueryClient is null");
         this.clusterInfoFetcher = requireNonNull(clusterInfoFetcher, "cluster info fetcher is null");
         this.limitForSegmentQueries = pinotConfig.getMaxRowsPerSplitForSegmentQueries();
+        estimatedNonNumericColumnSize = pinotConfig.getEstimatedSizeInBytesForNonNumericColumn();
     }
 
     @Override
@@ -77,7 +78,7 @@ public class PinotPageSourceProvider
             case SEGMENT:
                 return new PinotSegmentPageSource(
                         session,
-                        this.pinotConfig,
+                        estimatedNonNumericColumnSize,
                         limitForSegmentQueries,
                         this.pinotQueryClient,
                         pinotSplit,

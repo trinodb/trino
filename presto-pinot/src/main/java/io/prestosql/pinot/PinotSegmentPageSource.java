@@ -59,13 +59,13 @@ public class PinotSegmentPageSource
     private static final Logger LOG = Logger.get(PinotSegmentPageSource.class);
 
     private final List<PinotColumnHandle> columnHandles;
-    private final PinotConfig pinotConfig;
     private final PinotSplit split;
     private final PinotQueryClient pinotQueryClient;
     private final ConnectorSession session;
     private final String query;
     private final int limitForSegmentQueries;
     private final AtomicLong currentRowCount = new AtomicLong();
+    private final int estimatedNonNumericColumnSize;
 
     private List<Type> columnTypes;
     // dataTableList stores the dataTable returned from each server. Each dataTable is constructed to a Page, and then destroyed to save memory.
@@ -79,15 +79,15 @@ public class PinotSegmentPageSource
 
     public PinotSegmentPageSource(
             ConnectorSession session,
-            PinotConfig pinotConfig,
+            int estimatedNonNumericColumnSize,
             int limitForSegmentQueries,
             PinotQueryClient pinotQueryClient,
             PinotSplit split,
             List<PinotColumnHandle> columnHandles,
             String query)
     {
-        this.pinotConfig = requireNonNull(pinotConfig, "pinotConfig is null");
         this.limitForSegmentQueries = limitForSegmentQueries;
+        this.estimatedNonNumericColumnSize = estimatedNonNumericColumnSize;
         this.split = requireNonNull(split, "split is null");
         this.pinotQueryClient = requireNonNull(pinotQueryClient, "pinotQueryClient is null");
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
@@ -461,7 +461,7 @@ public class PinotSegmentPageSource
                     return Integer.BYTES;
             }
         }
-        return pinotConfig.getEstimatedSizeInBytesForNonNumericColumn();
+        return estimatedNonNumericColumnSize;
     }
 
     private static class PinotDataTableWithSize
