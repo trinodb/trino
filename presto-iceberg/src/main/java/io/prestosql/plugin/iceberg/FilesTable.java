@@ -82,7 +82,9 @@ public class FilesTable
                     List<Field> boundFields = Lists.newArrayList(
                             new Field(Optional.of(LOWER_BOUND), type),
                             new Field(Optional.of(UPPER_BOUND), type));
-                    columnHandleBuilder.add(new IcebergColumnHandle(column.fieldId(), column.name(), RowType.from(Lists.newArrayList(Iterables.concat(fields, boundFields))), Optional.empty()));
+                    final RowType rowType = RowType.from(Lists.newArrayList(Iterables.concat(fields, boundFields)));
+                    final IcebergColumnHandle columnHandle = new IcebergColumnHandle(column.fieldId(), column.name(), rowType, Optional.empty());
+                    columnHandleBuilder.add(columnHandle);
                 });
 
         columnHandles = columnHandleBuilder.build();
