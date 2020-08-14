@@ -16,13 +16,12 @@ package io.prestosql.tests.hive;
 import io.airlift.units.Duration;
 import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.assertions.QueryAssert.Row;
-import io.prestosql.tempto.query.QueryResult;
+import io.prestosql.tests.hive.util.CachingTestUtils.CacheStats;
 import org.testng.annotations.Test;
 
 import java.util.Collections;
 import java.util.Random;
 
-import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
@@ -30,6 +29,7 @@ import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.HIVE_CACHING;
 import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.prestosql.tests.hive.util.CachingTestUtils.getCacheStats;
 import static io.prestosql.tests.utils.QueryAssertions.assertEventually;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
@@ -53,11 +53,11 @@ public class TestHiveCaching
 
         Row[] tableData = createTestTable(nonCachedTableName);
 
-        QueryResult beforeCacheStats = getCacheStats();
-        long initialRemoteReads = getRemoteReads(beforeCacheStats);
-        long initialCachedReads = getCachedReads(beforeCacheStats);
-        long initialNonLocalReads = getNonLocalReads(beforeCacheStats);
-        long initialAsyncDownloadedMb = getAsyncDownloadedMb();
+        CacheStats beforeCacheStats = getCacheStats();
+        long initialRemoteReads = beforeCacheStats.getRemoteReads();
+        long initialCachedReads = beforeCacheStats.getCachedReads();
+        long initialNonLocalReads = beforeCacheStats.getNonLocalReads();
+        long initialAsyncDownloadedMb = beforeCacheStats.getAsyncDownloadedMb();
 
         assertThat(query("SELECT * FROM " + cachedTableName))
                 .containsExactly(tableData);
@@ -66,30 +66,30 @@ public class TestHiveCaching
                 new Duration(20, SECONDS),
                 () -> {
                     // first query via caching catalog should fetch remote data
-                    QueryResult afterQueryCacheStats = getCacheStats();
-                    assertGreaterThanOrEqual(getAsyncDownloadedMb(), initialAsyncDownloadedMb + 5);
-                    assertGreaterThan(getRemoteReads(afterQueryCacheStats), initialRemoteReads);
-                    assertEquals(getCachedReads(afterQueryCacheStats), initialCachedReads);
-                    assertEquals(getNonLocalReads(afterQueryCacheStats), initialNonLocalReads);
+                    CacheStats afterQueryCacheStats = getCacheStats();
+                    assertGreaterThanOrEqual(afterQueryCacheStats.getAsyncDownloadedMb(), initialAsyncDownloadedMb + 5);
+                    assertGreaterThan(afterQueryCacheStats.getRemoteReads(), initialRemoteReads);
+                    assertEquals(afterQueryCacheStats.getCachedReads(), initialCachedReads);
+                    assertEquals(afterQueryCacheStats.getNonLocalReads(), initialNonLocalReads);
                 });
 
         assertEventually(
                 new Duration(10, SECONDS),
                 () -> {
-                    QueryResult beforeQueryCacheStats = getCacheStats();
-                    long beforeQueryCachedReads = getCachedReads(beforeQueryCacheStats);
-                    long beforeQueryRemoteReads = getRemoteReads(beforeQueryCacheStats);
-                    long beforeQueryNonLocalReads = getNonLocalReads(beforeQueryCacheStats);
+                    CacheStats beforeQueryCacheStats = getCacheStats();
+                    long beforeQueryCachedReads = beforeQueryCacheStats.getCachedReads();
+                    long beforeQueryRemoteReads = beforeQueryCacheStats.getRemoteReads();
+                    long beforeQueryNonLocalReads = beforeQueryCacheStats.getNonLocalReads();
 
                     assertThat(query("SELECT * FROM " + cachedTableName))
                             .containsExactly(tableData);
 
                     // query via caching catalog should read exclusively from cache
-                    QueryResult afterQueryCacheStats = getCacheStats();
-                    assertGreaterThan(getCachedReads(afterQueryCacheStats), beforeQueryCachedReads);
-                    assertEquals(getRemoteReads(afterQueryCacheStats), beforeQueryRemoteReads);
+                    CacheStats afterQueryCacheStats = getCacheStats();
+                    assertGreaterThan(afterQueryCacheStats.getCachedReads(), beforeQueryCachedReads);
+                    assertEquals(afterQueryCacheStats.getRemoteReads(), beforeQueryRemoteReads);
                     // all reads should be local as Presto would schedule splits on nodes with cached data
-                    assertEquals(getNonLocalReads(afterQueryCacheStats), beforeQueryNonLocalReads);
+                    assertEquals(afterQueryCacheStats.getNonLocalReads(), beforeQueryNonLocalReads);
                 });
 
         query("DROP TABLE " + nonCachedTableName);
@@ -117,39 +117,5 @@ public class TestHiveCaching
 
         Row row = row(randomData.repeat(5));
         return Collections.nCopies(NUMBER_OF_FILES, row).toArray(new Row[0]);
-    }
-
-    private QueryResult getCacheStats()
-    {
-        return query("SELECT " +
-                "  sum(Cached_rrc_requests) as cachedreads, " +
-                "  sum(Remote_rrc_requests + Direct_rrc_requests) as remotereads, " +
-                "  sum(Nonlocal_rrc_requests) as nonlocalreads " +
-                "FROM jmx.current.\"rubix:catalog=hive,type=detailed,name=stats\";");
-    }
-
-    private long getCachedReads(QueryResult queryResult)
-    {
-        return (Long) getOnlyElement(queryResult.rows())
-                .get(queryResult.tryFindColumnIndex("cachedreads").get() - 1);
-    }
-
-    private long getRemoteReads(QueryResult queryResult)
-    {
-        return (Long) getOnlyElement(queryResult.rows())
-                .get(queryResult.tryFindColumnIndex("remotereads").get() - 1);
-    }
-
-    private long getNonLocalReads(QueryResult queryResult)
-    {
-        return (Long) getOnlyElement(queryResult.rows())
-                .get(queryResult.tryFindColumnIndex("nonlocalreads").get() - 1);
-    }
-
-    private long getAsyncDownloadedMb()
-    {
-        return (Long) getOnlyElement(query("SELECT sum(Count) FROM " +
-                "jmx.current.\"metrics:name=rubix.bookkeeper.count.async_downloaded_mb\"").rows())
-                .get(0);
     }
 }
