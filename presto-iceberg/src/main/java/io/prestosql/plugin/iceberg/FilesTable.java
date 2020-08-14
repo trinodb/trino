@@ -14,163 +14,105 @@
 package io.prestosql.plugin.iceberg;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableMap;
-import io.airlift.slice.Slices;
-import io.prestosql.plugin.iceberg.util.PageListBuilder;
-import io.prestosql.spi.Page;
+import com.google.common.collect.Iterables;
+import com.google.common.collect.Lists;
 import io.prestosql.spi.connector.ColumnMetadata;
-import io.prestosql.spi.connector.ConnectorPageSource;
-import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.connector.ConnectorTableMetadata;
-import io.prestosql.spi.connector.ConnectorTransactionHandle;
-import io.prestosql.spi.connector.FixedPageSource;
-import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.connector.SystemTable;
-import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.RowType.Field;
+import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
-import org.apache.iceberg.DataFile;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.Table;
-import org.apache.iceberg.TableScan;
-import org.apache.iceberg.transforms.Transforms;
-import org.apache.iceberg.types.Conversions;
-import org.apache.iceberg.types.Type;
 import org.apache.iceberg.types.Types;
 
-import java.nio.ByteBuffer;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.prestosql.plugin.iceberg.IcebergUtil.getTableScan;
+import static io.prestosql.plugin.iceberg.TypeConverter.toPrestoType;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static java.util.Objects.requireNonNull;
+import static java.lang.String.format;
+import static org.apache.iceberg.types.Types.NestedField.optional;
 
 public class FilesTable
-        implements SystemTable
 {
-    private final ConnectorTableMetadata tableMetadata;
-    private final Table icebergTable;
-    private final Optional<Long> snapshotId;
+    public static final IcebergColumnHandle FILE_PATH = new IcebergColumnHandle(-1, "file_path", VARCHAR, Optional.empty());
+    public static final IcebergColumnHandle FILE_FORMAT = new IcebergColumnHandle(-2, "file_format", VARCHAR, Optional.empty());
+    public static final IcebergColumnHandle RECORD_COUNT = new IcebergColumnHandle(-3, "record_count", BIGINT, Optional.empty());
+    public static final IcebergColumnHandle FILE_SIZE_IN_BYTES = new IcebergColumnHandle(-4, "file_size_in_bytes", BIGINT, Optional.empty());
+    public static final IcebergColumnHandle FILE_ORDINAL = new IcebergColumnHandle(-5, "file_ordinal", INTEGER, Optional.empty());
+    public static final IcebergColumnHandle SORT_COLUMNS = new IcebergColumnHandle(-6, "sort_columns", new ArrayType(INTEGER), Optional.empty());
+    public static final IcebergColumnHandle KEY_METADATA = new IcebergColumnHandle(-7, "key_metadata", VARBINARY, Optional.empty());
+    public static final IcebergColumnHandle SPLIT_OFFSETS = new IcebergColumnHandle(-8, "split_offsets", new ArrayType(BIGINT), Optional.empty());
+    public static final String COLUMN_SIZE = "column_size";
+    public static final String VALUE_COUNTS = "value_counts";
+    public static final String NULL_VALUE_COUNTS = "null_value_counts";
+    public static final String LOWER_BOUND = "lower_bound";
+    public static final String UPPER_BOUND = "upper_bound";
+    private final List<IcebergColumnHandle> columnHandles;
 
-    public FilesTable(SchemaTableName tableName, Table icebergTable, Optional<Long> snapshotId, TypeManager typeManager)
+    public FilesTable(Schema schema, TypeManager typeManager)
     {
-        this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
+        ImmutableList.Builder<IcebergColumnHandle> columnHandleBuilder = new ImmutableList.Builder<>();
+        columnHandleBuilder.add(FILE_PATH);
+        columnHandleBuilder.add(FILE_FORMAT);
+        columnHandleBuilder.add(RECORD_COUNT);
+        columnHandleBuilder.add(FILE_SIZE_IN_BYTES);
+        columnHandleBuilder.add(FILE_ORDINAL);
+        columnHandleBuilder.add(SORT_COLUMNS);
+        columnHandleBuilder.add(KEY_METADATA);
+        columnHandleBuilder.add(SPLIT_OFFSETS);
 
-        tableMetadata = new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"),
-                ImmutableList.<ColumnMetadata>builder()
-                        .add(new ColumnMetadata("file_path", VARCHAR))
-                        .add(new ColumnMetadata("file_format", VARCHAR))
-                        .add(new ColumnMetadata("record_count", BIGINT))
-                        .add(new ColumnMetadata("file_size_in_bytes", BIGINT))
-                        .add(new ColumnMetadata("column_sizes", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
-                        .add(new ColumnMetadata("value_counts", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
-                        .add(new ColumnMetadata("null_value_counts", typeManager.getType(mapType(INTEGER.getTypeSignature(), BIGINT.getTypeSignature()))))
-                        .add(new ColumnMetadata("lower_bounds", typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()))))
-                        .add(new ColumnMetadata("upper_bounds", typeManager.getType(mapType(INTEGER.getTypeSignature(), VARCHAR.getTypeSignature()))))
-                        .add(new ColumnMetadata("key_metadata", VARBINARY))
-                        .add(new ColumnMetadata("split_offsets", new ArrayType(BIGINT)))
-                        .build());
-        this.snapshotId = requireNonNull(snapshotId, "snapshotId is null");
+        List<Field> fields = Lists.newArrayList(
+                new Field(Optional.of(COLUMN_SIZE), BIGINT),
+                new Field(Optional.of(VALUE_COUNTS), BIGINT),
+                new Field(Optional.of(NULL_VALUE_COUNTS), BIGINT));
+
+        final ImmutableList.Builder<Types.NestedField> columnBuilder = new ImmutableList.Builder<>();
+
+        schema.columns().stream()
+                .forEach(column -> columnBuilder.addAll(handleNestedType(column, Optional.empty())));
+
+        columnBuilder.build()
+                .forEach(column -> {
+                    final Type type = toPrestoType(column.type(), typeManager);
+                    List<Field> boundFields = Lists.newArrayList(
+                            new Field(Optional.of(LOWER_BOUND), type),
+                            new Field(Optional.of(UPPER_BOUND), type));
+                    columnHandleBuilder.add(new IcebergColumnHandle(column.fieldId(), column.name(), RowType.from(Lists.newArrayList(Iterables.concat(fields, boundFields))), Optional.empty()));
+                });
+
+        columnHandles = columnHandleBuilder.build();
     }
 
-    @Override
-    public Distribution getDistribution()
+    public List<IcebergColumnHandle> getColumnHandles()
     {
-        return Distribution.SINGLE_COORDINATOR;
+        return columnHandles;
     }
 
-    @Override
-    public ConnectorTableMetadata getTableMetadata()
+    public List<ColumnMetadata> getColumnMetadata()
     {
-        return tableMetadata;
+        return columnHandles.stream()
+                .map(column -> new ColumnMetadata(column.getName(), column.getType()))
+                .collect(Collectors.toList());
     }
 
-    @Override
-    public ConnectorPageSource pageSource(ConnectorTransactionHandle transactionHandle, ConnectorSession session, TupleDomain<Integer> constraint)
+    public static List<Types.NestedField> handleNestedType(Types.NestedField nestedField, Optional<String> name)
     {
-        return new FixedPageSource(buildPages(tableMetadata, session, icebergTable, snapshotId));
-    }
-
-    private static List<Page> buildPages(ConnectorTableMetadata tableMetadata, ConnectorSession session, Table icebergTable, Optional<Long> snapshotId)
-    {
-        PageListBuilder pagesBuilder = PageListBuilder.forTable(tableMetadata);
-        TableScan tableScan = getTableScan(session, TupleDomain.all(), snapshotId, icebergTable).includeColumnStats();
-        Map<Integer, Type> idToTypeMapping = getIcebergIdToTypeMapping(icebergTable.schema());
-
-        tableScan.planFiles().forEach(fileScanTask -> {
-            DataFile dataFile = fileScanTask.file();
-
-            pagesBuilder.beginRow();
-            pagesBuilder.appendVarchar(dataFile.path().toString());
-            pagesBuilder.appendVarchar(dataFile.format().name());
-            pagesBuilder.appendBigint(dataFile.recordCount());
-            pagesBuilder.appendBigint(dataFile.fileSizeInBytes());
-            if (checkNonNull(dataFile.columnSizes(), pagesBuilder)) {
-                pagesBuilder.appendIntegerBigintMap(dataFile.columnSizes());
-            }
-            if (checkNonNull(dataFile.valueCounts(), pagesBuilder)) {
-                pagesBuilder.appendIntegerBigintMap(dataFile.valueCounts());
-            }
-            if (checkNonNull(dataFile.nullValueCounts(), pagesBuilder)) {
-                pagesBuilder.appendIntegerBigintMap(dataFile.nullValueCounts());
-            }
-            if (checkNonNull(dataFile.lowerBounds(), pagesBuilder)) {
-                pagesBuilder.appendIntegerVarcharMap(dataFile.lowerBounds().entrySet().stream()
-                        .collect(toImmutableMap(
-                                Map.Entry<Integer, ByteBuffer>::getKey,
-                                entry -> Transforms.identity(idToTypeMapping.get(entry.getKey())).toHumanString(
-                                        Conversions.fromByteBuffer(idToTypeMapping.get(entry.getKey()), entry.getValue())))));
-            }
-            if (checkNonNull(dataFile.upperBounds(), pagesBuilder)) {
-                pagesBuilder.appendIntegerVarcharMap(dataFile.upperBounds().entrySet().stream()
-                        .collect(toImmutableMap(
-                                Map.Entry<Integer, ByteBuffer>::getKey,
-                                entry -> Transforms.identity(idToTypeMapping.get(entry.getKey())).toHumanString(
-                                        Conversions.fromByteBuffer(idToTypeMapping.get(entry.getKey()), entry.getValue())))));
-            }
-            if (checkNonNull(dataFile.keyMetadata(), pagesBuilder)) {
-                pagesBuilder.appendVarbinary(Slices.wrappedBuffer(dataFile.keyMetadata()));
-            }
-            if (checkNonNull(dataFile.splitOffsets(), pagesBuilder)) {
-                pagesBuilder.appendBigintArray(dataFile.splitOffsets());
-            }
-            pagesBuilder.endRow();
-        });
-
-        return pagesBuilder.build();
-    }
-
-    private static boolean checkNonNull(Object object, PageListBuilder pagesBuilder)
-    {
-        if (object == null) {
-            pagesBuilder.appendNull();
-            return false;
+        org.apache.iceberg.types.Type type = nestedField.type();
+        String fullName = name.map(n -> format("%s.%s", n, nestedField.name())).orElse(nestedField.name());
+        if (type.isPrimitiveType()) {
+            return List.of(optional(nestedField.fieldId(), fullName, nestedField.type()));
         }
-        return true;
-    }
-
-    private static Map<Integer, Type> getIcebergIdToTypeMapping(Schema schema)
-    {
-        ImmutableMap.Builder<Integer, Type> icebergIdToTypeMapping = ImmutableMap.builder();
-        for (Types.NestedField field : schema.columns()) {
-            populateIcebergIdToTypeMapping(field, icebergIdToTypeMapping);
-        }
-        return icebergIdToTypeMapping.build();
-    }
-
-    private static void populateIcebergIdToTypeMapping(Types.NestedField field, ImmutableMap.Builder<Integer, Type> icebergIdToTypeMapping)
-    {
-        Type type = field.type();
-        icebergIdToTypeMapping.put(field.fieldId(), type);
-        if (type instanceof Type.NestedType) {
-            type.asNestedType().fields().forEach(child -> populateIcebergIdToTypeMapping(child, icebergIdToTypeMapping));
+        else {
+            ImmutableList.Builder<Types.NestedField> builder = new ImmutableList.Builder<>();
+            builder.add(optional(nestedField.fieldId(), fullName, nestedField.type()));
+            type.asNestedType().fields()
+                    .forEach(field -> builder.addAll(handleNestedType(field, Optional.of(fullName))));
+            return builder.build();
         }
     }
 }

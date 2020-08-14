@@ -61,6 +61,7 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hdfs.BlockMissingException;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.hadoop.HadoopFileIO;
 import org.apache.parquet.column.ColumnDescriptor;
 import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.FileMetaData;
@@ -159,17 +160,26 @@ public class IcebergPageSourceProvider
                 .collect(toImmutableList());
 
         HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
-        ConnectorPageSource dataPageSource = createDataPageSource(
-                session,
-                hdfsContext,
-                new Path(split.getPath()),
-                split.getStart(),
-                split.getLength(),
-                split.getFileFormat(),
-                regularColumns,
-                table.getPredicate());
+        switch (table.getTableType()) {
+            case DATA:
+                ConnectorPageSource dataPageSource = createDataPageSource(
+                        session,
+                        hdfsContext,
+                        new Path(split.getPath()),
+                        split.getStart(),
+                        split.getLength(),
+                        split.getFileFormat(),
+                        regularColumns,
+                        table.getPredicate());
 
-        return new IcebergPageSource(icebergColumns, partitionKeys, dataPageSource, session.getTimeZoneKey());
+                return new IcebergPageSource(icebergColumns, partitionKeys, dataPageSource, session.getTimeZoneKey());
+            case FILES:
+                Path path = new Path(split.getPath());
+                HadoopFileIO fileIO = new HadoopFileIO(hdfsEnvironment.getConfiguration(hdfsContext, path));
+                return new FilesPageSource(fileIO, icebergColumns, split.getPath());
+            default:
+                throw new PrestoException(IcebergErrorCode.ICEBERG_UNKNOWN_TABLE_TYPE, "not supported" + table.getTableType());
+        }
     }
 
     private ConnectorPageSource createDataPageSource(

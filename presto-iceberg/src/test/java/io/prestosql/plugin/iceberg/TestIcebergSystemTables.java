@@ -71,6 +71,9 @@ public class TestIcebergSystemTables
     public void setUp()
     {
         assertUpdate("CREATE SCHEMA test_schema");
+        assertUpdate("CREATE TABLE test_schema.test_table_unpartitioned (_bigint BIGINT, _date DATE)");
+        assertUpdate("INSERT INTO test_schema.test_table_unpartitioned VALUES (0, CAST('2019-09-08' AS DATE)), (1, CAST('2019-09-09' AS DATE)), (2, CAST('2019-09-09' AS DATE))", 3);
+
         assertUpdate("CREATE TABLE test_schema.test_table (_bigint BIGINT, _date DATE) WITH (partitioning = ARRAY['_date'])");
         assertUpdate("INSERT INTO test_schema.test_table VALUES (0, CAST('2019-09-08' AS DATE)), (1, CAST('2019-09-09' AS DATE)), (2, CAST('2019-09-09' AS DATE))", 3);
         assertUpdate("INSERT INTO test_schema.test_table VALUES (3, CAST('2019-09-09' AS DATE)), (4, CAST('2019-09-10' AS DATE)), (5, CAST('2019-09-10' AS DATE))", 3);
@@ -162,19 +165,32 @@ public class TestIcebergSystemTables
                         "('file_format', 'varchar', '', '')," +
                         "('record_count', 'bigint', '', '')," +
                         "('file_size_in_bytes', 'bigint', '', '')," +
-                        "('column_sizes', 'map(integer, bigint)', '', '')," +
-                        "('value_counts', 'map(integer, bigint)', '', '')," +
-                        "('null_value_counts', 'map(integer, bigint)', '', '')," +
-                        "('lower_bounds', 'map(integer, varchar)', '', '')," +
-                        "('upper_bounds', 'map(integer, varchar)', '', '')," +
+                        "('file_ordinal', 'integer', '', '')," +
+                        "('sort_columns', 'array(integer)', '', '')," +
                         "('key_metadata', 'varbinary', '', '')," +
-                        "('split_offsets', 'array(bigint)', '', '')");
+                        "('split_offsets', 'array(bigint)', '', '')," +
+                        "('_bigint', 'row(column_size bigint, value_counts bigint, null_value_counts bigint, lower_bound bigint, upper_bound bigint)', '', '')," +
+                        "('_date', 'row(column_size bigint, value_counts bigint, null_value_counts bigint, lower_bound date, upper_bound date)', '', '')");
         assertQuerySucceeds("SELECT * FROM test_schema.\"test_table$files\"");
+
+        assertQuery("SHOW COLUMNS FROM test_schema.\"test_table_unpartitioned$files\"",
+                "VALUES ('file_path', 'varchar', '', '')," +
+                        "('file_format', 'varchar', '', '')," +
+                        "('record_count', 'bigint', '', '')," +
+                        "('file_size_in_bytes', 'bigint', '', '')," +
+                        "('file_ordinal', 'integer', '', '')," +
+                        "('sort_columns', 'array(integer)', '', '')," +
+                        "('key_metadata', 'varbinary', '', '')," +
+                        "('split_offsets', 'array(bigint)', '', '')," +
+                        "('_bigint', 'row(column_size bigint, value_counts bigint, null_value_counts bigint, lower_bound bigint, upper_bound bigint)', '', '')," +
+                        "('_date', 'row(column_size bigint, value_counts bigint, null_value_counts bigint, lower_bound date, upper_bound date)', '', '')");
+        assertQuerySucceeds("SELECT * FROM test_schema.\"test_table_unpartitioned$files\"");
     }
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
     {
+        assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_unpartitioned");
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table");
         assertUpdate("DROP TABLE IF EXISTS test_schema.test_table_multilevel_partitions");
         assertUpdate("DROP SCHEMA IF EXISTS test_schema");

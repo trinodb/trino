@@ -99,6 +99,7 @@ import static io.prestosql.plugin.iceberg.IcebergUtil.isIcebergTable;
 import static io.prestosql.plugin.iceberg.PartitionFields.parsePartitionFields;
 import static io.prestosql.plugin.iceberg.PartitionFields.toPartitionFields;
 import static io.prestosql.plugin.iceberg.TableType.DATA;
+import static io.prestosql.plugin.iceberg.TableType.FILES;
 import static io.prestosql.plugin.iceberg.TypeConverter.toIcebergType;
 import static io.prestosql.plugin.iceberg.TypeConverter.toPrestoType;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SCHEMA_PROPERTY;
@@ -172,7 +173,7 @@ public class IcebergMetadata
         if (table.isEmpty()) {
             return null;
         }
-        if (handle.getTableType() != DATA) {
+        if (handle.getTableType() != DATA && handle.getTableType() != FILES) {
             throw new PrestoException(NOT_SUPPORTED, "Table type not yet supported: " + handle.getSchemaTableNameWithType());
         }
         if (!isIcebergTable(table.get())) {
@@ -201,8 +202,6 @@ public class IcebergMetadata
                 return Optional.of(new SnapshotsTable(table.getSchemaTableNameWithType(), typeManager, icebergTable));
             case MANIFESTS:
                 return Optional.of(new ManifestsTable(table.getSchemaTableNameWithType(), icebergTable, table.getSnapshotId()));
-            case FILES:
-                return Optional.of(new FilesTable(table.getSchemaTableNameWithType(), icebergTable, table.getSnapshotId(), typeManager));
         }
         return Optional.empty();
     }
@@ -216,7 +215,7 @@ public class IcebergMetadata
     @Override
     public ConnectorTableMetadata getTableMetadata(ConnectorSession session, ConnectorTableHandle table)
     {
-        return getTableMetadata(session, ((IcebergTableHandle) table).getSchemaTableName());
+        return getTableMetadata(session, ((IcebergTableHandle) table));
     }
 
     @Override
@@ -236,9 +235,23 @@ public class IcebergMetadata
     public Map<String, ColumnHandle> getColumnHandles(ConnectorSession session, ConnectorTableHandle tableHandle)
     {
         IcebergTableHandle table = (IcebergTableHandle) tableHandle;
-        org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
-        return getColumns(icebergTable.schema(), typeManager).stream()
-                .collect(toImmutableMap(IcebergColumnHandle::getName, identity()));
+        ImmutableList.Builder<IcebergColumnHandle> columns = new ImmutableList.Builder<>();
+        switch (table.getTableType()) {
+            case FILES:
+                IcebergTableHandle tblHandle = IcebergTableHandle.from(new SchemaTableName(table.getSchemaName(), table.getTableName()));
+                org.apache.iceberg.Table sourceTable = getIcebergTable(metastore, hdfsEnvironment, session, tblHandle);
+                FilesTable filesTable = new FilesTable(sourceTable.schema(), typeManager);
+                columns.addAll(filesTable.getColumnHandles());
+                break;
+            case DATA:
+                org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table.getSchemaTableName());
+                columns.addAll(getColumns(icebergTable.schema(), typeManager));
+                break;
+            default:
+                throw new PrestoException(IcebergErrorCode.ICEBERG_UNKNOWN_TABLE_TYPE, "not supported" + table.getTableType());
+        }
+        return columns.build().stream()
+            .collect(toImmutableMap(IcebergColumnHandle::getName, identity()));
     }
 
     @Override
@@ -262,7 +275,10 @@ public class IcebergMetadata
         ImmutableMap.Builder<SchemaTableName, List<ColumnMetadata>> columns = ImmutableMap.builder();
         for (SchemaTableName table : tables) {
             try {
-                columns.put(table, getTableMetadata(session, table).getColumns());
+                IcebergTableHandle tableHandle = IcebergTableHandle.from(table);
+                if (tableHandle.getTableType().equals(DATA) || tableHandle.getTableType().equals(FILES)) {
+                    columns.put(table, getTableMetadata(session, tableHandle).getColumns());
+                }
             }
             catch (TableNotFoundException e) {
                 // table disappeared during listing operation
@@ -500,23 +516,34 @@ public class IcebergMetadata
         icebergTable.updateSchema().renameColumn(columnHandle.getName(), target).commit();
     }
 
-    private ConnectorTableMetadata getTableMetadata(ConnectorSession session, SchemaTableName table)
+    private ConnectorTableMetadata getTableMetadata(ConnectorSession session, IcebergTableHandle tableHandle)
     {
+        SchemaTableName table = tableHandle.getSchemaTableName();
         if (metastore.getTable(new HiveIdentity(session), table.getSchemaName(), table.getTableName()).isEmpty()) {
             throw new TableNotFoundException(table);
         }
 
         org.apache.iceberg.Table icebergTable = getIcebergTable(metastore, hdfsEnvironment, session, table);
 
-        List<ColumnMetadata> columns = getColumnMetadatas(icebergTable);
-
+        ImmutableList.Builder<ColumnMetadata> columns = new ImmutableList.Builder<>();
         ImmutableMap.Builder<String, Object> properties = ImmutableMap.builder();
-        properties.put(FILE_FORMAT_PROPERTY, getFileFormat(icebergTable));
-        if (!icebergTable.spec().fields().isEmpty()) {
-            properties.put(PARTITIONING_PROPERTY, toPartitionFields(icebergTable.spec()));
-        }
 
-        return new ConnectorTableMetadata(table, columns, properties.build(), getTableComment(icebergTable));
+        switch (tableHandle.getTableType()) {
+            case FILES:
+                FilesTable filesTable = new FilesTable(icebergTable.schema(), typeManager);
+                columns.addAll(filesTable.getColumnMetadata());
+                break;
+            case DATA:
+                columns.addAll(getColumnMetadatas(icebergTable));
+                properties.put(FILE_FORMAT_PROPERTY, getFileFormat(icebergTable));
+                if (!icebergTable.spec().fields().isEmpty()) {
+                    properties.put(PARTITIONING_PROPERTY, toPartitionFields(icebergTable.spec()));
+                }
+                break;
+            default:
+                throw new PrestoException(IcebergErrorCode.ICEBERG_UNKNOWN_TABLE_TYPE, "not supported" + tableHandle.getTableType());
+        }
+        return new ConnectorTableMetadata(table, columns.build(), properties.build(), getTableComment(icebergTable));
     }
 
     private List<ColumnMetadata> getColumnMetadatas(org.apache.iceberg.Table table)

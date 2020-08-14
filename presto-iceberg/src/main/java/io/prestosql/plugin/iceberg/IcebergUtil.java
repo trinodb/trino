@@ -23,13 +23,22 @@ import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.TypeManager;
 import org.apache.iceberg.BaseTable;
+import org.apache.iceberg.DataFilesTable;
 import org.apache.iceberg.FileFormat;
+import org.apache.iceberg.HistoryTable;
+import org.apache.iceberg.ManifestEntriesTable;
+import org.apache.iceberg.ManifestsTable;
+import org.apache.iceberg.MetadataTableType;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
+import org.apache.iceberg.PartitionsTable;
 import org.apache.iceberg.Schema;
+import org.apache.iceberg.SnapshotsTable;
 import org.apache.iceberg.Table;
 import org.apache.iceberg.TableOperations;
 import org.apache.iceberg.TableScan;
+import org.apache.iceberg.catalog.TableIdentifier;
+import org.apache.iceberg.exceptions.NoSuchTableException;
 import org.apache.iceberg.expressions.Expression;
 
 import java.util.List;
@@ -55,6 +64,20 @@ final class IcebergUtil
         return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_TYPE_PROP));
     }
 
+    public static Table getIcebergTable(HiveMetastore metastore, HdfsEnvironment hdfsEnvironment, ConnectorSession session, IcebergTableHandle tableHandle)
+    {
+        SchemaTableName table = tableHandle.getSchemaTableName();
+        TableIdentifier tableIdentifier = tableHandle.toTableIdentifier();
+        if (MetadataTableType.from(tableIdentifier.name()) != null && tableIdentifier.namespace().levels().length == 2) {
+            HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
+            HiveIdentity identity = new HiveIdentity(session);
+            return loadMetadataTable(MetadataTableType.from(tableIdentifier.name()), table, metastore, hdfsEnvironment, hdfsContext, identity);
+        }
+        else {
+            return getIcebergTable(metastore, hdfsEnvironment, session, table);
+        }
+    }
+
     public static Table getIcebergTable(HiveMetastore metastore, HdfsEnvironment hdfsEnvironment, ConnectorSession session, SchemaTableName table)
     {
         HdfsContext hdfsContext = new HdfsContext(session, table.getSchemaName(), table.getTableName());
@@ -76,11 +99,10 @@ final class IcebergUtil
 
     public static Map<PartitionField, Integer> getIdentityPartitions(PartitionSpec partitionSpec)
     {
-        // TODO: expose transform information in Iceberg library
         ImmutableMap.Builder<PartitionField, Integer> columns = ImmutableMap.builder();
         for (int i = 0; i < partitionSpec.fields().size(); i++) {
             PartitionField field = partitionSpec.fields().get(i);
-            if (field.transform().toString().equals("identity")) {
+            if (field.transform().isIdentity()) {
                 columns.put(field, i);
             }
         }
@@ -120,5 +142,37 @@ final class IcebergUtil
     {
         return stream(icebergTable.snapshots())
                 .anyMatch(snapshot -> snapshot.snapshotId() == id);
+    }
+
+    private static Table loadMetadataTable(MetadataTableType type, SchemaTableName table, HiveMetastore metastore, HdfsEnvironment hdfsEnvironment, HdfsContext hdfsContext, HiveIdentity identity)
+    {
+        if (type != null) {
+            TableOperations ops = new HiveTableOperations(metastore, hdfsEnvironment, hdfsContext, identity, table.getSchemaName(), table.getTableName());
+            if (ops.current() == null) {
+                throw new NoSuchTableException("Table does not exist: " + table);
+            }
+
+            BaseTable baseTable = new BaseTable(ops, table.getSchemaName() + "." + table.getTableName());
+
+            switch (type) {
+                case ENTRIES:
+                    return new ManifestEntriesTable(ops, baseTable);
+                case FILES:
+                    return new DataFilesTable(ops, baseTable);
+                case HISTORY:
+                    return new HistoryTable(ops, baseTable);
+                case SNAPSHOTS:
+                    return new SnapshotsTable(ops, baseTable);
+                case MANIFESTS:
+                    return new ManifestsTable(ops, baseTable);
+                case PARTITIONS:
+                    return new PartitionsTable(ops, baseTable);
+                default:
+                    throw new NoSuchTableException("Unknown metadata table type: %s for %s", type, table);
+            }
+        }
+        else {
+            throw new NoSuchTableException("Table does not exist: " + table);
+        }
     }
 }

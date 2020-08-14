@@ -13,7 +13,7 @@
  */
 package io.prestosql.plugin.iceberg;
 
-import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
 import io.prestosql.plugin.hive.HdfsConfig;
@@ -33,7 +33,7 @@ import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.Test;
 
 import java.io.File;
-import java.util.Map;
+import java.util.List;
 
 import static io.prestosql.SystemSessionProperties.MAX_DRIVERS_PER_TASK;
 import static io.prestosql.SystemSessionProperties.TASK_CONCURRENCY;
@@ -87,7 +87,7 @@ public class TestIcebergOrcMetricsCollection
         assertUpdate("CREATE TABLE orders WITH (format = 'ORC') AS SELECT * FROM tpch.tiny.orders", 15000);
         MaterializedResult materializedResult = computeActual("SELECT * FROM \"orders$files\"");
         assertEquals(materializedResult.getRowCount(), 1);
-        DataFileRecord datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
+        DataFileRecord datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0), 17);
 
         // Check file format
         assertEquals(datafile.getFileFormat(), "ORC");
@@ -95,35 +95,38 @@ public class TestIcebergOrcMetricsCollection
         // Check file row count
         assertEquals(datafile.getRecordCount(), 15000L);
 
+        List<ColumnStats> stats = datafile.getColumnStats();
         // Check per-column value count
-        datafile.getValueCounts().values().forEach(valueCount -> assertEquals(valueCount, (Long) 15000L));
+        stats.stream()
+                .map(columnStats -> columnStats.valueCount)
+                .forEach(valueCount -> assertEquals(valueCount, (Long) 15000L));
 
         // Check per-column null value count
-        datafile.getNullValueCounts().values().forEach(nullValueCount -> assertEquals(nullValueCount, (Long) 0L));
+        stats.stream()
+                .map(columnStats -> columnStats.nullCount)
+                .forEach(nullValueCount -> assertEquals(nullValueCount, (Long) 0L));
 
         // Check per-column lower bound
-        Map<Integer, String> lowerBounds = datafile.getLowerBounds();
-        assertQuery("SELECT min(orderkey) FROM tpch.tiny.orders", "VALUES " + lowerBounds.get(1));
-        assertQuery("SELECT min(custkey) FROM tpch.tiny.orders", "VALUES " + lowerBounds.get(2));
-        assertQuery("SELECT min(orderstatus) FROM tpch.tiny.orders", "VALUES '" + lowerBounds.get(3) + "'");
-        assertQuery("SELECT min(totalprice) FROM tpch.tiny.orders", "VALUES " + lowerBounds.get(4));
-        assertQuery("SELECT min(orderdate) FROM tpch.tiny.orders", "VALUES DATE '" + lowerBounds.get(5) + "'");
-        assertQuery("SELECT min(orderpriority) FROM tpch.tiny.orders", "VALUES '" + lowerBounds.get(6) + "'");
-        assertQuery("SELECT min(clerk) FROM tpch.tiny.orders", "VALUES '" + lowerBounds.get(7) + "'");
-        assertQuery("SELECT min(shippriority) FROM tpch.tiny.orders", "VALUES " + lowerBounds.get(8));
-        assertQuery("SELECT min(comment) FROM tpch.tiny.orders", "VALUES '" + lowerBounds.get(9) + "'");
+        assertQuery("SELECT min(orderkey) FROM tpch.tiny.orders", "VALUES " + stats.get(0).lowerBound);
+        assertQuery("SELECT min(custkey) FROM tpch.tiny.orders", "VALUES " + stats.get(1).lowerBound);
+        assertQuery("SELECT min(orderstatus) FROM tpch.tiny.orders", "VALUES '" + stats.get(2).lowerBound + "'");
+        assertQuery("SELECT min(totalprice) FROM tpch.tiny.orders", "VALUES " + stats.get(3).lowerBound);
+        assertQuery("SELECT min(orderdate) FROM tpch.tiny.orders", "VALUES DATE '" + stats.get(4).lowerBound + "'");
+        assertQuery("SELECT min(orderpriority) FROM tpch.tiny.orders", "VALUES '" + stats.get(5).lowerBound + "'");
+        assertQuery("SELECT min(clerk) FROM tpch.tiny.orders", "VALUES '" + stats.get(6).lowerBound + "'");
+        assertQuery("SELECT min(shippriority) FROM tpch.tiny.orders", "VALUES " + stats.get(7).lowerBound);
+        assertQuery("SELECT min(comment) FROM tpch.tiny.orders", "VALUES '" + stats.get(8).lowerBound + "'");
 
         // Check per-column upper bound
-        Map<Integer, String> upperBounds = datafile.getUpperBounds();
-        assertQuery("SELECT max(orderkey) FROM tpch.tiny.orders", "VALUES " + upperBounds.get(1));
-        assertQuery("SELECT max(custkey) FROM tpch.tiny.orders", "VALUES " + upperBounds.get(2));
-        assertQuery("SELECT max(orderstatus) FROM tpch.tiny.orders", "VALUES '" + upperBounds.get(3) + "'");
-        assertQuery("SELECT max(totalprice) FROM tpch.tiny.orders", "VALUES " + upperBounds.get(4));
-        assertQuery("SELECT max(orderdate) FROM tpch.tiny.orders", "VALUES DATE '" + upperBounds.get(5) + "'");
-        assertQuery("SELECT max(orderpriority) FROM tpch.tiny.orders", "VALUES '" + upperBounds.get(6) + "'");
-        assertQuery("SELECT max(clerk) FROM tpch.tiny.orders", "VALUES '" + upperBounds.get(7) + "'");
-        assertQuery("SELECT max(shippriority) FROM tpch.tiny.orders", "VALUES " + upperBounds.get(8));
-        assertQuery("SELECT max(comment) FROM tpch.tiny.orders", "VALUES '" + upperBounds.get(9) + "'");
+        assertQuery("SELECT max(orderkey) FROM tpch.tiny.orders", "VALUES " + stats.get(0).upperBound);
+        assertQuery("SELECT max(custkey) FROM tpch.tiny.orders", "VALUES " + stats.get(1).upperBound);
+        assertQuery("SELECT max(orderstatus) FROM tpch.tiny.orders", "VALUES '" + stats.get(2).upperBound + "'");
+        assertQuery("SELECT max(totalprice) FROM tpch.tiny.orders", "VALUES " + stats.get(3).upperBound);
+        assertQuery("SELECT max(orderdate) FROM tpch.tiny.orders", "VALUES DATE '" + stats.get(4).upperBound + "'");
+        assertQuery("SELECT max(orderpriority) FROM tpch.tiny.orders", "VALUES '" + stats.get(5).upperBound + "'");
+        assertQuery("SELECT max(clerk) FROM tpch.tiny.orders", "VALUES '" + stats.get(6).upperBound + "'");
+        assertQuery("SELECT max(shippriority) FROM tpch.tiny.orders", "VALUES " + stats.get(7).upperBound);
+        assertQuery("SELECT max(comment) FROM tpch.tiny.orders", "VALUES '" + stats.get(8).upperBound + "'");
 
         assertUpdate("DROP TABLE orders");
     }
@@ -135,20 +138,23 @@ public class TestIcebergOrcMetricsCollection
         assertUpdate("INSERT INTO test_with_nulls VALUES (7, 3.4, 'aaa'), (3, 4.5, 'bbb'), (4, null, 'ccc'), (null, null, 'ddd')", 4);
         MaterializedResult materializedResult = computeActual("SELECT * FROM \"test_with_nulls$files\"");
         assertEquals(materializedResult.getRowCount(), 1);
-        DataFileRecord datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
+        DataFileRecord datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0), 11);
 
+        List<ColumnStats> stats = datafile.getColumnStats();
         // Check per-column value count
-        datafile.getValueCounts().values().forEach(valueCount -> assertEquals(valueCount, (Long) 4L));
+        stats.stream()
+                .map(columnStats -> columnStats.valueCount)
+                .forEach(valueCount -> assertEquals(valueCount, (Long) 4L));
 
         // Check per-column null value count
-        assertEquals(datafile.getNullValueCounts().get(1), (Long) 1L);
-        assertEquals(datafile.getNullValueCounts().get(2), (Long) 2L);
-        assertEquals(datafile.getNullValueCounts().get(3), (Long) 0L);
+        assertEquals(stats.get(0).nullCount, (Long) 1L);
+        assertEquals(stats.get(1).nullCount, (Long) 2L);
+        assertEquals(stats.get(2).nullCount, (Long) 0L);
 
         // Check per-column lower bound
-        assertEquals(datafile.getLowerBounds().get(1), "3");
-        assertEquals(datafile.getLowerBounds().get(2), "3.4");
-        assertEquals(datafile.getLowerBounds().get(3), "aaa");
+        assertEquals(stats.get(0).lowerBound, 3);
+        assertEquals(stats.get(1).lowerBound, 3.4f);
+        assertEquals(stats.get(2).lowerBound, "aaa");
 
         assertUpdate("DROP TABLE test_with_nulls");
 
@@ -156,17 +162,18 @@ public class TestIcebergOrcMetricsCollection
         assertUpdate("INSERT INTO test_all_nulls VALUES null, null, null", 3);
         materializedResult = computeActual("SELECT * FROM \"test_all_nulls$files\"");
         assertEquals(materializedResult.getRowCount(), 1);
-        datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
+        datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0), 9);
 
+        stats = datafile.getColumnStats();
         // Check per-column value count
-        assertEquals(datafile.getValueCounts().get(1), (Long) 3L);
+        assertEquals(stats.get(0).valueCount, (Long) 3L);
 
         // Check per-column null value count
-        assertEquals(datafile.getNullValueCounts().get(1), (Long) 3L);
+        assertEquals(stats.get(0).nullCount, (Long) 3L);
 
         // Check that lower bounds and upper bounds are nulls. (There's no non-null record)
-        assertNull(datafile.getLowerBounds());
-        assertNull(datafile.getUpperBounds());
+        assertNull(stats.get(0).lowerBound);
+        assertNull(stats.get(0).upperBound);
 
         assertUpdate("DROP TABLE test_all_nulls");
     }
@@ -182,29 +189,26 @@ public class TestIcebergOrcMetricsCollection
                 "(3, ROW(10, ARRAY[15, 18, 22], 4.9))", 4);
         MaterializedResult materializedResult = computeActual("SELECT * FROM \"test_nested_types$files\"");
         assertEquals(materializedResult.getRowCount(), 1);
-        DataFileRecord datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0));
+        DataFileRecord datafile = toDataFileRecord(materializedResult.getMaterializedRows().get(0), 14);
 
-        Map<Integer, String> lowerBounds = datafile.getLowerBounds();
-        Map<Integer, String> upperBounds = datafile.getUpperBounds();
+        List<ColumnStats> columnStats = datafile.getColumnStats();
 
         // Only
         // 1. top-level primitive columns
         // 2. and nested primitive fields that are not descendants of LISTs or MAPs
         // should appear in lowerBounds or UpperBounds
-        assertEquals(lowerBounds.size(), 3);
-        assertEquals(upperBounds.size(), 3);
 
         // col1
-        assertEquals(lowerBounds.get(1), "-9");
-        assertEquals(upperBounds.get(1), "8");
+        assertEquals(columnStats.get(0).lowerBound, -9);
+        assertEquals(columnStats.get(0).upperBound, 8);
 
-        // col2.f1 (key in lowerBounds/upperBounds is Iceberg ID)
-        assertEquals(lowerBounds.get(3), "0");
-        assertEquals(upperBounds.get(3), "10");
+        // col2.f1
+        assertEquals(columnStats.get(2).lowerBound, 0);
+        assertEquals(columnStats.get(2).upperBound, 10);
 
-        // col2.f3 (key in lowerBounds/upperBounds is Iceberg ID)
-        assertEquals(lowerBounds.get(5), "-2.9");
-        assertEquals(upperBounds.get(5), "4.9");
+        // col2.f3
+        assertEquals(columnStats.get(5).lowerBound, -2.9);
+        assertEquals(columnStats.get(5).upperBound, 4.9);
 
         assertUpdate("DROP TABLE test_nested_types");
     }
@@ -215,25 +219,26 @@ public class TestIcebergOrcMetricsCollection
         private final String fileFormat;
         private final long recordCount;
         private final long fileSizeInBytes;
-        private final Map<Integer, Long> columnSizes;
-        private final Map<Integer, Long> valueCounts;
-        private final Map<Integer, Long> nullValueCounts;
-        private final Map<Integer, String> lowerBounds;
-        private final Map<Integer, String> upperBounds;
+        private final List<ColumnStats> columnStats;
 
-        public static DataFileRecord toDataFileRecord(MaterializedRow row)
+        public static DataFileRecord toDataFileRecord(MaterializedRow row, int expectedFieldCount)
         {
-            assertEquals(row.getFieldCount(), 11);
+            assertEquals(row.getFieldCount(), expectedFieldCount);
+            ImmutableList.Builder<ColumnStats> builder = new ImmutableList.Builder<ColumnStats>();
+            for (int i = 8; i < row.getFieldCount(); i++) {
+                MaterializedRow statsRow = (MaterializedRow) row.getField(i);
+
+                // expect each row to have size, rowcount, nullvalueCount, lowerBound, upperBound
+                assertEquals(statsRow.getFieldCount(), 5);
+                builder.add(new ColumnStats((Long) statsRow.getField(0), (Long) statsRow.getField(1), (Long) statsRow.getField(2), statsRow.getField(3), statsRow.getField(4)));
+            }
+
             return new DataFileRecord(
                     (String) row.getField(0),
                     (String) row.getField(1),
                     (long) row.getField(2),
                     (long) row.getField(3),
-                    row.getField(4) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(4)) : null,
-                    row.getField(5) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(5)) : null,
-                    row.getField(6) != null ? ImmutableMap.copyOf((Map<Integer, Long>) row.getField(6)) : null,
-                    row.getField(7) != null ? ImmutableMap.copyOf((Map<Integer, String>) row.getField(7)) : null,
-                    row.getField(8) != null ? ImmutableMap.copyOf((Map<Integer, String>) row.getField(8)) : null);
+                    builder.build());
         }
 
         private DataFileRecord(
@@ -241,26 +246,13 @@ public class TestIcebergOrcMetricsCollection
                 String fileFormat,
                 long recordCount,
                 long fileSizeInBytes,
-                Map<Integer, Long> columnSizes,
-                Map<Integer, Long> valueCounts,
-                Map<Integer, Long> nullValueCounts,
-                Map<Integer, String> lowerBounds,
-                Map<Integer, String> upperBounds)
+                List<ColumnStats> columnStats)
         {
             this.filePath = filePath;
             this.fileFormat = fileFormat;
             this.recordCount = recordCount;
             this.fileSizeInBytes = fileSizeInBytes;
-            this.columnSizes = columnSizes;
-            this.valueCounts = valueCounts;
-            this.nullValueCounts = nullValueCounts;
-            this.lowerBounds = lowerBounds;
-            this.upperBounds = upperBounds;
-        }
-
-        public String getFilePath()
-        {
-            return filePath;
+            this.columnStats = columnStats;
         }
 
         public String getFileFormat()
@@ -273,34 +265,27 @@ public class TestIcebergOrcMetricsCollection
             return recordCount;
         }
 
-        public long getFileSizeInBytes()
+        public List<ColumnStats> getColumnStats()
         {
-            return fileSizeInBytes;
+            return columnStats;
         }
+    }
 
-        public Map<Integer, Long> getColumnSizes()
-        {
-            return columnSizes;
-        }
+    private static class ColumnStats
+    {
+        final Long size;
+        final Long valueCount;
+        final Long nullCount;
+        final Object lowerBound;
+        final Object upperBound;
 
-        public Map<Integer, Long> getValueCounts()
+        private ColumnStats(Long size, Long valueCount, Long nullCount, Object lowerBound, Object upperBound)
         {
-            return valueCounts;
-        }
-
-        public Map<Integer, Long> getNullValueCounts()
-        {
-            return nullValueCounts;
-        }
-
-        public Map<Integer, String> getLowerBounds()
-        {
-            return lowerBounds;
-        }
-
-        public Map<Integer, String> getUpperBounds()
-        {
-            return upperBounds;
+            this.size = size;
+            this.valueCount = valueCount;
+            this.nullCount = nullCount;
+            this.lowerBound = lowerBound;
+            this.upperBound = upperBound;
         }
     }
 }
