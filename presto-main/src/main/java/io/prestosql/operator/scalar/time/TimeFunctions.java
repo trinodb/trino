@@ -79,7 +79,7 @@ public class TimeFunctions
         return time / PICOSECONDS_PER_HOUR;
     }
 
-    @Description("Truncate to the specified precision in the session timezone")
+    @Description("Truncate to the specified precision")
     @ScalarFunction("date_trunc")
     @LiteralParameters({"x", "p"})
     @SqlType("time(p)")
