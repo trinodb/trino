@@ -15,20 +15,23 @@ package io.prestosql.spi.type;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 
-import java.time.format.DateTimeFormatter;
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
 import java.util.Objects;
 
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.prestosql.spi.type.Timestamps.formatTimestamp;
 import static io.prestosql.spi.type.Timestamps.round;
 import static io.prestosql.spi.type.Timestamps.roundDiv;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
+import static java.lang.Math.toIntExact;
 
 public final class SqlTimestamp
 {
-    // This needs to be Locale-independent, Java Time's DateTimeFormatter compatible and should never change, as it defines the external API data format.
-    public static final String JSON_FORMAT = "uuuu-MM-dd HH:mm:ss[.SSS]";
-    public static final DateTimeFormatter JSON_FORMATTER = DateTimeFormatter.ofPattern(JSON_FORMAT);
-
     private final int precision;
     private final long epochMicros;
     private final int picosOfMicros;
@@ -120,5 +123,17 @@ public final class SqlTimestamp
     public String toString()
     {
         return formatTimestamp(precision, epochMicros, picosOfMicros);
+    }
+
+    /**
+     * @return timestamp rounded to nanosecond precision
+     */
+    public LocalDateTime toLocalDateTime()
+    {
+        long epochSecond = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
+        int microOfSecond = floorMod(epochMicros, MICROSECONDS_PER_SECOND);
+        int nanoOfSecond = (microOfSecond * NANOSECONDS_PER_MICROSECOND) +
+                toIntExact(roundDiv(picosOfMicros, PICOSECONDS_PER_NANOSECOND));
+        return LocalDateTime.ofEpochSecond(epochSecond, nanoOfSecond, ZoneOffset.UTC);
     }
 }
