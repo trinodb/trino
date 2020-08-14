@@ -16,7 +16,7 @@
  date_format | varchar | timestamp(p), varchar(x) | scalar | true | Formats the given timestamp by the given format |
  date_parse | timestamp(3) | varchar(x), varchar(y) | scalar | true | |
  date_trunc | date | varchar(x), date | scalar | true | Truncate to the specified precision in the session timezone |
- date_trunc | time(p) | varchar(x), time(p) | scalar | true | Truncate to the specified precision in the session timezone |
+ date_trunc | time(p) | varchar(x), time(p) | scalar | true | Truncate to the specified precision |
  date_trunc | time with time zone | varchar(x), time with time zone | scalar | true | Truncate to the specified precision |
  date_trunc | timestamp(p) | varchar(x), timestamp(p) | scalar | true | Truncate to the specified precision in the session timezone |
  date_trunc | timestamp(p) with time zone | varchar(x), timestamp(p) with time zone | scalar | true | Truncate to the specified precision |
