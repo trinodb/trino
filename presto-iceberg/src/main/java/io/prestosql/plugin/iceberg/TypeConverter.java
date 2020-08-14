@@ -33,7 +33,6 @@ import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.TimestampType;
-import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
@@ -52,6 +51,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.TimeType.TIME_MICROS;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.lang.String.format;
 
 public final class TypeConverter
@@ -59,18 +59,6 @@ public final class TypeConverter
     public static final String ORC_ICEBERG_ID_KEY = "iceberg.id";
     public static final String ORC_ICEBERG_REQUIRED_KEY = "iceberg.required";
     public static final String ICEBERG_LONG_TYPE = "iceberg.long-type";
-
-    private static final Map<Class<? extends Type>, org.apache.iceberg.types.Type> PRESTO_TO_ICEBERG = ImmutableMap.<Class<? extends Type>, org.apache.iceberg.types.Type>builder()
-            .put(BooleanType.class, Types.BooleanType.get())
-            .put(VarbinaryType.class, Types.BinaryType.get())
-            .put(DateType.class, Types.DateType.get())
-            .put(DoubleType.class, Types.DoubleType.get())
-            .put(BigintType.class, Types.LongType.get())
-            .put(RealType.class, Types.FloatType.get())
-            .put(IntegerType.class, Types.IntegerType.get())
-            .put(TimestampWithTimeZoneType.class, Types.TimestampType.withZone())
-            .put(VarcharType.class, Types.StringType.get())
-            .build();
 
     private TypeConverter() {}
 
@@ -100,7 +88,7 @@ public final class TypeConverter
             case TIMESTAMP:
                 Types.TimestampType timestampType = (Types.TimestampType) type;
                 if (timestampType.shouldAdjustToUTC()) {
-                    return TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+                    return TIMESTAMP_WITH_TIME_ZONE;
                 }
                 return TimestampType.TIMESTAMP;
             case UUID:
@@ -126,11 +114,41 @@ public final class TypeConverter
 
     public static org.apache.iceberg.types.Type toIcebergType(Type type)
     {
-        if (PRESTO_TO_ICEBERG.containsKey(type.getClass())) {
-            return PRESTO_TO_ICEBERG.get(type.getClass());
+        if (type instanceof BooleanType) {
+            return Types.BooleanType.get();
+        }
+        if (type instanceof IntegerType) {
+            return Types.IntegerType.get();
+        }
+        if (type instanceof BigintType) {
+            return Types.LongType.get();
+        }
+        if (type instanceof RealType) {
+            return Types.FloatType.get();
+        }
+        if (type instanceof DoubleType) {
+            return Types.DoubleType.get();
         }
         if (type instanceof DecimalType) {
             return fromDecimal((DecimalType) type);
+        }
+        if (type instanceof VarcharType) {
+            return Types.StringType.get();
+        }
+        if (type instanceof VarbinaryType) {
+            return Types.BinaryType.get();
+        }
+        if (type instanceof DateType) {
+            return Types.DateType.get();
+        }
+        if (type.equals(TIME_MICROS)) {
+            return Types.TimeType.get();
+        }
+        if (type.equals(TIMESTAMP)) {
+            return Types.TimestampType.withoutZone();
+        }
+        if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+            return Types.TimestampType.withZone();
         }
         if (type instanceof RowType) {
             return fromRow((RowType) type);
@@ -140,12 +158,6 @@ public final class TypeConverter
         }
         if (type instanceof MapType) {
             return fromMap((MapType) type);
-        }
-        if (type.equals(TIME_MICROS)) {
-            return Types.TimeType.get();
-        }
-        if (type.equals(TIMESTAMP)) {
-            return Types.TimestampType.withoutZone();
         }
         if (type instanceof TimeType) {
             throw new PrestoException(NOT_SUPPORTED, format("Time precision (%s) not supported for Iceberg. Use \"time(6)\" instead.", ((TimeType) type).getPrecision()));
