@@ -15,6 +15,8 @@ package io.prestosql.spi.type;
 
 import org.testng.annotations.Test;
 
+import java.time.LocalDateTime;
+
 import static io.prestosql.spi.type.SqlTimestamp.newInstance;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -174,5 +176,25 @@ public class TestSqlTimestamp
         assertThat(newInstance(12, -444445, 555555).roundTo(10).toString()).isEqualTo("1969-12-31 23:59:59.5555555556");
         assertThat(newInstance(12, -444445, 555555).roundTo(11).toString()).isEqualTo("1969-12-31 23:59:59.55555555556");
         assertThat(newInstance(12, -444445, 555555).roundTo(12).toString()).isEqualTo("1969-12-31 23:59:59.555555555555");
+    }
+
+    @Test
+    public void testToLocalDateTime()
+    {
+        SqlTimestamp timestamp = newInstance(9, 1367846055987654L, 321_000);
+        assertThat(timestamp.toString()).isEqualTo("2013-05-06 13:14:15.987654321");
+        assertThat(timestamp.toLocalDateTime()).isEqualTo(LocalDateTime.of(2013, 5, 6, 13, 14, 15, 987_654_321));
+
+        timestamp = newInstance(9, -178454744012346L, 321_000);
+        assertThat(timestamp.toString()).isEqualTo("1964-05-06 13:14:15.987654321");
+        assertThat(timestamp.toLocalDateTime()).isEqualTo(LocalDateTime.of(1964, 5, 6, 13, 14, 15, 987_654_321));
+
+        timestamp = newInstance(12, 555_555, 555_555);
+        assertThat(timestamp.toString()).isEqualTo("1970-01-01 00:00:00.555555555555");
+        assertThat(timestamp.toLocalDateTime()).isEqualTo(LocalDateTime.of(1970, 1, 1, 0, 0, 0, 555_555_556));
+
+        timestamp = newInstance(12, -444_445, 555_555);
+        assertThat(timestamp.toString()).isEqualTo("1969-12-31 23:59:59.555555555555");
+        assertThat(timestamp.toLocalDateTime()).isEqualTo(LocalDateTime.of(1969, 12, 31, 23, 59, 59, 555_555_556));
     }
 }
