@@ -89,21 +89,6 @@ public class TestExtract
         assertThat(assertions.expression("second(TIME '12:34:56.1234567890')")).matches("BIGINT '56'");
         assertThat(assertions.expression("second(TIME '12:34:56.12345678901')")).matches("BIGINT '56'");
         assertThat(assertions.expression("second(TIME '12:34:56.123456789012')")).matches("BIGINT '56'");
-
-        // negative epoch
-        assertThat(assertions.expression("second(TIMESTAMP '1500-05-10 12:34:56')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("second(TIMESTAMP '1500-05-10 12:34:56.1')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("second(TIMESTAMP '1500-05-10 12:34:56.12')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("second(TIMESTAMP '1500-05-10 12:34:56.123')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("second(TIMESTAMP '1500-05-10 12:34:56.1234')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("second(TIMESTAMP '1500-05-10 12:34:56.12345')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("second(TIMESTAMP '1500-05-10 12:34:56.123456')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("second(TIMESTAMP '1500-05-10 12:34:56.1234567')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("second(TIMESTAMP '1500-05-10 12:34:56.12345678')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("second(TIMESTAMP '1500-05-10 12:34:56.123456789')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("second(TIMESTAMP '1500-05-10 12:34:56.1234567890')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("second(TIMESTAMP '1500-05-10 12:34:56.12345678901')")).matches("BIGINT '56'");
-        assertThat(assertions.expression("second(TIMESTAMP '1500-05-10 12:34:56.123456789012')")).matches("BIGINT '56'");
     }
 
     @Test
