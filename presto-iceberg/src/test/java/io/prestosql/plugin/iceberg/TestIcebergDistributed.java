@@ -74,10 +74,17 @@ public class TestIcebergDistributed
         }
 
         if (typeName.startsWith("decimal(")
-                || typeName.equals("time")
-                || typeName.equals("timestamp(3) with time zone")) {
+                || typeName.equals("time")) {
             // TODO this should either work or fail cleanly
             return Optional.empty();
+        }
+
+        if (typeName.equals("timestamp")) {
+            return Optional.of(new DataMappingTestSetup("timestamp(6)", "TIMESTAMP '2020-02-12 15:03:00'", "TIMESTAMP '2199-12-31 23:59:59.999999'"));
+        }
+
+        if (typeName.equals("timestamp(3) with time zone")) {
+            return Optional.of(new DataMappingTestSetup("timestamp(6) with time zone", "TIMESTAMP '2020-02-12 15:03:00 +01:00'", "TIMESTAMP '9999-12-31 23:59:59.999999 +12:00'"));
         }
 
         return Optional.of(dataMappingTestSetup);

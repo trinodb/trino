@@ -33,6 +33,7 @@ import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
@@ -50,8 +51,8 @@ import java.util.Optional;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.TimeType.TIME_MICROS;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static java.lang.String.format;
 
 public final class TypeConverter
@@ -86,11 +87,7 @@ public final class TypeConverter
             case TIME:
                 return TIME_MICROS;
             case TIMESTAMP:
-                Types.TimestampType timestampType = (Types.TimestampType) type;
-                if (timestampType.shouldAdjustToUTC()) {
-                    return TIMESTAMP_WITH_TIME_ZONE;
-                }
-                return TimestampType.TIMESTAMP;
+                return ((Types.TimestampType) type).shouldAdjustToUTC() ? TIMESTAMP_TZ_MICROS : TIMESTAMP_MICROS;
             case UUID:
             case STRING:
                 return VarcharType.createUnboundedVarcharType();
@@ -144,10 +141,10 @@ public final class TypeConverter
         if (type.equals(TIME_MICROS)) {
             return Types.TimeType.get();
         }
-        if (type.equals(TIMESTAMP)) {
+        if (type.equals(TIMESTAMP_MICROS)) {
             return Types.TimestampType.withoutZone();
         }
-        if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+        if (type.equals(TIMESTAMP_TZ_MICROS)) {
             return Types.TimestampType.withZone();
         }
         if (type instanceof RowType) {
@@ -161,6 +158,12 @@ public final class TypeConverter
         }
         if (type instanceof TimeType) {
             throw new PrestoException(NOT_SUPPORTED, format("Time precision (%s) not supported for Iceberg. Use \"time(6)\" instead.", ((TimeType) type).getPrecision()));
+        }
+        if (type instanceof TimestampType) {
+            throw new PrestoException(NOT_SUPPORTED, format("Timestamp precision (%s) not supported for Iceberg. Use \"timestamp(6)\" instead.", ((TimestampType) type).getPrecision()));
+        }
+        if (type instanceof TimestampWithTimeZoneType) {
+            throw new PrestoException(NOT_SUPPORTED, format("Timestamp precision (%s) not supported for Iceberg. Use \"timestamp(6) with time zone\" instead.", ((TimestampWithTimeZoneType) type).getPrecision()));
         }
         throw new PrestoException(NOT_SUPPORTED, "Type not supported for Iceberg: " + type.getDisplayName());
     }
@@ -218,7 +221,8 @@ public final class TypeConverter
                         .build();
                 return ImmutableList.of(new OrcType(OrcTypeKind.LONG, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case TIMESTAMP:
-                return ImmutableList.of(new OrcType(OrcTypeKind.TIMESTAMP, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
+                OrcTypeKind timestampKind = ((Types.TimestampType) type).shouldAdjustToUTC() ? OrcTypeKind.TIMESTAMP_INSTANT : OrcTypeKind.TIMESTAMP;
+                return ImmutableList.of(new OrcType(timestampKind, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case STRING:
                 return ImmutableList.of(new OrcType(OrcTypeKind.STRING, ImmutableList.of(), ImmutableList.of(), Optional.empty(), Optional.empty(), Optional.empty(), attributes));
             case UUID:

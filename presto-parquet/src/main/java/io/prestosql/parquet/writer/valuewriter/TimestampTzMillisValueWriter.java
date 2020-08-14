@@ -14,25 +14,18 @@
 package io.prestosql.parquet.writer.valuewriter;
 
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.Type;
 import org.apache.parquet.column.values.ValuesWriter;
-import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
 
-import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 
-public class TimestampValueWriter
+public class TimestampTzMillisValueWriter
         extends PrimitiveValueWriter
 {
-    private final Type type;
-    private final boolean writeMicroseconds;
-
-    public TimestampValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
+    public TimestampTzMillisValueWriter(ValuesWriter valuesWriter, PrimitiveType parquetType)
     {
         super(parquetType, valuesWriter);
-        this.type = requireNonNull(type, "type is null");
-        this.writeMicroseconds = parquetType.isPrimitive() && parquetType.getOriginalType() == OriginalType.TIMESTAMP_MICROS;
     }
 
     @Override
@@ -40,10 +33,9 @@ public class TimestampValueWriter
     {
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!block.isNull(i)) {
-                long value = type.getLong(block, i);
-                long scaledValue = writeMicroseconds ? MILLISECONDS.toMicros(value) : value;
-                getValueWriter().writeLong(scaledValue);
-                getStatistics().updateStats(scaledValue);
+                long millis = unpackMillisUtc(TIMESTAMP_TZ_MILLIS.getLong(block, i));
+                getValueWriter().writeLong(millis);
+                getStatistics().updateStats(millis);
             }
         }
     }

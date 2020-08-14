@@ -216,22 +216,22 @@ public abstract class AbstractTestIcebergSmoke
     private void testSelectOrPartitionedByTimestamp(boolean partitioned)
     {
         String tableName = format("test_%s_by_timestamp", partitioned ? "partitioned" : "selected");
-        assertUpdate(format("CREATE TABLE %s (_timestamp timestamp) %s",
+        assertUpdate(format("CREATE TABLE %s (_timestamp timestamp(6)) %s",
                 tableName, partitioned ? "WITH (partitioning = ARRAY['_timestamp'])" : ""));
-        String select1 = "SELECT CAST('2017-05-01 10:12:34' AS TIMESTAMP) _timestamp";
+        String select1 = "SELECT TIMESTAMP '2017-05-01 10:12:34' _timestamp";
         assertUpdate(format("INSERT INTO %s ", tableName) + select1, 1);
-        String select2 = "SELECT CAST('2017-10-01 10:12:34' AS TIMESTAMP) _timestamp";
+        String select2 = "SELECT TIMESTAMP '2017-10-01 10:12:34' _timestamp";
         assertUpdate(format("INSERT INTO %s " + select2, tableName), 1);
-        String select3 = "SELECT CAST('2018-05-01 10:12:34' AS TIMESTAMP) _timestamp";
+        String select3 = "SELECT TIMESTAMP '2018-05-01 10:12:34' _timestamp";
         assertUpdate(format("INSERT INTO %s " + select3, tableName), 1);
         assertQuery(format("SELECT COUNT(*) from %s", tableName), "SELECT 3");
 
-        assertQuery(format("SELECT * from %s WHERE _timestamp = CAST('2017-05-01 10:12:34' AS TIMESTAMP)", tableName), select1);
-        assertQuery(format("SELECT * from %s WHERE _timestamp < CAST('2017-06-01 10:12:34' AS TIMESTAMP)", tableName), select1);
-        assertQuery(format("SELECT * from %s WHERE _timestamp = CAST('2017-10-01 10:12:34' AS TIMESTAMP)", tableName), select2);
-        assertQuery(format("SELECT * from %s WHERE _timestamp > CAST('2017-06-01 10:12:34' AS TIMESTAMP) AND _timestamp < CAST('2018-05-01 10:12:34' AS TIMESTAMP)", tableName), select2);
-        assertQuery(format("SELECT * from %s WHERE _timestamp = CAST('2018-05-01 10:12:34' AS TIMESTAMP)", tableName), select3);
-        assertQuery(format("SELECT * from %s WHERE _timestamp > CAST('2018-01-01 10:12:34' AS TIMESTAMP)", tableName), select3);
+        assertQuery(format("SELECT * from %s WHERE _timestamp = TIMESTAMP '2017-05-01 10:12:34'", tableName), select1);
+        assertQuery(format("SELECT * from %s WHERE _timestamp < TIMESTAMP '2017-06-01 10:12:34'", tableName), select1);
+        assertQuery(format("SELECT * from %s WHERE _timestamp = TIMESTAMP '2017-10-01 10:12:34'", tableName), select2);
+        assertQuery(format("SELECT * from %s WHERE _timestamp > TIMESTAMP '2017-06-01 10:12:34' AND _timestamp < TIMESTAMP '2018-05-01 10:12:34'", tableName), select2);
+        assertQuery(format("SELECT * from %s WHERE _timestamp = TIMESTAMP '2018-05-01 10:12:34'", tableName), select3);
+        assertQuery(format("SELECT * from %s WHERE _timestamp > TIMESTAMP '2018-01-01 10:12:34'", tableName), select3);
         dropTable(tableName);
     }
 
@@ -248,7 +248,7 @@ public abstract class AbstractTestIcebergSmoke
                 ", _boolean BOOLEAN" +
                 ", _decimal_short DECIMAL(3,2)" +
                 ", _decimal_long DECIMAL(30,10)" +
-                ", _timestamp TIMESTAMP" +
+                ", _timestamp TIMESTAMP(6)" +
                 ", _date DATE" +
                 ") " +
                 "WITH (" +
@@ -332,7 +332,7 @@ public abstract class AbstractTestIcebergSmoke
                 ", _boolean BOOLEAN" +
                 ", _decimal_short DECIMAL(3,2)" +
                 ", _decimal_long DECIMAL(30,10)" +
-                ", _timestamp TIMESTAMP" +
+                ", _timestamp TIMESTAMP(6)" +
                 ", _date DATE" +
                 ") " +
                 "WITH (" +
@@ -599,18 +599,20 @@ public abstract class AbstractTestIcebergSmoke
     {
         String select = "SELECT d_hour, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_hour_transform$partitions\"";
 
-        assertUpdate("CREATE TABLE test_hour_transform (d TIMESTAMP, b BIGINT) WITH (partitioning = ARRAY['hour(d)'])");
+        assertUpdate("CREATE TABLE test_hour_transform (d TIMESTAMP(6), b BIGINT) WITH (partitioning = ARRAY['hour(d)'])");
 
-        String insertSql = "INSERT INTO test_hour_transform VALUES" +
-                "(TIMESTAMP '2015-01-01 10:01:23', 1)," +
-                "(TIMESTAMP '2015-01-01 10:10:02', 2)," +
-                "(TIMESTAMP '2015-01-01 10:55:00', 3)," +
-                "(TIMESTAMP '2015-05-15 12:05:01', 4)," +
-                "(TIMESTAMP '2015-05-15 12:21:02', 5)," +
-                "(TIMESTAMP '2015-02-21 13:11:11', 6)," +
-                "(TIMESTAMP '2015-02-21 13:12:12', 7)";
+        String values = "VALUES " +
+                "(TIMESTAMP '2015-01-01 10:01:23.123456', 1)," +
+                "(TIMESTAMP '2015-01-01 10:10:02.987654', 2)," +
+                "(TIMESTAMP '2015-01-01 10:55:00.456789', 3)," +
+                "(TIMESTAMP '2015-05-15 12:05:01.234567', 4)," +
+                "(TIMESTAMP '2015-05-15 12:21:02.345678', 5)," +
+                "(TIMESTAMP '2015-02-21 13:11:11.876543', 6)," +
+                "(TIMESTAMP '2015-02-21 13:12:12.654321', 7)";
+        String insertSql = "INSERT INTO test_hour_transform " + values;
         assertUpdate(insertSql, 7);
 
+        assertQuery("SELECT * FROM test_hour_transform", values);
         assertQuery("SELECT COUNT(*) FROM \"test_hour_transform$partitions\"", "SELECT 3");
 
         assertQuery("SELECT b FROM test_hour_transform WHERE hour(d) = 10 ORDER BY d", "SELECT b FROM (VALUES (1), (2), (3)) AS t(b)");
@@ -618,7 +620,7 @@ public abstract class AbstractTestIcebergSmoke
         // 394474 = (16436 * 24) + 10
         // Parquet has min/max for timestamps but ORC does not.
         String expectedQuery = format == PARQUET ?
-                "VALUES(394474, 3, TIMESTAMP '2015-01-01 10:01:23', TIMESTAMP '2015-01-01 10:55:00', 1, 3)" :
+                "VALUES(394474, 3, TIMESTAMP '2015-01-01 10:01:23.123456', TIMESTAMP '2015-01-01 10:55:00.456789', 1, 3)" :
                 "VALUES(394474, 3, NULL, NULL, 1, 3)";
         assertQuery(select + " WHERE d_hour = 394474", expectedQuery);
 
@@ -626,7 +628,7 @@ public abstract class AbstractTestIcebergSmoke
         // 397692 = (16570 * 24) + 12
         assertQuery("SELECT b FROM test_hour_transform WHERE hour(d) = 12", "SELECT b FROM (VALUES (4), (5)) AS t(b)");
         expectedQuery = format == PARQUET ?
-                "VALUES(397692, 2, TIMESTAMP '2015-05-15 12:05:01', TIMESTAMP '2015-05-15 12:21:02', 4, 5)" :
+                "VALUES(397692, 2, TIMESTAMP '2015-05-15 12:05:01.234567', TIMESTAMP '2015-05-15 12:21:02.345678', 4, 5)" :
                 "VALUES(397692, 2, NULL, NULL, 4, 5)";
         assertQuery(select + " WHERE d_hour = 397692", expectedQuery);
 
@@ -634,7 +636,7 @@ public abstract class AbstractTestIcebergSmoke
         // 397692 = (16487 * 24) + 13
         assertQuery("SELECT b FROM test_hour_transform WHERE hour(d) = 13", "SELECT b FROM (VALUES (6), (7)) AS t(b)");
         expectedQuery = format == PARQUET ?
-                "VALUES(395701, 2, TIMESTAMP '2015-02-21 13:11:11', TIMESTAMP '2015-02-21 13:12:12', 6, 7)" :
+                "VALUES(395701, 2, TIMESTAMP '2015-02-21 13:11:11.876543', TIMESTAMP '2015-02-21 13:12:12.654321', 6, 7)" :
                 "VALUES(395701, 2, NULL, NULL, 6, 7)";
         assertQuery(select + " WHERE d_hour = 395701", expectedQuery);
 
@@ -1155,7 +1157,7 @@ public abstract class AbstractTestIcebergSmoke
                 ", dec DECIMAL(5,2)" +
                 ", vc VARCHAR" +
                 ", vb VARBINARY" +
-                ", ts TIMESTAMP" +
+                ", ts TIMESTAMP(6)" +
                 ", str ROW(id INTEGER , vc VARCHAR)" +
                 ", dt DATE)" +
                 " WITH (partitioning = ARRAY['int'])";
