@@ -14,16 +14,19 @@
 package io.prestosql.parquet.writer.valuewriter;
 
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.LongTimestampWithTimeZone;
 import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.schema.PrimitiveType;
 
-import static io.prestosql.spi.type.TimeType.TIME_MICROS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
+import static io.prestosql.spi.type.Timestamps.roundDiv;
 
-public class TimeMicrosValueWriter
+public class TimestampTzMicrosValueWriter
         extends PrimitiveValueWriter
 {
-    public TimeMicrosValueWriter(ValuesWriter valuesWriter, PrimitiveType parquetType)
+    public TimestampTzMicrosValueWriter(ValuesWriter valuesWriter, PrimitiveType parquetType)
     {
         super(parquetType, valuesWriter);
     }
@@ -33,10 +36,16 @@ public class TimeMicrosValueWriter
     {
         for (int i = 0; i < block.getPositionCount(); i++) {
             if (!block.isNull(i)) {
-                long scaledValue = TIME_MICROS.getLong(block, i) / PICOSECONDS_PER_MICROSECOND;
-                getValueWriter().writeLong(scaledValue);
-                getStatistics().updateStats(scaledValue);
+                long micros = toMicros((LongTimestampWithTimeZone) TIMESTAMP_TZ_MICROS.getObject(block, i));
+                getValueWriter().writeLong(micros);
+                getStatistics().updateStats(micros);
             }
         }
+    }
+
+    private static long toMicros(LongTimestampWithTimeZone timestamp)
+    {
+        return (timestamp.getEpochMillis() * MICROSECONDS_PER_MILLISECOND) +
+                roundDiv(timestamp.getPicosOfMilli(), PICOSECONDS_PER_MICROSECOND);
     }
 }
