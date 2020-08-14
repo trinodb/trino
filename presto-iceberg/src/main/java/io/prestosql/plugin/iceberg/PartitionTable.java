@@ -50,15 +50,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getIdentityPartitions;
 import static io.prestosql.plugin.iceberg.IcebergUtil.getTableScan;
 import static io.prestosql.plugin.iceberg.TypeConverter.toPrestoType;
+import static io.prestosql.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
@@ -287,12 +286,11 @@ public class PartitionTable
             return ((ByteBuffer) value).array();
         }
         if (type instanceof Types.TimestampType) {
-            long utcMillis = TimeUnit.MICROSECONDS.toMillis((Long) value);
-            Types.TimestampType timestampType = (Types.TimestampType) type;
-            if (timestampType.shouldAdjustToUTC()) {
-                return packDateTimeWithZone(utcMillis, TimeZoneKey.UTC_KEY);
+            long epochMicros = (long) value;
+            if (((Types.TimestampType) type).shouldAdjustToUTC()) {
+                return timestampTzFromMicros(epochMicros, TimeZoneKey.UTC_KEY);
             }
-            return utcMillis;
+            return epochMicros;
         }
         if (type instanceof Types.TimeType) {
             return ((Long) value) * PICOSECONDS_PER_MICROSECOND;

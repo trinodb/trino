@@ -34,8 +34,6 @@ import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.SmallintType;
-import io.prestosql.spi.type.TimestampType;
-import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
@@ -64,9 +62,12 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_TOO_MANY_OPEN_PARTITIONS;
 import static io.prestosql.plugin.iceberg.PartitionTransforms.getColumnTransform;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.prestosql.plugin.iceberg.util.Timestamps.getTimestampTz;
+import static io.prestosql.plugin.iceberg.util.Timestamps.timestampTzToMicros;
 import static io.prestosql.spi.type.Decimals.readBigDecimal;
 import static io.prestosql.spi.type.TimeType.TIME_MICROS;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -74,7 +75,6 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class IcebergPageSink
         implements ConnectorPageSink
@@ -366,11 +366,11 @@ public class IcebergPageSink
         if (type.equals(TIME_MICROS)) {
             return type.getLong(block, position) / PICOSECONDS_PER_MICROSECOND;
         }
-        if (type instanceof TimestampType) {
-            return MILLISECONDS.toMicros(type.getLong(block, position));
+        if (type.equals(TIMESTAMP_MICROS)) {
+            return type.getLong(block, position);
         }
-        if (type instanceof TimestampWithTimeZoneType) {
-            return MILLISECONDS.toMicros(unpackMillisUtc(type.getLong(block, position)));
+        if (type.equals(TIMESTAMP_TZ_MICROS)) {
+            return timestampTzToMicros(getTimestampTz(block, position));
         }
         if (type instanceof VarbinaryType) {
             return type.getSlice(block, position).getBytes();

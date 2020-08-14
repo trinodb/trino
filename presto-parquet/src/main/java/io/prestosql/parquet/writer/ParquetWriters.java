@@ -24,7 +24,8 @@ import io.prestosql.parquet.writer.valuewriter.IntegerValueWriter;
 import io.prestosql.parquet.writer.valuewriter.PrimitiveValueWriter;
 import io.prestosql.parquet.writer.valuewriter.RealValueWriter;
 import io.prestosql.parquet.writer.valuewriter.TimeMicrosValueWriter;
-import io.prestosql.parquet.writer.valuewriter.TimestampValueWriter;
+import io.prestosql.parquet.writer.valuewriter.TimestampTzMicrosValueWriter;
+import io.prestosql.parquet.writer.valuewriter.TimestampTzMillisValueWriter;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
@@ -37,12 +38,14 @@ import org.apache.parquet.column.values.ValuesWriter;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.GroupType;
 import org.apache.parquet.schema.MessageType;
+import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
 
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -51,11 +54,14 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimeType.TIME_MICROS;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.apache.parquet.schema.OriginalType.TIME_MICROS;
 
 final class ParquetWriters
 {
@@ -156,9 +162,6 @@ final class ParquetWriters
 
     private static PrimitiveValueWriter getValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
     {
-        if (parquetType.getOriginalType() != null && parquetType.getOriginalType() == TIME_MICROS) {
-            return new TimeMicrosValueWriter(valuesWriter, type, parquetType);
-        }
         if (BOOLEAN.equals(type)) {
             return new BooleanValueWriter(valuesWriter, parquetType);
         }
@@ -174,8 +177,25 @@ final class ParquetWriters
         if (DATE.equals(type)) {
             return new DateValueWriter(valuesWriter, parquetType);
         }
-        if (TIMESTAMP.equals(type)) {
-            return new TimestampValueWriter(valuesWriter, type, parquetType);
+        if (TIME_MICROS.equals(type)) {
+            verifyParquetType(type, parquetType, OriginalType.TIME_MICROS);
+            return new TimeMicrosValueWriter(valuesWriter, parquetType);
+        }
+        if (TIMESTAMP_MILLIS.equals(type)) {
+            verifyParquetType(type, parquetType, OriginalType.TIMESTAMP_MILLIS);
+            return new BigintValueWriter(valuesWriter, type, parquetType);
+        }
+        if (TIMESTAMP_MICROS.equals(type)) {
+            verifyParquetType(type, parquetType, OriginalType.TIMESTAMP_MICROS);
+            return new BigintValueWriter(valuesWriter, type, parquetType);
+        }
+        if (TIMESTAMP_TZ_MILLIS.equals(type)) {
+            verifyParquetType(type, parquetType, OriginalType.TIMESTAMP_MILLIS);
+            return new TimestampTzMillisValueWriter(valuesWriter, parquetType);
+        }
+        if (TIMESTAMP_TZ_MICROS.equals(type)) {
+            verifyParquetType(type, parquetType, OriginalType.TIMESTAMP_MICROS);
+            return new TimestampTzMicrosValueWriter(valuesWriter, parquetType);
         }
         if (DOUBLE.equals(type)) {
             return new DoubleValueWriter(valuesWriter, parquetType);
@@ -187,5 +207,10 @@ final class ParquetWriters
             return new CharValueWriter(valuesWriter, type, parquetType);
         }
         throw new PrestoException(NOT_SUPPORTED, format("Unsupported type for Parquet writer: %s", type));
+    }
+
+    private static void verifyParquetType(Type type, PrimitiveType parquetType, OriginalType originalType)
+    {
+        checkArgument(parquetType.getOriginalType() == originalType, "Wrong Parquet type '%s' for Presto type '%s'", parquetType, type);
     }
 }
