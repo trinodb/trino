@@ -52,14 +52,14 @@ import static java.util.Objects.requireNonNull;
 public class ParametricAggregation
         extends SqlAggregationFunction
 {
-    private final ParametricImplementationsGroup<AggregationImplementation> implementations;
+    private final ParametricImplementationsGroup<ParametricAggregationImplementation> implementations;
     private final List<AccumulatorStateDetails<?>> stateDetails;
 
     public ParametricAggregation(
             Signature signature,
             AggregationHeader details,
             List<AccumulatorStateDetails<?>> stateDetails,
-            ParametricImplementationsGroup<AggregationImplementation> implementations)
+            ParametricImplementationsGroup<ParametricAggregationImplementation> implementations)
     {
         super(
                 createFunctionMetadata(signature, details, implementations.getFunctionNullability()),
@@ -126,9 +126,9 @@ public class ParametricAggregation
         return builder.build();
     }
 
-    private static void declareDependencies(FunctionDependencyDeclarationBuilder builder, Collection<AggregationImplementation> implementations)
+    private static void declareDependencies(FunctionDependencyDeclarationBuilder builder, Collection<ParametricAggregationImplementation> implementations)
     {
-        for (AggregationImplementation implementation : implementations) {
+        for (ParametricAggregationImplementation implementation : implementations) {
             for (ImplementationDependency dependency : implementation.getInputDependencies()) {
                 dependency.declareDependencies(builder);
             }
@@ -145,7 +145,7 @@ public class ParametricAggregation
     public AggregationMetadata specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         // Find implementation matching arguments
-        AggregationImplementation concreteImplementation = findMatchingImplementation(boundSignature);
+        ParametricAggregationImplementation concreteImplementation = findMatchingImplementation(boundSignature);
 
         // Build state factory and serializer
         FunctionMetadata metadata = getFunctionMetadata();
@@ -189,20 +189,20 @@ public class ParametricAggregation
     }
 
     @VisibleForTesting
-    public ParametricImplementationsGroup<AggregationImplementation> getImplementations()
+    public ParametricImplementationsGroup<ParametricAggregationImplementation> getImplementations()
     {
         return implementations;
     }
 
-    private AggregationImplementation findMatchingImplementation(BoundSignature boundSignature)
+    private ParametricAggregationImplementation findMatchingImplementation(BoundSignature boundSignature)
     {
         Signature signature = boundSignature.toSignature();
-        Optional<AggregationImplementation> foundImplementation = Optional.empty();
+        Optional<ParametricAggregationImplementation> foundImplementation = Optional.empty();
         if (implementations.getExactImplementations().containsKey(signature)) {
             foundImplementation = Optional.of(implementations.getExactImplementations().get(signature));
         }
         else {
-            for (AggregationImplementation candidate : implementations.getGenericImplementations()) {
+            for (ParametricAggregationImplementation candidate : implementations.getGenericImplementations()) {
                 if (candidate.areTypesAssignable(boundSignature)) {
                     if (foundImplementation.isPresent()) {
                         throw new TrinoException(AMBIGUOUS_FUNCTION_CALL, format("Ambiguous function call (%s) for %s", boundSignature, getFunctionMetadata().getSignature()));

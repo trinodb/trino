@@ -65,7 +65,7 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 import static io.trino.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
 
-public class AggregationImplementation
+public class ParametricAggregationImplementation
         implements ParametricImplementation
 {
     public static class AggregateNativeContainerType
@@ -105,7 +105,7 @@ public class AggregationImplementation
     private final List<AggregationParameterKind> inputParameterKinds;
     private final FunctionNullability functionNullability;
 
-    public AggregationImplementation(
+    public ParametricAggregationImplementation(
             Signature signature,
             Class<?> definitionClass,
             MethodHandle inputFunction,
@@ -232,9 +232,9 @@ public class AggregationImplementation
     }
 
     @Override
-    public AggregationImplementation withAlias(String alias)
+    public ParametricImplementation withAlias(String alias)
     {
-        return new AggregationImplementation(
+        return new ParametricAggregationImplementation(
                 signature.withName(alias),
                 definitionClass,
                 inputFunction,
@@ -323,9 +323,9 @@ public class AggregationImplementation
             outputHandle = methodHandle(outputFunction);
         }
 
-        private AggregationImplementation get()
+        private ParametricAggregationImplementation get()
         {
-            return new AggregationImplementation(
+            return new ParametricAggregationImplementation(
                     signatureBuilder.build(),
                     aggregationDefinition,
                     inputHandle,
@@ -340,7 +340,7 @@ public class AggregationImplementation
                     inputParameterKinds);
         }
 
-        public static AggregationImplementation parseImplementation(
+        public static ParametricAggregationImplementation parseImplementation(
                 Class<?> aggregationDefinition,
                 String name,
                 List<AccumulatorStateDetails<?>> stateDetails,
