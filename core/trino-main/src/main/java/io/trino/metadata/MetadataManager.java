@@ -103,7 +103,6 @@ import io.trino.sql.planner.PartitioningHandle;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.transaction.TransactionManager;
 import io.trino.type.BlockTypeOperators;
-import io.trino.type.InternalTypeManager;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
@@ -141,6 +140,7 @@ import static com.google.common.primitives.Primitives.wrap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
+import static io.trino.client.NodeVersion.UNKNOWN;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.metadata.QualifiedObjectName.convertFromSchemaTableName;
@@ -159,6 +159,7 @@ import static io.trino.spi.StandardErrorCode.TABLE_REDIRECTION_ERROR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
+import static io.trino.type.InternalTypeManager.TESTING_TYPE_MANAGER;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Collections.singletonList;
@@ -207,42 +208,6 @@ public final class MetadataManager
 
         operatorCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
         coercionCache = buildNonEvictableCache(CacheBuilder.newBuilder().maximumSize(1000));
-    }
-
-    public static MetadataManager createTestMetadataManager()
-    {
-        return createTestMetadataManager(new FeaturesConfig());
-    }
-
-    public static MetadataManager createTestMetadataManager(FeaturesConfig featuresConfig)
-    {
-        return createTestMetadataManager(new CatalogManager(), featuresConfig);
-    }
-
-    public static MetadataManager createTestMetadataManager(CatalogManager catalogManager)
-    {
-        return createTestMetadataManager(catalogManager, new FeaturesConfig());
-    }
-
-    public static MetadataManager createTestMetadataManager(CatalogManager catalogManager, FeaturesConfig featuresConfig)
-    {
-        return createTestMetadataManager(createTestTransactionManager(catalogManager), featuresConfig);
-    }
-
-    public static MetadataManager createTestMetadataManager(TransactionManager transactionManager, FeaturesConfig featuresConfig)
-    {
-        TypeOperators typeOperators = new TypeOperators();
-        TypeRegistry typeRegistry = new TypeRegistry(typeOperators, featuresConfig);
-        TypeManager typeManager = new InternalTypeManager(typeRegistry);
-        return new MetadataManager(
-                featuresConfig,
-                new DisabledSystemSecurityMetadata(),
-                transactionManager,
-                typeOperators,
-                new BlockTypeOperators(typeOperators),
-                typeManager,
-                new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager),
-                NodeVersion.UNKNOWN);
     }
 
     @Override
@@ -2623,6 +2588,73 @@ public final class MetadataManager
             return Objects.equals(this.operatorType, other.operatorType) &&
                     Objects.equals(this.fromType, other.fromType) &&
                     Objects.equals(this.toType, other.toType);
+        }
+    }
+
+    public static MetadataManager createTestMetadataManager()
+    {
+        return testMetadataManagerBuilder().build();
+    }
+
+    public static TestMetadataManagerBuilder testMetadataManagerBuilder()
+    {
+        return new TestMetadataManagerBuilder();
+    }
+
+    public static class TestMetadataManagerBuilder
+    {
+        private FeaturesConfig featuresConfig;
+        private TransactionManager transactionManager;
+        private TypeManager typeManager = TESTING_TYPE_MANAGER;
+
+        private TestMetadataManagerBuilder() {}
+
+        public TestMetadataManagerBuilder withCatalogManager(CatalogManager catalogManager)
+        {
+            this.transactionManager = createTestTransactionManager(catalogManager);
+            return this;
+        }
+
+        public TestMetadataManagerBuilder withFeaturesConfig(FeaturesConfig featuresConfig)
+        {
+            this.featuresConfig = featuresConfig;
+            return this;
+        }
+
+        public TestMetadataManagerBuilder withTransactionManager(TransactionManager transactionManager)
+        {
+            this.transactionManager = transactionManager;
+            return this;
+        }
+
+        public TestMetadataManagerBuilder withTypeManager(TypeManager typeManager)
+        {
+            this.typeManager = requireNonNull(typeManager, "typeManager is null");
+            return this;
+        }
+
+        public MetadataManager build()
+        {
+            FeaturesConfig featuresConfig = this.featuresConfig;
+            if (featuresConfig == null) {
+                featuresConfig = new FeaturesConfig();
+            }
+
+            TransactionManager transactionManager = this.transactionManager;
+            if (transactionManager == null) {
+                transactionManager = createTestTransactionManager();
+            }
+
+            TypeOperators typeOperators = new TypeOperators();
+            return new MetadataManager(
+                    featuresConfig,
+                    new DisabledSystemSecurityMetadata(),
+                    transactionManager,
+                    typeOperators,
+                    new BlockTypeOperators(typeOperators),
+                    typeManager,
+                    new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager),
+                    UNKNOWN);
         }
     }
 }

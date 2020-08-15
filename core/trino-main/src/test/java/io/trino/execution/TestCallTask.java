@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableMap;
 import io.trino.connector.CatalogName;
 import io.trino.connector.MockConnectorFactory;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.MetadataManager;
+import io.trino.metadata.Metadata;
 import io.trino.metadata.ProcedureRegistry;
 import io.trino.plugin.base.security.AllowAllSystemAccessControl;
 import io.trino.security.AccessControl;
@@ -127,7 +127,6 @@ public class TestCallTask
     private void executeCallTask(MethodHandle methodHandle, Function<TransactionManager, AccessControl> accessControlProvider)
     {
         TransactionManager transactionManager = queryRunner.getTransactionManager();
-        MetadataManager metadata = (MetadataManager) queryRunner.getMetadata();
         ProcedureRegistry procedureRegistry = createProcedureRegistry(
                 new Procedure(
                         "test",
@@ -136,11 +135,13 @@ public class TestCallTask
                         methodHandle));
         AccessControl accessControl = accessControlProvider.apply(transactionManager);
 
-        PlannerContext plannerContext = plannerContextBuilder().withMetadata(metadata).build();
+        PlannerContext plannerContext = plannerContextBuilder()
+                .withTransactionManager(transactionManager)
+                .build();
         new CallTask(transactionManager, plannerContext, accessControl, procedureRegistry)
                 .execute(
                         new Call(QualifiedName.of("testing_procedure"), ImmutableList.of()),
-                        stateMachine(transactionManager, metadata, accessControl),
+                        stateMachine(transactionManager, plannerContext.getMetadata(), accessControl),
                         ImmutableList.of(),
                         WarningCollector.NOOP);
     }
@@ -152,7 +153,7 @@ public class TestCallTask
         return procedureRegistry;
     }
 
-    private QueryStateMachine stateMachine(TransactionManager transactionManager, MetadataManager metadata, AccessControl accessControl)
+    private QueryStateMachine stateMachine(TransactionManager transactionManager, Metadata metadata, AccessControl accessControl)
     {
         return QueryStateMachine.begin(
                 Optional.empty(),
