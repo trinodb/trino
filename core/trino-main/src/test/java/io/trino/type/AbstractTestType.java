@@ -23,6 +23,7 @@ import io.trino.client.NodeVersion;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.CatalogManager;
 import io.trino.metadata.DisabledSystemSecurityMetadata;
+import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.TypeRegistry;
@@ -187,11 +188,10 @@ public abstract class AbstractTestType
                 new FeaturesConfig(),
                 new DisabledSystemSecurityMetadata(),
                 createTestTransactionManager(new CatalogManager()),
+                new GlobalFunctionCatalog(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), NodeVersion.UNKNOWN),
                 typeOperators,
                 new BlockTypeOperators(typeOperators),
-                typeManager,
-                new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager),
-                NodeVersion.UNKNOWN);
+                typeManager);
         return new PlannerContext(
                 metadata,
                 new TypeOperators(),

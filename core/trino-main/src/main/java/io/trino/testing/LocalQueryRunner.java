@@ -76,9 +76,11 @@ import io.trino.metadata.CatalogManager;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.DisabledSystemSecurityMetadata;
 import io.trino.metadata.ExchangeHandleResolver;
+import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalBlockEncodingSerde;
+import io.trino.metadata.LiteralFunction;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
@@ -237,6 +239,7 @@ public class LocalQueryRunner
     private final InMemoryNodeManager nodeManager;
     private final BlockTypeOperators blockTypeOperators;
     private final PlannerContext plannerContext;
+    private final GlobalFunctionCatalog globalFunctionCatalog;
     private final StatsCalculator statsCalculator;
     private final ScalarStatsCalculator scalarStatsCalculator;
     private final CostCalculator costCalculator;
@@ -340,15 +343,17 @@ public class LocalQueryRunner
         TypeRegistry typeRegistry = new TypeRegistry(typeOperators, featuresConfig);
         TypeManager typeManager = new InternalTypeManager(typeRegistry);
         InternalBlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(blockEncodingManager, typeManager);
+
+        this.globalFunctionCatalog = new GlobalFunctionCatalog(featuresConfig, typeOperators, blockTypeOperators, nodeManager.getCurrentNode().getNodeVersion());
+        globalFunctionCatalog.addFunctions(ImmutableList.of(new LiteralFunction(blockEncodingSerde)));
         MetadataManager metadata = new MetadataManager(
                 featuresConfig,
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
+                globalFunctionCatalog,
                 typeOperators,
                 blockTypeOperators,
-                typeManager,
-                blockEncodingSerde,
-                nodeManager.getCurrentNode().getNodeVersion());
+                typeManager);
         this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde, typeManager);
         this.splitManager = new SplitManager(new QueryManagerConfig());
         this.planFragmenter = new PlanFragmenter(metadata, this.nodePartitioningManager, new QueryManagerConfig());
@@ -438,7 +443,7 @@ public class LocalQueryRunner
         this.pluginManager = new PluginManager(
                 (loader, createClassLoader) -> {},
                 connectorManager,
-                metadata,
+                globalFunctionCatalog,
                 new NoOpResourceGroupManager(),
                 accessControl,
                 Optional.of(new PasswordAuthenticatorManager(new PasswordAuthenticatorConfig())),
@@ -699,7 +704,7 @@ public class LocalQueryRunner
     @Override
     public void addFunctions(List<? extends SqlFunction> functions)
     {
-        plannerContext.getMetadata().addFunctions(functions);
+        globalFunctionCatalog.addFunctions(functions);
     }
 
     @Override

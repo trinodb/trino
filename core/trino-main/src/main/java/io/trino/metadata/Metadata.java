@@ -602,9 +602,7 @@ public interface Metadata
     // Functions
     //
 
-    void addFunctions(List<? extends SqlFunction> functions);
-
-    List<FunctionMetadata> listFunctions();
+    Collection<FunctionMetadata> listFunctions();
 
     ResolvedFunction decodeFunction(QualifiedName name);
 

@@ -21,6 +21,7 @@ import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.trino.FeaturesConfig;
+import io.trino.client.NodeVersion;
 import io.trino.collect.cache.NonEvictableCache;
 import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.aggregation.ApproximateCountDistinctAggregation;
@@ -239,7 +240,6 @@ import io.trino.operator.window.RowNumberFunction;
 import io.trino.operator.window.SqlWindowFunction;
 import io.trino.operator.window.WindowFunctionSupplier;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.TypeOperators;
@@ -271,6 +271,7 @@ import io.trino.type.setdigest.SetDigestFunctions;
 import io.trino.type.setdigest.SetDigestOperators;
 
 import javax.annotation.concurrent.ThreadSafe;
+import javax.inject.Inject;
 
 import java.util.Collection;
 import java.util.List;
@@ -380,19 +381,19 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.HOURS;
 
 @ThreadSafe
-public class FunctionRegistry
+public class GlobalFunctionCatalog
 {
     private final NonEvictableCache<FunctionKey, ScalarFunctionImplementation> specializedScalarCache;
     private final NonEvictableCache<FunctionKey, AggregationMetadata> specializedAggregationCache;
     private final NonEvictableCache<FunctionKey, WindowFunctionSupplier> specializedWindowCache;
     private volatile FunctionMap functions = new FunctionMap();
 
-    public FunctionRegistry(
-            BlockEncodingSerde blockEncodingSerde,
+    @Inject
+    public GlobalFunctionCatalog(
             FeaturesConfig featuresConfig,
             TypeOperators typeOperators,
             BlockTypeOperators blockTypeOperators,
-            String nodeVersion)
+            NodeVersion nodeVersion)
     {
         // We have observed repeated compilation of MethodHandle that leads to full GCs.
         // We notice that flushing the following caches mitigate the problem.
@@ -614,7 +615,6 @@ public class FunctionRegistry
                 .functions(MAP_FILTER_FUNCTION, new MapTransformKeysFunction(blockTypeOperators), MAP_TRANSFORM_VALUES_FUNCTION)
                 .function(FORMAT_FUNCTION)
                 .function(TRY_CAST)
-                .function(new LiteralFunction(blockEncodingSerde))
                 .function(new GenericEqualOperator(typeOperators))
                 .function(new GenericHashCodeOperator(typeOperators))
                 .function(new GenericXxHash64Operator(typeOperators))
@@ -624,7 +624,7 @@ public class FunctionRegistry
                 .function(new GenericComparisonUnorderedFirstOperator(typeOperators))
                 .function(new GenericLessThanOperator(typeOperators))
                 .function(new GenericLessThanOrEqualOperator(typeOperators))
-                .function(new VersionFunction(nodeVersion))
+                .function(new VersionFunction(nodeVersion.getVersion()))
                 .aggregates(MergeSetDigestAggregation.class)
                 .aggregates(BuildSetDigestAggregation.class)
                 .scalars(SetDigestFunctions.class)
@@ -809,17 +809,17 @@ public class FunctionRegistry
         this.functions = new FunctionMap(this.functions, functions);
     }
 
-    public List<FunctionMetadata> list()
+    public List<FunctionMetadata> listFunctions()
     {
         return functions.list();
     }
 
-    public Collection<FunctionMetadata> get(QualifiedName name)
+    public Collection<FunctionMetadata> getFunctions(QualifiedName name)
     {
         return functions.get(name);
     }
 
-    public FunctionMetadata get(FunctionId functionId)
+    public FunctionMetadata getFunctionMetadata(FunctionId functionId)
     {
         return functions.get(functionId).getFunctionMetadata();
     }
@@ -867,10 +867,10 @@ public class FunctionRegistry
         return aggregationFunction.specialize(boundSignature, functionDependencies);
     }
 
-    public FunctionDependencyDeclaration getFunctionDependencies(FunctionBinding functionBinding)
+    public FunctionDependencyDeclaration getFunctionDependencies(FunctionId functionId, BoundSignature boundSignature)
     {
-        SqlFunction function = functions.get(functionBinding.getFunctionId());
-        return function.getFunctionDependencies(functionBinding.getBoundSignature());
+        SqlFunction function = functions.get(functionId);
+        return function.getFunctionDependencies(boundSignature);
     }
 
     public FunctionInvoker getScalarFunctionInvoker(

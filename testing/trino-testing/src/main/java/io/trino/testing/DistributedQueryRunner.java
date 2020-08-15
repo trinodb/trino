@@ -198,7 +198,7 @@ public class DistributedQueryRunner
 
         long start = System.nanoTime();
         for (TestingTrinoServer server : servers) {
-            server.getMetadata().addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
+            server.addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
         }
         log.info("Added functions in %s", nanosSince(start).convertToMostSuccinctTimeUnit());
     }
@@ -272,7 +272,7 @@ public class DistributedQueryRunner
                     ImmutableList.of()));
             serverBuilder.add(server);
             // add functions
-            server.getMetadata().addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
+            server.addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
         }
         servers = serverBuilder.build();
         waitForAllNodesGloballyVisible();
@@ -417,7 +417,7 @@ public class DistributedQueryRunner
     @Override
     public void addFunctions(List<? extends SqlFunction> functions)
     {
-        servers.forEach(server -> server.getMetadata().addFunctions(functions));
+        servers.forEach(server -> server.addFunctions(functions));
     }
 
     public void createCatalog(String catalogName, String connectorName)

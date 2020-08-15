@@ -21,8 +21,8 @@ import io.trino.eventlistener.EventListenerManager;
 import io.trino.exchange.ExchangeManagerRegistry;
 import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.metadata.BlockEncodingManager;
+import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.HandleResolver;
-import io.trino.metadata.MetadataManager;
 import io.trino.metadata.TypeRegistry;
 import io.trino.security.AccessControlManager;
 import io.trino.security.GroupProviderManager;
@@ -75,7 +75,7 @@ public class PluginManager
 
     private final PluginsProvider pluginsProvider;
     private final ConnectorManager connectorManager;
-    private final MetadataManager metadataManager;
+    private final GlobalFunctionCatalog globalFunctionCatalog;
     private final ResourceGroupManager<?> resourceGroupManager;
     private final AccessControlManager accessControlManager;
     private final Optional<PasswordAuthenticatorManager> passwordAuthenticatorManager;
@@ -95,7 +95,7 @@ public class PluginManager
     public PluginManager(
             PluginsProvider pluginsProvider,
             ConnectorManager connectorManager,
-            MetadataManager metadataManager,
+            GlobalFunctionCatalog globalFunctionCatalog,
             ResourceGroupManager<?> resourceGroupManager,
             AccessControlManager accessControlManager,
             Optional<PasswordAuthenticatorManager> passwordAuthenticatorManager,
@@ -111,7 +111,7 @@ public class PluginManager
     {
         this.pluginsProvider = requireNonNull(pluginsProvider, "pluginsProvider is null");
         this.connectorManager = requireNonNull(connectorManager, "connectorManager is null");
-        this.metadataManager = requireNonNull(metadataManager, "metadataManager is null");
+        this.globalFunctionCatalog = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
         this.resourceGroupManager = requireNonNull(resourceGroupManager, "resourceGroupManager is null");
         this.accessControlManager = requireNonNull(accessControlManager, "accessControlManager is null");
         this.passwordAuthenticatorManager = requireNonNull(passwordAuthenticatorManager, "passwordAuthenticatorManager is null");
@@ -200,7 +200,7 @@ public class PluginManager
 
         for (Class<?> functionClass : plugin.getFunctions()) {
             log.info("Registering functions from %s", functionClass.getName());
-            metadataManager.addFunctions(extractFunctions(functionClass));
+            globalFunctionCatalog.addFunctions(extractFunctions(functionClass));
         }
 
         for (SessionPropertyConfigurationManagerFactory sessionConfigFactory : plugin.getSessionPropertyConfigurationManagerFactories()) {

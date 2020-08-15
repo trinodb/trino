@@ -702,13 +702,7 @@ public abstract class AbstractMockMetadata
     //
 
     @Override
-    public void addFunctions(List<? extends SqlFunction> functions)
-    {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public List<FunctionMetadata> listFunctions()
+    public Collection<FunctionMetadata> listFunctions()
     {
         throw new UnsupportedOperationException();
     }
