@@ -180,7 +180,7 @@ public class TestEffectivePredicateExtractor
         }
 
         @Override
-        public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, Optional<InvocationConvention> invocationConvention)
+        public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
         {
             return delegate.getScalarFunctionInvoker(resolvedFunction, invocationConvention);
         }

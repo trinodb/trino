@@ -819,6 +819,7 @@ public class TestMapOperators
     @Test
     public void testMapToMapCast()
     {
+        assertFunction("CAST(MAP(ARRAY[1], ARRAY[MAP(ARRAY[1.0E0], ARRAY[false])]) AS MAP<varchar, MAP(bigint,bigint)>)", mapType(VARCHAR, mapType(BIGINT, BIGINT)), ImmutableMap.of("1", ImmutableMap.of(1L, 0L)));
         assertFunction("CAST(MAP(ARRAY['1', '100'], ARRAY[true, false]) AS MAP<varchar,bigint>)", mapType(VARCHAR, BIGINT), ImmutableMap.of("1", 1L, "100", 0L));
         assertFunction("CAST(MAP(ARRAY[1,2], ARRAY[1,2]) AS MAP<bigint, boolean>)", mapType(BIGINT, BOOLEAN), ImmutableMap.of(1L, true, 2L, true));
         assertFunction("CAST(MAP(ARRAY[1,2], ARRAY[array[1],array[2]]) AS MAP<bigint, array<boolean>>)", mapType(BIGINT, new ArrayType(BOOLEAN)), ImmutableMap.of(1L, ImmutableList.of(true), 2L, ImmutableList.of(true)));

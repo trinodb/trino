@@ -140,7 +140,7 @@ public abstract class AbstractMinMaxAggregationFunction
             invocationConvention = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
         }
 
-        MethodHandle compareMethodHandle = getMinMaxCompare(functionDependencies, type, Optional.of(invocationConvention), min);
+        MethodHandle compareMethodHandle = getMinMaxCompare(functionDependencies, type, invocationConvention, min);
 
         return generateAggregation(type, compareMethodHandle);
     }

@@ -24,7 +24,6 @@ import io.prestosql.spi.type.TypeSignature;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
@@ -38,7 +37,7 @@ public final class OperatorImplementationDependency
     private final OperatorType operator;
     private final List<TypeSignature> argumentTypes;
 
-    public OperatorImplementationDependency(OperatorType operator, List<TypeSignature> argumentTypes, Optional<InvocationConvention> invocationConvention, Class<?> type)
+    public OperatorImplementationDependency(OperatorType operator, List<TypeSignature> argumentTypes, InvocationConvention invocationConvention, Class<?> type)
     {
         super(invocationConvention, type);
         this.operator = requireNonNull(operator, "operator is null");
@@ -63,7 +62,7 @@ public final class OperatorImplementationDependency
     }
 
     @Override
-    protected FunctionInvoker getInvoker(FunctionBinding functionBinding, FunctionDependencies functionDependencies, Optional<InvocationConvention> invocationConvention)
+    protected FunctionInvoker getInvoker(FunctionBinding functionBinding, FunctionDependencies functionDependencies, InvocationConvention invocationConvention)
     {
         List<TypeSignature> types = applyBoundVariables(argumentTypes, functionBinding);
         return functionDependencies.getOperatorSignatureInvoker(operator, types, invocationConvention);

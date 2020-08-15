@@ -17,6 +17,7 @@ import io.airlift.slice.Slice;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.function.CastDependency;
+import io.prestosql.spi.function.Convention;
 import io.prestosql.spi.function.OperatorDependency;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
@@ -29,6 +30,9 @@ import java.lang.invoke.MethodHandle;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
@@ -60,7 +64,11 @@ public class TestCastDependencies
     {
         @SqlType(StandardTypes.INTEGER)
         public static long castVarcharToInteger(
-                @CastDependency(fromType = StandardTypes.VARCHAR, toType = StandardTypes.INTEGER) MethodHandle cast,
+                @CastDependency(
+                        fromType = StandardTypes.VARCHAR,
+                        toType = StandardTypes.INTEGER,
+                        convention = @Convention(arguments = NEVER_NULL, result = FAIL_ON_NULL))
+                        MethodHandle cast,
                 @SqlType(StandardTypes.VARCHAR) Slice value)
         {
             try {
@@ -80,7 +88,11 @@ public class TestCastDependencies
         @TypeParameter("V")
         @SqlType(StandardTypes.VARCHAR)
         public static Slice castAnyToVarchar(
-                @CastDependency(fromType = "V", toType = StandardTypes.VARCHAR) MethodHandle cast,
+                @CastDependency(
+                        fromType = "V",
+                        toType = StandardTypes.VARCHAR,
+                        convention = @Convention(arguments = NEVER_NULL, result = FAIL_ON_NULL))
+                        MethodHandle cast,
                 @SqlType("V") long value)
         {
             try {
@@ -100,8 +112,16 @@ public class TestCastDependencies
         @TypeParameter("V")
         @SqlType(StandardTypes.BOOLEAN)
         public static boolean castAnyFromVarchar(
-                @CastDependency(fromType = StandardTypes.VARCHAR, toType = "V") MethodHandle cast,
-                @OperatorDependency(operator = EQUAL, argumentTypes = {"V", "V"}) MethodHandle equals,
+                @CastDependency(
+                        fromType = StandardTypes.VARCHAR,
+                        toType = "V",
+                        convention = @Convention(arguments = NEVER_NULL, result = FAIL_ON_NULL))
+                        MethodHandle cast,
+                @OperatorDependency(
+                        operator = EQUAL,
+                        argumentTypes = {"V", "V"},
+                        convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
+                        MethodHandle equals,
                 @SqlType("V") long left,
                 @SqlType(StandardTypes.VARCHAR) Slice right)
         {

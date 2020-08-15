@@ -24,9 +24,7 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.control.SwitchStatement.SwitchBuilder;
 import io.airlift.bytecode.instruction.LabelNode;
-import io.prestosql.metadata.FunctionInvoker;
 import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.IntegerType;
@@ -40,7 +38,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -50,7 +47,6 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantTrue;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeStatic;
 import static io.airlift.bytecode.instruction.JumpInstruction.jump;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
@@ -132,10 +128,9 @@ public class InCodeGenerator
 
         SwitchGenerationCase switchGenerationCase = checkSwitchGenerationCase(type, testExpressions);
 
-        MethodHandle equalsMethodHandle = generatorContext.getScalarFunctionInvoker(resolvedEqualsFunction, Optional.of(simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL))).getMethodHandle();
-        MethodHandle hashCodeMethodHandle = generatorContext.getScalarFunctionInvoker(resolvedHashCodeFunction, Optional.of(simpleConvention(FAIL_ON_NULL, NEVER_NULL))).getMethodHandle();
-        InvocationConvention indeterminateCallingConvention = new InvocationConvention(ImmutableList.of(NULL_FLAG), FAIL_ON_NULL, false, false);
-        FunctionInvoker indeterminateInvoker = generatorContext.getScalarFunctionInvoker(resolvedIsIndeterminate, Optional.of(indeterminateCallingConvention));
+        MethodHandle equalsMethodHandle = generatorContext.getScalarFunctionInvoker(resolvedEqualsFunction, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle();
+        MethodHandle hashCodeMethodHandle = generatorContext.getScalarFunctionInvoker(resolvedHashCodeFunction, simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
+        MethodHandle indeterminateMethodHandle = generatorContext.getScalarFunctionInvoker(resolvedIsIndeterminate, simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
 
         ImmutableListMultimap.Builder<Integer, BytecodeNode> hashBucketsBuilder = ImmutableListMultimap.builder();
         ImmutableList.Builder<BytecodeNode> defaultBucket = ImmutableList.builder();
@@ -144,7 +139,7 @@ public class InCodeGenerator
         for (RowExpression testValue : testExpressions) {
             BytecodeNode testBytecode = generatorContext.generate(testValue);
 
-            if (isDeterminateConstant(testValue, indeterminateInvoker.getMethodHandle())) {
+            if (isDeterminateConstant(testValue, indeterminateMethodHandle)) {
                 ConstantExpression constant = (ConstantExpression) testValue;
                 Object object = constant.getValue();
                 switch (switchGenerationCase) {
@@ -379,12 +374,11 @@ public class InCodeGenerator
         }
         ConstantExpression constantExpression = (ConstantExpression) expression;
         Object value = constantExpression.getValue();
-        boolean isNull = value == null;
-        if (isNull) {
+        if (value == null) {
             return false;
         }
         try {
-            return !(boolean) isIndeterminateFunction.invoke(value, false);
+            return !(boolean) isIndeterminateFunction.invoke(value);
         }
         catch (Throwable t) {
             throwIfUnchecked(t);
