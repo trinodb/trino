@@ -13,7 +13,7 @@
  */
 package io.trino.metadata;
 
-import io.trino.FeaturesConfig;
+import com.google.common.collect.ImmutableSet;
 import io.trino.Session;
 import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.security.AllowAllAccessControl;
@@ -34,11 +34,11 @@ import io.trino.transaction.TransactionManager;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.transaction.TransactionBuilder.transaction;
@@ -52,9 +52,17 @@ public class TestingFunctionResolution
 
     public TestingFunctionResolution()
     {
-        this.transactionManager = createTestTransactionManager();
-        this.metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
-        this.plannerContext = plannerContextBuilder().withMetadata(metadata).build();
+        this(ImmutableSet.of());
+    }
+
+    public TestingFunctionResolution(Set<Class<?>> functions)
+    {
+        transactionManager = createTestTransactionManager();
+        plannerContext = plannerContextBuilder()
+                .withTransactionManager(transactionManager)
+                .addFunctions(functions)
+                .build();
+        metadata = plannerContext.getMetadata();
     }
 
     public TestingFunctionResolution(LocalQueryRunner localQueryRunner)
