@@ -44,8 +44,11 @@ public class Timestamps
     };
 
     public static final int MILLISECONDS_PER_SECOND = 1_000;
+    public static final int MICROSECONDS_PER_MILLISECOND = 1_000;
     public static final int MICROSECONDS_PER_SECOND = 1_000_000;
+    public static final int NANOSECONDS_PER_MICROSECOND = 1_000;
     public static final int NANOSECONDS_PER_MILLISECOND = 1_000_000;
+    public static final int NANOSECONDS_PER_SECOND = 1_000_000_000;
     public static final long NANOSECONDS_PER_DAY = 1_000_000_000L * 60 * 60 * 24;
     public static final int PICOSECONDS_PER_NANOSECOND = 1_000;
     public static final int PICOSECONDS_PER_MICROSECOND = 1_000_000;
