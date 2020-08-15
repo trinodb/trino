@@ -52,13 +52,12 @@ public final class ConcatFunction
     private ConcatFunction(TypeSignature type, String description)
     {
         super(new FunctionMetadata(
-                new Signature(
-                        "concat",
-                        ImmutableList.of(),
-                        ImmutableList.of(),
-                        type,
-                        ImmutableList.of(type),
-                        true),
+                Signature.builder()
+                        .name("concat")
+                        .returnType(type)
+                        .argumentType(type)
+                        .variableArity()
+                        .build(),
                 new FunctionNullability(false, ImmutableList.of(false)),
                 false,
                 true,

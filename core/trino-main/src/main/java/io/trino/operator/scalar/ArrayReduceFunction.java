@@ -31,7 +31,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -51,17 +50,17 @@ public final class ArrayReduceFunction
     private ArrayReduceFunction()
     {
         super(new FunctionMetadata(
-                new Signature(
-                        "reduce",
-                        ImmutableList.of(typeVariable("T"), typeVariable("S"), typeVariable("R")),
-                        ImmutableList.of(),
-                        new TypeSignature("R"),
-                        ImmutableList.of(
-                                arrayType(new TypeSignature("T")),
-                                new TypeSignature("S"),
-                                functionType(new TypeSignature("S"), new TypeSignature("T"), new TypeSignature("S")),
-                                functionType(new TypeSignature("S"), new TypeSignature("R"))),
-                        false),
+                Signature.builder()
+                        .name("reduce")
+                        .typeVariable("T")
+                        .typeVariable("S")
+                        .typeVariable("R")
+                        .returnType(new TypeSignature("R"))
+                        .argumentType(arrayType(new TypeSignature("T")))
+                        .argumentType(new TypeSignature("S"))
+                        .argumentType(functionType(new TypeSignature("S"), new TypeSignature("T"), new TypeSignature("S")))
+                        .argumentType(functionType(new TypeSignature("S"), new TypeSignature("R")))
+                        .build(),
                 new FunctionNullability(true, ImmutableList.of(false, true, false, false)),
                 false,
                 false,

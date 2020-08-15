@@ -32,7 +32,6 @@ import io.trino.spi.type.TypeSignature;
 import java.lang.invoke.MethodHandle;
 
 import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.function.OperatorType.EQUAL;
@@ -53,13 +52,14 @@ public class MapElementAtFunction
     protected MapElementAtFunction()
     {
         super(new FunctionMetadata(
-                new Signature(
-                        "element_at",
-                        ImmutableList.of(typeVariable("K"), typeVariable("V")),
-                        ImmutableList.of(),
-                        new TypeSignature("V"),
-                        ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V")), new TypeSignature("K")),
-                        false),
+                Signature.builder()
+                        .name("element_at")
+                        .typeVariable("K")
+                        .typeVariable("V")
+                        .returnType(new TypeSignature("V"))
+                        .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V")))
+                        .argumentType(new TypeSignature("K"))
+                        .build(),
                 new FunctionNullability(true, ImmutableList.of(false, false)),
                 false,
                 true,

@@ -33,7 +33,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.util.Reflection.methodHandle;
 
@@ -51,13 +50,12 @@ public class CountColumn
     {
         super(
                 new FunctionMetadata(
-                        new Signature(
-                                NAME,
-                                ImmutableList.of(typeVariable("T")),
-                                ImmutableList.of(),
-                                BIGINT.getTypeSignature(),
-                                ImmutableList.of(new TypeSignature("T")),
-                                false),
+                        Signature.builder()
+                                .name(NAME)
+                                .typeVariable("T")
+                                .returnType(BIGINT)
+                                .argumentType(new TypeSignature("T"))
+                                .build(),
                         new FunctionNullability(true, ImmutableList.of(false)),
                         false,
                         true,

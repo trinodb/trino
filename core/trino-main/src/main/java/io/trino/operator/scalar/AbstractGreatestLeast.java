@@ -54,7 +54,6 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
 import static io.airlift.bytecode.expression.BytecodeExpressions.isNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.or;
 import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.orderableTypeParameter;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -80,13 +79,13 @@ public abstract class AbstractGreatestLeast
     protected AbstractGreatestLeast(boolean min, String description)
     {
         super(new FunctionMetadata(
-                new Signature(
-                        min ? "least" : "greatest",
-                        ImmutableList.of(orderableTypeParameter("E")),
-                        ImmutableList.of(),
-                        new TypeSignature("E"),
-                        ImmutableList.of(new TypeSignature("E")),
-                        true),
+                Signature.builder()
+                        .name(min ? "least" : "greatest")
+                        .orderableTypeParameter("E")
+                        .returnType(new TypeSignature("E"))
+                        .argumentType(new TypeSignature("E"))
+                        .variableArity()
+                        .build(),
                 new FunctionNullability(true, ImmutableList.of(true)),
                 false,
                 true,

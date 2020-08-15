@@ -13,7 +13,6 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
@@ -66,18 +65,17 @@ public final class ZipFunction
     private ZipFunction(List<String> typeParameters)
     {
         super(new FunctionMetadata(
-                new Signature(
-                        "zip",
-                        typeParameters.stream().map(Signature::typeVariable).collect(toImmutableList()),
-                        ImmutableList.of(),
-                        arrayType(rowType(typeParameters.stream()
+                Signature.builder()
+                        .name("zip")
+                        .typeVariableConstraints(typeParameters.stream().map(Signature::typeVariable).collect(toImmutableList()))
+                        .returnType(arrayType(rowType(typeParameters.stream()
                                 .map(TypeSignature::new)
                                 .map(TypeSignatureParameter::anonymousField)
-                                .collect(toImmutableList()))),
-                        typeParameters.stream()
+                                .collect(toImmutableList()))))
+                        .argumentTypes(typeParameters.stream()
                                 .map(name -> arrayType(new TypeSignature(name)))
-                                .collect(toImmutableList()),
-                        false),
+                                .collect(toImmutableList()))
+                        .build(),
                 new FunctionNullability(false, nCopies(typeParameters.size(), false)),
                 false,
                 true,

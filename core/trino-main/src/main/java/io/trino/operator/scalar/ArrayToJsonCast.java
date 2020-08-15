@@ -19,9 +19,9 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.metadata.BoundSignature;
+import io.trino.metadata.Signature;
 import io.trino.metadata.SqlOperator;
 import io.trino.spi.block.Block;
-import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.TypeSignature;
 import io.trino.util.JsonUtil.JsonGeneratorWriter;
@@ -29,11 +29,11 @@ import io.trino.util.JsonUtil.JsonGeneratorWriter;
 import java.io.IOException;
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.metadata.Signature.castableToTypeParameter;
 import static io.trino.operator.scalar.JsonOperators.JSON_FACTORY;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.type.JsonType.JSON;
 import static io.trino.util.Failures.checkCondition;
@@ -53,11 +53,12 @@ public class ArrayToJsonCast
 
     private ArrayToJsonCast(boolean legacyRowToJson)
     {
-        super(OperatorType.CAST,
-                ImmutableList.of(castableToTypeParameter("T", JSON.getTypeSignature())),
-                ImmutableList.of(),
-                JSON.getTypeSignature(),
-                ImmutableList.of(arrayType(new TypeSignature("T"))),
+        super(Signature.builder()
+                        .operatorType(CAST)
+                        .castableToTypeParameter("T", JSON.getTypeSignature())
+                        .returnType(JSON)
+                        .argumentType(arrayType(new TypeSignature("T")))
+                        .build(),
                 false);
         this.legacyRowToJson = legacyRowToJson;
     }

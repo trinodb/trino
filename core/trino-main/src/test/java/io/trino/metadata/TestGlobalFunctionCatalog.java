@@ -190,14 +190,14 @@ public class TestGlobalFunctionCatalog
         assertThatResolveFunction()
                 .among(
                         functionSignature("double", "double", "double"),
-                        functionSignature("decimal(p,s)").setVariableArity(true))
+                        functionSignature("decimal(p,s)").variableArity())
                 .forParameters(BIGINT, BIGINT, BIGINT)
                 .returns(functionSignature("decimal(19,0)", "decimal(19,0)", "decimal(19,0)"));
 
         assertThatResolveFunction()
                 .among(
                         functionSignature("double", "double", "double"),
-                        functionSignature("bigint").setVariableArity(true))
+                        functionSignature("bigint").variableArity())
                 .forParameters(BIGINT, BIGINT, BIGINT)
                 .returns(functionSignature("bigint", "bigint", "bigint"));
     }
@@ -272,23 +272,23 @@ public class TestGlobalFunctionCatalog
                 .collect(toImmutableList());
     }
 
-    private SignatureBuilder functionSignature(String... argumentTypes)
+    private static Signature.Builder functionSignature(String... argumentTypes)
     {
         return functionSignature(ImmutableList.copyOf(argumentTypes), "boolean");
     }
 
-    private static SignatureBuilder functionSignature(List<String> arguments, String returnType)
+    private static Signature.Builder functionSignature(List<String> arguments, String returnType)
     {
         return functionSignature(arguments, returnType, ImmutableList.of());
     }
 
-    private static SignatureBuilder functionSignature(List<String> arguments, String returnType, List<TypeVariableConstraint> typeVariableConstraints)
+    private static Signature.Builder functionSignature(List<String> arguments, String returnType, List<TypeVariableConstraint> typeVariableConstraints)
     {
         ImmutableSet<String> literalParameters = ImmutableSet.of("p", "s", "p1", "s1", "p2", "s2", "p3", "s3");
         List<TypeSignature> argumentSignatures = arguments.stream()
                 .map(signature -> parseTypeSignature(signature, literalParameters))
                 .collect(toImmutableList());
-        return new SignatureBuilder()
+        return Signature.builder()
                 .returnType(parseTypeSignature(returnType, literalParameters))
                 .argumentTypes(argumentSignatures)
                 .typeVariableConstraints(typeVariableConstraints);
@@ -303,10 +303,10 @@ public class TestGlobalFunctionCatalog
     {
         private static final String TEST_FUNCTION_NAME = "TEST_FUNCTION_NAME";
 
-        private List<SignatureBuilder> functionSignatures = ImmutableList.of();
+        private List<Signature.Builder> functionSignatures = ImmutableList.of();
         private List<TypeSignature> parameterTypes = ImmutableList.of();
 
-        public ResolveFunctionAssertion among(SignatureBuilder... functionSignatures)
+        public ResolveFunctionAssertion among(Signature.Builder... functionSignatures)
         {
             this.functionSignatures = ImmutableList.copyOf(functionSignatures);
             return this;
@@ -318,7 +318,7 @@ public class TestGlobalFunctionCatalog
             return this;
         }
 
-        public ResolveFunctionAssertion returns(SignatureBuilder functionSignature)
+        public ResolveFunctionAssertion returns(Signature.Builder functionSignature)
         {
             Signature expectedSignature = functionSignature.name(TEST_FUNCTION_NAME).build();
             Signature actualSignature = resolveSignature().toSignature();
@@ -344,7 +344,7 @@ public class TestGlobalFunctionCatalog
         private InternalFunctionBundle createFunctionsFromSignatures()
         {
             ImmutableList.Builder<SqlFunction> functions = ImmutableList.builder();
-            for (SignatureBuilder functionSignature : functionSignatures) {
+            for (Signature.Builder functionSignature : functionSignatures) {
                 Signature signature = functionSignature.name(TEST_FUNCTION_NAME).build();
                 FunctionMetadata functionMetadata = new FunctionMetadata(
                         signature,

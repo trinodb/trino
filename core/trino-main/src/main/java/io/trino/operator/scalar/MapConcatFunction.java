@@ -38,7 +38,6 @@ import java.lang.invoke.MethodHandles;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -71,13 +70,14 @@ public final class MapConcatFunction
     public MapConcatFunction(BlockTypeOperators blockTypeOperators)
     {
         super(new FunctionMetadata(
-                new Signature(
-                        FUNCTION_NAME,
-                        ImmutableList.of(typeVariable("K"), typeVariable("V")),
-                        ImmutableList.of(),
-                        mapType(new TypeSignature("K"), new TypeSignature("V")),
-                        ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V"))),
-                        true),
+                Signature.builder()
+                        .name(FUNCTION_NAME)
+                        .typeVariable("K")
+                        .typeVariable("V")
+                        .returnType(mapType(new TypeSignature("K"), new TypeSignature("V")))
+                        .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V")))
+                        .variableArity()
+                        .build(),
                 new FunctionNullability(false, ImmutableList.of(false)),
                 false,
                 true,

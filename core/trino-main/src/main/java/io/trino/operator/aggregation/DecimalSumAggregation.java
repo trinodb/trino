@@ -60,10 +60,11 @@ public class DecimalSumAggregation
     {
         super(
                 new FunctionMetadata(
-                        new Signature(
-                                NAME,
-                                new TypeSignature("decimal", numericParameter(38), typeVariable("s")),
-                                ImmutableList.of(new TypeSignature("decimal", typeVariable("p"), typeVariable("s")))),
+                        Signature.builder()
+                                .name(NAME)
+                                .returnType(new TypeSignature("decimal", numericParameter(38), typeVariable("s")))
+                                .argumentType(new TypeSignature("decimal", typeVariable("p"), typeVariable("s")))
+                                .build(),
                         new FunctionNullability(true, ImmutableList.of(false)),
                         false,
                         true,

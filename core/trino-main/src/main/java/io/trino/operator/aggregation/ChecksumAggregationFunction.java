@@ -36,7 +36,6 @@ import java.util.Optional;
 
 import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.metadata.Signature.comparableTypeParameter;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.util.Reflection.methodHandle;
@@ -58,13 +57,12 @@ public class ChecksumAggregationFunction
     {
         super(
                 new FunctionMetadata(
-                        new Signature(
-                                NAME,
-                                ImmutableList.of(comparableTypeParameter("T")),
-                                ImmutableList.of(),
-                                VARBINARY.getTypeSignature(),
-                                ImmutableList.of(new TypeSignature("T")),
-                                false),
+                        Signature.builder()
+                                .name(NAME)
+                                .comparableTypeParameter("T")
+                                .returnType(VARBINARY)
+                                .argumentType(new TypeSignature("T"))
+                                .build(),
                         new FunctionNullability(true, ImmutableList.of(true)),
                         false,
                         true,

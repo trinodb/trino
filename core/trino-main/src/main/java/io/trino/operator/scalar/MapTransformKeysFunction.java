@@ -71,7 +71,6 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.subtract;
 import static io.airlift.bytecode.instruction.VariableInstruction.incrementVariable;
 import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -97,15 +96,15 @@ public final class MapTransformKeysFunction
     public MapTransformKeysFunction(BlockTypeOperators blockTypeOperators)
     {
         super(new FunctionMetadata(
-                new Signature(
-                        NAME,
-                        ImmutableList.of(typeVariable("K1"), typeVariable("K2"), typeVariable("V")),
-                        ImmutableList.of(),
-                        mapType(new TypeSignature("K2"), new TypeSignature("V")),
-                        ImmutableList.of(
-                                mapType(new TypeSignature("K1"), new TypeSignature("V")),
-                                functionType(new TypeSignature("K1"), new TypeSignature("V"), new TypeSignature("K2"))),
-                        false),
+                Signature.builder()
+                        .name(NAME)
+                        .typeVariable("K1")
+                        .typeVariable("K2")
+                        .typeVariable("V")
+                        .returnType(mapType(new TypeSignature("K2"), new TypeSignature("V")))
+                        .argumentType(mapType(new TypeSignature("K1"), new TypeSignature("V")))
+                        .argumentType(functionType(new TypeSignature("K1"), new TypeSignature("V"), new TypeSignature("K2")))
+                        .build(),
                 new FunctionNullability(false, ImmutableList.of(false, false)),
                 false,
                 false,

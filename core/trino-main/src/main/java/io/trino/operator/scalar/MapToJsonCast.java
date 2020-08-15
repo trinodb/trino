@@ -20,9 +20,9 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.BoundSignature;
+import io.trino.metadata.Signature;
 import io.trino.metadata.SqlOperator;
 import io.trino.spi.block.Block;
-import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
@@ -32,11 +32,11 @@ import java.lang.invoke.MethodHandle;
 import java.util.Map;
 import java.util.TreeMap;
 
-import static io.trino.metadata.Signature.castableToTypeParameter;
 import static io.trino.operator.scalar.JsonOperators.JSON_FACTORY;
 import static io.trino.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.trino.spi.function.OperatorType.CAST;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.type.JsonType.JSON;
@@ -59,13 +59,13 @@ public class MapToJsonCast
 
     private MapToJsonCast(boolean legacyRowToJson)
     {
-        super(OperatorType.CAST,
-                ImmutableList.of(
-                        castableToTypeParameter("K", VARCHAR.getTypeSignature()),
-                        castableToTypeParameter("V", JSON.getTypeSignature())),
-                ImmutableList.of(),
-                JSON.getTypeSignature(),
-                ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V"))),
+        super(Signature.builder()
+                        .operatorType(CAST)
+                        .castableToTypeParameter("K", VARCHAR.getTypeSignature())
+                        .castableToTypeParameter("V", JSON.getTypeSignature())
+                        .returnType(JSON)
+                        .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V")))
+                        .build(),
                 false);
         this.legacyRowToJson = legacyRowToJson;
     }

@@ -39,13 +39,10 @@ public final class VersionFunction
     public VersionFunction(String nodeVersion)
     {
         super(new FunctionMetadata(
-                new Signature(
-                        "version",
-                        ImmutableList.of(),
-                        ImmutableList.of(),
-                        VARCHAR.getTypeSignature(),
-                        ImmutableList.of(),
-                        false),
+                Signature.builder()
+                        .name("version")
+                        .returnType(VARCHAR)
+                        .build(),
                 new FunctionNullability(false, ImmutableList.of()),
                 true,
                 true,

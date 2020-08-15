@@ -45,7 +45,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.metadata.Signature.orderableTypeParameter;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INDEX;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
@@ -84,13 +83,12 @@ public abstract class AbstractMinMaxAggregationFunction
     {
         super(
                 new FunctionMetadata(
-                        new Signature(
-                                name,
-                                ImmutableList.of(orderableTypeParameter("E")),
-                                ImmutableList.of(),
-                                new TypeSignature("E"),
-                                ImmutableList.of(new TypeSignature("E")),
-                                false),
+                        Signature.builder()
+                                .name(name)
+                                .orderableTypeParameter("E")
+                                .returnType(new TypeSignature("E"))
+                                .argumentType(new TypeSignature("E"))
+                                .build(),
                         new FunctionNullability(true, ImmutableList.of(false)),
                         false,
                         true,

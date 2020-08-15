@@ -2076,7 +2076,11 @@ public final class MetadataManager
                 FunctionBinding functionBinding = functionResolver.resolveCoercion(
                         session,
                         functions.getFunctions(QualifiedName.of(name)),
-                        new Signature(name, toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())));
+                        Signature.builder()
+                                .name(name)
+                                .returnType(toType)
+                                .argumentType(fromType)
+                                .build());
                 return resolve(session, functionBinding);
             });
         }
@@ -2098,7 +2102,11 @@ public final class MetadataManager
         FunctionBinding functionBinding = functionResolver.resolveCoercion(
                 session,
                 functions.getFunctions(name),
-                new Signature(name.getSuffix(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())));
+                Signature.builder()
+                        .name(name.getSuffix())
+                        .returnType(toType)
+                        .argumentType(fromType)
+                        .build());
         return resolve(session, functionBinding);
     }
 

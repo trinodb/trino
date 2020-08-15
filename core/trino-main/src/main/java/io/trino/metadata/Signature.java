@@ -20,8 +20,10 @@ import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
@@ -43,14 +45,13 @@ public class Signature
     private final List<TypeSignature> argumentTypes;
     private final boolean variableArity;
 
-    @JsonCreator
-    public Signature(
-            @JsonProperty("name") String name,
-            @JsonProperty("typeVariableConstraints") List<TypeVariableConstraint> typeVariableConstraints,
-            @JsonProperty("longVariableConstraints") List<LongVariableConstraint> longVariableConstraints,
-            @JsonProperty("returnType") TypeSignature returnType,
-            @JsonProperty("argumentTypes") List<TypeSignature> argumentTypes,
-            @JsonProperty("variableArity") boolean variableArity)
+    private Signature(
+            String name,
+            List<TypeVariableConstraint> typeVariableConstraints,
+            List<LongVariableConstraint> longVariableConstraints,
+            TypeSignature returnType,
+            List<TypeSignature> argumentTypes,
+            boolean variableArity)
     {
         requireNonNull(name, "name is null");
         requireNonNull(typeVariableConstraints, "typeVariableConstraints is null");
@@ -62,16 +63,6 @@ public class Signature
         this.returnType = requireNonNull(returnType, "returnType is null");
         this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
         this.variableArity = variableArity;
-    }
-
-    public Signature(String name, TypeSignature returnType, TypeSignature... argumentTypes)
-    {
-        this(name, returnType, ImmutableList.copyOf(argumentTypes));
-    }
-
-    public Signature(String name, TypeSignature returnType, List<TypeSignature> argumentTypes)
-    {
-        this(name, ImmutableList.of(), ImmutableList.of(), returnType, argumentTypes, false);
     }
 
     public static boolean isOperatorName(String mangledName)
@@ -162,6 +153,17 @@ public class Signature
         return name + (allConstraints.isEmpty() ? "" : "<" + Joiner.on(",").join(allConstraints) + ">") + "(" + Joiner.on(",").join(argumentTypes) + "):" + returnType;
     }
 
+    public Signature withName(String name)
+    {
+        return fromJson(
+                name,
+                typeVariableConstraints,
+                longVariableConstraints,
+                returnType,
+                argumentTypes,
+                variableArity);
+    }
+
     /*
      * similar to T extends MyClass<?...>, if Java supported varargs wildcards
      */
@@ -220,8 +222,142 @@ public class Signature
         return new LongVariableConstraint(variable, expression);
     }
 
-    public static SignatureBuilder builder()
+    public static Builder builder()
     {
-        return new SignatureBuilder();
+        return new Builder();
+    }
+
+    public static final class Builder
+    {
+        private String name;
+        private final List<TypeVariableConstraint> typeVariableConstraints = new ArrayList<>();
+        private final List<LongVariableConstraint> longVariableConstraints = new ArrayList<>();
+        private TypeSignature returnType;
+        private final List<TypeSignature> argumentTypes = new ArrayList<>();
+        private boolean variableArity;
+
+        private Builder() {}
+
+        public Builder name(String name)
+        {
+            this.name = requireNonNull(name, "name is null");
+            return this;
+        }
+
+        public Builder operatorType(OperatorType operatorType)
+        {
+            this.name = mangleOperatorName(requireNonNull(operatorType, "operatorType is null"));
+            return this;
+        }
+
+        public Builder typeVariable(String name)
+        {
+            typeVariableConstraints.add(Signature.typeVariable(name));
+            return this;
+        }
+
+        public Builder comparableTypeParameter(String name)
+        {
+            typeVariableConstraints.add(Signature.comparableTypeParameter(name));
+            return this;
+        }
+
+        public Builder orderableTypeParameter(String name)
+        {
+            typeVariableConstraints.add(Signature.orderableTypeParameter(name));
+            return this;
+        }
+
+        public Builder castableToTypeParameter(String name, TypeSignature... toType)
+        {
+            typeVariableConstraints.add(Signature.castableToTypeParameter(name, toType));
+            return this;
+        }
+
+        public Builder castableFromTypeParameter(String name, TypeSignature... toType)
+        {
+            typeVariableConstraints.add(Signature.castableFromTypeParameter(name, toType));
+            return this;
+        }
+
+        public Builder variadicTypeParameter(String name, String variadicBound)
+        {
+            typeVariableConstraints.add(withVariadicBound(name, variadicBound));
+            return this;
+        }
+
+        public Builder typeVariableConstraint(TypeVariableConstraint typeVariableConstraint)
+        {
+            this.typeVariableConstraints.add(requireNonNull(typeVariableConstraint, "typeVariableConstraint is null"));
+            return this;
+        }
+
+        public Builder typeVariableConstraints(List<TypeVariableConstraint> typeVariableConstraints)
+        {
+            this.typeVariableConstraints.addAll(requireNonNull(typeVariableConstraints, "typeVariableConstraints is null"));
+            return this;
+        }
+
+        public Builder returnType(Type returnType)
+        {
+            return returnType(returnType.getTypeSignature());
+        }
+
+        public Builder returnType(TypeSignature returnType)
+        {
+            this.returnType = requireNonNull(returnType, "returnType is null");
+            return this;
+        }
+
+        public Builder longVariable(String name, String expression)
+        {
+            this.longVariableConstraints.add(new LongVariableConstraint(name, expression));
+            return this;
+        }
+
+        public Builder argumentType(Type type)
+        {
+            return argumentType(requireNonNull(type, "type is null").getTypeSignature());
+        }
+
+        public Builder argumentType(TypeSignature type)
+        {
+            argumentTypes.add(requireNonNull(type, "type is null"));
+            return this;
+        }
+
+        public Builder argumentTypes(List<TypeSignature> argumentTypes)
+        {
+            this.argumentTypes.addAll(requireNonNull(argumentTypes, "argumentTypes is null"));
+            return this;
+        }
+
+        public Builder variableArity()
+        {
+            this.variableArity = true;
+            return this;
+        }
+
+        public Signature build()
+        {
+            return fromJson(name, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, variableArity);
+        }
+    }
+
+    /**
+     * This method is only visible for JSON deserialization.
+     * @deprecated use builder
+     */
+    @Deprecated
+    @JsonCreator
+    public static Signature fromJson(
+            @JsonProperty("name") String name,
+            @JsonProperty("typeVariableConstraints") List<TypeVariableConstraint> typeVariableConstraints,
+            @JsonProperty("longVariableConstraints") List<LongVariableConstraint> longVariableConstraints,
+            @JsonProperty("returnType") TypeSignature returnType,
+            @JsonProperty("argumentTypes") List<TypeSignature> argumentTypes,
+            @JsonProperty("variableArity") boolean variableArity)
+    {
+        return new Signature(name, typeVariableConstraints, longVariableConstraints, returnType, argumentTypes, variableArity);
     }
 }

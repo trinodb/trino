@@ -78,13 +78,12 @@ public class TestVarArgsToArrayAdapterGenerator
         private TestVarArgsSum()
         {
             super(new FunctionMetadata(
-                    new Signature(
-                            "var_args_sum",
-                            ImmutableList.of(),
-                            ImmutableList.of(),
-                            INTEGER.getTypeSignature(),
-                            ImmutableList.of(INTEGER.getTypeSignature()),
-                            true),
+                    Signature.builder()
+                            .name("var_args_sum")
+                            .returnType(INTEGER)
+                            .argumentType(INTEGER)
+                            .variableArity()
+                            .build(),
                     new FunctionNullability(false, ImmutableList.of(false)),
                     false,
                     false,

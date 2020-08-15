@@ -59,7 +59,6 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.notEqual;
 import static io.airlift.bytecode.expression.BytecodeExpressions.subtract;
 import static io.airlift.bytecode.instruction.VariableInstruction.incrementVariable;
 import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -81,15 +80,14 @@ public final class MapFilterFunction
     private MapFilterFunction()
     {
         super(new FunctionMetadata(
-                new Signature(
-                        "map_filter",
-                        ImmutableList.of(typeVariable("K"), typeVariable("V")),
-                        ImmutableList.of(),
-                        mapType(new TypeSignature("K"), new TypeSignature("V")),
-                        ImmutableList.of(
-                                mapType(new TypeSignature("K"), new TypeSignature("V")),
-                                functionType(new TypeSignature("K"), new TypeSignature("V"), BOOLEAN.getTypeSignature())),
-                        false),
+                Signature.builder()
+                        .name("map_filter")
+                        .typeVariable("K")
+                        .typeVariable("V")
+                        .returnType(mapType(new TypeSignature("K"), new TypeSignature("V")))
+                        .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V")))
+                        .argumentType(functionType(new TypeSignature("K"), new TypeSignature("V"), BOOLEAN.getTypeSignature()))
+                        .build(),
                 new FunctionNullability(false, ImmutableList.of(false, false)),
                 false,
                 false,
