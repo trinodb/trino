@@ -25,6 +25,7 @@ import io.airlift.units.DataSize.Unit;
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
 import io.trino.execution.QueryInfo;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.InsertTableHandle;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
@@ -5851,7 +5852,8 @@ public abstract class BaseHiveConnectorTest
                     .size();
             if (actualRemoteExchangesCount != expectedRemoteExchangesCount) {
                 Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
-                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false);
+                FunctionManager functionManager = getDistributedQueryRunner().getCoordinator().getFunctionManager();
+                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, functionManager, StatsAndCosts.empty(), session, 0, false);
                 throw new AssertionError(format(
                         "Expected [\n%s\n] remote exchanges but found [\n%s\n] remote exchanges. Actual plan is [\n\n%s\n]",
                         expectedRemoteExchangesCount,
@@ -5877,8 +5879,9 @@ public abstract class BaseHiveConnectorTest
                     .size();
             if (actualLocalExchangesCount != expectedLocalExchangesCount) {
                 Session session = getSession();
-                Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
-                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false);
+                Metadata metadata = getDistributedQueryRunner().getMetadata();
+                FunctionManager functionManager = getDistributedQueryRunner().getFunctionManager();
+                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, functionManager, StatsAndCosts.empty(), session, 0, false);
                 throw new AssertionError(format(
                         "Expected [\n%s\n] local repartitioned exchanges but found [\n%s\n] local repartitioned exchanges. Actual plan is [\n\n%s\n]",
                         expectedLocalExchangesCount,

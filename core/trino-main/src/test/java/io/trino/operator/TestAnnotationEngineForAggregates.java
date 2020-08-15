@@ -21,6 +21,7 @@ import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionDependencies;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.LongVariableConstraint;
 import io.trino.metadata.MetadataManager;
@@ -70,6 +71,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SessionTestUtils.TEST_SESSION;
+import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.operator.aggregation.AggregationFromAnnotationsParser.parseFunctionDefinitions;
@@ -92,7 +94,8 @@ public class TestAnnotationEngineForAggregates
         extends TestAnnotationEngine
 {
     private static final MetadataManager METADATA = createTestMetadataManager();
-    private static final FunctionDependencies NO_FUNCTION_DEPENDENCIES = new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of());
+    private static final FunctionManager FUNCTION_MANAGER = createTestingFunctionManager();
+    private static final FunctionDependencies NO_FUNCTION_DEPENDENCIES = new FunctionDependencies(FUNCTION_MANAGER::getScalarFunctionInvoker, ImmutableMap.of(), ImmutableSet.of());
 
     @AggregationFunction("simple_exact_aggregate")
     @Description("Simple exact aggregate description")
@@ -1144,7 +1147,7 @@ public class TestAnnotationEngineForAggregates
         assertFalse(aggregationMetadata.getIntermediateTypes().isEmpty());
 
         ResolvedFunction resolvedFunction = METADATA.resolve(TEST_SESSION, functionBinding, functionMetadata, aggregation.getFunctionDependencies(boundSignature));
-        FunctionDependencies functionDependencies = new FunctionDependencies(METADATA, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
+        FunctionDependencies functionDependencies = new FunctionDependencies(FUNCTION_MANAGER::getScalarFunctionInvoker, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
         aggregation.specialize(boundSignature, functionDependencies);
     }
 }

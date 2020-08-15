@@ -2105,7 +2105,7 @@ class StatementAnalyzer
 
             if (samplePercentageType != DOUBLE) {
                 ResolvedFunction coercion = metadata.getCoercion(session, samplePercentageType, DOUBLE);
-                InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(metadata);
+                InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
                 samplePercentageObject = functionInvoker.invoke(coercion, session.toConnectorSession(), samplePercentageObject);
                 verify(samplePercentageObject != null, "Coercion from %s to %s returned null", samplePercentageType, DOUBLE);
             }

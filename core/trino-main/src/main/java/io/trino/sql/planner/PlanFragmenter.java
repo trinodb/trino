@@ -22,6 +22,7 @@ import io.trino.cost.StatsAndCosts;
 import io.trino.execution.QueryManagerConfig;
 import io.trino.execution.scheduler.BucketNodeMap;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableProperties.TablePartitioning;
@@ -96,20 +97,26 @@ public class PlanFragmenter
             "If the query contains WITH clauses that are referenced more than once, please create temporary table(s) for the queries in those clauses.";
 
     private final Metadata metadata;
+    private final FunctionManager functionManager;
     private final NodePartitioningManager nodePartitioningManager;
     private final QueryManagerConfig config;
 
     @Inject
-    public PlanFragmenter(Metadata metadata, NodePartitioningManager nodePartitioningManager, QueryManagerConfig queryManagerConfig)
+    public PlanFragmenter(
+            Metadata metadata,
+            FunctionManager functionManager,
+            NodePartitioningManager nodePartitioningManager,
+            QueryManagerConfig queryManagerConfig)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.nodePartitioningManager = requireNonNull(nodePartitioningManager, "nodePartitioningManager is null");
         this.config = requireNonNull(queryManagerConfig, "queryManagerConfig is null");
     }
 
     public SubPlan createSubPlans(Session session, Plan plan, boolean forceSingleNode, WarningCollector warningCollector)
     {
-        Fragmenter fragmenter = new Fragmenter(session, metadata, plan.getTypes(), plan.getStatsAndCosts());
+        Fragmenter fragmenter = new Fragmenter(session, metadata, functionManager, plan.getTypes(), plan.getStatsAndCosts());
 
         FragmentProperties properties = new FragmentProperties(new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), plan.getRoot().getOutputSymbols()));
         if (forceSingleNode || isForceSingleNodeOutput(session)) {
@@ -222,14 +229,16 @@ public class PlanFragmenter
 
         private final Session session;
         private final Metadata metadata;
+        private final FunctionManager functionManager;
         private final TypeProvider types;
         private final StatsAndCosts statsAndCosts;
         private int nextFragmentId = ROOT_FRAGMENT_ID + 1;
 
-        public Fragmenter(Session session, Metadata metadata, TypeProvider types, StatsAndCosts statsAndCosts)
+        public Fragmenter(Session session, Metadata metadata, FunctionManager functionManager, TypeProvider types, StatsAndCosts statsAndCosts)
         {
             this.session = requireNonNull(session, "session is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
+            this.functionManager = requireNonNull(functionManager, "functionManager is null");
             this.types = requireNonNull(types, "types is null");
             this.statsAndCosts = requireNonNull(statsAndCosts, "statsAndCosts is null");
         }
@@ -263,7 +272,7 @@ public class PlanFragmenter
                     properties.getPartitioningScheme(),
                     ungroupedExecution(),
                     statsAndCosts.getForSubplan(root),
-                    Optional.of(jsonFragmentPlan(root, symbols, metadata, session)));
+                    Optional.of(jsonFragmentPlan(root, symbols, metadata, functionManager, session)));
 
             return new SubPlan(fragment, properties.getChildren());
         }

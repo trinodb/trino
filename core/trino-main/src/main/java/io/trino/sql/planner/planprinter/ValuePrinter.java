@@ -15,6 +15,7 @@ package io.trino.sql.planner.planprinter;
 
 import io.airlift.slice.Slice;
 import io.trino.Session;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.OperatorNotFoundException;
 import io.trino.metadata.ResolvedFunction;
@@ -27,11 +28,13 @@ import static java.util.Objects.requireNonNull;
 public final class ValuePrinter
 {
     private final Metadata metadata;
+    private final FunctionManager functionManager;
     private final Session session;
 
-    public ValuePrinter(Metadata metadata, Session session)
+    public ValuePrinter(Metadata metadata, FunctionManager functionManager, Session session)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.session = requireNonNull(session, "session is null");
     }
 
@@ -53,7 +56,7 @@ public final class ValuePrinter
         }
 
         ResolvedFunction coercion = metadata.getCoercion(session, type, VARCHAR);
-        Slice coerced = (Slice) new InterpretedFunctionInvoker(metadata).invoke(coercion, session.toConnectorSession(), value);
+        Slice coerced = (Slice) new InterpretedFunctionInvoker(functionManager).invoke(coercion, session.toConnectorSession(), value);
         return coerced.toStringUtf8();
     }
 }

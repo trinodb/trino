@@ -29,8 +29,8 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.matching.Capture;
 import io.trino.matching.Match;
 import io.trino.matching.Pattern;
-import io.trino.metadata.Metadata;
 import io.trino.spi.TrinoException;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.PlanNodeIdAllocator;
 import io.trino.sql.planner.RuleStatsRecorder;
 import io.trino.sql.planner.SymbolAllocator;
@@ -74,16 +74,16 @@ public class IterativeOptimizer
     private final Set<Rule<?>> rules;
     private final RuleIndex ruleIndex;
     private final Predicate<Session> useLegacyRules;
-    private final Metadata metadata;
+    private final PlannerContext plannerContext;
 
-    public IterativeOptimizer(Metadata metadata, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Set<Rule<?>> rules)
+    public IterativeOptimizer(PlannerContext plannerContext, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Set<Rule<?>> rules)
     {
-        this(metadata, stats, statsCalculator, costCalculator, session -> false, ImmutableList.of(), rules);
+        this(plannerContext, stats, statsCalculator, costCalculator, session -> false, ImmutableList.of(), rules);
     }
 
-    public IterativeOptimizer(Metadata metadata, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Predicate<Session> useLegacyRules, List<PlanOptimizer> legacyRules, Set<Rule<?>> newRules)
+    public IterativeOptimizer(PlannerContext plannerContext, RuleStatsRecorder stats, StatsCalculator statsCalculator, CostCalculator costCalculator, Predicate<Session> useLegacyRules, List<PlanOptimizer> legacyRules, Set<Rule<?>> newRules)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
         this.stats = requireNonNull(stats, "stats is null");
         this.statsCalculator = requireNonNull(statsCalculator, "statsCalculator is null");
         this.costCalculator = requireNonNull(costCalculator, "costCalculator is null");
@@ -205,8 +205,24 @@ public class IterativeOptimizer
                     LOG.debug(
                             "Rule: %s\nBefore:\n%s\nAfter:\n%s",
                             rule.getClass().getName(),
-                            PlanPrinter.textLogicalPlan(node, context.symbolAllocator.getTypes(), metadata, StatsAndCosts.empty(), context.session, 0, false),
-                            PlanPrinter.textLogicalPlan(result.getTransformedPlan().get(), context.symbolAllocator.getTypes(), metadata, StatsAndCosts.empty(), context.session, 0, false));
+                            PlanPrinter.textLogicalPlan(
+                                    node,
+                                    context.symbolAllocator.getTypes(),
+                                    plannerContext.getMetadata(),
+                                    plannerContext.getFunctionManager(),
+                                    StatsAndCosts.empty(),
+                                    context.session,
+                                    0,
+                                    false),
+                            PlanPrinter.textLogicalPlan(
+                                    result.getTransformedPlan().get(),
+                                    context.symbolAllocator.getTypes(),
+                                    plannerContext.getMetadata(),
+                                    plannerContext.getFunctionManager(),
+                                    StatsAndCosts.empty(),
+                                    context.session,
+                                    0,
+                                    false));
                 }
                 duration = nanoTime() - start;
             }

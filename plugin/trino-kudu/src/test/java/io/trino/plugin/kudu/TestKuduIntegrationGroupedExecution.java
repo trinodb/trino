@@ -15,6 +15,7 @@ package io.trino.plugin.kudu;
 
 import io.trino.Session;
 import io.trino.cost.StatsAndCosts;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.sql.planner.Plan;
 import io.trino.sql.planner.plan.ExchangeNode;
@@ -227,7 +228,8 @@ public class TestKuduIntegrationGroupedExecution
             if (actualRemoteExchangesCount != expectedRemoteExchangesCount) {
                 Session session = getSession();
                 Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
-                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false);
+                FunctionManager functionManager = getDistributedQueryRunner().getCoordinator().getFunctionManager();
+                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, functionManager, StatsAndCosts.empty(), session, 0, false);
                 throw new AssertionError(format(
                         "Expected %s remote exchanges but found %s. Actual plan is:\n%s]",
                         expectedRemoteExchangesCount,

@@ -27,6 +27,7 @@ import io.trino.execution.warnings.WarningCollector;
 import io.trino.matching.Capture;
 import io.trino.matching.Match;
 import io.trino.matching.Pattern;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.security.AccessControl;
 import io.trino.sql.planner.Plan;
@@ -60,6 +61,7 @@ import static org.testng.Assert.fail;
 public class RuleAssert
 {
     private final Metadata metadata;
+    private final FunctionManager functionManager;
     private final TestingStatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
     private Session session;
@@ -72,9 +74,18 @@ public class RuleAssert
     private final TransactionManager transactionManager;
     private final AccessControl accessControl;
 
-    public RuleAssert(Metadata metadata, StatsCalculator statsCalculator, CostCalculator costCalculator, Session session, Rule<?> rule, TransactionManager transactionManager, AccessControl accessControl)
+    public RuleAssert(
+            Metadata metadata,
+            FunctionManager functionManager,
+            StatsCalculator statsCalculator,
+            CostCalculator costCalculator,
+            Session session,
+            Rule<?> rule,
+            TransactionManager transactionManager,
+            AccessControl accessControl)
     {
         this.metadata = metadata;
+        this.functionManager = functionManager;
         this.statsCalculator = new TestingStatsCalculator(statsCalculator);
         this.costCalculator = costCalculator;
         this.session = session;
@@ -120,7 +131,7 @@ public class RuleAssert
             fail(format(
                     "Expected %s to not fire for:\n%s",
                     rule,
-                    inTransaction(session -> textLogicalPlan(plan, ruleApplication.types, metadata, StatsAndCosts.empty(), session, 2, false))));
+                    inTransaction(session -> textLogicalPlan(plan, ruleApplication.types, metadata, functionManager, StatsAndCosts.empty(), session, 2, false))));
         }
     }
 
@@ -156,7 +167,7 @@ public class RuleAssert
         }
 
         inTransaction(session -> {
-            assertPlan(session, metadata, ruleApplication.statsProvider, new Plan(actual, types, StatsAndCosts.empty()), ruleApplication.lookup, pattern);
+            assertPlan(session, metadata, functionManager, ruleApplication.statsProvider, new Plan(actual, types, StatsAndCosts.empty()), ruleApplication.lookup, pattern);
             return null;
         });
     }
@@ -195,7 +206,7 @@ public class RuleAssert
         return inTransaction(session -> {
             StatsProvider statsProvider = new CachingStatsProvider(statsCalculator, session, types);
             CostProvider costProvider = new CachingCostProvider(costCalculator, statsProvider, session, types);
-            return textLogicalPlan(plan, types, metadata, StatsAndCosts.create(plan, statsProvider, costProvider), session, 2, false);
+            return textLogicalPlan(plan, types, metadata, functionManager, StatsAndCosts.create(plan, statsProvider, costProvider), session, 2, false);
         });
     }
 

@@ -141,9 +141,9 @@ public class BenchmarkScanFilterAndProjectOperator
                     .mapToObj(i -> new TestingColumnHandle(Integer.toString(i)))
                     .collect(toImmutableList());
 
-            PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getMetadata(), 0);
-            PageProcessor pageProcessor = new ExpressionCompiler(PLANNER_CONTEXT.getMetadata(), pageFunctionCompiler).compilePageProcessor(Optional.of(getFilter(type)), projections).get();
-            CursorProcessor cursorProcessor = new ExpressionCompiler(PLANNER_CONTEXT.getMetadata(), pageFunctionCompiler).compileCursorProcessor(Optional.of(getFilter(type)), projections, "key").get();
+            PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
+            PageProcessor pageProcessor = new ExpressionCompiler(PLANNER_CONTEXT.getFunctionManager(), pageFunctionCompiler).compilePageProcessor(Optional.of(getFilter(type)), projections).get();
+            CursorProcessor cursorProcessor = new ExpressionCompiler(PLANNER_CONTEXT.getFunctionManager(), pageFunctionCompiler).compileCursorProcessor(Optional.of(getFilter(type)), projections, "key").get();
 
             createTaskContext();
             createScanFilterAndProjectOperatorFactories(createInputPages(types), pageProcessor, cursorProcessor, columnHandles, types);
@@ -230,6 +230,7 @@ public class BenchmarkScanFilterAndProjectOperator
                     getTypes(TEST_SESSION, PLANNER_CONTEXT, TypeProvider.copyOf(symbolTypes), expression),
                     sourceLayout,
                     PLANNER_CONTEXT.getMetadata(),
+                    PLANNER_CONTEXT.getFunctionManager(),
                     TEST_SESSION,
                     true);
         }

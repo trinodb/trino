@@ -29,6 +29,7 @@ import io.airlift.log.Logging;
 import io.trino.Session;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
@@ -236,6 +237,12 @@ public final class ThriftQueryRunner
         public SessionPropertyManager getSessionPropertyManager()
         {
             return source.getSessionPropertyManager();
+        }
+
+        @Override
+        public FunctionManager getFunctionManager()
+        {
+            return source.getFunctionManager();
         }
 
         @Override

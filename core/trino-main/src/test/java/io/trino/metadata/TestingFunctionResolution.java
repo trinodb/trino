@@ -88,7 +88,7 @@ public class TestingFunctionResolution
 
     public ExpressionCompiler getExpressionCompiler()
     {
-        return new ExpressionCompiler(metadata, getPageFunctionCompiler());
+        return new ExpressionCompiler(plannerContext.getFunctionManager(), getPageFunctionCompiler());
     }
 
     public PageFunctionCompiler getPageFunctionCompiler()
@@ -98,7 +98,7 @@ public class TestingFunctionResolution
 
     public PageFunctionCompiler getPageFunctionCompiler(int expressionCacheSize)
     {
-        return new PageFunctionCompiler(metadata, expressionCacheSize);
+        return new PageFunctionCompiler(plannerContext.getFunctionManager(), expressionCacheSize);
     }
 
     public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
@@ -134,7 +134,7 @@ public class TestingFunctionResolution
 
     public FunctionInvoker getScalarFunctionInvoker(QualifiedName name, List<TypeSignatureProvider> parameterTypes, InvocationConvention invocationConvention)
     {
-        return inTransaction(session -> metadata.getScalarFunctionInvoker(metadata.resolveFunction(session, name, parameterTypes), invocationConvention));
+        return inTransaction(session -> plannerContext.getFunctionManager().getScalarFunctionInvoker(metadata.resolveFunction(session, name, parameterTypes), invocationConvention));
     }
 
     public TestingAggregationFunction getAggregateFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
@@ -144,7 +144,7 @@ public class TestingFunctionResolution
             return new TestingAggregationFunction(
                     resolvedFunction.getSignature(),
                     resolvedFunction.getFunctionNullability(),
-                    metadata.getAggregateFunctionImplementation(resolvedFunction));
+                    plannerContext.getFunctionManager().getAggregateFunctionImplementation(resolvedFunction));
         });
     }
 

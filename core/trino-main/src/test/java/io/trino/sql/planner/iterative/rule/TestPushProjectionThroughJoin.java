@@ -35,6 +35,7 @@ import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.cost.PlanNodeStatsEstimate.unknown;
 import static io.trino.cost.StatsAndCosts.empty;
 import static io.trino.metadata.AbstractMockMetadata.dummyMetadata;
+import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static io.trino.sql.planner.TypeAnalyzer.createTestingTypeAnalyzer;
 import static io.trino.sql.planner.assertions.PlanAssert.assertPlan;
@@ -94,6 +95,7 @@ public class TestPushProjectionThroughJoin
         assertPlan(
                 session,
                 dummyMetadata(),
+                createTestingFunctionManager(),
                 node -> unknown(),
                 new Plan(rewritten.get(), p.getTypes(), empty()), noLookup(),
                 join(

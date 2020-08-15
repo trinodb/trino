@@ -16,8 +16,8 @@ package io.trino.sql;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionInvoker;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.FunctionNullability;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.InvocationConvention;
@@ -41,11 +41,11 @@ import static java.util.Objects.requireNonNull;
 
 public class InterpretedFunctionInvoker
 {
-    private final Metadata metadata;
+    private final FunctionManager functionManager;
 
-    public InterpretedFunctionInvoker(Metadata metadata)
+    public InterpretedFunctionInvoker(FunctionManager functionManager)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
     }
 
     public Object invoke(ResolvedFunction function, ConnectorSession session, Object... arguments)
@@ -60,7 +60,7 @@ public class InterpretedFunctionInvoker
      */
     public Object invoke(ResolvedFunction function, ConnectorSession session, List<Object> arguments)
     {
-        FunctionInvoker invoker = metadata.getScalarFunctionInvoker(function, getInvocationConvention(function.getSignature(), function.getFunctionNullability()));
+        FunctionInvoker invoker = functionManager.getScalarFunctionInvoker(function, getInvocationConvention(function.getSignature(), function.getFunctionNullability()));
         MethodHandle method = invoker.getMethodHandle();
 
         List<Object> actualArguments = new ArrayList<>();

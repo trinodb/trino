@@ -29,7 +29,7 @@ import io.airlift.bytecode.ParameterizedType;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.expression.BytecodeExpression;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.FunctionManager;
 import io.trino.operator.aggregation.AccumulatorCompiler;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.sql.relational.CallExpression;
@@ -81,7 +81,7 @@ public final class LambdaBytecodeGenerator
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
             RowExpression expression,
-            Metadata metadata)
+            FunctionManager functionManager)
     {
         Set<LambdaDefinitionExpression> lambdaExpressions = ImmutableSet.copyOf(extractLambdaExpressions(expression));
         ImmutableMap.Builder<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap = ImmutableMap.builder();
@@ -95,7 +95,7 @@ public final class LambdaBytecodeGenerator
                     compiledLambdaMap.buildOrThrow(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    metadata);
+                    functionManager);
             compiledLambdaMap.put(lambdaExpression, compiledLambda);
             counter++;
         }
@@ -113,7 +113,7 @@ public final class LambdaBytecodeGenerator
             Map<LambdaDefinitionExpression, CompiledLambda> compiledLambdaMap,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
-            Metadata metadata)
+            FunctionManager functionManager)
     {
         ImmutableList.Builder<Parameter> parameters = ImmutableList.builder();
         ImmutableMap.Builder<String, ParameterAndType> parameterMapBuilder = ImmutableMap.builder();
@@ -131,7 +131,7 @@ public final class LambdaBytecodeGenerator
                 callSiteBinder,
                 cachedInstanceBinder,
                 variableReferenceCompiler(parameterMapBuilder.buildOrThrow()),
-                metadata,
+                functionManager,
                 compiledLambdaMap);
 
         return defineLambdaMethod(
@@ -228,7 +228,7 @@ public final class LambdaBytecodeGenerator
         return block;
     }
 
-    public static Class<? extends Supplier<Object>> compileLambdaProvider(LambdaDefinitionExpression lambdaExpression, Metadata metadata, Class<?> lambdaInterface)
+    public static Class<? extends Supplier<Object>> compileLambdaProvider(LambdaDefinitionExpression lambdaExpression, FunctionManager functionManager, Class<?> lambdaInterface)
     {
         ClassDefinition lambdaProviderClassDefinition = new ClassDefinition(
                 a(PUBLIC, Access.FINAL),
@@ -246,7 +246,7 @@ public final class LambdaBytecodeGenerator
                 callSiteBinder,
                 cachedInstanceBinder,
                 lambdaExpression,
-                metadata);
+                functionManager);
 
         MethodDefinition method = lambdaProviderClassDefinition.declareMethod(
                 a(PUBLIC),
@@ -263,7 +263,7 @@ public final class LambdaBytecodeGenerator
                 callSiteBinder,
                 cachedInstanceBinder,
                 variableReferenceCompiler(ImmutableMap.of()),
-                metadata,
+                functionManager,
                 compiledLambdaMap);
 
         BytecodeGeneratorContext generatorContext = new BytecodeGeneratorContext(
@@ -271,7 +271,7 @@ public final class LambdaBytecodeGenerator
                 scope,
                 callSiteBinder,
                 cachedInstanceBinder,
-                metadata);
+                functionManager);
 
         body.append(
                 generateLambda(

@@ -18,15 +18,6 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.trino.FeaturesConfig;
-import io.trino.client.NodeVersion;
-import io.trino.metadata.BlockEncodingManager;
-import io.trino.metadata.CatalogManager;
-import io.trino.metadata.DisabledSystemSecurityMetadata;
-import io.trino.metadata.GlobalFunctionCatalog;
-import io.trino.metadata.InternalBlockEncodingSerde;
-import io.trino.metadata.MetadataManager;
-import io.trino.metadata.TypeRegistry;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.block.BlockEncodingSerde;
@@ -35,10 +26,10 @@ import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.LiteralEncoder;
+import io.trino.sql.planner.TestingPlannerContext;
 import io.trino.sql.tree.Expression;
 import io.trino.type.BlockTypeOperators.BlockPositionEqual;
 import io.trino.type.BlockTypeOperators.BlockPositionHashCode;
@@ -69,7 +60,6 @@ import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.sql.ExpressionUtils.isEffectivelyLiteral;
 import static io.trino.testing.TestingConnectorSession.SESSION;
-import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static io.trino.util.StructuralTestUtil.arrayBlockOf;
 import static io.trino.util.StructuralTestUtil.mapBlockOf;
 import static java.lang.String.format;
@@ -179,24 +169,9 @@ public abstract class AbstractTestType
 
     protected PlannerContext createPlannerContext()
     {
-        TypeRegistry typeRegistry = new TypeRegistry(new TypeOperators(), new FeaturesConfig());
-        typeRegistry.addType(type);
-
-        TypeManager typeManager = new InternalTypeManager(typeRegistry);
-        TypeOperators typeOperators = new TypeOperators();
-        MetadataManager metadata = new MetadataManager(
-                new FeaturesConfig(),
-                new DisabledSystemSecurityMetadata(),
-                createTestTransactionManager(new CatalogManager()),
-                new GlobalFunctionCatalog(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), NodeVersion.UNKNOWN),
-                typeOperators,
-                new BlockTypeOperators(typeOperators),
-                typeManager);
-        return new PlannerContext(
-                metadata,
-                new TypeOperators(),
-                new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager),
-                typeManager);
+        return TestingPlannerContext.plannerContextBuilder()
+                .addType(type)
+                .build();
     }
 
     @Test
