@@ -71,6 +71,7 @@ import java.util.List;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.operator.aggregation.AggregationFromAnnotationsParser.parseFunctionDefinitions;
@@ -1236,7 +1237,7 @@ public class TestAnnotationEngineForAggregates
         assertFalse(aggregationMetadata.isOrderSensitive());
         assertTrue(aggregationMetadata.getIntermediateType().isPresent());
 
-        ResolvedFunction resolvedFunction = METADATA.resolve(functionBinding, aggregation.getFunctionDependencies(functionBinding));
+        ResolvedFunction resolvedFunction = METADATA.resolve(TEST_SESSION, functionBinding, aggregation.getFunctionDependencies(functionBinding));
         FunctionDependencies functionDependencies = new FunctionDependencies(METADATA, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
         return aggregation.specialize(functionBinding, functionDependencies);
     }

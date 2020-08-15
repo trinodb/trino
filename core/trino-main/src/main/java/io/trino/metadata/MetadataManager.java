@@ -15,9 +15,8 @@ package io.trino.metadata;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
+import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
-import com.google.common.cache.CacheLoader;
-import com.google.common.cache.LoadingCache;
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -148,6 +147,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ExecutionException;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -225,8 +225,8 @@ public final class MetadataManager
 
     private final ResolvedFunctionDecoder functionDecoder;
 
-    private final LoadingCache<OperatorCacheKey, ResolvedFunction> operatorCache;
-    private final LoadingCache<CoercionCacheKey, ResolvedFunction> coercionCache;
+    private final Cache<OperatorCacheKey, ResolvedFunction> operatorCache;
+    private final Cache<CoercionCacheKey, ResolvedFunction> coercionCache;
 
     @Inject
     public MetadataManager(
@@ -282,20 +282,11 @@ public final class MetadataManager
 
         operatorCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
-                .build(CacheLoader.from(key -> {
-                    String name = mangleOperatorName(key.getOperatorType());
-                    return resolvedFunctionInternal(QualifiedName.of(name), fromTypes(key.getArgumentTypes()));
-                }));
+                .build();
 
         coercionCache = CacheBuilder.newBuilder()
                 .maximumSize(1000)
-                .build(CacheLoader.from(key -> {
-                    String name = mangleOperatorName(key.getOperatorType());
-                    Type fromType = key.getFromType();
-                    Type toType = key.getToType();
-                    Signature signature = new Signature(name, toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature()));
-                    return resolve(functionResolver.resolveCoercion(functions.get(QualifiedName.of(name)), signature));
-                }));
+                .build();
     }
 
     public static MetadataManager createTestMetadataManager()
@@ -2254,7 +2245,7 @@ public final class MetadataManager
     @Override
     public ResolvedFunction resolveFunction(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
-        return resolvedFunctionInternal(name, parameterTypes);
+        return resolvedFunctionInternal(session, name, parameterTypes);
     }
 
     @Override
@@ -2262,7 +2253,14 @@ public final class MetadataManager
             throws OperatorNotFoundException
     {
         try {
-            return operatorCache.getUnchecked(new OperatorCacheKey(operatorType, argumentTypes));
+            // todo we should not be caching functions across session
+            return operatorCache.get(new OperatorCacheKey(operatorType, argumentTypes), () -> {
+                String name = mangleOperatorName(operatorType);
+                return resolvedFunctionInternal(session, QualifiedName.of(name), fromTypes(argumentTypes));
+            });
+        }
+        catch (ExecutionException e) {
+            throw new UncheckedExecutionException(e);
         }
         catch (UncheckedExecutionException e) {
             if (e.getCause() instanceof TrinoException) {
@@ -2276,18 +2274,27 @@ public final class MetadataManager
         }
     }
 
-    private ResolvedFunction resolvedFunctionInternal(QualifiedName name, List<TypeSignatureProvider> parameterTypes)
+    private ResolvedFunction resolvedFunctionInternal(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         return functionDecoder.fromQualifiedName(name)
-                .orElseGet(() -> resolve(functionResolver.resolveFunction(functions.get(name), name, parameterTypes)));
+                .orElseGet(() -> resolve(session, functionResolver.resolveFunction(session, functions.get(name), name, parameterTypes)));
     }
 
     @Override
-    public ResolvedFunction getCoercion(OperatorType operatorType, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(Session session, OperatorType operatorType, Type fromType, Type toType)
     {
         checkArgument(operatorType == OperatorType.CAST || operatorType == OperatorType.SATURATED_FLOOR_CAST);
         try {
-            return coercionCache.getUnchecked(new CoercionCacheKey(operatorType, fromType, toType));
+            // todo we should not be caching functions across session
+            return coercionCache.get(new CoercionCacheKey(operatorType, fromType, toType), () -> {
+                String name = mangleOperatorName(operatorType);
+                Signature signature = new Signature(name, toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature()));
+                FunctionBinding functionBinding = functionResolver.resolveCoercion(session, functions.get(QualifiedName.of(name)), signature);
+                return resolve(session, functionBinding);
+            });
+        }
+        catch (ExecutionException e) {
+            throw new UncheckedExecutionException(e);
         }
         catch (UncheckedExecutionException e) {
             if (e.getCause() instanceof TrinoException) {
@@ -2302,19 +2309,23 @@ public final class MetadataManager
     }
 
     @Override
-    public ResolvedFunction getCoercion(QualifiedName name, Type fromType, Type toType)
+    public ResolvedFunction getCoercion(Session session, QualifiedName name, Type fromType, Type toType)
     {
-        return resolve(functionResolver.resolveCoercion(functions.get(name), new Signature(name.getSuffix(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature()))));
+        FunctionBinding functionBinding = functionResolver.resolveCoercion(
+                session,
+                functions.get(name),
+                new Signature(name.getSuffix(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())));
+        return resolve(session, functionBinding);
     }
 
-    private ResolvedFunction resolve(FunctionBinding functionBinding)
+    private ResolvedFunction resolve(Session session, FunctionBinding functionBinding)
     {
         FunctionDependencyDeclaration declaration = functions.getFunctionDependencies(functionBinding);
-        return resolve(functionBinding, declaration);
+        return resolve(session, functionBinding, declaration);
     }
 
     @VisibleForTesting
-    public ResolvedFunction resolve(FunctionBinding functionBinding, FunctionDependencyDeclaration declaration)
+    public ResolvedFunction resolve(Session session, FunctionBinding functionBinding, FunctionDependencyDeclaration declaration)
     {
         Map<TypeSignature, Type> dependentTypes = declaration.getTypeDependencies().stream()
                 .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding))
@@ -2325,7 +2336,7 @@ public final class MetadataManager
                 .map(functionDependency -> {
                     try {
                         List<TypeSignature> argumentTypes = applyBoundVariables(functionDependency.getArgumentTypes(), functionBinding);
-                        return resolvedFunctionInternal(functionDependency.getName(), fromTypeSignatures(argumentTypes));
+                        return resolvedFunctionInternal(session, functionDependency.getName(), fromTypeSignatures(argumentTypes));
                     }
                     catch (TrinoException e) {
                         if (functionDependency.isOptional()) {
@@ -2341,7 +2352,7 @@ public final class MetadataManager
                 .map(operatorDependency -> {
                     try {
                         List<TypeSignature> argumentTypes = applyBoundVariables(operatorDependency.getArgumentTypes(), functionBinding);
-                        return resolvedFunctionInternal(QualifiedName.of(mangleOperatorName(operatorDependency.getOperatorType())), fromTypeSignatures(argumentTypes));
+                        return resolvedFunctionInternal(session, QualifiedName.of(mangleOperatorName(operatorDependency.getOperatorType())), fromTypeSignatures(argumentTypes));
                     }
                     catch (TrinoException e) {
                         if (operatorDependency.isOptional()) {
@@ -2358,7 +2369,7 @@ public final class MetadataManager
                     try {
                         Type fromType = getType(applyBoundVariables(castDependency.getFromType(), functionBinding));
                         Type toType = getType(applyBoundVariables(castDependency.getToType(), functionBinding));
-                        return getCoercion(fromType, toType);
+                        return getCoercion(session, fromType, toType);
                     }
                     catch (TrinoException e) {
                         if (castDependency.isOptional()) {
