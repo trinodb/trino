@@ -24,7 +24,6 @@ import io.prestosql.metadata.ResolvedFunction.ResolvedFunctionDecoder;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.BlockEncoding;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.connector.AggregateFunction;
 import io.prestosql.spi.connector.AggregationApplicationResult;
@@ -737,12 +736,6 @@ public abstract class AbstractMockMetadata
     //
     // Blocks
     //
-
-    @Override
-    public BlockEncoding getBlockEncoding(String encodingName)
-    {
-        throw new UnsupportedOperationException();
-    }
 
     @Override
     public BlockEncodingSerde getBlockEncodingSerde()

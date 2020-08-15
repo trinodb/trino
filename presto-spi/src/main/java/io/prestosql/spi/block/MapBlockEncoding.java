@@ -17,8 +17,6 @@ package io.prestosql.spi.block;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.spi.type.TypeSerde;
 
 import java.util.Optional;
 
@@ -31,13 +29,6 @@ public class MapBlockEncoding
         implements BlockEncoding
 {
     public static final String NAME = "MAP";
-
-    private final TypeManager typeManager;
-
-    public MapBlockEncoding(TypeManager typeManager)
-    {
-        this.typeManager = typeManager;
-    }
 
     @Override
     public String getName()
@@ -59,7 +50,7 @@ public class MapBlockEncoding
         int entriesStartOffset = offsets[offsetBase];
         int entriesEndOffset = offsets[offsetBase + positionCount];
 
-        TypeSerde.writeType(sliceOutput, mapBlock.getMapType());
+        blockEncodingSerde.writeType(sliceOutput, mapBlock.getMapType());
 
         blockEncodingSerde.writeBlock(sliceOutput, mapBlock.getRawKeyBlock().getRegion(entriesStartOffset, entriesEndOffset - entriesStartOffset));
         blockEncodingSerde.writeBlock(sliceOutput, mapBlock.getRawValueBlock().getRegion(entriesStartOffset, entriesEndOffset - entriesStartOffset));
@@ -84,7 +75,7 @@ public class MapBlockEncoding
     @Override
     public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
-        MapType mapType = (MapType) TypeSerde.readType(typeManager, sliceInput);
+        MapType mapType = (MapType) blockEncodingSerde.readType(sliceInput);
 
         Block keyBlock = blockEncodingSerde.readBlock(sliceInput);
         Block valueBlock = blockEncodingSerde.readBlock(sliceInput);
