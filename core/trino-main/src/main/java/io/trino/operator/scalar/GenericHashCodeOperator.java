@@ -23,7 +23,6 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Optional;
 
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -53,7 +52,7 @@ public class GenericHashCodeOperator
         Type type = boundSignature.getArgumentType(0);
         return invocationConvention -> {
             MethodHandle methodHandle = typeOperators.getHashCodeOperator(type, invocationConvention);
-            return new FunctionInvoker(methodHandle, Optional.empty());
+            return new FunctionInvoker(methodHandle);
         };
     }
 }

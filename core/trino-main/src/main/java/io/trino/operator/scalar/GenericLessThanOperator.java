@@ -23,7 +23,6 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Optional;
 
 import static io.trino.spi.function.OperatorType.LESS_THAN;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -54,7 +53,7 @@ public class GenericLessThanOperator
         Type type = boundSignature.getArgumentType(0);
         return invocationConvention -> {
             MethodHandle methodHandle = typeOperators.getLessThanOperator(type, invocationConvention);
-            return new FunctionInvoker(methodHandle, Optional.empty());
+            return new FunctionInvoker(methodHandle);
         };
     }
 }

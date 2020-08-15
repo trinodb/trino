@@ -23,7 +23,6 @@ import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Optional;
 
 import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
 import static io.trino.spi.type.IntegerType.INTEGER;
@@ -54,7 +53,7 @@ public class GenericComparisonUnorderedFirstOperator
         Type type = boundSignature.getArgumentType(0);
         return invocationConvention -> {
             MethodHandle methodHandle = typeOperators.getComparisonUnorderedFirstOperator(type, invocationConvention);
-            return new FunctionInvoker(methodHandle, Optional.empty());
+            return new FunctionInvoker(methodHandle);
         };
     }
 }
