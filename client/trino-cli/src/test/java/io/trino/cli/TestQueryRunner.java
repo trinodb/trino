@@ -112,7 +112,7 @@ public class TestQueryRunner
                 "clientInfo",
                 "catalog",
                 "schema",
-                "path",
+                null,
                 ZoneId.of("America/Los_Angeles"),
                 Locale.ENGLISH,
                 ImmutableMap.of(),

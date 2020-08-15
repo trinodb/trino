@@ -133,7 +133,7 @@ import static io.trino.SystemSessionProperties.getRetryPolicy;
 import static io.trino.client.NodeVersion.UNKNOWN;
 import static io.trino.collect.cache.CacheUtils.uncheckedCacheGet;
 import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
-import static io.trino.metadata.FunctionKind.AGGREGATE;
+import static io.trino.metadata.GlobalFunctionCatalog.GLOBAL_CATALOG;
 import static io.trino.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
 import static io.trino.metadata.RedirectionAwareTableHandle.withRedirectionTo;
@@ -2063,7 +2063,7 @@ public final class MetadataManager
     private ResolvedFunction resolvedFunctionInternal(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         return functionDecoder.fromQualifiedName(name)
-                .orElseGet(() -> resolve(session, functionResolver.resolveFunction(session, functions.getFunctions(name), name, parameterTypes)));
+                .orElseGet(() -> resolve(session, functionResolver.resolveFunction(session, name, parameterTypes, this::getFunctions)));
     }
 
     @Override
@@ -2076,12 +2076,13 @@ public final class MetadataManager
                 String name = mangleOperatorName(operatorType);
                 FunctionBinding functionBinding = functionResolver.resolveCoercion(
                         session,
-                        functions.getFunctions(QualifiedName.of(name)),
+                        QualifiedName.of(name),
                         Signature.builder()
                                 .name(name)
                                 .returnType(toType)
                                 .argumentType(fromType)
-                                .build());
+                                .build(),
+                        this::getFunctions);
                 return resolve(session, functionBinding);
             });
         }
@@ -2102,12 +2103,13 @@ public final class MetadataManager
     {
         FunctionBinding functionBinding = functionResolver.resolveCoercion(
                 session,
-                functions.getFunctions(name),
+                name,
                 Signature.builder()
                         .name(name.getSuffix())
                         .returnType(toType)
                         .argumentType(fromType)
-                        .build());
+                        .build(),
+                this::getFunctions);
         return resolve(session, functionBinding);
     }
 
@@ -2188,9 +2190,15 @@ public final class MetadataManager
     @Override
     public boolean isAggregationFunction(Session session, QualifiedName name)
     {
-        return functions.getFunctions(name).stream()
-                .map(FunctionMetadata::getKind)
-                .anyMatch(AGGREGATE::equals);
+        return functionResolver.isAggregationFunction(session, name, this::getFunctions);
+    }
+
+    private Collection<FunctionMetadata> getFunctions(CatalogSchemaFunctionName name)
+    {
+        if (name.getCatalogName().equals(GLOBAL_CATALOG)) {
+            return functions.getFunctions(name.getSchemaFunctionName());
+        }
+        return ImmutableList.of();
     }
 
     @Override
