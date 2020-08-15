@@ -44,6 +44,7 @@ import io.prestosql.spi.function.AggregationState;
 import io.prestosql.spi.function.BlockIndex;
 import io.prestosql.spi.function.BlockPosition;
 import io.prestosql.spi.function.CombineFunction;
+import io.prestosql.spi.function.Convention;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.InputFunction;
 import io.prestosql.spi.function.LiteralParameter;
@@ -72,6 +73,8 @@ import static io.prestosql.operator.aggregation.AggregationFromAnnotationsParser
 import static io.prestosql.operator.aggregation.AggregationFromAnnotationsParser.parseFunctionDefinitions;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
 import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.type.StandardTypes.ARRAY;
 import static io.prestosql.spi.type.StandardTypes.DOUBLE;
@@ -739,7 +742,11 @@ public class TestAnnotationEngineForAggregates
     {
         @InputFunction
         public static void input(
-                @OperatorDependency(operator = LESS_THAN, argumentTypes = {DOUBLE, DOUBLE}) MethodHandle methodHandle,
+                @OperatorDependency(
+                        operator = LESS_THAN,
+                        argumentTypes = {DOUBLE, DOUBLE},
+                        convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = FAIL_ON_NULL))
+                        MethodHandle methodHandle,
                 @AggregationState NullableDoubleState state,
                 @SqlType(DOUBLE) double value)
         {
@@ -748,7 +755,11 @@ public class TestAnnotationEngineForAggregates
 
         @CombineFunction
         public static void combine(
-                @OperatorDependency(operator = LESS_THAN, argumentTypes = {DOUBLE, DOUBLE}) MethodHandle methodHandle,
+                @OperatorDependency(
+                        operator = LESS_THAN,
+                        argumentTypes = {DOUBLE, DOUBLE},
+                        convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = FAIL_ON_NULL))
+                        MethodHandle methodHandle,
                 @AggregationState NullableDoubleState combine1,
                 @AggregationState NullableDoubleState combine2)
         {
@@ -757,7 +768,11 @@ public class TestAnnotationEngineForAggregates
 
         @OutputFunction(DOUBLE)
         public static void output(
-                @OperatorDependency(operator = LESS_THAN, argumentTypes = {DOUBLE, DOUBLE}) MethodHandle methodHandle,
+                @OperatorDependency(
+                        operator = LESS_THAN,
+                        argumentTypes = {DOUBLE, DOUBLE},
+                        convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = FAIL_ON_NULL))
+                        MethodHandle methodHandle,
                 @AggregationState NullableDoubleState state,
                 BlockBuilder out)
         {

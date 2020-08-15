@@ -77,6 +77,9 @@ import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMet
 import static io.prestosql.operator.aggregation.AggregationUtils.generateAggregationName;
 import static io.prestosql.operator.aggregation.minmaxby.TwoNullableValueStateMapping.getStateClass;
 import static io.prestosql.operator.aggregation.minmaxby.TwoNullableValueStateMapping.getStateSerializer;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
 import static io.prestosql.spi.function.OperatorType.COMPARISON;
 import static io.prestosql.sql.gen.BytecodeUtils.loadConstant;
 import static io.prestosql.sql.gen.SqlTypeBytecodeExpression.constantType;
@@ -178,7 +181,7 @@ public abstract class AbstractMinMaxBy
         List<Type> inputTypes = ImmutableList.of(valueType, keyType);
 
         CallSiteBinder binder = new CallSiteBinder();
-        MethodHandle compareMethod = MinMaxCompare.getMinMaxCompare(functionDependencies, keyType, Optional.empty(), min);
+        MethodHandle compareMethod = MinMaxCompare.getMinMaxCompare(functionDependencies, keyType, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL), min);
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),

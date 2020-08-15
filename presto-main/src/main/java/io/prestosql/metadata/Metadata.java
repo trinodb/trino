@@ -547,7 +547,7 @@ public interface Metadata
 
     InternalAggregationFunction getAggregateFunctionImplementation(ResolvedFunction resolvedFunction);
 
-    FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, Optional<InvocationConvention> invocationConvention);
+    FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention);
 
     ProcedureRegistry getProcedureRegistry();
 

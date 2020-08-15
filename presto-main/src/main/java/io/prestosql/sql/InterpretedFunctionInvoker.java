@@ -27,7 +27,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
@@ -61,7 +60,7 @@ public class InterpretedFunctionInvoker
     public Object invoke(ResolvedFunction function, ConnectorSession session, List<Object> arguments)
     {
         FunctionMetadata functionMetadata = metadata.getFunctionMetadata(function);
-        FunctionInvoker invoker = metadata.getScalarFunctionInvoker(function, Optional.of(getInvocationConvention(function, functionMetadata)));
+        FunctionInvoker invoker = metadata.getScalarFunctionInvoker(function, getInvocationConvention(function, functionMetadata));
         return invoke(functionMetadata, invoker, session, arguments);
     }
 

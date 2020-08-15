@@ -25,7 +25,6 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -107,7 +106,7 @@ public class FunctionDependencies
         return metadata.getFunctionMetadata(resolvedFunction);
     }
 
-    public FunctionInvoker getFunctionInvoker(QualifiedName name, List<Type> parameterTypes, Optional<InvocationConvention> invocationConvention)
+    public FunctionInvoker getFunctionInvoker(QualifiedName name, List<Type> parameterTypes, InvocationConvention invocationConvention)
     {
         FunctionKey functionKey = new FunctionKey(name, toTypeSignatures(parameterTypes));
         ResolvedFunction resolvedFunction = functions.get(functionKey);
@@ -117,7 +116,7 @@ public class FunctionDependencies
         return metadata.getScalarFunctionInvoker(resolvedFunction, invocationConvention);
     }
 
-    public FunctionInvoker getFunctionSignatureInvoker(QualifiedName name, List<TypeSignature> parameterTypes, Optional<InvocationConvention> invocationConvention)
+    public FunctionInvoker getFunctionSignatureInvoker(QualifiedName name, List<TypeSignature> parameterTypes, InvocationConvention invocationConvention)
     {
         FunctionKey functionKey = new FunctionKey(name, parameterTypes);
         ResolvedFunction resolvedFunction = functions.get(functionKey);
@@ -127,7 +126,7 @@ public class FunctionDependencies
         return metadata.getScalarFunctionInvoker(resolvedFunction, invocationConvention);
     }
 
-    public FunctionInvoker getOperatorInvoker(OperatorType operatorType, List<Type> parameterTypes, Optional<InvocationConvention> invocationConvention)
+    public FunctionInvoker getOperatorInvoker(OperatorType operatorType, List<Type> parameterTypes, InvocationConvention invocationConvention)
     {
         OperatorKey operatorKey = new OperatorKey(operatorType, toTypeSignatures(parameterTypes));
         ResolvedFunction resolvedFunction = operators.get(operatorKey);
@@ -137,7 +136,7 @@ public class FunctionDependencies
         return metadata.getScalarFunctionInvoker(resolvedFunction, invocationConvention);
     }
 
-    public FunctionInvoker getOperatorSignatureInvoker(OperatorType operatorType, List<TypeSignature> parameterTypes, Optional<InvocationConvention> invocationConvention)
+    public FunctionInvoker getOperatorSignatureInvoker(OperatorType operatorType, List<TypeSignature> parameterTypes, InvocationConvention invocationConvention)
     {
         OperatorKey operatorKey = new OperatorKey(operatorType, parameterTypes);
         ResolvedFunction resolvedFunction = operators.get(operatorKey);
@@ -147,7 +146,7 @@ public class FunctionDependencies
         return metadata.getScalarFunctionInvoker(resolvedFunction, invocationConvention);
     }
 
-    public FunctionInvoker getCastInvoker(Type fromType, Type toType, Optional<InvocationConvention> invocationConvention)
+    public FunctionInvoker getCastInvoker(Type fromType, Type toType, InvocationConvention invocationConvention)
     {
         CastKey castKey = new CastKey(fromType.getTypeSignature(), toType.getTypeSignature());
         ResolvedFunction resolvedFunction = casts.get(castKey);
@@ -157,7 +156,7 @@ public class FunctionDependencies
         return metadata.getScalarFunctionInvoker(resolvedFunction, invocationConvention);
     }
 
-    public FunctionInvoker getCastSignatureInvoker(TypeSignature fromType, TypeSignature toType, Optional<InvocationConvention> invocationConvention)
+    public FunctionInvoker getCastSignatureInvoker(TypeSignature fromType, TypeSignature toType, InvocationConvention invocationConvention)
     {
         CastKey castKey = new CastKey(fromType, toType);
         ResolvedFunction resolvedFunction = casts.get(castKey);

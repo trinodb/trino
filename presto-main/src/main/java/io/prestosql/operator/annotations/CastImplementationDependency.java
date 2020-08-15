@@ -21,7 +21,6 @@ import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.TypeSignature;
 
 import java.util.Objects;
-import java.util.Optional;
 
 import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
 import static java.util.Objects.requireNonNull;
@@ -32,7 +31,7 @@ public final class CastImplementationDependency
     private final TypeSignature fromType;
     private final TypeSignature toType;
 
-    public CastImplementationDependency(TypeSignature fromType, TypeSignature toType, Optional<InvocationConvention> invocationConvention, Class<?> type)
+    public CastImplementationDependency(TypeSignature fromType, TypeSignature toType, InvocationConvention invocationConvention, Class<?> type)
     {
         super(invocationConvention, type);
         this.fromType = requireNonNull(fromType, "fromType is null");
@@ -56,7 +55,7 @@ public final class CastImplementationDependency
     }
 
     @Override
-    protected FunctionInvoker getInvoker(FunctionBinding functionBinding, FunctionDependencies functionDependencies, Optional<InvocationConvention> invocationConvention)
+    protected FunctionInvoker getInvoker(FunctionBinding functionBinding, FunctionDependencies functionDependencies, InvocationConvention invocationConvention)
     {
         TypeSignature from = applyBoundVariables(fromType, functionBinding);
         TypeSignature to = applyBoundVariables(toType, functionBinding);

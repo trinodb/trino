@@ -32,12 +32,13 @@ import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.InterpretedFunctionInvoker;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Optional;
 
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
 import static io.prestosql.spi.function.OperatorType.SUBSCRIPT;
 import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
@@ -156,7 +157,7 @@ public class MapSubscriptOperator
             FunctionInvoker castFunction = null;
             try {
                 castMetadata = functionDependencies.getCastMetadata(keyType, VARCHAR);
-                castFunction = functionDependencies.getCastInvoker(keyType, VARCHAR, Optional.empty());
+                castFunction = functionDependencies.getCastInvoker(keyType, VARCHAR, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
             }
             catch (PrestoException ignored) {
             }

@@ -181,7 +181,7 @@ public final class BytecodeUtils
         return generateInvocation(
                 scope,
                 metadata.getFunctionMetadata(resolvedFunction),
-                invocationConvention -> metadata.getScalarFunctionInvoker(resolvedFunction, Optional.of(invocationConvention)),
+                invocationConvention -> metadata.getScalarFunctionInvoker(resolvedFunction, invocationConvention),
                 arguments,
                 binder);
     }
@@ -225,7 +225,7 @@ public final class BytecodeUtils
         return generateFullInvocation(
                 scope,
                 metadata.getFunctionMetadata(resolvedFunction),
-                invocationConvention -> metadata.getScalarFunctionInvoker(resolvedFunction, Optional.of(invocationConvention)),
+                invocationConvention -> metadata.getScalarFunctionInvoker(resolvedFunction, invocationConvention),
                 instanceFactory,
                 argumentCompilers,
                 binder);

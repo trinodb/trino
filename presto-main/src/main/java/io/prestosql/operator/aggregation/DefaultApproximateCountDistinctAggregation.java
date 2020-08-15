@@ -22,6 +22,7 @@ import io.prestosql.spi.function.AggregationState;
 import io.prestosql.spi.function.BlockIndex;
 import io.prestosql.spi.function.BlockPosition;
 import io.prestosql.spi.function.CombineFunction;
+import io.prestosql.spi.function.Convention;
 import io.prestosql.spi.function.InputFunction;
 import io.prestosql.spi.function.OperatorDependency;
 import io.prestosql.spi.function.OutputFunction;
@@ -31,6 +32,8 @@ import io.prestosql.spi.type.StandardTypes;
 
 import java.lang.invoke.MethodHandle;
 
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 
 @AggregationFunction("approx_distinct")
@@ -52,7 +55,11 @@ public final class DefaultApproximateCountDistinctAggregation
     @InputFunction
     @TypeParameter("T")
     public static void input(
-            @OperatorDependency(operator = XX_HASH_64, argumentTypes = "T") MethodHandle methodHandle,
+            @OperatorDependency(
+                    operator = XX_HASH_64,
+                    argumentTypes = "T",
+                    convention = @Convention(arguments = NEVER_NULL, result = FAIL_ON_NULL))
+                    MethodHandle methodHandle,
             @AggregationState HyperLogLogState state,
             @SqlType("T") long value)
     {
@@ -62,7 +69,11 @@ public final class DefaultApproximateCountDistinctAggregation
     @InputFunction
     @TypeParameter("T")
     public static void input(
-            @OperatorDependency(operator = XX_HASH_64, argumentTypes = "T") MethodHandle methodHandle,
+            @OperatorDependency(
+                    operator = XX_HASH_64,
+                    argumentTypes = "T",
+                    convention = @Convention(arguments = NEVER_NULL, result = FAIL_ON_NULL))
+                    MethodHandle methodHandle,
             @AggregationState HyperLogLogState state,
             @SqlType("T") double value)
     {
@@ -72,7 +83,11 @@ public final class DefaultApproximateCountDistinctAggregation
     @InputFunction
     @TypeParameter("T")
     public static void input(
-            @OperatorDependency(operator = XX_HASH_64, argumentTypes = "T") MethodHandle methodHandle,
+            @OperatorDependency(
+                    operator = XX_HASH_64,
+                    argumentTypes = "T",
+                    convention = @Convention(arguments = NEVER_NULL, result = FAIL_ON_NULL))
+                    MethodHandle methodHandle,
             @AggregationState HyperLogLogState state,
             @SqlType("T") Object value)
     {

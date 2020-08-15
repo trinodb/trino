@@ -16,7 +16,6 @@ package io.prestosql.spi.function;
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
 
-import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static java.lang.annotation.ElementType.PARAMETER;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
 
@@ -28,5 +27,5 @@ public @interface FunctionDependency
 
     String[] argumentTypes();
 
-    Convention convention() default @Convention($notSpecified = true, arguments = {}, result = FAIL_ON_NULL);
+    Convention convention();
 }

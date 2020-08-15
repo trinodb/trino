@@ -14,7 +14,6 @@
 package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import com.google.common.primitives.Primitives;
 import io.prestosql.metadata.FunctionArgumentDefinition;
 import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionDependencies;
@@ -22,16 +21,16 @@ import io.prestosql.metadata.FunctionDependencyDeclaration;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlScalarFunction;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Optional;
 
+import static com.google.common.primitives.Primitives.wrap;
 import static io.prestosql.metadata.FunctionKind.SCALAR;
 import static io.prestosql.metadata.Signature.castableToTypeParameter;
 import static io.prestosql.metadata.Signature.typeVariable;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static java.lang.invoke.MethodHandles.catchException;
@@ -76,20 +75,20 @@ public class TryCastFunction
         Type fromType = functionBinding.getTypeVariable("F");
         Type toType = functionBinding.getTypeVariable("T");
 
-        Class<?> returnType = Primitives.wrap(toType.getJavaType());
+        Class<?> returnType = wrap(toType.getJavaType());
 
         // the resulting method needs to return a boxed type
-        MethodHandle coercion = functionDependencies.getCastInvoker(fromType, toType, Optional.empty()).getMethodHandle();
+        InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(NEVER_NULL), NULLABLE_RETURN, true, false);
+        MethodHandle coercion = functionDependencies.getCastInvoker(fromType, toType, invocationConvention).getMethodHandle();
         coercion = coercion.asType(methodType(returnType, coercion.type()));
 
         MethodHandle exceptionHandler = dropArguments(constant(returnType, null), 0, RuntimeException.class);
         MethodHandle tryCastHandle = catchException(coercion, RuntimeException.class, exceptionHandler);
 
-        boolean nullableArgument = functionDependencies.getCastMetadata(fromType, toType).getArgumentDefinitions().get(0).isNullable();
         return new ChoicesScalarFunctionImplementation(
                 functionBinding,
                 NULLABLE_RETURN,
-                ImmutableList.of(nullableArgument ? BOXED_NULLABLE : NEVER_NULL),
+                ImmutableList.of(NEVER_NULL),
                 tryCastHandle);
     }
 }

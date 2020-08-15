@@ -722,7 +722,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, Optional<InvocationConvention> invocationConvention)
+    public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
     {
         throw new UnsupportedOperationException();
     }

@@ -23,6 +23,4 @@ public @interface Convention
     InvocationReturnConvention result();
 
     boolean session() default false;
-
-    boolean $notSpecified() default false;
 }
