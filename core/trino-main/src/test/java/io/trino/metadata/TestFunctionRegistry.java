@@ -67,7 +67,8 @@ public class TestFunctionRegistry
     @Test
     public void testExactMatchBeforeCoercion()
     {
-        Metadata metadata = createTestMetadataManager();
+        TestingFunctionResolution functionResolution = new TestingFunctionResolution();
+        Metadata metadata = functionResolution.getMetadata();
         boolean foundOperator = false;
         for (FunctionMetadata function : listOperators(metadata)) {
             OperatorType operatorType = unmangleOperator(function.getSignature().getName());
@@ -83,7 +84,7 @@ public class TestFunctionRegistry
             List<Type> argumentTypes = function.getSignature().getArgumentTypes().stream()
                     .map(metadata::getType)
                     .collect(toImmutableList());
-            BoundSignature exactOperator = metadata.resolveOperator(operatorType, argumentTypes).getSignature();
+            BoundSignature exactOperator = functionResolution.resolveOperator(operatorType, argumentTypes).getSignature();
             assertEquals(exactOperator.toSignature(), function.getSignature());
             foundOperator = true;
         }

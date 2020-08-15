@@ -1422,7 +1422,7 @@ public class ExpressionAnalyzer
                 operatorType = ADD;
             }
             try {
-                function = metadata.resolveOperator(operatorType, ImmutableList.of(sortKeyType, offsetValueType));
+                function = metadata.resolveOperator(session, operatorType, ImmutableList.of(sortKeyType, offsetValueType));
             }
             catch (TrinoException e) {
                 ErrorCode errorCode = e.getErrorCode();
@@ -2282,7 +2282,7 @@ public class ExpressionAnalyzer
 
             BoundSignature operatorSignature;
             try {
-                operatorSignature = metadata.resolveOperator(operatorType, argumentTypes.build()).getSignature();
+                operatorSignature = metadata.resolveOperator(session, operatorType, argumentTypes.build()).getSignature();
             }
             catch (OperatorNotFoundException e) {
                 throw semanticException(TYPE_MISMATCH, node, e, "%s", e.getMessage());

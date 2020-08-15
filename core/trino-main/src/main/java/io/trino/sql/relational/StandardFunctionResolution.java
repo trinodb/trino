@@ -14,11 +14,12 @@
 package io.trino.sql.relational;
 
 import com.google.common.collect.ImmutableList;
+import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
-import io.trino.sql.tree.ArithmeticBinaryExpression;
+import io.trino.sql.tree.ArithmeticBinaryExpression.Operator;
 import io.trino.sql.tree.ComparisonExpression;
 
 import static io.trino.spi.function.OperatorType.ADD;
@@ -34,14 +35,16 @@ import static java.util.Objects.requireNonNull;
 
 public final class StandardFunctionResolution
 {
+    private final Session session;
     private final Metadata metadata;
 
-    public StandardFunctionResolution(Metadata metadata)
+    public StandardFunctionResolution(Session session, Metadata metadata)
     {
+        this.session = requireNonNull(session, "session is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
     }
 
-    public ResolvedFunction arithmeticFunction(ArithmeticBinaryExpression.Operator operator, Type leftType, Type rightType)
+    public ResolvedFunction arithmeticFunction(Operator operator, Type leftType, Type rightType)
     {
         OperatorType operatorType;
         switch (operator) {
@@ -63,7 +66,7 @@ public final class StandardFunctionResolution
             default:
                 throw new IllegalStateException("Unknown arithmetic operator: " + operator);
         }
-        return metadata.resolveOperator(operatorType, ImmutableList.of(leftType, rightType));
+        return metadata.resolveOperator(session, operatorType, ImmutableList.of(leftType, rightType));
     }
 
     public ResolvedFunction comparisonFunction(ComparisonExpression.Operator operator, Type leftType, Type rightType)
@@ -86,6 +89,6 @@ public final class StandardFunctionResolution
                 throw new IllegalStateException("Unsupported comparison operator type: " + operator);
         }
 
-        return metadata.resolveOperator(operatorType, ImmutableList.of(leftType, rightType));
+        return metadata.resolveOperator(session, operatorType, ImmutableList.of(leftType, rightType));
     }
 }
