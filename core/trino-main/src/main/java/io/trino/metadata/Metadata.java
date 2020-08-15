@@ -616,14 +616,14 @@ public interface Metadata
     ResolvedFunction resolveOperator(Session session, OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException;
 
-    default ResolvedFunction getCoercion(Type fromType, Type toType)
+    default ResolvedFunction getCoercion(Session session, Type fromType, Type toType)
     {
-        return getCoercion(CAST, fromType, toType);
+        return getCoercion(session, CAST, fromType, toType);
     }
 
-    ResolvedFunction getCoercion(OperatorType operatorType, Type fromType, Type toType);
+    ResolvedFunction getCoercion(Session session, OperatorType operatorType, Type fromType, Type toType);
 
-    ResolvedFunction getCoercion(QualifiedName name, Type fromType, Type toType);
+    ResolvedFunction getCoercion(Session session, QualifiedName name, Type fromType, Type toType);
 
     /**
      * Is the named function an aggregation function?  This does not need type parameters

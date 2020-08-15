@@ -253,7 +253,7 @@ public final class SqlToRowExpressionTranslator
             }
 
             return call(
-                    metadata.getCoercion(VARCHAR, type),
+                    metadata.getCoercion(session, VARCHAR, type),
                     constant(utf8Slice(node.getValue()), VARCHAR));
         }
 
@@ -450,12 +450,12 @@ public final class SqlToRowExpressionTranslator
 
             if (node.isSafe()) {
                 return call(
-                        metadata.getCoercion(QualifiedName.of("TRY_CAST"), value.getType(), returnType),
+                        metadata.getCoercion(session, QualifiedName.of("TRY_CAST"), value.getType(), returnType),
                         value);
             }
 
             return call(
-                    metadata.getCoercion(value.getType(), returnType),
+                    metadata.getCoercion(session, value.getType(), returnType),
                     value);
         }
 
@@ -668,8 +668,8 @@ public final class SqlToRowExpressionTranslator
             ResolvedFunction resolvedFunction = metadata.resolveOperator(session, EQUAL, ImmutableList.of(first.getType(), second.getType()));
             List<ResolvedFunction> functionDependencies = ImmutableList.<ResolvedFunction>builder()
                     .add(resolvedFunction)
-                    .add(metadata.getCoercion(first.getType(), resolvedFunction.getSignature().getArgumentTypes().get(0)))
-                    .add(metadata.getCoercion(second.getType(), resolvedFunction.getSignature().getArgumentTypes().get(0)))
+                    .add(metadata.getCoercion(session, first.getType(), resolvedFunction.getSignature().getArgumentTypes().get(0)))
+                    .add(metadata.getCoercion(session, second.getType(), resolvedFunction.getSignature().getArgumentTypes().get(0)))
                     .build();
 
             return new SpecialForm(

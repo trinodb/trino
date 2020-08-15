@@ -910,8 +910,8 @@ public class ExpressionInterpreter
 
             Type commonType = typeCoercion.getCommonSuperType(firstType, secondType).get();
 
-            ResolvedFunction firstCast = metadata.getCoercion(firstType, commonType);
-            ResolvedFunction secondCast = metadata.getCoercion(secondType, commonType);
+            ResolvedFunction firstCast = metadata.getCoercion(session, firstType, commonType);
+            ResolvedFunction secondCast = metadata.getCoercion(session, secondType, commonType);
 
             // cast(first as <common type>) == cast(second as <common type>)
             boolean equal = Boolean.TRUE.equals(invokeOperator(
@@ -1235,7 +1235,7 @@ public class ExpressionInterpreter
                 return null;
             }
 
-            ResolvedFunction operator = metadata.getCoercion(sourceType, targetType);
+            ResolvedFunction operator = metadata.getCoercion(session, sourceType, targetType);
 
             try {
                 return functionInvoker.invoke(operator, connectorSession, ImmutableList.of(value));

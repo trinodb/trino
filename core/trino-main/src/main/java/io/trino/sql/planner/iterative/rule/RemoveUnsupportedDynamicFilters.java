@@ -332,7 +332,7 @@ public class RemoveUnsupportedDynamicFilters
         private boolean doesSaturatedFloorCastOperatorExist(Type fromType, Type toType)
         {
             try {
-                metadata.getCoercion(SATURATED_FLOOR_CAST, fromType, toType);
+                metadata.getCoercion(session, SATURATED_FLOOR_CAST, fromType, toType);
             }
             catch (OperatorNotFoundException e) {
                 return false;

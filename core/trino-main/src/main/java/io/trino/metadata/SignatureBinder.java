@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.Session;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.NamedTypeSignature;
 import io.trino.spi.type.ParameterKind;
@@ -80,15 +81,17 @@ public class SignatureBinder
     // 4 is chosen arbitrarily here. This limit is set to avoid having infinite loops in iterative solving.
     private static final int SOLVE_ITERATION_LIMIT = 4;
 
+    private final Session session;
     private final Metadata metadata;
     private final TypeCoercion typeCoercion;
     private final Signature declaredSignature;
     private final boolean allowCoercion;
     private final Map<String, TypeVariableConstraint> typeVariableConstraints;
 
-    SignatureBinder(Metadata metadata, Signature declaredSignature, boolean allowCoercion)
+    SignatureBinder(Session session, Metadata metadata, Signature declaredSignature, boolean allowCoercion)
     {
         checkNoLiteralVariableUsageAcrossTypes(declaredSignature);
+        this.session = requireNonNull(session, "session is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.typeCoercion = new TypeCoercion(metadata::getType);
         this.declaredSignature = requireNonNull(declaredSignature, "declaredSignature is null");
@@ -698,7 +701,7 @@ public class SignatureBinder
             }
         }
         try {
-            metadata.getCoercion(fromType, toType);
+            metadata.getCoercion(session, fromType, toType);
             return true;
         }
         catch (TrinoException e) {

@@ -1643,7 +1643,7 @@ class StatementAnalyzer
 
                 if (!tableField.getType().equals(viewField.getType())) {
                     try {
-                        metadata.getCoercion(viewField.getType(), tableField.getType());
+                        metadata.getCoercion(session, viewField.getType(), tableField.getType());
                     }
                     catch (TrinoException e) {
                         throw semanticException(
@@ -1934,7 +1934,7 @@ class StatementAnalyzer
             }
 
             if (samplePercentageType != DOUBLE) {
-                ResolvedFunction coercion = metadata.getCoercion(samplePercentageType, DOUBLE);
+                ResolvedFunction coercion = metadata.getCoercion(session, samplePercentageType, DOUBLE);
                 InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(metadata);
                 samplePercentageObject = functionInvoker.invoke(coercion, session.toConnectorSession(), samplePercentageObject);
                 verify(samplePercentageObject != null, "Coercion from %s to %s returned null", samplePercentageType, DOUBLE);

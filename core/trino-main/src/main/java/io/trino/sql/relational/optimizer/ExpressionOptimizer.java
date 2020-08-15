@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Metadata;
-import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.RowType;
@@ -54,12 +53,12 @@ import static io.trino.type.JsonType.JSON;
 public class ExpressionOptimizer
 {
     private final Metadata metadata;
-    private final ConnectorSession session;
+    private final Session session;
 
     public ExpressionOptimizer(Metadata metadata, Session session)
     {
         this.metadata = metadata;
-        this.session = session.toConnectorSession();
+        this.session = session;
     }
 
     public RowExpression optimize(RowExpression expression)
@@ -103,7 +102,7 @@ public class ExpressionOptimizer
 
                 try {
                     InterpretedFunctionInvoker invoker = new InterpretedFunctionInvoker(metadata);
-                    return constant(invoker.invoke(call.getResolvedFunction(), session, constantArguments), call.getType());
+                    return constant(invoker.invoke(call.getResolvedFunction(), session.toConnectorSession(), constantArguments), call.getType());
                 }
                 catch (RuntimeException e) {
                     // Do nothing. As a result, this specific tree will be left untouched. But irrelevant expressions will continue to get evaluated and optimized.
@@ -199,24 +198,24 @@ public class ExpressionOptimizer
                     Type returnType = call.getType();
                     if (returnType instanceof ArrayType) {
                         return call(
-                                metadata.getCoercion(QualifiedName.of(JSON_STRING_TO_ARRAY_NAME), VARCHAR, returnType),
+                                metadata.getCoercion(session, QualifiedName.of(JSON_STRING_TO_ARRAY_NAME), VARCHAR, returnType),
                                 innerCall.getArguments());
                     }
                     if (returnType instanceof MapType) {
                         return call(
-                                metadata.getCoercion(QualifiedName.of(JSON_STRING_TO_MAP_NAME), VARCHAR, returnType),
+                                metadata.getCoercion(session, QualifiedName.of(JSON_STRING_TO_MAP_NAME), VARCHAR, returnType),
                                 innerCall.getArguments());
                     }
                     if (returnType instanceof RowType) {
                         return call(
-                                metadata.getCoercion(QualifiedName.of(JSON_STRING_TO_ROW_NAME), VARCHAR, returnType),
+                                metadata.getCoercion(session, QualifiedName.of(JSON_STRING_TO_ROW_NAME), VARCHAR, returnType),
                                 innerCall.getArguments());
                     }
                 }
             }
 
             return call(
-                    metadata.getCoercion(call.getArguments().get(0).getType(), call.getType()),
+                    metadata.getCoercion(session, call.getArguments().get(0).getType(), call.getType()),
                     call.getArguments());
         }
     }
