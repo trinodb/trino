@@ -169,7 +169,7 @@ public final class ArrayJoin
         else {
             try {
                 InvocationConvention convention = new InvocationConvention(ImmutableList.of(BLOCK_POSITION), NULLABLE_RETURN, true, false);
-                MethodHandle cast = functionDependencies.getCastInvoker(type, VARCHAR, convention).getMethodHandle();
+                MethodHandle cast = functionDependencies.getCastImplementation(type, VARCHAR, convention).getMethodHandle();
 
                 // if the cast doesn't take a ConnectorSession, create an adapter that drops the provided session
                 if (cast.type().parameterArray()[0] != ConnectorSession.class) {

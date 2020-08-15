@@ -39,14 +39,14 @@ import static java.util.function.Function.identity;
 public class InternalFunctionDependencies
         implements FunctionDependencies
 {
-    private final BiFunction<ResolvedFunction, InvocationConvention, FunctionInvoker> specialization;
+    private final BiFunction<ResolvedFunction, InvocationConvention, ScalarFunctionImplementation> specialization;
     private final Map<TypeSignature, Type> types;
     private final Map<FunctionKey, ResolvedFunction> functions;
     private final Map<OperatorKey, ResolvedFunction> operators;
     private final Map<CastKey, ResolvedFunction> casts;
 
     public InternalFunctionDependencies(
-            BiFunction<ResolvedFunction, InvocationConvention, FunctionInvoker> specialization,
+            BiFunction<ResolvedFunction, InvocationConvention, ScalarFunctionImplementation> specialization,
             Map<TypeSignature, Type> typeDependencies,
             Collection<ResolvedFunction> functionDependencies)
     {
@@ -112,7 +112,7 @@ public class InternalFunctionDependencies
     }
 
     @Override
-    public FunctionInvoker getFunctionInvoker(QualifiedFunctionName name, List<Type> parameterTypes, InvocationConvention invocationConvention)
+    public ScalarFunctionImplementation getScalarFunctionImplementation(QualifiedFunctionName name, List<Type> parameterTypes, InvocationConvention invocationConvention)
     {
         FunctionKey functionKey = new FunctionKey(name, toTypeSignatures(parameterTypes));
         ResolvedFunction resolvedFunction = functions.get(functionKey);
@@ -123,7 +123,7 @@ public class InternalFunctionDependencies
     }
 
     @Override
-    public FunctionInvoker getFunctionSignatureInvoker(QualifiedFunctionName name, List<TypeSignature> parameterTypes, InvocationConvention invocationConvention)
+    public ScalarFunctionImplementation getScalarFunctionImplementationSignature(QualifiedFunctionName name, List<TypeSignature> parameterTypes, InvocationConvention invocationConvention)
     {
         FunctionKey functionKey = new FunctionKey(name, parameterTypes);
         ResolvedFunction resolvedFunction = functions.get(functionKey);
@@ -134,7 +134,7 @@ public class InternalFunctionDependencies
     }
 
     @Override
-    public FunctionInvoker getOperatorInvoker(OperatorType operatorType, List<Type> parameterTypes, InvocationConvention invocationConvention)
+    public ScalarFunctionImplementation getOperatorImplementation(OperatorType operatorType, List<Type> parameterTypes, InvocationConvention invocationConvention)
     {
         OperatorKey operatorKey = new OperatorKey(operatorType, toTypeSignatures(parameterTypes));
         ResolvedFunction resolvedFunction = operators.get(operatorKey);
@@ -145,7 +145,7 @@ public class InternalFunctionDependencies
     }
 
     @Override
-    public FunctionInvoker getOperatorSignatureInvoker(OperatorType operatorType, List<TypeSignature> parameterTypes, InvocationConvention invocationConvention)
+    public ScalarFunctionImplementation getOperatorImplementationSignature(OperatorType operatorType, List<TypeSignature> parameterTypes, InvocationConvention invocationConvention)
     {
         OperatorKey operatorKey = new OperatorKey(operatorType, parameterTypes);
         ResolvedFunction resolvedFunction = operators.get(operatorKey);
@@ -156,7 +156,7 @@ public class InternalFunctionDependencies
     }
 
     @Override
-    public FunctionInvoker getCastInvoker(Type fromType, Type toType, InvocationConvention invocationConvention)
+    public ScalarFunctionImplementation getCastImplementation(Type fromType, Type toType, InvocationConvention invocationConvention)
     {
         CastKey castKey = new CastKey(fromType.getTypeSignature(), toType.getTypeSignature());
         ResolvedFunction resolvedFunction = casts.get(castKey);
@@ -167,7 +167,7 @@ public class InternalFunctionDependencies
     }
 
     @Override
-    public FunctionInvoker getCastSignatureInvoker(TypeSignature fromType, TypeSignature toType, InvocationConvention invocationConvention)
+    public ScalarFunctionImplementation getCastImplementationSignature(TypeSignature fromType, TypeSignature toType, InvocationConvention invocationConvention)
     {
         CastKey castKey = new CastKey(fromType, toType);
         ResolvedFunction resolvedFunction = casts.get(castKey);

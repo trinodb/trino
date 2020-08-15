@@ -138,7 +138,7 @@ public final class MapToMapCast
         // Get block position cast, with optional connector session
         FunctionNullability functionNullability = functionDependencies.getCastNullability(fromType, toType);
         InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(BLOCK_POSITION), functionNullability.isReturnNullable() ? NULLABLE_RETURN : FAIL_ON_NULL, true, false);
-        MethodHandle cast = functionDependencies.getCastInvoker(fromType, toType, invocationConvention).getMethodHandle();
+        MethodHandle cast = functionDependencies.getCastImplementation(fromType, toType, invocationConvention).getMethodHandle();
         // Normalize cast to have connector session as first argument
         if (cast.type().parameterArray()[0] != ConnectorSession.class) {
             cast = dropArguments(cast, 0, ConnectorSession.class);

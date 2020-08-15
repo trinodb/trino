@@ -30,15 +30,15 @@ public interface FunctionDependencies
 
     FunctionNullability getCastNullability(Type fromType, Type toType);
 
-    FunctionInvoker getFunctionInvoker(QualifiedFunctionName name, List<Type> parameterTypes, InvocationConvention invocationConvention);
+    ScalarFunctionImplementation getScalarFunctionImplementation(QualifiedFunctionName name, List<Type> parameterTypes, InvocationConvention invocationConvention);
 
-    FunctionInvoker getFunctionSignatureInvoker(QualifiedFunctionName name, List<TypeSignature> parameterTypes, InvocationConvention invocationConvention);
+    ScalarFunctionImplementation getScalarFunctionImplementationSignature(QualifiedFunctionName name, List<TypeSignature> parameterTypes, InvocationConvention invocationConvention);
 
-    FunctionInvoker getOperatorInvoker(OperatorType operatorType, List<Type> parameterTypes, InvocationConvention invocationConvention);
+    ScalarFunctionImplementation getOperatorImplementation(OperatorType operatorType, List<Type> parameterTypes, InvocationConvention invocationConvention);
 
-    FunctionInvoker getOperatorSignatureInvoker(OperatorType operatorType, List<TypeSignature> parameterTypes, InvocationConvention invocationConvention);
+    ScalarFunctionImplementation getOperatorImplementationSignature(OperatorType operatorType, List<TypeSignature> parameterTypes, InvocationConvention invocationConvention);
 
-    FunctionInvoker getCastInvoker(Type fromType, Type toType, InvocationConvention invocationConvention);
+    ScalarFunctionImplementation getCastImplementation(Type fromType, Type toType, InvocationConvention invocationConvention);
 
-    FunctionInvoker getCastSignatureInvoker(TypeSignature fromType, TypeSignature toType, InvocationConvention invocationConvention);
+    ScalarFunctionImplementation getCastImplementationSignature(TypeSignature fromType, TypeSignature toType, InvocationConvention invocationConvention);
 }

@@ -131,9 +131,9 @@ public class TestingFunctionResolution
         return inTransaction(session -> metadata.resolveFunction(session, name, parameterTypes));
     }
 
-    public FunctionInvoker getScalarFunctionInvoker(QualifiedName name, List<TypeSignatureProvider> parameterTypes, InvocationConvention invocationConvention)
+    public ScalarFunctionImplementation getScalarFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes, InvocationConvention invocationConvention)
     {
-        return inTransaction(session -> plannerContext.getFunctionManager().getScalarFunctionInvoker(metadata.resolveFunction(session, name, parameterTypes), invocationConvention));
+        return inTransaction(session -> plannerContext.getFunctionManager().getScalarFunctionImplementation(metadata.resolveFunction(session, name, parameterTypes), invocationConvention));
     }
 
     public TestingAggregationFunction getAggregateFunction(QualifiedName name, List<TypeSignatureProvider> parameterTypes)

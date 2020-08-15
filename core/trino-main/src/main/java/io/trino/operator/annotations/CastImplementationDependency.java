@@ -16,7 +16,7 @@ package io.trino.operator.annotations;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
-import io.trino.metadata.FunctionInvoker;
+import io.trino.metadata.ScalarFunctionImplementation;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.type.TypeSignature;
 
@@ -55,11 +55,11 @@ public final class CastImplementationDependency
     }
 
     @Override
-    protected FunctionInvoker getInvoker(FunctionBinding functionBinding, FunctionDependencies functionDependencies, InvocationConvention invocationConvention)
+    protected ScalarFunctionImplementation getImplementation(FunctionBinding functionBinding, FunctionDependencies functionDependencies, InvocationConvention invocationConvention)
     {
         TypeSignature from = applyBoundVariables(fromType, functionBinding);
         TypeSignature to = applyBoundVariables(toType, functionBinding);
-        return functionDependencies.getCastSignatureInvoker(from, to, invocationConvention);
+        return functionDependencies.getCastImplementationSignature(from, to, invocationConvention);
     }
 
     @Override

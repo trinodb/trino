@@ -271,7 +271,7 @@ public class RowToRowCast
 
     private static MethodHandle getNullSafeCast(FunctionDependencies functionDependencies, Type fromElementType, Type toElementType)
     {
-        MethodHandle castMethod = functionDependencies.getCastInvoker(
+        MethodHandle castMethod = functionDependencies.getCastImplementation(
                 fromElementType,
                 toElementType,
                 new InvocationConvention(ImmutableList.of(BLOCK_POSITION), NULLABLE_RETURN, true, false))
