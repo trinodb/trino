@@ -77,10 +77,10 @@ public abstract class AbstractMinMaxBy
                         .argumentNullability(true, false)
                         .description(description)
                         .build(),
-                new AggregationFunctionMetadata(
-                        false,
-                        new TypeSignature("K"),
-                        new TypeSignature("V")));
+                AggregationFunctionMetadata.builder()
+                        .intermediateType(new TypeSignature("K"))
+                        .intermediateType(new TypeSignature("V"))
+                        .build());
         this.min = min;
     }
 

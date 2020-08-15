@@ -88,9 +88,10 @@ public class MultimapAggregationFunction
                         .argumentNullability(false, true)
                         .description("Aggregates all the rows (key/value pairs) into a single multimap")
                         .build(),
-                new AggregationFunctionMetadata(
-                        true,
-                        arrayType(rowType(anonymousField(new TypeSignature("V")), anonymousField(new TypeSignature("K"))))));
+                AggregationFunctionMetadata.builder()
+                        .orderSensitive()
+                        .intermediateType(arrayType(rowType(anonymousField(new TypeSignature("V")), anonymousField(new TypeSignature("K")))))
+                        .build());
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 

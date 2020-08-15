@@ -80,9 +80,10 @@ public final class QuantileDigestAggregationFunction
                                 .build())
                         .description("Returns a qdigest from the set of reals, bigints or doubles")
                         .build(),
-                new AggregationFunctionMetadata(
-                        true,
-                        parametricType(QDIGEST, new TypeSignature("V"))));
+                AggregationFunctionMetadata.builder()
+                        .orderSensitive()
+                        .intermediateType(parametricType(QDIGEST, new TypeSignature("V")))
+                        .build());
     }
 
     @Override

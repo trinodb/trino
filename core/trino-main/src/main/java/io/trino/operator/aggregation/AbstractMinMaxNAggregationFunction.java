@@ -75,10 +75,10 @@ public abstract class AbstractMinMaxNAggregationFunction
                                 .build())
                         .description(description)
                         .build(),
-                new AggregationFunctionMetadata(
-                        false,
-                        BIGINT.getTypeSignature(),
-                        arrayType(new TypeSignature("E"))));
+                AggregationFunctionMetadata.builder()
+                        .intermediateType(BIGINT)
+                        .intermediateType(arrayType(new TypeSignature("E")))
+                        .build());
         this.min = min;
     }
 

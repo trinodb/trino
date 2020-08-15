@@ -16,6 +16,7 @@ package io.trino.operator.aggregation;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.AggregationFunctionMetadata;
+import io.trino.metadata.AggregationFunctionMetadata.AggregationFunctionMetadataBuilder;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionDependencies;
@@ -64,9 +65,7 @@ public class ParametricAggregation
     {
         super(
                 createFunctionMetadata(signature, details, implementations.getFunctionNullability()),
-                new AggregationFunctionMetadata(
-                        details.isOrderSensitive(),
-                        details.isDecomposable() ? ImmutableList.of(getSerializedType(stateClass).getTypeSignature()) : ImmutableList.of()));
+                createAggregationFunctionMetadata(details, stateClass));
         this.stateClass = requireNonNull(stateClass, "stateClass is null");
         checkArgument(implementations.getFunctionNullability().isReturnNullable(), "currently aggregates are required to be nullable");
         this.implementations = requireNonNull(implementations, "implementations is null");
@@ -98,6 +97,18 @@ public class ParametricAggregation
         functionMetadata.argumentNullability(functionNullability.getArgumentNullable());
 
         return functionMetadata.build();
+    }
+
+    private static AggregationFunctionMetadata createAggregationFunctionMetadata(AggregationHeader details, Class<? extends AccumulatorState> stateClass)
+    {
+        AggregationFunctionMetadataBuilder builder = AggregationFunctionMetadata.builder();
+        if (details.isOrderSensitive()) {
+            builder.orderSensitive();
+        }
+        if (details.isDecomposable()) {
+            builder.intermediateType(getSerializedType(stateClass).getTypeSignature());
+        }
+        return builder.build();
     }
 
     @Override

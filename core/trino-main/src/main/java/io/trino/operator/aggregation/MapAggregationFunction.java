@@ -75,9 +75,10 @@ public class MapAggregationFunction
                         .argumentNullability(false, true)
                         .description("Aggregates all the rows (key/value pairs) into a single map")
                         .build(),
-                new AggregationFunctionMetadata(
-                        true,
-                        mapType(new TypeSignature("K"), new TypeSignature("V"))));
+                AggregationFunctionMetadata.builder()
+                        .orderSensitive()
+                        .intermediateType(mapType(new TypeSignature("K"), new TypeSignature("V")))
+                        .build());
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 
