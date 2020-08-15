@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.FeaturesConfig;
 import io.trino.client.NodeVersion;
 import io.trino.operator.scalar.ChoicesScalarFunctionImplementation;
-import io.trino.operator.scalar.CustomFunctions;
 import io.trino.operator.scalar.ScalarFunctionImplementation;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunction;
@@ -41,6 +40,7 @@ import java.util.Set;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.metadata.FunctionKind.SCALAR;
+import static io.trino.metadata.InternalFunctionBundle.extractFunctions;
 import static io.trino.metadata.Signature.mangleOperatorName;
 import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.metadata.Signature.unmangleOperator;
@@ -96,17 +96,12 @@ public class TestGlobalFunctionCatalog
     @Test
     public void testDuplicateFunctions()
     {
-        List<SqlFunction> functions = new FunctionListBuilder()
-                .scalars(CustomFunctions.class)
-                .getFunctions()
-                .stream()
-                .filter(input -> input.getFunctionMetadata().getSignature().getName().equals("custom_add"))
-                .collect(toImmutableList());
+        FunctionBundle functionBundle = extractFunctions(CustomAdd.class);
 
         TypeOperators typeOperators = new TypeOperators();
         GlobalFunctionCatalog globalFunctionCatalog = new GlobalFunctionCatalog(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), NodeVersion.UNKNOWN);
-        globalFunctionCatalog.addFunctions(functions);
-        assertThatThrownBy(() -> globalFunctionCatalog.addFunctions(functions))
+        globalFunctionCatalog.addFunctions(functionBundle);
+        assertThatThrownBy(() -> globalFunctionCatalog.addFunctions(functionBundle))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageMatching("\\QFunction already registered: custom_add(bigint,bigint):bigint\\E");
     }
@@ -114,9 +109,7 @@ public class TestGlobalFunctionCatalog
     @Test
     public void testConflictingScalarAggregation()
     {
-        List<SqlFunction> functions = new FunctionListBuilder()
-                .scalars(ScalarSum.class)
-                .getFunctions();
+        FunctionBundle functions = extractFunctions(ScalarSum.class);
 
         TypeOperators typeOperators = new TypeOperators();
         GlobalFunctionCatalog globalFunctionCatalog = new GlobalFunctionCatalog(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), NodeVersion.UNKNOWN);
@@ -346,7 +339,7 @@ public class TestGlobalFunctionCatalog
                     .getSignature();
         }
 
-        private List<SqlFunction> createFunctionsFromSignatures()
+        private InternalFunctionBundle createFunctionsFromSignatures()
         {
             ImmutableList.Builder<SqlFunction> functions = ImmutableList.builder();
             for (SignatureBuilder functionSignature : functionSignatures) {
@@ -371,7 +364,7 @@ public class TestGlobalFunctionCatalog
                     }
                 });
             }
-            return functions.build();
+            return new InternalFunctionBundle(functions.build());
         }
 
         private static List<TypeSignature> parseTypeSignatures(Type... signatures)
@@ -392,6 +385,18 @@ public class TestGlobalFunctionCatalog
         public static long sum(@SqlType(StandardTypes.BIGINT) long a, @SqlType(StandardTypes.BIGINT) long b)
         {
             return a + b;
+        }
+    }
+
+    public static final class CustomAdd
+    {
+        private CustomAdd() {}
+
+        @ScalarFunction
+        @SqlType(StandardTypes.BIGINT)
+        public static long customAdd(@SqlType(StandardTypes.BIGINT) long x, @SqlType(StandardTypes.BIGINT) long y)
+        {
+            return x + y;
         }
     }
 }

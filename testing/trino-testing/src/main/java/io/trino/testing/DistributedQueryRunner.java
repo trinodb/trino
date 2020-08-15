@@ -29,12 +29,12 @@ import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.QueryManager;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AllNodes;
+import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
-import io.trino.metadata.SqlFunction;
 import io.trino.server.BasicQueryInfo;
 import io.trino.server.SessionPropertyDefaults;
 import io.trino.server.testing.TestingTrinoServer;
@@ -422,9 +422,9 @@ public class DistributedQueryRunner
     }
 
     @Override
-    public void addFunctions(List<? extends SqlFunction> functions)
+    public void addFunctions(FunctionBundle functionBundle)
     {
-        servers.forEach(server -> server.addFunctions(functions));
+        servers.forEach(server -> server.addFunctions(functionBundle));
     }
 
     public void createCatalog(String catalogName, String connectorName)

@@ -13,7 +13,6 @@
  */
 package io.trino.metadata;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.Session;
 import io.trino.operator.aggregation.TestingAggregationFunction;
 import io.trino.security.AllowAllAccessControl;
@@ -51,10 +50,10 @@ public class TestingFunctionResolution
 
     public TestingFunctionResolution()
     {
-        this(ImmutableList.of());
+        this(new InternalFunctionBundle());
     }
 
-    public TestingFunctionResolution(List<? extends SqlFunction> functions)
+    public TestingFunctionResolution(FunctionBundle functions)
     {
         transactionManager = createTestTransactionManager();
         plannerContext = plannerContextBuilder()

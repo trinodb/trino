@@ -13,16 +13,13 @@
  */
 package io.trino.metadata;
 
-import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.Maps;
 import com.google.common.collect.Multimap;
-import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.trino.FeaturesConfig;
 import io.trino.client.NodeVersion;
-import io.trino.collect.cache.NonEvictableCache;
+import io.trino.metadata.InternalFunctionBundle.InternalFunctionBundleBuilder;
 import io.trino.operator.aggregation.AggregationMetadata;
 import io.trino.operator.aggregation.ApproximateCountDistinctAggregation;
 import io.trino.operator.aggregation.ApproximateDoublePercentileAggregations;
@@ -152,7 +149,6 @@ import io.trino.operator.scalar.QuantileDigestFunctions;
 import io.trino.operator.scalar.Re2JRegexpFunctions;
 import io.trino.operator.scalar.Re2JRegexpReplaceLambdaFunction;
 import io.trino.operator.scalar.RepeatFunction;
-import io.trino.operator.scalar.ScalarFunctionImplementation;
 import io.trino.operator.scalar.SequenceFunction;
 import io.trino.operator.scalar.SessionFunctions;
 import io.trino.operator.scalar.SplitToMapFunction;
@@ -237,12 +233,12 @@ import io.trino.operator.window.NthValueFunction;
 import io.trino.operator.window.PercentRankFunction;
 import io.trino.operator.window.RankFunction;
 import io.trino.operator.window.RowNumberFunction;
-import io.trino.operator.window.SqlWindowFunction;
 import io.trino.operator.window.WindowFunctionSupplier;
-import io.trino.spi.TrinoException;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
+import io.trino.spi.type.TypeSignature;
 import io.trino.sql.DynamicFilters;
 import io.trino.sql.tree.QualifiedName;
 import io.trino.type.BigintOperators;
@@ -274,18 +270,18 @@ import javax.annotation.concurrent.ThreadSafe;
 import javax.inject.Inject;
 
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.ExecutionException;
+import java.util.function.Function;
 
-import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Throwables.throwIfInstanceOf;
-import static io.trino.collect.cache.SafeCaches.buildNonEvictableCache;
+import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
+import static io.trino.metadata.Signature.comparableTypeParameter;
 import static io.trino.metadata.Signature.isOperatorName;
+import static io.trino.metadata.Signature.orderableTypeParameter;
 import static io.trino.metadata.Signature.unmangleOperator;
 import static io.trino.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
 import static io.trino.operator.aggregation.CountColumn.COUNT_COLUMN;
@@ -344,6 +340,9 @@ import static io.trino.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
 import static io.trino.operator.scalar.TryCastFunction.TRY_CAST;
 import static io.trino.operator.scalar.ZipFunction.ZIP_FUNCTIONS;
 import static io.trino.operator.scalar.ZipWithFunction.ZIP_WITH_FUNCTION;
+import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.BooleanType.BOOLEAN;
+import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.type.DecimalCasts.BIGINT_TO_DECIMAL_CAST;
 import static io.trino.type.DecimalCasts.BOOLEAN_TO_DECIMAL_CAST;
 import static io.trino.type.DecimalCasts.DECIMAL_TO_BIGINT_CAST;
@@ -377,15 +376,10 @@ import static io.trino.type.DecimalSaturatedFloorCasts.INTEGER_TO_DECIMAL_SATURA
 import static io.trino.type.DecimalSaturatedFloorCasts.SMALLINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
 import static io.trino.type.DecimalSaturatedFloorCasts.TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST;
 import static io.trino.type.DecimalToDecimalCasts.DECIMAL_TO_DECIMAL_CAST;
-import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.HOURS;
 
 @ThreadSafe
 public class GlobalFunctionCatalog
 {
-    private final NonEvictableCache<FunctionKey, ScalarFunctionImplementation> specializedScalarCache;
-    private final NonEvictableCache<FunctionKey, AggregationMetadata> specializedAggregationCache;
-    private final NonEvictableCache<FunctionKey, WindowFunctionSupplier> specializedWindowCache;
     private volatile FunctionMap functions = new FunctionMap();
 
     @Inject
@@ -395,25 +389,7 @@ public class GlobalFunctionCatalog
             BlockTypeOperators blockTypeOperators,
             NodeVersion nodeVersion)
     {
-        // We have observed repeated compilation of MethodHandle that leads to full GCs.
-        // We notice that flushing the following caches mitigate the problem.
-        // We suspect that it is a JVM bug that is related to stale/corrupted profiling data associated
-        // with generated classes and/or dynamically-created MethodHandles.
-        // This might also mitigate problems like deoptimization storm or unintended interpreted execution.
-
-        specializedScalarCache = buildNonEvictableCache(CacheBuilder.newBuilder()
-                .maximumSize(1000)
-                .expireAfterWrite(1, HOURS));
-
-        specializedAggregationCache = buildNonEvictableCache(CacheBuilder.newBuilder()
-                .maximumSize(1000)
-                .expireAfterWrite(1, HOURS));
-
-        specializedWindowCache = buildNonEvictableCache(CacheBuilder.newBuilder()
-                .maximumSize(1000)
-                .expireAfterWrite(1, HOURS));
-
-        FunctionListBuilder builder = new FunctionListBuilder()
+        InternalFunctionBundleBuilder builder = InternalFunctionBundle.builder()
                 .window(RowNumberFunction.class)
                 .window(RankFunction.class)
                 .window(DenseRankFunction.class)
@@ -770,43 +746,75 @@ public class GlobalFunctionCatalog
             builder.functions(ROW_TO_JSON, ARRAY_TO_JSON, MAP_TO_JSON);
         }
 
-        addFunctions(builder.getFunctions());
+        addFunctions(builder.build());
     }
 
-    public final synchronized void addFunctions(List<? extends SqlFunction> functions)
+    public final synchronized void addFunctions(FunctionBundle functionBundle)
     {
-        for (SqlFunction function : functions) {
-            String name = function.getFunctionMetadata().getSignature().getName();
-            if (isOperatorName(name) && !(function instanceof GenericEqualOperator) &&
-                    !(function instanceof GenericHashCodeOperator) &&
-                    !(function instanceof GenericXxHash64Operator) &&
-                    !(function instanceof GenericDistinctFromOperator) &&
-                    !(function instanceof GenericIndeterminateOperator) &&
-                    !(function instanceof GenericComparisonUnorderedLastOperator) &&
-                    !(function instanceof GenericComparisonUnorderedFirstOperator) &&
-                    !(function instanceof GenericLessThanOperator) &&
-                    !(function instanceof GenericLessThanOrEqualOperator)) {
-                OperatorType operatorType = unmangleOperator(name);
-                checkArgument(operatorType != OperatorType.EQUAL &&
-                                operatorType != OperatorType.HASH_CODE &&
-                                operatorType != OperatorType.XX_HASH_64 &&
-                                operatorType != OperatorType.IS_DISTINCT_FROM &&
-                                operatorType != OperatorType.INDETERMINATE &&
-                                operatorType != OperatorType.COMPARISON_UNORDERED_LAST &&
-                                operatorType != OperatorType.COMPARISON_UNORDERED_FIRST &&
-                                operatorType != OperatorType.LESS_THAN &&
-                                operatorType != OperatorType.LESS_THAN_OR_EQUAL,
-                        "Can not register %s function: %s", operatorType, function.getFunctionMetadata().getSignature());
-            }
-
-            FunctionMetadata functionMetadata = function.getFunctionMetadata();
+        for (FunctionMetadata functionMetadata : functionBundle.getFunctions()) {
             checkArgument(!functionMetadata.getSignature().getName().contains("|"), "Function name cannot contain '|' character: %s", functionMetadata.getSignature());
+            checkArgument(!functionMetadata.getSignature().getName().contains("@"), "Function name cannot contain '@' character: %s", functionMetadata.getSignature());
+            checkNotSpecializedTypeOperator(functionMetadata.getSignature());
             for (FunctionMetadata existingFunction : this.functions.list()) {
                 checkArgument(!functionMetadata.getFunctionId().equals(existingFunction.getFunctionId()), "Function already registered: %s", functionMetadata.getFunctionId());
                 checkArgument(!functionMetadata.getSignature().equals(existingFunction.getSignature()), "Function already registered: %s", functionMetadata.getSignature());
             }
         }
-        this.functions = new FunctionMap(this.functions, functions);
+        this.functions = new FunctionMap(this.functions, functionBundle);
+    }
+
+    /**
+     * Type operators are handled automatically by the engine, so custom operator implementations
+     * cannot be registered for these.
+     */
+    private static void checkNotSpecializedTypeOperator(Signature signature)
+    {
+        String name = signature.getName();
+        if (!isOperatorName(name)) {
+            return;
+        }
+
+        OperatorType operatorType = unmangleOperator(name);
+
+        // The trick here is the Generic*Operator implementations implement these exact signatures,
+        // so we only these exact signatures to be registered.  Since, only a single function with
+        // a specific signature can be registered, it prevents others from being registered.
+        Type expectedReturnType;
+        TypeVariableConstraint typeParameter;
+        switch (operatorType) {
+            case EQUAL:
+            case IS_DISTINCT_FROM:
+            case INDETERMINATE:
+                expectedReturnType = BOOLEAN;
+                typeParameter = comparableTypeParameter("T");
+                break;
+            case HASH_CODE:
+            case XX_HASH_64:
+                expectedReturnType = BIGINT;
+                typeParameter = comparableTypeParameter("T");
+                break;
+            case COMPARISON_UNORDERED_FIRST:
+            case COMPARISON_UNORDERED_LAST:
+                expectedReturnType = INTEGER;
+                typeParameter = orderableTypeParameter("T");
+                break;
+            case LESS_THAN:
+            case LESS_THAN_OR_EQUAL:
+                expectedReturnType = BOOLEAN;
+                typeParameter = orderableTypeParameter("T");
+                break;
+            default:
+                return;
+        }
+
+        Signature expectedSignature = new Signature(
+                signature.getName(),
+                ImmutableList.of(typeParameter),
+                ImmutableList.of(),
+                expectedReturnType.getTypeSignature(),
+                Collections.nCopies(operatorType.getArgumentCount(), new TypeSignature("T")),
+                false);
+        checkArgument(signature.equals(expectedSignature), "Can not register %s functionMetadata: %s", operatorType, signature);
     }
 
     public List<FunctionMetadata> listFunctions()
@@ -821,56 +829,27 @@ public class GlobalFunctionCatalog
 
     public FunctionMetadata getFunctionMetadata(FunctionId functionId)
     {
-        return functions.get(functionId).getFunctionMetadata();
+        return functions.get(functionId);
     }
 
     public AggregationFunctionMetadata getAggregationFunctionMetadata(FunctionId functionId)
     {
-        SqlFunction function = functions.get(functionId);
-        checkArgument(function instanceof SqlAggregationFunction, "%s is not an aggregation function", function.getFunctionMetadata().getSignature());
-
-        SqlAggregationFunction aggregationFunction = (SqlAggregationFunction) function;
-        return aggregationFunction.getAggregationMetadata();
+        return functions.getFunctionBundle(functionId).getAggregationFunctionMetadata(functionId);
     }
 
     public WindowFunctionSupplier getWindowFunctionImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        try {
-            return specializedWindowCache.get(new FunctionKey(functionId, boundSignature), () -> specializeWindow(functionId, boundSignature, functionDependencies));
-        }
-        catch (ExecutionException | UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), TrinoException.class);
-            throw new RuntimeException(e.getCause());
-        }
-    }
-
-    private WindowFunctionSupplier specializeWindow(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
-    {
-        SqlWindowFunction function = (SqlWindowFunction) functions.get(functionId);
-        return function.specialize(boundSignature, functionDependencies);
+        return functions.getFunctionBundle(functionId).getWindowFunctionImplementation(functionId, boundSignature, functionDependencies);
     }
 
     public AggregationMetadata getAggregateFunctionImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
-        try {
-            return specializedAggregationCache.get(new FunctionKey(functionId, boundSignature), () -> specializedAggregation(functionId, boundSignature, functionDependencies));
-        }
-        catch (ExecutionException | UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), TrinoException.class);
-            throw new RuntimeException(e.getCause());
-        }
-    }
-
-    private AggregationMetadata specializedAggregation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
-    {
-        SqlAggregationFunction aggregationFunction = (SqlAggregationFunction) functions.get(functionId);
-        return aggregationFunction.specialize(boundSignature, functionDependencies);
+        return functions.getFunctionBundle(functionId).getAggregateFunctionImplementation(functionId, boundSignature, functionDependencies);
     }
 
     public FunctionDependencyDeclaration getFunctionDependencies(FunctionId functionId, BoundSignature boundSignature)
     {
-        SqlFunction function = functions.get(functionId);
-        return function.getFunctionDependencies(boundSignature);
+        return functions.getFunctionBundle(functionId).getFunctionDependencies(functionId, boundSignature);
     }
 
     public FunctionInvoker getScalarFunctionInvoker(
@@ -879,45 +858,39 @@ public class GlobalFunctionCatalog
             FunctionDependencies functionDependencies,
             InvocationConvention invocationConvention)
     {
-        ScalarFunctionImplementation scalarFunctionImplementation;
-        try {
-            scalarFunctionImplementation = specializedScalarCache.get(new FunctionKey(functionId, boundSignature), () -> specializeScalarFunction(functionId, boundSignature, functionDependencies));
-        }
-        catch (ExecutionException | UncheckedExecutionException e) {
-            throwIfInstanceOf(e.getCause(), TrinoException.class);
-            throw new RuntimeException(e.getCause());
-        }
-        return scalarFunctionImplementation.getScalarFunctionInvoker(invocationConvention);
-    }
-
-    private ScalarFunctionImplementation specializeScalarFunction(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
-    {
-        SqlScalarFunction function = (SqlScalarFunction) functions.get(functionId);
-        return function.specialize(boundSignature, functionDependencies);
+        return functions.getFunctionBundle(functionId).getScalarFunctionInvoker(functionId, boundSignature, functionDependencies, invocationConvention);
     }
 
     private static class FunctionMap
     {
-        private final Map<FunctionId, SqlFunction> functions;
+        private final Map<FunctionId, FunctionBundle> functionBundlesById;
+        private final Map<FunctionId, FunctionMetadata> functionsById;
         private final Multimap<QualifiedName, FunctionMetadata> functionsByName;
 
         public FunctionMap()
         {
-            functions = ImmutableMap.of();
+            functionBundlesById = ImmutableMap.of();
+            functionsById = ImmutableMap.of();
             functionsByName = ImmutableListMultimap.of();
         }
 
-        public FunctionMap(FunctionMap map, Collection<? extends SqlFunction> functions)
+        public FunctionMap(FunctionMap map, FunctionBundle functionBundle)
         {
-            this.functions = ImmutableMap.<FunctionId, SqlFunction>builder()
-                    .putAll(map.functions)
-                    .putAll(Maps.uniqueIndex(functions, function -> function.getFunctionMetadata().getFunctionId()))
+            this.functionBundlesById = ImmutableMap.<FunctionId, FunctionBundle>builder()
+                    .putAll(map.functionBundlesById)
+                    .putAll(functionBundle.getFunctions().stream()
+                            .collect(toImmutableMap(FunctionMetadata::getFunctionId, functionMetadata -> functionBundle)))
+                    .buildOrThrow();
+
+            this.functionsById = ImmutableMap.<FunctionId, FunctionMetadata>builder()
+                    .putAll(map.functionsById)
+                    .putAll(functionBundle.getFunctions().stream()
+                            .collect(toImmutableMap(FunctionMetadata::getFunctionId, Function.identity())))
                     .buildOrThrow();
 
             ImmutableListMultimap.Builder<QualifiedName, FunctionMetadata> functionsByName = ImmutableListMultimap.<QualifiedName, FunctionMetadata>builder()
                     .putAll(map.functionsByName);
-            functions.stream()
-                    .map(SqlFunction::getFunctionMetadata)
+            functionBundle.getFunctions()
                     .forEach(functionMetadata -> functionsByName.put(QualifiedName.of(functionMetadata.getSignature().getName()), functionMetadata));
             this.functionsByName = functionsByName.build();
 
@@ -942,62 +915,18 @@ public class GlobalFunctionCatalog
             return functionsByName.get(name);
         }
 
-        public SqlFunction get(FunctionId functionId)
+        public FunctionMetadata get(FunctionId functionId)
         {
-            SqlFunction sqlFunction = functions.get(functionId);
-            checkArgument(sqlFunction != null, "Unknown function implementation: %s", functionId);
-            return sqlFunction;
-        }
-    }
-
-    private static class FunctionKey
-    {
-        private final FunctionId functionId;
-        private final BoundSignature boundSignature;
-
-        public FunctionKey(FunctionId functionId, BoundSignature boundSignature)
-        {
-            this.functionId = requireNonNull(functionId, "functionId is null");
-            this.boundSignature = requireNonNull(boundSignature, "boundSignature is null");
+            FunctionMetadata functionMetadata = functionsById.get(functionId);
+            checkArgument(functionMetadata != null, "Unknown function implementation: " + functionId);
+            return functionMetadata;
         }
 
-        public FunctionId getFunctionId()
+        public FunctionBundle getFunctionBundle(FunctionId functionId)
         {
-            return functionId;
-        }
-
-        public BoundSignature getBoundSignature()
-        {
-            return boundSignature;
-        }
-
-        @Override
-        public boolean equals(Object o)
-        {
-            if (this == o) {
-                return true;
-            }
-            if (o == null || getClass() != o.getClass()) {
-                return false;
-            }
-            FunctionKey that = (FunctionKey) o;
-            return functionId.equals(that.functionId) &&
-                    boundSignature.equals(that.boundSignature);
-        }
-
-        @Override
-        public int hashCode()
-        {
-            return Objects.hash(functionId, boundSignature);
-        }
-
-        @Override
-        public String toString()
-        {
-            return toStringHelper(this)
-                    .add("functionId", functionId)
-                    .add("boundSignature", boundSignature)
-                    .toString();
+            FunctionBundle functionBundle = functionBundlesById.get(functionId);
+            checkArgument(functionBundle != null, "Unknown function implementation: " + functionId);
+            return functionBundle;
         }
     }
 }

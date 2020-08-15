@@ -14,7 +14,6 @@
 package io.trino.metadata;
 
 import com.google.common.cache.CacheBuilder;
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.trino.FeaturesConfig;
 import io.trino.collect.cache.NonEvictableCache;
@@ -292,7 +291,7 @@ public class FunctionManager
     {
         TypeOperators typeOperators = new TypeOperators();
         GlobalFunctionCatalog functionCatalog = new GlobalFunctionCatalog(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN);
-        functionCatalog.addFunctions(ImmutableList.of(new LiteralFunction(new InternalBlockEncodingSerde(new BlockEncodingManager(), TESTING_TYPE_MANAGER))));
+        functionCatalog.addFunctions(new InternalFunctionBundle(new LiteralFunction(new InternalBlockEncodingSerde(new BlockEncodingManager(), TESTING_TYPE_MANAGER))));
         return new FunctionManager(functionCatalog);
     }
 }

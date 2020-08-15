@@ -20,6 +20,7 @@ import io.trino.block.BlockAssertions;
 import io.trino.connector.CatalogName;
 import io.trino.execution.Lifespan;
 import io.trino.metadata.FunctionManager;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.Split;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.index.PageRecordSet;
@@ -265,7 +266,7 @@ public class TestScanFilterAndProjectOperator
                 return value;
             }));
         }
-        functionAssertions.addFunctions(functions.build());
+        functionAssertions.addFunctions(new InternalFunctionBundle(functions.build()));
 
         // match each column with a projection
         ExpressionCompiler expressionCompiler = new ExpressionCompiler(functionAssertions.getFunctionManager(), new PageFunctionCompiler(functionAssertions.getFunctionManager(), 0));
@@ -328,7 +329,7 @@ public class TestScanFilterAndProjectOperator
         DriverContext driverContext = newDriverContext();
 
         // set up generic long function with a callback to force yield
-        functionAssertions.addFunctions(ImmutableList.of(new GenericLongFunction("record_cursor", value -> {
+        functionAssertions.addFunctions(new InternalFunctionBundle(new GenericLongFunction("record_cursor", value -> {
             driverContext.getYieldSignal().forceYieldForTesting();
             return value;
         })));
