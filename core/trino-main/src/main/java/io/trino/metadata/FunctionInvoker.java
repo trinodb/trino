@@ -27,18 +27,11 @@ public class FunctionInvoker
     private final Optional<MethodHandle> instanceFactory;
     private final List<Class<?>> lambdaInterfaces;
 
-    public FunctionInvoker(MethodHandle methodHandle)
-    {
-        this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
-        this.instanceFactory = Optional.empty();
-        this.lambdaInterfaces = ImmutableList.of();
-    }
-
-    public FunctionInvoker(MethodHandle methodHandle, Optional<MethodHandle> instanceFactory, List<Class<?>> lambdaInterfaces)
+    private FunctionInvoker(MethodHandle methodHandle, Optional<MethodHandle> instanceFactory, List<Class<?>> lambdaInterfaces)
     {
         this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
         this.instanceFactory = requireNonNull(instanceFactory, "instanceFactory is null");
-        this.lambdaInterfaces = requireNonNull(lambdaInterfaces, "lambdaInterfaces is null");
+        this.lambdaInterfaces = ImmutableList.copyOf(requireNonNull(lambdaInterfaces, "lambdaInterfaces is null"));
     }
 
     public MethodHandle getMethodHandle()
@@ -54,5 +47,42 @@ public class FunctionInvoker
     public List<Class<?>> getLambdaInterfaces()
     {
         return lambdaInterfaces;
+    }
+
+    public static Builder builder()
+    {
+        return new Builder();
+    }
+
+    public static class Builder
+    {
+        private MethodHandle methodHandle;
+        private MethodHandle instanceFactory;
+        private List<Class<?>> lambdaInterfaces = ImmutableList.of();
+
+        private Builder() {}
+
+        public Builder methodHandle(MethodHandle methodHandle)
+        {
+            this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
+            return this;
+        }
+
+        public Builder instanceFactory(MethodHandle instanceFactory)
+        {
+            this.instanceFactory = requireNonNull(instanceFactory, "instanceFactory is null");
+            return this;
+        }
+
+        public Builder lambdaInterfaces(List<Class<?>> lambdaInterfaces)
+        {
+            this.lambdaInterfaces = ImmutableList.copyOf(requireNonNull(lambdaInterfaces, "lambdaInterfaces is null"));
+            return this;
+        }
+
+        public FunctionInvoker build()
+        {
+            return new FunctionInvoker(methodHandle, Optional.ofNullable(instanceFactory), lambdaInterfaces);
+        }
     }
 }
