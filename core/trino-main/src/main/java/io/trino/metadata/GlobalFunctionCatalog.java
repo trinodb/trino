@@ -150,13 +150,13 @@ public class GlobalFunctionCatalog
         return functions.getFunctionBundle(functionId).getFunctionDependencies(functionId, boundSignature);
     }
 
-    public FunctionInvoker getScalarFunctionInvoker(
+    public ScalarFunctionImplementation getScalarFunctionImplementation(
             FunctionId functionId,
             BoundSignature boundSignature,
             FunctionDependencies functionDependencies,
             InvocationConvention invocationConvention)
     {
-        return functions.getFunctionBundle(functionId).getScalarFunctionInvoker(functionId, boundSignature, functionDependencies, invocationConvention);
+        return functions.getFunctionBundle(functionId).getScalarFunctionImplementation(functionId, boundSignature, functionDependencies, invocationConvention);
     }
 
     private static class FunctionMap

@@ -16,9 +16,9 @@ package io.trino.sql.gen;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
-import io.trino.metadata.FunctionInvoker;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.ScalarFunctionImplementation;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.sql.relational.RowExpression;
 
@@ -77,9 +77,9 @@ public class BytecodeGeneratorContext
         return rowExpressionCompiler.compile(expression, scope);
     }
 
-    public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
+    public ScalarFunctionImplementation getScalarFunctionImplementation(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
     {
-        return functionManager.getScalarFunctionInvoker(resolvedFunction, invocationConvention);
+        return functionManager.getScalarFunctionImplementation(resolvedFunction, invocationConvention);
     }
 
     /**

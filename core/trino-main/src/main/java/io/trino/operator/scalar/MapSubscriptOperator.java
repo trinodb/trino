@@ -160,7 +160,7 @@ public class MapSubscriptOperator
             MethodHandle castMethod = null;
             try {
                 InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(BOXED_NULLABLE), NULLABLE_RETURN, true, false);
-                castMethod = functionDependencies.getCastInvoker(keyType, VARCHAR, invocationConvention).getMethodHandle();
+                castMethod = functionDependencies.getCastImplementation(keyType, VARCHAR, invocationConvention).getMethodHandle();
                 if (!castMethod.type().parameterType(0).equals(ConnectorSession.class)) {
                     castMethod = MethodHandles.dropArguments(castMethod, 0, ConnectorSession.class);
                 }

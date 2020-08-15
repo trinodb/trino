@@ -14,8 +14,8 @@
 package io.trino.operator.scalar;
 
 import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionInvoker;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.ScalarFunctionImplementation;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.type.Type;
@@ -53,7 +53,7 @@ public class GenericLessThanOperator
         Type type = boundSignature.getArgumentType(0);
         return invocationConvention -> {
             MethodHandle methodHandle = typeOperators.getLessThanOperator(type, invocationConvention);
-            return FunctionInvoker.builder()
+            return ScalarFunctionImplementation.builder()
                     .methodHandle(methodHandle)
                     .build();
         };

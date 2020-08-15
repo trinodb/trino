@@ -73,7 +73,7 @@ public class TryCastFunction
 
         // the resulting method needs to return a boxed type
         InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(NEVER_NULL), NULLABLE_RETURN, true, false);
-        MethodHandle coercion = functionDependencies.getCastInvoker(fromType, toType, invocationConvention).getMethodHandle();
+        MethodHandle coercion = functionDependencies.getCastImplementation(fromType, toType, invocationConvention).getMethodHandle();
         coercion = coercion.asType(methodType(returnType, coercion.type()));
 
         MethodHandle exceptionHandler = dropArguments(constant(returnType, null), 0, RuntimeException.class);

@@ -51,7 +51,7 @@ import static java.util.concurrent.TimeUnit.HOURS;
 
 public class FunctionManager
 {
-    private final NonEvictableCache<FunctionKey, FunctionInvoker> specializedScalarCache;
+    private final NonEvictableCache<FunctionKey, ScalarFunctionImplementation> specializedScalarCache;
     private final NonEvictableCache<FunctionKey, AggregationMetadata> specializedAggregationCache;
     private final NonEvictableCache<FunctionKey, WindowFunctionSupplier> specializedWindowCache;
 
@@ -75,10 +75,10 @@ public class FunctionManager
         this.globalFunctionCatalog = globalFunctionCatalog;
     }
 
-    public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
+    public ScalarFunctionImplementation getScalarFunctionImplementation(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
     {
         try {
-            return uncheckedCacheGet(specializedScalarCache, new FunctionKey(resolvedFunction, invocationConvention), () -> getScalarFunctionInvokerInternal(resolvedFunction, invocationConvention));
+            return uncheckedCacheGet(specializedScalarCache, new FunctionKey(resolvedFunction, invocationConvention), () -> getScalarFunctionImplementationInternal(resolvedFunction, invocationConvention));
         }
         catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
@@ -86,16 +86,16 @@ public class FunctionManager
         }
     }
 
-    private FunctionInvoker getScalarFunctionInvokerInternal(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
+    private ScalarFunctionImplementation getScalarFunctionImplementationInternal(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
     {
         FunctionDependencies functionDependencies = getFunctionDependencies(resolvedFunction);
-        FunctionInvoker functionInvoker = globalFunctionCatalog.getScalarFunctionInvoker(
+        ScalarFunctionImplementation scalarFunctionImplementation = globalFunctionCatalog.getScalarFunctionImplementation(
                 resolvedFunction.getFunctionId(),
                 resolvedFunction.getSignature(),
                 functionDependencies,
                 invocationConvention);
-        verifyMethodHandleSignature(resolvedFunction.getSignature(), functionInvoker, invocationConvention);
-        return functionInvoker;
+        verifyMethodHandleSignature(resolvedFunction.getSignature(), scalarFunctionImplementation, invocationConvention);
+        return scalarFunctionImplementation;
     }
 
     public AggregationMetadata getAggregateFunctionImplementation(ResolvedFunction resolvedFunction)
@@ -140,12 +140,12 @@ public class FunctionManager
 
     private FunctionDependencies getFunctionDependencies(ResolvedFunction resolvedFunction)
     {
-        return new InternalFunctionDependencies(this::getScalarFunctionInvoker, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
+        return new InternalFunctionDependencies(this::getScalarFunctionImplementation, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
     }
 
-    private static void verifyMethodHandleSignature(BoundSignature boundSignature, FunctionInvoker functionInvoker, InvocationConvention convention)
+    private static void verifyMethodHandleSignature(BoundSignature boundSignature, ScalarFunctionImplementation scalarFunctionImplementation, InvocationConvention convention)
     {
-        MethodHandle methodHandle = functionInvoker.getMethodHandle();
+        MethodHandle methodHandle = scalarFunctionImplementation.getMethodHandle();
         MethodType methodType = methodHandle.type();
 
         checkArgument(convention.getArgumentConventions().size() == boundSignature.getArgumentTypes().size(),
@@ -155,16 +155,16 @@ public class FunctionManager
                 .mapToInt(InvocationArgumentConvention::getParameterCount)
                 .sum();
         expectedParameterCount += methodType.parameterList().stream().filter(ConnectorSession.class::equals).count();
-        if (functionInvoker.getInstanceFactory().isPresent()) {
+        if (scalarFunctionImplementation.getInstanceFactory().isPresent()) {
             expectedParameterCount++;
         }
         checkArgument(expectedParameterCount == methodType.parameterCount(),
                 "Expected %s method parameters, but got %s", expectedParameterCount, methodType.parameterCount());
 
         int parameterIndex = 0;
-        if (functionInvoker.getInstanceFactory().isPresent()) {
+        if (scalarFunctionImplementation.getInstanceFactory().isPresent()) {
             verifyFunctionSignature(convention.supportsInstanceFactory(), "Method requires instance factory, but calling convention does not support an instance factory");
-            MethodHandle factoryMethod = functionInvoker.getInstanceFactory().orElseThrow();
+            MethodHandle factoryMethod = scalarFunctionImplementation.getInstanceFactory().orElseThrow();
             verifyFunctionSignature(methodType.parameterType(parameterIndex).equals(factoryMethod.type().returnType()), "Invalid return type");
             parameterIndex++;
         }
@@ -203,7 +203,7 @@ public class FunctionManager
                     verifyFunctionSignature(parameterType.equals(InOut.class), "Expected IN_OUT argument type to be InOut");
                     break;
                 case FUNCTION:
-                    Class<?> lambdaInterface = functionInvoker.getLambdaInterfaces().get(lambdaArgumentIndex);
+                    Class<?> lambdaInterface = scalarFunctionImplementation.getLambdaInterfaces().get(lambdaArgumentIndex);
                     verifyFunctionSignature(parameterType.equals(lambdaInterface),
                             "Expected function interface to be %s, but is %s", lambdaInterface, parameterType);
                     lambdaArgumentIndex++;

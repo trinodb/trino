@@ -49,7 +49,7 @@ public final class MinMaxCompare
     public static MethodHandle getMinMaxCompare(FunctionDependencies dependencies, Type type, InvocationConvention convention, boolean min)
     {
         OperatorType comparisonOperator = getMinMaxCompareOperatorType(min);
-        MethodHandle handle = dependencies.getOperatorInvoker(comparisonOperator, List.of(type, type), convention).getMethodHandle();
+        MethodHandle handle = dependencies.getOperatorImplementation(comparisonOperator, List.of(type, type), convention).getMethodHandle();
         return comparisonToMinMaxResult(min, handle);
     }
 

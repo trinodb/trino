@@ -27,7 +27,7 @@ public interface FunctionBundle
 
     FunctionDependencyDeclaration getFunctionDependencies(FunctionId functionId, BoundSignature boundSignature);
 
-    FunctionInvoker getScalarFunctionInvoker(
+    ScalarFunctionImplementation getScalarFunctionImplementation(
             FunctionId functionId,
             BoundSignature boundSignature,
             FunctionDependencies functionDependencies,
