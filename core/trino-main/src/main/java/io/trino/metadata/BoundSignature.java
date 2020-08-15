@@ -74,7 +74,7 @@ public class BoundSignature
     {
         return Signature.builder()
                 .name(name)
-                .returnType(returnType.getTypeSignature())
+                .returnType(returnType)
                 .argumentTypes(argumentTypes.stream()
                         .map(Type::getTypeSignature)
                         .collect(toImmutableList()))

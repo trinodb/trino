@@ -38,8 +38,6 @@ import java.lang.invoke.MethodHandles;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.metadata.Signature.comparableTypeParameter;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
@@ -68,13 +66,14 @@ public class MapAggregationFunction
     {
         super(
                 new FunctionMetadata(
-                        new Signature(
-                                NAME,
-                                ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
-                                ImmutableList.of(),
-                                mapType(new TypeSignature("K"), new TypeSignature("V")),
-                                ImmutableList.of(new TypeSignature("K"), new TypeSignature("V")),
-                                false),
+                        Signature.builder()
+                                .name(NAME)
+                                .comparableTypeParameter("K")
+                                .typeVariable("V")
+                                .returnType(mapType(new TypeSignature("K"), new TypeSignature("V")))
+                                .argumentType(new TypeSignature("K"))
+                                .argumentType(new TypeSignature("V"))
+                                .build(),
                         new FunctionNullability(true, ImmutableList.of(false, true)),
                         false,
                         true,

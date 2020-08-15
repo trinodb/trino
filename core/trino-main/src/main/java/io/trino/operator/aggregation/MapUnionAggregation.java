@@ -38,8 +38,6 @@ import java.lang.invoke.MethodHandles;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.metadata.Signature.comparableTypeParameter;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
@@ -68,13 +66,13 @@ public class MapUnionAggregation
     {
         super(
                 new FunctionMetadata(
-                        new Signature(
-                                NAME,
-                                ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
-                                ImmutableList.of(),
-                                mapType(new TypeSignature("K"), new TypeSignature("V")),
-                                ImmutableList.of(mapType(new TypeSignature("K"), new TypeSignature("V"))),
-                                false),
+                        Signature.builder()
+                                .name(NAME)
+                                .comparableTypeParameter("K")
+                                .typeVariable("V")
+                                .returnType(mapType(new TypeSignature("K"), new TypeSignature("V")))
+                                .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V")))
+                                .build(),
                         new FunctionNullability(true, ImmutableList.of(false)),
                         false,
                         true,

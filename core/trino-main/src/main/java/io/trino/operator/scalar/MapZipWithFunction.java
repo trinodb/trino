@@ -33,7 +33,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -54,16 +53,17 @@ public final class MapZipWithFunction
     private MapZipWithFunction()
     {
         super(new FunctionMetadata(
-                new Signature(
-                        "map_zip_with",
-                        ImmutableList.of(typeVariable("K"), typeVariable("V1"), typeVariable("V2"), typeVariable("V3")),
-                        ImmutableList.of(),
-                        mapType(new TypeSignature("K"), new TypeSignature("V3")),
-                        ImmutableList.of(
-                                mapType(new TypeSignature("K"), new TypeSignature("V1")),
-                                mapType(new TypeSignature("K"), new TypeSignature("V2")),
-                                functionType(new TypeSignature("K"), new TypeSignature("V1"), new TypeSignature("V2"), new TypeSignature("V3"))),
-                        false),
+                Signature.builder()
+                        .name("map_zip_with")
+                        .typeVariable("K")
+                        .typeVariable("V1")
+                        .typeVariable("V2")
+                        .typeVariable("V3")
+                        .returnType(mapType(new TypeSignature("K"), new TypeSignature("V3")))
+                        .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V1")))
+                        .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V2")))
+                        .argumentType(functionType(new TypeSignature("K"), new TypeSignature("V1"), new TypeSignature("V2"), new TypeSignature("V3")))
+                        .build(),
                 new FunctionNullability(false, ImmutableList.of(false, false, false)),
                 false,
                 false,

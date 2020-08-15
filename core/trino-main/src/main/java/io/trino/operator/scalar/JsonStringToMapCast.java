@@ -22,8 +22,6 @@ import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.type.TypeSignature;
 
 import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.comparableTypeParameter;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.operator.scalar.JsonToMapCast.JSON_TO_MAP;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -37,13 +35,13 @@ public final class JsonStringToMapCast
     private JsonStringToMapCast()
     {
         super(new FunctionMetadata(
-                new Signature(
-                        JSON_STRING_TO_MAP_NAME,
-                        ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
-                        ImmutableList.of(),
-                        mapType(new TypeSignature("K"), new TypeSignature("V")),
-                        ImmutableList.of(VARCHAR.getTypeSignature()),
-                        false),
+                Signature.builder()
+                        .name(JSON_STRING_TO_MAP_NAME)
+                        .comparableTypeParameter("K")
+                        .typeVariable("V")
+                        .returnType(mapType(new TypeSignature("K"), new TypeSignature("V")))
+                        .argumentType(VARCHAR)
+                        .build(),
                 new FunctionNullability(true, ImmutableList.of(false)),
                 true,
                 true,

@@ -13,11 +13,10 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionInvoker;
+import io.trino.metadata.Signature;
 import io.trino.metadata.SqlOperator;
-import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
@@ -25,7 +24,7 @@ import io.trino.spi.type.TypeSignature;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.trino.metadata.Signature.orderableTypeParameter;
+import static io.trino.spi.function.OperatorType.COMPARISON_UNORDERED_FIRST;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static java.util.Objects.requireNonNull;
 
@@ -36,11 +35,13 @@ public class GenericComparisonUnorderedFirstOperator
 
     public GenericComparisonUnorderedFirstOperator(TypeOperators typeOperators)
     {
-        super(OperatorType.COMPARISON_UNORDERED_FIRST,
-                ImmutableList.of(orderableTypeParameter("T")),
-                ImmutableList.of(),
-                INTEGER.getTypeSignature(),
-                ImmutableList.of(new TypeSignature("T"), new TypeSignature("T")),
+        super(Signature.builder()
+                        .operatorType(COMPARISON_UNORDERED_FIRST)
+                        .orderableTypeParameter("T")
+                        .returnType(INTEGER)
+                        .argumentType(new TypeSignature("T"))
+                        .argumentType(new TypeSignature("T"))
+                        .build(),
                 false);
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
     }

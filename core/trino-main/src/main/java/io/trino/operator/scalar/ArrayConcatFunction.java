@@ -33,7 +33,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -56,13 +55,13 @@ public final class ArrayConcatFunction
     private ArrayConcatFunction()
     {
         super(new FunctionMetadata(
-                new Signature(
-                        FUNCTION_NAME,
-                        ImmutableList.of(typeVariable("E")),
-                        ImmutableList.of(),
-                        arrayType(new TypeSignature("E")),
-                        ImmutableList.of(arrayType(new TypeSignature("E"))),
-                        true),
+                Signature.builder()
+                        .name(FUNCTION_NAME)
+                        .typeVariable("E")
+                        .returnType(arrayType(new TypeSignature("E")))
+                        .argumentType(arrayType(new TypeSignature("E")))
+                        .variableArity()
+                        .build(),
                 new FunctionNullability(false, ImmutableList.of(false)),
                 false,
                 true,

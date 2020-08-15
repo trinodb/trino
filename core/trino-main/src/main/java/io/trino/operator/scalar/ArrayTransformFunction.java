@@ -56,7 +56,6 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.newInstance;
 import static io.airlift.bytecode.expression.BytecodeExpressions.subtract;
 import static io.airlift.bytecode.instruction.VariableInstruction.incrementVariable;
 import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -76,15 +75,14 @@ public final class ArrayTransformFunction
     private ArrayTransformFunction()
     {
         super(new FunctionMetadata(
-                new Signature(
-                        "transform",
-                        ImmutableList.of(typeVariable("T"), typeVariable("U")),
-                        ImmutableList.of(),
-                        arrayType(new TypeSignature("U")),
-                        ImmutableList.of(
-                                arrayType(new TypeSignature("T")),
-                                functionType(new TypeSignature("T"), new TypeSignature("U"))),
-                        false),
+                Signature.builder()
+                        .name("transform")
+                        .typeVariable("T")
+                        .typeVariable("U")
+                        .returnType(arrayType(new TypeSignature("U")))
+                        .argumentType(arrayType(new TypeSignature("T")))
+                        .argumentType(functionType(new TypeSignature("T"), new TypeSignature("U")))
+                        .build(),
                 new FunctionNullability(false, ImmutableList.of(false, false)),
                 false,
                 false,

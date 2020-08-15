@@ -16,13 +16,13 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.BoundSignature;
+import io.trino.metadata.Signature;
 import io.trino.metadata.SqlOperator;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.OperatorType.CAST;
@@ -37,11 +37,12 @@ public final class CastFromUnknownOperator
 
     public CastFromUnknownOperator()
     {
-        super(CAST,
-                ImmutableList.of(typeVariable("E")),
-                ImmutableList.of(),
-                new TypeSignature("E"),
-                ImmutableList.of(UNKNOWN.getTypeSignature()),
+        super(Signature.builder()
+                        .operatorType(CAST)
+                        .typeVariable("E")
+                        .returnType(new TypeSignature("E"))
+                        .argumentType(UNKNOWN)
+                        .build(),
                 false);
     }
 

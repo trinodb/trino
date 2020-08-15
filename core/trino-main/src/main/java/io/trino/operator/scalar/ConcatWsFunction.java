@@ -94,13 +94,13 @@ public final class ConcatWsFunction
     public ConcatWsFunction()
     {
         super(new FunctionMetadata(
-                new Signature(
-                        "concat_ws",
-                        ImmutableList.of(),
-                        ImmutableList.of(),
-                        VARCHAR.getTypeSignature(),
-                        ImmutableList.of(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()),
-                        true),
+                Signature.builder()
+                        .name("concat_ws")
+                        .returnType(VARCHAR)
+                        .argumentType(VARCHAR)
+                        .argumentType(VARCHAR)
+                        .variableArity()
+                        .build(),
                 new FunctionNullability(false, ImmutableList.of(false, true)),
                 false,
                 true,

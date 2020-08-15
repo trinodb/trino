@@ -42,10 +42,11 @@ public final class GenericLongFunction
     GenericLongFunction(String suffix, LongUnaryOperator longUnaryOperator)
     {
         super(new FunctionMetadata(
-                new Signature(
-                        "generic_long_" + requireNonNull(suffix, "suffix is null"),
-                        BIGINT.getTypeSignature(),
-                        BIGINT.getTypeSignature()),
+                Signature.builder()
+                        .name("generic_long_" + requireNonNull(suffix, "suffix is null"))
+                        .returnType(BIGINT)
+                        .argumentType(BIGINT)
+                        .build(),
                 new FunctionNullability(false, ImmutableList.of(false)),
                 true,
                 true,

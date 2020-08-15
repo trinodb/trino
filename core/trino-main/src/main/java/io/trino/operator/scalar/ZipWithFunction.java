@@ -32,7 +32,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -54,16 +53,16 @@ public final class ZipWithFunction
     private ZipWithFunction()
     {
         super(new FunctionMetadata(
-                new Signature(
-                        "zip_with",
-                        ImmutableList.of(typeVariable("T"), typeVariable("U"), typeVariable("R")),
-                        ImmutableList.of(),
-                        arrayType(new TypeSignature("R")),
-                        ImmutableList.of(
-                                arrayType(new TypeSignature("T")),
-                                arrayType(new TypeSignature("U")),
-                                functionType(new TypeSignature("T"), new TypeSignature("U"), new TypeSignature("R"))),
-                        false),
+                Signature.builder()
+                        .name("zip_with")
+                        .typeVariable("T")
+                        .typeVariable("U")
+                        .typeVariable("R")
+                        .returnType(arrayType(new TypeSignature("R")))
+                        .argumentType(arrayType(new TypeSignature("T")))
+                        .argumentType(arrayType(new TypeSignature("U")))
+                        .argumentType(functionType(new TypeSignature("T"), new TypeSignature("U"), new TypeSignature("R")))
+                        .build(),
                 new FunctionNullability(false, ImmutableList.of(false, false, false)),
                 false,
                 false,

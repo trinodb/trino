@@ -34,7 +34,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.metadata.Signature.comparableTypeParameter;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.util.Reflection.methodHandle;
@@ -55,13 +54,12 @@ public class Histogram
     {
         super(
                 new FunctionMetadata(
-                        new Signature(
-                                NAME,
-                                ImmutableList.of(comparableTypeParameter("K")),
-                                ImmutableList.of(),
-                                mapType(new TypeSignature("K"), BIGINT.getTypeSignature()),
-                                ImmutableList.of(new TypeSignature("K")),
-                                false),
+                        Signature.builder()
+                                .name(NAME)
+                                .comparableTypeParameter("K")
+                                .returnType(mapType(new TypeSignature("K"), BIGINT.getTypeSignature()))
+                                .argumentType(new TypeSignature("K"))
+                                .build(),
                         new FunctionNullability(true, ImmutableList.of(false)),
                         false,
                         true,

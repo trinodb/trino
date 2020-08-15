@@ -33,7 +33,6 @@ import io.trino.spi.function.AccumulatorStateSerializer;
 import io.trino.spi.type.StandardTypes;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.spi.type.TypeSignatureParameter;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
@@ -49,6 +48,7 @@ import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.block.PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeSignatureParameter.typeVariable;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.String.format;
@@ -69,18 +69,15 @@ public class ListaggAggregationFunction
     {
         super(
                 new FunctionMetadata(
-                        new Signature(
-                                NAME,
-                                ImmutableList.of(),
-                                ImmutableList.of(),
-                                VARCHAR.getTypeSignature(),
-                                ImmutableList.of(
-                                        new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.typeVariable("v")),
-                                        new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.typeVariable("d")),
-                                        BOOLEAN.getTypeSignature(),
-                                        new TypeSignature(StandardTypes.VARCHAR, TypeSignatureParameter.typeVariable("f")),
-                                        BOOLEAN.getTypeSignature()),
-                                false),
+                        Signature.builder()
+                                .name(NAME)
+                                .returnType(VARCHAR)
+                                .argumentType(new TypeSignature(StandardTypes.VARCHAR, typeVariable("v")))
+                                .argumentType(new TypeSignature(StandardTypes.VARCHAR, typeVariable("d")))
+                                .argumentType(BOOLEAN)
+                                .argumentType(new TypeSignature(StandardTypes.VARCHAR, typeVariable("f")))
+                                .argumentType(BOOLEAN)
+                                .build(),
                         new FunctionNullability(
                         true,
                         ImmutableList.of(true, false, false, false, false)),

@@ -55,8 +55,8 @@ public class TestPolymorphicScalarFunction
     private static final FunctionManager FUNCTION_MANAGER = createTestingFunctionManager();
     private static final Signature SIGNATURE = Signature.builder()
             .name("foo")
-            .returnType(BIGINT.getTypeSignature())
-            .argumentTypes(new TypeSignature("varchar", typeVariable("x")))
+            .returnType(BIGINT)
+            .argumentType(new TypeSignature("varchar", typeVariable("x")))
             .build();
     private static final int INPUT_VARCHAR_LENGTH = 10;
     private static final Slice INPUT_SLICE = Slices.allocate(INPUT_VARCHAR_LENGTH);
@@ -74,8 +74,9 @@ public class TestPolymorphicScalarFunction
     {
         Signature signature = Signature.builder()
                 .operatorType(IS_DISTINCT_FROM)
-                .argumentTypes(DECIMAL_SIGNATURE, DECIMAL_SIGNATURE)
-                .returnType(BOOLEAN.getTypeSignature())
+                .argumentType(DECIMAL_SIGNATURE)
+                .argumentType(DECIMAL_SIGNATURE)
+                .returnType(BOOLEAN)
                 .build();
 
         SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(TestMethods.class)
@@ -166,7 +167,7 @@ public class TestPolymorphicScalarFunction
         Signature signature = Signature.builder()
                 .name("foo")
                 .returnType(new TypeSignature("varchar", typeVariable("x")))
-                .argumentTypes(new TypeSignature("varchar", typeVariable("x")))
+                .argumentType(new TypeSignature("varchar", typeVariable("x")))
                 .build();
 
         SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(TestMethods.class)
@@ -191,9 +192,9 @@ public class TestPolymorphicScalarFunction
     {
         Signature signature = Signature.builder()
                 .name("foo")
-                .typeVariableConstraints(comparableWithVariadicBound("V", "ROW"))
+                .typeVariableConstraint(comparableWithVariadicBound("V", "ROW"))
                 .returnType(new TypeSignature("V"))
-                .argumentTypes(new TypeSignature("V"))
+                .argumentType(new TypeSignature("V"))
                 .build();
 
         SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(TestMethods.class)
@@ -218,7 +219,7 @@ public class TestPolymorphicScalarFunction
         Signature signature = Signature.builder()
                 .operatorType(ADD)
                 .returnType(new TypeSignature("varchar", typeVariable("x")))
-                .argumentTypes(new TypeSignature("varchar", typeVariable("x")))
+                .argumentType(new TypeSignature("varchar", typeVariable("x")))
                 .build();
 
         SqlScalarFunction function = new PolymorphicScalarFunctionBuilder(TestMethods.class)

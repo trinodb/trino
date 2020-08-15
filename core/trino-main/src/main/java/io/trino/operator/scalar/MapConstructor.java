@@ -36,8 +36,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.comparableTypeParameter;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -46,6 +44,7 @@ import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.type.TypeSignature.arrayType;
+import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.spi.type.TypeUtils.readNativeValue;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.Failures.internalError;
@@ -72,13 +71,14 @@ public final class MapConstructor
     public MapConstructor()
     {
         super(new FunctionMetadata(
-                new Signature(
-                        "map",
-                        ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
-                        ImmutableList.of(),
-                        TypeSignature.mapType(new TypeSignature("K"), new TypeSignature("V")),
-                        ImmutableList.of(arrayType(new TypeSignature("K")), arrayType(new TypeSignature("V"))),
-                        false),
+                Signature.builder()
+                        .name("map")
+                        .comparableTypeParameter("K")
+                        .typeVariable("V")
+                        .returnType(mapType(new TypeSignature("K"), new TypeSignature("V")))
+                        .argumentType(arrayType(new TypeSignature("K")))
+                        .argumentType(arrayType(new TypeSignature("V")))
+                        .build(),
                 new FunctionNullability(false, ImmutableList.of(false, false)),
                 false,
                 true,

@@ -22,7 +22,6 @@ import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.type.TypeSignature;
 
 import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.withVariadicBound;
 import static io.trino.operator.scalar.JsonToRowCast.JSON_TO_ROW;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 
@@ -35,13 +34,12 @@ public final class JsonStringToRowCast
     private JsonStringToRowCast()
     {
         super(new FunctionMetadata(
-                new Signature(
-                        JSON_STRING_TO_ROW_NAME,
-                        ImmutableList.of(withVariadicBound("T", "row")),
-                        ImmutableList.of(),
-                        new TypeSignature("T"),
-                        ImmutableList.of(VARCHAR.getTypeSignature()),
-                        false),
+                Signature.builder()
+                        .name(JSON_STRING_TO_ROW_NAME)
+                        .variadicTypeParameter("T", "row")
+                        .returnType(new TypeSignature("T"))
+                        .argumentType(VARCHAR)
+                        .build(),
                 new FunctionNullability(true, ImmutableList.of(false)),
                 true,
                 true,
