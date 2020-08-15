@@ -66,7 +66,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.operator.aggregation.AggregationImplementation.Parser.parseImplementation;
+import static io.trino.operator.aggregation.ParametricAggregationImplementation.Parser.parseImplementation;
 import static io.trino.operator.aggregation.state.StateCompiler.generateInOutStateFactory;
 import static io.trino.operator.aggregation.state.StateCompiler.generateStateFactory;
 import static io.trino.operator.aggregation.state.StateCompiler.generateStateSerializer;
@@ -107,11 +107,11 @@ public final class AggregationFromAnnotationsParser
             }
 
             // Input functions can have either an exact signature, or generic/calculate signature
-            List<AggregationImplementation> exactImplementations = new ArrayList<>();
-            List<AggregationImplementation> nonExactImplementations = new ArrayList<>();
+            List<ParametricAggregationImplementation> exactImplementations = new ArrayList<>();
+            List<ParametricAggregationImplementation> nonExactImplementations = new ArrayList<>();
             for (Method inputFunction : getInputFunctions(aggregationDefinition, stateDetails)) {
                 Optional<Method> removeInputFunction = getRemoveInputFunction(aggregationDefinition, inputFunction);
-                AggregationImplementation implementation = parseImplementation(
+                ParametricAggregationImplementation implementation = parseImplementation(
                         aggregationDefinition,
                         header.getName(),
                         stateDetails,
@@ -141,13 +141,13 @@ public final class AggregationFromAnnotationsParser
             String name,
             AggregationHeader header,
             List<AccumulatorStateDetails<?>> stateDetails,
-            List<AggregationImplementation> exactImplementations,
-            List<AggregationImplementation> nonExactImplementations)
+            List<ParametricAggregationImplementation> exactImplementations,
+            List<ParametricAggregationImplementation> nonExactImplementations)
     {
         ImmutableList.Builder<ParametricAggregation> functions = ImmutableList.builder();
 
         // create a separate function for each exact implementation
-        for (AggregationImplementation exactImplementation : exactImplementations) {
+        for (ParametricAggregationImplementation exactImplementation : exactImplementations) {
             functions.add(new ParametricAggregation(
                     exactImplementation.getSignature().withName(name),
                     header,
@@ -157,9 +157,9 @@ public final class AggregationFromAnnotationsParser
 
         // if there are non-exact functions, create a single generic/calculated function using these implementations
         if (!nonExactImplementations.isEmpty()) {
-            ParametricImplementationsGroup.Builder<AggregationImplementation> implementationsBuilder = ParametricImplementationsGroup.builder();
+            ParametricImplementationsGroup.Builder<ParametricAggregationImplementation> implementationsBuilder = ParametricImplementationsGroup.builder();
             nonExactImplementations.forEach(implementationsBuilder::addImplementation);
-            ParametricImplementationsGroup<AggregationImplementation> implementations = implementationsBuilder.build();
+            ParametricImplementationsGroup<ParametricAggregationImplementation> implementations = implementationsBuilder.build();
             functions.add(new ParametricAggregation(
                     implementations.getSignature().withName(name),
                     header,
