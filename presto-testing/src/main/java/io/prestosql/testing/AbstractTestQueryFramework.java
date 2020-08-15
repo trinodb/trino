@@ -15,6 +15,7 @@ package io.prestosql.testing;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.io.Closer;
 import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.cost.CostCalculator;
@@ -39,13 +40,17 @@ import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
 import io.prestosql.sql.tree.ExplainType;
 import io.prestosql.testing.TestingAccessControlManager.TestingPrivilege;
+import io.prestosql.testing.sql.SqlExecutor;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
 import org.weakref.jmx.MBeanExporter;
 import org.weakref.jmx.testing.TestingMBeanServer;
 
+import java.io.IOException;
+import java.security.SecureRandom;
 import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
@@ -59,6 +64,9 @@ import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.prestosql.sql.ParsingUtil.createParsingOptions;
 import static io.prestosql.sql.SqlFormatter.formatSql;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
+import static java.lang.Character.MAX_RADIX;
+import static java.lang.Math.abs;
+import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
 import static org.testng.Assert.assertEquals;
@@ -66,9 +74,14 @@ import static org.testng.Assert.fail;
 
 public abstract class AbstractTestQueryFramework
 {
+    private static final SecureRandom random = new SecureRandom();
+    private static final int RANDOM_SUFFIX_LENGTH = 5;
+    private static final String NAME_PLACEHOLDER = "%NAME%";
+
     private QueryRunner queryRunner;
     private H2QueryRunner h2QueryRunner;
     private SqlParser sqlParser;
+    private final Closer closer = Closer.create();
 
     @BeforeClass
     public void init()
@@ -81,6 +94,13 @@ public abstract class AbstractTestQueryFramework
 
     protected abstract QueryRunner createQueryRunner()
             throws Exception;
+
+    @AfterMethod
+    public void cleanupAfterTest()
+            throws IOException
+    {
+        closer.close();
+    }
 
     @AfterClass(alwaysRun = true)
     public void close()
@@ -383,5 +403,65 @@ public abstract class AbstractTestQueryFramework
     {
         checkState(queryRunner != null, "queryRunner not set");
         return queryRunner;
+    }
+
+    protected final String view(String viewDefinition)
+    {
+        return view(getSession(), viewDefinition);
+    }
+
+    protected final String view(Session session, String viewDefinition)
+    {
+        return view(sql -> assertUpdate(session, sql), viewDefinition);
+    }
+
+    protected final String view(SqlExecutor sqlExecutor, String viewDefinition)
+    {
+        return withTemporary(sqlExecutor, "CREATE VIEW" + NAME_PLACEHOLDER + " AS " + viewDefinition, "DROP VIEW " + NAME_PLACEHOLDER);
+    }
+
+    protected final String table(String tableDefinition)
+    {
+        return table(getSession(), tableDefinition);
+    }
+
+    protected final String table(Session session, String tableDefinition)
+    {
+        return table(sql -> assertUpdate(session, sql), tableDefinition);
+    }
+
+    protected final String table(SqlExecutor sqlExecutor, String tableDefinition)
+    {
+        return withTemporary(sqlExecutor, "CREATE TABLE " + NAME_PLACEHOLDER + " " + tableDefinition, "DROP TABLE " + NAME_PLACEHOLDER);
+    }
+
+    protected final String withTemporary(@Language("SQL") String create, @Language("SQL") String drop)
+    {
+        return withTemporary(getSession(), create, drop);
+    }
+
+    protected final String withTemporary(Session session, @Language("SQL") String create, @Language("SQL") String drop)
+    {
+        return withTemporary(sql -> assertUpdate(session, sql), create, drop);
+    }
+
+    /**
+     * Creates a temporary test object, that will be dropped after test execution.
+     * Use %NAME% as name placeholder
+     *
+     * @return name of created object
+     */
+    protected final String withTemporary(SqlExecutor sqlExecutor, @Language("SQL") String create, @Language("SQL") String drop)
+    {
+        String name = randomName();
+        sqlExecutor.execute(create.replace(NAME_PLACEHOLDER, name));
+        closer.register(() -> sqlExecutor.execute(drop.replace(NAME_PLACEHOLDER, name)));
+        return name;
+    }
+
+    public static String randomName()
+    {
+        String randomSuffix = Long.toString(abs(random.nextLong()), MAX_RADIX);
+        return "test_" + randomSuffix.substring(0, min(RANDOM_SUFFIX_LENGTH, randomSuffix.length()));
     }
 }

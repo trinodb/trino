@@ -28,7 +28,6 @@ import io.prestosql.testing.datatype.DataType;
 import io.prestosql.testing.datatype.DataTypeTest;
 import io.prestosql.testing.sql.JdbcSqlExecutor;
 import io.prestosql.testing.sql.PrestoSqlExecutor;
-import io.prestosql.testing.sql.TestTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -455,26 +454,31 @@ public class TestOracleTypes
     @Test
     public void testRoundingOfUnspecifiedNumber()
     {
-        try (TestTable table = oracleTable("rounding", "col NUMBER", "(0.123456789)")) {
-            assertQuery(number(9), "SELECT * FROM " + table.getName(), "VALUES 0.123456789");
-            assertQuery(number(HALF_EVEN, 6), "SELECT * FROM " + table.getName(), "VALUES 0.123457");
-            assertQuery(number(HALF_EVEN, 3), "SELECT * FROM " + table.getName(), "VALUES 0.123");
-            assertQueryFails(number(UNNECESSARY, 3), "SELECT * FROM " + table.getName(), "Rounding necessary");
-        }
+        String table = oracleTable("col NUMBER", "(0.123456789)");
+        assertQuery(number(9), "SELECT * FROM " + table, "VALUES 0.123456789");
+        assertQuery(number(HALF_EVEN, 6), "SELECT * FROM " + table, "VALUES 0.123457");
+        assertQuery(number(HALF_EVEN, 3), "SELECT * FROM " + table, "VALUES 0.123");
+        assertQueryFails(number(UNNECESSARY, 3), "SELECT * FROM " + table, "Rounding necessary");
+    }
 
-        try (TestTable table = oracleTable("rounding", "col NUMBER", "(123456789012345678901234567890.123456789)")) {
-            assertQueryFails(number(9), "SELECT * FROM " + table.getName(), "Decimal overflow");
-            assertQuery(number(HALF_EVEN, 8), "SELECT * FROM " + table.getName(), "VALUES 123456789012345678901234567890.12345679");
-            assertQuery(number(HALF_EVEN, 6), "SELECT * FROM " + table.getName(), "VALUES 123456789012345678901234567890.123457");
-            assertQuery(number(HALF_EVEN, 3), "SELECT * FROM " + table.getName(), "VALUES 123456789012345678901234567890.123");
-            assertQueryFails(number(UNNECESSARY, 3), "SELECT * FROM " + table.getName(), "Rounding necessary");
-        }
+    @Test
+    public void testRoundingOfUnspecifiedNumberWithRounding()
+    {
+        String table = oracleTable("col NUMBER", "(123456789012345678901234567890.123456789)");
+        assertQueryFails(number(9), "SELECT * FROM " + table, "Decimal overflow");
+        assertQuery(number(HALF_EVEN, 8), "SELECT * FROM " + table, "VALUES 123456789012345678901234567890.12345679");
+        assertQuery(number(HALF_EVEN, 6), "SELECT * FROM " + table, "VALUES 123456789012345678901234567890.123457");
+        assertQuery(number(HALF_EVEN, 3), "SELECT * FROM " + table, "VALUES 123456789012345678901234567890.123");
+        assertQueryFails(number(UNNECESSARY, 3), "SELECT * FROM " + table, "Rounding necessary");
+    }
 
-        try (TestTable table = oracleTable("rounding", "col NUMBER", "(123456789012345678901234567890123456789)")) {
-            assertQueryFails(number(0), "SELECT * FROM " + table.getName(), "Decimal overflow");
-            assertQueryFails(number(HALF_EVEN, 8), "SELECT * FROM " + table.getName(), "Decimal overflow");
-            assertQueryFails(number(HALF_EVEN, 0), "SELECT * FROM " + table.getName(), "Decimal overflow");
-        }
+    @Test
+    public void testRoundingOfUnspecifiedNumberWithOverflow()
+    {
+        String table = oracleTable("col NUMBER", "(123456789012345678901234567890123456789)");
+        assertQueryFails(number(0), "SELECT * FROM " + table, "Decimal overflow");
+        assertQueryFails(number(HALF_EVEN, 8), "SELECT * FROM " + table, "Decimal overflow");
+        assertQueryFails(number(HALF_EVEN, 0), "SELECT * FROM " + table, "Decimal overflow");
     }
 
     @Test
@@ -506,33 +510,40 @@ public class TestOracleTypes
     @Test
     public void testHighNumberScale()
     {
-        try (TestTable table = oracleTable("highNumberScale", "col NUMBER(38, 40)", "(0.0012345678901234567890123456789012345678)")) {
-            assertQueryFails(number(UNNECESSARY), "SELECT * FROM " + table.getName(), NO_SUPPORTED_COLUMNS);
-            assertQuery(number(HALF_EVEN), "SELECT * FROM " + table.getName(), "VALUES 0.00123456789012345678901234567890123457");
-            assertQuery(numberConvertToVarchar(), "SELECT * FROM " + table.getName(), "VALUES '1.2345678901234567890123456789012345678E-03'");
-        }
+        String table = oracleTable("col NUMBER(38, 40)", "(0.0012345678901234567890123456789012345678)");
+        assertQueryFails(number(UNNECESSARY), "SELECT * FROM " + table, NO_SUPPORTED_COLUMNS);
+        assertQuery(number(HALF_EVEN), "SELECT * FROM " + table, "VALUES 0.00123456789012345678901234567890123457");
+        assertQuery(numberConvertToVarchar(), "SELECT * FROM " + table, "VALUES '1.2345678901234567890123456789012345678E-03'");
+    }
 
-        try (TestTable table = oracleTable("highNumberScale", "col NUMBER(18, 40)", "(0.0000000000000000000000123456789012345678)")) {
-            assertQueryFails(number(UNNECESSARY), "SELECT * FROM " + table.getName(), NO_SUPPORTED_COLUMNS);
-            assertQuery(number(HALF_EVEN), "SELECT * FROM " + table.getName(), "VALUES 0.00000000000000000000001234567890123457");
-        }
+    @Test
+    public void testHighNumberScaleWithRounding()
+    {
+        String table = oracleTable("col NUMBER(18, 40)", "(0.0000000000000000000000123456789012345678)");
+        assertQueryFails(number(UNNECESSARY), "SELECT * FROM " + table, NO_SUPPORTED_COLUMNS);
+        assertQuery(number(HALF_EVEN), "SELECT * FROM " + table, "VALUES 0.00000000000000000000001234567890123457");
+    }
 
-        try (TestTable table = oracleTable("highNumberScale", "col NUMBER(38, 80)", "(0.00000000000000000000000000000000000000000000012345678901234567890123456789012345678)")) {
-            assertQuery(number(HALF_EVEN), "SELECT * FROM " + table.getName(), "VALUES 0");
-            assertQuery(numberConvertToVarchar(), "SELECT * FROM " + table.getName(), "VALUES '1.2345678901234567890123456789012346E-46'");
-        }
+    @Test
+    public void testHighNumberScaleWithConvertToVarchar()
+    {
+        String table = oracleTable("col NUMBER(38, 80)", "(0.00000000000000000000000000000000000000000000012345678901234567890123456789012345678)");
+        assertQuery(number(HALF_EVEN), "SELECT * FROM " + table, "VALUES 0");
+        assertQuery(numberConvertToVarchar(), "SELECT * FROM " + table, "VALUES '1.2345678901234567890123456789012346E-46'");
+    }
+
+    @Test
+    public void testNumberWithHiveNegativeScaleReadMappingConvertToVarchar()
+    {
+        String table = oracleTable("col NUMBER(38, -60)", "(1234567890123456789012345678901234567000000000000000000000000000000000000000000000000000000000000)");
+        assertQuery(numberConvertToVarchar(), "SELECT * FROM " + table, "VALUES '1.234567890123456789012345678901234567E96'");
     }
 
     @Test
     public void testNumberWithHiveNegativeScaleReadMapping()
     {
-        try (TestTable table = oracleTable("highNegativeNumberScale", "col NUMBER(38, -60)", "(1234567890123456789012345678901234567000000000000000000000000000000000000000000000000000000000000)")) {
-            assertQuery(numberConvertToVarchar(), "SELECT * FROM " + table.getName(), "VALUES '1.234567890123456789012345678901234567E96'");
-        }
-
-        try (TestTable table = oracleTable("highNumberScale", "col NUMBER(18, 60)", "(0.000000000000000000000000000000000000000000000123456789012345678)")) {
-            assertQuery(number(HALF_EVEN), "SELECT * FROM " + table.getName(), "VALUES 0");
-        }
+        String table = oracleTable("col NUMBER(18, 60)", "(0.000000000000000000000000000000000000000000000123456789012345678)");
+        assertQuery(number(HALF_EVEN), "SELECT * FROM " + table, "VALUES 0");
     }
 
     private Session number(int scale)
@@ -567,9 +578,9 @@ public class TestOracleTypes
     @Test
     public void testSpecialNumberFormats()
     {
-        oracleServer.execute("CREATE TABLE test (num1 number)");
-        oracleServer.execute("INSERT INTO test VALUES (12345678901234567890.12345678901234567890123456789012345678)");
-        assertQuery(number(HALF_UP, 10), "SELECT * FROM test", "VALUES (12345678901234567890.1234567890)");
+        String table = table(getSqlExecutor(), "(num1 number)");
+        oracleServer.execute("INSERT INTO " + table + " VALUES (12345678901234567890.12345678901234567890123456789012345678)");
+        assertQuery(number(HALF_UP, 10), "SELECT * FROM " + table, "VALUES (12345678901234567890.1234567890)");
     }
 
     @Test
@@ -838,9 +849,7 @@ public class TestOracleTypes
      */
     private void testUnsupportedOracleType(String dataTypeName)
     {
-        try (TestTable table = new TestTable(getSqlExecutor(), "unsupported_type", format("(unsupported_type %s)", dataTypeName))) {
-            assertQueryFails("SELECT * FROM " + table.getName(), NO_SUPPORTED_COLUMNS);
-        }
+        assertQueryFails("SELECT * FROM " + table(getSqlExecutor(), format("(unsupported_type %s)", dataTypeName)), NO_SUPPORTED_COLUMNS);
     }
 
     private DataSetup oracleCreateAndInsert(String tableNamePrefix)
@@ -932,8 +941,11 @@ public class TestOracleTypes
         verify(zone.getRules().getValidOffsets(dateTime).size() == 2, "Expected %s to be doubled in %s", dateTime, zone);
     }
 
-    private TestTable oracleTable(String tableName, String schema, String data)
+    private String oracleTable(String schema, String data)
     {
-        return new TestTable(getSqlExecutor(), tableName, format("(%s)", schema), ImmutableList.of(data));
+        JdbcSqlExecutor executor = getSqlExecutor();
+        String table = table(executor, format("(%s)", schema));
+        executor.execute(format("INSERT INTO %s VALUES (%s)", table, data));
+        return table;
     }
 }
