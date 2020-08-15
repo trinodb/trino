@@ -16,12 +16,12 @@ package io.trino.operator.scalar;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonToken;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.BoundSignature;
+import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Signature;
-import io.trino.metadata.SqlOperator;
+import io.trino.metadata.SqlScalarFunction;
 import io.trino.metadata.TypeVariableConstraint;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -49,22 +49,27 @@ import static io.trino.util.Reflection.methodHandle;
 import static java.lang.String.format;
 
 public class JsonToRowCast
-        extends SqlOperator
+        extends SqlScalarFunction
 {
     public static final JsonToRowCast JSON_TO_ROW = new JsonToRowCast();
     private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToRowCast.class, "toRow", RowType.class, BlockBuilderAppender.class, ConnectorSession.class, Slice.class);
 
     private JsonToRowCast()
     {
-        super(Signature.builder()
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
                         .operatorType(CAST)
                         .typeVariableConstraint(
                                 // this is technically a recursive constraint for cast, but TypeRegistry.canCast has explicit handling for json to row cast
-                                new TypeVariableConstraint("T", false, false, "row", ImmutableSet.of(), ImmutableSet.of(JSON.getTypeSignature())))
+                                TypeVariableConstraint.builder("T")
+                                        .variadicBound("row")
+                                        .castableFrom(JSON)
+                                        .build())
                         .returnType(new TypeSignature("T"))
                         .argumentType(JSON)
-                        .build(),
-                true);
+                        .build())
+                .nullable()
+                .build());
     }
 
     @Override

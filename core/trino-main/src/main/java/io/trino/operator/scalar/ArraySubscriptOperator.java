@@ -17,8 +17,9 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.BoundSignature;
+import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Signature;
-import io.trino.metadata.SqlOperator;
+import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.Type;
@@ -38,7 +39,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public class ArraySubscriptOperator
-        extends SqlOperator
+        extends SqlScalarFunction
 {
     public static final ArraySubscriptOperator ARRAY_SUBSCRIPT = new ArraySubscriptOperator();
 
@@ -50,14 +51,16 @@ public class ArraySubscriptOperator
 
     protected ArraySubscriptOperator()
     {
-        super(Signature.builder()
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
                         .operatorType(SUBSCRIPT)
                         .typeVariable("E")
                         .returnType(new TypeSignature("E"))
                         .argumentType(arrayType(new TypeSignature("E")))
                         .argumentType(BIGINT)
-                        .build(),
-                true);
+                        .build())
+                .nullable()
+                .build());
     }
 
     @Override

@@ -18,7 +18,6 @@ import io.trino.array.ObjectBigArray;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata;
@@ -37,7 +36,6 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.Optional;
 
-import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignature.mapType;
@@ -78,20 +76,18 @@ public class MultimapAggregationFunction
     public MultimapAggregationFunction(BlockTypeOperators blockTypeOperators)
     {
         super(
-                new FunctionMetadata(
-                        Signature.builder()
+                FunctionMetadata.aggregateBuilder()
+                        .signature(Signature.builder()
                                 .name(NAME)
                                 .comparableTypeParameter("K")
                                 .typeVariable("V")
                                 .returnType(mapType(new TypeSignature("K"), arrayType(new TypeSignature("V"))))
                                 .argumentType(new TypeSignature("K"))
                                 .argumentType(new TypeSignature("V"))
-                                .build(),
-                        new FunctionNullability(true, ImmutableList.of(false, true)),
-                        false,
-                        true,
-                        "Aggregates all the rows (key/value pairs) into a single multimap",
-                        AGGREGATE),
+                                .build())
+                        .argumentNullability(false, true)
+                        .description("Aggregates all the rows (key/value pairs) into a single multimap")
+                        .build(),
                 new AggregationFunctionMetadata(
                         true,
                         arrayType(rowType(anonymousField(new TypeSignature("V")), anonymousField(new TypeSignature("K"))))));

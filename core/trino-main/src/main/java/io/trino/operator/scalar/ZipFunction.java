@@ -16,9 +16,9 @@ package io.trino.operator.scalar;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
+import io.trino.metadata.TypeVariableConstraint;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.type.ArrayType;
@@ -32,7 +32,6 @@ import java.util.List;
 import java.util.stream.IntStream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.trino.metadata.FunctionKind.SCALAR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.TypeSignature.arrayType;
@@ -64,10 +63,10 @@ public final class ZipFunction
 
     private ZipFunction(List<String> typeParameters)
     {
-        super(new FunctionMetadata(
-                Signature.builder()
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
                         .name("zip")
-                        .typeVariableConstraints(typeParameters.stream().map(Signature::typeVariable).collect(toImmutableList()))
+                        .typeVariableConstraints(typeParameters.stream().map(TypeVariableConstraint::typeVariable).collect(toImmutableList()))
                         .returnType(arrayType(rowType(typeParameters.stream()
                                 .map(TypeSignature::new)
                                 .map(TypeSignatureParameter::anonymousField)
@@ -75,12 +74,9 @@ public final class ZipFunction
                         .argumentTypes(typeParameters.stream()
                                 .map(name -> arrayType(new TypeSignature(name)))
                                 .collect(toImmutableList()))
-                        .build(),
-                new FunctionNullability(false, nCopies(typeParameters.size(), false)),
-                false,
-                true,
-                "Merges the given arrays, element-wise, into a single array of rows.",
-                SCALAR));
+                        .build())
+                .description("Merges the given arrays, element-wise, into a single array of rows.")
+                .build());
     }
 
     @Override

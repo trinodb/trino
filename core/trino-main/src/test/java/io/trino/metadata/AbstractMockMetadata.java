@@ -765,7 +765,11 @@ public abstract class AbstractMockMetadata
     {
         BoundSignature signature = resolvedFunction.getSignature();
         if (signature.getName().equals("rand") && signature.getArgumentTypes().isEmpty()) {
-            return new FunctionMetadata(signature.toSignature(), new FunctionNullability(false, ImmutableList.of()), false, false, "", SCALAR);
+            return FunctionMetadata.scalarBuilder()
+                    .signature(signature.toSignature())
+                    .nondeterministic()
+                    .noDescription()
+                    .build();
         }
         throw new TrinoException(FUNCTION_NOT_FOUND, signature.toString());
     }

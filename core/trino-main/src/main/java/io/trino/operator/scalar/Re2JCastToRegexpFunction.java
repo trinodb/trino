@@ -18,8 +18,9 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.BoundSignature;
+import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Signature;
-import io.trino.metadata.SqlOperator;
+import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
 import io.trino.type.Re2JRegexp;
@@ -37,7 +38,7 @@ import static io.trino.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodHandles.insertArguments;
 
 public class Re2JCastToRegexpFunction
-        extends SqlOperator
+        extends SqlScalarFunction
 {
     private static final MethodHandle METHOD_HANDLE = methodHandle(Re2JCastToRegexpFunction.class, "castToRegexp", int.class, int.class, boolean.class, long.class, Slice.class);
 
@@ -45,24 +46,25 @@ public class Re2JCastToRegexpFunction
     private final int dfaRetries;
     private final boolean padSpaces;
 
-    public static SqlOperator castVarcharToRe2JRegexp(int dfaStatesLimit, int dfaRetries)
+    public static SqlScalarFunction castVarcharToRe2JRegexp(int dfaStatesLimit, int dfaRetries)
     {
         return new Re2JCastToRegexpFunction("varchar(x)", dfaStatesLimit, dfaRetries, false);
     }
 
-    public static SqlOperator castCharToRe2JRegexp(int dfaStatesLimit, int dfaRetries)
+    public static SqlScalarFunction castCharToRe2JRegexp(int dfaStatesLimit, int dfaRetries)
     {
         return new Re2JCastToRegexpFunction("char(x)", dfaStatesLimit, dfaRetries, true);
     }
 
     private Re2JCastToRegexpFunction(String sourceType, int dfaStatesLimit, int dfaRetries, boolean padSpaces)
     {
-        super(Signature.builder()
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
                         .operatorType(CAST)
                         .returnType(RE2J_REGEXP_SIGNATURE)
                         .argumentType(parseTypeSignature(sourceType, ImmutableSet.of("x")))
-                        .build(),
-                false);
+                        .build())
+                .build());
         this.dfaStatesLimit = dfaStatesLimit;
         this.dfaRetries = dfaRetries;
         this.padSpaces = padSpaces;

@@ -30,7 +30,6 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
-import static io.trino.metadata.Signature.comparableWithVariadicBound;
 import static io.trino.metadata.TestPolymorphicScalarFunction.TestMethods.VARCHAR_TO_BIGINT_RETURN_VALUE;
 import static io.trino.metadata.TestPolymorphicScalarFunction.TestMethods.VARCHAR_TO_VARCHAR_RETURN_VALUE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
@@ -192,7 +191,10 @@ public class TestPolymorphicScalarFunction
     {
         Signature signature = Signature.builder()
                 .name("foo")
-                .typeVariableConstraint(comparableWithVariadicBound("V", "ROW"))
+                .typeVariableConstraint(TypeVariableConstraint.builder("V")
+                        .comparableRequired()
+                        .variadicBound("ROW")
+                        .build())
                 .returnType(new TypeSignature("V"))
                 .argumentType(new TypeSignature("V"))
                 .build();

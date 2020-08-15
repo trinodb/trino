@@ -20,8 +20,9 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.BoundSignature;
+import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Signature;
-import io.trino.metadata.SqlOperator;
+import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.MapType;
 import io.trino.spi.type.Type;
@@ -48,7 +49,7 @@ import static io.trino.util.JsonUtil.createJsonGenerator;
 import static io.trino.util.Reflection.methodHandle;
 
 public class MapToJsonCast
-        extends SqlOperator
+        extends SqlScalarFunction
 {
     public static final MapToJsonCast MAP_TO_JSON = new MapToJsonCast(false);
     public static final MapToJsonCast LEGACY_MAP_TO_JSON = new MapToJsonCast(true);
@@ -59,14 +60,15 @@ public class MapToJsonCast
 
     private MapToJsonCast(boolean legacyRowToJson)
     {
-        super(Signature.builder()
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
                         .operatorType(CAST)
                         .castableToTypeParameter("K", VARCHAR.getTypeSignature())
                         .castableToTypeParameter("V", JSON.getTypeSignature())
                         .returnType(JSON)
                         .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V")))
-                        .build(),
-                false);
+                        .build())
+                .build());
         this.legacyRowToJson = legacyRowToJson;
     }
 

@@ -19,7 +19,6 @@ import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata;
@@ -36,7 +35,6 @@ import io.trino.util.MinMaxCompare;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INDEX;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
@@ -67,8 +65,8 @@ public abstract class AbstractMinMaxByNAggregationFunction
     protected AbstractMinMaxByNAggregationFunction(String name, boolean min, String description)
     {
         super(
-                new FunctionMetadata(
-                        Signature.builder()
+                FunctionMetadata.aggregateBuilder()
+                        .signature(Signature.builder()
                                 .name(name)
                                 .typeVariable("V")
                                 .orderableTypeParameter("K")
@@ -76,12 +74,10 @@ public abstract class AbstractMinMaxByNAggregationFunction
                                 .argumentType(new TypeSignature("V"))
                                 .argumentType(new TypeSignature("K"))
                                 .argumentType(BIGINT)
-                                .build(),
-                        new FunctionNullability(true, ImmutableList.of(true, false, false)),
-                        false,
-                        true,
-                        description,
-                        AGGREGATE),
+                                .build())
+                        .argumentNullability(true, false, false)
+                        .description(description)
+                        .build(),
                 new AggregationFunctionMetadata(
                         false,
                         BIGINT.getTypeSignature(),

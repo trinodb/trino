@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
@@ -35,7 +34,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.wrappedLongArray;
-import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarbinaryType.VARBINARY;
 import static io.trino.util.Reflection.methodHandle;
@@ -56,18 +54,16 @@ public class ChecksumAggregationFunction
     public ChecksumAggregationFunction(BlockTypeOperators blockTypeOperators)
     {
         super(
-                new FunctionMetadata(
-                        Signature.builder()
+                FunctionMetadata.aggregateBuilder()
+                        .signature(Signature.builder()
                                 .name(NAME)
                                 .comparableTypeParameter("T")
                                 .returnType(VARBINARY)
                                 .argumentType(new TypeSignature("T"))
-                                .build(),
-                        new FunctionNullability(true, ImmutableList.of(true)),
-                        false,
-                        true,
-                        "Checksum of the given values",
-                        AGGREGATE),
+                                .build())
+                        .argumentNullability(true)
+                        .description("Checksum of the given values")
+                        .build(),
                 new AggregationFunctionMetadata(
                         false,
                         BIGINT.getTypeSignature()));

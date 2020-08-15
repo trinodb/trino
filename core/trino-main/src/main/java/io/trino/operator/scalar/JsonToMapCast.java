@@ -19,8 +19,9 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.BoundSignature;
+import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Signature;
-import io.trino.metadata.SqlOperator;
+import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -50,21 +51,23 @@ import static io.trino.util.Reflection.methodHandle;
 import static java.lang.String.format;
 
 public class JsonToMapCast
-        extends SqlOperator
+        extends SqlScalarFunction
 {
     public static final JsonToMapCast JSON_TO_MAP = new JsonToMapCast();
     private static final MethodHandle METHOD_HANDLE = methodHandle(JsonToMapCast.class, "toMap", MapType.class, BlockBuilderAppender.class, ConnectorSession.class, Slice.class);
 
     private JsonToMapCast()
     {
-        super(Signature.builder()
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
                         .operatorType(CAST)
                         .castableFromTypeParameter("K", VARCHAR.getTypeSignature())
                         .castableFromTypeParameter("V", JSON.getTypeSignature())
                         .returnType(mapType(new TypeSignature("K"), new TypeSignature("V")))
                         .argumentType(JSON)
-                        .build(),
-                true);
+                        .build())
+                .nullable()
+                .build());
     }
 
     @Override
