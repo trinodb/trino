@@ -220,7 +220,15 @@ public class LogicalPlanner
         PlanNode root = planStatement(analysis, analysis.getStatement());
 
         if (LOG.isDebugEnabled()) {
-            LOG.debug("Initial plan:\n%s", PlanPrinter.textLogicalPlan(root, symbolAllocator.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false));
+            LOG.debug("Initial plan:\n%s", PlanPrinter.textLogicalPlan(
+                    root,
+                    symbolAllocator.getTypes(),
+                    metadata,
+                    plannerContext.getFunctionManager(),
+                    StatsAndCosts.empty(),
+                    session,
+                    0,
+                    false));
         }
 
         planSanityChecker.validateIntermediatePlan(root, session, plannerContext, typeAnalyzer, symbolAllocator.getTypes(), warningCollector);
@@ -231,7 +239,15 @@ public class LogicalPlanner
                 requireNonNull(root, format("%s returned a null plan", optimizer.getClass().getName()));
 
                 if (LOG.isDebugEnabled()) {
-                    LOG.debug("%s:\n%s", optimizer.getClass().getName(), PlanPrinter.textLogicalPlan(root, symbolAllocator.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false));
+                    LOG.debug("%s:\n%s", optimizer.getClass().getName(), PlanPrinter.textLogicalPlan(
+                            root,
+                            symbolAllocator.getTypes(),
+                            metadata,
+                            plannerContext.getFunctionManager(),
+                            StatsAndCosts.empty(),
+                            session,
+                            0,
+                            false));
                 }
             }
         }

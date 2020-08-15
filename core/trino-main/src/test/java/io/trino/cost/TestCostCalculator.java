@@ -107,7 +107,11 @@ public class TestCostCalculator
         localQueryRunner = LocalQueryRunner.create(session);
         localQueryRunner.createCatalog("tpch", new TpchConnectorFactory(), ImmutableMap.of());
 
-        planFragmenter = new PlanFragmenter(localQueryRunner.getMetadata(), localQueryRunner.getNodePartitioningManager(), new QueryManagerConfig());
+        planFragmenter = new PlanFragmenter(
+                localQueryRunner.getMetadata(),
+                localQueryRunner.getFunctionManager(),
+                localQueryRunner.getNodePartitioningManager(),
+                new QueryManagerConfig());
     }
 
     @AfterClass(alwaysRun = true)

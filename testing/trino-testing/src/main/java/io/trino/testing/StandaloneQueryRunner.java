@@ -19,6 +19,7 @@ import io.trino.connector.CatalogName;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.metadata.AllNodes;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
@@ -144,6 +145,12 @@ public final class StandaloneQueryRunner
     public SessionPropertyManager getSessionPropertyManager()
     {
         return server.getSessionPropertyManager();
+    }
+
+    @Override
+    public FunctionManager getFunctionManager()
+    {
+        return server.getFunctionManager();
     }
 
     @Override

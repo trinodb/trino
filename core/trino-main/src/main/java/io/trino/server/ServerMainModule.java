@@ -67,6 +67,7 @@ import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.DisabledSystemSecurityMetadata;
 import io.trino.metadata.DiscoveryNodeManager;
 import io.trino.metadata.ForNodeManager;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.HandleJsonModule;
 import io.trino.metadata.InternalBlockEncodingSerde;
@@ -387,6 +388,8 @@ public class ServerMainModule
         binder.bind(TableProceduresRegistry.class).in(Scopes.SINGLETON);
         binder.bind(PlannerContext.class).in(Scopes.SINGLETON);
 
+        // function
+        binder.bind(FunctionManager.class).in(Scopes.SINGLETON);
         // literal function must be registered lazily to break circular dependency
         binder.bind(LiteralFunctionRegistrar.class).asEagerSingleton();
 

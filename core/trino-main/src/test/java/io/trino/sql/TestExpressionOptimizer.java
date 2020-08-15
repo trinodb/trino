@@ -53,7 +53,10 @@ import static org.testng.Assert.assertEquals;
 public class TestExpressionOptimizer
 {
     private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
-    private final ExpressionOptimizer optimizer = new ExpressionOptimizer(functionResolution.getMetadata(), TEST_SESSION);
+    private final ExpressionOptimizer optimizer = new ExpressionOptimizer(
+            functionResolution.getMetadata(),
+            functionResolution.getPlannerContext().getFunctionManager(),
+            TEST_SESSION);
 
     @Test(timeOut = 10_000)
     public void testPossibleExponentialOptimizationTime()

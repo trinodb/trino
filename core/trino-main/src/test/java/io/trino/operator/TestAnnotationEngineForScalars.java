@@ -19,8 +19,8 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Metadata;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.annotations.ImplementationDependency;
@@ -49,7 +49,7 @@ import java.util.List;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
@@ -63,7 +63,7 @@ import static org.testng.Assert.assertTrue;
 public class TestAnnotationEngineForScalars
         extends TestAnnotationEngine
 {
-    private static final Metadata METADATA = createTestMetadataManager();
+    private static final FunctionManager FUNCTION_MANAGER = createTestingFunctionManager();
 
     @ScalarFunction("single_implementation_parametric_scalar")
     @Description("Simple scalar with single implementation based on class")
@@ -100,7 +100,7 @@ public class TestAnnotationEngineForScalars
         BoundSignature boundSignature = new BoundSignature(expectedSignature.getName(), DOUBLE, ImmutableList.of(DOUBLE));
         ChoicesScalarFunctionImplementation specialized = (ChoicesScalarFunctionImplementation) scalar.specialize(
                 boundSignature,
-                new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of()));
+                new FunctionDependencies(FUNCTION_MANAGER::getScalarFunctionInvoker, ImmutableMap.of(), ImmutableSet.of()));
         assertFalse(specialized.getChoices().get(0).getInstanceFactory().isPresent());
     }
 
@@ -187,7 +187,7 @@ public class TestAnnotationEngineForScalars
         BoundSignature boundSignature = new BoundSignature(expectedSignature.getName(), DOUBLE, ImmutableList.of(DOUBLE, DOUBLE));
         ChoicesScalarFunctionImplementation specialized = (ChoicesScalarFunctionImplementation) scalar.specialize(
                 boundSignature,
-                new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of()));
+                new FunctionDependencies(FUNCTION_MANAGER::getScalarFunctionInvoker, ImmutableMap.of(), ImmutableSet.of()));
         assertFalse(specialized.getChoices().get(0).getInstanceFactory().isPresent());
     }
 
@@ -227,7 +227,7 @@ public class TestAnnotationEngineForScalars
         BoundSignature boundSignature = new BoundSignature(expectedSignature.getName(), DOUBLE, ImmutableList.of(DOUBLE, DOUBLE));
         ChoicesScalarFunctionImplementation specialized = (ChoicesScalarFunctionImplementation) scalar.specialize(
                 boundSignature,
-                new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of()));
+                new FunctionDependencies(FUNCTION_MANAGER::getScalarFunctionInvoker, ImmutableMap.of(), ImmutableSet.of()));
         assertFalse(specialized.getChoices().get(0).getInstanceFactory().isPresent());
     }
 

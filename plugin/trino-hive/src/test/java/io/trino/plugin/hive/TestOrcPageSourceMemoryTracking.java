@@ -20,7 +20,7 @@ import io.airlift.stats.Distribution;
 import io.airlift.units.DataSize;
 import io.trino.connector.CatalogName;
 import io.trino.execution.Lifespan;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Split;
 import io.trino.operator.DriverContext;
 import io.trino.operator.ScanFilterAndProjectOperator.ScanFilterAndProjectOperatorFactory;
@@ -97,7 +97,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertBetweenInclusive;
 import static io.airlift.units.DataSize.Unit.BYTE;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.orc.OrcReader.MAX_BATCH_SIZE;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.PARTITION_KEY;
 import static io.trino.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
@@ -138,8 +138,8 @@ public class TestOrcPageSourceMemoryTracking
     private static final Configuration CONFIGURATION = new Configuration(false);
     private static final int NUM_ROWS = 50000;
     private static final int STRIPE_ROWS = 20000;
-    private static final Metadata metadata = createTestMetadataManager();
-    private static final ExpressionCompiler EXPRESSION_COMPILER = new ExpressionCompiler(metadata, new PageFunctionCompiler(metadata, 0));
+    private static final FunctionManager functionManager = createTestingFunctionManager();
+    private static final ExpressionCompiler EXPRESSION_COMPILER = new ExpressionCompiler(functionManager, new PageFunctionCompiler(functionManager, 0));
     private static final ConnectorSession UNCACHED_SESSION = HiveTestUtils.getHiveSession(new HiveConfig(), new OrcReaderConfig().setTinyStripeThreshold(DataSize.of(0, BYTE)));
     private static final ConnectorSession CACHED_SESSION = SESSION;
 

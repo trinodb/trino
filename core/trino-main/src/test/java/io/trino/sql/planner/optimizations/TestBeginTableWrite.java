@@ -31,6 +31,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.function.Function;
 
+import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.sql.planner.TypeProvider.empty;
 import static io.trino.sql.planner.plan.JoinNode.Type.INNER;
 import static io.trino.testing.TestingSession.testSessionBuilder;
@@ -131,7 +132,7 @@ public class TestBeginTableWrite
     private void applyOptimization(Function<PlanBuilder, PlanNode> planProvider)
     {
         Metadata metadata = new MockMetadata();
-        new BeginTableWrite(metadata)
+        new BeginTableWrite(metadata, createTestingFunctionManager())
                 .optimize(
                         planProvider.apply(new PlanBuilder(new PlanNodeIdAllocator(), metadata, testSessionBuilder().build())),
                         testSessionBuilder().build(),

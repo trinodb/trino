@@ -49,7 +49,10 @@ import static org.testng.Assert.assertTrue;
 public class TestExpressionEquivalence
 {
     private static final SqlParser SQL_PARSER = new SqlParser();
-    private static final ExpressionEquivalence EQUIVALENCE = new ExpressionEquivalence(PLANNER_CONTEXT.getMetadata(), createTestingTypeAnalyzer(PLANNER_CONTEXT));
+    private static final ExpressionEquivalence EQUIVALENCE = new ExpressionEquivalence(
+            PLANNER_CONTEXT.getMetadata(),
+            PLANNER_CONTEXT.getFunctionManager(),
+            createTestingTypeAnalyzer(PLANNER_CONTEXT));
     private static final TypeProvider TYPE_PROVIDER = TypeProvider.copyOf(ImmutableMap.<Symbol, Type>builder()
             .put(new Symbol("a_boolean"), BOOLEAN)
             .put(new Symbol("b_boolean"), BOOLEAN)

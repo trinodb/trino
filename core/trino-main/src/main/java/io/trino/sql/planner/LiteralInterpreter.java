@@ -88,7 +88,7 @@ public final class LiteralInterpreter
             this.session = requireNonNull(session, "session is null");
             this.connectorSession = session.toConnectorSession();
             this.plannerContext = requireNonNull(plannerContext, "plannerContext is null");
-            this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getMetadata());
+            this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
             this.types = requireNonNull(types, "types is null");
         }
 

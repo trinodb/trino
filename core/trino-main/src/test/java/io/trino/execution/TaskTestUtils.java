@@ -116,7 +116,7 @@ public final class TaskTestUtils
                 new NodeTaskMap(finalizerService)));
         NodePartitioningManager nodePartitioningManager = new NodePartitioningManager(nodeScheduler, blockTypeOperators);
 
-        PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getMetadata(), 0);
+        PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(PLANNER_CONTEXT.getFunctionManager(), 0);
         return new LocalExecutionPlanner(
                 PLANNER_CONTEXT,
                 createTestingTypeAnalyzer(PLANNER_CONTEXT),
@@ -126,9 +126,9 @@ public final class TaskTestUtils
                 nodePartitioningManager,
                 new PageSinkManager(),
                 new MockDirectExchangeClientSupplier(),
-                new ExpressionCompiler(PLANNER_CONTEXT.getMetadata(), pageFunctionCompiler),
+                new ExpressionCompiler(PLANNER_CONTEXT.getFunctionManager(), pageFunctionCompiler),
                 pageFunctionCompiler,
-                new JoinFilterFunctionCompiler(PLANNER_CONTEXT.getMetadata()),
+                new JoinFilterFunctionCompiler(PLANNER_CONTEXT.getFunctionManager()),
                 new IndexJoinLookupStats(),
                 new TaskManagerConfig(),
                 new GenericSpillerFactory((types, spillContext, memoryContext) -> {

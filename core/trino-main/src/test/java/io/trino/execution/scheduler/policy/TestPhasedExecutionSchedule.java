@@ -52,6 +52,7 @@ import static io.trino.execution.scheduler.policy.PlanUtils.createBroadcastAndPa
 import static io.trino.execution.scheduler.policy.PlanUtils.createBroadcastJoinPlanFragment;
 import static io.trino.execution.scheduler.policy.PlanUtils.createJoinPlanFragment;
 import static io.trino.execution.scheduler.policy.PlanUtils.createTableScanPlanFragment;
+import static io.trino.metadata.FunctionManager.createTestingFunctionManager;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.PARTITIONED;
 import static io.trino.sql.planner.plan.JoinNode.DistributionType.REPLICATED;
@@ -61,7 +62,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 public class TestPhasedExecutionSchedule
 {
-    private final DynamicFilterService dynamicFilterService = new DynamicFilterService(createTestMetadataManager(), new TypeOperators(), newDirectExecutorService());
+    private final DynamicFilterService dynamicFilterService = new DynamicFilterService(
+            createTestMetadataManager(),
+            createTestingFunctionManager(),
+            new TypeOperators(),
+            newDirectExecutorService());
 
     @Test
     public void testPartitionedJoin()

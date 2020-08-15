@@ -29,6 +29,7 @@ import io.trino.execution.QueryStats;
 import io.trino.execution.StageInfo;
 import io.trino.execution.StageStats;
 import io.trino.execution.TableInfo;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.TableHandle;
 import io.trino.operator.StageExecutionDescriptor;
@@ -216,14 +217,14 @@ public class PlanPrinter
         return new JsonRenderer().render(representation);
     }
 
-    public static String jsonFragmentPlan(PlanNode root, Map<Symbol, Type> symbols, Metadata metadata, Session session)
+    public static String jsonFragmentPlan(PlanNode root, Map<Symbol, Type> symbols, Metadata metadata, FunctionManager functionManager, Session session)
     {
         TypeProvider typeProvider = TypeProvider.copyOf(symbols.entrySet().stream()
                 .distinct()
                 .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue)));
 
         TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
-        ValuePrinter valuePrinter = new ValuePrinter(metadata, session);
+        ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
         return new PlanPrinter(root, typeProvider, Optional.empty(), tableInfoSupplier, ImmutableMap.of(), valuePrinter, StatsAndCosts.empty(), Optional.empty()).toJson();
     }
 
@@ -231,13 +232,14 @@ public class PlanPrinter
             PlanNode plan,
             TypeProvider types,
             Metadata metadata,
+            FunctionManager functionManager,
             StatsAndCosts estimatedStatsAndCosts,
             Session session,
             int level,
             boolean verbose)
     {
         TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
-        ValuePrinter valuePrinter = new ValuePrinter(metadata, session);
+        ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
         return new PlanPrinter(plan, types, Optional.empty(), tableInfoSupplier, ImmutableMap.of(), valuePrinter, estimatedStatsAndCosts, Optional.empty()).toText(verbose, level);
     }
 
@@ -245,13 +247,14 @@ public class PlanPrinter
             StageInfo outputStageInfo,
             QueryStats queryStats,
             Metadata metadata,
+            FunctionManager functionManager,
             Session session,
             boolean verbose)
     {
         return textDistributedPlan(
                 outputStageInfo,
                 queryStats,
-                new ValuePrinter(metadata, session),
+                new ValuePrinter(metadata, functionManager, session),
                 verbose);
     }
 
@@ -294,10 +297,10 @@ public class PlanPrinter
         return builder.toString();
     }
 
-    public static String textDistributedPlan(SubPlan plan, Metadata metadata, Session session, boolean verbose)
+    public static String textDistributedPlan(SubPlan plan, Metadata metadata, FunctionManager functionManager, Session session, boolean verbose)
     {
         TableInfoSupplier tableInfoSupplier = new TableInfoSupplier(metadata, session);
-        ValuePrinter valuePrinter = new ValuePrinter(metadata, session);
+        ValuePrinter valuePrinter = new ValuePrinter(metadata, functionManager, session);
         StringBuilder builder = new StringBuilder();
         TypeProvider typeProvider = getTypeProvider(plan.getAllFragments());
         for (PlanFragment fragment : plan.getAllFragments()) {

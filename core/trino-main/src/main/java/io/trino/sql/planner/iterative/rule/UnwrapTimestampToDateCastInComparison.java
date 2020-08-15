@@ -93,7 +93,7 @@ public class UnwrapTimestampToDateCastInComparison
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
-            this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getMetadata());
+            this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
             this.literalEncoder = new LiteralEncoder(plannerContext);
         }
 

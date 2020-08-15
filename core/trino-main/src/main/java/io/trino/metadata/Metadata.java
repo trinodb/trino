@@ -17,8 +17,6 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
-import io.trino.operator.aggregation.AggregationMetadata;
-import io.trino.operator.window.WindowFunctionSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
@@ -47,7 +45,6 @@ import io.trino.spi.connector.TableColumnsMetadata;
 import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
-import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
@@ -629,12 +626,6 @@ public interface Metadata
     FunctionMetadata getFunctionMetadata(ResolvedFunction resolvedFunction);
 
     AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction);
-
-    WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction);
-
-    AggregationMetadata getAggregateFunctionImplementation(ResolvedFunction resolvedFunction);
-
-    FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention);
 
     /**
      * Creates the specified materialized view with the specified view definition.

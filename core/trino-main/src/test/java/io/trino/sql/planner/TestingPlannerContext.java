@@ -16,6 +16,7 @@ package io.trino.sql.planner;
 import com.google.common.collect.ImmutableList;
 import io.trino.FeaturesConfig;
 import io.trino.metadata.BlockEncodingManager;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.LiteralFunction;
@@ -134,8 +135,9 @@ public final class TestingPlannerContext
             return new PlannerContext(
                     metadata,
                     typeOperators,
-                    new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager),
-                    typeManager);
+                    blockEncodingSerde,
+                    typeManager,
+                    new FunctionManager(globalFunctionCatalog));
         }
     }
 }

@@ -123,7 +123,7 @@ public class QueryAssertions
         assertQuery(runner.getDefaultSession(), actual, expected, false);
 
         Plan plan = runner.executeWithPlan(runner.getDefaultSession(), actual, WarningCollector.NOOP).getQueryPlan();
-        PlanAssert.assertPlan(runner.getDefaultSession(), runner.getMetadata(), runner.getStatsCalculator(), plan, pattern);
+        PlanAssert.assertPlan(runner.getDefaultSession(), runner.getMetadata(), runner.getFunctionManager(), runner.getStatsCalculator(), plan, pattern);
     }
 
     private void assertQuery(Session session, @Language("SQL") String actual, @Language("SQL") String expected, boolean ensureOrdering)
@@ -356,6 +356,7 @@ public class QueryAssertions
                         assertPlan(
                                 session,
                                 runner.getMetadata(),
+                                runner.getFunctionManager(),
                                 noopStatsCalculator(),
                                 plan,
                                 expectedPlan);
@@ -426,6 +427,7 @@ public class QueryAssertions
                         assertPlan(
                                 session,
                                 runner.getMetadata(),
+                                runner.getFunctionManager(),
                                 noopStatsCalculator(),
                                 plan,
                                 PlanMatchPattern.output(
@@ -473,6 +475,7 @@ public class QueryAssertions
                         assertPlan(
                                 session,
                                 runner.getMetadata(),
+                                runner.getFunctionManager(),
                                 noopStatsCalculator(),
                                 plan,
                                 expectedPlan);

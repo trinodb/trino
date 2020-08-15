@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Lists;
 import io.trino.Session;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.type.DecimalParseResult;
@@ -130,6 +131,7 @@ public final class SqlToRowExpressionTranslator
             Map<NodeRef<Expression>, Type> types,
             Map<Symbol, Integer> layout,
             Metadata metadata,
+            FunctionManager functionManager,
             Session session,
             boolean optimize)
     {
@@ -143,7 +145,7 @@ public final class SqlToRowExpressionTranslator
         requireNonNull(result, "result is null");
 
         if (optimize) {
-            ExpressionOptimizer optimizer = new ExpressionOptimizer(metadata, session);
+            ExpressionOptimizer optimizer = new ExpressionOptimizer(metadata, functionManager, session);
             return optimizer.optimize(result);
         }
 

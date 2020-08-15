@@ -146,7 +146,7 @@ public abstract class AbstractTestAggregationFunction
         WindowIndex windowIndex = new PagesWindowIndex(pagesIndex, 0, totalPositions - 1);
 
         ResolvedFunction resolvedFunction = functionResolution.resolveFunction(QualifiedName.of(getFunctionName()), fromTypes(getFunctionParameterTypes()));
-        AggregationMetadata aggregationMetadata = functionResolution.getMetadata().getAggregateFunctionImplementation(resolvedFunction);
+        AggregationMetadata aggregationMetadata = functionResolution.getPlannerContext().getFunctionManager().getAggregateFunctionImplementation(resolvedFunction);
         WindowAccumulator aggregation = createWindowAccumulator(resolvedFunction, aggregationMetadata);
         int oldStart = 0;
         int oldWidth = 0;

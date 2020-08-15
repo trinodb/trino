@@ -19,13 +19,12 @@ import com.google.common.util.concurrent.Futures;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
 import io.trino.Session;
-import io.trino.metadata.Metadata;
 import io.trino.spi.connector.ColumnHandle;
 import io.trino.spi.connector.DynamicFilter;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
+import io.trino.sql.PlannerContext;
 import io.trino.sql.planner.plan.DynamicFilterId;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -95,8 +94,7 @@ public class LocalDynamicFiltersCollector
             List<Descriptor> descriptors,
             Map<Symbol, ColumnHandle> columnsMap,
             TypeProvider typeProvider,
-            Metadata metadata,
-            TypeOperators typeOperators)
+            PlannerContext plannerContext)
     {
         Multimap<DynamicFilterId, Descriptor> descriptorMap = extractSourceSymbols(descriptors);
 
@@ -121,7 +119,13 @@ public class LocalDynamicFiltersCollector
                                                         Type targetType = typeProvider.get(Symbol.from(descriptor.getInput()));
                                                         Domain updatedDomain = descriptor.applyComparison(domain);
                                                         if (!updatedDomain.getType().equals(targetType)) {
-                                                            return applySaturatedCasts(metadata, typeOperators, session, updatedDomain, targetType);
+                                                            return applySaturatedCasts(
+                                                                    plannerContext.getMetadata(),
+                                                                    plannerContext.getFunctionManager(),
+                                                                    plannerContext.getTypeOperators(),
+                                                                    session,
+                                                                    updatedDomain,
+                                                                    targetType);
                                                         }
                                                         return updatedDomain;
                                                     }))),

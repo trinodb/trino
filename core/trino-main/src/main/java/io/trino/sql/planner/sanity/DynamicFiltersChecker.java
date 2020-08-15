@@ -67,7 +67,15 @@ public class DynamicFiltersChecker
         catch (RuntimeException e) {
             try {
                 int nestLevel = 4; // so that it renders reasonably within exception stacktrace
-                String explain = textLogicalPlan(plan, types, plannerContext.getMetadata(), StatsAndCosts.empty(), session, nestLevel, false);
+                String explain = textLogicalPlan(
+                        plan,
+                        types,
+                        plannerContext.getMetadata(),
+                        plannerContext.getFunctionManager(),
+                        StatsAndCosts.empty(),
+                        session,
+                        nestLevel,
+                        false);
                 e.addSuppressed(new Exception("Current plan:\n" + explain));
             }
             catch (RuntimeException ignore) {

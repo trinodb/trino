@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
 import com.google.common.collect.Ordering;
 import io.trino.Session;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.spi.type.Type;
 import io.trino.sql.planner.DesugarArrayConstructorRewriter;
@@ -60,12 +61,14 @@ public class ExpressionEquivalence
 {
     private static final Ordering<RowExpression> ROW_EXPRESSION_ORDERING = Ordering.from(new RowExpressionComparator());
     private final Metadata metadata;
+    private final FunctionManager functionManager;
     private final TypeAnalyzer typeAnalyzer;
     private final CanonicalizationVisitor canonicalizationVisitor;
 
-    public ExpressionEquivalence(Metadata metadata, TypeAnalyzer typeAnalyzer)
+    public ExpressionEquivalence(Metadata metadata, FunctionManager functionManager, TypeAnalyzer typeAnalyzer)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.canonicalizationVisitor = new CanonicalizationVisitor();
     }
@@ -97,6 +100,7 @@ public class ExpressionEquivalence
                 typeAnalyzer.getTypes(session, types, expression),
                 symbolInput,
                 metadata,
+                functionManager,
                 session,
                 false);
     }
