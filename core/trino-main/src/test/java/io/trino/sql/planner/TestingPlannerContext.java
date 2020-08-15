@@ -13,20 +13,25 @@
  */
 package io.trino.sql.planner;
 
+import com.google.common.collect.ImmutableList;
 import io.trino.FeaturesConfig;
 import io.trino.metadata.BlockEncodingManager;
+import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.InternalBlockEncodingSerde;
+import io.trino.metadata.LiteralFunction;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.MetadataManager.TestMetadataManagerBuilder;
 import io.trino.metadata.SqlFunction;
 import io.trino.metadata.TypeRegistry;
+import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.ParametricType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.spi.type.TypeOperators;
 import io.trino.sql.PlannerContext;
 import io.trino.transaction.TransactionManager;
+import io.trino.type.BlockTypeOperators;
 import io.trino.type.InternalTypeManager;
 
 import java.util.ArrayList;
@@ -34,6 +39,7 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
+import static io.trino.client.NodeVersion.UNKNOWN;
 import static io.trino.metadata.FunctionExtractor.extractFunctions;
 import static java.util.Objects.requireNonNull;
 
@@ -99,25 +105,35 @@ public final class TestingPlannerContext
 
         public PlannerContext build()
         {
-            TypeRegistry typeRegistry = new TypeRegistry(new TypeOperators(), new FeaturesConfig());
+            FeaturesConfig featuresConfig = new FeaturesConfig();
+            TypeOperators typeOperators = new TypeOperators();
+
+            TypeRegistry typeRegistry = new TypeRegistry(typeOperators, featuresConfig);
             TypeManager typeManager = new InternalTypeManager(typeRegistry);
             types.forEach(typeRegistry::addType);
             parametricTypes.forEach(typeRegistry::addParametricType);
 
+            GlobalFunctionCatalog globalFunctionCatalog = new GlobalFunctionCatalog(featuresConfig, typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN);
+            globalFunctionCatalog.addFunctions(functions);
+
+            BlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager);
+            globalFunctionCatalog.addFunctions(ImmutableList.of(new LiteralFunction(blockEncodingSerde)));
+
             Metadata metadata = this.metadata;
             if (metadata == null) {
                 TestMetadataManagerBuilder builder = MetadataManager.testMetadataManagerBuilder()
-                        .withTypeManager(typeManager);
+                        .withFeaturesConfig(featuresConfig)
+                        .withTypeManager(typeManager)
+                        .withGlobalFunctionCatalog(globalFunctionCatalog);
                 if (transactionManager != null) {
                     builder.withTransactionManager(transactionManager);
                 }
                 metadata = builder.build();
             }
-            metadata.addFunctions(functions);
 
             return new PlannerContext(
                     metadata,
-                    new TypeOperators(),
+                    typeOperators,
                     new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager),
                     typeManager);
         }

@@ -307,7 +307,7 @@ public final class ThriftQueryRunner
         @Override
         public void addFunctions(List<? extends SqlFunction> functions)
         {
-            source.getMetadata().addFunctions(functions);
+            source.addFunctions(functions);
         }
 
         @Override

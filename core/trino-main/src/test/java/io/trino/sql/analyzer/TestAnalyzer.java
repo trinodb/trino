@@ -164,7 +164,6 @@ import static io.trino.spi.type.VarcharType.createVarcharType;
 import static io.trino.sql.analyzer.StatementAnalyzerFactory.createTestingStatementAnalyzerFactory;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DECIMAL;
 import static io.trino.sql.parser.ParsingOptions.DecimalLiteralTreatment.AS_DOUBLE;
-import static io.trino.sql.planner.TestingPlannerContext.plannerContextBuilder;
 import static io.trino.testing.TestingAccessControlManager.TestingPrivilegeType.SELECT_COLUMN;
 import static io.trino.testing.TestingAccessControlManager.privilege;
 import static io.trino.testing.TestingEventListenerManager.emptyEventListenerManager;
@@ -5311,9 +5310,9 @@ public class TestAnalyzer
         accessControlManager.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         this.accessControl = accessControlManager;
 
-        Metadata metadata = queryRunner.getMetadata();
-        metadata.addFunctions(ImmutableList.of(APPLY_FUNCTION));
-        plannerContext = plannerContextBuilder().withMetadata(metadata).build();
+        queryRunner.addFunctions(ImmutableList.of(APPLY_FUNCTION));
+        plannerContext = queryRunner.getPlannerContext();
+        Metadata metadata = plannerContext.getMetadata();
 
         TestingMetadata testingConnectorMetadata = new TestingMetadata();
         TestingConnector connector = new TestingConnector(testingConnectorMetadata);

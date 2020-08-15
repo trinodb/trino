@@ -27,6 +27,7 @@ import io.trino.connector.CatalogName;
 import io.trino.execution.Lifespan;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.Split;
+import io.trino.metadata.SqlFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.DriverContext;
@@ -234,6 +235,11 @@ public final class FunctionAssertions
                 .withFeaturesConfig(featuresConfig)
                 .build();
         testingFunctionResolution = new TestingFunctionResolution(runner);
+    }
+
+    public void addFunctions(List<? extends SqlFunction> functions)
+    {
+        runner.addFunctions(functions);
     }
 
     public Metadata getMetadata()
