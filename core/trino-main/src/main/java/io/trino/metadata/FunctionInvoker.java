@@ -27,10 +27,10 @@ public class FunctionInvoker
     private final Optional<MethodHandle> instanceFactory;
     private final List<Class<?>> lambdaInterfaces;
 
-    public FunctionInvoker(MethodHandle methodHandle, Optional<MethodHandle> instanceFactory)
+    public FunctionInvoker(MethodHandle methodHandle)
     {
         this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
-        this.instanceFactory = requireNonNull(instanceFactory, "instanceFactory is null");
+        this.instanceFactory = Optional.empty();
         this.lambdaInterfaces = ImmutableList.of();
     }
 
