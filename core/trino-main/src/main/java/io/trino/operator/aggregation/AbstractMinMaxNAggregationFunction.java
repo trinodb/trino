@@ -38,7 +38,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.metadata.Signature.orderableTypeParameter;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INDEX;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
@@ -49,6 +48,7 @@ import static io.trino.spi.function.InvocationConvention.InvocationArgumentConve
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.function.InvocationConvention.simpleConvention;
 import static io.trino.spi.type.BigintType.BIGINT;
+import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.util.Failures.checkCondition;
 import static io.trino.util.MinMaxCompare.getMinMaxCompare;
 import static io.trino.util.Reflection.methodHandle;
@@ -68,13 +68,13 @@ public abstract class AbstractMinMaxNAggregationFunction
     {
         super(
                 new FunctionMetadata(
-                        new Signature(
-                                name,
-                                ImmutableList.of(orderableTypeParameter("E")),
-                                ImmutableList.of(),
-                                TypeSignature.arrayType(new TypeSignature("E")),
-                                ImmutableList.of(new TypeSignature("E"), BIGINT.getTypeSignature()),
-                                false),
+                        Signature.builder()
+                                .name(name)
+                                .orderableTypeParameter("E")
+                                .returnType(arrayType(new TypeSignature("E")))
+                                .argumentType(new TypeSignature("E"))
+                                .argumentType(BIGINT)
+                                .build(),
                         new FunctionNullability(true, ImmutableList.of(false, false)),
                         false,
                         true,
@@ -83,7 +83,7 @@ public abstract class AbstractMinMaxNAggregationFunction
                 new AggregationFunctionMetadata(
                         false,
                         BIGINT.getTypeSignature(),
-                        TypeSignature.arrayType(new TypeSignature("E"))));
+                        arrayType(new TypeSignature("E"))));
         this.min = min;
     }
 

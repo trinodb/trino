@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.BoundSignature;
+import io.trino.metadata.Signature;
 import io.trino.metadata.SqlOperator;
 import io.trino.spi.TrinoException;
 import io.trino.spi.type.Type;
@@ -34,7 +35,6 @@ import static io.trino.sql.analyzer.TypeSignatureTranslator.parseTypeSignature;
 import static io.trino.type.Re2JRegexpType.RE2J_REGEXP_SIGNATURE;
 import static io.trino.util.Reflection.methodHandle;
 import static java.lang.invoke.MethodHandles.insertArguments;
-import static java.util.Collections.emptyList;
 
 public class Re2JCastToRegexpFunction
         extends SqlOperator
@@ -57,7 +57,12 @@ public class Re2JCastToRegexpFunction
 
     private Re2JCastToRegexpFunction(String sourceType, int dfaStatesLimit, int dfaRetries, boolean padSpaces)
     {
-        super(CAST, emptyList(), emptyList(), RE2J_REGEXP_SIGNATURE, ImmutableList.of(parseTypeSignature(sourceType, ImmutableSet.of("x"))), false);
+        super(Signature.builder()
+                        .operatorType(CAST)
+                        .returnType(RE2J_REGEXP_SIGNATURE)
+                        .argumentType(parseTypeSignature(sourceType, ImmutableSet.of("x")))
+                        .build(),
+                false);
         this.dfaStatesLimit = dfaStatesLimit;
         this.dfaRetries = dfaRetries;
         this.padSpaces = padSpaces;

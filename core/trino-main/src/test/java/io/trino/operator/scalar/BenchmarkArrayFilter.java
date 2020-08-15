@@ -61,7 +61,6 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.base.Verify.verify;
 import static io.trino.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.operator.scalar.BenchmarkArrayFilter.ExactArrayFilterFunction.EXACT_ARRAY_FILTER_FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -196,15 +195,13 @@ public class BenchmarkArrayFilter
         private ExactArrayFilterFunction()
         {
             super(new FunctionMetadata(
-                    new Signature(
-                            "exact_filter",
-                            ImmutableList.of(typeVariable("T")),
-                            ImmutableList.of(),
-                            arrayType(new TypeSignature("T")),
-                            ImmutableList.of(
-                                    arrayType(new TypeSignature("T")),
-                                    functionType(new TypeSignature("T"), BOOLEAN.getTypeSignature())),
-                            false),
+                    Signature.builder()
+                            .name("exact_filter")
+                            .typeVariable("T")
+                            .returnType(arrayType(new TypeSignature("T")))
+                            .argumentType(arrayType(new TypeSignature("T")))
+                            .argumentType(functionType(new TypeSignature("T"), BOOLEAN.getTypeSignature()))
+                            .build(),
                     new FunctionNullability(false, ImmutableList.of(false, false)),
                     false,
                     false,

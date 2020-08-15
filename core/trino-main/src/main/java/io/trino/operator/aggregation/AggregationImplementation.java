@@ -17,12 +17,9 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionNullability;
-import io.trino.metadata.LongVariableConstraint;
 import io.trino.metadata.Signature;
-import io.trino.metadata.TypeVariableConstraint;
 import io.trino.operator.ParametricImplementation;
 import io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind;
-import io.trino.operator.annotations.FunctionsParserHelper;
 import io.trino.operator.annotations.ImplementationDependency;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
@@ -49,7 +46,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.operator.ParametricFunctionHelpers.signatureWithName;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INDEX;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.BLOCK_INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
@@ -58,6 +54,7 @@ import static io.trino.operator.aggregation.AggregationFunctionAdapter.Aggregati
 import static io.trino.operator.annotations.FunctionsParserHelper.containsAnnotation;
 import static io.trino.operator.annotations.FunctionsParserHelper.createTypeVariableConstraints;
 import static io.trino.operator.annotations.FunctionsParserHelper.parseLiteralParameters;
+import static io.trino.operator.annotations.FunctionsParserHelper.parseLongVariableConstraints;
 import static io.trino.operator.annotations.ImplementationDependency.Factory.createDependency;
 import static io.trino.operator.annotations.ImplementationDependency.getImplementationDependencyAnnotation;
 import static io.trino.operator.annotations.ImplementationDependency.isImplementationDependencyAnnotation;
@@ -234,7 +231,7 @@ public class AggregationImplementation
     public AggregationImplementation withAlias(String alias)
     {
         return new AggregationImplementation(
-                signatureWithName(alias, signature),
+                signature.withName(alias),
                 definitionClass,
                 inputFunction,
                 removeInputFunction,
@@ -262,12 +259,8 @@ public class AggregationImplementation
         private final List<ImplementationDependency> outputDependencies;
         private final List<AggregationParameterKind> inputParameterKinds;
 
-        private final List<LongVariableConstraint> longVariableConstraints;
-        private final List<TypeVariableConstraint> typeVariableConstraints;
-        private final List<TypeSignature> inputTypes;
-        private final TypeSignature returnType;
+        private final Signature.Builder signatureBuilder = Signature.builder();
 
-        private final String name;
         private final Set<String> literalParameters;
         private final List<TypeParameter> typeParameters;
 
@@ -281,7 +274,7 @@ public class AggregationImplementation
         {
             // rewrite data passed directly
             this.aggregationDefinition = aggregationDefinition;
-            this.name = name;
+            signatureBuilder.name(name);
 
             // parse declared literal and type parameters
             // it is required to declare all literal and type parameters in input function
@@ -298,7 +291,7 @@ public class AggregationImplementation
             inputParameterKinds = parseInputParameterKinds(inputFunction);
 
             // parse constraints
-            longVariableConstraints = FunctionsParserHelper.parseLongVariableConstraints(inputFunction);
+            parseLongVariableConstraints(inputFunction, signatureBuilder);
             List<ImplementationDependency> allDependencies =
                     Stream.of(
                             inputDependencies.stream(),
@@ -308,14 +301,15 @@ public class AggregationImplementation
                             .reduce(Stream::concat)
                             .orElseGet(Stream::empty)
                             .collect(toImmutableList());
-            typeVariableConstraints = createTypeVariableConstraints(typeParameters, allDependencies);
+            createTypeVariableConstraints(typeParameters, allDependencies)
+                    .forEach(signatureBuilder::typeVariableConstraint);
 
             // parse native types of arguments
             argumentNativeContainerTypes = parseSignatureArgumentsTypes(inputFunction);
 
             // determine TypeSignatures of function declaration
-            inputTypes = getInputTypesSignatures(inputFunction);
-            returnType = parseTypeSignature(outputFunction.getAnnotation(OutputFunction.class).value(), literalParameters);
+            signatureBuilder.argumentTypes(getInputTypesSignatures(inputFunction));
+            signatureBuilder.returnType(parseTypeSignature(outputFunction.getAnnotation(OutputFunction.class).value(), literalParameters));
 
             inputHandle = methodHandle(inputFunction);
             removeInputHandle = removeInputFunction.map(Reflection::methodHandle);
@@ -325,15 +319,8 @@ public class AggregationImplementation
 
         private AggregationImplementation get()
         {
-            Signature signature = new Signature(
-                    name,
-                    typeVariableConstraints,
-                    longVariableConstraints,
-                    returnType,
-                    inputTypes,
-                    false);
-
-            return new AggregationImplementation(signature,
+            return new AggregationImplementation(
+                    signatureBuilder.build(),
                     aggregationDefinition,
                     inputHandle,
                     removeInputHandle,

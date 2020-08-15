@@ -56,13 +56,11 @@ public class RealAverageAggregation
     {
         super(
                 new FunctionMetadata(
-                        new Signature(
-                                NAME,
-                                ImmutableList.of(),
-                                ImmutableList.of(),
-                                REAL.getTypeSignature(),
-                                ImmutableList.of(REAL.getTypeSignature()),
-                                false),
+                        Signature.builder()
+                                .name(NAME)
+                                .returnType(REAL)
+                                .argumentType(REAL)
+                                .build(),
                         new FunctionNullability(true, ImmutableList.of(false)),
                         false,
                         true,

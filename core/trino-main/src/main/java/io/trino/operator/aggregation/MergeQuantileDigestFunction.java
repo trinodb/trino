@@ -38,7 +38,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.metadata.Signature.comparableTypeParameter;
 import static io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
 import static io.trino.spi.type.StandardTypes.QDIGEST;
 import static io.trino.spi.type.TypeSignature.parametricType;
@@ -60,13 +59,12 @@ public final class MergeQuantileDigestFunction
     {
         super(
                 new FunctionMetadata(
-                        new Signature(
-                                NAME,
-                                ImmutableList.of(comparableTypeParameter("T")),
-                                ImmutableList.of(),
-                                parametricType("qdigest", new TypeSignature("T")),
-                                ImmutableList.of(parametricType("qdigest", new TypeSignature("T"))),
-                                false),
+                        Signature.builder()
+                                .name(NAME)
+                                .comparableTypeParameter("T")
+                                .returnType(parametricType(QDIGEST, new TypeSignature("T")))
+                                .argumentType(parametricType(QDIGEST, new TypeSignature("T")))
+                                .build(),
                         new FunctionNullability(true, ImmutableList.of(false)),
                         false,
                         true,

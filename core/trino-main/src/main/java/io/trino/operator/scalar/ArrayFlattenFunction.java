@@ -28,7 +28,6 @@ import io.trino.spi.type.TypeSignature;
 import java.lang.invoke.MethodHandle;
 
 import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.TypeSignature.arrayType;
@@ -45,13 +44,12 @@ public class ArrayFlattenFunction
     private ArrayFlattenFunction()
     {
         super(new FunctionMetadata(
-                new Signature(
-                        FUNCTION_NAME,
-                        ImmutableList.of(typeVariable("E")),
-                        ImmutableList.of(),
-                        arrayType(new TypeSignature("E")),
-                        ImmutableList.of(arrayType(arrayType(new TypeSignature("E")))),
-                        false),
+                Signature.builder()
+                        .name(FUNCTION_NAME)
+                        .typeVariable("E")
+                        .returnType(arrayType(new TypeSignature("E")))
+                        .argumentType(arrayType(arrayType(new TypeSignature("E"))))
+                        .build(),
                 new FunctionNullability(false, ImmutableList.of(false)),
                 false,
                 true,

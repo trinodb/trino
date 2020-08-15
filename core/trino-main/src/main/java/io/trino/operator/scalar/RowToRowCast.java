@@ -28,6 +28,7 @@ import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
+import io.trino.metadata.Signature;
 import io.trino.metadata.SqlOperator;
 import io.trino.metadata.TypeVariableConstraint;
 import io.trino.spi.StandardErrorCode;
@@ -56,7 +57,6 @@ import static io.airlift.bytecode.expression.BytecodeExpressions.constantBoolean
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.invokeDynamic;
-import static io.trino.metadata.Signature.withVariadicBound;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -108,14 +108,15 @@ public class RowToRowCast
 
     private RowToRowCast()
     {
-        super(CAST,
-                ImmutableList.of(
-                        // this is technically a recursive constraint for cast, but TypeRegistry.canCast has explicit handling for row to row cast
-                        new TypeVariableConstraint("F", false, false, "row", ImmutableSet.of(new TypeSignature("T")), ImmutableSet.of()),
-                        withVariadicBound("T", "row")),
-                ImmutableList.of(),
-                new TypeSignature("T"),
-                ImmutableList.of(new TypeSignature("F")),
+        super(Signature.builder()
+                        .operatorType(CAST)
+                        .typeVariableConstraint(
+                                // this is technically a recursive constraint for cast, but TypeRegistry.canCast has explicit handling for row to row cast
+                                new TypeVariableConstraint("F", false, false, "row", ImmutableSet.of(new TypeSignature("T")), ImmutableSet.of()))
+                        .variadicTypeParameter("T", "row")
+                        .returnType(new TypeSignature("T"))
+                        .argumentType(new TypeSignature("F"))
+                        .build(),
                 false);
     }
 

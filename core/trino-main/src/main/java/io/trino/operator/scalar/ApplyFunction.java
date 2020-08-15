@@ -29,7 +29,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -49,15 +48,14 @@ public final class ApplyFunction
     private ApplyFunction()
     {
         super(new FunctionMetadata(
-                new Signature(
-                        "apply",
-                        ImmutableList.of(typeVariable("T"), typeVariable("U")),
-                        ImmutableList.of(),
-                        new TypeSignature("U"),
-                        ImmutableList.of(
-                                new TypeSignature("T"),
-                                functionType(new TypeSignature("T"), new TypeSignature("U"))),
-                        false),
+                Signature.builder()
+                        .name("apply")
+                        .typeVariable("T")
+                        .typeVariable("U")
+                        .returnType(new TypeSignature("U"))
+                        .argumentType(new TypeSignature("T"))
+                        .argumentType(functionType(new TypeSignature("T"), new TypeSignature("U")))
+                        .build(),
                 new FunctionNullability(true, ImmutableList.of(true, false)),
                 true,
                 true,

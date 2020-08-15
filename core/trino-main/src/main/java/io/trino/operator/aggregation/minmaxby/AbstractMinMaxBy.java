@@ -47,8 +47,6 @@ import java.lang.invoke.MethodHandles;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.metadata.Signature.orderableTypeParameter;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.operator.aggregation.state.StateCompiler.generateStateFactory;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -70,13 +68,14 @@ public abstract class AbstractMinMaxBy
     {
         super(
                 new FunctionMetadata(
-                        new Signature(
-                                (min ? "min" : "max") + "_by",
-                                ImmutableList.of(orderableTypeParameter("K"), typeVariable("V")),
-                                ImmutableList.of(),
-                                new TypeSignature("V"),
-                                ImmutableList.of(new TypeSignature("V"), new TypeSignature("K")),
-                                false),
+                        Signature.builder()
+                                .name((min ? "min" : "max") + "_by")
+                                .orderableTypeParameter("K")
+                                .typeVariable("V")
+                                .returnType(new TypeSignature("V"))
+                                .argumentType(new TypeSignature("V"))
+                                .argumentType(new TypeSignature("K"))
+                                .build(),
                         new FunctionNullability(true, ImmutableList.of(true, false)),
                         false,
                         true,

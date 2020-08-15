@@ -13,11 +13,10 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionInvoker;
+import io.trino.metadata.Signature;
 import io.trino.metadata.SqlOperator;
-import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
@@ -25,7 +24,7 @@ import io.trino.spi.type.TypeSignature;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.trino.metadata.Signature.comparableTypeParameter;
+import static io.trino.spi.function.OperatorType.XX_HASH_64;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
@@ -36,11 +35,12 @@ public class GenericXxHash64Operator
 
     public GenericXxHash64Operator(TypeOperators typeOperators)
     {
-        super(OperatorType.XX_HASH_64,
-                ImmutableList.of(comparableTypeParameter("T")),
-                ImmutableList.of(),
-                BIGINT.getTypeSignature(),
-                ImmutableList.of(new TypeSignature("T")),
+        super(Signature.builder()
+                        .operatorType(XX_HASH_64)
+                        .comparableTypeParameter("T")
+                        .returnType(BIGINT)
+                        .argumentType(new TypeSignature("T"))
+                        .build(),
                 false);
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
     }

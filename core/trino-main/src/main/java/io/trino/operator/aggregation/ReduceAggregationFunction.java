@@ -38,7 +38,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
@@ -69,17 +68,16 @@ public class ReduceAggregationFunction
     {
         super(
                 new FunctionMetadata(
-                        new Signature(
-                                NAME,
-                                ImmutableList.of(typeVariable("T"), typeVariable("S")),
-                                ImmutableList.of(),
-                                new TypeSignature("S"),
-                                ImmutableList.of(
-                                        new TypeSignature("T"),
-                                        new TypeSignature("S"),
-                                        functionType(new TypeSignature("S"), new TypeSignature("T"), new TypeSignature("S")),
-                                        functionType(new TypeSignature("S"), new TypeSignature("S"), new TypeSignature("S"))),
-                                false),
+                        Signature.builder()
+                                .name(NAME)
+                                .typeVariable("T")
+                                .typeVariable("S")
+                                .returnType(new TypeSignature("S"))
+                                .argumentType(new TypeSignature("T"))
+                                .argumentType(new TypeSignature("S"))
+                                .argumentType(functionType(new TypeSignature("S"), new TypeSignature("T"), new TypeSignature("S")))
+                                .argumentType(functionType(new TypeSignature("S"), new TypeSignature("S"), new TypeSignature("S")))
+                                .build(),
                         new FunctionNullability(true, ImmutableList.of(false, false, false, false)),
                         false,
                         true,

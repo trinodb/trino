@@ -29,7 +29,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.type.TypeSignature.functionType;
@@ -48,13 +47,12 @@ public final class InvokeFunction
     private InvokeFunction()
     {
         super(new FunctionMetadata(
-                new Signature(
-                        "invoke",
-                        ImmutableList.of(typeVariable("T")),
-                        ImmutableList.of(),
-                        new TypeSignature("T"),
-                        ImmutableList.of(functionType(new TypeSignature("T"))),
-                        false),
+                Signature.builder()
+                        .name("invoke")
+                        .typeVariable("T")
+                        .returnType(new TypeSignature("T"))
+                        .argumentType(functionType(new TypeSignature("T")))
+                        .build(),
                 new FunctionNullability(true, ImmutableList.of(false)),
                 true,
                 true,

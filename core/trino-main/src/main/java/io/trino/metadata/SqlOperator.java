@@ -14,13 +14,10 @@
 package io.trino.metadata;
 
 import io.trino.spi.function.OperatorType;
-import io.trino.spi.type.TypeSignature;
-
-import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.mangleOperatorName;
+import static io.trino.metadata.Signature.unmangleOperator;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.INDETERMINATE;
 import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
@@ -31,29 +28,26 @@ public abstract class SqlOperator
         extends SqlScalarFunction
 {
     protected SqlOperator(
-            OperatorType operatorType,
-            List<TypeVariableConstraint> typeVariableConstraints,
-            List<LongVariableConstraint> longVariableConstraints,
-            TypeSignature returnType,
-            List<TypeSignature> argumentTypes,
+            Signature signature,
             boolean nullable)
     {
-        // TODO This should take Signature!
+        this(unmangleOperator(signature.getName()), signature, nullable);
+    }
+
+    private SqlOperator(
+            OperatorType operatorType,
+            Signature signature,
+            boolean nullable)
+    {
         super(new FunctionMetadata(
-                new Signature(
-                        mangleOperatorName(operatorType),
-                        typeVariableConstraints,
-                        longVariableConstraints,
-                        returnType,
-                        argumentTypes,
-                        false),
-                new FunctionNullability(nullable, nCopies(argumentTypes.size(), operatorType == IS_DISTINCT_FROM || operatorType == INDETERMINATE)),
+                signature,
+                new FunctionNullability(nullable, nCopies(signature.getArgumentTypes().size(), operatorType == IS_DISTINCT_FROM || operatorType == INDETERMINATE)),
                 true,
                 true,
                 "",
                 SCALAR));
         if (operatorType == EQUAL || operatorType == SUBSCRIPT) {
-            checkArgument(nullable, "%s operator for %s must be nullable", operatorType, argumentTypes.get(0));
+            checkArgument(nullable, "%s operator for %s must be nullable", operatorType, signature.getArgumentTypes().get(0));
         }
     }
 }

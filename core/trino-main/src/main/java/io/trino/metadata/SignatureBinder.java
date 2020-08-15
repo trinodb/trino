@@ -175,13 +175,11 @@ public class SignatureBinder
         List<TypeSignature> boundArgumentSignatures = applyBoundVariables(argumentSignatures, typeVariables);
         TypeSignature boundReturnTypeSignature = applyBoundVariables(signature.getReturnType(), typeVariables);
 
-        return new Signature(
-                signature.getName(),
-                ImmutableList.of(),
-                ImmutableList.of(),
-                boundReturnTypeSignature,
-                boundArgumentSignatures,
-                false);
+        return Signature.builder()
+                .name(signature.getName())
+                .returnType(boundReturnTypeSignature)
+                .argumentTypes(boundArgumentSignatures)
+                .build();
     }
 
     public static List<TypeSignature> applyBoundVariables(List<TypeSignature> typeSignatures, FunctionBinding functionBinding)

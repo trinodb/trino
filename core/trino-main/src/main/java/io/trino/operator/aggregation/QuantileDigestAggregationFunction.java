@@ -37,7 +37,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.metadata.Signature.comparableTypeParameter;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.INPUT_CHANNEL;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind.STATE;
 import static io.trino.operator.aggregation.AggregationFunctionAdapter.normalizeInputMethod;
@@ -76,13 +75,12 @@ public final class QuantileDigestAggregationFunction
     {
         super(
                 new FunctionMetadata(
-                        new Signature(
-                                NAME,
-                                ImmutableList.of(comparableTypeParameter("V")),
-                                ImmutableList.of(),
-                                parametricType("qdigest", new TypeSignature("V")),
-                                ImmutableList.copyOf(typeSignatures),
-                                false),
+                        Signature.builder()
+                                .name(NAME)
+                                .comparableTypeParameter("V")
+                                .returnType(parametricType(QDIGEST, new TypeSignature("V")))
+                                .argumentTypes(ImmutableList.copyOf(typeSignatures))
+                                .build(),
                         new FunctionNullability(true, nCopies(typeSignatures.length, false)),
                         false,
                         true,

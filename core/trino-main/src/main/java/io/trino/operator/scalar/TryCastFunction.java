@@ -29,8 +29,6 @@ import java.lang.invoke.MethodHandle;
 
 import static com.google.common.primitives.Primitives.wrap;
 import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.castableToTypeParameter;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static java.lang.invoke.MethodHandles.catchException;
@@ -46,13 +44,13 @@ public class TryCastFunction
     public TryCastFunction()
     {
         super(new FunctionMetadata(
-                new Signature(
-                        "TRY_CAST",
-                        ImmutableList.of(castableToTypeParameter("F", new TypeSignature("T")), typeVariable("T")),
-                        ImmutableList.of(),
-                        new TypeSignature("T"),
-                        ImmutableList.of(new TypeSignature("F")),
-                        false),
+                Signature.builder()
+                        .name("TRY_CAST")
+                        .castableToTypeParameter("F", new TypeSignature("T"))
+                        .typeVariable("T")
+                        .returnType(new TypeSignature("T"))
+                        .argumentType(new TypeSignature("F"))
+                        .build(),
                 new FunctionNullability(true, ImmutableList.of(false)),
                 true,
                 true,

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.BoundSignature;
+import io.trino.metadata.Signature;
 import io.trino.metadata.SqlOperator;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -25,7 +26,6 @@ import io.trino.spi.type.TypeSignature;
 
 import java.lang.invoke.MethodHandle;
 
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -50,11 +50,13 @@ public class ArraySubscriptOperator
 
     protected ArraySubscriptOperator()
     {
-        super(SUBSCRIPT,
-                ImmutableList.of(typeVariable("E")),
-                ImmutableList.of(),
-                new TypeSignature("E"),
-                ImmutableList.of(arrayType(new TypeSignature("E")), BIGINT.getTypeSignature()),
+        super(Signature.builder()
+                        .operatorType(SUBSCRIPT)
+                        .typeVariable("E")
+                        .returnType(new TypeSignature("E"))
+                        .argumentType(arrayType(new TypeSignature("E")))
+                        .argumentType(BIGINT)
+                        .build(),
                 true);
     }
 

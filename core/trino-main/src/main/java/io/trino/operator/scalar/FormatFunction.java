@@ -50,7 +50,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.mapWithIndex;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.trino.metadata.FunctionKind.SCALAR;
-import static io.trino.metadata.Signature.withVariadicBound;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -92,8 +91,9 @@ public final class FormatFunction
         super(new FunctionMetadata(
                 Signature.builder()
                         .name(NAME)
-                        .typeVariableConstraints(withVariadicBound("T", "row"))
-                        .argumentTypes(VARCHAR.getTypeSignature(), new TypeSignature("T"))
+                        .variadicTypeParameter("T", "row")
+                        .argumentType(VARCHAR.getTypeSignature())
+                        .argumentType(new TypeSignature("T"))
                         .returnType(VARCHAR.getTypeSignature())
                         .build(),
                 new FunctionNullability(false, ImmutableList.of(false, false)),

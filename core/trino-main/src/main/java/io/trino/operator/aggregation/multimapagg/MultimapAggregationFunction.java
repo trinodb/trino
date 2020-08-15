@@ -38,8 +38,6 @@ import java.lang.invoke.MethodHandles;
 import java.util.Optional;
 
 import static io.trino.metadata.FunctionKind.AGGREGATE;
-import static io.trino.metadata.Signature.comparableTypeParameter;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.operator.aggregation.TypedSet.createDistinctTypedSet;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.TypeSignature.mapType;
@@ -81,13 +79,14 @@ public class MultimapAggregationFunction
     {
         super(
                 new FunctionMetadata(
-                        new Signature(
-                                NAME,
-                                ImmutableList.of(comparableTypeParameter("K"), typeVariable("V")),
-                                ImmutableList.of(),
-                                mapType(new TypeSignature("K"), arrayType(new TypeSignature("V"))),
-                                ImmutableList.of(new TypeSignature("K"), new TypeSignature("V")),
-                                false),
+                        Signature.builder()
+                                .name(NAME)
+                                .comparableTypeParameter("K")
+                                .typeVariable("V")
+                                .returnType(mapType(new TypeSignature("K"), arrayType(new TypeSignature("V"))))
+                                .argumentType(new TypeSignature("K"))
+                                .argumentType(new TypeSignature("V"))
+                                .build(),
                         new FunctionNullability(true, ImmutableList.of(false, true)),
                         false,
                         true,
