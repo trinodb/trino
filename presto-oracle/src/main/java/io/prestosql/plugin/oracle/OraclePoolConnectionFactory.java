@@ -29,12 +29,12 @@ import java.util.Properties;
 import static java.lang.Math.toIntExact;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
-public class OraclePoolConnectorFactory
+public class OraclePoolConnectionFactory
         implements ConnectionFactory
 {
     private final PoolDataSource dataSource;
 
-    public OraclePoolConnectorFactory(
+    public OraclePoolConnectionFactory(
             String connectionUrl,
             Properties connectionProperties,
             CredentialProvider credentialProvider,
