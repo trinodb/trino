@@ -68,7 +68,7 @@ public class JsonToArrayCast
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         checkArgument(boundSignature.getArity() == 1, "Expected arity to be 1");
         ArrayType arrayType = (ArrayType) boundSignature.getReturnType();
@@ -76,7 +76,7 @@ public class JsonToArrayCast
 
         BlockBuilderAppender arrayAppender = BlockBuilderAppender.createBlockBuilderAppender(arrayType);
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(arrayType).bindTo(arrayAppender);
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 NULLABLE_RETURN,
                 ImmutableList.of(NEVER_NULL),

@@ -71,11 +71,11 @@ public class Re2JCastToRegexpFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         Type inputType = boundSignature.getArgumentType(0);
         Long typeLength = inputType.getTypeSignature().getParameters().get(0).getLongLiteral();
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),

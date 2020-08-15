@@ -17,8 +17,8 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.trino.FeaturesConfig;
 import io.trino.client.NodeVersion;
-import io.trino.operator.scalar.ChoicesScalarFunctionImplementation;
-import io.trino.operator.scalar.ScalarFunctionImplementation;
+import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
+import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.function.ScalarFunction;
 import io.trino.spi.function.SqlType;
@@ -355,9 +355,9 @@ public class TestGlobalFunctionCatalog
                 functions.add(new SqlScalarFunction(functionMetadata)
                 {
                     @Override
-                    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+                    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
                     {
-                        return new ChoicesScalarFunctionImplementation(
+                        return new ChoicesSpecializedSqlScalarFunction(
                                 boundSignature,
                                 FAIL_ON_NULL,
                                 nCopies(boundSignature.getArity(), NEVER_NULL),

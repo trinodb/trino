@@ -71,7 +71,7 @@ public class JsonToMapCast
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         checkArgument(boundSignature.getArity() == 1, "Expected arity to be 1");
         MapType mapType = (MapType) boundSignature.getReturnType();
@@ -79,7 +79,7 @@ public class JsonToMapCast
 
         BlockBuilderAppender mapAppender = createBlockBuilderAppender(mapType);
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(mapType).bindTo(mapAppender);
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 NULLABLE_RETURN,
                 ImmutableList.of(NEVER_NULL),

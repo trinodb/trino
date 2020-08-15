@@ -65,7 +65,7 @@ public final class ArrayConcatFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         if (boundSignature.getArity() < 2) {
             throw new TrinoException(INVALID_FUNCTION_ARGUMENT, "There must be two or more arguments to " + FUNCTION_NAME);
@@ -80,7 +80,7 @@ public final class ArrayConcatFunction
                 METHOD_HANDLE.bindTo(arrayType.getElementType()),
                 USER_STATE_FACTORY.bindTo(arrayType.getElementType()));
 
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 nCopies(boundSignature.getArity(), NEVER_NULL),

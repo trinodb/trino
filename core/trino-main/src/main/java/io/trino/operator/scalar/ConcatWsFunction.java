@@ -105,7 +105,7 @@ public final class ConcatWsFunction
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         int valueCount = boundSignature.getArity() - 1;
         if (valueCount < 1) {
@@ -115,7 +115,7 @@ public final class ConcatWsFunction
         MethodHandle arrayMethodHandle = methodHandle(ConcatWsFunction.class, "concatWs", Slice.class, Slice[].class);
         MethodHandle customMethodHandle = arrayMethodHandle.asCollector(Slice[].class, valueCount);
 
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.<InvocationConvention.InvocationArgumentConvention>builder()

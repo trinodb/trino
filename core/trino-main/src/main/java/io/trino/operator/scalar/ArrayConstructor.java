@@ -86,7 +86,7 @@ public final class ArrayConstructor
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         ImmutableList.Builder<Class<?>> builder = ImmutableList.builder();
         Type type = boundSignature.getArgumentTypes().get(0);
@@ -108,7 +108,7 @@ public final class ArrayConstructor
         catch (ReflectiveOperationException e) {
             throw new RuntimeException(e);
         }
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 nCopies(stackTypes.size(), BOXED_NULLABLE),

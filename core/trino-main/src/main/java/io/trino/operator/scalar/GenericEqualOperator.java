@@ -50,7 +50,7 @@ public class GenericEqualOperator
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         Type type = boundSignature.getArgumentType(0);
         return invocationConvention -> {
