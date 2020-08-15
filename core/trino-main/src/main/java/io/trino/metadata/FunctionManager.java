@@ -290,7 +290,8 @@ public class FunctionManager
     public static FunctionManager createTestingFunctionManager()
     {
         TypeOperators typeOperators = new TypeOperators();
-        GlobalFunctionCatalog functionCatalog = new GlobalFunctionCatalog(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN);
+        GlobalFunctionCatalog functionCatalog = new GlobalFunctionCatalog();
+        functionCatalog.addFunctions(SystemFunctionBundle.create(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN));
         functionCatalog.addFunctions(new InternalFunctionBundle(new LiteralFunction(new InternalBlockEncodingSerde(new BlockEncodingManager(), TESTING_TYPE_MANAGER))));
         return new FunctionManager(functionCatalog);
     }

@@ -2522,8 +2522,9 @@ public final class MetadataManager
 
             GlobalFunctionCatalog globalFunctionCatalog = this.globalFunctionCatalog;
             if (globalFunctionCatalog == null) {
+                globalFunctionCatalog = new GlobalFunctionCatalog();
                 TypeOperators typeOperators = new TypeOperators();
-                globalFunctionCatalog = new GlobalFunctionCatalog(featuresConfig, typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN);
+                globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(featuresConfig, typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN));
                 globalFunctionCatalog.addFunctions(new InternalFunctionBundle(new LiteralFunction(new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager))));
             }
 

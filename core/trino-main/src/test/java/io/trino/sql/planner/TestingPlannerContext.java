@@ -24,6 +24,7 @@ import io.trino.metadata.LiteralFunction;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.MetadataManager.TestMetadataManagerBuilder;
+import io.trino.metadata.SystemFunctionBundle;
 import io.trino.metadata.TypeRegistry;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.ParametricType;
@@ -107,7 +108,8 @@ public final class TestingPlannerContext
             types.forEach(typeRegistry::addType);
             parametricTypes.forEach(typeRegistry::addParametricType);
 
-            GlobalFunctionCatalog globalFunctionCatalog = new GlobalFunctionCatalog(featuresConfig, typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN);
+            GlobalFunctionCatalog globalFunctionCatalog = new GlobalFunctionCatalog();
+            globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(featuresConfig, typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN));
             functionBundles.forEach(globalFunctionCatalog::addFunctions);
 
             BlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager);
