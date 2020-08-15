@@ -471,7 +471,7 @@ public class TestOperators
     @Test
     public void testSubtract()
     {
-        // round down
+        // round down, positive
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56' - TIMESTAMP '2020-05-01 12:34:55'")).matches("INTERVAL '1' SECOND");
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.2' - TIMESTAMP '2020-05-01 12:34:55.1'")).matches("INTERVAL '1.1' SECOND");
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.22' - TIMESTAMP '2020-05-01 12:34:55.11'")).matches("INTERVAL '1.11' SECOND");
@@ -486,7 +486,7 @@ public class TestOperators
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.22222222222' - TIMESTAMP '2020-05-01 12:34:55.11111111111'")).matches("INTERVAL '1.111' SECOND");
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.222222222222' - TIMESTAMP '2020-05-01 12:34:55.111111111111'")).matches("INTERVAL '1.111' SECOND");
 
-        // round up
+        // round up, positive
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.9' - TIMESTAMP '2020-05-01 12:34:55.1'")).matches("INTERVAL '1.8' SECOND");
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.99' - TIMESTAMP '2020-05-01 12:34:55.11'")).matches("INTERVAL '1.88' SECOND");
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.999' - TIMESTAMP '2020-05-01 12:34:55.111'")).matches("INTERVAL '1.888' SECOND");
@@ -499,5 +499,34 @@ public class TestOperators
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.9999999999' - TIMESTAMP '2020-05-01 12:34:55.1111111111'")).matches("INTERVAL '1.889' SECOND");
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.99999999999' - TIMESTAMP '2020-05-01 12:34:55.11111111111'")).matches("INTERVAL '1.889' SECOND");
         assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.999999999999' - TIMESTAMP '2020-05-01 12:34:55.111111111111'")).matches("INTERVAL '1.889' SECOND");
+
+        // round down, negative
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55' - TIMESTAMP '2020-05-01 12:34:56'")).matches("INTERVAL '-1' SECOND");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.1' - TIMESTAMP '2020-05-01 12:34:56.2'")).matches("INTERVAL '-1.1' SECOND");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.11' - TIMESTAMP '2020-05-01 12:34:56.22'")).matches("INTERVAL '-1.11' SECOND");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.111' - TIMESTAMP '2020-05-01 12:34:56.222'")).matches("INTERVAL '-1.111' SECOND");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.1111' - TIMESTAMP '2020-05-01 12:34:56.2222'")).matches("INTERVAL '-1.111' SECOND");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.11111' - TIMESTAMP '2020-05-01 12:34:56.22222'")).matches("INTERVAL '-1.111' SECOND");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.111111' - TIMESTAMP '2020-05-01 12:34:56.222222'")).matches("INTERVAL '-1.111' SECOND");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.1111111' - TIMESTAMP '2020-05-01 12:34:56.2222222'")).matches("INTERVAL '-1.111' SECOND");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.11111111' - TIMESTAMP '2020-05-01 12:34:56.22222222'")).matches("INTERVAL '-1.111' SECOND");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.111111111' - TIMESTAMP '2020-05-01 12:34:56.222222222'")).matches("INTERVAL '-1.111' SECOND");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.1111111111' - TIMESTAMP '2020-05-01 12:34:56.2222222222'")).matches("INTERVAL '-1.111' SECOND");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.11111111111' - TIMESTAMP '2020-05-01 12:34:56.22222222222'")).matches("INTERVAL '-1.111' SECOND");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.111111111111' - TIMESTAMP '2020-05-01 12:34:56.222222222222'")).matches("INTERVAL '-1.111' SECOND");
+
+        // round up, negative
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.1' - TIMESTAMP '2020-05-01 12:34:56.9'")).matches("INTERVAL '-1.8' SECOND");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.11' - TIMESTAMP '2020-05-01 12:34:56.99'")).matches("INTERVAL '-1.88' SECOND");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.111' - TIMESTAMP '2020-05-01 12:34:56.999'")).matches("INTERVAL '-1.888' SECOND");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.1111' - TIMESTAMP '2020-05-01 12:34:56.9999'")).matches("INTERVAL '-1.889' SECOND");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.11111' - TIMESTAMP '2020-05-01 12:34:56.99999'")).matches("INTERVAL '-1.889' SECOND");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.111111' - TIMESTAMP '2020-05-01 12:34:56.999999'")).matches("INTERVAL '-1.889' SECOND");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.1111111' - TIMESTAMP '2020-05-01 12:34:56.9999999'")).matches("INTERVAL '-1.889' SECOND");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.11111111' - TIMESTAMP '2020-05-01 12:34:56.99999999'")).matches("INTERVAL '-1.889' SECOND");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.111111111' - TIMESTAMP '2020-05-01 12:34:56.999999999'")).matches("INTERVAL '-1.889' SECOND");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.1111111111' - TIMESTAMP '2020-05-01 12:34:56.9999999999'")).matches("INTERVAL '-1.889' SECOND");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.11111111111' - TIMESTAMP '2020-05-01 12:34:56.99999999999'")).matches("INTERVAL '-1.889' SECOND");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:55.111111111111' - TIMESTAMP '2020-05-01 12:34:56.999999999999'")).matches("INTERVAL '-1.889' SECOND");
     }
 }
