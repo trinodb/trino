@@ -48,6 +48,7 @@
         <dep.antlr.version>4.7.1</dep.antlr.version>
         <dep.airlift.version>200</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
+        <dep.avro.version>1.9.2</dep.avro.version>
         <dep.aws-sdk.version>1.11.749</dep.aws-sdk.version>
         <dep.okhttp.version>3.9.0</dep.okhttp.version>
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
@@ -1106,7 +1107,7 @@
             <dependency>
                 <groupId>org.apache.avro</groupId>
                 <artifactId>avro</artifactId>
-                <version>1.9.2</version>
+                <version>${dep.avro.version}</version>
             </dependency>
 
             <dependency>
