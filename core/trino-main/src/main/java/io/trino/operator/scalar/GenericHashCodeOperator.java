@@ -52,7 +52,9 @@ public class GenericHashCodeOperator
         Type type = boundSignature.getArgumentType(0);
         return invocationConvention -> {
             MethodHandle methodHandle = typeOperators.getHashCodeOperator(type, invocationConvention);
-            return new FunctionInvoker(methodHandle);
+            return FunctionInvoker.builder()
+                    .methodHandle(methodHandle)
+                    .build();
         };
     }
 }

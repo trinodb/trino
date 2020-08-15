@@ -52,7 +52,9 @@ public class GenericXxHash64Operator
         Type type = boundSignature.getArgumentType(0);
         return invocationConvention -> {
             MethodHandle methodHandle = typeOperators.getXxHash64Operator(type, invocationConvention);
-            return new FunctionInvoker(methodHandle);
+            return FunctionInvoker.builder()
+                    .methodHandle(methodHandle)
+                    .build();
         };
     }
 }

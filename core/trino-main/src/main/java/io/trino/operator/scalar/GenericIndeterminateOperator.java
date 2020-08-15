@@ -53,7 +53,9 @@ public class GenericIndeterminateOperator
         Type type = boundSignature.getArgumentType(0);
         return invocationConvention -> {
             MethodHandle methodHandle = typeOperators.getIndeterminateOperator(type, invocationConvention);
-            return new FunctionInvoker(methodHandle);
+            return FunctionInvoker.builder()
+                    .methodHandle(methodHandle)
+                    .build();
         };
     }
 }
