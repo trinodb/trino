@@ -23,6 +23,7 @@ import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.InternalFunctionDependencies;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.metadata.Signature;
@@ -95,7 +96,7 @@ public class TestAnnotationEngineForAggregates
 {
     private static final MetadataManager METADATA = createTestMetadataManager();
     private static final FunctionManager FUNCTION_MANAGER = createTestingFunctionManager();
-    private static final FunctionDependencies NO_FUNCTION_DEPENDENCIES = new FunctionDependencies(FUNCTION_MANAGER::getScalarFunctionInvoker, ImmutableMap.of(), ImmutableSet.of());
+    private static final FunctionDependencies NO_FUNCTION_DEPENDENCIES = new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionInvoker, ImmutableMap.of(), ImmutableSet.of());
 
     @AggregationFunction("simple_exact_aggregate")
     @Description("Simple exact aggregate description")
@@ -1172,7 +1173,7 @@ public class TestAnnotationEngineForAggregates
         assertFalse(aggregationMetadata.getIntermediateTypes().isEmpty());
 
         ResolvedFunction resolvedFunction = METADATA.resolve(TEST_SESSION, functionBinding, functionMetadata, aggregation.getFunctionDependencies(boundSignature));
-        FunctionDependencies functionDependencies = new FunctionDependencies(FUNCTION_MANAGER::getScalarFunctionInvoker, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
+        FunctionDependencies functionDependencies = new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionInvoker, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
         aggregation.specialize(boundSignature, functionDependencies);
     }
 }
