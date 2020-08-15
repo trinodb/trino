@@ -28,15 +28,15 @@ import static io.trino.util.Reflection.methodHandle;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.testng.Assert.assertEquals;
 
-public class TestParametricScalarImplementationValidation
+public class TestParametricScalarFunctionImplementationValidation
 {
-    private static final MethodHandle STATE_FACTORY = methodHandle(TestParametricScalarImplementationValidation.class, "createState");
+    private static final MethodHandle STATE_FACTORY = methodHandle(TestParametricScalarFunctionImplementationValidation.class, "createState");
 
     @Test
     public void testConnectorSessionPosition()
     {
         // Without cached instance factory
-        MethodHandle validFunctionMethodHandle = methodHandle(TestParametricScalarImplementationValidation.class, "validConnectorSessionParameterPosition", ConnectorSession.class, long.class, long.class);
+        MethodHandle validFunctionMethodHandle = methodHandle(TestParametricScalarFunctionImplementationValidation.class, "validConnectorSessionParameterPosition", ConnectorSession.class, long.class, long.class);
         ChoicesSpecializedSqlScalarFunction validFunction = new ChoicesSpecializedSqlScalarFunction(
                 new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)),
                 FAIL_ON_NULL,
@@ -48,12 +48,12 @@ public class TestParametricScalarImplementationValidation
                 new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)),
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
-                methodHandle(TestParametricScalarImplementationValidation.class, "invalidConnectorSessionParameterPosition", long.class, long.class, ConnectorSession.class)))
+                methodHandle(TestParametricScalarFunctionImplementationValidation.class, "invalidConnectorSessionParameterPosition", long.class, long.class, ConnectorSession.class)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("ConnectorSession must be the first argument when instanceFactory is not present");
 
         // With cached instance factory
-        MethodHandle validFunctionWithInstanceFactoryMethodHandle = methodHandle(TestParametricScalarImplementationValidation.class, "validConnectorSessionParameterPosition", Object.class, ConnectorSession.class, long.class, long.class);
+        MethodHandle validFunctionWithInstanceFactoryMethodHandle = methodHandle(TestParametricScalarFunctionImplementationValidation.class, "validConnectorSessionParameterPosition", Object.class, ConnectorSession.class, long.class, long.class);
         ChoicesSpecializedSqlScalarFunction validFunctionWithInstanceFactory = new ChoicesSpecializedSqlScalarFunction(
                 new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)),
                 FAIL_ON_NULL,
@@ -66,7 +66,7 @@ public class TestParametricScalarImplementationValidation
                 new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)),
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
-                methodHandle(TestParametricScalarImplementationValidation.class, "invalidConnectorSessionParameterPosition", Object.class, long.class, long.class, ConnectorSession.class),
+                methodHandle(TestParametricScalarFunctionImplementationValidation.class, "invalidConnectorSessionParameterPosition", Object.class, long.class, long.class, ConnectorSession.class),
                 Optional.of(STATE_FACTORY)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("ConnectorSession must be the second argument when instanceFactory is present");

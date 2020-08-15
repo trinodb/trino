@@ -13,10 +13,10 @@
  */
 package io.trino.operator.scalar;
 
-import io.trino.metadata.FunctionInvoker;
+import io.trino.metadata.ScalarFunctionImplementation;
 import io.trino.spi.function.InvocationConvention;
 
 public interface SpecializedSqlScalarFunction
 {
-    FunctionInvoker getScalarFunctionInvoker(InvocationConvention invocationConvention);
+    ScalarFunctionImplementation getScalarFunctionImplementation(InvocationConvention invocationConvention);
 }

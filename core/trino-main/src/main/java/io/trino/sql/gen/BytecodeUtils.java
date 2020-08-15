@@ -26,10 +26,10 @@ import io.airlift.bytecode.expression.BytecodeExpression;
 import io.airlift.bytecode.instruction.LabelNode;
 import io.airlift.slice.Slice;
 import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionInvoker;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.ScalarFunctionImplementation;
 import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.InOut;
@@ -166,7 +166,7 @@ public final class BytecodeUtils
                 scope,
                 resolvedFunction.getSignature().getName(),
                 resolvedFunction.getFunctionNullability(),
-                invocationConvention -> functionManager.getScalarFunctionInvoker(resolvedFunction, invocationConvention),
+                invocationConvention -> functionManager.getScalarFunctionImplementation(resolvedFunction, invocationConvention),
                 arguments,
                 binder);
     }
@@ -175,7 +175,7 @@ public final class BytecodeUtils
             Scope scope,
             String functionName,
             FunctionNullability functionNullability,
-            Function<InvocationConvention, FunctionInvoker> functionInvokerProvider,
+            Function<InvocationConvention, ScalarFunctionImplementation> functionImplementationProvider,
             List<BytecodeNode> arguments,
             CallSiteBinder binder)
     {
@@ -184,7 +184,7 @@ public final class BytecodeUtils
                 functionName,
                 functionNullability,
                 Collections.nCopies(arguments.size(), false),
-                functionInvokerProvider,
+                functionImplementationProvider,
                 instanceFactory -> {
                     throw new IllegalArgumentException("Simple method invocation can not be used with functions that require an instance factory");
                 },
@@ -217,7 +217,7 @@ public final class BytecodeUtils
                 resolvedFunction.getSignature().getArgumentTypes().stream()
                         .map(FunctionType.class::isInstance)
                         .collect(toImmutableList()),
-                invocationConvention -> functionManager.getScalarFunctionInvoker(resolvedFunction, invocationConvention),
+                invocationConvention -> functionManager.getScalarFunctionImplementation(resolvedFunction, invocationConvention),
                 instanceFactory,
                 argumentCompilers,
                 binder);
@@ -228,7 +228,7 @@ public final class BytecodeUtils
             String functionName,
             FunctionNullability functionNullability,
             List<Boolean> argumentIsFunctionType,
-            Function<InvocationConvention, FunctionInvoker> functionInvokerProvider,
+            Function<InvocationConvention, ScalarFunctionImplementation> functionImplementationProvider,
             Function<MethodHandle, BytecodeNode> instanceFactory,
             List<Function<Optional<Class<?>>, BytecodeNode>> argumentCompilers,
             CallSiteBinder binder)
@@ -253,15 +253,15 @@ public final class BytecodeUtils
                 functionNullability.isReturnNullable() ? NULLABLE_RETURN : FAIL_ON_NULL,
                 true,
                 true);
-        FunctionInvoker functionInvoker = functionInvokerProvider.apply(invocationConvention);
+        ScalarFunctionImplementation implementation = functionImplementationProvider.apply(invocationConvention);
 
-        Binding binding = binder.bind(functionInvoker.getMethodHandle());
+        Binding binding = binder.bind(implementation.getMethodHandle());
 
         LabelNode end = new LabelNode("end");
         BytecodeBlock block = new BytecodeBlock()
                 .setDescription("invoke " + functionName);
 
-        Optional<BytecodeNode> instance = functionInvoker.getInstanceFactory()
+        Optional<BytecodeNode> instance = implementation.getInstanceFactory()
                 .map(instanceFactory);
 
         // Index of current parameter in the MethodHandle
@@ -283,7 +283,7 @@ public final class BytecodeUtils
             Class<?> type = methodType.parameterArray()[currentParameterIndex];
             stackTypes.add(type);
             if (instance.isPresent() && !instanceIsBound) {
-                checkState(type.equals(functionInvoker.getInstanceFactory().get().type().returnType()), "Mismatched type for instance parameter");
+                checkState(type.equals(implementation.getInstanceFactory().get().type().returnType()), "Mismatched type for instance parameter");
                 block.append(instance.get());
                 instanceIsBound = true;
             }
@@ -330,7 +330,7 @@ public final class BytecodeUtils
                         currentParameterIndex++;
                         break;
                     case FUNCTION:
-                        Class<?> lambdaInterface = functionInvoker.getLambdaInterfaces().get(lambdaArgumentIndex);
+                        Class<?> lambdaInterface = implementation.getLambdaInterfaces().get(lambdaArgumentIndex);
                         block.append(argumentCompilers.get(realParameterIndex).apply(Optional.of(lambdaInterface)));
                         lambdaArgumentIndex++;
                         break;

@@ -15,10 +15,10 @@ package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionInvoker;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.ResolvedFunction;
+import io.trino.metadata.ScalarFunctionImplementation;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
@@ -60,15 +60,15 @@ public class InterpretedFunctionInvoker
      */
     public Object invoke(ResolvedFunction function, ConnectorSession session, List<Object> arguments)
     {
-        FunctionInvoker invoker = functionManager.getScalarFunctionInvoker(function, getInvocationConvention(function.getSignature(), function.getFunctionNullability()));
-        MethodHandle method = invoker.getMethodHandle();
+        ScalarFunctionImplementation implementation = functionManager.getScalarFunctionImplementation(function, getInvocationConvention(function.getSignature(), function.getFunctionNullability()));
+        MethodHandle method = implementation.getMethodHandle();
 
         List<Object> actualArguments = new ArrayList<>();
 
         // handle function on instance method, to allow use of fields
-        if (invoker.getInstanceFactory().isPresent()) {
+        if (implementation.getInstanceFactory().isPresent()) {
             try {
-                actualArguments.add(invoker.getInstanceFactory().get().invoke());
+                actualArguments.add(implementation.getInstanceFactory().get().invoke());
             }
             catch (Throwable throwable) {
                 throw propagate(throwable);
@@ -90,7 +90,7 @@ public class InterpretedFunctionInvoker
             }
 
             if (function.getSignature().getArgumentTypes().get(i) instanceof FunctionType) {
-                argument = asInterfaceInstance(invoker.getLambdaInterfaces().get(lambdaArgumentIndex), (MethodHandle) argument);
+                argument = asInterfaceInstance(implementation.getLambdaInterfaces().get(lambdaArgumentIndex), (MethodHandle) argument);
                 lambdaArgumentIndex++;
             }
 

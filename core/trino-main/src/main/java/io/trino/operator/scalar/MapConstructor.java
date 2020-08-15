@@ -95,7 +95,7 @@ public final class MapConstructor
     public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         MapType mapType = (MapType) boundSignature.getReturnType();
-        MethodHandle keyIndeterminate = functionDependencies.getOperatorInvoker(
+        MethodHandle keyIndeterminate = functionDependencies.getOperatorImplementation(
                 INDETERMINATE,
                 ImmutableList.of(mapType.getKeyType()),
                 simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();

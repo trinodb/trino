@@ -21,13 +21,13 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class FunctionInvoker
+public class ScalarFunctionImplementation
 {
     private final MethodHandle methodHandle;
     private final Optional<MethodHandle> instanceFactory;
     private final List<Class<?>> lambdaInterfaces;
 
-    private FunctionInvoker(MethodHandle methodHandle, Optional<MethodHandle> instanceFactory, List<Class<?>> lambdaInterfaces)
+    private ScalarFunctionImplementation(MethodHandle methodHandle, Optional<MethodHandle> instanceFactory, List<Class<?>> lambdaInterfaces)
     {
         this.methodHandle = requireNonNull(methodHandle, "methodHandle is null");
         this.instanceFactory = requireNonNull(instanceFactory, "instanceFactory is null");
@@ -80,9 +80,9 @@ public class FunctionInvoker
             return this;
         }
 
-        public FunctionInvoker build()
+        public ScalarFunctionImplementation build()
         {
-            return new FunctionInvoker(methodHandle, Optional.ofNullable(instanceFactory), lambdaInterfaces);
+            return new ScalarFunctionImplementation(methodHandle, Optional.ofNullable(instanceFactory), lambdaInterfaces);
         }
     }
 }
