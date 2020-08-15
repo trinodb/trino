@@ -18,6 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Sets;
+import io.trino.Session;
 import io.trino.matching.Captures;
 import io.trino.matching.Pattern;
 import io.trino.metadata.Metadata;
@@ -121,12 +122,13 @@ public class ApplyTableScanRedirection
                 throw new TrinoException(COLUMN_NOT_FOUND, format("Did not find handle for column %s in destination table %s", destinationColumn, destinationTable));
             }
 
-            // insert casts if redirected types don't match source types
+            // insert ts if redirected types don't match source types
             Type sourceType = context.getSymbolAllocator().getTypes().get(assignment.getKey());
             Type redirectedType = metadata.getColumnMetadata(context.getSession(), destinationTableHandle.get(), destinationColumnHandle).getType();
             if (!sourceType.equals(redirectedType)) {
                 Symbol redirectedSymbol = context.getSymbolAllocator().newSymbol(destinationColumn, redirectedType);
                 Cast cast = getCast(
+                        context.getSession(),
                         destinationTable,
                         destinationColumn,
                         redirectedType,
@@ -187,6 +189,7 @@ public class ApplyTableScanRedirection
             if (!domainType.equals(redirectedType)) {
                 Symbol redirectedSymbol = context.getSymbolAllocator().newSymbol(destinationColumn, redirectedType);
                 Cast cast = getCast(
+                        context.getSession(),
                         destinationTable,
                         destinationColumn,
                         redirectedType,
@@ -252,6 +255,7 @@ public class ApplyTableScanRedirection
     }
 
     private Cast getCast(
+            Session session,
             CatalogSchemaTableName destinationTable,
             String destinationColumn,
             Type destinationType,
@@ -261,7 +265,7 @@ public class ApplyTableScanRedirection
             Type sourceType)
     {
         try {
-            metadata.getCoercion(destinationType, sourceType);
+            metadata.getCoercion(session, destinationType, sourceType);
         }
         catch (TrinoException e) {
             throw new TrinoException(FUNCTION_NOT_FOUND, format(

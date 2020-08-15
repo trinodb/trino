@@ -286,7 +286,7 @@ public final class LiteralEncoder
             argument = toExpression(object, argumentType);
         }
 
-        ResolvedFunction resolvedFunction = metadata.getCoercion(QualifiedName.of(LITERAL_FUNCTION_NAME), argumentType, type);
+        ResolvedFunction resolvedFunction = metadata.getCoercion(session, QualifiedName.of(LITERAL_FUNCTION_NAME), argumentType, type);
         return FunctionCallBuilder.resolve(session, metadata)
                 .setName(resolvedFunction.toQualifiedName())
                 .addArgument(argumentType, argument)

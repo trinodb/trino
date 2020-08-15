@@ -157,7 +157,7 @@ public final class LiteralInterpreter
             }
 
             try {
-                ResolvedFunction resolvedFunction = metadata.getCoercion(VARCHAR, type);
+                ResolvedFunction resolvedFunction = metadata.getCoercion(session, VARCHAR, type);
                 return functionInvoker.invoke(resolvedFunction, connectorSession, ImmutableList.of(utf8Slice(node.getValue())));
             }
             catch (IllegalArgumentException e) {

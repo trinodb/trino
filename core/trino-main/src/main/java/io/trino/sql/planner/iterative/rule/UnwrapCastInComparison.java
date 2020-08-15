@@ -243,7 +243,7 @@ public class UnwrapCastInComparison
                 }
             }
 
-            ResolvedFunction sourceToTarget = metadata.getCoercion(sourceType, targetType);
+            ResolvedFunction sourceToTarget = metadata.getCoercion(session, sourceType, targetType);
 
             Optional<Type.Range> sourceRange = sourceType.getRange();
             if (sourceRange.isPresent()) {
@@ -332,7 +332,7 @@ public class UnwrapCastInComparison
 
             ResolvedFunction targetToSource;
             try {
-                targetToSource = metadata.getCoercion(targetType, sourceType);
+                targetToSource = metadata.getCoercion(session, targetType, sourceType);
             }
             catch (OperatorNotFoundException e) {
                 // Without a cast between target -> source, there's nothing more we can do

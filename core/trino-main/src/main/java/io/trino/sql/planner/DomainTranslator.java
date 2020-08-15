@@ -824,7 +824,7 @@ public final class DomainTranslator
         private Optional<ResolvedFunction> getSaturatedFloorCastOperator(Type fromType, Type toType)
         {
             try {
-                return Optional.of(metadata.getCoercion(SATURATED_FLOOR_CAST, fromType, toType));
+                return Optional.of(metadata.getCoercion(session, SATURATED_FLOOR_CAST, fromType, toType));
             }
             catch (OperatorNotFoundException e) {
                 return Optional.empty();
@@ -835,7 +835,7 @@ public final class DomainTranslator
         {
             requireNonNull(originalValueType, "originalValueType is null");
             requireNonNull(coercedValue, "coercedValue is null");
-            ResolvedFunction castToOriginalTypeOperator = metadata.getCoercion(coercedValueType, originalValueType);
+            ResolvedFunction castToOriginalTypeOperator = metadata.getCoercion(session, coercedValueType, originalValueType);
             Object coercedValueInOriginalType = functionInvoker.invoke(castToOriginalTypeOperator, session.toConnectorSession(), coercedValue);
             // choice of placing unordered values first or last does not matter for this code
             MethodHandle comparisonOperator = typeOperators.getComparisonUnorderedLastOperator(originalValueType, InvocationConvention.simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));

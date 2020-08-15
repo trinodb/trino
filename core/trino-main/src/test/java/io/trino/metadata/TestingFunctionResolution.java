@@ -103,12 +103,12 @@ public class TestingFunctionResolution
 
     public ResolvedFunction getCoercion(Type fromType, Type toType)
     {
-        return inTransaction(session -> metadata.getCoercion(fromType, toType));
+        return inTransaction(session -> metadata.getCoercion(session, fromType, toType));
     }
 
     public ResolvedFunction getCoercion(QualifiedName name, Type fromType, Type toType)
     {
-        return inTransaction(session -> metadata.getCoercion(name, fromType, toType));
+        return inTransaction(session -> metadata.getCoercion(session, name, fromType, toType));
     }
 
     public TestingFunctionCallBuilder functionCallBuilder(QualifiedName name)
