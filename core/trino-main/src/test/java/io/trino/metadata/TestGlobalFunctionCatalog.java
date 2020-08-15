@@ -99,7 +99,8 @@ public class TestGlobalFunctionCatalog
         FunctionBundle functionBundle = extractFunctions(CustomAdd.class);
 
         TypeOperators typeOperators = new TypeOperators();
-        GlobalFunctionCatalog globalFunctionCatalog = new GlobalFunctionCatalog(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), NodeVersion.UNKNOWN);
+        GlobalFunctionCatalog globalFunctionCatalog = new GlobalFunctionCatalog();
+        globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), NodeVersion.UNKNOWN));
         globalFunctionCatalog.addFunctions(functionBundle);
         assertThatThrownBy(() -> globalFunctionCatalog.addFunctions(functionBundle))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -112,7 +113,8 @@ public class TestGlobalFunctionCatalog
         FunctionBundle functions = extractFunctions(ScalarSum.class);
 
         TypeOperators typeOperators = new TypeOperators();
-        GlobalFunctionCatalog globalFunctionCatalog = new GlobalFunctionCatalog(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), NodeVersion.UNKNOWN);
+        GlobalFunctionCatalog globalFunctionCatalog = new GlobalFunctionCatalog();
+        globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), NodeVersion.UNKNOWN));
         assertThatThrownBy(() -> globalFunctionCatalog.addFunctions(functions))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessage("'sum' is both an aggregation and a scalar function");

@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Binder;
 import com.google.inject.Provides;
 import com.google.inject.Scopes;
+import com.google.inject.multibindings.ProvidesIntoSet;
 import io.airlift.concurrent.BoundedExecutor;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.http.server.HttpServerConfig;
@@ -67,6 +68,7 @@ import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.DisabledSystemSecurityMetadata;
 import io.trino.metadata.DiscoveryNodeManager;
 import io.trino.metadata.ForNodeManager;
+import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.HandleJsonModule;
@@ -82,6 +84,7 @@ import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.StaticCatalogStore;
 import io.trino.metadata.StaticCatalogStoreConfig;
+import io.trino.metadata.SystemFunctionBundle;
 import io.trino.metadata.SystemSecurityMetadata;
 import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
@@ -158,6 +161,7 @@ import javax.inject.Inject;
 import javax.inject.Singleton;
 
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -391,8 +395,8 @@ public class ServerMainModule
 
         // function
         binder.bind(FunctionManager.class).in(Scopes.SINGLETON);
-        // literal function must be registered lazily to break circular dependency
-        binder.bind(LiteralFunctionRegistrar.class).asEagerSingleton();
+        newSetBinder(binder, FunctionBundle.class);
+        binder.bind(RegisterFunctionBundles.class).asEagerSingleton();
 
         // type
         binder.bind(TypeAnalyzer.class).in(Scopes.SINGLETON);
@@ -494,14 +498,30 @@ public class ServerMainModule
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
     }
 
-    private static class LiteralFunctionRegistrar
+    private static class RegisterFunctionBundles
     {
         @Inject
-        public LiteralFunctionRegistrar(BlockEncodingSerde blockEncodingSerde, GlobalFunctionCatalog globalFunctionCatalog)
+        public RegisterFunctionBundles(GlobalFunctionCatalog globalFunctionCatalog, Set<FunctionBundle> functionBundles)
         {
-            LiteralFunction literalFunction = new LiteralFunction(blockEncodingSerde);
-            globalFunctionCatalog.addFunctions(new InternalFunctionBundle(ImmutableList.of(literalFunction)));
+            for (FunctionBundle functionBundle : functionBundles) {
+                globalFunctionCatalog.addFunctions(functionBundle);
+            }
         }
+    }
+
+    @ProvidesIntoSet
+    @Singleton
+    public static FunctionBundle systemFunctionBundle(FeaturesConfig featuresConfig, TypeOperators typeOperators, BlockTypeOperators blockTypeOperators, NodeVersion nodeVersion)
+    {
+        return SystemFunctionBundle.create(featuresConfig, typeOperators, blockTypeOperators, nodeVersion);
+    }
+
+    @ProvidesIntoSet
+    @Singleton
+    // literal function must be registered lazily to break circular dependency
+    public static FunctionBundle literalFunctionBundle(BlockEncodingSerde blockEncodingSerde)
+    {
+        return new InternalFunctionBundle(new LiteralFunction(blockEncodingSerde));
     }
 
     @Provides

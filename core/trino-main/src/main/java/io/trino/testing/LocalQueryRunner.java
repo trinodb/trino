@@ -94,6 +94,7 @@ import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.Split;
+import io.trino.metadata.SystemFunctionBundle;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
@@ -347,8 +348,9 @@ public class LocalQueryRunner
         TypeManager typeManager = new InternalTypeManager(typeRegistry);
         InternalBlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(blockEncodingManager, typeManager);
 
-        this.globalFunctionCatalog = new GlobalFunctionCatalog(featuresConfig, typeOperators, blockTypeOperators, nodeManager.getCurrentNode().getNodeVersion());
+        this.globalFunctionCatalog = new GlobalFunctionCatalog();
         globalFunctionCatalog.addFunctions(new InternalFunctionBundle(new LiteralFunction(blockEncodingSerde)));
+        globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(featuresConfig, typeOperators, blockTypeOperators, nodeManager.getCurrentNode().getNodeVersion()));
         this.functionManager = new FunctionManager(globalFunctionCatalog);
         MetadataManager metadata = new MetadataManager(
                 featuresConfig,
