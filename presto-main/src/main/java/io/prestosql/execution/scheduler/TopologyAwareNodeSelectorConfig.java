@@ -27,7 +27,7 @@ public class TopologyAwareNodeSelectorConfig
 {
     public enum TopologyType
     {
-        FLAT, FILE
+        FLAT, FILE, SUBNET
     }
 
     private TopologyType type = TopologyType.FLAT;
