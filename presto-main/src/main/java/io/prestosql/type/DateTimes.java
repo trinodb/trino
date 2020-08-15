@@ -177,10 +177,6 @@ public final class DateTimes
      */
     public static long rescale(long value, int fromPrecision, int toPrecision)
     {
-        if (value < 0) {
-            throw new IllegalArgumentException("value must be >= 0");
-        }
-
         if (fromPrecision <= toPrecision) {
             value *= scaleFactor(fromPrecision, toPrecision);
         }
