@@ -14,7 +14,7 @@
 package io.trino.sql.gen;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.DriverYieldSignal;
 import io.trino.operator.Work;
 import io.trino.operator.project.PageProjection;
@@ -28,7 +28,6 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 import java.util.function.Supplier;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.trino.spi.function.OperatorType.ADD;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -44,16 +43,16 @@ import static org.testng.Assert.assertTrue;
 
 public class TestPageFunctionCompiler
 {
-    private static final Metadata METADATA = createTestMetadataManager();
+    private static final TestingFunctionResolution FUNCTION_RESOLUTION = new TestingFunctionResolution();
     private static final CallExpression ADD_10_EXPRESSION = call(
-            METADATA.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
+            FUNCTION_RESOLUTION.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
             field(0, BIGINT),
             constant(10L, BIGINT));
 
     @Test
     public void testFailureDoesNotCorruptFutureResults()
     {
-        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(METADATA, 0);
+        PageFunctionCompiler functionCompiler = FUNCTION_RESOLUTION.getPageFunctionCompiler();
 
         Supplier<PageProjection> projectionSupplier = functionCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty());
         PageProjection projection = projectionSupplier.get();
@@ -77,7 +76,7 @@ public class TestPageFunctionCompiler
     @Test
     public void testGeneratedClassName()
     {
-        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(METADATA, 0);
+        PageFunctionCompiler functionCompiler = FUNCTION_RESOLUTION.getPageFunctionCompiler();
 
         String planNodeId = "7";
         String stageId = "20170707_223500_67496_zguwn.2";
@@ -92,7 +91,7 @@ public class TestPageFunctionCompiler
     @Test
     public void testCache()
     {
-        PageFunctionCompiler cacheCompiler = new PageFunctionCompiler(METADATA, 100);
+        PageFunctionCompiler cacheCompiler = FUNCTION_RESOLUTION.getPageFunctionCompiler(100);
         assertSame(
                 cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty()),
                 cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty()));
@@ -106,7 +105,7 @@ public class TestPageFunctionCompiler
                 cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty()),
                 cacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.of("hint2")));
 
-        PageFunctionCompiler noCacheCompiler = new PageFunctionCompiler(METADATA, 0);
+        PageFunctionCompiler noCacheCompiler = FUNCTION_RESOLUTION.getPageFunctionCompiler();
         assertNotSame(
                 noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty()),
                 noCacheCompiler.compileProjection(ADD_10_EXPRESSION, Optional.empty()));
