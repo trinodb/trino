@@ -14,8 +14,7 @@
 package io.trino.sql.gen;
 
 import io.airlift.slice.Slices;
-import io.trino.metadata.Metadata;
-import io.trino.metadata.MetadataManager;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.RowExpression;
 import org.testng.annotations.Test;
@@ -38,7 +37,7 @@ import static org.testng.Assert.assertEquals;
 
 public class TestInCodeGenerator
 {
-    private final Metadata metadata = MetadataManager.createTestMetadataManager();
+    private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
 
     @Test
     public void testInteger()
@@ -52,7 +51,7 @@ public class TestInCodeGenerator
         values.add(constant(null, INTEGER));
         assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
         values.add(new CallExpression(
-                metadata.getCoercion(DOUBLE, INTEGER),
+                functionResolution.getCoercion(DOUBLE, INTEGER),
                 Collections.singletonList(constant(12345678901234.0, DOUBLE))));
         assertEquals(checkSwitchGenerationCase(INTEGER, values), DIRECT_SWITCH);
 
@@ -76,7 +75,7 @@ public class TestInCodeGenerator
         values.add(constant(null, BIGINT));
         assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);
         values.add(new CallExpression(
-                metadata.getCoercion(DOUBLE, BIGINT),
+                functionResolution.getCoercion(DOUBLE, BIGINT),
                 Collections.singletonList(constant(12345678901234.0, DOUBLE))));
         assertEquals(checkSwitchGenerationCase(BIGINT, values), HASH_SWITCH);
 

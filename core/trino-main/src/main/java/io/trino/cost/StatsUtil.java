@@ -43,7 +43,7 @@ final class StatsUtil
     {
         if (convertibleToDoubleWithCast(type)) {
             InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(metadata);
-            ResolvedFunction castFunction = metadata.getCoercion(type, DOUBLE);
+            ResolvedFunction castFunction = metadata.getCoercion(session, type, DOUBLE);
             return OptionalDouble.of((double) functionInvoker.invoke(castFunction, session.toConnectorSession(), singletonList(value)));
         }
 
