@@ -20,7 +20,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ListMultimap;
 import io.airlift.jaxrs.testing.GuavaMultivaluedMap;
-import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
@@ -46,6 +45,7 @@ import static io.trino.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.trino.SystemSessionProperties.QUERY_MAX_MEMORY;
 import static io.trino.client.ProtocolHeaders.TRINO_HEADERS;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
+import static io.trino.metadata.MetadataManager.testMetadataManagerBuilder;
 import static io.trino.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.trino.transaction.InMemoryTransactionManager.createTestTransactionManager;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -253,7 +253,9 @@ public class TestQuerySessionSupplier
     private static QuerySessionSupplier createSessionSupplier(SqlEnvironmentConfig config)
     {
         TransactionManager transactionManager = createTestTransactionManager();
-        Metadata metadata = createTestMetadataManager(transactionManager, new FeaturesConfig());
+        Metadata metadata = testMetadataManagerBuilder()
+                .withTransactionManager(transactionManager)
+                .build();
         return new QuerySessionSupplier(
                 metadata,
                 new AllowAllAccessControl(),
