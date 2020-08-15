@@ -65,9 +65,9 @@ public class DecimalSumAggregation
                                 .build())
                         .description("Calculates the sum over the input values")
                         .build(),
-                new AggregationFunctionMetadata(
-                        false,
-                        VARBINARY.getTypeSignature()));
+                AggregationFunctionMetadata.builder()
+                        .intermediateType(VARBINARY)
+                        .build());
     }
 
     @Override

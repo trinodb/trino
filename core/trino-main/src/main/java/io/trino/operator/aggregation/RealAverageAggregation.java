@@ -61,10 +61,10 @@ public class RealAverageAggregation
                                 .build())
                         .description("Returns the average value of the argument")
                         .build(),
-                new AggregationFunctionMetadata(
-                        false,
-                        BIGINT.getTypeSignature(),
-                        DOUBLE.getTypeSignature()));
+                AggregationFunctionMetadata.builder()
+                        .intermediateType(BIGINT)
+                        .intermediateType(DOUBLE)
+                        .build());
     }
 
     @Override

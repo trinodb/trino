@@ -89,9 +89,9 @@ public abstract class AbstractMinMaxAggregationFunction
                                 .build())
                         .description(description)
                         .build(),
-                new AggregationFunctionMetadata(
-                        false,
-                        new TypeSignature("E")));
+                AggregationFunctionMetadata.builder()
+                        .intermediateType(new TypeSignature("E"))
+                        .build());
         this.min = min;
     }
 

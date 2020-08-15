@@ -73,9 +73,9 @@ public class MapUnionAggregation
                                 .build())
                         .description("Aggregate all the maps into a single map")
                         .build(),
-                new AggregationFunctionMetadata(
-                        false,
-                        mapType(new TypeSignature("K"), new TypeSignature("V"))));
+                AggregationFunctionMetadata.builder()
+                        .intermediateType(mapType(new TypeSignature("K"), new TypeSignature("V")))
+                        .build());
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 
