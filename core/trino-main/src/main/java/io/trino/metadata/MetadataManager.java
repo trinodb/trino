@@ -25,7 +25,6 @@ import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.airlift.slice.Slice;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
-import io.trino.client.NodeVersion;
 import io.trino.collect.cache.NonEvictableCache;
 import io.trino.connector.CatalogName;
 import io.trino.metadata.Catalog.SecurityManagement;
@@ -35,7 +34,6 @@ import io.trino.operator.window.WindowFunctionSupplier;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
-import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
@@ -172,7 +170,7 @@ public final class MetadataManager
     @VisibleForTesting
     public static final int MAX_TABLE_REDIRECTIONS = 10;
 
-    private final FunctionRegistry functions;
+    private final GlobalFunctionCatalog functions;
     private final FunctionResolver functionResolver;
     private final SystemSecurityMetadata systemSecurityMetadata;
     private final TransactionManager transactionManager;
@@ -190,15 +188,13 @@ public final class MetadataManager
             FeaturesConfig featuresConfig,
             SystemSecurityMetadata systemSecurityMetadata,
             TransactionManager transactionManager,
+            GlobalFunctionCatalog globalFunctionCatalog,
             TypeOperators typeOperators,
             BlockTypeOperators blockTypeOperators,
-            TypeManager typeManager,
-            BlockEncodingSerde blockEncodingSerde,
-            NodeVersion nodeVersion)
+            TypeManager typeManager)
     {
-        requireNonNull(nodeVersion, "nodeVersion is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
-        functions = new FunctionRegistry(blockEncodingSerde, featuresConfig, typeOperators, blockTypeOperators, nodeVersion.getVersion());
+        functions = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
         functionResolver = new FunctionResolver(this, typeManager);
 
         this.systemSecurityMetadata = requireNonNull(systemSecurityMetadata, "systemSecurityMetadata is null");
@@ -2018,15 +2014,9 @@ public final class MetadataManager
     //
 
     @Override
-    public void addFunctions(List<? extends SqlFunction> functionInfos)
+    public Collection<FunctionMetadata> listFunctions()
     {
-        functions.addFunctions(functionInfos);
-    }
-
-    @Override
-    public List<FunctionMetadata> listFunctions()
-    {
-        return functions.list();
+        return functions.listFunctions();
     }
 
     @Override
@@ -2071,7 +2061,7 @@ public final class MetadataManager
     private ResolvedFunction resolvedFunctionInternal(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         return functionDecoder.fromQualifiedName(name)
-                .orElseGet(() -> resolve(session, functionResolver.resolveFunction(session, functions.get(name), name, parameterTypes)));
+                .orElseGet(() -> resolve(session, functionResolver.resolveFunction(session, functions.getFunctions(name), name, parameterTypes)));
     }
 
     @Override
@@ -2082,8 +2072,10 @@ public final class MetadataManager
             // todo we should not be caching functions across session
             return coercionCache.get(new CoercionCacheKey(operatorType, fromType, toType), () -> {
                 String name = mangleOperatorName(operatorType);
-                Signature signature = new Signature(name, toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature()));
-                FunctionBinding functionBinding = functionResolver.resolveCoercion(session, functions.get(QualifiedName.of(name)), signature);
+                FunctionBinding functionBinding = functionResolver.resolveCoercion(
+                        session,
+                        functions.getFunctions(QualifiedName.of(name)),
+                        new Signature(name, toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())));
                 return resolve(session, functionBinding);
             });
         }
@@ -2107,15 +2099,15 @@ public final class MetadataManager
     {
         FunctionBinding functionBinding = functionResolver.resolveCoercion(
                 session,
-                functions.get(name),
+                functions.getFunctions(name),
                 new Signature(name.getSuffix(), toType.getTypeSignature(), ImmutableList.of(fromType.getTypeSignature())));
         return resolve(session, functionBinding);
     }
 
     private ResolvedFunction resolve(Session session, FunctionBinding functionBinding)
     {
+        FunctionDependencyDeclaration declaration = functions.getFunctionDependencies(functionBinding.getFunctionId(), functionBinding.getBoundSignature());
         FunctionMetadata functionMetadata = getFunctionMetadata(functionBinding.getFunctionId(), functionBinding.getBoundSignature());
-        FunctionDependencyDeclaration declaration = functions.getFunctionDependencies(functionBinding);
         return resolve(session, functionBinding, functionMetadata, declaration);
     }
 
@@ -2189,7 +2181,7 @@ public final class MetadataManager
     @Override
     public boolean isAggregationFunction(QualifiedName name)
     {
-        return functions.get(name).stream()
+        return functions.getFunctions(name).stream()
                 .map(FunctionMetadata::getKind)
                 .anyMatch(AGGREGATE::equals);
     }
@@ -2202,7 +2194,7 @@ public final class MetadataManager
 
     private FunctionMetadata getFunctionMetadata(FunctionId functionId, BoundSignature signature)
     {
-        FunctionMetadata functionMetadata = functions.get(functionId);
+        FunctionMetadata functionMetadata = functions.getFunctionMetadata(functionId);
 
         // specialize function metadata to resolvedFunction
         List<Boolean> argumentNullability = functionMetadata.getFunctionNullability().getArgumentNullable();
@@ -2356,7 +2348,7 @@ public final class MetadataManager
 
     private FunctionBinding toFunctionBinding(ResolvedFunction resolvedFunction)
     {
-        Signature functionSignature = functions.get(resolvedFunction.getFunctionId()).getSignature();
+        Signature functionSignature = functions.getFunctionMetadata(resolvedFunction.getFunctionId()).getSignature();
         return toFunctionBinding(resolvedFunction.getFunctionId(), resolvedFunction.getSignature(), functionSignature);
     }
 
@@ -2606,6 +2598,7 @@ public final class MetadataManager
         private FeaturesConfig featuresConfig;
         private TransactionManager transactionManager;
         private TypeManager typeManager = TESTING_TYPE_MANAGER;
+        private GlobalFunctionCatalog globalFunctionCatalog;
 
         private TestMetadataManagerBuilder() {}
 
@@ -2633,6 +2626,12 @@ public final class MetadataManager
             return this;
         }
 
+        public TestMetadataManagerBuilder withGlobalFunctionCatalog(GlobalFunctionCatalog globalFunctionCatalog)
+        {
+            this.globalFunctionCatalog = globalFunctionCatalog;
+            return this;
+        }
+
         public MetadataManager build()
         {
             FeaturesConfig featuresConfig = this.featuresConfig;
@@ -2646,15 +2645,20 @@ public final class MetadataManager
             }
 
             TypeOperators typeOperators = new TypeOperators();
+
+            GlobalFunctionCatalog globalFunctionCatalog = this.globalFunctionCatalog;
+            if (globalFunctionCatalog == null) {
+                globalFunctionCatalog = new GlobalFunctionCatalog(featuresConfig, typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN);
+            }
+
             return new MetadataManager(
                     featuresConfig,
                     new DisabledSystemSecurityMetadata(),
                     transactionManager,
+                    globalFunctionCatalog,
                     typeOperators,
                     new BlockTypeOperators(typeOperators),
-                    typeManager,
-                    new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager),
-                    UNKNOWN);
+                    typeManager);
         }
     }
 }

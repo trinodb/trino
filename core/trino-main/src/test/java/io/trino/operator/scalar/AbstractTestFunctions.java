@@ -157,19 +157,19 @@ public abstract class AbstractTestFunctions
 
     protected void registerScalarFunction(SqlScalarFunction sqlScalarFunction)
     {
-        functionAssertions.getMetadata().addFunctions(ImmutableList.of(sqlScalarFunction));
+        functionAssertions.addFunctions(ImmutableList.of(sqlScalarFunction));
     }
 
     protected void registerScalar(Class<?> clazz)
     {
-        functionAssertions.getMetadata().addFunctions(new FunctionListBuilder()
+        functionAssertions.addFunctions(new FunctionListBuilder()
                 .scalars(clazz)
                 .getFunctions());
     }
 
     protected void registerParametricScalar(Class<?> clazz)
     {
-        functionAssertions.getMetadata().addFunctions(new FunctionListBuilder()
+        functionAssertions.addFunctions(new FunctionListBuilder()
                 .scalar(clazz)
                 .getFunctions());
     }

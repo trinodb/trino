@@ -67,9 +67,11 @@ import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.DisabledSystemSecurityMetadata;
 import io.trino.metadata.DiscoveryNodeManager;
 import io.trino.metadata.ForNodeManager;
+import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.HandleJsonModule;
 import io.trino.metadata.InternalBlockEncodingSerde;
 import io.trino.metadata.InternalNodeManager;
+import io.trino.metadata.LiteralFunction;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
@@ -376,6 +378,7 @@ public class ServerMainModule
                 .setDefault()
                 .to(DisabledSystemSecurityMetadata.class)
                 .in(Scopes.SINGLETON);
+        binder.bind(GlobalFunctionCatalog.class).in(Scopes.SINGLETON);
         binder.bind(TypeOperatorsCache.class).in(Scopes.SINGLETON);
         newExporter(binder).export(TypeOperatorsCache.class).as(factory -> factory.generatedNameOf(TypeOperators.class));
         binder.bind(BlockTypeOperators.class).in(Scopes.SINGLETON);
@@ -383,6 +386,9 @@ public class ServerMainModule
         binder.bind(ProcedureRegistry.class).in(Scopes.SINGLETON);
         binder.bind(TableProceduresRegistry.class).in(Scopes.SINGLETON);
         binder.bind(PlannerContext.class).in(Scopes.SINGLETON);
+
+        // literal function must be registered lazily to break circular dependency
+        binder.bind(LiteralFunctionRegistrar.class).asEagerSingleton();
 
         // type
         binder.bind(TypeAnalyzer.class).in(Scopes.SINGLETON);
@@ -482,6 +488,16 @@ public class ServerMainModule
 
         // cleanup
         binder.bind(ExecutorCleanup.class).in(Scopes.SINGLETON);
+    }
+
+    private static class LiteralFunctionRegistrar
+    {
+        @Inject
+        public LiteralFunctionRegistrar(BlockEncodingSerde blockEncodingSerde, GlobalFunctionCatalog globalFunctionCatalog)
+        {
+            LiteralFunction literalFunction = new LiteralFunction(blockEncodingSerde);
+            globalFunctionCatalog.addFunctions(ImmutableList.of(literalFunction));
+        }
     }
 
     @Provides

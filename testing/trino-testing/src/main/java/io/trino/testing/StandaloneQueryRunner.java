@@ -66,7 +66,7 @@ public final class StandaloneQueryRunner
 
         refreshNodes();
 
-        server.getMetadata().addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
+        server.addFunctions(AbstractTestQueries.CUSTOM_FUNCTIONS);
     }
 
     @Override
@@ -230,7 +230,7 @@ public final class StandaloneQueryRunner
     @Override
     public void addFunctions(List<? extends SqlFunction> functions)
     {
-        server.getMetadata().addFunctions(functions);
+        server.addFunctions(functions);
     }
 
     public void createCatalog(String catalogName, String connectorName)

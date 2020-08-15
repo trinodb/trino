@@ -25,7 +25,7 @@ abstract class AbstractTestMLFunctions
     @BeforeClass
     public void registerFunctions()
     {
-        functionAssertions.getMetadata().addFunctions(
+        functionAssertions.addFunctions(
                 extractFunctions(new MLPlugin().getFunctions()));
     }
 }

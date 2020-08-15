@@ -47,7 +47,7 @@ public class TestBingTileFunctions
     public void registerFunctions()
     {
         functionAssertions.installPlugin(new GeoPlugin());
-        functionAssertions.getMetadata().addFunctions(ImmutableList.of(APPLY_FUNCTION));
+        functionAssertions.addFunctions(ImmutableList.of(APPLY_FUNCTION));
     }
 
     @Test

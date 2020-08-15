@@ -57,11 +57,13 @@ import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.metadata.AllNodes;
 import io.trino.metadata.CatalogManager;
+import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ProcedureRegistry;
 import io.trino.metadata.SessionPropertyManager;
+import io.trino.metadata.SqlFunction;
 import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
@@ -153,6 +155,7 @@ public class TestingTrinoServer
     private final TypeManager typeManager;
     private final QueryExplainer queryExplainer;
     private final SessionPropertyManager sessionPropertyManager;
+    private final GlobalFunctionCatalog globalFunctionCatalog;
     private final StatsCalculator statsCalculator;
     private final ProcedureRegistry procedureRegistry;
     private final TestingAccessControlManager accessControl;
@@ -303,6 +306,7 @@ public class TestingTrinoServer
         server = injector.getInstance(TestingHttpServer.class);
         catalogManager = injector.getInstance(CatalogManager.class);
         transactionManager = injector.getInstance(TransactionManager.class);
+        globalFunctionCatalog = injector.getInstance(GlobalFunctionCatalog.class);
         metadata = injector.getInstance(Metadata.class);
         typeManager = injector.getInstance(TypeManager.class);
         accessControl = injector.getInstance(TestingAccessControlManager.class);
@@ -481,6 +485,11 @@ public class TestingTrinoServer
     public SessionPropertyManager getSessionPropertyManager()
     {
         return sessionPropertyManager;
+    }
+
+    public void addFunctions(List<? extends SqlFunction> functions)
+    {
+        globalFunctionCatalog.addFunctions(functions);
     }
 
     public StatsCalculator getStatsCalculator()
