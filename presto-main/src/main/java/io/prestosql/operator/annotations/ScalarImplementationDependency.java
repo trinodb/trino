@@ -20,26 +20,25 @@ import io.prestosql.spi.function.InvocationConvention;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandleProxies;
-import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
 public abstract class ScalarImplementationDependency
         implements ImplementationDependency
 {
-    private final Optional<InvocationConvention> invocationConvention;
+    private final InvocationConvention invocationConvention;
     private final Class<?> type;
 
-    protected ScalarImplementationDependency(Optional<InvocationConvention> invocationConvention, Class<?> type)
+    protected ScalarImplementationDependency(InvocationConvention invocationConvention, Class<?> type)
     {
         this.invocationConvention = requireNonNull(invocationConvention, "invocationConvention is null");
         this.type = requireNonNull(type, "type is null");
-        if (invocationConvention.map(InvocationConvention::supportsInstanceFactor).orElse(false)) {
+        if (invocationConvention.supportsInstanceFactor()) {
             throw new IllegalArgumentException(getClass().getSimpleName() + " does not support instance functions");
         }
     }
 
-    protected abstract FunctionInvoker getInvoker(FunctionBinding functionBinding, FunctionDependencies functionDependencies, Optional<InvocationConvention> invocationConvention);
+    protected abstract FunctionInvoker getInvoker(FunctionBinding functionBinding, FunctionDependencies functionDependencies, InvocationConvention invocationConvention);
 
     @Override
     public Object resolve(FunctionBinding functionBinding, FunctionDependencies functionDependencies)

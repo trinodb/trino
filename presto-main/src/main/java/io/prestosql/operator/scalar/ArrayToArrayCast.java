@@ -38,7 +38,6 @@ import io.prestosql.sql.gen.CachedInstanceBinder;
 import io.prestosql.sql.gen.CallSiteBinder;
 
 import java.lang.invoke.MethodHandle;
-import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -90,7 +89,7 @@ public class ArrayToArrayCast
         Type toType = functionBinding.getTypeVariable("T");
 
         FunctionMetadata castMetadata = functionDependencies.getCastMetadata(fromType, toType);
-        Function<InvocationConvention, FunctionInvoker> castInvokerProvider = invocationConvention -> functionDependencies.getCastInvoker(fromType, toType, Optional.of(invocationConvention));
+        Function<InvocationConvention, FunctionInvoker> castInvokerProvider = invocationConvention -> functionDependencies.getCastInvoker(fromType, toType, invocationConvention);
         Class<?> castOperatorClass = generateArrayCast(fromType, toType, castMetadata, castInvokerProvider);
         MethodHandle methodHandle = methodHandle(castOperatorClass, "castArray", ConnectorSession.class, Block.class);
         return new ChoicesScalarFunctionImplementation(

@@ -17,6 +17,7 @@ import com.google.common.io.BaseEncoding;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.function.Convention;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.FunctionDependency;
 import io.prestosql.spi.function.ScalarFunction;
@@ -27,6 +28,8 @@ import java.lang.invoke.MethodHandle;
 
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static java.nio.charset.StandardCharsets.UTF_16BE;
 
 public final class TeradataStringFunctions
@@ -39,7 +42,8 @@ public final class TeradataStringFunctions
     public static long index(
             @FunctionDependency(
                     name = "strpos",
-                    argumentTypes = {StandardTypes.VARCHAR, StandardTypes.VARCHAR})
+                    argumentTypes = {StandardTypes.VARCHAR, StandardTypes.VARCHAR},
+                    convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = FAIL_ON_NULL))
                     MethodHandle method,
             @SqlType(StandardTypes.VARCHAR) Slice string,
             @SqlType(StandardTypes.VARCHAR) Slice substring)

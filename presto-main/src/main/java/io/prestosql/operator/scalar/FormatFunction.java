@@ -43,7 +43,6 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.IllegalFormatException;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.BiFunction;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -54,6 +53,7 @@ import static io.prestosql.metadata.Signature.withVariadicBound;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.Chars.padSpaces;
@@ -217,7 +217,7 @@ public final class FormatFunction
         }
         // TODO: support TIME WITH TIME ZONE by https://github.com/prestosql/presto/issues/191 + mapping to java.time.OffsetTime
         if (type.equals(JSON)) {
-            MethodHandle handle = functionDependencies.getFunctionInvoker(QualifiedName.of("json_format"), ImmutableList.of(JSON), Optional.empty()).getMethodHandle();
+            MethodHandle handle = functionDependencies.getFunctionInvoker(QualifiedName.of("json_format"), ImmutableList.of(JSON), simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
             return (session, block) -> convertToString(handle, type.getSlice(block, position));
         }
         if (isShortDecimal(type)) {
@@ -253,7 +253,7 @@ public final class FormatFunction
             function = (session, block) -> type.getObject(block, position);
         }
 
-        MethodHandle handle = functionDependencies.getCastInvoker(type, VARCHAR, Optional.empty()).getMethodHandle();
+        MethodHandle handle = functionDependencies.getCastInvoker(type, VARCHAR, simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
         return (session, block) -> convertToString(handle, function.apply(session, block));
     }
 

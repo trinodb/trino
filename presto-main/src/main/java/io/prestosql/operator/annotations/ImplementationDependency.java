@@ -142,14 +142,11 @@ public interface ImplementationDependency
             throw new IllegalArgumentException("Unsupported annotation " + annotation.getClass().getSimpleName());
         }
 
-        private static Optional<InvocationConvention> toInvocationConvention(Convention convention)
+        private static InvocationConvention toInvocationConvention(Convention convention)
         {
-            if (convention.$notSpecified()) {
-                return Optional.empty();
-            }
             List<InvocationConvention.InvocationArgumentConvention> argumentConventions = new ArrayList<>();
             Collections.addAll(argumentConventions, convention.arguments());
-            return Optional.of(new InvocationConvention(argumentConventions, convention.result(), convention.session(), false));
+            return new InvocationConvention(argumentConventions, convention.result(), convention.session(), false);
         }
     }
 }

@@ -77,8 +77,7 @@ public class BytecodeGeneratorContext
         return rowExpressionCompiler.compile(expression, scope);
     }
 
-    public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction,
-            Optional<InvocationConvention> invocationConvention)
+    public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
     {
         return metadata.getScalarFunctionInvoker(resolvedFunction, invocationConvention);
     }

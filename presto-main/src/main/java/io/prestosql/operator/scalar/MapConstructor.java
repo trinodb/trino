@@ -29,7 +29,6 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.DuplicateMapKeyException;
 import io.prestosql.spi.block.MapBlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
@@ -42,8 +41,8 @@ import static io.prestosql.metadata.Signature.comparableTypeParameter;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
-import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
@@ -63,8 +62,6 @@ public final class MapConstructor
             MapConstructor.class,
             "createMap",
             MapType.class,
-            MethodHandle.class,
-            MethodHandle.class,
             MethodHandle.class,
             State.class,
             ConnectorSession.class,
@@ -108,10 +105,7 @@ public final class MapConstructor
     {
         Type keyType = functionBinding.getTypeVariable("K");
 
-        MethodHandle keyHashCode = functionDependencies.getOperatorInvoker(HASH_CODE, ImmutableList.of(keyType), Optional.empty()).getMethodHandle();
-        MethodHandle keyEqual = functionDependencies.getOperatorInvoker(EQUAL, ImmutableList.of(keyType, keyType), Optional.empty()).getMethodHandle();
-        InvocationConvention indeterminateCallingConvention = new InvocationConvention(ImmutableList.of(NULL_FLAG), FAIL_ON_NULL, false, false);
-        MethodHandle keyIndeterminate = functionDependencies.getOperatorInvoker(INDETERMINATE, ImmutableList.of(keyType), Optional.of(indeterminateCallingConvention)).getMethodHandle();
+        MethodHandle keyIndeterminate = functionDependencies.getOperatorInvoker(INDETERMINATE, ImmutableList.of(keyType), simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
 
         Type mapType = functionBinding.getBoundSignature().getReturnType();
         MethodHandle instanceFactory = constructorMethodHandle(State.class, MapType.class).bindTo(mapType);
@@ -120,15 +114,13 @@ public final class MapConstructor
                 functionBinding,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
-                METHOD_HANDLE.bindTo(mapType).bindTo(keyEqual).bindTo(keyHashCode).bindTo(keyIndeterminate),
+                METHOD_HANDLE.bindTo(mapType).bindTo(keyIndeterminate),
                 Optional.of(instanceFactory));
     }
 
     @UsedByGeneratedCode
     public static Block createMap(
             MapType mapType,
-            MethodHandle keyEqual,
-            MethodHandle keyHashCode,
             MethodHandle keyIndeterminate,
             State state,
             ConnectorSession session,
@@ -153,7 +145,7 @@ public final class MapConstructor
             }
             Object keyObject = readNativeValue(mapType.getKeyType(), keyBlock, i);
             try {
-                if ((boolean) keyIndeterminate.invoke(keyObject, false)) {
+                if ((boolean) keyIndeterminate.invoke(keyObject)) {
                     throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "map key cannot be indeterminate: " + mapType.getKeyType().getObjectValue(session, keyBlock, i));
                 }
             }

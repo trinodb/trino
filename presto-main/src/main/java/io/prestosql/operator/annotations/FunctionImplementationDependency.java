@@ -23,7 +23,6 @@ import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 
 import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
 import static java.util.Objects.requireNonNull;
@@ -34,7 +33,7 @@ public final class FunctionImplementationDependency
     private final QualifiedName name;
     private final List<TypeSignature> argumentTypes;
 
-    public FunctionImplementationDependency(QualifiedName name, List<TypeSignature> argumentTypes, Optional<InvocationConvention> invocationConvention, Class<?> type)
+    public FunctionImplementationDependency(QualifiedName name, List<TypeSignature> argumentTypes, InvocationConvention invocationConvention, Class<?> type)
     {
         super(invocationConvention, type);
         this.name = requireNonNull(name, "name is null");
@@ -48,7 +47,7 @@ public final class FunctionImplementationDependency
     }
 
     @Override
-    protected FunctionInvoker getInvoker(FunctionBinding functionBinding, FunctionDependencies functionDependencies, Optional<InvocationConvention> invocationConvention)
+    protected FunctionInvoker getInvoker(FunctionBinding functionBinding, FunctionDependencies functionDependencies, InvocationConvention invocationConvention)
     {
         List<TypeSignature> types = applyBoundVariables(argumentTypes, functionBinding);
         return functionDependencies.getFunctionSignatureInvoker(name, types, invocationConvention);

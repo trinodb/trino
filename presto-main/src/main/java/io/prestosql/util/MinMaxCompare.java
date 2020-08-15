@@ -22,7 +22,6 @@ import io.prestosql.type.BlockTypeOperators.BlockPositionComparison;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
-import java.util.Optional;
 
 import static io.prestosql.spi.function.OperatorType.COMPARISON;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -41,7 +40,7 @@ public final class MinMaxCompare
 
     private MinMaxCompare() {}
 
-    public static MethodHandle getMinMaxCompare(FunctionDependencies dependencies, Type type, Optional<InvocationConvention> convention, boolean min)
+    public static MethodHandle getMinMaxCompare(FunctionDependencies dependencies, Type type, InvocationConvention convention, boolean min)
     {
         if (!min && type.equals(REAL)) {
             return MAX_REAL_FUNCTION;

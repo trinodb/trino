@@ -48,7 +48,6 @@ import io.prestosql.sql.gen.CallSiteBinder;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -176,7 +175,7 @@ public class RowToRowCast
             Type toElementType = toTypes.get(i);
             FunctionMetadata castMetadata = functionDependencies.getCastMetadata(fromElementType, toElementType);
             Function<InvocationConvention, FunctionInvoker> castInvokerProvider = invocationConvention ->
-                    functionDependencies.getCastInvoker(fromElementType, toElementType, Optional.of(invocationConvention));
+                    functionDependencies.getCastInvoker(fromElementType, toElementType, invocationConvention);
 
             Type currentFromType = fromElementType;
             if (currentFromType.equals(UNKNOWN)) {
