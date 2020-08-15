@@ -28,7 +28,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 import java.util.OptionalInt;
 
-import static io.trino.metadata.FunctionExtractor.extractFunctions;
+import static io.trino.metadata.InternalFunctionBundle.extractFunctions;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.sql.analyzer.TypeSignatureProvider.fromTypes;

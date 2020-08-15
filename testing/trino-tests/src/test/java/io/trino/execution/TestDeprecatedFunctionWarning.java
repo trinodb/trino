@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.trino.Session;
 import io.trino.client.Warning;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.operator.aggregation.state.LongAndDoubleState;
 import io.trino.operator.window.RankFunction;
 import io.trino.spi.WarningCode;
@@ -44,7 +45,6 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.trino.execution.TestQueryRunnerUtil.createQueryRunner;
-import static io.trino.metadata.FunctionExtractor.extractFunctions;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.testing.TestingSession.testSessionBuilder;
 import static org.testng.Assert.fail;
@@ -69,7 +69,7 @@ public class TestDeprecatedFunctionWarning
                 TestNonDeprecatedAggregation.class,
                 TestDeprecatedWindow.class,
                 TestNonDeprecatedWindow.class)
-                .forEach(udfClass -> queryRunner.addFunctions(extractFunctions(udfClass)));
+                .forEach(udfClass -> queryRunner.addFunctions(InternalFunctionBundle.builder().functions(udfClass).build()));
         queryRunner.installPlugin(new DeprecatedFunctionsPlugin());
     }
 

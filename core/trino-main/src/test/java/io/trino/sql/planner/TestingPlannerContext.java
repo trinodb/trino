@@ -13,17 +13,17 @@
  */
 package io.trino.sql.planner;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.FeaturesConfig;
 import io.trino.metadata.BlockEncodingManager;
+import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.InternalBlockEncodingSerde;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.LiteralFunction;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.MetadataManager;
 import io.trino.metadata.MetadataManager.TestMetadataManagerBuilder;
-import io.trino.metadata.SqlFunction;
 import io.trino.metadata.TypeRegistry;
 import io.trino.spi.block.BlockEncodingSerde;
 import io.trino.spi.type.ParametricType;
@@ -37,11 +37,9 @@ import io.trino.type.InternalTypeManager;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkState;
 import static io.trino.client.NodeVersion.UNKNOWN;
-import static io.trino.metadata.FunctionExtractor.extractFunctions;
 import static java.util.Objects.requireNonNull;
 
 public final class TestingPlannerContext
@@ -61,7 +59,7 @@ public final class TestingPlannerContext
         private TransactionManager transactionManager;
         private final List<Type> types = new ArrayList<>();
         private final List<ParametricType> parametricTypes = new ArrayList<>();
-        private final List<SqlFunction> functions = new ArrayList<>();
+        private final List<FunctionBundle> functionBundles = new ArrayList<>();
 
         private Builder() {}
 
@@ -93,14 +91,9 @@ public final class TestingPlannerContext
             return this;
         }
 
-        public Builder addFunctions(Set<Class<?>> functionClasses)
+        public Builder addFunctions(FunctionBundle functionBundle)
         {
-            return addFunctions(extractFunctions(functionClasses));
-        }
-
-        public Builder addFunctions(List<? extends SqlFunction> sqlFunctions)
-        {
-            functions.addAll(sqlFunctions);
+            functionBundles.add(functionBundle);
             return this;
         }
 
@@ -115,10 +108,10 @@ public final class TestingPlannerContext
             parametricTypes.forEach(typeRegistry::addParametricType);
 
             GlobalFunctionCatalog globalFunctionCatalog = new GlobalFunctionCatalog(featuresConfig, typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN);
-            globalFunctionCatalog.addFunctions(functions);
+            functionBundles.forEach(globalFunctionCatalog::addFunctions);
 
             BlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager);
-            globalFunctionCatalog.addFunctions(ImmutableList.of(new LiteralFunction(blockEncodingSerde)));
+            globalFunctionCatalog.addFunctions(new InternalFunctionBundle(new LiteralFunction(blockEncodingSerde)));
 
             Metadata metadata = this.metadata;
             if (metadata == null) {

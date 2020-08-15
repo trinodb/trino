@@ -15,6 +15,7 @@ package io.trino.plugin.geospatial;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableList;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.operator.scalar.AbstractTestFunctions;
 import io.trino.spi.type.ArrayType;
 import org.testng.annotations.BeforeClass;
@@ -47,7 +48,7 @@ public class TestBingTileFunctions
     public void registerFunctions()
     {
         functionAssertions.installPlugin(new GeoPlugin());
-        functionAssertions.addFunctions(ImmutableList.of(APPLY_FUNCTION));
+        functionAssertions.addFunctions(new InternalFunctionBundle(APPLY_FUNCTION));
     }
 
     @Test

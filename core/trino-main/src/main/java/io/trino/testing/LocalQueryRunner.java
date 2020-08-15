@@ -76,11 +76,13 @@ import io.trino.metadata.CatalogManager;
 import io.trino.metadata.ColumnPropertyManager;
 import io.trino.metadata.DisabledSystemSecurityMetadata;
 import io.trino.metadata.ExchangeHandleResolver;
+import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.HandleResolver;
 import io.trino.metadata.InMemoryNodeManager;
 import io.trino.metadata.InternalBlockEncodingSerde;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.LiteralFunction;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
@@ -92,7 +94,6 @@ import io.trino.metadata.QualifiedTablePrefix;
 import io.trino.metadata.SchemaPropertyManager;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.metadata.Split;
-import io.trino.metadata.SqlFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TableProceduresPropertyManager;
 import io.trino.metadata.TableProceduresRegistry;
@@ -347,7 +348,7 @@ public class LocalQueryRunner
         InternalBlockEncodingSerde blockEncodingSerde = new InternalBlockEncodingSerde(blockEncodingManager, typeManager);
 
         this.globalFunctionCatalog = new GlobalFunctionCatalog(featuresConfig, typeOperators, blockTypeOperators, nodeManager.getCurrentNode().getNodeVersion());
-        globalFunctionCatalog.addFunctions(ImmutableList.of(new LiteralFunction(blockEncodingSerde)));
+        globalFunctionCatalog.addFunctions(new InternalFunctionBundle(new LiteralFunction(blockEncodingSerde)));
         this.functionManager = new FunctionManager(globalFunctionCatalog);
         MetadataManager metadata = new MetadataManager(
                 featuresConfig,
@@ -709,9 +710,9 @@ public class LocalQueryRunner
     }
 
     @Override
-    public void addFunctions(List<? extends SqlFunction> functions)
+    public void addFunctions(FunctionBundle functionBundle)
     {
-        globalFunctionCatalog.addFunctions(functions);
+        globalFunctionCatalog.addFunctions(functionBundle);
     }
 
     @Override

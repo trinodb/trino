@@ -57,6 +57,7 @@ import io.trino.memory.ClusterMemoryManager;
 import io.trino.memory.LocalMemoryManager;
 import io.trino.metadata.AllNodes;
 import io.trino.metadata.CatalogManager;
+import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.InternalNode;
@@ -64,7 +65,6 @@ import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ProcedureRegistry;
 import io.trino.metadata.SessionPropertyManager;
-import io.trino.metadata.SqlFunction;
 import io.trino.security.AccessControl;
 import io.trino.security.AccessControlConfig;
 import io.trino.security.AccessControlManager;
@@ -495,9 +495,9 @@ public class TestingTrinoServer
         return functionManager;
     }
 
-    public void addFunctions(List<? extends SqlFunction> functions)
+    public void addFunctions(FunctionBundle functionBundle)
     {
-        globalFunctionCatalog.addFunctions(functions);
+        globalFunctionCatalog.addFunctions(functionBundle);
     }
 
     public StatsCalculator getStatsCalculator()

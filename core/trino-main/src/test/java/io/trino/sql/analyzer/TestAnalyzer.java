@@ -32,6 +32,7 @@ import io.trino.memory.MemoryManagerConfig;
 import io.trino.memory.NodeMemoryConfig;
 import io.trino.metadata.AnalyzePropertyManager;
 import io.trino.metadata.ColumnPropertyManager;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.MaterializedViewDefinition;
 import io.trino.metadata.MaterializedViewPropertyManager;
 import io.trino.metadata.Metadata;
@@ -5310,7 +5311,7 @@ public class TestAnalyzer
         accessControlManager.setSystemAccessControls(List.of(AllowAllSystemAccessControl.INSTANCE));
         this.accessControl = accessControlManager;
 
-        queryRunner.addFunctions(ImmutableList.of(APPLY_FUNCTION));
+        queryRunner.addFunctions(InternalFunctionBundle.builder().functions(APPLY_FUNCTION).build());
         plannerContext = queryRunner.getPlannerContext();
         Metadata metadata = plannerContext.getMetadata();
 

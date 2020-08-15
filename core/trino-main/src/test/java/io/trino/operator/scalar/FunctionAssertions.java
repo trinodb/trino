@@ -25,10 +25,10 @@ import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.connector.CatalogName;
 import io.trino.execution.Lifespan;
+import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.Split;
-import io.trino.metadata.SqlFunction;
 import io.trino.metadata.TableHandle;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.DriverContext;
@@ -239,9 +239,9 @@ public final class FunctionAssertions
         testingFunctionResolution = new TestingFunctionResolution(runner);
     }
 
-    public void addFunctions(List<? extends SqlFunction> functions)
+    public void addFunctions(FunctionBundle functionBundle)
     {
-        runner.addFunctions(functions);
+        runner.addFunctions(functionBundle);
     }
 
     public Metadata getMetadata()

@@ -71,6 +71,7 @@ import io.trino.metadata.FunctionManager;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.HandleJsonModule;
 import io.trino.metadata.InternalBlockEncodingSerde;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.InternalNodeManager;
 import io.trino.metadata.LiteralFunction;
 import io.trino.metadata.MaterializedViewPropertyManager;
@@ -499,7 +500,7 @@ public class ServerMainModule
         public LiteralFunctionRegistrar(BlockEncodingSerde blockEncodingSerde, GlobalFunctionCatalog globalFunctionCatalog)
         {
             LiteralFunction literalFunction = new LiteralFunction(blockEncodingSerde);
-            globalFunctionCatalog.addFunctions(ImmutableList.of(literalFunction));
+            globalFunctionCatalog.addFunctions(new InternalFunctionBundle(ImmutableList.of(literalFunction)));
         }
     }
 
