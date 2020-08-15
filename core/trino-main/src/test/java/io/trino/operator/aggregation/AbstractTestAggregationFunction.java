@@ -15,8 +15,8 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.block.BlockAssertions;
+import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.metadata.SqlFunction;
 import io.trino.metadata.TestingFunctionResolution;
 import io.trino.operator.PagesIndex;
 import io.trino.operator.window.PagesWindowIndex;
@@ -46,10 +46,10 @@ public abstract class AbstractTestAggregationFunction
 
     protected AbstractTestAggregationFunction()
     {
-        this(ImmutableList.of());
+        functionResolution = new TestingFunctionResolution();
     }
 
-    protected AbstractTestAggregationFunction(List<? extends SqlFunction> functions)
+    protected AbstractTestAggregationFunction(FunctionBundle functions)
     {
         functionResolution = new TestingFunctionResolution(functions);
     }

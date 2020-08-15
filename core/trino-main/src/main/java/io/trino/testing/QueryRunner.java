@@ -17,11 +17,11 @@ import io.trino.Session;
 import io.trino.cost.StatsCalculator;
 import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.warnings.WarningCollector;
+import io.trino.metadata.FunctionBundle;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.metadata.SessionPropertyManager;
-import io.trino.metadata.SqlFunction;
 import io.trino.spi.ErrorType;
 import io.trino.spi.Plugin;
 import io.trino.spi.type.TypeManager;
@@ -93,7 +93,7 @@ public interface QueryRunner
 
     void installPlugin(Plugin plugin);
 
-    void addFunctions(List<? extends SqlFunction> functions);
+    void addFunctions(FunctionBundle functionBundle);
 
     void createCatalog(String catalogName, String connectorName, Map<String, String> properties);
 

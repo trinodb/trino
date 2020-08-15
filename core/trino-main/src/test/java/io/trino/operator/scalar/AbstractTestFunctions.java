@@ -13,10 +13,9 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.FeaturesConfig;
 import io.trino.Session;
-import io.trino.metadata.FunctionListBuilder;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.ErrorCodeSupplier;
 import io.trino.spi.Plugin;
@@ -157,21 +156,21 @@ public abstract class AbstractTestFunctions
 
     protected void registerScalarFunction(SqlScalarFunction sqlScalarFunction)
     {
-        functionAssertions.addFunctions(ImmutableList.of(sqlScalarFunction));
+        functionAssertions.addFunctions(new InternalFunctionBundle(sqlScalarFunction));
     }
 
     protected void registerScalar(Class<?> clazz)
     {
-        functionAssertions.addFunctions(new FunctionListBuilder()
+        functionAssertions.addFunctions(InternalFunctionBundle.builder()
                 .scalars(clazz)
-                .getFunctions());
+                .build());
     }
 
     protected void registerParametricScalar(Class<?> clazz)
     {
-        functionAssertions.addFunctions(new FunctionListBuilder()
+        functionAssertions.addFunctions(InternalFunctionBundle.builder()
                 .scalar(clazz)
-                .getFunctions());
+                .build());
     }
 
     protected void installPlugin(Plugin plugin)

@@ -11,13 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.plugin.ml;
 
+import io.trino.metadata.InternalFunctionBundle;
+import io.trino.metadata.InternalFunctionBundle.InternalFunctionBundleBuilder;
 import io.trino.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.BeforeClass;
-
-import static io.trino.metadata.FunctionExtractor.extractFunctions;
 
 abstract class AbstractTestMLFunctions
         extends AbstractTestFunctions
@@ -25,7 +24,8 @@ abstract class AbstractTestMLFunctions
     @BeforeClass
     public void registerFunctions()
     {
-        functionAssertions.addFunctions(
-                extractFunctions(new MLPlugin().getFunctions()));
+        InternalFunctionBundleBuilder builder = InternalFunctionBundle.builder();
+        new MLPlugin().getFunctions().forEach(builder::functions);
+        functionAssertions.addFunctions(builder.build());
     }
 }

@@ -34,6 +34,7 @@ import org.testng.annotations.Test;
 import java.util.OptionalInt;
 import java.util.Random;
 
+import static io.trino.metadata.InternalFunctionBundle.extractFunctions;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.TypeSignature.mapType;
@@ -59,7 +60,7 @@ public class TestLearnAggregations
                 .addParametricType(new ClassifierParametricType())
                 .addType(ModelType.MODEL)
                 .addType(RegressorType.REGRESSOR)
-                .addFunctions(new MLPlugin().getFunctions())
+                .addFunctions(extractFunctions(new MLPlugin().getFunctions()))
                 .build();
         FUNCTION_RESOLUTION = new TestingFunctionResolution(transactionManager, plannerContext);
     }

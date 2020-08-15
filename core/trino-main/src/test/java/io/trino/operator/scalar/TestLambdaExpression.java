@@ -15,6 +15,7 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.spi.type.ArrayType;
 import io.trino.spi.type.RowType;
 import org.testng.annotations.BeforeClass;
@@ -45,7 +46,7 @@ public class TestLambdaExpression
     @BeforeClass
     public void setUp()
     {
-        functionAssertions.addFunctions(ImmutableList.of(APPLY_FUNCTION, INVOKE_FUNCTION));
+        functionAssertions.addFunctions(new InternalFunctionBundle(APPLY_FUNCTION, INVOKE_FUNCTION));
     }
 
     @Test

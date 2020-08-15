@@ -14,7 +14,7 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.FunctionListBuilder;
+import io.trino.metadata.InternalFunctionBundle;
 import io.trino.operator.aggregation.state.NullableLongState;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.BlockBuilder;
@@ -38,7 +38,7 @@ public class TestCountNullAggregation
 {
     public TestCountNullAggregation()
     {
-        super(new FunctionListBuilder().aggregates(CountNull.class).getFunctions());
+        super(InternalFunctionBundle.extractFunctions(CountNull.class));
     }
 
     @Override

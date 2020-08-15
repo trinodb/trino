@@ -23,6 +23,8 @@ import io.trino.execution.resourcegroups.ResourceGroupManager;
 import io.trino.metadata.BlockEncodingManager;
 import io.trino.metadata.GlobalFunctionCatalog;
 import io.trino.metadata.HandleResolver;
+import io.trino.metadata.InternalFunctionBundle;
+import io.trino.metadata.InternalFunctionBundle.InternalFunctionBundleBuilder;
 import io.trino.metadata.TypeRegistry;
 import io.trino.security.AccessControlManager;
 import io.trino.security.GroupProviderManager;
@@ -52,12 +54,12 @@ import java.net.URL;
 import java.util.List;
 import java.util.Optional;
 import java.util.ServiceLoader;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkState;
-import static io.trino.metadata.FunctionExtractor.extractFunctions;
 import static java.util.Arrays.asList;
 import static java.util.Objects.requireNonNull;
 
@@ -198,9 +200,12 @@ public class PluginManager
             connectorManager.addConnectorFactory(connectorFactory, duplicatePluginClassLoaderFactory);
         }
 
-        for (Class<?> functionClass : plugin.getFunctions()) {
-            log.info("Registering functions from %s", functionClass.getName());
-            globalFunctionCatalog.addFunctions(extractFunctions(functionClass));
+        Set<Class<?>> functions = plugin.getFunctions();
+        if (!functions.isEmpty()) {
+            log.info("Registering functions from %s", plugin.getClass().getSimpleName());
+            InternalFunctionBundleBuilder builder = InternalFunctionBundle.builder();
+            functions.forEach(builder::functions);
+            globalFunctionCatalog.addFunctions(builder.build());
         }
 
         for (SessionPropertyConfigurationManagerFactory sessionConfigFactory : plugin.getSessionPropertyConfigurationManagerFactories()) {
