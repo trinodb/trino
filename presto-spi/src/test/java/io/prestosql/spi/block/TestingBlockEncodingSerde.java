@@ -15,6 +15,10 @@ package io.prestosql.spi.block;
 
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.prestosql.spi.type.TestingTypeManager;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeId;
+import io.prestosql.spi.type.TypeManager;
 
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -22,11 +26,13 @@ import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 // This class is exactly the same as BlockEncodingManager. They are in SPI and don't have access to InternalBlockEncodingSerde.
 public final class TestingBlockEncodingSerde
         implements BlockEncodingSerde
 {
+    private final TypeManager typeManagerType = new TestingTypeManager();
     private final ConcurrentMap<String, BlockEncoding> blockEncodings = new ConcurrentHashMap<>();
 
     public TestingBlockEncodingSerde()
@@ -89,6 +95,27 @@ public final class TestingBlockEncodingSerde
 
             break;
         }
+    }
+
+    @Override
+    public Type readType(SliceInput sliceInput)
+    {
+        requireNonNull(sliceInput, "sliceInput is null");
+
+        String id = readLengthPrefixedString(sliceInput);
+        Type type = typeManagerType.getType(TypeId.of(id));
+        if (type == null) {
+            throw new IllegalArgumentException("Unknown type " + id);
+        }
+        return type;
+    }
+
+    @Override
+    public void writeType(SliceOutput sliceOutput, Type type)
+    {
+        requireNonNull(sliceOutput, "sliceOutput is null");
+        requireNonNull(type, "type is null");
+        writeLengthPrefixedString(sliceOutput, type.getTypeId().getId());
     }
 
     private static String readLengthPrefixedString(SliceInput input)

@@ -15,6 +15,7 @@ package io.prestosql.spi.block;
 
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
+import io.prestosql.spi.type.Type;
 
 public interface BlockEncodingSerde
 {
@@ -27,4 +28,14 @@ public interface BlockEncodingSerde
      * Write a blockEncoding to the output.
      */
     void writeBlock(SliceOutput output, Block block);
+
+    /**
+     * Reads a type from the input.
+     */
+    Type readType(SliceInput sliceInput);
+
+    /**
+     * Write a type to the output.
+     */
+    void writeType(SliceOutput sliceOutput, Type type);
 }

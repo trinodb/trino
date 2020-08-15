@@ -17,27 +17,17 @@ package io.prestosql.spi.block;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.spi.type.TypeSerde;
 
 import java.util.Optional;
 
 import static io.airlift.slice.Slices.wrappedIntArray;
 import static io.prestosql.spi.block.MapHashTables.HASH_MULTIPLIER;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public class SingleMapBlockEncoding
         implements BlockEncoding
 {
     public static final String NAME = "MAP_ELEMENT";
-
-    private final TypeManager typeManager;
-
-    public SingleMapBlockEncoding(TypeManager typeManager)
-    {
-        this.typeManager = requireNonNull(typeManager, "typeManager is null");
-    }
 
     @Override
     public String getName()
@@ -49,7 +39,7 @@ public class SingleMapBlockEncoding
     public void writeBlock(BlockEncodingSerde blockEncodingSerde, SliceOutput sliceOutput, Block block)
     {
         SingleMapBlock singleMapBlock = (SingleMapBlock) block;
-        TypeSerde.writeType(sliceOutput, singleMapBlock.getMapType());
+        blockEncodingSerde.writeType(sliceOutput, singleMapBlock.getMapType());
 
         int offset = singleMapBlock.getOffset();
         int positionCount = singleMapBlock.getPositionCount();
@@ -71,7 +61,7 @@ public class SingleMapBlockEncoding
     @Override
     public Block readBlock(BlockEncodingSerde blockEncodingSerde, SliceInput sliceInput)
     {
-        MapType mapType = (MapType) TypeSerde.readType(typeManager, sliceInput);
+        MapType mapType = (MapType) blockEncodingSerde.readType(sliceInput);
 
         Block keyBlock = blockEncodingSerde.readBlock(sliceInput);
         Block valueBlock = blockEncodingSerde.readBlock(sliceInput);
