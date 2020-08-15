@@ -22,7 +22,6 @@ import io.trino.operator.window.WindowFunctionSupplier;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.tree.QualifiedName;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -41,10 +40,13 @@ import static io.trino.metadata.Signature.unmangleOperator;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.IntegerType.INTEGER;
+import static java.util.Locale.ENGLISH;
 
 @ThreadSafe
 public class GlobalFunctionCatalog
 {
+    public static final String GLOBAL_CATALOG = "system";
+    public static final String GLOBAL_SCHEMA = "global";
     private volatile FunctionMap functions = new FunctionMap();
 
     public final synchronized void addFunctions(FunctionBundle functionBundle)
@@ -115,9 +117,12 @@ public class GlobalFunctionCatalog
         return functions.list();
     }
 
-    public Collection<FunctionMetadata> getFunctions(QualifiedName name)
+    public Collection<FunctionMetadata> getFunctions(SchemaFunctionName name)
     {
-        return functions.get(name);
+        if (!GLOBAL_SCHEMA.equals(name.getSchemaName())) {
+            return ImmutableList.of();
+        }
+        return functions.get(name.getFunctionName());
     }
 
     public FunctionMetadata getFunctionMetadata(FunctionId functionId)
@@ -158,13 +163,14 @@ public class GlobalFunctionCatalog
     {
         private final Map<FunctionId, FunctionBundle> functionBundlesById;
         private final Map<FunctionId, FunctionMetadata> functionsById;
-        private final Multimap<QualifiedName, FunctionMetadata> functionsByName;
+        // function names are currently lower cased
+        private final Multimap<String, FunctionMetadata> functionsByLowerCaseName;
 
         public FunctionMap()
         {
             functionBundlesById = ImmutableMap.of();
             functionsById = ImmutableMap.of();
-            functionsByName = ImmutableListMultimap.of();
+            functionsByLowerCaseName = ImmutableListMultimap.of();
         }
 
         public FunctionMap(FunctionMap map, FunctionBundle functionBundle)
@@ -181,14 +187,14 @@ public class GlobalFunctionCatalog
                             .collect(toImmutableMap(FunctionMetadata::getFunctionId, Function.identity())))
                     .buildOrThrow();
 
-            ImmutableListMultimap.Builder<QualifiedName, FunctionMetadata> functionsByName = ImmutableListMultimap.<QualifiedName, FunctionMetadata>builder()
-                    .putAll(map.functionsByName);
+            ImmutableListMultimap.Builder<String, FunctionMetadata> functionsByName = ImmutableListMultimap.<String, FunctionMetadata>builder()
+                    .putAll(map.functionsByLowerCaseName);
             functionBundle.getFunctions()
-                    .forEach(functionMetadata -> functionsByName.put(QualifiedName.of(functionMetadata.getSignature().getName()), functionMetadata));
-            this.functionsByName = functionsByName.build();
+                    .forEach(functionMetadata -> functionsByName.put(functionMetadata.getSignature().getName().toLowerCase(ENGLISH), functionMetadata));
+            this.functionsByLowerCaseName = functionsByName.build();
 
             // Make sure all functions with the same name are aggregations or none of them are
-            for (Map.Entry<QualifiedName, Collection<FunctionMetadata>> entry : this.functionsByName.asMap().entrySet()) {
+            for (Map.Entry<String, Collection<FunctionMetadata>> entry : this.functionsByLowerCaseName.asMap().entrySet()) {
                 Collection<FunctionMetadata> values = entry.getValue();
                 long aggregations = values.stream()
                         .map(FunctionMetadata::getKind)
@@ -200,12 +206,12 @@ public class GlobalFunctionCatalog
 
         public List<FunctionMetadata> list()
         {
-            return ImmutableList.copyOf(functionsByName.values());
+            return ImmutableList.copyOf(functionsByLowerCaseName.values());
         }
 
-        public Collection<FunctionMetadata> get(QualifiedName name)
+        public Collection<FunctionMetadata> get(String functionName)
         {
-            return functionsByName.get(name);
+            return functionsByLowerCaseName.get(functionName.toLowerCase(ENGLISH));
         }
 
         public FunctionMetadata get(FunctionId functionId)
