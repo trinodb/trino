@@ -2366,7 +2366,7 @@ class StatementAnalyzer
 
                 // ensure a comparison operator exists for the given types (applying coercions if necessary)
                 try {
-                    metadata.resolveOperator(OperatorType.EQUAL, ImmutableList.of(
+                    metadata.resolveOperator(session, OperatorType.EQUAL, ImmutableList.of(
                             leftField.get().getType(), rightField.get().getType()));
                 }
                 catch (OperatorNotFoundException e) {

@@ -15,12 +15,12 @@ package io.trino.type;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.Metadata;
+import io.trino.metadata.TestingFunctionResolution;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeNotFoundException;
 import io.trino.spi.type.TypeSignature;
 import org.testng.annotations.Test;
 
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.function.OperatorType.EQUAL;
 import static io.trino.spi.function.OperatorType.HASH_CODE;
 import static io.trino.spi.function.OperatorType.IS_DISTINCT_FROM;
@@ -30,7 +30,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestTypeRegistry
 {
-    private final Metadata metadata = createTestMetadataManager();
+    private final TestingFunctionResolution functionResolution = new TestingFunctionResolution();
+    private final Metadata metadata = functionResolution.getMetadata();
 
     @Test
     public void testNonexistentType()
@@ -45,13 +46,13 @@ public class TestTypeRegistry
     {
         for (Type type : metadata.getTypes()) {
             if (type.isComparable()) {
-                metadata.resolveOperator(EQUAL, ImmutableList.of(type, type));
-                metadata.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(type, type));
-                metadata.resolveOperator(HASH_CODE, ImmutableList.of(type));
+                functionResolution.resolveOperator(EQUAL, ImmutableList.of(type, type));
+                functionResolution.resolveOperator(IS_DISTINCT_FROM, ImmutableList.of(type, type));
+                functionResolution.resolveOperator(HASH_CODE, ImmutableList.of(type));
             }
             if (type.isOrderable()) {
-                metadata.resolveOperator(LESS_THAN, ImmutableList.of(type, type));
-                metadata.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(type, type));
+                functionResolution.resolveOperator(LESS_THAN, ImmutableList.of(type, type));
+                functionResolution.resolveOperator(LESS_THAN_OR_EQUAL, ImmutableList.of(type, type));
             }
         }
     }

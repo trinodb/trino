@@ -2258,7 +2258,7 @@ public final class MetadataManager
     }
 
     @Override
-    public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    public ResolvedFunction resolveOperator(Session session, OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
         try {
