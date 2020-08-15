@@ -98,7 +98,7 @@ public class TestingFunctionResolution
     public ResolvedFunction resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
             throws OperatorNotFoundException
     {
-        return inTransaction(session -> metadata.resolveOperator(operatorType, argumentTypes));
+        return inTransaction(session -> metadata.resolveOperator(session, operatorType, argumentTypes));
     }
 
     public ResolvedFunction getCoercion(Type fromType, Type toType)
