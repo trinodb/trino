@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive.util;
 
+import com.google.common.collect.ImmutableList;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.prestosql.spi.block.ArrayBlockEncoding;
@@ -30,20 +31,35 @@ import io.prestosql.spi.block.RunLengthBlockEncoding;
 import io.prestosql.spi.block.ShortArrayBlockEncoding;
 import io.prestosql.spi.block.SingleRowBlockEncoding;
 import io.prestosql.spi.block.VariableWidthBlockEncoding;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeId;
 
 import javax.inject.Inject;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.HyperLogLogType.HYPER_LOG_LOG;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.Objects.requireNonNull;
 
 // This class is exactly the same as BlockEncodingManager
 public final class HiveBlockEncodingSerde
         implements BlockEncodingSerde
 {
+    private static final List<Type> TYPES = ImmutableList.of(BOOLEAN, BIGINT, DOUBLE, INTEGER, VARCHAR, VARBINARY, TIMESTAMP_MILLIS, TIMESTAMP_WITH_TIME_ZONE, DATE, HYPER_LOG_LOG);
     private final ConcurrentMap<String, BlockEncoding> blockEncodings = new ConcurrentHashMap<>();
 
     @Inject
@@ -107,6 +123,28 @@ public final class HiveBlockEncodingSerde
 
             break;
         }
+    }
+
+    @Override
+    public Type readType(SliceInput sliceInput)
+    {
+        requireNonNull(sliceInput, "sliceInput is null");
+
+        TypeId id = TypeId.of(readLengthPrefixedString(sliceInput));
+        for (Type type : TYPES) {
+            if (type.getTypeId().equals(id)) {
+                return type;
+            }
+        }
+        throw new IllegalArgumentException("Type not found: " + id);
+    }
+
+    @Override
+    public void writeType(SliceOutput sliceOutput, Type type)
+    {
+        requireNonNull(sliceOutput, "sliceOutput is null");
+        requireNonNull(type, "type is null");
+        writeLengthPrefixedString(sliceOutput, type.getTypeId().getId());
     }
 
     private static String readLengthPrefixedString(SliceInput input)

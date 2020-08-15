@@ -18,8 +18,11 @@ import io.airlift.slice.SliceOutput;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockEncoding;
 import io.prestosql.spi.block.BlockEncodingSerde;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeId;
 
 import java.util.Optional;
+import java.util.function.Function;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
@@ -27,11 +30,13 @@ import static java.util.Objects.requireNonNull;
 final class InternalBlockEncodingSerde
         implements BlockEncodingSerde
 {
-    private final Metadata metadata;
+    private final Function<String, BlockEncoding> blockEncodings;
+    private final Function<TypeId, Type> types;
 
-    public InternalBlockEncodingSerde(Metadata metadata)
+    public InternalBlockEncodingSerde(Function<String, BlockEncoding> blockEncodings, Function<TypeId, Type> types)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.blockEncodings = requireNonNull(blockEncodings, "blockEncodings is null");
+        this.types = requireNonNull(types, "types is null");
     }
 
     @Override
@@ -41,7 +46,7 @@ final class InternalBlockEncodingSerde
         String encodingName = readLengthPrefixedString(input);
 
         // look up the encoding factory
-        BlockEncoding blockEncoding = metadata.getBlockEncoding(encodingName);
+        BlockEncoding blockEncoding = blockEncodings.apply(encodingName);
 
         // load read the encoding factory from the output stream
         return blockEncoding.readBlock(this, input);
@@ -55,7 +60,7 @@ final class InternalBlockEncodingSerde
             String encodingName = block.getEncodingName();
 
             // look up the BlockEncoding
-            BlockEncoding blockEncoding = metadata.getBlockEncoding(encodingName);
+            BlockEncoding blockEncoding = blockEncodings.apply(encodingName);
 
             // see if a replacement block should be written instead
             Optional<Block> replacementBlock = blockEncoding.replacementBlockForWrite(block);
@@ -72,6 +77,27 @@ final class InternalBlockEncodingSerde
 
             break;
         }
+    }
+
+    @Override
+    public Type readType(SliceInput sliceInput)
+    {
+        requireNonNull(sliceInput, "sliceInput is null");
+
+        String id = readLengthPrefixedString(sliceInput);
+        Type type = types.apply(TypeId.of(id));
+        if (type == null) {
+            throw new IllegalArgumentException("Unknown type " + id);
+        }
+        return type;
+    }
+
+    @Override
+    public void writeType(SliceOutput sliceOutput, Type type)
+    {
+        requireNonNull(sliceOutput, "sliceOutput is null");
+        requireNonNull(type, "type is null");
+        writeLengthPrefixedString(sliceOutput, type.getTypeId().getId());
     }
 
     private static String readLengthPrefixedString(SliceInput input)

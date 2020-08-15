@@ -233,8 +233,8 @@ public final class MetadataManager
         addBlockEncoding(new Int128ArrayBlockEncoding());
         addBlockEncoding(new DictionaryBlockEncoding());
         addBlockEncoding(new ArrayBlockEncoding());
-        addBlockEncoding(new MapBlockEncoding(new InternalTypeManager(this, typeOperators)));
-        addBlockEncoding(new SingleMapBlockEncoding(new InternalTypeManager(this, typeOperators)));
+        addBlockEncoding(new MapBlockEncoding());
+        addBlockEncoding(new SingleMapBlockEncoding());
         addBlockEncoding(new RowBlockEncoding());
         addBlockEncoding(new SingleRowBlockEncoding());
         addBlockEncoding(new RunLengthBlockEncoding());
@@ -2086,8 +2086,7 @@ public final class MetadataManager
     // Blocks
     //
 
-    @Override
-    public BlockEncoding getBlockEncoding(String encodingName)
+    private BlockEncoding getBlockEncoding(String encodingName)
     {
         BlockEncoding blockEncoding = blockEncodings.get(encodingName);
         checkArgument(blockEncoding != null, "Unknown block encoding: %s", encodingName);
@@ -2097,7 +2096,7 @@ public final class MetadataManager
     @Override
     public BlockEncodingSerde getBlockEncodingSerde()
     {
-        return new InternalBlockEncodingSerde(this);
+        return new InternalBlockEncodingSerde(this::getBlockEncoding, this::getType);
     }
 
     public void addBlockEncoding(BlockEncoding blockEncoding)
