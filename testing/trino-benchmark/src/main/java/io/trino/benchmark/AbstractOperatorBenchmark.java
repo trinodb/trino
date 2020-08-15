@@ -158,7 +158,7 @@ public abstract class AbstractOperatorBenchmark
     protected final BenchmarkAggregationFunction createAggregationFunction(String name, Type... argumentTypes)
     {
         ResolvedFunction resolvedFunction = localQueryRunner.getMetadata().resolveFunction(session, QualifiedName.of(name), fromTypes(argumentTypes));
-        AggregationMetadata aggregationMetadata = localQueryRunner.getMetadata().getAggregateFunctionImplementation(resolvedFunction);
+        AggregationMetadata aggregationMetadata = localQueryRunner.getFunctionManager().getAggregateFunctionImplementation(resolvedFunction);
         return new BenchmarkAggregationFunction(resolvedFunction, aggregationMetadata);
     }
 
@@ -247,9 +247,9 @@ public abstract class AbstractOperatorBenchmark
         Map<NodeRef<Expression>, Type> expressionTypes = createTestingTypeAnalyzer(localQueryRunner.getPlannerContext())
                 .getTypes(session, TypeProvider.copyOf(symbolTypes), hashExpression.get());
 
-        RowExpression translated = translate(hashExpression.get(), expressionTypes, symbolToInputMapping.buildOrThrow(), localQueryRunner.getMetadata(), session, false);
+        RowExpression translated = translate(hashExpression.get(), expressionTypes, symbolToInputMapping.buildOrThrow(), localQueryRunner.getMetadata(), localQueryRunner.getFunctionManager(), session, false);
 
-        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(localQueryRunner.getMetadata(), 0);
+        PageFunctionCompiler functionCompiler = new PageFunctionCompiler(localQueryRunner.getFunctionManager(), 0);
         projections.add(functionCompiler.compileProjection(translated, Optional.empty()).get());
 
         return FilterAndProjectOperator.createOperatorFactory(

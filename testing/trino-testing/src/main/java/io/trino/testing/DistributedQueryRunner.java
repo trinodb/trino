@@ -29,6 +29,7 @@ import io.trino.execution.FailureInjector.InjectedFailureType;
 import io.trino.execution.QueryManager;
 import io.trino.execution.warnings.WarningCollector;
 import io.trino.metadata.AllNodes;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.InternalNode;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
@@ -346,6 +347,12 @@ public class DistributedQueryRunner
     public SessionPropertyManager getSessionPropertyManager()
     {
         return coordinator.getSessionPropertyManager();
+    }
+
+    @Override
+    public FunctionManager getFunctionManager()
+    {
+        return coordinator.getFunctionManager();
     }
 
     @Override

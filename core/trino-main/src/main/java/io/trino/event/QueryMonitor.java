@@ -36,6 +36,7 @@ import io.trino.execution.QueryStats;
 import io.trino.execution.StageInfo;
 import io.trino.execution.TaskInfo;
 import io.trino.execution.TaskState;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.operator.OperatorStats;
@@ -102,6 +103,7 @@ public class QueryMonitor
     private final String environment;
     private final SessionPropertyManager sessionPropertyManager;
     private final Metadata metadata;
+    private final FunctionManager functionManager;
     private final int maxJsonLimit;
 
     @Inject
@@ -115,6 +117,7 @@ public class QueryMonitor
             NodeVersion nodeVersion,
             SessionPropertyManager sessionPropertyManager,
             Metadata metadata,
+            FunctionManager functionManager,
             QueryMonitorConfig config)
     {
         this.eventListenerManager = requireNonNull(eventListenerManager, "eventListenerManager is null");
@@ -127,6 +130,7 @@ public class QueryMonitor
         this.environment = requireNonNull(nodeInfo, "nodeInfo is null").getEnvironment();
         this.sessionPropertyManager = requireNonNull(sessionPropertyManager, "sessionPropertyManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.maxJsonLimit = toIntExact(requireNonNull(config, "config is null").getMaxOutputStageJsonSize().toBytes());
     }
 
@@ -318,7 +322,7 @@ public class QueryMonitor
                 return Optional.of(textDistributedPlan(
                         queryInfo.getOutputStage().get(),
                         queryInfo.getQueryStats(),
-                        new ValuePrinter(metadata, queryInfo.getSession().toSession(sessionPropertyManager)),
+                        new ValuePrinter(metadata, functionManager, queryInfo.getSession().toSession(sessionPropertyManager)),
                         false));
             }
         }

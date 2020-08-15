@@ -336,7 +336,7 @@ public final class DomainTranslator
             this.literalEncoder = new LiteralEncoder(plannerContext);
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
-            this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getMetadata());
+            this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
         }

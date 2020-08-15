@@ -17,7 +17,7 @@ import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.trino.metadata.FunctionInvoker;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.sql.relational.RowExpression;
@@ -38,7 +38,7 @@ public class BytecodeGeneratorContext
     private final Scope scope;
     private final CallSiteBinder callSiteBinder;
     private final CachedInstanceBinder cachedInstanceBinder;
-    private final Metadata metadata;
+    private final FunctionManager functionManager;
     private final Variable wasNull;
 
     public BytecodeGeneratorContext(
@@ -46,19 +46,19 @@ public class BytecodeGeneratorContext
             Scope scope,
             CallSiteBinder callSiteBinder,
             CachedInstanceBinder cachedInstanceBinder,
-            Metadata metadata)
+            FunctionManager functionManager)
     {
         requireNonNull(rowExpressionCompiler, "rowExpressionCompiler is null");
         requireNonNull(cachedInstanceBinder, "cachedInstanceBinder is null");
         requireNonNull(scope, "scope is null");
         requireNonNull(callSiteBinder, "callSiteBinder is null");
-        requireNonNull(metadata, "metadata is null");
+        requireNonNull(functionManager, "functionManager is null");
 
         this.rowExpressionCompiler = rowExpressionCompiler;
         this.scope = scope;
         this.callSiteBinder = callSiteBinder;
         this.cachedInstanceBinder = cachedInstanceBinder;
-        this.metadata = metadata;
+        this.functionManager = functionManager;
         this.wasNull = scope.getVariable("wasNull");
     }
 
@@ -79,7 +79,7 @@ public class BytecodeGeneratorContext
 
     public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
     {
-        return metadata.getScalarFunctionInvoker(resolvedFunction, invocationConvention);
+        return functionManager.getScalarFunctionInvoker(resolvedFunction, invocationConvention);
     }
 
     /**
@@ -87,7 +87,7 @@ public class BytecodeGeneratorContext
      */
     public BytecodeNode generateCall(ResolvedFunction resolvedFunction, List<BytecodeNode> arguments)
     {
-        return generateInvocation(scope, resolvedFunction, metadata, arguments, callSiteBinder);
+        return generateInvocation(scope, resolvedFunction, functionManager, arguments, callSiteBinder);
     }
 
     public BytecodeNode generateFullCall(ResolvedFunction resolvedFunction, List<RowExpression> arguments)
@@ -98,7 +98,7 @@ public class BytecodeGeneratorContext
 
         Function<MethodHandle, BytecodeNode> instance = instanceFactory -> scope.getThis().getField(cachedInstanceBinder.getCachedInstance(instanceFactory));
 
-        return generateFullInvocation(scope, resolvedFunction, metadata, instance, argumentCompilers, callSiteBinder);
+        return generateFullInvocation(scope, resolvedFunction, functionManager, instance, argumentCompilers, callSiteBinder);
     }
 
     private Function<Optional<Class<?>>, BytecodeNode> argumentCompiler(RowExpression argument)

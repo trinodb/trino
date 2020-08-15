@@ -134,7 +134,7 @@ public class TestUnaliasSymbolReferences
                     WarningCollector.NOOP);
 
             Plan actual = new Plan(optimized, planBuilder.getTypes(), StatsAndCosts.empty());
-            PlanAssert.assertPlan(session, queryRunner.getMetadata(), queryRunner.getStatsCalculator(), actual, pattern);
+            PlanAssert.assertPlan(session, queryRunner.getMetadata(), queryRunner.getFunctionManager(), queryRunner.getStatsCalculator(), actual, pattern);
             return null;
         });
     }

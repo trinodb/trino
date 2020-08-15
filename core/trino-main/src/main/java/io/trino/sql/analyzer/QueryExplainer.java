@@ -94,10 +94,10 @@ public class QueryExplainer
         switch (planType) {
             case LOGICAL:
                 Plan plan = getLogicalPlan(session, statement, parameters, warningCollector);
-                return PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), plannerContext.getMetadata(), plan.getStatsAndCosts(), session, 0, false);
+                return PlanPrinter.textLogicalPlan(plan.getRoot(), plan.getTypes(), plannerContext.getMetadata(), plannerContext.getFunctionManager(), plan.getStatsAndCosts(), session, 0, false);
             case DISTRIBUTED:
                 SubPlan subPlan = getDistributedPlan(session, statement, parameters, warningCollector);
-                return PlanPrinter.textDistributedPlan(subPlan, plannerContext.getMetadata(), session, false);
+                return PlanPrinter.textDistributedPlan(subPlan, plannerContext.getMetadata(), plannerContext.getFunctionManager(), session, false);
             case IO:
                 return textIoPlan(getLogicalPlan(session, statement, parameters, warningCollector), plannerContext, session);
             case VALIDATE:

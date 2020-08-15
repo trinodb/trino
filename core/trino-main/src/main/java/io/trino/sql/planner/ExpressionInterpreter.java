@@ -181,7 +181,7 @@ public class ExpressionInterpreter
         this.connectorSession = session.toConnectorSession();
         this.expressionTypes = ImmutableMap.copyOf(requireNonNull(expressionTypes, "expressionTypes is null"));
         verify((expressionTypes.containsKey(NodeRef.of(expression))));
-        this.functionInvoker = new InterpretedFunctionInvoker(metadata);
+        this.functionInvoker = new InterpretedFunctionInvoker(plannerContext.getFunctionManager());
         this.typeCoercion = new TypeCoercion(plannerContext.getTypeManager()::getType);
     }
 
@@ -615,8 +615,8 @@ public class ExpressionInterpreter
                     set = FastutilSetHelper.toFastutilHashSet(
                             objectSet,
                             type,
-                            metadata.getScalarFunctionInvoker(metadata.resolveOperator(session, HASH_CODE, ImmutableList.of(type)), simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle(),
-                            metadata.getScalarFunctionInvoker(metadata.resolveOperator(session, EQUAL, ImmutableList.of(type, type)), simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle());
+                            plannerContext.getFunctionManager().getScalarFunctionInvoker(metadata.resolveOperator(session, HASH_CODE, ImmutableList.of(type)), simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle(),
+                            plannerContext.getFunctionManager().getScalarFunctionInvoker(metadata.resolveOperator(session, EQUAL, ImmutableList.of(type, type)), simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL)).getMethodHandle());
                 }
                 inListCache.put(valueList, set);
             }
@@ -733,7 +733,7 @@ public class ExpressionInterpreter
                 case MINUS:
                     ResolvedFunction resolvedOperator = metadata.resolveOperator(session, OperatorType.NEGATION, types(node.getValue()));
                     InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(NEVER_NULL), FAIL_ON_NULL, true, false);
-                    MethodHandle handle = metadata.getScalarFunctionInvoker(resolvedOperator, invocationConvention).getMethodHandle();
+                    MethodHandle handle = plannerContext.getFunctionManager().getScalarFunctionInvoker(resolvedOperator, invocationConvention).getMethodHandle();
 
                     if (handle.type().parameterCount() > 0 && handle.type().parameterType(0) == ConnectorSession.class) {
                         handle = handle.bindTo(connectorSession);

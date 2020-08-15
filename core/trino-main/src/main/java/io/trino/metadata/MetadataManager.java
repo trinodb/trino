@@ -29,11 +29,8 @@ import io.trino.collect.cache.NonEvictableCache;
 import io.trino.connector.CatalogName;
 import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder;
-import io.trino.operator.aggregation.AggregationMetadata;
-import io.trino.operator.window.WindowFunctionSupplier;
 import io.trino.spi.QueryId;
 import io.trino.spi.TrinoException;
-import io.trino.spi.block.Block;
 import io.trino.spi.connector.AggregateFunction;
 import io.trino.spi.connector.AggregationApplicationResult;
 import io.trino.spi.connector.Assignment;
@@ -78,8 +75,6 @@ import io.trino.spi.connector.TableScanRedirectApplicationResult;
 import io.trino.spi.connector.TopNApplicationResult;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Variable;
-import io.trino.spi.function.InvocationConvention;
-import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.security.GrantInfo;
@@ -105,8 +100,6 @@ import io.trino.type.BlockTypeOperators;
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
-import java.lang.invoke.MethodHandle;
-import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -134,7 +127,6 @@ import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static com.google.common.primitives.Primitives.wrap;
 import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.concurrent.MoreFutures.toListenableFuture;
 import static io.trino.SystemSessionProperties.getRetryPolicy;
@@ -146,7 +138,6 @@ import static io.trino.metadata.RedirectionAwareTableHandle.noRedirection;
 import static io.trino.metadata.RedirectionAwareTableHandle.withRedirectionTo;
 import static io.trino.metadata.Signature.mangleOperatorName;
 import static io.trino.metadata.SignatureBinder.applyBoundVariables;
-import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.trino.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static io.trino.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.trino.spi.StandardErrorCode.INVALID_VIEW;
@@ -189,8 +180,6 @@ public final class MetadataManager
             SystemSecurityMetadata systemSecurityMetadata,
             TransactionManager transactionManager,
             GlobalFunctionCatalog globalFunctionCatalog,
-            TypeOperators typeOperators,
-            BlockTypeOperators blockTypeOperators,
             TypeManager typeManager)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
@@ -2233,119 +2222,6 @@ public final class MetadataManager
         return new AggregationFunctionMetadata(aggregationFunctionMetadata.isOrderSensitive(), intermediateTypes);
     }
 
-    @Override
-    public WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)
-    {
-        FunctionDependencies functionDependencies = new FunctionDependencies(this, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
-        return functions.getWindowFunctionImplementation(resolvedFunction.getFunctionId(), resolvedFunction.getSignature(), functionDependencies);
-    }
-
-    @Override
-    public AggregationMetadata getAggregateFunctionImplementation(ResolvedFunction resolvedFunction)
-    {
-        FunctionDependencies functionDependencies = new FunctionDependencies(this, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
-        return functions.getAggregateFunctionImplementation(resolvedFunction.getFunctionId(), resolvedFunction.getSignature(), functionDependencies);
-    }
-
-    @Override
-    public FunctionInvoker getScalarFunctionInvoker(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
-    {
-        FunctionDependencies functionDependencies = new FunctionDependencies(this, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
-        FunctionInvoker functionInvoker = functions.getScalarFunctionInvoker(resolvedFunction.getFunctionId(), resolvedFunction.getSignature(), functionDependencies, invocationConvention);
-        verifyMethodHandleSignature(resolvedFunction.getSignature(), functionInvoker, invocationConvention);
-        return functionInvoker;
-    }
-
-    private static void verifyMethodHandleSignature(BoundSignature boundSignature, FunctionInvoker functionInvoker, InvocationConvention convention)
-    {
-        MethodHandle methodHandle = functionInvoker.getMethodHandle();
-        MethodType methodType = methodHandle.type();
-
-        checkArgument(convention.getArgumentConventions().size() == boundSignature.getArgumentTypes().size(),
-                "Expected %s arguments, but got %s", boundSignature.getArgumentTypes().size(), convention.getArgumentConventions().size());
-
-        int expectedParameterCount = convention.getArgumentConventions().stream()
-                .mapToInt(InvocationArgumentConvention::getParameterCount)
-                .sum();
-        expectedParameterCount += methodType.parameterList().stream().filter(ConnectorSession.class::equals).count();
-        if (functionInvoker.getInstanceFactory().isPresent()) {
-            expectedParameterCount++;
-        }
-        checkArgument(expectedParameterCount == methodType.parameterCount(),
-                "Expected %s method parameters, but got %s", expectedParameterCount, methodType.parameterCount());
-
-        int parameterIndex = 0;
-        if (functionInvoker.getInstanceFactory().isPresent()) {
-            verifyFunctionSignature(convention.supportsInstanceFactor(), "Method requires instance factory, but calling convention does not support an instance factory");
-            MethodHandle factoryMethod = functionInvoker.getInstanceFactory().orElseThrow();
-            verifyFunctionSignature(methodType.parameterType(parameterIndex).equals(factoryMethod.type().returnType()), "Invalid return type");
-            parameterIndex++;
-        }
-
-        int lambdaArgumentIndex = 0;
-        for (int argumentIndex = 0; argumentIndex < boundSignature.getArgumentTypes().size(); argumentIndex++) {
-            // skip session parameters
-            while (methodType.parameterType(parameterIndex).equals(ConnectorSession.class)) {
-                verifyFunctionSignature(convention.supportsSession(), "Method requires session, but calling convention does not support session");
-                parameterIndex++;
-            }
-
-            Class<?> parameterType = methodType.parameterType(parameterIndex);
-            Type argumentType = boundSignature.getArgumentTypes().get(argumentIndex);
-            InvocationArgumentConvention argumentConvention = convention.getArgumentConvention(argumentIndex);
-            switch (argumentConvention) {
-                case NEVER_NULL:
-                    verifyFunctionSignature(parameterType.isAssignableFrom(argumentType.getJavaType()),
-                            "Expected argument type to be %s, but is %s", argumentType, parameterType);
-                    break;
-                case NULL_FLAG:
-                    verifyFunctionSignature(parameterType.isAssignableFrom(argumentType.getJavaType()),
-                            "Expected argument type to be %s, but is %s", argumentType.getJavaType(), parameterType);
-                    verifyFunctionSignature(methodType.parameterType(parameterIndex + 1).equals(boolean.class),
-                            "Expected null flag parameter to be followed by a boolean parameter");
-                    break;
-                case BOXED_NULLABLE:
-                    verifyFunctionSignature(parameterType.isAssignableFrom(wrap(argumentType.getJavaType())),
-                            "Expected argument type to be %s, but is %s", wrap(argumentType.getJavaType()), parameterType);
-                    break;
-                case BLOCK_POSITION:
-                    verifyFunctionSignature(parameterType.equals(Block.class) && methodType.parameterType(parameterIndex + 1).equals(int.class),
-                            "Expected BLOCK_POSITION argument have parameters Block and int");
-                    break;
-                case FUNCTION:
-                    Class<?> lambdaInterface = functionInvoker.getLambdaInterfaces().get(lambdaArgumentIndex);
-                    verifyFunctionSignature(parameterType.equals(lambdaInterface),
-                            "Expected function interface to be %s, but is %s", lambdaInterface, parameterType);
-                    lambdaArgumentIndex++;
-                    break;
-                default:
-                    throw new UnsupportedOperationException("Unknown argument convention: " + argumentConvention);
-            }
-            parameterIndex += argumentConvention.getParameterCount();
-        }
-
-        Type returnType = boundSignature.getReturnType();
-        switch (convention.getReturnConvention()) {
-            case FAIL_ON_NULL:
-                verifyFunctionSignature(methodType.returnType().isAssignableFrom(returnType.getJavaType()),
-                        "Expected return type to be %s, but is %s", returnType.getJavaType(), methodType.returnType());
-                break;
-            case NULLABLE_RETURN:
-                verifyFunctionSignature(methodType.returnType().isAssignableFrom(wrap(returnType.getJavaType())),
-                        "Expected return type to be %s, but is %s", returnType.getJavaType(), wrap(methodType.returnType()));
-                break;
-            default:
-                throw new UnsupportedOperationException("Unknown return convention: " + convention.getReturnConvention());
-        }
-    }
-
-    private static void verifyFunctionSignature(boolean check, String message, Object... args)
-    {
-        if (!check) {
-            throw new TrinoException(FUNCTION_IMPLEMENTATION_ERROR, format(message, args));
-        }
-    }
-
     private FunctionBinding toFunctionBinding(ResolvedFunction resolvedFunction)
     {
         Signature functionSignature = functions.getFunctionMetadata(resolvedFunction.getFunctionId()).getSignature();
@@ -2644,11 +2520,11 @@ public final class MetadataManager
                 transactionManager = createTestTransactionManager();
             }
 
-            TypeOperators typeOperators = new TypeOperators();
-
             GlobalFunctionCatalog globalFunctionCatalog = this.globalFunctionCatalog;
             if (globalFunctionCatalog == null) {
+                TypeOperators typeOperators = new TypeOperators();
                 globalFunctionCatalog = new GlobalFunctionCatalog(featuresConfig, typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN);
+                globalFunctionCatalog.addFunctions(ImmutableList.of(new LiteralFunction(new InternalBlockEncodingSerde(new BlockEncodingManager(), typeManager))));
             }
 
             return new MetadataManager(
@@ -2656,8 +2532,6 @@ public final class MetadataManager
                     new DisabledSystemSecurityMetadata(),
                     transactionManager,
                     globalFunctionCatalog,
-                    typeOperators,
-                    new BlockTypeOperators(typeOperators),
                     typeManager);
         }
     }

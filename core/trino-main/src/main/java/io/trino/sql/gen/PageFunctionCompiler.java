@@ -32,7 +32,7 @@ import io.airlift.bytecode.control.ForLoop;
 import io.airlift.bytecode.control.IfStatement;
 import io.airlift.jmx.CacheStatsMBean;
 import io.trino.collect.cache.NonEvictableLoadingCache;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.FunctionManager;
 import io.trino.operator.Work;
 import io.trino.operator.project.ConstantPageProjection;
 import io.trino.operator.project.GeneratedPageProjection;
@@ -101,7 +101,7 @@ import static java.util.Objects.requireNonNull;
 
 public class PageFunctionCompiler
 {
-    private final Metadata metadata;
+    private final FunctionManager functionManager;
 
     private final NonEvictableLoadingCache<RowExpression, Supplier<PageProjection>> projectionCache;
     private final NonEvictableLoadingCache<RowExpression, Supplier<PageFilter>> filterCache;
@@ -110,14 +110,14 @@ public class PageFunctionCompiler
     private final CacheStatsMBean filterCacheStats;
 
     @Inject
-    public PageFunctionCompiler(Metadata metadata, CompilerConfig config)
+    public PageFunctionCompiler(FunctionManager functionManager, CompilerConfig config)
     {
-        this(metadata, requireNonNull(config, "config is null").getExpressionCacheSize());
+        this(functionManager, requireNonNull(config, "config is null").getExpressionCacheSize());
     }
 
-    public PageFunctionCompiler(Metadata metadata, int expressionCacheSize)
+    public PageFunctionCompiler(FunctionManager functionManager, int expressionCacheSize)
     {
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
 
         if (expressionCacheSize > 0) {
             projectionCache = buildNonEvictableCache(
@@ -355,7 +355,7 @@ public class PageFunctionCompiler
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder),
-                metadata,
+                functionManager,
                 compiledLambdaMap);
 
         body.append(thisVariable.getField(blockBuilder))
@@ -533,7 +533,7 @@ public class PageFunctionCompiler
                 callSiteBinder,
                 cachedInstanceBinder,
                 fieldReferenceCompiler(callSiteBinder),
-                metadata,
+                functionManager,
                 compiledLambdaMap);
 
         Variable result = scope.declareVariable(boolean.class, "result");
@@ -562,7 +562,7 @@ public class PageFunctionCompiler
                     compiledLambdaMap.buildOrThrow(),
                     callSiteBinder,
                     cachedInstanceBinder,
-                    metadata);
+                    functionManager);
             compiledLambdaMap.put(lambdaExpression, compiledLambda);
             counter++;
         }

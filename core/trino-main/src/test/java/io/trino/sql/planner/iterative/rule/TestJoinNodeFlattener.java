@@ -452,6 +452,7 @@ public class TestJoinNodeFlattener
         PlanAssert.assertPlan(
                 testSessionBuilder().build(),
                 dummyMetadata(),
+                queryRunner.getFunctionManager(),
                 node -> unknown(),
                 new Plan(actual, typeProvider, empty()), noLookup(),
                 pattern);

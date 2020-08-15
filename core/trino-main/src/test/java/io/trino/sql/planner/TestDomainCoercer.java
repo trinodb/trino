@@ -14,17 +14,12 @@
 package io.trino.sql.planner;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.Metadata;
 import io.trino.spi.predicate.Domain;
 import io.trino.spi.predicate.ValueSet;
 import io.trino.spi.type.Type;
-import io.trino.spi.type.TypeOperators;
-import org.testng.annotations.AfterClass;
-import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.predicate.Domain.multipleValues;
 import static io.trino.spi.predicate.Range.greaterThan;
 import static io.trino.spi.predicate.Range.greaterThanOrEqual;
@@ -37,27 +32,12 @@ import static io.trino.spi.type.DoubleType.DOUBLE;
 import static io.trino.spi.type.IntegerType.INTEGER;
 import static io.trino.spi.type.RealType.REAL;
 import static io.trino.spi.type.SmallintType.SMALLINT;
+import static io.trino.sql.planner.TestingPlannerContext.PLANNER_CONTEXT;
 import static java.lang.Float.floatToIntBits;
 import static org.testng.Assert.assertEquals;
 
 public class TestDomainCoercer
 {
-    private Metadata metadata;
-    private TypeOperators typeOperators;
-
-    @BeforeClass
-    public void setup()
-    {
-        metadata = createTestMetadataManager();
-        typeOperators = new TypeOperators();
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        metadata = null;
-    }
-
     @Test
     public void testNone()
     {
@@ -229,8 +209,14 @@ public class TestDomainCoercer
         applySaturatedCasts(Domain.singleValue(INTEGER, 10L), BIGINT);
     }
 
-    private Domain applySaturatedCasts(Domain domain, Type coercedValueType)
+    private static Domain applySaturatedCasts(Domain domain, Type coercedValueType)
     {
-        return DomainCoercer.applySaturatedCasts(metadata, typeOperators, TEST_SESSION, domain, coercedValueType);
+        return DomainCoercer.applySaturatedCasts(
+                PLANNER_CONTEXT.getMetadata(),
+                PLANNER_CONTEXT.getFunctionManager(),
+                PLANNER_CONTEXT.getTypeOperators(),
+                TEST_SESSION,
+                domain,
+                coercedValueType);
     }
 }

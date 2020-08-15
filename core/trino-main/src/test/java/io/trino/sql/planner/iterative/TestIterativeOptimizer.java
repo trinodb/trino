@@ -70,7 +70,7 @@ public class TestIterativeOptimizer
     public void optimizerTimeoutsOnNonConvergingPlan()
     {
         PlanOptimizer optimizer = new IterativeOptimizer(
-                queryRunner.getMetadata(),
+                queryRunner.getPlannerContext(),
                 new RuleStatsRecorder(),
                 queryRunner.getStatsCalculator(),
                 queryRunner.getCostCalculator(),

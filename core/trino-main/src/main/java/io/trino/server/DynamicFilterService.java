@@ -31,6 +31,7 @@ import io.trino.execution.DynamicFilterConfig;
 import io.trino.execution.SqlQueryExecution;
 import io.trino.execution.StageId;
 import io.trino.execution.TaskId;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.operator.join.JoinUtils;
 import io.trino.spi.QueryId;
@@ -102,23 +103,26 @@ import static java.util.concurrent.Executors.newFixedThreadPool;
 public class DynamicFilterService
 {
     private final Metadata metadata;
+    private final FunctionManager functionManager;
     private final TypeOperators typeOperators;
     private final ExecutorService executor;
     private final Map<QueryId, DynamicFilterContext> dynamicFilterContexts = new ConcurrentHashMap<>();
 
     @Inject
-    public DynamicFilterService(Metadata metadata, TypeOperators typeOperators, DynamicFilterConfig dynamicFilterConfig)
+    public DynamicFilterService(Metadata metadata, FunctionManager functionManager, TypeOperators typeOperators, DynamicFilterConfig dynamicFilterConfig)
     {
         this(
                 metadata,
+                functionManager,
                 typeOperators,
                 newFixedThreadPool(dynamicFilterConfig.getServiceThreadCount(), daemonThreadsNamed("DynamicFilterService")));
     }
 
     @VisibleForTesting
-    public DynamicFilterService(Metadata metadata, TypeOperators typeOperators, ExecutorService executor)
+    public DynamicFilterService(Metadata metadata, FunctionManager functionManager, TypeOperators typeOperators, ExecutorService executor)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.functionManager = requireNonNull(functionManager, "functionManager is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.executor = requireNonNull(executor, "executor is null");
     }
@@ -478,7 +482,7 @@ public class DynamicFilterService
                             Type targetType = typeProvider.get(Symbol.from(descriptor.getInput()));
                             Domain updatedSummary = descriptor.applyComparison(summary);
                             if (!updatedSummary.getType().equals(targetType)) {
-                                return applySaturatedCasts(metadata, typeOperators, dynamicFilterContext.getSession(), updatedSummary, targetType);
+                                return applySaturatedCasts(metadata, functionManager, typeOperators, dynamicFilterContext.getSession(), updatedSummary, targetType);
                             }
                             return updatedSummary;
                         })));

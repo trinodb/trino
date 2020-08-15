@@ -929,6 +929,7 @@ public class LocalExecutionPlanner
                     node.getId(),
                     analyzeContext.getQueryPerformanceFetcher(),
                     metadata,
+                    plannerContext.getFunctionManager(),
                     node.isVerbose());
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
         }
@@ -1166,13 +1167,13 @@ public class LocalExecutionPlanner
         private WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)
         {
             if (resolvedFunction.getFunctionKind() == FunctionKind.AGGREGATE) {
-                AggregationMetadata aggregationMetadata = metadata.getAggregateFunctionImplementation(resolvedFunction);
+                AggregationMetadata aggregationMetadata = plannerContext.getFunctionManager().getAggregateFunctionImplementation(resolvedFunction);
                 return new AggregationWindowFunctionSupplier(
                         resolvedFunction.getSignature(),
                         aggregationMetadata,
                         resolvedFunction.getFunctionNullability());
             }
-            return metadata.getWindowFunctionImplementation(resolvedFunction);
+            return plannerContext.getFunctionManager().getWindowFunctionImplementation(resolvedFunction);
         }
 
         @Override
@@ -1509,7 +1510,7 @@ public class LocalExecutionPlanner
 
                     boolean classifierInvolved = false;
 
-                    AggregationMetadata aggregationMetadata = metadata.getAggregateFunctionImplementation(pointer.getFunction());
+                    AggregationMetadata aggregationMetadata = plannerContext.getFunctionManager().getAggregateFunctionImplementation(pointer.getFunction());
 
                     ImmutableList.Builder<Map.Entry<Expression, Type>> builder = ImmutableList.builder();
                     List<Type> signatureTypes = pointer.getFunction().getSignature().getArgumentTypes();
@@ -1958,7 +1959,7 @@ public class LocalExecutionPlanner
 
         private RowExpression toRowExpression(Expression expression, Map<NodeRef<Expression>, Type> types, Map<Symbol, Integer> layout)
         {
-            return SqlToRowExpressionTranslator.translate(expression, types, layout, metadata, session, true);
+            return SqlToRowExpressionTranslator.translate(expression, types, layout, metadata, plannerContext.getFunctionManager(), session, true);
         }
 
         @Override
@@ -2006,8 +2007,7 @@ public class LocalExecutionPlanner
                     dynamicFilters,
                     tableScanNode.getAssignments(),
                     context.getTypes(),
-                    metadata,
-                    plannerContext.getTypeOperators());
+                    plannerContext);
         }
 
         @Override
@@ -3549,7 +3549,7 @@ public class LocalExecutionPlanner
             OptionalInt maskChannel = aggregation.getMask().stream()
                     .mapToInt(value -> source.getLayout().get(value))
                     .findAny();
-            AggregationMetadata aggregationMetadata = metadata.getAggregateFunctionImplementation(aggregation.getResolvedFunction());
+            AggregationMetadata aggregationMetadata = plannerContext.getFunctionManager().getAggregateFunctionImplementation(aggregation.getResolvedFunction());
             List<LambdaExpression> lambdaExpressions = aggregation.getArguments().stream()
                     .filter(LambdaExpression.class::isInstance)
                     .map(LambdaExpression.class::cast)
@@ -3668,7 +3668,7 @@ public class LocalExecutionPlanner
                             .buildOrThrow();
 
                     LambdaDefinitionExpression lambda = (LambdaDefinitionExpression) toRowExpression(lambdaExpression, expressionTypes, ImmutableMap.of());
-                    Class<? extends Supplier<Object>> lambdaProviderClass = compileLambdaProvider(lambda, metadata, lambdaInterfaces.get(i));
+                    Class<? extends Supplier<Object>> lambdaProviderClass = compileLambdaProvider(lambda, plannerContext.getFunctionManager(), lambdaInterfaces.get(i));
                     try {
                         lambdaProviders.add((lambdaProviderClass.getConstructor(ConnectorSession.class).newInstance(session.toConnectorSession())));
                     }

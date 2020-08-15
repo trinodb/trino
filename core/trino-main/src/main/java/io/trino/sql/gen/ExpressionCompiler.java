@@ -21,7 +21,7 @@ import io.airlift.bytecode.ClassDefinition;
 import io.airlift.bytecode.CompilationException;
 import io.airlift.jmx.CacheStatsMBean;
 import io.trino.collect.cache.NonEvictableLoadingCache;
-import io.trino.metadata.Metadata;
+import io.trino.metadata.FunctionManager;
 import io.trino.operator.project.CursorProcessor;
 import io.trino.operator.project.PageFilter;
 import io.trino.operator.project.PageProcessor;
@@ -61,14 +61,14 @@ public class ExpressionCompiler
     private final CacheStatsMBean cacheStatsMBean;
 
     @Inject
-    public ExpressionCompiler(Metadata metadata, PageFunctionCompiler pageFunctionCompiler)
+    public ExpressionCompiler(FunctionManager functionManager, PageFunctionCompiler pageFunctionCompiler)
     {
-        requireNonNull(metadata, "metadata is null");
+        requireNonNull(functionManager, "functionManager is null");
         this.pageFunctionCompiler = requireNonNull(pageFunctionCompiler, "pageFunctionCompiler is null");
         this.cursorProcessors = buildNonEvictableCache(CacheBuilder.newBuilder()
                         .recordStats()
                         .maximumSize(1000),
-                CacheLoader.from(key -> compile(key.getFilter(), key.getProjections(), new CursorProcessorCompiler(metadata), CursorProcessor.class)));
+                CacheLoader.from(key -> compile(key.getFilter(), key.getProjections(), new CursorProcessorCompiler(functionManager), CursorProcessor.class)));
         this.cacheStatsMBean = new CacheStatsMBean(cursorProcessors);
     }
 

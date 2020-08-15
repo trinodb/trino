@@ -23,6 +23,7 @@ import io.trino.cost.StatsAndCosts;
 import io.trino.dispatcher.DispatchManager;
 import io.trino.execution.QueryInfo;
 import io.trino.execution.QueryManager;
+import io.trino.metadata.FunctionManager;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.QualifiedObjectName;
 import io.trino.server.BasicQueryInfo;
@@ -3004,8 +3005,9 @@ public abstract class BaseConnectorTest
                     .findAll()
                     .size();
             if (actualCount != expectedCount) {
-                Metadata metadata = getDistributedQueryRunner().getCoordinator().getMetadata();
-                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, StatsAndCosts.empty(), session, 0, false);
+                Metadata metadata = getDistributedQueryRunner().getMetadata();
+                FunctionManager functionManager = getDistributedQueryRunner().getFunctionManager();
+                String formattedPlan = textLogicalPlan(plan.getRoot(), plan.getTypes(), metadata, functionManager, StatsAndCosts.empty(), session, 0, false);
                 throw new AssertionError(format(
                         "Expected [\n%s\n] partial limit but found [\n%s\n] partial limit. Actual plan is [\n\n%s\n]",
                         expectedCount,
