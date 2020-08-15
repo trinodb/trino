@@ -68,13 +68,13 @@ public final class MapZipWithFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         MapType outputMapType = (MapType) boundSignature.getReturnType();
         Type keyType = outputMapType.getKeyType();
         Type inputValueType1 = ((MapType) boundSignature.getArgumentType(0)).getValueType();
         Type inputValueType2 = ((MapType) boundSignature.getArgumentType(1)).getValueType();
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL, FUNCTION),

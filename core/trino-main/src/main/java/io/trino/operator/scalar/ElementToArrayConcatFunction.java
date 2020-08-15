@@ -57,7 +57,7 @@ public class ElementToArrayConcatFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         Type type = boundSignature.getArgumentTypes().get(0);
         MethodHandle methodHandle;
@@ -78,7 +78,7 @@ public class ElementToArrayConcatFunction
         }
         methodHandle = methodHandle.bindTo(type);
 
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),

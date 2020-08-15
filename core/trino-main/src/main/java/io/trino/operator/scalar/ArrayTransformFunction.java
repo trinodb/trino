@@ -87,12 +87,12 @@ public final class ArrayTransformFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         Type inputType = ((ArrayType) boundSignature.getArgumentTypes().get(0)).getElementType();
         Type outputType = ((ArrayType) boundSignature.getReturnType()).getElementType();
         Class<?> generatedClass = generateTransform(inputType, outputType);
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, FUNCTION),

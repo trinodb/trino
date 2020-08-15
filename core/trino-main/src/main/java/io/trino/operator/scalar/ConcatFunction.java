@@ -60,7 +60,7 @@ public final class ConcatFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         int arity = boundSignature.getArity();
 
@@ -75,7 +75,7 @@ public final class ConcatFunction
         MethodHandle arrayMethodHandle = methodHandle(ConcatFunction.class, "concat", Slice[].class);
         MethodHandle customMethodHandle = arrayMethodHandle.asCollector(Slice[].class, arity);
 
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 nCopies(arity, NEVER_NULL),

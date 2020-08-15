@@ -100,7 +100,7 @@ public final class MapTransformValuesFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         MapType inputMapType = (MapType) boundSignature.getArgumentType(0);
         Type inputValueType = inputMapType.getValueType();
@@ -108,7 +108,7 @@ public final class MapTransformValuesFunction
         Type keyType = outputMapType.getKeyType();
         Type outputValueType = outputMapType.getValueType();
 
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, FUNCTION),

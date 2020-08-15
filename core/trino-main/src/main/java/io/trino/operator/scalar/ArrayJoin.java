@@ -105,7 +105,7 @@ public final class ArrayJoin
         }
 
         @Override
-        public ScalarFunctionImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+        public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
         {
             return specializeArrayJoin(boundSignature, functionDependencies, METHOD_HANDLE);
         }
@@ -145,12 +145,12 @@ public final class ArrayJoin
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         return specializeArrayJoin(boundSignature, functionDependencies, METHOD_HANDLE);
     }
 
-    private static ChoicesScalarFunctionImplementation specializeArrayJoin(
+    private static ChoicesSpecializedSqlScalarFunction specializeArrayJoin(
             BoundSignature boundSignature,
             FunctionDependencies functionDependencies,
             MethodHandle methodHandle)
@@ -159,7 +159,7 @@ public final class ArrayJoin
 
         Type type = ((ArrayType) boundSignature.getArgumentTypes().get(0)).getElementType();
         if (type instanceof UnknownType) {
-            return new ChoicesScalarFunctionImplementation(
+            return new ChoicesSpecializedSqlScalarFunction(
                     boundSignature,
                     FAIL_ON_NULL,
                     argumentConventions,
@@ -177,7 +177,7 @@ public final class ArrayJoin
                 }
 
                 MethodHandle target = MethodHandles.insertArguments(methodHandle, 0, cast);
-                return new ChoicesScalarFunctionImplementation(
+                return new ChoicesSpecializedSqlScalarFunction(
                         boundSignature,
                         FAIL_ON_NULL,
                         argumentConventions,

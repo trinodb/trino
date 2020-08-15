@@ -18,7 +18,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.trino.collect.cache.NonEvictableCache;
 import io.trino.operator.aggregation.AggregationMetadata;
-import io.trino.operator.scalar.ScalarFunctionImplementation;
+import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 import io.trino.operator.scalar.annotations.ScalarFromAnnotationsParser;
 import io.trino.operator.window.SqlWindowFunction;
 import io.trino.operator.window.WindowAnnotationsParser;
@@ -51,7 +51,7 @@ public class InternalFunctionBundle
         implements FunctionBundle
 {
     // scalar function specialization may involve expensive code generation
-    private final NonEvictableCache<FunctionKey, ScalarFunctionImplementation> specializedScalarCache;
+    private final NonEvictableCache<FunctionKey, SpecializedSqlScalarFunction> specializedScalarCache;
     private final NonEvictableCache<FunctionKey, AggregationMetadata> specializedAggregationCache;
     private final NonEvictableCache<FunctionKey, WindowFunctionSupplier> specializedWindowCache;
     private final Map<FunctionId, SqlFunction> functions;
@@ -115,9 +115,9 @@ public class InternalFunctionBundle
             FunctionDependencies functionDependencies,
             InvocationConvention invocationConvention)
     {
-        ScalarFunctionImplementation scalarFunctionImplementation;
+        SpecializedSqlScalarFunction specializedSqlScalarFunction;
         try {
-            scalarFunctionImplementation = uncheckedCacheGet(
+            specializedSqlScalarFunction = uncheckedCacheGet(
                     specializedScalarCache,
                     new FunctionKey(functionId, boundSignature),
                     () -> specializeScalarFunction(functionId, boundSignature, functionDependencies));
@@ -126,10 +126,10 @@ public class InternalFunctionBundle
             throwIfInstanceOf(e.getCause(), TrinoException.class);
             throw new RuntimeException(e.getCause());
         }
-        return scalarFunctionImplementation.getScalarFunctionInvoker(invocationConvention);
+        return specializedSqlScalarFunction.getScalarFunctionInvoker(invocationConvention);
     }
 
-    private ScalarFunctionImplementation specializeScalarFunction(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    private SpecializedSqlScalarFunction specializeScalarFunction(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         SqlScalarFunction function = (SqlScalarFunction) getSqlFunction(functionId);
         return function.specialize(boundSignature, functionDependencies);

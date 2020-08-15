@@ -37,14 +37,14 @@ public class TestParametricScalarImplementationValidation
     {
         // Without cached instance factory
         MethodHandle validFunctionMethodHandle = methodHandle(TestParametricScalarImplementationValidation.class, "validConnectorSessionParameterPosition", ConnectorSession.class, long.class, long.class);
-        ChoicesScalarFunctionImplementation validFunction = new ChoicesScalarFunctionImplementation(
+        ChoicesSpecializedSqlScalarFunction validFunction = new ChoicesSpecializedSqlScalarFunction(
                 new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)),
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 validFunctionMethodHandle);
         assertEquals(validFunction.getChoices().get(0).getMethodHandle(), validFunctionMethodHandle);
 
-        assertThatThrownBy(() -> new ChoicesScalarFunctionImplementation(
+        assertThatThrownBy(() -> new ChoicesSpecializedSqlScalarFunction(
                 new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)),
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
@@ -54,7 +54,7 @@ public class TestParametricScalarImplementationValidation
 
         // With cached instance factory
         MethodHandle validFunctionWithInstanceFactoryMethodHandle = methodHandle(TestParametricScalarImplementationValidation.class, "validConnectorSessionParameterPosition", Object.class, ConnectorSession.class, long.class, long.class);
-        ChoicesScalarFunctionImplementation validFunctionWithInstanceFactory = new ChoicesScalarFunctionImplementation(
+        ChoicesSpecializedSqlScalarFunction validFunctionWithInstanceFactory = new ChoicesSpecializedSqlScalarFunction(
                 new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)),
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
@@ -62,7 +62,7 @@ public class TestParametricScalarImplementationValidation
                 Optional.of(STATE_FACTORY));
         assertEquals(validFunctionWithInstanceFactory.getChoices().get(0).getMethodHandle(), validFunctionWithInstanceFactoryMethodHandle);
 
-        assertThatThrownBy(() -> new ChoicesScalarFunctionImplementation(
+        assertThatThrownBy(() -> new ChoicesSpecializedSqlScalarFunction(
                 new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)),
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),

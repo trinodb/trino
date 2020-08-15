@@ -98,7 +98,7 @@ public abstract class AbstractGreatestLeast
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         Type type = boundSignature.getReturnType();
         checkArgument(type.isOrderable(), "Type must be orderable");
@@ -112,7 +112,7 @@ public abstract class AbstractGreatestLeast
         Class<?> clazz = generate(javaTypes, compareMethod);
         MethodHandle methodHandle = methodHandle(clazz, getFunctionMetadata().getSignature().getName(), javaTypes.toArray(new Class<?>[0]));
 
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 NULLABLE_RETURN,
                 nCopies(javaTypes.size(), BOXED_NULLABLE),
