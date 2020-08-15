@@ -45,7 +45,7 @@ public final class JsonStringToArrayCast
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         return JSON_TO_ARRAY.specialize(boundSignature);
     }

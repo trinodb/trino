@@ -25,8 +25,8 @@ import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
-import io.trino.operator.scalar.ChoicesScalarFunctionImplementation;
-import io.trino.operator.scalar.ScalarFunctionImplementation;
+import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
+import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.type.RowType;
@@ -79,7 +79,7 @@ public class JsonObjectFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         RowType keysRowType = (RowType) boundSignature.getArgumentType(0);
         RowType valuesRowType = (RowType) boundSignature.getArgumentType(1);
@@ -87,7 +87,7 @@ public class JsonObjectFunction
         MethodHandle methodHandle = METHOD_HANDLE
                 .bindTo(keysRowType)
                 .bindTo(valuesRowType);
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(BOXED_NULLABLE, BOXED_NULLABLE, NEVER_NULL, NEVER_NULL),

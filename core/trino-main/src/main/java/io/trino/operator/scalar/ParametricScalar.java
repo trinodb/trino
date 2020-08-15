@@ -117,21 +117,21 @@ public class ParametricScalar
     }
 
     @Override
-    public ScalarFunctionImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    public SpecializedSqlScalarFunction specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         FunctionMetadata metadata = getFunctionMetadata();
         FunctionBinding functionBinding = SignatureBinder.bindFunction(metadata.getFunctionId(), metadata.getSignature(), boundSignature);
 
         ParametricScalarImplementation exactImplementation = implementations.getExactImplementations().get(boundSignature.toSignature());
         if (exactImplementation != null) {
-            Optional<ScalarFunctionImplementation> scalarFunctionImplementation = exactImplementation.specialize(functionBinding, functionDependencies);
+            Optional<SpecializedSqlScalarFunction> scalarFunctionImplementation = exactImplementation.specialize(functionBinding, functionDependencies);
             checkCondition(scalarFunctionImplementation.isPresent(), FUNCTION_IMPLEMENTATION_ERROR, format("Exact implementation of %s do not match expected java types.", boundSignature.getName()));
             return scalarFunctionImplementation.get();
         }
 
-        ScalarFunctionImplementation selectedImplementation = null;
+        SpecializedSqlScalarFunction selectedImplementation = null;
         for (ParametricScalarImplementation implementation : implementations.getSpecializedImplementations()) {
-            Optional<ScalarFunctionImplementation> scalarFunctionImplementation = implementation.specialize(functionBinding, functionDependencies);
+            Optional<SpecializedSqlScalarFunction> scalarFunctionImplementation = implementation.specialize(functionBinding, functionDependencies);
             if (scalarFunctionImplementation.isPresent()) {
                 checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", metadata.getSignature(), boundSignature);
                 selectedImplementation = scalarFunctionImplementation.get();
@@ -141,7 +141,7 @@ public class ParametricScalar
             return selectedImplementation;
         }
         for (ParametricScalarImplementation implementation : implementations.getGenericImplementations()) {
-            Optional<ScalarFunctionImplementation> scalarFunctionImplementation = implementation.specialize(functionBinding, functionDependencies);
+            Optional<SpecializedSqlScalarFunction> scalarFunctionImplementation = implementation.specialize(functionBinding, functionDependencies);
             if (scalarFunctionImplementation.isPresent()) {
                 checkCondition(selectedImplementation == null, AMBIGUOUS_FUNCTION_IMPLEMENTATION, "Ambiguous implementation for %s with bindings %s", metadata.getSignature(), boundSignature);
                 selectedImplementation = scalarFunctionImplementation.get();

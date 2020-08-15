@@ -18,8 +18,8 @@ import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
-import io.trino.operator.scalar.ChoicesScalarFunctionImplementation;
-import io.trino.operator.scalar.ScalarFunctionImplementation;
+import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
+import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 
 import java.lang.invoke.MethodHandle;
 import java.util.function.LongUnaryOperator;
@@ -52,10 +52,10 @@ public final class GenericLongFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(longUnaryOperator);
-        return new ChoicesScalarFunctionImplementation(boundSignature, FAIL_ON_NULL, ImmutableList.of(NEVER_NULL), methodHandle);
+        return new ChoicesSpecializedSqlScalarFunction(boundSignature, FAIL_ON_NULL, ImmutableList.of(NEVER_NULL), methodHandle);
     }
 
     public static long apply(LongUnaryOperator longUnaryOperator, long value)

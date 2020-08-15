@@ -53,13 +53,13 @@ public class ArrayFlattenFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         ArrayType arrayType = (ArrayType) boundSignature.getReturnType();
         MethodHandle methodHandle = METHOD_HANDLE
                 .bindTo(arrayType.getElementType())
                 .bindTo(arrayType);
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),

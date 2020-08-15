@@ -80,7 +80,7 @@ public final class ZipFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         List<Type> types = boundSignature.getArgumentTypes().stream()
                 .map(ArrayType.class::cast)
@@ -88,7 +88,7 @@ public final class ZipFunction
                 .collect(toImmutableList());
         List<Class<?>> javaArgumentTypes = nCopies(types.size(), Block.class);
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(types).asVarargsCollector(Block[].class).asType(methodType(Block.class, javaArgumentTypes));
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 nCopies(types.size(), NEVER_NULL),

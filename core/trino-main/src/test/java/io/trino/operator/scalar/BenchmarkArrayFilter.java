@@ -206,10 +206,10 @@ public class BenchmarkArrayFilter
         }
 
         @Override
-        protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+        protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
         {
             Type type = ((ArrayType) boundSignature.getReturnType()).getElementType();
-            return new ChoicesScalarFunctionImplementation(
+            return new ChoicesSpecializedSqlScalarFunction(
                     boundSignature,
                     FAIL_ON_NULL,
                     ImmutableList.of(NEVER_NULL, NEVER_NULL),

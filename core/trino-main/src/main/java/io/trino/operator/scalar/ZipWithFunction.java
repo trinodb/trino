@@ -67,13 +67,13 @@ public final class ZipWithFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         Type leftElementType = ((ArrayType) boundSignature.getArgumentType(0)).getElementType();
         Type rightElementType = ((ArrayType) boundSignature.getArgumentType(1)).getElementType();
         Type outputElementType = ((ArrayType) boundSignature.getReturnType()).getElementType();
         ArrayType outputArrayType = new ArrayType(outputElementType);
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL, FUNCTION),

@@ -46,7 +46,7 @@ public final class JsonStringToMapCast
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         return JSON_TO_MAP.specialize(boundSignature);
     }

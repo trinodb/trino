@@ -67,14 +67,14 @@ public final class ArrayReduceFunction
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         ArrayType arrayType = (ArrayType) boundSignature.getArgumentTypes().get(0);
         Type inputType = arrayType.getElementType();
         Type intermediateType = boundSignature.getArgumentTypes().get(1);
         Type outputType = boundSignature.getReturnType();
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(inputType);
-        return new ChoicesScalarFunctionImplementation(
+        return new ChoicesSpecializedSqlScalarFunction(
                 boundSignature,
                 NULLABLE_RETURN,
                 ImmutableList.of(NEVER_NULL, BOXED_NULLABLE, FUNCTION, FUNCTION),

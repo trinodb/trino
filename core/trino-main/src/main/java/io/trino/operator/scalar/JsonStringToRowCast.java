@@ -44,7 +44,7 @@ public final class JsonStringToRowCast
     }
 
     @Override
-    protected ScalarFunctionImplementation specialize(BoundSignature boundSignature)
+    protected SpecializedSqlScalarFunction specialize(BoundSignature boundSignature)
     {
         return JSON_TO_ROW.specialize(boundSignature);
     }

@@ -37,15 +37,15 @@ import static java.lang.String.format;
 import static java.util.Comparator.comparingInt;
 import static java.util.Objects.requireNonNull;
 
-public final class ChoicesScalarFunctionImplementation
-        implements ScalarFunctionImplementation
+public final class ChoicesSpecializedSqlScalarFunction
+        implements SpecializedSqlScalarFunction
 {
     private final ScalarFunctionAdapter functionAdapter = new ScalarFunctionAdapter(RETURN_NULL_ON_NULL);
 
     private final BoundSignature boundSignature;
     private final List<ScalarImplementationChoice> choices;
 
-    public ChoicesScalarFunctionImplementation(
+    public ChoicesSpecializedSqlScalarFunction(
             BoundSignature boundSignature,
             InvocationReturnConvention returnConvention,
             List<InvocationArgumentConvention> argumentConventions,
@@ -54,7 +54,7 @@ public final class ChoicesScalarFunctionImplementation
         this(boundSignature, returnConvention, argumentConventions, ImmutableList.of(), methodHandle, Optional.empty());
     }
 
-    public ChoicesScalarFunctionImplementation(
+    public ChoicesSpecializedSqlScalarFunction(
             BoundSignature boundSignature,
             InvocationReturnConvention returnConvention,
             List<InvocationArgumentConvention> argumentConventions,
@@ -64,7 +64,7 @@ public final class ChoicesScalarFunctionImplementation
         this(boundSignature, returnConvention, argumentConventions, ImmutableList.of(), methodHandle, instanceFactory);
     }
 
-    public ChoicesScalarFunctionImplementation(
+    public ChoicesSpecializedSqlScalarFunction(
             BoundSignature boundSignature,
             InvocationReturnConvention returnConvention,
             List<InvocationArgumentConvention> argumentConventions,
@@ -85,7 +85,7 @@ public final class ChoicesScalarFunctionImplementation
      * @param boundSignature
      * @param choices the list of choices, ordered from generic to specific
      */
-    public ChoicesScalarFunctionImplementation(BoundSignature boundSignature, List<ScalarImplementationChoice> choices)
+    public ChoicesSpecializedSqlScalarFunction(BoundSignature boundSignature, List<ScalarImplementationChoice> choices)
     {
         this.boundSignature = boundSignature;
         checkArgument(!choices.isEmpty(), "choices is an empty list");
