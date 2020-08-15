@@ -19,9 +19,6 @@ import io.trino.execution.QueryIdGenerator;
 import io.trino.metadata.SessionPropertyManager;
 import io.trino.spi.security.Identity;
 import io.trino.spi.type.TimeZoneKey;
-import io.trino.sql.SqlPath;
-
-import java.util.Optional;
 
 import static java.util.Locale.ENGLISH;
 
@@ -55,7 +52,6 @@ public final class TestingSession
                 .setSource("test")
                 .setCatalog("catalog")
                 .setSchema("schema")
-                .setPath(new SqlPath(Optional.of("path")))
                 .setTimeZoneKey(DEFAULT_TIME_ZONE_KEY)
                 .setLocale(ENGLISH)
                 .setRemoteUserAddress("address")
