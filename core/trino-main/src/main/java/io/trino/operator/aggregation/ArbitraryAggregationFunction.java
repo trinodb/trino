@@ -72,9 +72,9 @@ public class ArbitraryAggregationFunction
                                 .build())
                         .description("Return an arbitrary non-null input value")
                         .build(),
-                new AggregationFunctionMetadata(
-                        false,
-                        new TypeSignature("T")));
+                AggregationFunctionMetadata.builder()
+                        .intermediateType(new TypeSignature("T"))
+                        .build());
     }
 
     @Override

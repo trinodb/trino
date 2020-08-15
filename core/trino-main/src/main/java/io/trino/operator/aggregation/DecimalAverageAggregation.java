@@ -77,9 +77,9 @@ public class DecimalAverageAggregation
                                 .build())
                         .description("Calculates the average value")
                         .build(),
-                new AggregationFunctionMetadata(
-                        false,
-                        VARBINARY.getTypeSignature()));
+                AggregationFunctionMetadata.builder()
+                        .intermediateType(VARBINARY)
+                        .build());
     }
 
     @Override

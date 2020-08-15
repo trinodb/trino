@@ -56,9 +56,9 @@ public class CountColumn
                                 .build())
                         .description("Counts the non-null values")
                         .build(),
-                new AggregationFunctionMetadata(
-                        false,
-                        BIGINT.getTypeSignature()));
+                AggregationFunctionMetadata.builder()
+                        .intermediateType(BIGINT)
+                        .build());
     }
 
     @Override

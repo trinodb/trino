@@ -60,9 +60,9 @@ public class Histogram
                                 .build())
                         .description("Count the number of times each value occurs")
                         .build(),
-                new AggregationFunctionMetadata(
-                        false,
-                        mapType(new TypeSignature("K"), BIGINT.getTypeSignature())));
+                AggregationFunctionMetadata.builder()
+                        .intermediateType(mapType(new TypeSignature("K"), BIGINT.getTypeSignature()))
+                        .build());
         this.blockTypeOperators = blockTypeOperators;
     }
 

@@ -54,9 +54,10 @@ public class ArrayAggregationFunction
                         .argumentNullability(true)
                         .description("return an array of values")
                         .build(),
-                new AggregationFunctionMetadata(
-                        true,
-                        arrayType(new TypeSignature("T"))));
+                AggregationFunctionMetadata.builder()
+                        .orderSensitive()
+                        .intermediateType(arrayType(new TypeSignature("T")))
+                        .build());
     }
 
     @Override

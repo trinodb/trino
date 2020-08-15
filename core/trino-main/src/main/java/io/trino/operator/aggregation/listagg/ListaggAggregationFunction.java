@@ -80,13 +80,14 @@ public class ListaggAggregationFunction
                         .argumentNullability(true, false, false, false, false)
                         .description("concatenates the input values with the specified separator")
                         .build(),
-                new AggregationFunctionMetadata(
-                        true,
-                        VARCHAR.getTypeSignature(),
-                        BOOLEAN.getTypeSignature(),
-                        VARCHAR.getTypeSignature(),
-                        BOOLEAN.getTypeSignature(),
-                        arrayType(VARCHAR.getTypeSignature())));
+                AggregationFunctionMetadata.builder()
+                        .orderSensitive()
+                        .intermediateType(VARCHAR.getTypeSignature())
+                        .intermediateType(BOOLEAN.getTypeSignature())
+                        .intermediateType(VARCHAR.getTypeSignature())
+                        .intermediateType(BOOLEAN.getTypeSignature())
+                        .intermediateType(arrayType(VARCHAR.getTypeSignature()))
+                        .build());
     }
 
     @Override

@@ -78,9 +78,9 @@ public class ReduceAggregationFunction
                                 .build())
                         .description("Reduce input elements into a single value")
                         .build(),
-                new AggregationFunctionMetadata(
-                        false,
-                        new TypeSignature("S")));
+                AggregationFunctionMetadata.builder()
+                        .intermediateType(new TypeSignature("S"))
+                        .build());
     }
 
     @Override

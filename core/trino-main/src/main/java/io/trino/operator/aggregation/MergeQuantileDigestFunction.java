@@ -65,9 +65,10 @@ public final class MergeQuantileDigestFunction
                                 .build())
                         .description("Merges the input quantile digests into a single quantile digest")
                         .build(),
-                new AggregationFunctionMetadata(
-                        true,
-                        parametricType(QDIGEST, new TypeSignature("T"))));
+                AggregationFunctionMetadata.builder()
+                        .orderSensitive()
+                        .intermediateType(parametricType(QDIGEST, new TypeSignature("T")))
+                        .build());
     }
 
     @Override

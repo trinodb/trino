@@ -27,6 +27,7 @@ import io.trino.FeaturesConfig;
 import io.trino.Session;
 import io.trino.collect.cache.NonEvictableCache;
 import io.trino.connector.CatalogName;
+import io.trino.metadata.AggregationFunctionMetadata.AggregationFunctionMetadataBuilder;
 import io.trino.metadata.Catalog.SecurityManagement;
 import io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder;
 import io.trino.spi.QueryId;
@@ -2246,14 +2247,20 @@ public final class MetadataManager
     public AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction)
     {
         AggregationFunctionMetadata aggregationFunctionMetadata = functions.getAggregationFunctionMetadata(resolvedFunction.getFunctionId());
-        List<TypeSignature> intermediateTypes = aggregationFunctionMetadata.getIntermediateTypes();
-        if (!intermediateTypes.isEmpty()) {
-            FunctionBinding functionBinding = toFunctionBinding(resolvedFunction);
-            intermediateTypes = aggregationFunctionMetadata.getIntermediateTypes().stream()
-                    .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding))
-                    .collect(toImmutableList());
+
+        AggregationFunctionMetadataBuilder builder = AggregationFunctionMetadata.builder();
+        if (aggregationFunctionMetadata.isOrderSensitive()) {
+            builder.orderSensitive();
         }
-        return new AggregationFunctionMetadata(aggregationFunctionMetadata.isOrderSensitive(), intermediateTypes);
+
+        if (!aggregationFunctionMetadata.getIntermediateTypes().isEmpty()) {
+            FunctionBinding functionBinding = toFunctionBinding(resolvedFunction);
+            aggregationFunctionMetadata.getIntermediateTypes().stream()
+                    .map(typeSignature -> applyBoundVariables(typeSignature, functionBinding))
+                    .forEach(builder::intermediateType);
+        }
+
+        return builder.build();
     }
 
     private FunctionBinding toFunctionBinding(ResolvedFunction resolvedFunction)

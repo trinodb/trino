@@ -78,11 +78,11 @@ public abstract class AbstractMinMaxByNAggregationFunction
                         .argumentNullability(true, false, false)
                         .description(description)
                         .build(),
-                new AggregationFunctionMetadata(
-                        false,
-                        BIGINT.getTypeSignature(),
-                        arrayType(new TypeSignature("K")),
-                        arrayType(new TypeSignature("V"))));
+                AggregationFunctionMetadata.builder()
+                        .intermediateType(BIGINT.getTypeSignature())
+                        .intermediateType(arrayType(new TypeSignature("K")))
+                        .intermediateType(arrayType(new TypeSignature("V")))
+                        .build());
         this.min = min;
     }
 

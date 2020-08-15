@@ -64,9 +64,9 @@ public class ChecksumAggregationFunction
                         .argumentNullability(true)
                         .description("Checksum of the given values")
                         .build(),
-                new AggregationFunctionMetadata(
-                        false,
-                        BIGINT.getTypeSignature()));
+                AggregationFunctionMetadata.builder()
+                        .intermediateType(BIGINT)
+                        .build());
         this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 
