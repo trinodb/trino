@@ -17,7 +17,6 @@ import io.prestosql.Session;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
 import io.prestosql.operator.scalar.FunctionAssertions;
 import io.prestosql.spi.type.SqlTimeWithTimeZone;
-import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.testing.TestingSession;
 import org.joda.time.DateTime;
@@ -26,22 +25,16 @@ import org.testng.annotations.Test;
 
 import java.time.Instant;
 
-import static io.prestosql.spi.StandardErrorCode.INVALID_LITERAL;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.DateTimeTestingUtils.sqlTimeOf;
-import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
 
-public abstract class TestTime
+public class TestTime
         extends AbstractTestFunctions
 {
     protected static final TimeZoneKey TIME_ZONE_KEY = TestingSession.DEFAULT_TIME_ZONE_KEY;
@@ -52,15 +45,6 @@ public abstract class TestTime
         super(testSessionBuilder()
                 .setTimeZoneKey(TIME_ZONE_KEY)
                 .build());
-    }
-
-    @Test
-    public void testLiteral()
-    {
-        assertFunction("TIME '03:04:05.321'", TIME, sqlTimeOf(3, 4, 5, 321));
-        assertFunction("TIME '03:04:05'", TIME, sqlTimeOf(3, 4, 5, 0));
-        assertFunction("TIME '03:04'", TIME, sqlTimeOf(3, 4, 0, 0));
-        assertInvalidFunction("TIME 'text'", INVALID_LITERAL, "line 1:1: 'text' is not a valid time literal");
     }
 
     @Test
@@ -175,27 +159,11 @@ public abstract class TestTime
     }
 
     @Test
-    public void testCastToTimestamp()
-    {
-        assertFunction("cast(TIME '03:04:05.321' as timestamp)",
-                TIMESTAMP,
-                sqlTimestampOf(3, 1970, 1, 1, 3, 4, 5, 321));
-    }
-
-    @Test
-    public void testCastToTimestampWithTimeZone()
-    {
-        assertFunction("cast(TIME '03:04:05.321' as timestamp with time zone)",
-                TIMESTAMP_WITH_TIME_ZONE,
-                SqlTimestampWithTimeZone.newInstance(3, new DateTime(1970, 1, 1, 3, 4, 5, 321, DATE_TIME_ZONE).getMillis(), 0, TIME_ZONE_KEY));
-    }
-
-    @Test
     public void testCastToSlice()
     {
         assertFunction("cast(TIME '03:04:05.321' as varchar)", VARCHAR, "03:04:05.321");
-        assertFunction("cast(TIME '03:04:05' as varchar)", VARCHAR, "03:04:05.000");
-        assertFunction("cast(TIME '03:04' as varchar)", VARCHAR, "03:04:00.000");
+        assertFunction("cast(TIME '03:04:05' as varchar)", VARCHAR, "03:04:05");
+        assertFunction("cast(TIME '03:04' as varchar)", VARCHAR, "03:04:00");
     }
 
     @Test
