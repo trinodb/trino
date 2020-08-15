@@ -13,7 +13,16 @@
  */
 package io.trino.metadata;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.primitives.Booleans;
+
+import java.util.Collections;
+import java.util.List;
+
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.trino.metadata.FunctionKind.AGGREGATE;
+import static io.trino.metadata.FunctionKind.SCALAR;
+import static io.trino.metadata.FunctionKind.WINDOW;
 import static java.util.Objects.requireNonNull;
 
 public class FunctionMetadata
@@ -28,49 +37,7 @@ public class FunctionMetadata
     private final FunctionKind kind;
     private final boolean deprecated;
 
-    public FunctionMetadata(
-            Signature signature,
-            FunctionNullability functionNullability,
-            boolean hidden,
-            boolean deterministic,
-            String description,
-            FunctionKind kind)
-    {
-        this(
-                FunctionId.toFunctionId(signature),
-                signature,
-                signature.getName(),
-                functionNullability,
-                hidden,
-                deterministic,
-                description,
-                kind,
-                false);
-    }
-
-    public FunctionMetadata(
-            Signature signature,
-            String canonicalName,
-            FunctionNullability functionNullability,
-            boolean hidden,
-            boolean deterministic,
-            String description,
-            FunctionKind kind,
-            boolean deprecated)
-    {
-        this(
-                FunctionId.toFunctionId(signature),
-                signature,
-                canonicalName,
-                functionNullability,
-                hidden,
-                deterministic,
-                description,
-                kind,
-                deprecated);
-    }
-
-    public FunctionMetadata(
+    private FunctionMetadata(
             FunctionId functionId,
             Signature signature,
             String canonicalName,
@@ -154,5 +121,146 @@ public class FunctionMetadata
     public String toString()
     {
         return signature.toString();
+    }
+
+    public static Builder scalarBuilder()
+    {
+        return builder(SCALAR);
+    }
+
+    public static Builder aggregateBuilder()
+    {
+        return builder(AGGREGATE);
+    }
+
+    public static Builder windowBuilder()
+    {
+        return builder(WINDOW);
+    }
+
+    public static Builder builder(FunctionKind functionKind)
+    {
+        return new Builder(functionKind);
+    }
+
+    public static final class Builder
+    {
+        private final FunctionKind kind;
+        private Signature signature;
+        private String canonicalName;
+        private boolean nullable;
+        private List<Boolean> argumentNullability;
+        private boolean hidden;
+        private boolean deterministic = true;
+        private String description;
+        private FunctionId functionId;
+        private boolean deprecated;
+
+        private Builder(FunctionKind kind)
+        {
+            this.kind = kind;
+            if (kind == AGGREGATE || kind == WINDOW) {
+                nullable = true;
+            }
+        }
+
+        public Builder signature(Signature signature)
+        {
+            this.signature = signature;
+            if (Signature.isOperatorName(signature.getName())) {
+                hidden = true;
+                description = "";
+            }
+            return this;
+        }
+
+        public Builder canonicalName(String canonicalName)
+        {
+            this.canonicalName = canonicalName;
+            return this;
+        }
+
+        public Builder nullable()
+        {
+            this.nullable = true;
+            return this;
+        }
+
+        public Builder argumentNullability(boolean... argumentNullability)
+        {
+            requireNonNull(argumentNullability, "argumentNullability is null");
+            return argumentNullability(ImmutableList.copyOf(Booleans.asList(argumentNullability)));
+        }
+
+        public Builder argumentNullability(List<Boolean> argumentNullability)
+        {
+            this.argumentNullability = argumentNullability;
+            return this;
+        }
+
+        public Builder hidden()
+        {
+            this.hidden = true;
+            if (description == null) {
+                description = "";
+            }
+            return this;
+        }
+
+        public Builder nondeterministic()
+        {
+            this.deterministic = false;
+            return this;
+        }
+
+        public Builder noDescription()
+        {
+            this.description = "";
+            return this;
+        }
+
+        public Builder description(String description)
+        {
+            requireNonNull(description, "description is null");
+            checkArgument(!description.isEmpty(), "description is empty");
+            this.description = description;
+            return this;
+        }
+
+        public Builder functionId(FunctionId functionId)
+        {
+            this.functionId = functionId;
+            return this;
+        }
+
+        public Builder deprecated()
+        {
+            this.deprecated = true;
+            return this;
+        }
+
+        public FunctionMetadata build()
+        {
+            FunctionId functionId = this.functionId;
+            if (functionId == null) {
+                functionId = FunctionId.toFunctionId(signature);
+            }
+            if (canonicalName == null) {
+                canonicalName = requireNonNull(signature, "signature is null").getName();
+            }
+            if (argumentNullability == null) {
+                argumentNullability = Collections.nCopies(signature.getArgumentTypes().size(), kind == WINDOW);
+            }
+            return new FunctionMetadata(
+                    functionId,
+                    signature,
+                    canonicalName,
+                    new FunctionNullability(nullable, argumentNullability),
+                    hidden,
+                    deterministic,
+                    description,
+                    kind,
+                    deprecated);
+        }
     }
 }

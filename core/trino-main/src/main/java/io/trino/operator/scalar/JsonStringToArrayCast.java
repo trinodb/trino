@@ -13,15 +13,12 @@
  */
 package io.trino.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.type.TypeSignature;
 
-import static io.trino.metadata.FunctionKind.SCALAR;
 import static io.trino.operator.scalar.JsonToArrayCast.JSON_TO_ARRAY;
 import static io.trino.spi.type.TypeSignature.arrayType;
 import static io.trino.spi.type.VarcharType.VARCHAR;
@@ -34,18 +31,17 @@ public final class JsonStringToArrayCast
 
     private JsonStringToArrayCast()
     {
-        super(new FunctionMetadata(
-                Signature.builder()
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
                         .name(JSON_STRING_TO_ARRAY_NAME)
                         .typeVariable("T")
                         .returnType(arrayType(new TypeSignature("T")))
                         .argumentType(VARCHAR)
-                        .build(),
-                new FunctionNullability(true, ImmutableList.of(false)),
-                true,
-                true,
-                "",
-                SCALAR));
+                        .build())
+                .nullable()
+                .hidden()
+                .noDescription()
+                .build());
     }
 
     @Override

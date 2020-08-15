@@ -15,8 +15,9 @@ package io.trino.operator.scalar;
 
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionInvoker;
+import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Signature;
-import io.trino.metadata.SqlOperator;
+import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
@@ -29,19 +30,20 @@ import static io.trino.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
 
 public class GenericXxHash64Operator
-        extends SqlOperator
+        extends SqlScalarFunction
 {
     private final TypeOperators typeOperators;
 
     public GenericXxHash64Operator(TypeOperators typeOperators)
     {
-        super(Signature.builder()
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
                         .operatorType(XX_HASH_64)
                         .comparableTypeParameter("T")
                         .returnType(BIGINT)
                         .argumentType(new TypeSignature("T"))
-                        .build(),
-                false);
+                        .build())
+                .build());
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
     }
 

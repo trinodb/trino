@@ -28,9 +28,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.trino.SessionTestUtils.TEST_SESSION;
-import static io.trino.metadata.Signature.castableFromTypeParameter;
-import static io.trino.metadata.Signature.castableToTypeParameter;
-import static io.trino.metadata.Signature.withVariadicBound;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static io.trino.spi.type.DecimalType.createDecimalType;
@@ -734,13 +731,13 @@ public class TestSignatureBinder
                 .withCoercion()
                 .fails();
 
-        assertThatThrownBy(() -> withVariadicBound("T", "array"))
+        assertThatThrownBy(() -> TypeVariableConstraint.builder("T").variadicBound("array").build())
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("variadicBound must be row but is array");
-        assertThatThrownBy(() -> withVariadicBound("T", "map"))
+        assertThatThrownBy(() -> TypeVariableConstraint.builder("T").variadicBound("map").build())
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("variadicBound must be row but is map");
-        assertThatThrownBy(() -> withVariadicBound("T", "decimal"))
+        assertThatThrownBy(() -> TypeVariableConstraint.builder("T").variadicBound("decimal").build())
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("variadicBound must be row but is decimal");
     }
@@ -765,13 +762,13 @@ public class TestSignatureBinder
     @Test
     public void testInvalidVariadicBound()
     {
-        assertThatThrownBy(() -> withVariadicBound("T", "array"))
+        assertThatThrownBy(() -> TypeVariableConstraint.builder("T").variadicBound("array").build())
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("variadicBound must be row but is array");
-        assertThatThrownBy(() -> withVariadicBound("T", "map"))
+        assertThatThrownBy(() -> TypeVariableConstraint.builder("T").variadicBound("map").build())
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("variadicBound must be row but is map");
-        assertThatThrownBy(() -> withVariadicBound("T", "decimal"))
+        assertThatThrownBy(() -> TypeVariableConstraint.builder("T").variadicBound("decimal").build())
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("variadicBound must be row but is decimal");
     }
@@ -1063,7 +1060,10 @@ public class TestSignatureBinder
         Signature multiCast = functionSignature()
                 .returnType(VARCHAR)
                 .argumentType(arrayType(new TypeSignature("E")))
-                .typeVariableConstraint(castableToTypeParameter("E", VARCHAR.getTypeSignature(), INTEGER.getTypeSignature()))
+                .typeVariableConstraint(TypeVariableConstraint.builder("E")
+                        .castableTo(VARCHAR)
+                        .castableTo(INTEGER)
+                        .build())
                 .build();
         assertThat(multiCast)
                 .boundTo(new ArrayType(TINYINT))
@@ -1095,7 +1095,10 @@ public class TestSignatureBinder
                 .returnType(BOOLEAN)
                 .argumentType(arrayType(new TypeSignature("E")))
                 .argumentType(JSON)
-                .typeVariableConstraint(castableFromTypeParameter("E", VARCHAR.getTypeSignature(), JSON.getTypeSignature()))
+                .typeVariableConstraint(TypeVariableConstraint.builder("E")
+                        .castableFrom(VARCHAR)
+                        .castableFrom(JSON)
+                        .build())
                 .build();
         assertThat(multiCast)
                 .boundTo(new ArrayType(TINYINT), JSON)

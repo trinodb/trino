@@ -39,11 +39,10 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.trino.metadata.FunctionKind.SCALAR;
 import static io.trino.metadata.InternalFunctionBundle.extractFunctions;
 import static io.trino.metadata.Signature.mangleOperatorName;
-import static io.trino.metadata.Signature.typeVariable;
 import static io.trino.metadata.Signature.unmangleOperator;
+import static io.trino.metadata.TypeVariableConstraint.typeVariable;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.trino.spi.type.BigintType.BIGINT;
@@ -211,9 +210,10 @@ public class TestGlobalFunctionCatalog
                         functionSignature(
                                 ImmutableList.of("T1", "T2", "T3"),
                                 "boolean",
-                                ImmutableList.of(Signature.withVariadicBound("T1", "row"),
-                                        Signature.withVariadicBound("T2", "row"),
-                                        Signature.withVariadicBound("T3", "row"))))
+                                ImmutableList.of(
+                                        TypeVariableConstraint.builder("T1").variadicBound("row").build(),
+                                        TypeVariableConstraint.builder("T2").variadicBound("row").build(),
+                                        TypeVariableConstraint.builder("T3").variadicBound("row").build())))
                 .forParameters(UnknownType.UNKNOWN, BIGINT, BIGINT)
                 .returns(functionSignature("bigint", "bigint", "bigint"));
     }
@@ -346,13 +346,11 @@ public class TestGlobalFunctionCatalog
             ImmutableList.Builder<SqlFunction> functions = ImmutableList.builder();
             for (Signature.Builder functionSignature : functionSignatures) {
                 Signature signature = functionSignature.name(TEST_FUNCTION_NAME).build();
-                FunctionMetadata functionMetadata = new FunctionMetadata(
-                        signature,
-                        new FunctionNullability(false, nCopies(signature.getArgumentTypes().size(), false)),
-                        false,
-                        false,
-                        "testing function that does nothing",
-                        SCALAR);
+                FunctionMetadata functionMetadata = FunctionMetadata.scalarBuilder()
+                        .signature(signature)
+                        .nondeterministic()
+                        .description("testing function that does nothing")
+                        .build();
                 functions.add(new SqlScalarFunction(functionMetadata)
                 {
                     @Override

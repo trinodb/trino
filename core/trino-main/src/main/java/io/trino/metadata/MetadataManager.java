@@ -2202,6 +2202,31 @@ public final class MetadataManager
     {
         FunctionMetadata functionMetadata = functions.getFunctionMetadata(functionId);
 
+        FunctionMetadata.Builder newMetadata = FunctionMetadata.builder(functionMetadata.getKind())
+                .functionId(functionMetadata.getFunctionId())
+                .signature(signature.toSignature())
+                .canonicalName(functionMetadata.getCanonicalName());
+
+        if (functionMetadata.getDescription().isEmpty()) {
+            newMetadata.noDescription();
+        }
+        else {
+            newMetadata.description(functionMetadata.getDescription());
+        }
+
+        if (functionMetadata.isHidden()) {
+            newMetadata.hidden();
+        }
+        if (!functionMetadata.isDeterministic()) {
+            newMetadata.nondeterministic();
+        }
+        if (functionMetadata.isDeprecated()) {
+            newMetadata.deprecated();
+        }
+        if (functionMetadata.getFunctionNullability().isReturnNullable()) {
+            newMetadata.nullable();
+        }
+
         // specialize function metadata to resolvedFunction
         List<Boolean> argumentNullability = functionMetadata.getFunctionNullability().getArgumentNullable();
         if (functionMetadata.getSignature().isVariableArity()) {
@@ -2212,17 +2237,9 @@ public final class MetadataManager
                     .addAll(nCopies(variableArgumentCount, argumentNullability.get(argumentNullability.size() - 1)))
                     .build();
         }
+        newMetadata.argumentNullability(argumentNullability);
 
-        return new FunctionMetadata(
-                functionMetadata.getFunctionId(),
-                signature.toSignature(),
-                functionMetadata.getCanonicalName(),
-                new FunctionNullability(functionMetadata.getFunctionNullability().isReturnNullable(), argumentNullability),
-                functionMetadata.isHidden(),
-                functionMetadata.isDeterministic(),
-                functionMetadata.getDescription(),
-                functionMetadata.getKind(),
-                functionMetadata.isDeprecated());
+        return newMetadata.build();
     }
 
     @Override

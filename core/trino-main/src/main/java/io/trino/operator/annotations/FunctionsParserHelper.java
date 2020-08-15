@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.metadata.Signature;
 import io.trino.metadata.Signature.Builder;
 import io.trino.metadata.TypeVariableConstraint;
+import io.trino.metadata.TypeVariableConstraint.TypeVariableConstraintBuilder;
 import io.trino.spi.function.Description;
 import io.trino.spi.function.IsNull;
 import io.trino.spi.function.LiteralParameters;
@@ -145,17 +146,20 @@ public final class FunctionsParserHelper
 
         ImmutableList.Builder<TypeVariableConstraint> typeVariableConstraints = ImmutableList.builder();
         for (String name : typeParameterNames) {
-            typeVariableConstraints.add(new TypeVariableConstraint(
-                    name,
-                    comparableRequired.contains(name),
-                    orderableRequired.contains(name),
-                    null,
-                    castableTo.get(name).stream()
-                            .map(type -> parseTypeSignature(type, typeParameterNames))
-                            .collect(toImmutableSet()),
-                    castableFrom.get(name).stream()
-                            .map(type -> parseTypeSignature(type, typeParameterNames))
-                            .collect(toImmutableSet())));
+            TypeVariableConstraintBuilder builder = TypeVariableConstraint.builder(name);
+            if (comparableRequired.contains(name)) {
+                builder.comparableRequired();
+            }
+            if (orderableRequired.contains(name)) {
+                builder.orderableRequired();
+            }
+            castableTo.get(name).stream()
+                    .map(type -> parseTypeSignature(type, typeParameterNames))
+                    .forEach(builder::castableTo);
+            castableFrom.get(name).stream()
+                    .map(type -> parseTypeSignature(type, typeParameterNames))
+                    .forEach(builder::castableFrom);
+            typeVariableConstraints.add(builder.build());
         }
         return typeVariableConstraints.build();
     }

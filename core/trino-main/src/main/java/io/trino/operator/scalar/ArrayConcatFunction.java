@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.PageBuilder;
@@ -32,7 +31,6 @@ import io.trino.sql.gen.VarArgsToArrayAdapterGenerator;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.trino.metadata.FunctionKind.SCALAR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -54,19 +52,16 @@ public final class ArrayConcatFunction
 
     private ArrayConcatFunction()
     {
-        super(new FunctionMetadata(
-                Signature.builder()
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
                         .name(FUNCTION_NAME)
                         .typeVariable("E")
                         .returnType(arrayType(new TypeSignature("E")))
                         .argumentType(arrayType(new TypeSignature("E")))
                         .variableArity()
-                        .build(),
-                new FunctionNullability(false, ImmutableList.of(false)),
-                false,
-                true,
-                DESCRIPTION,
-                SCALAR));
+                        .build())
+                .description(DESCRIPTION)
+                .build());
     }
 
     @Override

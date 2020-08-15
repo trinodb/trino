@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
@@ -37,7 +36,6 @@ import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.util.Optional;
 
-import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.spi.type.TypeSignature.mapType;
 import static io.trino.util.Reflection.methodHandle;
 import static java.util.Objects.requireNonNull;
@@ -65,20 +63,18 @@ public class MapAggregationFunction
     public MapAggregationFunction(BlockTypeOperators blockTypeOperators)
     {
         super(
-                new FunctionMetadata(
-                        Signature.builder()
+                FunctionMetadata.aggregateBuilder()
+                        .signature(Signature.builder()
                                 .name(NAME)
                                 .comparableTypeParameter("K")
                                 .typeVariable("V")
                                 .returnType(mapType(new TypeSignature("K"), new TypeSignature("V")))
                                 .argumentType(new TypeSignature("K"))
                                 .argumentType(new TypeSignature("V"))
-                                .build(),
-                        new FunctionNullability(true, ImmutableList.of(false, true)),
-                        false,
-                        true,
-                        "Aggregates all the rows (key/value pairs) into a single map",
-                        AGGREGATE),
+                                .build())
+                        .argumentNullability(false, true)
+                        .description("Aggregates all the rows (key/value pairs) into a single map")
+                        .build(),
                 new AggregationFunctionMetadata(
                         true,
                         mapType(new TypeSignature("K"), new TypeSignature("V"))));

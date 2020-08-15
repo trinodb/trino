@@ -18,7 +18,6 @@ import com.google.common.primitives.Primitives;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.type.Type;
@@ -28,7 +27,6 @@ import io.trino.sql.gen.lambda.UnaryFunctionInterface;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.trino.metadata.FunctionKind.SCALAR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -47,20 +45,20 @@ public final class ApplyFunction
 
     private ApplyFunction()
     {
-        super(new FunctionMetadata(
-                Signature.builder()
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
                         .name("apply")
                         .typeVariable("T")
                         .typeVariable("U")
                         .returnType(new TypeSignature("U"))
                         .argumentType(new TypeSignature("T"))
                         .argumentType(functionType(new TypeSignature("T"), new TypeSignature("U")))
-                        .build(),
-                new FunctionNullability(true, ImmutableList.of(true, false)),
-                true,
-                true,
-                "lambda apply function",
-                SCALAR));
+                        .build())
+                .nullable()
+                .argumentNullability(true, false)
+                .hidden()
+                .description("lambda apply function")
+                .build());
     }
 
     @Override

@@ -20,8 +20,9 @@ import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
+import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Signature;
-import io.trino.metadata.SqlOperator;
+import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.block.SingleMapBlock;
@@ -45,7 +46,7 @@ import static io.trino.spi.type.VarcharType.VARCHAR;
 import static io.trino.util.Reflection.methodHandle;
 
 public class MapSubscriptOperator
-        extends SqlOperator
+        extends SqlScalarFunction
 {
     private static final MethodHandle METHOD_HANDLE_BOOLEAN = methodHandle(MapSubscriptOperator.class, "subscript", MissingKeyExceptionFactory.class, Type.class, Type.class, ConnectorSession.class, Block.class, boolean.class);
     private static final MethodHandle METHOD_HANDLE_LONG = methodHandle(MapSubscriptOperator.class, "subscript", MissingKeyExceptionFactory.class, Type.class, Type.class, ConnectorSession.class, Block.class, long.class);
@@ -54,15 +55,17 @@ public class MapSubscriptOperator
 
     public MapSubscriptOperator()
     {
-        super(Signature.builder()
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
                         .operatorType(SUBSCRIPT)
                         .typeVariable("K")
                         .typeVariable("V")
                         .returnType(new TypeSignature("V"))
                         .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V")))
                         .argumentType(new TypeSignature("K"))
-                        .build(),
-                true);
+                        .build())
+                .nullable()
+                .build());
     }
 
     @Override
