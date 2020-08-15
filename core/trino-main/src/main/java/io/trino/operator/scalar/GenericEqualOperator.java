@@ -54,7 +54,9 @@ public class GenericEqualOperator
         Type type = boundSignature.getArgumentType(0);
         return invocationConvention -> {
             MethodHandle methodHandle = typeOperators.getEqualOperator(type, invocationConvention);
-            return new FunctionInvoker(methodHandle);
+            return FunctionInvoker.builder()
+                    .methodHandle(methodHandle)
+                    .build();
         };
     }
 }

@@ -17,6 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionInvoker;
+import io.trino.metadata.FunctionInvoker.Builder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.spi.function.InvocationConvention;
@@ -119,10 +120,11 @@ public final class ChoicesSpecializedSqlScalarFunction
                 boundSignature.getArgumentTypes(),
                 bestChoice.getInvocationConvention(),
                 invocationConvention);
-        return new FunctionInvoker(
-                methodHandle,
-                bestChoice.getInstanceFactory(),
-                bestChoice.getLambdaInterfaces());
+        Builder builder = FunctionInvoker.builder()
+                .methodHandle(methodHandle);
+        bestChoice.getInstanceFactory().ifPresent(builder::instanceFactory);
+        builder.lambdaInterfaces(bestChoice.getLambdaInterfaces());
+        return builder.build();
     }
 
     public static class ScalarImplementationChoice
