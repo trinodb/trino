@@ -27,7 +27,6 @@ import io.airlift.bytecode.control.IfStatement;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.block.Block;
@@ -52,7 +51,6 @@ import static io.airlift.bytecode.ParameterizedType.type;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantInt;
 import static io.airlift.bytecode.expression.BytecodeExpressions.constantNull;
 import static io.airlift.bytecode.expression.BytecodeExpressions.equal;
-import static io.trino.metadata.FunctionKind.SCALAR;
 import static io.trino.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -71,20 +69,20 @@ public final class ArrayConstructor
 
     public ArrayConstructor()
     {
-        super(new FunctionMetadata(
-                Signature.builder()
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
                         .name("array_constructor")
                         .typeVariable("E")
                         .returnType(arrayType(new TypeSignature("E")))
                         .argumentType(new TypeSignature("E"))
                         .argumentType(new TypeSignature("E"))
                         .variableArity()
-                        .build(),
-                new FunctionNullability(false, ImmutableList.of(true, true)),
-                true,
-                true,
-                "",
-                SCALAR));
+                        .build())
+                .nullable()
+                .argumentNullability(true, true)
+                .hidden()
+                .noDescription()
+                .build());
     }
 
     @Override

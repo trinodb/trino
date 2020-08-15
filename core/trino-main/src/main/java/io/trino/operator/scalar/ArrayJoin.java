@@ -20,7 +20,6 @@ import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.PageBuilder;
@@ -41,7 +40,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
-import static io.trino.metadata.FunctionKind.SCALAR;
 import static io.trino.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.trino.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
@@ -87,20 +85,17 @@ public final class ArrayJoin
 
         public ArrayJoinWithNullReplacement()
         {
-            super(new FunctionMetadata(
-                    Signature.builder()
+            super(FunctionMetadata.scalarBuilder()
+                    .signature(Signature.builder()
                             .name(FUNCTION_NAME)
                             .typeVariable("T")
                             .returnType(VARCHAR)
                             .argumentType(arrayType(new TypeSignature("T")))
                             .argumentType(VARCHAR)
                             .argumentType(VARCHAR)
-                            .build(),
-                    new FunctionNullability(false, ImmutableList.of(false, false, false)),
-                    false,
-                    true,
-                    DESCRIPTION,
-                    SCALAR));
+                            .build())
+                    .description(DESCRIPTION)
+                    .build());
         }
 
         @Override
@@ -118,19 +113,16 @@ public final class ArrayJoin
 
     private ArrayJoin()
     {
-        super(new FunctionMetadata(
-                Signature.builder()
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
                         .name(FUNCTION_NAME)
                         .castableToTypeParameter("T", VARCHAR.getTypeSignature())
                         .returnType(VARCHAR)
                         .argumentType(arrayType(new TypeSignature("T")))
                         .argumentType(VARCHAR)
-                        .build(),
-                new FunctionNullability(false, ImmutableList.of(false, false)),
-                false,
-                true,
-                DESCRIPTION,
-                SCALAR));
+                        .build())
+                .description(DESCRIPTION)
+                .build());
     }
 
     @UsedByGeneratedCode

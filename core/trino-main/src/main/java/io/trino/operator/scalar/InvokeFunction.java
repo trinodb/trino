@@ -11,14 +11,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
 package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.type.Type;
@@ -28,7 +26,6 @@ import io.trino.sql.gen.lambda.LambdaFunctionInterface;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.trino.metadata.FunctionKind.SCALAR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.trino.spi.type.TypeSignature.functionType;
@@ -46,18 +43,17 @@ public final class InvokeFunction
 
     private InvokeFunction()
     {
-        super(new FunctionMetadata(
-                Signature.builder()
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
                         .name("invoke")
                         .typeVariable("T")
                         .returnType(new TypeSignature("T"))
                         .argumentType(functionType(new TypeSignature("T")))
-                        .build(),
-                new FunctionNullability(true, ImmutableList.of(false)),
-                true,
-                true,
-                "lambda invoke function",
-                SCALAR));
+                        .build())
+                .nullable()
+                .hidden()
+                .description("lambda invoke function")
+                .build());
     }
 
     @Override

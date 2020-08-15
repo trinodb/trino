@@ -15,8 +15,9 @@ package io.trino.operator.scalar;
 
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionInvoker;
+import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Signature;
-import io.trino.metadata.SqlOperator;
+import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeOperators;
 import io.trino.spi.type.TypeSignature;
@@ -29,20 +30,22 @@ import static io.trino.spi.type.BooleanType.BOOLEAN;
 import static java.util.Objects.requireNonNull;
 
 public class GenericDistinctFromOperator
-        extends SqlOperator
+        extends SqlScalarFunction
 {
     private final TypeOperators typeOperators;
 
     public GenericDistinctFromOperator(TypeOperators typeOperators)
     {
-        super(Signature.builder()
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
                         .operatorType(IS_DISTINCT_FROM)
                         .comparableTypeParameter("T")
                         .returnType(BOOLEAN)
                         .argumentType(new TypeSignature("T"))
                         .argumentType(new TypeSignature("T"))
-                        .build(),
-                false);
+                        .build())
+                .argumentNullability(true, true)
+                .build());
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
     }
 

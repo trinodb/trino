@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
@@ -38,7 +37,6 @@ import io.trino.spi.type.TypeSignature;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.util.Reflection.methodHandle;
 
 public class ArbitraryAggregationFunction
@@ -65,18 +63,15 @@ public class ArbitraryAggregationFunction
     protected ArbitraryAggregationFunction()
     {
         super(
-                new FunctionMetadata(
-                        Signature.builder()
+                FunctionMetadata.aggregateBuilder()
+                        .signature(Signature.builder()
                                 .name(NAME)
                                 .typeVariable("T")
                                 .returnType(new TypeSignature("T"))
                                 .argumentType(new TypeSignature("T"))
-                                .build(),
-                        new FunctionNullability(true, ImmutableList.of(false)),
-                        false,
-                        true,
-                        "Return an arbitrary non-null input value",
-                        AGGREGATE),
+                                .build())
+                        .description("Return an arbitrary non-null input value")
+                        .build(),
                 new AggregationFunctionMetadata(
                         false,
                         new TypeSignature("T")));

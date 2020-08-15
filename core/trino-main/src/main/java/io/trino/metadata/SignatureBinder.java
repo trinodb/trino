@@ -446,7 +446,7 @@ public class SignatureBinder
             for (TypeSignature castFromSignature : typeVariableConstraint.getCastableFrom()) {
                 appendTypeRelationshipConstraintSolver(resultBuilder, castFromSignature, actualTypeSignatureProvider, EXPLICIT_COERCION_FROM);
             }
-            if (typeVariableConstraint.getVariadicBound() != null && !typeVariableConstraint.getVariadicBound().equalsIgnoreCase(actualType.getTypeSignature().getBase())) {
+            if (typeVariableConstraint.getVariadicBound().isPresent() && !typeVariableConstraint.getVariadicBound().get().equalsIgnoreCase(actualType.getTypeSignature().getBase())) {
                 return actualType == UNKNOWN;
             }
             resultBuilder.add(new TypeParameterSolver(
@@ -454,7 +454,7 @@ public class SignatureBinder
                     actualType,
                     typeVariableConstraint.isComparableRequired(),
                     typeVariableConstraint.isOrderableRequired(),
-                    Optional.ofNullable(typeVariableConstraint.getVariadicBound())));
+                    typeVariableConstraint.getVariadicBound()));
             return true;
         }
 

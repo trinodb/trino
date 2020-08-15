@@ -17,11 +17,12 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableSet;
+import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
-import javax.annotation.Nullable;
-
+import java.util.HashSet;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
@@ -31,25 +32,24 @@ public class TypeVariableConstraint
     private final String name;
     private final boolean comparableRequired;
     private final boolean orderableRequired;
-    private final String variadicBound;
+    private final Optional<String> variadicBound;
     private final Set<TypeSignature> castableTo;
     private final Set<TypeSignature> castableFrom;
 
-    @JsonCreator
-    public TypeVariableConstraint(
-            @JsonProperty("name") String name,
-            @JsonProperty("comparableRequired") boolean comparableRequired,
-            @JsonProperty("orderableRequired") boolean orderableRequired,
-            @JsonProperty("variadicBound") @Nullable String variadicBound,
-            @JsonProperty("castableTo") Set<TypeSignature> castableTo,
-            @JsonProperty("castableFrom") Set<TypeSignature> castableFrom)
+    private TypeVariableConstraint(
+            String name,
+            boolean comparableRequired,
+            boolean orderableRequired,
+            Optional<String> variadicBound,
+            Set<TypeSignature> castableTo,
+            Set<TypeSignature> castableFrom)
     {
-        this.name = name;
+        this.name = requireNonNull(name, "name is null");
         this.comparableRequired = comparableRequired;
         this.orderableRequired = orderableRequired;
-        this.variadicBound = variadicBound;
-        if (variadicBound != null && !variadicBound.equalsIgnoreCase("row")) {
-            throw new IllegalArgumentException("variadicBound must be row but is " + variadicBound);
+        this.variadicBound = requireNonNull(variadicBound, "variadicBound is null");
+        if (variadicBound.map(bound -> !bound.equalsIgnoreCase("row")).orElse(false)) {
+            throw new IllegalArgumentException("variadicBound must be row but is " + variadicBound.get());
         }
         this.castableTo = ImmutableSet.copyOf(requireNonNull(castableTo, "castableTo is null"));
         this.castableFrom = ImmutableSet.copyOf(requireNonNull(castableFrom, "castableFrom is null"));
@@ -74,7 +74,7 @@ public class TypeVariableConstraint
     }
 
     @JsonProperty
-    public String getVariadicBound()
+    public Optional<String> getVariadicBound()
     {
         return variadicBound;
     }
@@ -101,7 +101,7 @@ public class TypeVariableConstraint
         if (orderableRequired) {
             value += ":orderable";
         }
-        if (variadicBound != null) {
+        if (variadicBound.isPresent()) {
             value += ":" + variadicBound + "<*>";
         }
         if (!castableTo.isEmpty()) {
@@ -135,5 +135,92 @@ public class TypeVariableConstraint
     public int hashCode()
     {
         return Objects.hash(name, comparableRequired, orderableRequired, variadicBound, castableTo, castableFrom);
+    }
+
+    public static TypeVariableConstraint typeVariable(String name)
+    {
+        return builder(name).build();
+    }
+
+    public static TypeVariableConstraintBuilder builder(String name)
+    {
+        return new TypeVariableConstraintBuilder(name);
+    }
+
+    public static class TypeVariableConstraintBuilder
+    {
+        private final String name;
+        private boolean comparableRequired;
+        private boolean orderableRequired;
+        private String variadicBound;
+        private final Set<TypeSignature> castableTo = new HashSet<>();
+        private final Set<TypeSignature> castableFrom = new HashSet<>();
+
+        private TypeVariableConstraintBuilder(String name)
+        {
+            this.name = name;
+        }
+
+        public TypeVariableConstraintBuilder comparableRequired()
+        {
+            this.comparableRequired = true;
+            return this;
+        }
+
+        public TypeVariableConstraintBuilder orderableRequired()
+        {
+            this.orderableRequired = true;
+            return this;
+        }
+
+        public TypeVariableConstraintBuilder variadicBound(String variadicBound)
+        {
+            this.variadicBound = variadicBound;
+            return this;
+        }
+
+        public TypeVariableConstraintBuilder castableTo(Type type)
+        {
+            return castableTo(type.getTypeSignature());
+        }
+
+        public TypeVariableConstraintBuilder castableTo(TypeSignature type)
+        {
+            this.castableTo.add(type);
+            return this;
+        }
+
+        public TypeVariableConstraintBuilder castableFrom(Type type)
+        {
+            return castableFrom(type.getTypeSignature());
+        }
+
+        public TypeVariableConstraintBuilder castableFrom(TypeSignature type)
+        {
+            this.castableFrom.add(type);
+            return this;
+        }
+
+        public TypeVariableConstraint build()
+        {
+            return new TypeVariableConstraint(name, comparableRequired, orderableRequired, Optional.ofNullable(variadicBound), castableTo, castableFrom);
+        }
+    }
+
+    /**
+     * This method is only visible for JSON deserialization.
+     * @deprecated use builder
+     */
+    @Deprecated
+    @JsonCreator
+    public static TypeVariableConstraint fromJson(
+            @JsonProperty("name") String name,
+            @JsonProperty("comparableRequired") boolean comparableRequired,
+            @JsonProperty("orderableRequired") boolean orderableRequired,
+            @JsonProperty("variadicBound") Optional<String> variadicBound,
+            @JsonProperty("castableTo") Set<TypeSignature> castableTo,
+            @JsonProperty("castableFrom") Set<TypeSignature> castableFrom)
+    {
+        return new TypeVariableConstraint(name, comparableRequired, orderableRequired, variadicBound, castableTo, castableFrom);
     }
 }

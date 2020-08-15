@@ -16,7 +16,6 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.PageBuilder;
@@ -32,7 +31,6 @@ import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
-import static io.trino.metadata.FunctionKind.SCALAR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
@@ -52,8 +50,8 @@ public final class MapZipWithFunction
 
     private MapZipWithFunction()
     {
-        super(new FunctionMetadata(
-                Signature.builder()
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
                         .name("map_zip_with")
                         .typeVariable("K")
                         .typeVariable("V1")
@@ -63,12 +61,10 @@ public final class MapZipWithFunction
                         .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V1")))
                         .argumentType(mapType(new TypeSignature("K"), new TypeSignature("V2")))
                         .argumentType(functionType(new TypeSignature("K"), new TypeSignature("V1"), new TypeSignature("V2"), new TypeSignature("V3")))
-                        .build(),
-                new FunctionNullability(false, ImmutableList.of(false, false, false)),
-                false,
-                false,
-                "Merge two maps into a single map by applying the lambda function to the pair of values with the same key",
-                SCALAR));
+                        .build())
+                .nondeterministic()
+                .description("Merge two maps into a single map by applying the lambda function to the pair of values with the same key")
+                .build());
     }
 
     @Override

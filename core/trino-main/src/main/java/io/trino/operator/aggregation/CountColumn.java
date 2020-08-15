@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
@@ -32,7 +31,6 @@ import io.trino.spi.type.TypeSignature;
 import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
-import static io.trino.metadata.FunctionKind.AGGREGATE;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.util.Reflection.methodHandle;
 
@@ -49,18 +47,15 @@ public class CountColumn
     public CountColumn()
     {
         super(
-                new FunctionMetadata(
-                        Signature.builder()
+                FunctionMetadata.aggregateBuilder()
+                        .signature(Signature.builder()
                                 .name(NAME)
                                 .typeVariable("T")
                                 .returnType(BIGINT)
                                 .argumentType(new TypeSignature("T"))
-                                .build(),
-                        new FunctionNullability(true, ImmutableList.of(false)),
-                        false,
-                        true,
-                        "Counts the non-null values",
-                        AGGREGATE),
+                                .build())
+                        .description("Counts the non-null values")
+                        .build(),
                 new AggregationFunctionMetadata(
                         false,
                         BIGINT.getTypeSignature()));

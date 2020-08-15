@@ -15,8 +15,9 @@ package io.trino.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import io.trino.metadata.BoundSignature;
+import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Signature;
-import io.trino.metadata.SqlOperator;
+import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
@@ -28,19 +29,20 @@ import static io.trino.spi.function.InvocationConvention.InvocationReturnConvent
 import static io.trino.spi.function.OperatorType.CAST;
 
 public class IdentityCast
-        extends SqlOperator
+        extends SqlScalarFunction
 {
     public static final IdentityCast IDENTITY_CAST = new IdentityCast();
 
-    protected IdentityCast()
+    private IdentityCast()
     {
-        super(Signature.builder()
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
                         .operatorType(CAST)
                         .typeVariable("T")
                         .returnType(new TypeSignature("T"))
                         .argumentType(new TypeSignature("T"))
-                        .build(),
-                false);
+                        .build())
+                .build());
     }
 
     @Override

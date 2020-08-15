@@ -16,8 +16,9 @@ package io.trino.operator.scalar;
 import com.google.common.collect.ImmutableList;
 import io.trino.annotation.UsedByGeneratedCode;
 import io.trino.metadata.BoundSignature;
+import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Signature;
-import io.trino.metadata.SqlOperator;
+import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
@@ -30,20 +31,21 @@ import static io.trino.type.UnknownType.UNKNOWN;
 import static io.trino.util.Reflection.methodHandle;
 
 public final class CastFromUnknownOperator
-        extends SqlOperator
+        extends SqlScalarFunction
 {
     public static final CastFromUnknownOperator CAST_FROM_UNKNOWN = new CastFromUnknownOperator();
     private static final MethodHandle METHOD_HANDLE_NON_NULL = methodHandle(CastFromUnknownOperator.class, "handleNonNull", boolean.class);
 
     public CastFromUnknownOperator()
     {
-        super(Signature.builder()
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
                         .operatorType(CAST)
                         .typeVariable("E")
                         .returnType(new TypeSignature("E"))
                         .argumentType(UNKNOWN)
-                        .build(),
-                false);
+                        .build())
+                .build());
     }
 
     @Override

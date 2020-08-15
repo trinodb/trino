@@ -18,7 +18,6 @@ import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.function.InvocationConvention;
@@ -28,7 +27,6 @@ import io.trino.spi.type.TypeSignature;
 import java.lang.invoke.MethodHandle;
 
 import static com.google.common.primitives.Primitives.wrap;
-import static io.trino.metadata.FunctionKind.SCALAR;
 import static io.trino.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.trino.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static java.lang.invoke.MethodHandles.catchException;
@@ -43,19 +41,18 @@ public class TryCastFunction
 
     public TryCastFunction()
     {
-        super(new FunctionMetadata(
-                Signature.builder()
+        super(FunctionMetadata.scalarBuilder()
+                .signature(Signature.builder()
                         .name("TRY_CAST")
                         .castableToTypeParameter("F", new TypeSignature("T"))
                         .typeVariable("T")
                         .returnType(new TypeSignature("T"))
                         .argumentType(new TypeSignature("F"))
-                        .build(),
-                new FunctionNullability(true, ImmutableList.of(false)),
-                true,
-                true,
-                "",
-                SCALAR));
+                        .build())
+                .nullable()
+                .hidden()
+                .noDescription()
+                .build());
     }
 
     @Override
