@@ -262,6 +262,20 @@ Property Name                                      Description                  
 
 ``hive.file-status-cache-expire-time``             How long a cached directory listing should be considered     ``1m``
                                                    valid.
+
+``hive.temporary-staging-directory-enabled``       Controls whether the temporary staging directory configured  ``true``
+                                                   at ``hive.temporary-staging-directory-path`` should be
+                                                   used for write operations. Temporary staging directory is
+                                                   never used for writes to non-sorted tables on S3,
+                                                   encrypted HDFS or external location. Writes to sorted tables
+                                                   will utilize this path for staging temporary files
+                                                   during sorting operation. When disabled, the target storage
+                                                   will be used for staging while writing sorted tables which
+                                                   can be inefficient when writing to object stores like S3.
+
+``hive.temporary-staging-directory-path``          Controls the location of temporary staging directory that    ``/tmp/${USER}``
+                                                   is used for write operations. The ``${USER}`` placeholder
+                                                   can be used to use a different location for each user.
 ================================================== ============================================================ ============
 
 Metastore Configuration Properties
