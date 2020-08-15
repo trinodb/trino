@@ -21,6 +21,7 @@ import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.prestosql.execution.scheduler.TopologyAwareNodeSelectorConfig.TopologyType.FILE;
 import static io.prestosql.execution.scheduler.TopologyAwareNodeSelectorConfig.TopologyType.FLAT;
+import static io.prestosql.execution.scheduler.TopologyAwareNodeSelectorConfig.TopologyType.SUBNET;
 import static org.weakref.jmx.guice.ExportBinder.newExporter;
 
 public class TopologyAwareNodeSelectorModule
@@ -50,6 +51,14 @@ public class TopologyAwareNodeSelectorModule
                     configBinder(binder).bindConfig(TopologyFileConfig.class);
                     binder.bind(NetworkTopology.class).to(FileBasedNetworkTopology.class).in(Scopes.SINGLETON);
                     newExporter(binder).export(FileBasedNetworkTopology.class).withGeneratedName();
+                }));
+
+        install(installModuleIf(
+                TopologyAwareNodeSelectorConfig.class,
+                config -> config.getType() == SUBNET,
+                binder -> {
+                    configBinder(binder).bindConfig(SubnetTopologyConfig.class);
+                    binder.bind(NetworkTopology.class).to(SubnetBasedTopology.class).in(Scopes.SINGLETON);
                 }));
     }
 }

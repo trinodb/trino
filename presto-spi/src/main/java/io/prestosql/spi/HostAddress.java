@@ -19,10 +19,13 @@ import com.fasterxml.jackson.annotation.JsonValue;
 import java.net.InetAddress;
 import java.net.URI;
 import java.net.UnknownHostException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -245,6 +248,12 @@ public class HostAddress
             throws UnknownHostException
     {
         return InetAddress.getByName(getHostText());
+    }
+
+    public List<InetAddress> getAllInetAddresses()
+            throws UnknownHostException
+    {
+        return unmodifiableList(Arrays.asList(InetAddress.getAllByName(getHostText())));
     }
 
     @Override
