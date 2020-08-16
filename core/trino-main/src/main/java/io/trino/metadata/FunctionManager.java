@@ -17,7 +17,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.trino.FeaturesConfig;
 import io.trino.collect.cache.NonEvictableCache;
-import io.trino.operator.aggregation.AggregationMetadata;
+import io.trino.operator.aggregation.AggregationImplementation;
 import io.trino.operator.window.WindowFunctionSupplier;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
@@ -52,7 +52,7 @@ import static java.util.concurrent.TimeUnit.HOURS;
 public class FunctionManager
 {
     private final NonEvictableCache<FunctionKey, ScalarFunctionImplementation> specializedScalarCache;
-    private final NonEvictableCache<FunctionKey, AggregationMetadata> specializedAggregationCache;
+    private final NonEvictableCache<FunctionKey, AggregationImplementation> specializedAggregationCache;
     private final NonEvictableCache<FunctionKey, WindowFunctionSupplier> specializedWindowCache;
 
     private final GlobalFunctionCatalog globalFunctionCatalog;
@@ -98,10 +98,10 @@ public class FunctionManager
         return scalarFunctionImplementation;
     }
 
-    public AggregationMetadata getAggregateFunctionImplementation(ResolvedFunction resolvedFunction)
+    public AggregationImplementation getAggregationImplementation(ResolvedFunction resolvedFunction)
     {
         try {
-            return uncheckedCacheGet(specializedAggregationCache, new FunctionKey(resolvedFunction), () -> getAggregateFunctionImplementationInternal(resolvedFunction));
+            return uncheckedCacheGet(specializedAggregationCache, new FunctionKey(resolvedFunction), () -> getAggregationImplementationInternal(resolvedFunction));
         }
         catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
@@ -109,10 +109,10 @@ public class FunctionManager
         }
     }
 
-    private AggregationMetadata getAggregateFunctionImplementationInternal(ResolvedFunction resolvedFunction)
+    private AggregationImplementation getAggregationImplementationInternal(ResolvedFunction resolvedFunction)
     {
         FunctionDependencies functionDependencies = getFunctionDependencies(resolvedFunction);
-        return globalFunctionCatalog.getAggregateFunctionImplementation(
+        return globalFunctionCatalog.getAggregationImplementation(
                 resolvedFunction.getFunctionId(),
                 resolvedFunction.getSignature(),
                 functionDependencies);

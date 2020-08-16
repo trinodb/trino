@@ -43,15 +43,15 @@ public class TestingAggregationFunction
     private final AccumulatorFactory factory;
     private final DistinctAccumulatorFactory distinctFactory;
 
-    public TestingAggregationFunction(BoundSignature signature, FunctionNullability functionNullability, AggregationMetadata aggregationMetadata)
+    public TestingAggregationFunction(BoundSignature signature, FunctionNullability functionNullability, AggregationImplementation aggregationImplementation)
     {
         this.parameterTypes = signature.getArgumentTypes();
-        List<Type> intermediateTypes = aggregationMetadata.getAccumulatorStateDescriptors().stream()
+        List<Type> intermediateTypes = aggregationImplementation.getAccumulatorStateDescriptors().stream()
                 .map(stateDescriptor -> stateDescriptor.getSerializer().getSerializedType())
                 .collect(toImmutableList());
         intermediateType = (intermediateTypes.size() == 1) ? getOnlyElement(intermediateTypes) : RowType.anonymous(intermediateTypes);
         this.finalType = signature.getReturnType();
-        this.factory = generateAccumulatorFactory(signature, aggregationMetadata, functionNullability);
+        this.factory = generateAccumulatorFactory(signature, aggregationImplementation, functionNullability);
         distinctFactory = new DistinctAccumulatorFactory(
                 factory,
                 parameterTypes,

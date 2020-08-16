@@ -23,7 +23,7 @@ import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.Signature;
 import io.trino.operator.ParametricImplementationsGroup;
-import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
+import io.trino.operator.aggregation.AggregationImplementation.AccumulatorStateDescriptor;
 import io.trino.operator.aggregation.state.InOutStateSerializer;
 import io.trino.operator.annotations.FunctionsParserHelper;
 import io.trino.operator.annotations.ImplementationDependency;

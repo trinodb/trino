@@ -85,12 +85,12 @@ public class TestAccumulatorCompiler
         inputFunction = normalizeInputMethod(inputFunction, signature, STATE, INPUT_CHANNEL);
         MethodHandle combineFunction = methodHandle(aggregation, "combine", stateInterface, stateInterface);
         MethodHandle outputFunction = methodHandle(aggregation, "output", stateInterface, BlockBuilder.class);
-        AggregationMetadata metadata = new AggregationMetadata(
+        AggregationImplementation metadata = new AggregationImplementation(
                 inputFunction,
                 Optional.empty(),
                 Optional.of(combineFunction),
                 outputFunction,
-                ImmutableList.of(new AggregationMetadata.AccumulatorStateDescriptor<>(
+                ImmutableList.of(new AggregationImplementation.AccumulatorStateDescriptor<>(
                         stateInterface,
                         stateSerializer,
                         stateFactory)));

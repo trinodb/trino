@@ -143,7 +143,7 @@ public class TestingFunctionResolution
             return new TestingAggregationFunction(
                     resolvedFunction.getSignature(),
                     resolvedFunction.getFunctionNullability(),
-                    plannerContext.getFunctionManager().getAggregateFunctionImplementation(resolvedFunction));
+                    plannerContext.getFunctionManager().getAggregationImplementation(resolvedFunction));
         });
     }
 

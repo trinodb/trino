@@ -101,7 +101,7 @@ import io.trino.operator.WindowFunctionDefinition;
 import io.trino.operator.WindowOperator.WindowOperatorFactory;
 import io.trino.operator.WorkProcessorPipelineSourceOperator;
 import io.trino.operator.aggregation.AccumulatorFactory;
-import io.trino.operator.aggregation.AggregationMetadata;
+import io.trino.operator.aggregation.AggregationImplementation;
 import io.trino.operator.aggregation.AggregatorFactory;
 import io.trino.operator.aggregation.DistinctAccumulatorFactory;
 import io.trino.operator.aggregation.OrderedAccumulatorFactory;
@@ -1162,10 +1162,10 @@ public class LocalExecutionPlanner
         {
             if (resolvedFunction.getFunctionKind() == FunctionKind.AGGREGATE) {
                 return uncheckedCacheGet(aggregationWindowFunctionSupplierCache, new FunctionKey(resolvedFunction.getFunctionId(), resolvedFunction.getSignature()), () -> {
-                    AggregationMetadata aggregationMetadata = plannerContext.getFunctionManager().getAggregateFunctionImplementation(resolvedFunction);
+                    AggregationImplementation aggregationImplementation = plannerContext.getFunctionManager().getAggregationImplementation(resolvedFunction);
                     return new AggregationWindowFunctionSupplier(
                             resolvedFunction.getSignature(),
-                            aggregationMetadata,
+                            aggregationImplementation,
                             resolvedFunction.getFunctionNullability());
                 });
             }
@@ -1507,7 +1507,7 @@ public class LocalExecutionPlanner
                     boolean classifierInvolved = false;
 
                     ResolvedFunction resolvedFunction = pointer.getFunction();
-                    AggregationMetadata aggregationMetadata = plannerContext.getFunctionManager().getAggregateFunctionImplementation(pointer.getFunction());
+                    AggregationImplementation aggregationImplementation = plannerContext.getFunctionManager().getAggregationImplementation(pointer.getFunction());
 
                     ImmutableList.Builder<Map.Entry<Expression, Type>> builder = ImmutableList.builder();
                     List<Type> signatureTypes = resolvedFunction.getSignature().getArgumentTypes();
@@ -1529,7 +1529,7 @@ public class LocalExecutionPlanner
                             .collect(toImmutableList());
 
                     // TODO when we support lambda arguments: lambda cannot have runtime-evaluated symbols -- add check in the Analyzer
-                    List<Supplier<Object>> lambdaProviders = makeLambdaProviders(lambdaExpressions, aggregationMetadata.getLambdaInterfaces(), functionTypes);
+                    List<Supplier<Object>> lambdaProviders = makeLambdaProviders(lambdaExpressions, aggregationImplementation.getLambdaInterfaces(), functionTypes);
 
                     // handle non-lambda arguments
                     List<Integer> valueChannels = new ArrayList<>();
@@ -1577,7 +1577,7 @@ public class LocalExecutionPlanner
                             new FunctionKey(resolvedFunction.getFunctionId(), resolvedFunction.getSignature()),
                             () -> new AggregationWindowFunctionSupplier(
                                     resolvedFunction.getSignature(),
-                                    aggregationMetadata,
+                                    aggregationImplementation,
                                     resolvedFunction.getFunctionNullability()));
                     matchAggregations.add(new MatchAggregationInstantiator(
                             resolvedFunction.getSignature(),
@@ -3667,13 +3667,13 @@ public class LocalExecutionPlanner
             }
 
             ResolvedFunction resolvedFunction = aggregation.getResolvedFunction();
-            AggregationMetadata aggregationMetadata = plannerContext.getFunctionManager().getAggregateFunctionImplementation(aggregation.getResolvedFunction());
+            AggregationImplementation aggregationImplementation = plannerContext.getFunctionManager().getAggregationImplementation(aggregation.getResolvedFunction());
             AccumulatorFactory accumulatorFactory = uncheckedCacheGet(
                     accumulatorFactoryCache,
                     new FunctionKey(resolvedFunction.getFunctionId(), resolvedFunction.getSignature()),
                     () -> generateAccumulatorFactory(
                             resolvedFunction.getSignature(),
-                            aggregationMetadata,
+                            aggregationImplementation,
                             resolvedFunction.getFunctionNullability()));
 
             if (aggregation.isDistinct()) {
@@ -3720,7 +3720,7 @@ public class LocalExecutionPlanner
                         pagesIndexFactory);
             }
 
-            ImmutableList<Type> intermediateTypes = aggregationMetadata.getAccumulatorStateDescriptors().stream()
+            ImmutableList<Type> intermediateTypes = aggregationImplementation.getAccumulatorStateDescriptors().stream()
                     .map(stateDescriptor -> stateDescriptor.getSerializer().getSerializedType())
                     .collect(toImmutableList());
             Type intermediateType = (intermediateTypes.size() == 1) ? getOnlyElement(intermediateTypes) : RowType.anonymous(intermediateTypes);
@@ -3738,7 +3738,7 @@ public class LocalExecutionPlanner
                     .filter(FunctionType.class::isInstance)
                     .map(FunctionType.class::cast)
                     .collect(toImmutableList());
-            List<Supplier<Object>> lambdaProviders = makeLambdaProviders(lambdaExpressions, aggregationMetadata.getLambdaInterfaces(), functionTypes);
+            List<Supplier<Object>> lambdaProviders = makeLambdaProviders(lambdaExpressions, aggregationImplementation.getLambdaInterfaces(), functionTypes);
 
             return new AggregatorFactory(
                     accumulatorFactory,
