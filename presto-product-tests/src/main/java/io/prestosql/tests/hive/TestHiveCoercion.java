@@ -110,6 +110,9 @@ public class TestHiveCoercion
                         "    smallint_to_bigint         SMALLINT," +
                         "    int_to_bigint              INT," +
                         "    bigint_to_varchar          BIGINT," +
+                        "    float_to_varchar           FLOAT," +
+                        "    double_to_varchar          DOUBLE," +
+                        "    decimal_to_varchar         DECIMAL(10,2)," +
                         "    float_to_double            " + floatType + "," +
                         //"    double_to_float            DOUBLE," + // this coercion is not permitted in Hive 3. TODO test this on Hive < 3.
                         "    shortdecimal_to_shortdecimal          DECIMAL(10,2)," +
@@ -299,6 +302,9 @@ public class TestHiveCoercion
                         "  INTEGER '2323', " +
                         "  12345, " +
                         "  REAL '0.5', " +
+                        "  DOUBLE '0.5', " +
+                        "  DECIMAL '12345678.12', " +
+                        "  REAL '0.5', " +
                         //"  DOUBLE '0.5', " +
                         "  DECIMAL '12345678.12', " +
                         "  DECIMAL '12345678.12', " +
@@ -320,6 +326,9 @@ public class TestHiveCoercion
                         "  SMALLINT '101', " +
                         "  INTEGER '-2323', " +
                         "  -12345, " +
+                        "  REAL '-1.5', " +
+                        "  DOUBLE '-1.5', " +
+                        "  DECIMAL '-12345678.12', " +
                         "  REAL '-1.5', " +
                         //"  DOUBLE '-1.5', " +
                         "  DECIMAL '-12345678.12', " +
@@ -351,6 +360,9 @@ public class TestHiveCoercion
                         -101L,
                         2323L,
                         "12345",
+                        "0.5",
+                        "0.5",
+                        "12345678.12",
                         0.5,
                         //0.5,
                         new BigDecimal("12345678.1200"),
@@ -373,6 +385,9 @@ public class TestHiveCoercion
                         101L,
                         -2323L,
                         "-12345",
+                        "-1.5",
+                        "-1.5",
+                        "-12345678.12",
                         -1.5,
                         //-1.5,
                         new BigDecimal("-12345678.1200"),
@@ -410,6 +425,9 @@ public class TestHiveCoercion
                 row("smallint_to_bigint", "bigint"),
                 row("int_to_bigint", "bigint"),
                 row("bigint_to_varchar", "varchar"),
+                row("float_to_varchar", "varchar"),
+                row("double_to_varchar", "varchar"),
+                row("decimal_to_varchar", "varchar"),
                 row("float_to_double", "double"),
                 //row("double_to_float", floatType),
                 row("shortdecimal_to_shortdecimal", "decimal(18,4)"),
@@ -438,6 +456,9 @@ public class TestHiveCoercion
                 BIGINT,
                 BIGINT,
                 VARCHAR,
+                VARCHAR,
+                VARCHAR,
+                VARCHAR,
                 DOUBLE,
                 //floatType,
                 DECIMAL,
@@ -465,6 +486,9 @@ public class TestHiveCoercion
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN smallint_to_bigint smallint_to_bigint bigint", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN int_to_bigint int_to_bigint bigint", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN bigint_to_varchar bigint_to_varchar string", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_varchar float_to_varchar string", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_varchar double_to_varchar string", tableName));
+        onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN decimal_to_varchar decimal_to_varchar string", tableName));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN float_to_double float_to_double double", tableName));
         //onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN double_to_float double_to_float %s", tableName, floatType));
         onHive().executeQuery(format("ALTER TABLE %s CHANGE COLUMN shortdecimal_to_shortdecimal shortdecimal_to_shortdecimal DECIMAL(18,4)", tableName));
