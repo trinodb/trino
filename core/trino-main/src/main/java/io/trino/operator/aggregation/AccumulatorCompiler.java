@@ -30,7 +30,7 @@ import io.airlift.bytecode.expression.BytecodeExpressions;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionNullability;
 import io.trino.operator.GroupByIdBlock;
-import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
+import io.trino.operator.aggregation.AggregationImplementation.AccumulatorStateDescriptor;
 import io.trino.operator.window.InternalWindowIndex;
 import io.trino.spi.Page;
 import io.trino.spi.block.Block;
@@ -86,41 +86,41 @@ public final class AccumulatorCompiler
 
     public static AccumulatorFactory generateAccumulatorFactory(
             BoundSignature boundSignature,
-            AggregationMetadata metadata,
+            AggregationImplementation implementation,
             FunctionNullability functionNullability)
     {
         // change types used in Aggregation methods to types used in the core Trino engine to simplify code generation
-        metadata = normalizeAggregationMethods(metadata);
+        implementation = normalizeAggregationMethods(implementation);
 
         DynamicClassLoader classLoader = new DynamicClassLoader(AccumulatorCompiler.class.getClassLoader());
 
         List<Boolean> argumentNullable = functionNullability.getArgumentNullable()
-                .subList(0, functionNullability.getArgumentNullable().size() - metadata.getLambdaInterfaces().size());
+                .subList(0, functionNullability.getArgumentNullable().size() - implementation.getLambdaInterfaces().size());
 
         Constructor<? extends Accumulator> accumulatorConstructor = generateAccumulatorClass(
                 boundSignature,
                 Accumulator.class,
-                metadata,
+                implementation,
                 argumentNullable,
                 classLoader);
 
         Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor = generateAccumulatorClass(
                 boundSignature,
                 GroupedAccumulator.class,
-                metadata,
+                implementation,
                 argumentNullable,
                 classLoader);
 
         return new CompiledAccumulatorFactory(
                 accumulatorConstructor,
                 groupedAccumulatorConstructor,
-                metadata.getLambdaInterfaces());
+                implementation.getLambdaInterfaces());
     }
 
     private static <T> Constructor<? extends T> generateAccumulatorClass(
             BoundSignature boundSignature,
             Class<T> accumulatorInterface,
-            AggregationMetadata metadata,
+            AggregationImplementation implementation,
             List<Boolean> argumentNullable,
             DynamicClassLoader classLoader)
     {
@@ -134,7 +134,7 @@ public final class AccumulatorCompiler
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
-        List<AccumulatorStateDescriptor<?>> stateDescriptors = metadata.getAccumulatorStateDescriptors();
+        List<AccumulatorStateDescriptor<?>> stateDescriptors = implementation.getAccumulatorStateDescriptors();
         List<StateFieldAndDescriptor> stateFieldAndDescriptors = new ArrayList<>();
         for (int i = 0; i < stateDescriptors.size(); i++) {
             stateFieldAndDescriptors.add(new StateFieldAndDescriptor(
@@ -147,7 +147,7 @@ public final class AccumulatorCompiler
                 .map(StateFieldAndDescriptor::getStateField)
                 .collect(toImmutableList());
 
-        int lambdaCount = metadata.getLambdaInterfaces().size();
+        int lambdaCount = implementation.getLambdaInterfaces().size();
         List<FieldDefinition> lambdaProviderFields = new ArrayList<>(lambdaCount);
         for (int i = 0; i < lambdaCount; i++) {
             lambdaProviderFields.add(definition.declareField(a(PRIVATE, FINAL), "lambdaProvider_" + i, Supplier.class));
@@ -173,7 +173,7 @@ public final class AccumulatorCompiler
                 stateFields,
                 argumentNullable,
                 lambdaProviderFields,
-                metadata.getInputFunction(),
+                implementation.getInputFunction(),
                 callSiteBinder,
                 grouped);
         generateGetEstimatedSize(definition, stateFields);
@@ -182,7 +182,7 @@ public final class AccumulatorCompiler
                 definition,
                 stateFieldAndDescriptors,
                 lambdaProviderFields,
-                metadata.getCombineFunction(),
+                implementation.getCombineFunction(),
                 callSiteBinder,
                 grouped);
 
@@ -194,10 +194,10 @@ public final class AccumulatorCompiler
         }
 
         if (grouped) {
-            generateGroupedEvaluateFinal(definition, stateFields, metadata.getOutputFunction(), callSiteBinder);
+            generateGroupedEvaluateFinal(definition, stateFields, implementation.getOutputFunction(), callSiteBinder);
         }
         else {
-            generateEvaluateFinal(definition, stateFields, metadata.getOutputFunction(), callSiteBinder);
+            generateEvaluateFinal(definition, stateFields, implementation.getOutputFunction(), callSiteBinder);
         }
 
         if (grouped) {
@@ -215,13 +215,13 @@ public final class AccumulatorCompiler
 
     public static Constructor<? extends WindowAccumulator> generateWindowAccumulatorClass(
             BoundSignature boundSignature,
-            AggregationMetadata metadata,
+            AggregationImplementation implementation,
             FunctionNullability functionNullability)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(AccumulatorCompiler.class.getClassLoader());
 
         List<Boolean> argumentNullable = functionNullability.getArgumentNullable()
-                .subList(0, functionNullability.getArgumentNullable().size() - metadata.getLambdaInterfaces().size());
+                .subList(0, functionNullability.getArgumentNullable().size() - implementation.getLambdaInterfaces().size());
 
         ClassDefinition definition = new ClassDefinition(
                 a(PUBLIC, FINAL),
@@ -231,7 +231,7 @@ public final class AccumulatorCompiler
 
         CallSiteBinder callSiteBinder = new CallSiteBinder();
 
-        List<AccumulatorStateDescriptor<?>> stateDescriptors = metadata.getAccumulatorStateDescriptors();
+        List<AccumulatorStateDescriptor<?>> stateDescriptors = implementation.getAccumulatorStateDescriptors();
         List<StateFieldAndDescriptor> stateFieldAndDescriptors = new ArrayList<>();
         for (int i = 0; i < stateDescriptors.size(); i++) {
             stateFieldAndDescriptors.add(new StateFieldAndDescriptor(
@@ -244,7 +244,7 @@ public final class AccumulatorCompiler
                 .map(StateFieldAndDescriptor::getStateField)
                 .collect(toImmutableList());
 
-        int lambdaCount = metadata.getLambdaInterfaces().size();
+        int lambdaCount = implementation.getLambdaInterfaces().size();
         List<FieldDefinition> lambdaProviderFields = new ArrayList<>(lambdaCount);
         for (int i = 0; i < lambdaCount; i++) {
             lambdaProviderFields.add(definition.declareField(a(PRIVATE, FINAL), "lambdaProvider_" + i, Supplier.class));
@@ -268,10 +268,10 @@ public final class AccumulatorCompiler
                 stateFields,
                 argumentNullable,
                 lambdaProviderFields,
-                metadata.getInputFunction(),
+                implementation.getInputFunction(),
                 "addInput",
                 callSiteBinder);
-        metadata.getRemoveInputFunction().ifPresent(
+        implementation.getRemoveInputFunction().ifPresent(
                 removeInputFunction -> generateAddOrRemoveInputWindowIndex(
                         definition,
                         stateFields,
@@ -281,7 +281,7 @@ public final class AccumulatorCompiler
                         "removeInput",
                         callSiteBinder));
 
-        generateEvaluateFinal(definition, stateFields, metadata.getOutputFunction(), callSiteBinder);
+        generateEvaluateFinal(definition, stateFields, implementation.getOutputFunction(), callSiteBinder);
         generateGetEstimatedSize(definition, stateFields);
 
         Class<? extends WindowAccumulator> windowAccumulatorClass = defineClass(definition, WindowAccumulator.class, callSiteBinder.getBindings(), classLoader);
@@ -1044,18 +1044,18 @@ public final class AccumulatorCompiler
                 .cast(expression.getType());
     }
 
-    private static AggregationMetadata normalizeAggregationMethods(AggregationMetadata metadata)
+    private static AggregationImplementation normalizeAggregationMethods(AggregationImplementation implementation)
     {
         // change aggregations state variables to simply AccumulatorState to avoid any class loader issues in generated code
-        int stateParameterCount = metadata.getAccumulatorStateDescriptors().size();
-        int lambdaParameterCount = metadata.getLambdaInterfaces().size();
-        return new AggregationMetadata(
-                castStateParameters(metadata.getInputFunction(), stateParameterCount, lambdaParameterCount),
-                metadata.getRemoveInputFunction().map(removeFunction -> castStateParameters(removeFunction, stateParameterCount, lambdaParameterCount)),
-                metadata.getCombineFunction().map(combineFunction -> castStateParameters(combineFunction, stateParameterCount * 2, lambdaParameterCount)),
-                castStateParameters(metadata.getOutputFunction(), stateParameterCount, 0),
-                metadata.getAccumulatorStateDescriptors(),
-                metadata.getLambdaInterfaces());
+        int stateParameterCount = implementation.getAccumulatorStateDescriptors().size();
+        int lambdaParameterCount = implementation.getLambdaInterfaces().size();
+        return new AggregationImplementation(
+                castStateParameters(implementation.getInputFunction(), stateParameterCount, lambdaParameterCount),
+                implementation.getRemoveInputFunction().map(removeFunction -> castStateParameters(removeFunction, stateParameterCount, lambdaParameterCount)),
+                implementation.getCombineFunction().map(combineFunction -> castStateParameters(combineFunction, stateParameterCount * 2, lambdaParameterCount)),
+                castStateParameters(implementation.getOutputFunction(), stateParameterCount, 0),
+                implementation.getAccumulatorStateDescriptors(),
+                implementation.getLambdaInterfaces());
     }
 
     private static MethodHandle castStateParameters(MethodHandle inputFunction, int stateParameterCount, int lambdaParameterCount)

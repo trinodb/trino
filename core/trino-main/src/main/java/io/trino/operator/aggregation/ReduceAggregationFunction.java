@@ -19,7 +19,7 @@ import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionMetadata;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
-import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
+import io.trino.operator.aggregation.AggregationImplementation.AccumulatorStateDescriptor;
 import io.trino.operator.aggregation.state.GenericBooleanState;
 import io.trino.operator.aggregation.state.GenericBooleanStateSerializer;
 import io.trino.operator.aggregation.state.GenericDoubleState;
@@ -84,7 +84,7 @@ public class ReduceAggregationFunction
     }
 
     @Override
-    public AggregationMetadata specialize(BoundSignature boundSignature)
+    public AggregationImplementation specialize(BoundSignature boundSignature)
     {
         Type inputType = boundSignature.getArgumentTypes().get(0);
         Type stateType = boundSignature.getArgumentTypes().get(1);
@@ -131,7 +131,7 @@ public class ReduceAggregationFunction
         inputMethodHandle = inputMethodHandle.asType(inputMethodHandle.type().changeParameterType(1, inputType.getJavaType()));
         inputMethodHandle = normalizeInputMethod(inputMethodHandle, boundSignature, ImmutableList.of(STATE, INPUT_CHANNEL, INPUT_CHANNEL), 2);
 
-        return new AggregationMetadata(
+        return new AggregationImplementation(
                 inputMethodHandle,
                 Optional.empty(),
                 Optional.of(combineMethodHandle),

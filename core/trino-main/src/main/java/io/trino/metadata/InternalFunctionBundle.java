@@ -17,7 +17,7 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.trino.collect.cache.NonEvictableCache;
-import io.trino.operator.aggregation.AggregationMetadata;
+import io.trino.operator.aggregation.AggregationImplementation;
 import io.trino.operator.scalar.SpecializedSqlScalarFunction;
 import io.trino.operator.scalar.annotations.ScalarFromAnnotationsParser;
 import io.trino.operator.window.SqlWindowFunction;
@@ -52,7 +52,7 @@ public class InternalFunctionBundle
 {
     // scalar function specialization may involve expensive code generation
     private final NonEvictableCache<FunctionKey, SpecializedSqlScalarFunction> specializedScalarCache;
-    private final NonEvictableCache<FunctionKey, AggregationMetadata> specializedAggregationCache;
+    private final NonEvictableCache<FunctionKey, AggregationImplementation> specializedAggregationCache;
     private final NonEvictableCache<FunctionKey, WindowFunctionSupplier> specializedWindowCache;
     private final Map<FunctionId, SqlFunction> functions;
 
@@ -136,7 +136,7 @@ public class InternalFunctionBundle
     }
 
     @Override
-    public AggregationMetadata getAggregateFunctionImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    public AggregationImplementation getAggregationImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         try {
             return uncheckedCacheGet(specializedAggregationCache, new FunctionKey(functionId, boundSignature), () -> specializedAggregation(functionId, boundSignature, functionDependencies));
@@ -147,7 +147,7 @@ public class InternalFunctionBundle
         }
     }
 
-    private AggregationMetadata specializedAggregation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    private AggregationImplementation specializedAggregation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         SqlAggregationFunction aggregationFunction = (SqlAggregationFunction) functions.get(functionId);
         return aggregationFunction.specialize(boundSignature, functionDependencies);

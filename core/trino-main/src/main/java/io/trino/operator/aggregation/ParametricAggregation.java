@@ -30,7 +30,7 @@ import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.ParametricImplementationsGroup;
 import io.trino.operator.aggregation.AggregationFromAnnotationsParser.AccumulatorStateDetails;
 import io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind;
-import io.trino.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
+import io.trino.operator.aggregation.AggregationImplementation.AccumulatorStateDescriptor;
 import io.trino.operator.annotations.ImplementationDependency;
 import io.trino.spi.TrinoException;
 
@@ -142,7 +142,7 @@ public class ParametricAggregation
     }
 
     @Override
-    public AggregationMetadata specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
+    public AggregationImplementation specialize(BoundSignature boundSignature, FunctionDependencies functionDependencies)
     {
         // Find implementation matching arguments
         ParametricAggregationImplementation concreteImplementation = findMatchingImplementation(boundSignature);
@@ -174,7 +174,7 @@ public class ParametricAggregation
         inputHandle = normalizeInputMethod(inputHandle, boundSignature, inputParameterKinds);
         removeInputHandle = removeInputHandle.map(function -> normalizeInputMethod(function, boundSignature, inputParameterKinds));
 
-        return new AggregationMetadata(
+        return new AggregationImplementation(
                 inputHandle,
                 removeInputHandle,
                 combineHandle,
