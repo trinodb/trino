@@ -20,6 +20,7 @@ import io.prestosql.Session;
 import io.prestosql.plugin.tpch.TpchPlugin;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.tpch.TpchTable;
+import org.apache.iceberg.FileFormat;
 
 import java.nio.file.Path;
 import java.util.Map;
@@ -39,10 +40,17 @@ public final class IcebergQueryRunner
     public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties)
             throws Exception
     {
-        return createIcebergQueryRunner(extraProperties, true);
+        FileFormat defaultFormat = new IcebergConfig().getFileFormat();
+        return createIcebergQueryRunner(extraProperties, defaultFormat, true);
     }
 
-    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, boolean createTpchTables)
+    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, FileFormat format)
+            throws Exception
+    {
+        return createIcebergQueryRunner(extraProperties, format, true);
+    }
+
+    public static DistributedQueryRunner createIcebergQueryRunner(Map<String, String> extraProperties, FileFormat format, boolean createTpchTables)
             throws Exception
     {
         Session session = testSessionBuilder()
@@ -63,6 +71,7 @@ public final class IcebergQueryRunner
         Map<String, String> icebergProperties = ImmutableMap.<String, String>builder()
                 .put("hive.metastore", "file")
                 .put("hive.metastore.catalog.dir", dataDir.toString())
+                .put("iceberg.file-format", format.name())
                 .build();
 
         queryRunner.createCatalog(ICEBERG_CATALOG, "iceberg", icebergProperties);
