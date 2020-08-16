@@ -76,6 +76,11 @@ public final class DesugarLikeRewriter
         {
             LikePredicate rewritten = treeRewriter.defaultRewrite(node, context);
 
+            Optional<FunctionCall> containsFunctionCall = tryRewriteToContains(node, rewritten);
+            if (containsFunctionCall.isPresent()) {
+                return containsFunctionCall.get();
+            }
+
             Optional<FunctionCall> startsWithFunctionCall = tryRewriteToStartsWith(node, rewritten);
             if (startsWithFunctionCall.isPresent()) {
                 return startsWithFunctionCall.get();
@@ -157,6 +162,28 @@ public final class DesugarLikeRewriter
             return Optional.empty();
         }
 
+        private Optional<FunctionCall> tryRewriteToContains(LikePredicate node, LikePredicate rewritten)
+        {
+            if (canRewrite(rewritten)) {
+                String patternString = ((StringLiteral) rewritten.getPattern()).getValue();
+                char escapeChar = (char) -1;
+                if (rewritten.getEscape().isPresent()) {
+                    escapeChar = getEscapeCharacter(((StringLiteral) rewritten.getEscape().get()).getValue());
+                }
+
+                Optional<String> fragment = getSearchFragment(patternString, escapeChar);
+                if (fragment.isPresent()) {
+                    FunctionCall functionCall = new FunctionCallBuilder(metadata)
+                            .setName(QualifiedName.of("CONTAINS"))
+                            .addArgument(getType(node.getValue()), rewritten.getValue())
+                            .addArgument(VARCHAR, new StringLiteral(fragment.get()))
+                            .build();
+                    return Optional.of(functionCall);
+                }
+            }
+            return Optional.empty();
+        }
+
         private static boolean canRewrite(LikePredicate rewritten)
         {
             return rewritten.getPattern() instanceof StringLiteral && (rewritten.getEscape().isEmpty() || rewritten.getEscape().get() instanceof StringLiteral);
@@ -185,6 +212,16 @@ public final class DesugarLikeRewriter
             int len = patternString.length();
             if (len >= 2 && patternString.charAt(0) == '%') {
                 return convertToSearchString(patternString.substring(1, len), escapeChar);
+            }
+            return Optional.empty();
+        }
+
+        private static Optional<String> getSearchFragment(String patternString, char escapeChar)
+        {
+            int len = patternString.length();
+            if (len >= 2 && patternString.charAt(0) == '%' && patternString.charAt(patternString.length() - 1) == '%' &&
+                    (escapeChar == -1 || patternString.charAt(len - 2) != escapeChar)) {
+                return convertToSearchString(patternString.substring(1, len - 1), escapeChar);
             }
             return Optional.empty();
         }

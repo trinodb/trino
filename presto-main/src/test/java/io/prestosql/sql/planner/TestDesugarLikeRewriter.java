@@ -124,6 +124,46 @@ public class TestDesugarLikeRewriter
     }
 
     @Test
+    public void testContainsOptimization()
+    {
+        Expression initial = new LikePredicate(
+                new SymbolReference("x"),
+                new StringLiteral("%test%"),
+                Optional.empty());
+
+        Expression rewritten = tryRewrite(initial);
+
+        Expression expected = new FunctionCallBuilder(tester().getMetadata())
+                .setName(QualifiedName.of("CONTAINS"))
+                .addArgument(VARCHAR, new SymbolReference("x"))
+                .addArgument(VARCHAR, new StringLiteral("test"))
+                .build();
+
+        ExpressionVerifier verifier = new ExpressionVerifier(SYMBOL_ALIASES);
+        assertTrue(verifier.process(rewritten, expected));
+    }
+
+    @Test
+    public void testContainsOptimizationWithEscape()
+    {
+        Expression initial = new LikePredicate(
+                new SymbolReference("x"),
+                new StringLiteral("%test\\_test%"),
+                Optional.of(new StringLiteral("\\")));
+
+        Expression rewritten = tryRewrite(initial);
+
+        Expression expected = new FunctionCallBuilder(tester().getMetadata())
+                .setName(QualifiedName.of("CONTAINS"))
+                .addArgument(VARCHAR, new SymbolReference("x"))
+                .addArgument(VARCHAR, new StringLiteral("test_test"))
+                .build();
+
+        ExpressionVerifier verifier = new ExpressionVerifier(SYMBOL_ALIASES);
+        assertTrue(verifier.process(rewritten, expected));
+    }
+
+    @Test
     public void testNotOptimized()
     {
         Expression initial = new LikePredicate(
