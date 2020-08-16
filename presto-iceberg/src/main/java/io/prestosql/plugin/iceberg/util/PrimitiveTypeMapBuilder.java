@@ -65,8 +65,8 @@ public class PrimitiveTypeMapBuilder
 
     private void visitArrayType(ArrayType type, String name, List<String> parent)
     {
-        parent = ImmutableList.<String>builder().addAll(parent).add(name).add("array").build();
-        visitType(type.getElementType(), "array", parent);
+        parent = ImmutableList.<String>builder().addAll(parent).add(name).add("list").build();
+        visitType(type.getElementType(), "element", parent);
     }
 
     private void visitMapType(MapType type, String name, List<String> parent)
