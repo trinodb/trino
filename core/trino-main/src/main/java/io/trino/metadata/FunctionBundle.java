@@ -13,7 +13,7 @@
  */
 package io.trino.metadata;
 
-import io.trino.operator.aggregation.AggregationMetadata;
+import io.trino.operator.aggregation.AggregationImplementation;
 import io.trino.operator.window.WindowFunctionSupplier;
 import io.trino.spi.function.InvocationConvention;
 
@@ -33,7 +33,7 @@ public interface FunctionBundle
             FunctionDependencies functionDependencies,
             InvocationConvention invocationConvention);
 
-    AggregationMetadata getAggregateFunctionImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies);
+    AggregationImplementation getAggregationImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies);
 
     WindowFunctionSupplier getWindowFunctionImplementation(FunctionId functionId, BoundSignature boundSignature, FunctionDependencies functionDependencies);
 }

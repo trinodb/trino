@@ -24,7 +24,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
-public class AggregationMetadata
+public class AggregationImplementation
 {
     private final MethodHandle inputFunction;
     private final Optional<MethodHandle> removeInputFunction;
@@ -33,7 +33,7 @@ public class AggregationMetadata
     private final List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors;
     private final List<Class<?>> lambdaInterfaces;
 
-    public AggregationMetadata(
+    public AggregationImplementation(
             MethodHandle inputFunction,
             Optional<MethodHandle> removeInputFunction,
             Optional<MethodHandle> combineFunction,
@@ -49,7 +49,7 @@ public class AggregationMetadata
                 ImmutableList.of());
     }
 
-    public AggregationMetadata(
+    public AggregationImplementation(
             MethodHandle inputFunction,
             Optional<MethodHandle> removeInputFunction,
             Optional<MethodHandle> combineFunction,
