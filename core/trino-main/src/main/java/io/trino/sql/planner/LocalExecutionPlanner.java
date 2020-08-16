@@ -1169,7 +1169,7 @@ public class LocalExecutionPlanner
                             resolvedFunction.getFunctionNullability());
                 });
             }
-            return plannerContext.getFunctionManager().getWindowFunctionImplementation(resolvedFunction);
+            return plannerContext.getFunctionManager().getWindowFunctionSupplier(resolvedFunction);
         }
 
         @Override

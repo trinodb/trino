@@ -118,10 +118,10 @@ public class FunctionManager
                 functionDependencies);
     }
 
-    public WindowFunctionSupplier getWindowFunctionImplementation(ResolvedFunction resolvedFunction)
+    public WindowFunctionSupplier getWindowFunctionSupplier(ResolvedFunction resolvedFunction)
     {
         try {
-            return uncheckedCacheGet(specializedWindowCache, new FunctionKey(resolvedFunction), () -> getWindowFunctionImplementationInternal(resolvedFunction));
+            return uncheckedCacheGet(specializedWindowCache, new FunctionKey(resolvedFunction), () -> getWindowFunctionSupplierInternal(resolvedFunction));
         }
         catch (UncheckedExecutionException e) {
             throwIfInstanceOf(e.getCause(), TrinoException.class);
@@ -129,10 +129,10 @@ public class FunctionManager
         }
     }
 
-    private WindowFunctionSupplier getWindowFunctionImplementationInternal(ResolvedFunction resolvedFunction)
+    private WindowFunctionSupplier getWindowFunctionSupplierInternal(ResolvedFunction resolvedFunction)
     {
         FunctionDependencies functionDependencies = getFunctionDependencies(resolvedFunction);
-        return globalFunctionCatalog.getWindowFunctionImplementation(
+        return globalFunctionCatalog.getWindowFunctionSupplier(
                 resolvedFunction.getFunctionId(),
                 resolvedFunction.getSignature(),
                 functionDependencies);
