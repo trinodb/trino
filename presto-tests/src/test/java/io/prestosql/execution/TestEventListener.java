@@ -135,7 +135,6 @@ public class TestEventListener
         QueryCompletedEvent queryCompletedEvent = getOnlyElement(generatedEvents.getQueryCompletedEvents());
         assertTrue(queryCompletedEvent.getContext().getResourceGroupId().isPresent());
         assertEquals(queryCompletedEvent.getContext().getResourceGroupId().get(), createResourceGroupId("global", "user-user"));
-        assertEquals(queryCompletedEvent.getStatistics().getTotalRows(), 0L);
         assertEquals(queryCompletedEvent.getContext().getClientInfo().get(), "{\"clientVersion\":\"testVersion\"}");
         assertEquals(queryCreatedEvent.getMetadata().getQueryId(), queryCompletedEvent.getMetadata().getQueryId());
         assertFalse(queryCompletedEvent.getMetadata().getPreparedQuery().isPresent());
@@ -237,7 +236,6 @@ public class TestEventListener
         assertEquals(statistics.getPhysicalInputRows(), expectedCompletedPositions);
         assertEquals(statistics.getInternalNetworkBytes(), 369);
         assertEquals(statistics.getInternalNetworkRows(), 3);
-        assertEquals(statistics.getTotalBytes(), 0);
         assertEquals(statistics.getOutputBytes(), 9);
         assertEquals(statistics.getOutputRows(), 1);
         assertTrue(statistics.isComplete());
@@ -387,8 +385,6 @@ public class TestEventListener
         assertEquals(statistics.getPhysicalInputRows(), queryStats.getPhysicalInputPositions());
         assertEquals(statistics.getInternalNetworkBytes(), queryStats.getInternalNetworkInputDataSize().toBytes());
         assertEquals(statistics.getInternalNetworkRows(), queryStats.getInternalNetworkInputPositions());
-        assertEquals(statistics.getTotalBytes(), queryStats.getRawInputDataSize().toBytes());
-        assertEquals(statistics.getTotalRows(), queryStats.getRawInputPositions());
         assertEquals(statistics.getOutputBytes(), queryStats.getOutputDataSize().toBytes());
         assertEquals(statistics.getOutputRows(), queryStats.getOutputPositions());
         assertEquals(statistics.getWrittenBytes(), queryStats.getLogicalWrittenDataSize().toBytes());

@@ -367,9 +367,11 @@ public class QueryStateMachine
                 stageStats.getRunningDrivers(),
                 stageStats.getCompletedDrivers(),
 
-                stageStats.getRawInputDataSize(),
-                stageStats.getRawInputPositions(),
                 stageStats.getPhysicalInputDataSize(),
+                stageStats.getPhysicalInputPositions(),
+
+                stageStats.getInternalNetworkInputDataSize(),
+                stageStats.getInternalNetworkInputPositions(),
 
                 stageStats.getCumulativeUserMemory(),
                 stageStats.getUserMemoryReservation(),
@@ -485,9 +487,6 @@ public class QueryStateMachine
         long internalNetworkInputDataSize = 0;
         long internalNetworkInputPositions = 0;
 
-        long rawInputDataSize = 0;
-        long rawInputPositions = 0;
-
         long processedInputDataSize = 0;
         long processedInputPositions = 0;
 
@@ -536,9 +535,6 @@ public class QueryStateMachine
 
             PlanFragment plan = stageInfo.getPlan();
             if (plan != null && plan.getPartitionedSourceNodes().stream().anyMatch(TableScanNode.class::isInstance)) {
-                rawInputDataSize += stageStats.getRawInputDataSize().toBytes();
-                rawInputPositions += stageStats.getRawInputPositions();
-
                 processedInputDataSize += stageStats.getProcessedInputDataSize().toBytes();
                 processedInputPositions += stageStats.getProcessedInputPositions();
             }
@@ -609,8 +605,6 @@ public class QueryStateMachine
                 new Duration(physicalInputReadTime, MILLISECONDS).convertToMostSuccinctTimeUnit(),
                 succinctBytes(internalNetworkInputDataSize),
                 internalNetworkInputPositions,
-                succinctBytes(rawInputDataSize),
-                rawInputPositions,
                 succinctBytes(processedInputDataSize),
                 processedInputPositions,
                 succinctBytes(outputDataSize),
@@ -1145,8 +1139,6 @@ public class QueryStateMachine
                 queryStats.getPhysicalInputReadTime(),
                 queryStats.getInternalNetworkInputDataSize(),
                 queryStats.getInternalNetworkInputPositions(),
-                queryStats.getRawInputDataSize(),
-                queryStats.getRawInputPositions(),
                 queryStats.getProcessedInputDataSize(),
                 queryStats.getProcessedInputPositions(),
                 queryStats.getOutputDataSize(),

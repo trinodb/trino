@@ -115,6 +115,9 @@ class TaskList extends React.Component {
                 elapsedTime = Date.now() - Date.parse(task.stats.createTime);
             }
 
+            let rawInputDataSize = parseDataSize(task.stats.physicalInputDataSize) + parseDataSize(task.stats.internalNetworkInputDataSize);
+            let rawInputPositions = task.stats.physicalInputPositions + task.stats.internalNetworkInputPositions;
+
             return (
                 <Tr key={task.taskStatus.taskId}>
                     <Td column="id" value={task.taskStatus.taskId}>
@@ -130,17 +133,17 @@ class TaskList extends React.Component {
                     <Td column="state" value={TaskList.formatState(task.taskStatus.state, task.stats.fullyBlocked)}>
                         {TaskList.formatState(task.taskStatus.state, task.stats.fullyBlocked)}
                     </Td>
-                    <Td column="rows" value={task.stats.rawInputPositions}>
-                        {formatCount(task.stats.rawInputPositions)}
+                    <Td column="rows" value={rawInputPositions}>
+                        {formatCount(rawInputPositions)}
                     </Td>
-                    <Td column="rowsSec" value={computeRate(task.stats.rawInputPositions, elapsedTime)}>
-                        {formatCount(computeRate(task.stats.rawInputPositions, elapsedTime))}
+                    <Td column="rowsSec" value={computeRate(rawInputPositions, elapsedTime)}>
+                        {formatCount(computeRate(rawInputPositions, elapsedTime))}
                     </Td>
-                    <Td column="bytes" value={parseDataSize(task.stats.rawInputDataSize)}>
-                        {formatDataSizeBytes(parseDataSize(task.stats.rawInputDataSize))}
+                    <Td column="bytes" value={rawInputDataSize}>
+                        {formatDataSizeBytes(rawInputDataSize)}
                     </Td>
-                    <Td column="bytesSec" value={computeRate(parseDataSize(task.stats.rawInputDataSize), elapsedTime)}>
-                        {formatDataSizeBytes(computeRate(parseDataSize(task.stats.rawInputDataSize), elapsedTime))}
+                    <Td column="bytesSec" value={computeRate(rawInputDataSize, elapsedTime)}>
+                        {formatDataSizeBytes(computeRate(rawInputDataSize, elapsedTime))}
                     </Td>
                     <Td column="splitsPending" value={task.stats.queuedDrivers}>
                         {task.stats.queuedDrivers}

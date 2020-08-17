@@ -78,13 +78,14 @@ public class TestSystemConnector
                 "  split_scheduled_time_ms," +
                 "  split_cpu_time_ms," +
                 "  split_blocked_time_ms," +
-                "  raw_input_bytes," +
-                "  raw_input_rows," +
                 "  processed_input_bytes," +
                 "  processed_input_rows," +
                 "  output_bytes," +
                 "  output_rows," +
                 "  physical_input_bytes," +
+                "  physical_input_rows," +
+                "  internal_network_input_bytes," +
+                "  internal_network_input_rows," +
                 "  physical_written_bytes," +
                 "  created," +
                 "  start," +
@@ -93,7 +94,7 @@ public class TestSystemConnector
                 "FROM SYSTEM.runtime.tasks";
         assertThat(query(sql))
                 .hasColumns(VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR,
-                        BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT,
+                        BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT,
                         BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, BIGINT, TIMESTAMP, TIMESTAMP, TIMESTAMP, TIMESTAMP)
                 .hasAnyRows();
     }

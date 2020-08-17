@@ -50,9 +50,11 @@ public class BasicQueryStats
     private final int runningDrivers;
     private final int completedDrivers;
 
-    private final DataSize rawInputDataSize;
-    private final long rawInputPositions;
     private final DataSize physicalInputDataSize;
+    private final long physicalInputPositions;
+
+    private final DataSize internalNetworkInputDataSize;
+    private final long internalNetworkInputPositions;
 
     private final double cumulativeUserMemory;
     private final DataSize userMemoryReservation;
@@ -78,9 +80,10 @@ public class BasicQueryStats
             @JsonProperty("queuedDrivers") int queuedDrivers,
             @JsonProperty("runningDrivers") int runningDrivers,
             @JsonProperty("completedDrivers") int completedDrivers,
-            @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
-            @JsonProperty("rawInputPositions") long rawInputPositions,
             @JsonProperty("physicalInputDataSize") DataSize physicalInputDataSize,
+            @JsonProperty("physicalInputPositions") long physicalInputPositions,
+            @JsonProperty("internalNetworkInputDataSize") DataSize internalNetworkInputDataSize,
+            @JsonProperty("internalNetworkInputPositions") long internalNetworkInputPositions,
             @JsonProperty("cumulativeUserMemory") double cumulativeUserMemory,
             @JsonProperty("userMemoryReservation") DataSize userMemoryReservation,
             @JsonProperty("totalMemoryReservation") DataSize totalMemoryReservation,
@@ -108,9 +111,11 @@ public class BasicQueryStats
         checkArgument(completedDrivers >= 0, "completedDrivers is negative");
         this.completedDrivers = completedDrivers;
 
-        this.rawInputDataSize = requireNonNull(rawInputDataSize);
-        this.rawInputPositions = rawInputPositions;
         this.physicalInputDataSize = physicalInputDataSize;
+        this.physicalInputPositions = physicalInputPositions;
+
+        this.internalNetworkInputDataSize = internalNetworkInputDataSize;
+        this.internalNetworkInputPositions = internalNetworkInputPositions;
 
         this.cumulativeUserMemory = cumulativeUserMemory;
         this.userMemoryReservation = userMemoryReservation;
@@ -137,9 +142,10 @@ public class BasicQueryStats
                 queryStats.getQueuedDrivers(),
                 queryStats.getRunningDrivers(),
                 queryStats.getCompletedDrivers(),
-                queryStats.getRawInputDataSize(),
-                queryStats.getRawInputPositions(),
                 queryStats.getPhysicalInputDataSize(),
+                queryStats.getPhysicalInputPositions(),
+                queryStats.getInternalNetworkInputDataSize(),
+                queryStats.getInternalNetworkInputPositions(),
                 queryStats.getCumulativeUserMemory(),
                 queryStats.getUserMemoryReservation(),
                 queryStats.getTotalMemoryReservation(),
@@ -168,6 +174,7 @@ public class BasicQueryStats
                 DataSize.ofBytes(0),
                 0,
                 DataSize.ofBytes(0),
+                0,
                 0,
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
@@ -235,21 +242,27 @@ public class BasicQueryStats
     }
 
     @JsonProperty
-    public DataSize getRawInputDataSize()
+    public long getPhysicalInputPositions()
     {
-        return rawInputDataSize;
-    }
-
-    @JsonProperty
-    public long getRawInputPositions()
-    {
-        return rawInputPositions;
+        return physicalInputPositions;
     }
 
     @JsonProperty
     public DataSize getPhysicalInputDataSize()
     {
         return physicalInputDataSize;
+    }
+
+    @JsonProperty
+    public DataSize getInternalNetworkInputDataSize()
+    {
+        return internalNetworkInputDataSize;
+    }
+
+    @JsonProperty
+    public long getInternalNetworkInputPositions()
+    {
+        return internalNetworkInputPositions;
     }
 
     @JsonProperty

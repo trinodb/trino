@@ -306,8 +306,8 @@ public abstract class AbstractOperatorBenchmark
         CpuDuration executionTime = cpuTimer.elapsedTime();
 
         TaskStats taskStats = taskContext.getTaskStats();
-        long inputRows = taskStats.getRawInputPositions();
-        long inputBytes = taskStats.getRawInputDataSize().toBytes();
+        long inputRows = taskStats.getPhysicalInputPositions() + taskStats.getInternalNetworkInputPositions();
+        long inputBytes = taskStats.getPhysicalInputDataSize().toBytes() + taskStats.getPhysicalInputDataSize().toBytes();
         long outputRows = taskStats.getOutputPositions();
         long outputBytes = taskStats.getOutputDataSize().toBytes();
 

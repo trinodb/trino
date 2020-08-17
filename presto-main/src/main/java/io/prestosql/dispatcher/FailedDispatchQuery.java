@@ -293,8 +293,6 @@ public class FailedDispatchQuery
                 DataSize.ofBytes(0),
                 0,
                 DataSize.ofBytes(0),
-                0,
-                DataSize.ofBytes(0),
                 ImmutableList.of(),
                 DynamicFiltersStats.EMPTY,
                 ImmutableList.of());

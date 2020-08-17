@@ -62,10 +62,6 @@ public class DriverStats
     private final long internalNetworkInputPositions;
     private final Duration internalNetworkInputReadTime;
 
-    private final DataSize rawInputDataSize;
-    private final long rawInputPositions;
-    private final Duration rawInputReadTime;
-
     private final DataSize processedInputDataSize;
     private final long processedInputPositions;
 
@@ -103,10 +99,6 @@ public class DriverStats
         this.internalNetworkInputDataSize = DataSize.ofBytes(0);
         this.internalNetworkInputPositions = 0;
         this.internalNetworkInputReadTime = new Duration(0, MILLISECONDS);
-
-        this.rawInputDataSize = DataSize.ofBytes(0);
-        this.rawInputPositions = 0;
-        this.rawInputReadTime = new Duration(0, MILLISECONDS);
 
         this.processedInputDataSize = DataSize.ofBytes(0);
         this.processedInputPositions = 0;
@@ -147,10 +139,6 @@ public class DriverStats
             @JsonProperty("internalNetworkInputPositions") long internalNetworkInputPositions,
             @JsonProperty("internalNetworkInputReadTime") Duration internalNetworkInputReadTime,
 
-            @JsonProperty("rawInputDataSize") DataSize rawInputDataSize,
-            @JsonProperty("rawInputPositions") long rawInputPositions,
-            @JsonProperty("rawInputReadTime") Duration rawInputReadTime,
-
             @JsonProperty("processedInputDataSize") DataSize processedInputDataSize,
             @JsonProperty("processedInputPositions") long processedInputPositions,
 
@@ -188,11 +176,6 @@ public class DriverStats
         checkArgument(internalNetworkInputPositions >= 0, "internalNetworkInputPositions is negative");
         this.internalNetworkInputPositions = internalNetworkInputPositions;
         this.internalNetworkInputReadTime = requireNonNull(internalNetworkInputReadTime, "internalNetworkInputReadTime is null");
-
-        this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
-        checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
-        this.rawInputPositions = rawInputPositions;
-        this.rawInputReadTime = requireNonNull(rawInputReadTime, "rawInputReadTime is null");
 
         this.processedInputDataSize = requireNonNull(processedInputDataSize, "processedInputDataSize is null");
         checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
@@ -327,24 +310,6 @@ public class DriverStats
     public Duration getInternalNetworkInputReadTime()
     {
         return internalNetworkInputReadTime;
-    }
-
-    @JsonProperty
-    public DataSize getRawInputDataSize()
-    {
-        return rawInputDataSize;
-    }
-
-    @JsonProperty
-    public long getRawInputPositions()
-    {
-        return rawInputPositions;
-    }
-
-    @JsonProperty
-    public Duration getRawInputReadTime()
-    {
-        return rawInputReadTime;
     }
 
     @JsonProperty

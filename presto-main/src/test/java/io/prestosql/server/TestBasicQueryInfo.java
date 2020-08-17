@@ -97,8 +97,6 @@ public class TestBasicQueryInfo
                                 Duration.valueOf("20m"),
                                 DataSize.valueOf("272GB"),
                                 282,
-                                DataSize.valueOf("27GB"),
-                                28,
                                 DataSize.valueOf("29GB"),
                                 30,
                                 DataSize.valueOf("31GB"),
