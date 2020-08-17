@@ -28,7 +28,6 @@ import io.prestosql.parquet.writer.valuewriter.TimestampValueWriter;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
@@ -50,6 +49,7 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
@@ -57,7 +57,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.parquet.schema.OriginalType.TIME_MICROS;
 
-class ParquetWriters
+final class ParquetWriters
 {
     private ParquetWriters() {}
 
@@ -154,7 +154,7 @@ class ParquetWriters
         }
     }
 
-    private static PrimitiveValueWriter getValueWriter(ValuesWriter valuesWriter, io.prestosql.spi.type.Type type, PrimitiveType parquetType)
+    private static PrimitiveValueWriter getValueWriter(ValuesWriter valuesWriter, Type type, PrimitiveType parquetType)
     {
         if (parquetType.getOriginalType() != null && parquetType.getOriginalType() == TIME_MICROS) {
             return new TimeMicrosValueWriter(valuesWriter, type, parquetType);
@@ -180,12 +180,12 @@ class ParquetWriters
         if (DOUBLE.equals(type)) {
             return new DoubleValueWriter(valuesWriter, parquetType);
         }
-        if (RealType.REAL.equals(type)) {
+        if (REAL.equals(type)) {
             return new RealValueWriter(valuesWriter, parquetType);
         }
         if (type instanceof VarcharType || type instanceof CharType || type instanceof VarbinaryType) {
             return new CharValueWriter(valuesWriter, type, parquetType);
         }
-        throw new PrestoException(NOT_SUPPORTED, format("Unsupported type in parquet writer: %s", type));
+        throw new PrestoException(NOT_SUPPORTED, format("Unsupported type for Parquet writer: %s", type));
     }
 }
