@@ -379,7 +379,7 @@ public class IndexJoinOptimizer
                     .map(ResolvedFunction::getSignature)
                     .map(BoundSignature::getName)
                     .map(QualifiedName::of)
-                    .allMatch(plannerContext.getMetadata()::isAggregationFunction)) {
+                    .allMatch(name -> plannerContext.getMetadata().isAggregationFunction(session, name))) {
                 return node;
             }
 

@@ -709,9 +709,9 @@ public class CountingAccessMetadata
     }
 
     @Override
-    public Collection<FunctionMetadata> listFunctions()
+    public Collection<FunctionMetadata> listFunctions(Session session)
     {
-        return delegate.listFunctions();
+        return delegate.listFunctions(session);
     }
 
     @Override
@@ -752,21 +752,21 @@ public class CountingAccessMetadata
     }
 
     @Override
-    public boolean isAggregationFunction(QualifiedName name)
+    public boolean isAggregationFunction(Session session, QualifiedName name)
     {
-        return delegate.isAggregationFunction(name);
+        return delegate.isAggregationFunction(session, name);
     }
 
     @Override
-    public FunctionMetadata getFunctionMetadata(ResolvedFunction resolvedFunction)
+    public FunctionMetadata getFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
     {
-        return delegate.getFunctionMetadata(resolvedFunction);
+        return delegate.getFunctionMetadata(session, resolvedFunction);
     }
 
     @Override
-    public AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction)
+    public AggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
     {
-        return delegate.getAggregationFunctionMetadata(resolvedFunction);
+        return delegate.getAggregationFunctionMetadata(session, resolvedFunction);
     }
 
     @Override

@@ -221,7 +221,7 @@ public class PushAggregationIntoTableScan
 
     private static AggregateFunction toAggregateFunction(Metadata metadata, Context context, AggregationNode.Aggregation aggregation)
     {
-        String canonicalName = metadata.getFunctionMetadata(aggregation.getResolvedFunction()).getCanonicalName();
+        String canonicalName = metadata.getFunctionMetadata(context.getSession(), aggregation.getResolvedFunction()).getCanonicalName();
         BoundSignature signature = aggregation.getResolvedFunction().getSignature();
 
         ImmutableList.Builder<ConnectorExpression> arguments = ImmutableList.builder();

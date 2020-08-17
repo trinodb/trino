@@ -1152,7 +1152,7 @@ public class ExpressionAnalyzer
         protected Type visitFunctionCall(FunctionCall node, StackableAstVisitorContext<Context> context)
         {
             boolean isRowPatternCount = context.getContext().isPatternRecognition() &&
-                    plannerContext.getMetadata().isAggregationFunction(node.getName()) &&
+                    plannerContext.getMetadata().isAggregationFunction(session, node.getName()) &&
                     node.getName().getSuffix().equalsIgnoreCase("count");
             // argument of the form `label.*` is only allowed for row pattern count function
             node.getArguments().stream()
@@ -1166,7 +1166,7 @@ public class ExpressionAnalyzer
             if (context.getContext().isPatternRecognition() && isPatternRecognitionFunction(node)) {
                 return analyzePatternRecognitionFunction(node, context);
             }
-            if (context.getContext().isPatternRecognition() && plannerContext.getMetadata().isAggregationFunction(node.getName())) {
+            if (context.getContext().isPatternRecognition() && plannerContext.getMetadata().isAggregationFunction(session, node.getName())) {
                 analyzePatternAggregation(node);
                 patternAggregations.add(NodeRef.of(node));
             }
@@ -1175,7 +1175,7 @@ public class ExpressionAnalyzer
                 if (!context.getContext().isPatternRecognition()) {
                     throw semanticException(INVALID_PROCESSING_MODE, processingMode, "%s semantics is not supported out of pattern recognition context", processingMode.getMode());
                 }
-                if (!plannerContext.getMetadata().isAggregationFunction(node.getName())) {
+                if (!plannerContext.getMetadata().isAggregationFunction(session, node.getName())) {
                     throw semanticException(INVALID_PROCESSING_MODE, processingMode, "%s semantics is supported only for FIRST(), LAST() and aggregation functions. Actual: %s", processingMode.getMode(), node.getName());
                 }
             }
@@ -1188,7 +1188,7 @@ public class ExpressionAnalyzer
                 windowFunctions.add(NodeRef.of(node));
             }
             else {
-                if (node.isDistinct() && !plannerContext.getMetadata().isAggregationFunction(node.getName())) {
+                if (node.isDistinct() && !plannerContext.getMetadata().isAggregationFunction(session, node.getName())) {
                     throw semanticException(FUNCTION_NOT_AGGREGATE, node, "DISTINCT is not supported for non-aggregation functions");
                 }
             }
@@ -1213,7 +1213,7 @@ public class ExpressionAnalyzer
             }
 
             // must run after arguments are processed and labels are recorded
-            if (context.getContext().isPatternRecognition() && plannerContext.getMetadata().isAggregationFunction(node.getName())) {
+            if (context.getContext().isPatternRecognition() && plannerContext.getMetadata().isAggregationFunction(session, node.getName())) {
                 validateAggregationLabelConsistency(node);
             }
 
@@ -1275,7 +1275,7 @@ public class ExpressionAnalyzer
 
             resolvedFunctions.put(NodeRef.of(node), function);
 
-            FunctionMetadata functionMetadata = plannerContext.getMetadata().getFunctionMetadata(function);
+            FunctionMetadata functionMetadata = plannerContext.getMetadata().getFunctionMetadata(session, function);
             if (functionMetadata.isDeprecated()) {
                 warningCollector.add(new TrinoWarning(DEPRECATED_FUNCTION,
                         format("Use of deprecated function: %s: %s",
@@ -1901,7 +1901,7 @@ public class ExpressionAnalyzer
         private void checkNoNestedAggregations(FunctionCall node)
         {
             extractExpressions(node.getArguments(), FunctionCall.class).stream()
-                    .filter(function -> plannerContext.getMetadata().isAggregationFunction(function.getName()))
+                    .filter(function -> plannerContext.getMetadata().isAggregationFunction(session, function.getName()))
                     .findFirst()
                     .ifPresent(aggregation -> {
                         throw semanticException(
@@ -2399,7 +2399,7 @@ public class ExpressionAnalyzer
                 throw semanticException(NOT_SUPPORTED, node, "Lambda expression in pattern recognition context is not yet supported");
             }
 
-            verifyNoAggregateWindowOrGroupingFunctions(plannerContext.getMetadata(), node.getBody(), "Lambda expression");
+            verifyNoAggregateWindowOrGroupingFunctions(session, plannerContext.getMetadata(), node.getBody(), "Lambda expression");
             if (!context.getContext().isExpectingLambda()) {
                 throw semanticException(TYPE_MISMATCH, node, "Lambda expression should always be used inside a function");
             }
