@@ -19,6 +19,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
+import io.trino.Session;
 import io.trino.metadata.AggregationFunctionMetadata;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
@@ -217,7 +218,7 @@ public class AggregationNode
                 outputs.containsAll(new HashSet<>(groupingSets.getGroupingKeys()));
     }
 
-    public boolean isDecomposable(Metadata metadata)
+    public boolean isDecomposable(Session session, Metadata metadata)
     {
         boolean hasOrderBy = getAggregations().values().stream()
                 .map(Aggregation::getOrderingScheme)
@@ -228,13 +229,13 @@ public class AggregationNode
 
         boolean decomposableFunctions = getAggregations().values().stream()
                 .map(Aggregation::getResolvedFunction)
-                .map(metadata::getAggregationFunctionMetadata)
+                .map(resolvedFunction -> metadata.getAggregationFunctionMetadata(session, resolvedFunction))
                 .allMatch(AggregationFunctionMetadata::isDecomposable);
 
         return !hasOrderBy && !hasDistinct && decomposableFunctions;
     }
 
-    public boolean hasSingleNodeExecutionPreference(Metadata metadata)
+    public boolean hasSingleNodeExecutionPreference(Session session, Metadata metadata)
     {
         // There are two kinds of aggregations the have single node execution preference:
         //
@@ -246,7 +247,7 @@ public class AggregationNode
         // since all input have to be aggregated into one line output.
         //
         // 2. aggregations that must produce default output and are not decomposable, we cannot distribute them.
-        return (hasEmptyGroupingSet() && !hasNonEmptyGroupingSet()) || (hasDefaultOutput() && !isDecomposable(metadata));
+        return (hasEmptyGroupingSet() && !hasNonEmptyGroupingSet()) || (hasDefaultOutput() && !isDecomposable(session, metadata));
     }
 
     public boolean isStreamable()

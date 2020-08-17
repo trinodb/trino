@@ -621,7 +621,7 @@ public class LogicalPlanner
         if (!statisticsMetadata.isEmpty()) {
             TableStatisticAggregation result = statisticsAggregationPlanner.createStatisticsAggregation(statisticsMetadata, columnToSymbolMap);
 
-            StatisticAggregations.Parts aggregations = result.getAggregations().createPartialAggregations(symbolAllocator, plannerContext);
+            StatisticAggregations.Parts aggregations = result.getAggregations().createPartialAggregations(symbolAllocator, session, plannerContext);
 
             // partial aggregation is run within the TableWriteOperator to calculate the statistics for
             // the data consumed by the TableWriteOperator

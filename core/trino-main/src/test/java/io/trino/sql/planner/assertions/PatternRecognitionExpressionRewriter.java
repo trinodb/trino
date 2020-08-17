@@ -38,6 +38,7 @@ import java.util.Set;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.MetadataManager.createTestMetadataManager;
 import static io.trino.spi.type.BigintType.BIGINT;
 import static io.trino.sql.analyzer.ExpressionTreeUtils.extractExpressions;
@@ -56,7 +57,7 @@ public class PatternRecognitionExpressionRewriter
         Expression expression = rewriteIdentifiers(definition);
         Map<Symbol, Type> types = extractExpressions(ImmutableList.of(expression), SymbolReference.class).stream()
                 .collect(toImmutableMap(Symbol::from, reference -> BIGINT));
-        return LogicalIndexExtractor.rewrite(expression, subsets, new SymbolAllocator(types), createTestMetadataManager());
+        return LogicalIndexExtractor.rewrite(expression, subsets, new SymbolAllocator(types), TEST_SESSION, createTestMetadataManager());
     }
 
     private static Expression rewriteIdentifiers(Expression expression)

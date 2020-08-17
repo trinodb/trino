@@ -2019,7 +2019,7 @@ public final class MetadataManager
     //
 
     @Override
-    public Collection<FunctionMetadata> listFunctions()
+    public Collection<FunctionMetadata> listFunctions(Session session)
     {
         return functions.listFunctions();
     }
@@ -2186,7 +2186,7 @@ public final class MetadataManager
     }
 
     @Override
-    public boolean isAggregationFunction(QualifiedName name)
+    public boolean isAggregationFunction(Session session, QualifiedName name)
     {
         return functions.getFunctions(name).stream()
                 .map(FunctionMetadata::getKind)
@@ -2194,7 +2194,7 @@ public final class MetadataManager
     }
 
     @Override
-    public FunctionMetadata getFunctionMetadata(ResolvedFunction resolvedFunction)
+    public FunctionMetadata getFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
     {
         return getFunctionMetadata(resolvedFunction.getFunctionId(), resolvedFunction.getSignature());
     }
@@ -2244,7 +2244,7 @@ public final class MetadataManager
     }
 
     @Override
-    public AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction)
+    public AggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
     {
         AggregationFunctionMetadata aggregationFunctionMetadata = functions.getAggregationFunctionMetadata(resolvedFunction.getFunctionId());
 
