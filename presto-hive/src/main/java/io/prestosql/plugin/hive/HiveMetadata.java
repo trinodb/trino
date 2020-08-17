@@ -91,6 +91,7 @@ import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.statistics.TableStatisticType;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.statistics.TableStatisticsMetadata;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.VarcharType;
@@ -159,6 +160,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.prestosql.plugin.hive.HivePartitionManager.extractPartitionValues;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getCompressionCodec;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getHiveStorageFormat;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isBucketExecutionEnabled;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isCollectColumnStatisticsOnWrite;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isCreateEmptyBucketFiles;
@@ -243,6 +245,7 @@ import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_EMPTY;
 import static io.prestosql.spi.predicate.TupleDomain.withColumnDomains;
 import static io.prestosql.spi.statistics.TableStatisticType.ROW_COUNT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Boolean.parseBoolean;
@@ -545,7 +548,7 @@ public class HiveMetadata
 
         Function<HiveColumnHandle, ColumnMetadata> metadataGetter = columnMetadataGetter(table);
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-        for (HiveColumnHandle columnHandle : hiveColumnHandles(table, typeManager)) {
+        for (HiveColumnHandle columnHandle : hiveColumnHandles(table, typeManager, getTimestampPrecision(session).getPrecision())) {
             columns.add(metadataGetter.apply(columnHandle));
         }
 
@@ -689,7 +692,7 @@ public class HiveMetadata
         SchemaTableName tableName = ((HiveTableHandle) tableHandle).getSchemaTableName();
         Table table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
-        return hiveColumnHandles(table, typeManager).stream()
+        return hiveColumnHandles(table, typeManager, getTimestampPrecision(session).getPrecision()).stream()
                 .collect(toImmutableMap(HiveColumnHandle::getName, identity()));
     }
 
@@ -824,6 +827,7 @@ public class HiveMetadata
             throw new PrestoException(NOT_SUPPORTED, "Bucketing/Partitioning columns not supported when Avro schema url is set");
         }
 
+        validateTimestampColumns(tableMetadata.getColumns());
         List<HiveColumnHandle> columnHandles = getColumnHandles(tableMetadata, ImmutableSet.copyOf(partitionedBy));
         HiveStorageFormat hiveStorageFormat = getHiveStorageFormat(tableMetadata.getProperties());
         Map<String, String> tableProperties = getEmptyTableProperties(tableMetadata, bucketProperty, new HdfsContext(session, schemaName, tableName));
@@ -1210,7 +1214,8 @@ public class HiveMetadata
         List<String> partitionColumnNames = partitionColumns.stream()
                 .map(Column::getName)
                 .collect(toImmutableList());
-        List<HiveColumnHandle> hiveColumnHandles = hiveColumnHandles(table, typeManager);
+        // TODO: revisit when handling write path
+        List<HiveColumnHandle> hiveColumnHandles = hiveColumnHandles(table, typeManager, TimestampType.DEFAULT_PRECISION);
         Map<String, Type> columnTypes = hiveColumnHandles.stream()
                 .filter(columnHandle -> !columnHandle.isHidden())
                 .collect(toImmutableMap(HiveColumnHandle::getName, column -> column.getHiveType().getType(typeManager)));
@@ -1527,7 +1532,7 @@ public class HiveMetadata
             }
         }
 
-        List<HiveColumnHandle> handles = hiveColumnHandles(table, typeManager).stream()
+        List<HiveColumnHandle> handles = hiveColumnHandles(table, typeManager, getTimestampPrecision(session).getPrecision()).stream()
                 .filter(columnHandle -> !columnHandle.isHidden())
                 .collect(toList());
 
@@ -2317,6 +2322,7 @@ public class HiveMetadata
     @Override
     public Optional<ConnectorNewTableLayout> getNewTableLayout(ConnectorSession session, ConnectorTableMetadata tableMetadata)
     {
+        validateTimestampColumns(tableMetadata.getColumns());
         validatePartitionColumns(tableMetadata);
         validateBucketColumns(tableMetadata);
         validateColumns(tableMetadata);
@@ -2371,6 +2377,7 @@ public class HiveMetadata
 
     private TableStatisticsMetadata getStatisticsCollectionMetadata(List<ColumnMetadata> columns, List<String> partitionedBy, Optional<Set<String>> analyzeColumns, boolean includeRowCount)
     {
+        validateTimestampColumns(columns);
         Set<ColumnStatisticMetadata> columnStatistics = columns.stream()
                 .filter(column -> !partitionedBy.contains(column.getName()))
                 .filter(column -> !column.isHidden())
@@ -2585,6 +2592,19 @@ public class HiveMetadata
                     .map(columnMetadata -> format("%s %s", columnMetadata.getName(), columnMetadata.getType()))
                     .collect(joining(", "));
             throw new PrestoException(NOT_SUPPORTED, "Hive CSV storage format only supports VARCHAR (unbounded). Unsupported columns: " + joinedUnsupportedColumns);
+        }
+    }
+
+    // temporary, until variable precision timestamps are supported on write
+    private static void validateTimestampColumns(List<ColumnMetadata> columns)
+    {
+        for (ColumnMetadata column : columns) {
+            Type type = column.getType();
+            if (type instanceof TimestampType) {
+                if (type != TIMESTAMP_MILLIS) {
+                    throw new PrestoException(NOT_SUPPORTED, "CREATE TABLE, INSERT and ANALYZE are not supported with requested timestamp precision: " + type);
+                }
+            }
         }
     }
 

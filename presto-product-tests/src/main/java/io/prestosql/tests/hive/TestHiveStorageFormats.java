@@ -13,6 +13,7 @@
  */
 package io.prestosql.tests.hive;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.inject.Inject;
 import io.prestosql.tempto.ProductTest;
@@ -29,6 +30,7 @@ import javax.inject.Named;
 import java.sql.Connection;
 import java.sql.JDBCType;
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -83,6 +85,20 @@ public class TestHiveStorageFormats
                 {storageFormat("TEXTFILE")},
                 {storageFormat("RCTEXT")},
                 {storageFormat("SEQUENCEFILE")},
+        };
+    }
+
+    @DataProvider
+    public static Object[][] storageFormatsWithNanosecondPrecision()
+    {
+        return new StorageFormat[][] {
+                {storageFormat("ORC", ImmutableMap.of("hive.orc_optimized_writer_validate", "true"))},
+                {storageFormat("PARQUET")},
+                {storageFormat("RCBINARY", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "true"))},
+                {storageFormat("RCTEXT")},
+                {storageFormat("SEQUENCEFILE")},
+                {storageFormat("TEXTFILE")},
+                {storageFormat("TEXTFILE", ImmutableMap.of(), ImmutableMap.of("textfile_field_separator", "F", "textfile_field_separator_escape", "E"))}
         };
     }
 
@@ -315,6 +331,52 @@ public class TestHiveStorageFormats
         onHive().executeQuery("DROP TABLE " + tableName);
     }
 
+    @Test(dataProvider = "storageFormatsWithNanosecondPrecision", groups = STORAGE_FORMATS)
+    public void testTimestamp(StorageFormat storageFormat)
+            throws Exception
+    {
+        // only admin user is allowed to change session properties
+        Connection connection = onPresto().getConnection();
+        setAdminRole(connection);
+        setSessionProperties(connection, storageFormat);
+
+        String tableName = "test_timestamp_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
+        onPresto().executeQuery("DROP TABLE IF EXISTS " + tableName);
+
+        onPresto().executeQuery(format("CREATE TABLE %s (id BIGINT, ts TIMESTAMP) WITH (%s)", tableName, storageFormat.getStoragePropertiesAsSql()));
+        List<TimestampAndPrecision> data = ImmutableList.of(
+                new TimestampAndPrecision(1, "MILLISECONDS", "2020-01-02 12:34:56.123", "2020-01-02 12:34:56.123"),
+                new TimestampAndPrecision(2, "MILLISECONDS", "2020-01-02 12:34:56.1234", "2020-01-02 12:34:56.123"),
+                new TimestampAndPrecision(3, "MILLISECONDS", "2020-01-02 12:34:56.1236", "2020-01-02 12:34:56.124"),
+                new TimestampAndPrecision(4, "MICROSECONDS", "2020-01-02 12:34:56.123456", "2020-01-02 12:34:56.123456"),
+                new TimestampAndPrecision(5, "MICROSECONDS", "2020-01-02 12:34:56.1234564", "2020-01-02 12:34:56.123456"),
+                new TimestampAndPrecision(6, "MICROSECONDS", "2020-01-02 12:34:56.1234567", "2020-01-02 12:34:56.123457"),
+                new TimestampAndPrecision(7, "NANOSECONDS", "2020-01-02 12:34:56.123456789", "2020-01-02 12:34:56.123456789"));
+
+        // insert records one by one so that we have one file per record, which allows us to exercise predicate push-down in Parquet
+        // (which only works when the value range has a min = max)
+        for (TimestampAndPrecision entry : data) {
+            onHive().executeQuery(format("INSERT INTO %s VALUES (%s, '%s')", tableName, entry.getId(), entry.getValue()));
+        }
+
+        for (TimestampAndPrecision entry : data) {
+            setSessionProperty(connection, "hive.timestamp_precision", entry.getPrecision());
+            assertThat(onPresto().executeQuery(format("SELECT ts FROM %s WHERE id = %s", tableName, entry.getId())))
+                    .containsOnly(row(Timestamp.valueOf(entry.getRoundedValue())));
+            assertThat(onPresto().executeQuery(format("SELECT id FROM %s WHERE id = %s AND ts = TIMESTAMP'%s'", tableName, entry.getId(), entry.getRoundedValue())))
+                    .containsOnly(row(entry.getId()));
+            if (entry.isRoundedUp()) {
+                assertThat(onPresto().executeQuery(format("SELECT id FROM %s WHERE id = %s AND ts > TIMESTAMP'%s'", tableName, entry.getId(), entry.getValue())))
+                        .containsOnly(row(entry.getId()));
+            }
+            if (entry.isRoundedDown()) {
+                assertThat(onPresto().executeQuery(format("SELECT id FROM %s WHERE id = %s AND ts < TIMESTAMP'%s'", tableName, entry.getId(), entry.getValue())))
+                        .containsOnly(row(entry.getId()));
+            }
+        }
+        onPresto().executeQuery("DROP TABLE " + tableName);
+    }
+
     /**
      * Run the given query on the given table and the TPCH {@code lineitem} table
      * (in the schema {@code TPCH_SCHEMA}, asserting that the results are equal.
@@ -333,11 +395,15 @@ public class TestHiveStorageFormats
 
     private void setAdminRole()
     {
+        setAdminRole(defaultQueryExecutor().getConnection());
+    }
+
+    private void setAdminRole(Connection connection)
+    {
         if (adminRoleEnabled) {
             return;
         }
 
-        Connection connection = defaultQueryExecutor().getConnection();
         try {
             JdbcDriverUtils.setRole(connection, "admin");
         }
@@ -348,12 +414,16 @@ public class TestHiveStorageFormats
 
     private static void setSessionProperties(StorageFormat storageFormat)
     {
-        setSessionProperties(storageFormat.getSessionProperties());
+        setSessionProperties(defaultQueryExecutor().getConnection(), storageFormat);
     }
 
-    private static void setSessionProperties(Map<String, String> sessionProperties)
+    private static void setSessionProperties(Connection connection, StorageFormat storageFormat)
     {
-        Connection connection = defaultQueryExecutor().getConnection();
+        setSessionProperties(connection, storageFormat.getSessionProperties());
+    }
+
+    private static void setSessionProperties(Connection connection, Map<String, String> sessionProperties)
+    {
         try {
             // create more than one split
             setSessionProperty(connection, "task_writer_count", "4");
@@ -428,6 +498,57 @@ public class TestHiveStorageFormats
                     .add("properties", properties)
                     .add("sessionProperties", sessionProperties)
                     .toString();
+        }
+    }
+
+    private static class TimestampAndPrecision
+    {
+        private final int id;
+        private final String precision;
+        private final String value;
+        private final String roundedValue;
+
+        public TimestampAndPrecision(int id, String precision, String value, String roundedValue)
+        {
+            this.id = id;
+            this.precision = precision;
+            this.value = value;
+            this.roundedValue = roundedValue;
+        }
+
+        public int getId()
+        {
+            return id;
+        }
+
+        public String getPrecision()
+        {
+            return precision;
+        }
+
+        public String getValue()
+        {
+            return value;
+        }
+
+        public String getRoundedValue()
+        {
+            return roundedValue;
+        }
+
+        private int roundingSign()
+        {
+            return Timestamp.valueOf(roundedValue).compareTo(Timestamp.valueOf(value));
+        }
+
+        public boolean isRoundedUp()
+        {
+            return roundingSign() > 0;
+        }
+
+        public boolean isRoundedDown()
+        {
+            return roundingSign() < 0;
         }
     }
 }

@@ -90,6 +90,7 @@ public final class HiveSessionProperties
     private static final String IGNORE_ABSENT_PARTITIONS = "ignore_absent_partitions";
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
+    private static final String TIMESTAMP_PRECISION = "timestamp_precision";
     private static final String PARQUET_OPTIMIZED_WRITER_ENABLED = "parquet_optimized_writer_enabled";
     private static final String DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT = "dynamic_filtering_probe_blocking_timeout";
 
@@ -368,6 +369,12 @@ public final class HiveSessionProperties
                         "Projection push down enabled for hive",
                         hiveConfig.isProjectionPushdownEnabled(),
                         false),
+                enumProperty(
+                        TIMESTAMP_PRECISION,
+                        "Precision for timestamp columns in Hive tables",
+                        HiveTimestampPrecision.class,
+                        hiveConfig.getTimestampPrecision(),
+                        false),
                 booleanProperty(
                         PARQUET_OPTIMIZED_WRITER_ENABLED,
                         "Experimental: Enable optimized writer",
@@ -637,6 +644,11 @@ public final class HiveSessionProperties
     public static boolean isProjectionPushdownEnabled(ConnectorSession session)
     {
         return session.getProperty(PROJECTION_PUSHDOWN_ENABLED, Boolean.class);
+    }
+
+    public static HiveTimestampPrecision getTimestampPrecision(ConnectorSession session)
+    {
+        return session.getProperty(TIMESTAMP_PRECISION, HiveTimestampPrecision.class);
     }
 
     public static boolean isParquetOptimizedWriterEnabled(ConnectorSession session)

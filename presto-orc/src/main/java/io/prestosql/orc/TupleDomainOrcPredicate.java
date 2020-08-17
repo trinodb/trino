@@ -254,12 +254,18 @@ public class TupleDomainOrcPredicate
             return createDomain(type, hasNullValue, columnStatistics.getDateStatistics(), value -> (long) value);
         }
         else if ((type.equals(TIMESTAMP_MILLIS) || type.equals(TIMESTAMP_MICROS)) && columnStatistics.getTimestampStatistics() != null) {
+            // ORC timestamp statistics are truncated to millisecond precision, regardless of the precision of the actual data column.
+            // Since that can cause some column values to fall outside the stats range, here we are creating a tuple domain predicate
+            // that ensures inclusion of all values.  Note that we are adding a full millisecond to account for the fact that Presto rounds
+            // timestamps. For example, the stats for timestamp 2020-09-22 12:34:56.678910 are truncated to 2020-09-22 12:34:56.678.
+            // If Presto is using millisecond precision, the timestamp gets rounded to the next millisecond (2020-09-22 12:34:56.679), so the
+            // upper bound of the domain we create must be adjusted accordingly, to includes the rounded timestamp.
             return createDomain(
                     type,
                     hasNullValue,
                     columnStatistics.getTimestampStatistics(),
                     min -> min * MICROSECONDS_PER_MILLISECOND,
-                    max -> (max * MICROSECONDS_PER_MILLISECOND) + 999);
+                    max -> (max + 1) * MICROSECONDS_PER_MILLISECOND);
         }
         else if (type.equals(TIMESTAMP_NANOS) && columnStatistics.getTimestampStatistics() != null) {
             return createDomain(
@@ -267,7 +273,7 @@ public class TupleDomainOrcPredicate
                     hasNullValue,
                     columnStatistics.getTimestampStatistics(),
                     min -> new LongTimestamp(min * MICROSECONDS_PER_MILLISECOND, 0),
-                    max -> new LongTimestamp((max * MICROSECONDS_PER_MILLISECOND) + 999, 999_000));
+                    max -> new LongTimestamp((max + 1) * MICROSECONDS_PER_MILLISECOND, 0));
         }
         else if (type.equals(TIMESTAMP_TZ_MILLIS) && columnStatistics.getTimestampStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getTimestampStatistics(), value -> packDateTimeWithZone(value, UTC_KEY));
