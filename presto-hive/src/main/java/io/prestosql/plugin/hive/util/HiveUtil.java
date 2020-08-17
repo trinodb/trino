@@ -47,6 +47,7 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeManager;
@@ -877,12 +878,12 @@ public final class HiveUtil
         return partitionKey;
     }
 
-    public static List<HiveColumnHandle> hiveColumnHandles(Table table, TypeManager typeManager)
+    public static List<HiveColumnHandle> hiveColumnHandles(Table table, TypeManager typeManager, int timestampPrecision)
     {
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
         // add the data fields first
-        columns.addAll(getRegularColumnHandles(table, typeManager));
+        columns.addAll(getRegularColumnHandles(table, typeManager, timestampPrecision));
 
         // add the partition keys last (like Hive does)
         columns.addAll(getPartitionKeyColumnHandles(table, typeManager));
@@ -903,7 +904,7 @@ public final class HiveUtil
         return columns.build();
     }
 
-    public static List<HiveColumnHandle> getRegularColumnHandles(Table table, TypeManager typeManager)
+    public static List<HiveColumnHandle> getRegularColumnHandles(Table table, TypeManager typeManager, int timestampPrecision)
     {
         ImmutableList.Builder<HiveColumnHandle> columns = ImmutableList.builder();
 
@@ -912,12 +913,23 @@ public final class HiveUtil
             // ignore unsupported types rather than failing
             HiveType hiveType = field.getType();
             if (hiveType.isSupportedType(table.getStorage().getStorageFormat())) {
-                columns.add(createBaseColumn(field.getName(), hiveColumnIndex, hiveType, hiveType.getType(typeManager), REGULAR, field.getComment()));
+                columns.add(createBaseColumn(field.getName(), hiveColumnIndex, hiveType, getType(hiveType, typeManager, timestampPrecision), REGULAR, field.getComment()));
             }
             hiveColumnIndex++;
         }
 
         return columns.build();
+    }
+
+    public static Type getType(HiveType hiveType, TypeManager typeManager, int precision)
+    {
+        Type tentativeType = hiveType.getType(typeManager);
+        if (tentativeType instanceof TimestampType) {
+            if (((TimestampType) tentativeType).getPrecision() != precision) {
+                return TimestampType.createTimestampType(precision);
+            }
+        }
+        return tentativeType;
     }
 
     public static List<HiveColumnHandle> getPartitionKeyColumnHandles(Table table, TypeManager typeManager)

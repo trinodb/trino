@@ -15,14 +15,19 @@ package io.prestosql.rcfile.binary;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.prestosql.plugin.base.type.DecodedTimestamp;
+import io.prestosql.plugin.base.type.PrestoTimestampEncoder;
 import io.prestosql.rcfile.ColumnData;
 import io.prestosql.rcfile.EncodeOutput;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
+import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
+import static io.prestosql.plugin.base.type.PrestoTimestampEncoderFactory.createTimestampEncoder;
 import static io.prestosql.rcfile.RcFileDecoderUtils.decodeVIntSize;
 import static io.prestosql.rcfile.RcFileDecoderUtils.isNegativeVInt;
 import static io.prestosql.rcfile.RcFileDecoderUtils.readVInt;
@@ -36,13 +41,17 @@ import static java.util.Objects.requireNonNull;
 public class TimestampEncoding
         implements BinaryColumnEncoding
 {
-    private final Type type;
+    private final TimestampType type;
     private final DateTimeZone timeZone;
+    private final PrestoTimestampEncoder<?> prestoTimestampEncoder;
 
     public TimestampEncoding(Type type, DateTimeZone timeZone)
     {
-        this.type = requireNonNull(type, "type is null");
+        requireNonNull(type, "type is null");
+        verify(type instanceof TimestampType, "type is not a TimestampType");
+        this.type = (TimestampType) type;
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
+        prestoTimestampEncoder = createTimestampEncoder(this.type, timeZone);
     }
 
     @Override
@@ -73,8 +82,8 @@ public class TimestampEncoding
             int length = columnData.getLength(i);
             if (length != 0) {
                 int offset = columnData.getOffset(i);
-                long millis = getTimestamp(slice, offset);
-                type.writeLong(builder, millis * MICROSECONDS_PER_MILLISECOND);
+                DecodedTimestamp decodedTimestamp = getTimestamp(slice, offset);
+                prestoTimestampEncoder.write(decodedTimestamp, builder);
             }
             else {
                 builder.appendNull();
@@ -108,8 +117,8 @@ public class TimestampEncoding
     @Override
     public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
     {
-        long millis = getTimestamp(slice, offset);
-        type.writeLong(builder, millis * MICROSECONDS_PER_MILLISECOND);
+        DecodedTimestamp decodedTimestamp = getTimestamp(slice, offset);
+        prestoTimestampEncoder.write(decodedTimestamp, builder);
     }
 
     private static boolean hasNanosVInt(byte b)
@@ -117,7 +126,7 @@ public class TimestampEncoding
         return (b >> 7) != 0;
     }
 
-    private long getTimestamp(Slice slice, int offset)
+    private DecodedTimestamp getTimestamp(Slice slice, int offset)
     {
         // read seconds (low 32 bits)
         int lowest31BitsOfSecondsAndFlag = Integer.reverseBytes(slice.getInt(offset));
@@ -143,9 +152,7 @@ public class TimestampEncoding
             }
         }
 
-        long millis = (seconds * 1000) + (nanos / 1_000_000);
-
-        return timeZone.convertUTCToLocal(millis);
+        return new DecodedTimestamp(seconds, nanos);
     }
 
     @SuppressWarnings("NonReproducibleMathCall")

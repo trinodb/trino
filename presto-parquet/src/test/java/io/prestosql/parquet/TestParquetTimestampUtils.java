@@ -13,13 +13,16 @@
  */
 package io.prestosql.parquet;
 
+import io.prestosql.plugin.base.type.DecodedTimestamp;
 import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.hive.common.type.Timestamp;
 import org.apache.parquet.io.api.Binary;
 import org.testng.annotations.Test;
 
-import static io.prestosql.parquet.ParquetTimestampUtils.getTimestampMillis;
+import static io.prestosql.parquet.ParquetTimestampUtils.decode;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static org.apache.hadoop.hive.ql.io.parquet.timestamp.NanoTimeUtils.getNanoTime;
 import static org.testng.Assert.assertEquals;
 
@@ -38,7 +41,7 @@ public class TestParquetTimestampUtils
     {
         try {
             byte[] invalidLengthBinaryTimestamp = new byte[8];
-            getTimestampMillis(Binary.fromByteArray(invalidLengthBinaryTimestamp));
+            decode(Binary.fromByteArray(invalidLengthBinaryTimestamp));
         }
         catch (PrestoException e) {
             assertEquals(e.getErrorCode(), NOT_SUPPORTED.toErrorCode());
@@ -50,7 +53,8 @@ public class TestParquetTimestampUtils
     {
         Timestamp timestamp = Timestamp.valueOf(timestampString);
         Binary timestampBytes = getNanoTime(timestamp, false).toBinary();
-        long decodedTimestampMillis = getTimestampMillis(timestampBytes);
-        assertEquals(decodedTimestampMillis, timestamp.toEpochMilli());
+        DecodedTimestamp decodedTimestamp = decode(timestampBytes);
+        assertEquals(decodedTimestamp.getEpochSeconds() * MILLISECONDS_PER_SECOND + decodedTimestamp.getNanosOfSecond() / NANOSECONDS_PER_MILLISECOND, timestamp.toEpochMilli());
+        assertEquals(decodedTimestamp.getNanosOfSecond(), timestamp.getNanos());
     }
 }

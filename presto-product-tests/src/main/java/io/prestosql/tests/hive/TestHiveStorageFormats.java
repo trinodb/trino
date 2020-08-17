@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -83,6 +84,19 @@ public class TestHiveStorageFormats
                 {storageFormat("TEXTFILE")},
                 {storageFormat("RCTEXT")},
                 {storageFormat("SEQUENCEFILE")},
+        };
+    }
+
+    @DataProvider(name = "storage_formats_with_nanos")
+    public static Object[][] storageFormatsWithNanosecondPrecision()
+    {
+        return new StorageFormat[][] {
+                {storageFormat("ORC", ImmutableMap.of("hive.orc_optimized_writer_validate", "true"))},
+                {storageFormat("PARQUET")},
+                {storageFormat("RCBINARY", ImmutableMap.of("hive.rcfile_optimized_writer_validate", "true"))},
+                {storageFormat("SEQUENCEFILE")},
+                {storageFormat("TEXTFILE")},
+                {storageFormat("TEXTFILE", ImmutableMap.of(), ImmutableMap.of("textfile_field_separator", "F", "textfile_field_separator_escape", "E"))}
         };
     }
 
@@ -315,6 +329,38 @@ public class TestHiveStorageFormats
         onHive().executeQuery("DROP TABLE " + tableName);
     }
 
+    @Test(dataProvider = "storage_formats_with_nanos", groups = STORAGE_FORMATS)
+    public void testTimestamp(StorageFormat storageFormat)
+            throws Exception
+    {
+        // only admin user is allowed to change session properties
+        setAdminRole();
+        setSessionProperties(storageFormat);
+
+        String tableName = "test_timestamp_" + storageFormat.getName().toLowerCase(Locale.ENGLISH);
+        query("DROP TABLE IF EXISTS " + tableName);
+
+        query(format("CREATE TABLE %s (id BIGINT, ts TIMESTAMP) WITH (%s)", tableName, storageFormat.getStoragePropertiesAsSql()));
+        onHive().executeQuery(
+                format("INSERT INTO %s VALUES %s",
+                        tableName,
+                        IntStream.of(3, 6, 9).mapToObj(p -> format("(%s, '%s')", p, getTimestamp(p))).collect(Collectors.joining(", "))));
+
+        for (int precision : List.of(3, 6, 9)) {
+            Connection connection = onPresto().getConnection();
+            setAdminRole(connection);
+            setSessionProperty(connection, "hive.timestamp_precision", String.valueOf(precision));
+            assertThat(onPresto().executeQuery(format("SELECT id FROM %s WHERE ts = TIMESTAMP'%s'", tableName, getTimestamp(precision))))
+                    .contains(row(precision));
+        }
+        query("DROP TABLE " + tableName);
+    }
+
+    private static String getTimestamp(int precision)
+    {
+        return "2020-01-02 12:34:56." + IntStream.range(1, precision + 1).mapToObj(Integer::toString).collect(Collectors.joining());
+    }
+
     /**
      * Run the given query on the given table and the TPCH {@code lineitem} table
      * (in the schema {@code TPCH_SCHEMA}, asserting that the results are equal.
@@ -333,11 +379,15 @@ public class TestHiveStorageFormats
 
     private void setAdminRole()
     {
+        setAdminRole(defaultQueryExecutor().getConnection());
+    }
+
+    private void setAdminRole(Connection connection)
+    {
         if (adminRoleEnabled) {
             return;
         }
 
-        Connection connection = defaultQueryExecutor().getConnection();
         try {
             JdbcDriverUtils.setRole(connection, "admin");
         }

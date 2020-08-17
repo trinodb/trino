@@ -13,14 +13,19 @@
  */
 package io.prestosql.plugin.hive;
 
+import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.prestosql.hadoop.TextLineLengthLimitExceededException;
+import io.prestosql.plugin.base.type.DecodedTimestamp;
+import io.prestosql.plugin.base.type.PrestoTimestampEncoder;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.LongTimestamp;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
@@ -47,11 +52,14 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.math.BigInteger;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Properties;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.plugin.base.type.PrestoTimestampEncoderFactory.createTimestampEncoder;
 import static io.prestosql.plugin.hive.HiveColumnHandle.ColumnType.REGULAR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
@@ -70,8 +78,6 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
@@ -108,6 +114,8 @@ public class GenericHiveRecordCursor<K, V extends Writable>
     private final boolean[] nulls;
 
     private final long totalBytes;
+
+    private final Map<Type, PrestoTimestampEncoder<?>> timestampEncoders;
 
     private long completedBytes;
     private Object rowData;
@@ -152,18 +160,24 @@ public class GenericHiveRecordCursor<K, V extends Writable>
         this.objects = new Object[size];
         this.nulls = new boolean[size];
 
+        Map<Type, PrestoTimestampEncoder<?>> timestampEncodersBuilder = new HashMap<>();
         // initialize data columns
         for (int i = 0; i < columns.size(); i++) {
             HiveColumnHandle column = columns.get(i);
             checkState(column.getColumnType() == REGULAR, "column type must be regular");
 
-            types[i] = column.getType();
+            Type columnType = column.getType();
+            types[i] = columnType;
+            if (columnType instanceof TimestampType) {
+                timestampEncodersBuilder.put(columnType, createTimestampEncoder((TimestampType) columnType));
+            }
             hiveTypes[i] = column.getHiveType();
 
             StructField field = rowInspector.getStructFieldRef(column.getName());
             structFields[i] = field;
             fieldInspectors[i] = field.getFieldObjectInspector();
         }
+        timestampEncoders = ImmutableMap.copyOf(timestampEncodersBuilder);
     }
 
     @Override
@@ -277,18 +291,18 @@ public class GenericHiveRecordCursor<K, V extends Writable>
         else {
             Object fieldValue = ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveJavaObject(fieldData);
             checkState(fieldValue != null, "fieldValue should not be null");
-            longs[column] = getLongExpressedValue(fieldValue);
+            longs[column] = getLongExpressedValue(fieldValue, types[column]);
             nulls[column] = false;
         }
     }
 
-    private long getLongExpressedValue(Object value)
+    private long getLongExpressedValue(Object value, Type type)
     {
         if (value instanceof Date) {
             return ((Date) value).toEpochDay();
         }
         if (value instanceof Timestamp) {
-            return ((Timestamp) value).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
+            return shortTimestamp((Timestamp) value, type);
         }
         if (value instanceof Float) {
             return floatToRawIntBits(((Float) value));
@@ -455,7 +469,6 @@ public class GenericHiveRecordCursor<K, V extends Writable>
     {
         checkState(!closed, "Cursor is closed");
 
-        validateType(fieldId, Block.class);
         if (!loaded[fieldId]) {
             parseObjectColumn(fieldId);
         }
@@ -472,7 +485,17 @@ public class GenericHiveRecordCursor<K, V extends Writable>
             nulls[column] = true;
         }
         else {
-            objects[column] = getBlockObject(types[column], fieldData, fieldInspectors[column]);
+            Type type = types[column];
+            if (type.getJavaType() == Block.class) {
+                objects[column] = getBlockObject(type, fieldData, fieldInspectors[column]);
+            }
+            else if (type instanceof TimestampType) {
+                Timestamp timestamp = (Timestamp) ((PrimitiveObjectInspector) fieldInspectors[column]).getPrimitiveJavaObject(fieldData);
+                objects[column] = longTimestamp(timestamp, type);
+            }
+            else {
+                throw new IllegalStateException("Unsupported type: " + type);
+            }
             nulls[column] = false;
         }
     }
@@ -524,8 +547,13 @@ public class GenericHiveRecordCursor<K, V extends Writable>
         else if (DATE.equals(type)) {
             parseLongColumn(column);
         }
-        else if (TIMESTAMP_MILLIS.equals(type)) {
-            parseLongColumn(column);
+        else if (type instanceof TimestampType) {
+            if (((TimestampType) type).isShort()) {
+                parseLongColumn(column);
+            }
+            else {
+                parseObjectColumn(column);
+            }
         }
         else if (type instanceof DecimalType) {
             parseDecimalColumn(column);
@@ -560,5 +588,19 @@ public class GenericHiveRecordCursor<K, V extends Writable>
         catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    private long shortTimestamp(Timestamp value, Type type)
+    {
+        @SuppressWarnings("unchecked")
+        PrestoTimestampEncoder<Long> encoder = (PrestoTimestampEncoder<Long>) timestampEncoders.get(type);
+        return encoder.getTimestamp(new DecodedTimestamp(value.toEpochSecond(), value.getNanos()));
+    }
+
+    private LongTimestamp longTimestamp(Timestamp value, Type type)
+    {
+        @SuppressWarnings("unchecked")
+        PrestoTimestampEncoder<LongTimestamp> encoder = (PrestoTimestampEncoder<LongTimestamp>) timestampEncoders.get(type);
+        return encoder.getTimestamp(new DecodedTimestamp(value.toEpochSecond(), value.getNanos()));
     }
 }

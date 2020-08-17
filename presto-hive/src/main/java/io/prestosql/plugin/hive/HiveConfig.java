@@ -135,6 +135,8 @@ public class HiveConfig
 
     private Duration dynamicFilteringProbeBlockingTimeout = new Duration(0, MINUTES);
 
+    private int timestampPrecision = 3;
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -978,6 +980,20 @@ public class HiveConfig
     public HiveConfig setDynamicFilteringProbeBlockingTimeout(Duration dynamicFilteringProbeBlockingTimeout)
     {
         this.dynamicFilteringProbeBlockingTimeout = dynamicFilteringProbeBlockingTimeout;
+        return this;
+    }
+
+    @Min(3)
+    public int getTimestampPrecision()
+    {
+        return timestampPrecision;
+    }
+
+    @Config("hive.timestamp-precision")
+    @ConfigDescription("Precision used to represent timestamps")
+    public HiveConfig setTimestampPrecision(int timestampPrecision)
+    {
+        this.timestampPrecision = timestampPrecision;
         return this;
     }
 }

@@ -15,10 +15,13 @@ package io.prestosql.rcfile.text;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
+import io.prestosql.plugin.base.type.DecodedTimestamp;
+import io.prestosql.plugin.base.type.PrestoTimestampEncoder;
 import io.prestosql.rcfile.ColumnData;
 import io.prestosql.rcfile.EncodeOutput;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -26,9 +29,15 @@ import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.DateTimeParser;
 import org.joda.time.format.DateTimePrinter;
 
+import static com.google.common.base.Verify.verify;
+import static io.prestosql.plugin.base.type.PrestoTimestampEncoderFactory.createTimestampEncoder;
 import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.prestosql.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static java.lang.Math.floorDiv;
 import static java.nio.charset.StandardCharsets.US_ASCII;
+import static java.util.Objects.requireNonNull;
+import static org.joda.time.DateTimeZone.UTC;
 
 public class TimestampEncoding
         implements TextColumnEncoding
@@ -50,14 +59,18 @@ public class TimestampEncoding
         HIVE_TIMESTAMP_PARSER = new DateTimeFormatterBuilder().append(timestampWithoutTimeZonePrinter, timestampWithoutTimeZoneParser).toFormatter().withZoneUTC();
     }
 
-    private final Type type;
+    private final TimestampType type;
     private final Slice nullSequence;
+    private final PrestoTimestampEncoder<?> prestoTimestampEncoder;
     private final StringBuilder buffer = new StringBuilder();
 
     public TimestampEncoding(Type type, Slice nullSequence)
     {
-        this.type = type;
+        requireNonNull(type, "type is null");
+        verify(type instanceof TimestampType, "type is not a TimestampType");
+        this.type = (TimestampType) type;
         this.nullSequence = nullSequence;
+        prestoTimestampEncoder = createTimestampEncoder(this.type, UTC);
     }
 
     @Override
@@ -104,7 +117,8 @@ public class TimestampEncoding
                 builder.appendNull();
             }
             else {
-                type.writeLong(builder, parseTimestamp(slice, offset, length));
+                DecodedTimestamp decodedTimestamp = parseTimestamp(slice, offset, length);
+                prestoTimestampEncoder.write(decodedTimestamp, builder);
             }
         }
         return builder.build();
@@ -113,11 +127,16 @@ public class TimestampEncoding
     @Override
     public void decodeValueInto(int depth, BlockBuilder builder, Slice slice, int offset, int length)
     {
-        type.writeLong(builder, parseTimestamp(slice, offset, length));
+        DecodedTimestamp decodedTimestamp = parseTimestamp(slice, offset, length);
+        prestoTimestampEncoder.write(decodedTimestamp, builder);
     }
 
-    private static long parseTimestamp(Slice slice, int offset, int length)
+    private static DecodedTimestamp parseTimestamp(Slice slice, int offset, int length)
     {
-        return HIVE_TIMESTAMP_PARSER.parseMillis(new String(slice.getBytes(offset, length), US_ASCII)) * MICROSECONDS_PER_MILLISECOND;
+        long millis = HIVE_TIMESTAMP_PARSER.parseMillis(new String(slice.getBytes(offset, length), US_ASCII));
+        long epochSeconds = floorDiv(millis, MILLISECONDS_PER_SECOND);
+        return new DecodedTimestamp(
+                epochSeconds,
+                (int) (millis - epochSeconds * MILLISECONDS_PER_SECOND) * NANOSECONDS_PER_MILLISECOND);
     }
 }

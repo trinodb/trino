@@ -68,7 +68,7 @@ public class Timestamps
 
     private Timestamps() {}
 
-    static long round(long value, int magnitude)
+    public static long round(long value, int magnitude)
     {
         return roundDiv(value, POWERS_OF_TEN[magnitude]) * POWERS_OF_TEN[magnitude];
     }

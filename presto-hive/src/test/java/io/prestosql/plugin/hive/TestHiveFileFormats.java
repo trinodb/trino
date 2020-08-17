@@ -481,7 +481,7 @@ public class TestHiveFileFormats
                 .withWriteColumns(writeColumns)
                 .withReadColumns(readColumns)
                 .withSession(PARQUET_SESSION_USE_NAME)
-                .isReadableByPageSource(new ParquetPageSourceFactory(HDFS_ENVIRONMENT, STATS, new ParquetReaderConfig(), new HiveConfig()));
+                .isReadableByPageSource(new ParquetPageSourceFactory(HDFS_ENVIRONMENT, STATS, new ParquetReaderConfig(), new HiveConfig().setTimestampPrecision(9)));
     }
 
     private static List<TestColumn> getTestColumnsSupportedByParquet()

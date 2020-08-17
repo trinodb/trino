@@ -21,8 +21,10 @@ import io.airlift.slice.Slices;
 import io.prestosql.parquet.DictionaryPage;
 import io.prestosql.parquet.ParquetCorruptionException;
 import io.prestosql.parquet.ParquetDataSourceId;
+import io.prestosql.parquet.ParquetTimestampUtils;
 import io.prestosql.parquet.RichColumnDescriptor;
 import io.prestosql.parquet.dictionary.Dictionary;
+import io.prestosql.plugin.base.type.PrestoTimestampEncoder;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -48,8 +50,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.function.Function;
 
-import static io.prestosql.parquet.ParquetTimestampUtils.getTimestampMillis;
 import static io.prestosql.parquet.predicate.PredicateUtils.isStatisticsOverflow;
+import static io.prestosql.plugin.base.type.PrestoTimestampEncoderFactory.createTimestampEncoder;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
@@ -58,7 +60,6 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.floatToRawIntBits;
@@ -255,9 +256,8 @@ public class TupleDomainParquetPredicate
             // the special case where min == max and an incorrect ordering would not be material to the result. PARQUET-1026 made binary stats
             // available and valid in that special case
             if (binaryStatistics.genericGetMin().equals(binaryStatistics.genericGetMax())) {
-                long timestampValue = getTimestampMillis(binaryStatistics.genericGetMax());
-                timestampValue = timeZone.convertUTCToLocal(timestampValue) * MICROSECONDS_PER_MILLISECOND;
-                return createDomain(type, hasNullValue, new ParquetTimestampStatistics(timestampValue, timestampValue));
+                PrestoTimestampEncoder<?> prestoTimestampEncoder = createTimestampEncoder((TimestampType) type, timeZone);
+                return ParquetTimestampUtils.createDomain(prestoTimestampEncoder, binaryStatistics.genericGetMax(), hasNullValue);
             }
         }
 
@@ -377,7 +377,7 @@ public class TupleDomainParquetPredicate
         }
     }
 
-    private static <T extends Comparable<T>> Domain createDomain(Type type, boolean hasNullValue, ParquetRangeStatistics<T> rangeStatistics)
+    public static <T extends Comparable<T>> Domain createDomain(Type type, boolean hasNullValue, ParquetRangeStatistics<T> rangeStatistics)
     {
         return createDomain(type, hasNullValue, rangeStatistics, value -> value);
     }

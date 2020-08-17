@@ -1876,16 +1876,9 @@ public abstract class AbstractTestParquetReader
         long seconds = (input / 1000);
         int nanos = ((input % 1000) * 1_000_000);
 
-        // add some junk nanos to the timestamp, which will be truncated
-        nanos += 888_888;
-
         if (nanos < 0) {
             nanos += 1_000_000_000;
             seconds -= 1;
-        }
-        if (nanos > 1_000_000_000) {
-            nanos -= 1_000_000_000;
-            seconds += 1;
         }
         return Timestamp.ofEpochSecond(seconds, nanos);
     }

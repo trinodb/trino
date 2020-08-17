@@ -43,6 +43,7 @@ import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.Optional;
@@ -52,6 +53,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.parquet.ParquetEncoding.PLAIN_DICTIONARY;
 import static io.prestosql.parquet.ParquetTimestampUtils.JULIAN_EPOCH_OFFSET_DAYS;
 import static io.prestosql.parquet.predicate.TupleDomainParquetPredicate.getDomain;
+import static io.prestosql.plugin.base.type.PrestoTimestampEncoderFactory.longTimestamp;
 import static io.prestosql.spi.predicate.Domain.all;
 import static io.prestosql.spi.predicate.Domain.create;
 import static io.prestosql.spi.predicate.Domain.notNull;
@@ -68,10 +70,12 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.createTimestampType;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
+import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
-import static io.prestosql.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.Float.NaN;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
@@ -352,15 +356,27 @@ public class TestTupleDomainParquetPredicate
                 .withMessage("Corrupted statistics for column \"DateColumn\" in Parquet file \"testFile\": [min: 200, max: 100, num_nulls: 0]");
     }
 
-    @Test
-    public void testTimestampMillis()
+    @DataProvider
+    public Object[][] timestampPrecision()
+    {
+        int nanoOfSecond = 123456789;
+        Instant baseTime = Instant.from(LocalDateTime.of(1970, 1, 19, 10, 28, 52, nanoOfSecond).atZone(ZoneOffset.UTC));
+        return new Object[][] {
+                {3, baseTime, baseTime.toEpochMilli() * MICROSECONDS_PER_MILLISECOND},
+                // note the rounding of micros
+                {6, baseTime, baseTime.getEpochSecond() * MICROSECONDS_PER_SECOND + 123457},
+                {9, baseTime, longTimestamp(9, baseTime)}
+        };
+    }
+
+    @Test(dataProvider = "timestampPrecision")
+    public void testTimestamp(int precision, Instant baseTime, Object baseDomainValue)
             throws ParquetCorruptionException
     {
-        Instant baseTime = Instant.ofEpochMilli(1592935098L);
         String column = "timestampColumn";
-        TimestampType timestampType = createTimestampType(3);
+        TimestampType timestampType = createTimestampType(precision);
         assertEquals(getDomain(timestampType, 0, null, ID, column, true, UTC), all(timestampType));
-        assertEquals(getDomain(timestampType, 10, timestampColumnStats(baseTime, baseTime), ID, column, true, UTC), singleValue(timestampType, baseTime.toEpochMilli() * MICROSECONDS_PER_MILLISECOND));
+        assertEquals(getDomain(timestampType, 10, timestampColumnStats(baseTime, baseTime), ID, column, true, UTC), singleValue(timestampType, baseDomainValue));
         // INT96 binary ranges ignored when min <> max
         assertEquals(
                 getDomain(timestampType, 10, timestampColumnStats(baseTime.minusSeconds(10), baseTime), ID, column, true, UTC),
@@ -377,7 +393,7 @@ public class TestTupleDomainParquetPredicate
     private static byte[] toParquetEncoding(Instant timestamp)
     {
         long startOfDay = LocalDate.ofInstant(timestamp, ZoneOffset.UTC).atStartOfDay().toInstant(ZoneOffset.UTC).toEpochMilli();
-        long timeOfDayNanos = (long) ((timestamp.toEpochMilli() - startOfDay) * Math.pow(10, 6));
+        long timeOfDayNanos = (long) ((timestamp.toEpochMilli() - startOfDay) * Math.pow(10, 6)) + timestamp.getNano() % NANOSECONDS_PER_MILLISECOND;
 
         Slice slice = Slices.allocate(12);
         slice.setLong(0, timeOfDayNanos);

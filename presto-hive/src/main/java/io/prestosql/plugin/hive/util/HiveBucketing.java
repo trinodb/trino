@@ -174,14 +174,14 @@ public final class HiveBucketing
         return (hashCode & Integer.MAX_VALUE) % bucketCount;
     }
 
-    public static Optional<HiveBucketHandle> getHiveBucketHandle(Table table, TypeManager typeManager)
+    public static Optional<HiveBucketHandle> getHiveBucketHandle(Table table, TypeManager typeManager, int precision)
     {
         Optional<HiveBucketProperty> hiveBucketProperty = table.getStorage().getBucketProperty();
         if (hiveBucketProperty.isEmpty()) {
             return Optional.empty();
         }
 
-        Map<String, HiveColumnHandle> map = getRegularColumnHandles(table, typeManager).stream()
+        Map<String, HiveColumnHandle> map = getRegularColumnHandles(table, typeManager, precision).stream()
                 .collect(Collectors.toMap(HiveColumnHandle::getName, identity()));
 
         ImmutableList.Builder<HiveColumnHandle> bucketColumns = ImmutableList.builder();

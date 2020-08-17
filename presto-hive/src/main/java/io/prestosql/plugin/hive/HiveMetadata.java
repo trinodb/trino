@@ -91,6 +91,7 @@ import io.prestosql.spi.statistics.ComputedStatistics;
 import io.prestosql.spi.statistics.TableStatisticType;
 import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.statistics.TableStatisticsMetadata;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.VarcharType;
@@ -159,6 +160,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.prestosql.plugin.hive.HivePartitionManager.extractPartitionValues;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getCompressionCodec;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getHiveStorageFormat;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getTimestampPrecision;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isBucketExecutionEnabled;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isCollectColumnStatisticsOnWrite;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isCreateEmptyBucketFiles;
@@ -370,7 +372,7 @@ public class HiveMetadata
                 tableName.getTableName(),
                 table.get().getParameters(),
                 getPartitionKeyColumnHandles(table.get(), typeManager),
-                getHiveBucketHandle(table.get(), typeManager));
+                getHiveBucketHandle(table.get(), typeManager, getTimestampPrecision(session)));
     }
 
     @Override
@@ -545,7 +547,7 @@ public class HiveMetadata
 
         Function<HiveColumnHandle, ColumnMetadata> metadataGetter = columnMetadataGetter(table);
         ImmutableList.Builder<ColumnMetadata> columns = ImmutableList.builder();
-        for (HiveColumnHandle columnHandle : hiveColumnHandles(table, typeManager)) {
+        for (HiveColumnHandle columnHandle : hiveColumnHandles(table, typeManager, getTimestampPrecision(session))) {
             columns.add(metadataGetter.apply(columnHandle));
         }
 
@@ -689,7 +691,7 @@ public class HiveMetadata
         SchemaTableName tableName = ((HiveTableHandle) tableHandle).getSchemaTableName();
         Table table = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), tableName.getTableName())
                 .orElseThrow(() -> new TableNotFoundException(tableName));
-        return hiveColumnHandles(table, typeManager).stream()
+        return hiveColumnHandles(table, typeManager, getTimestampPrecision(session)).stream()
                 .collect(toImmutableMap(HiveColumnHandle::getName, identity()));
     }
 
@@ -1210,7 +1212,8 @@ public class HiveMetadata
         List<String> partitionColumnNames = partitionColumns.stream()
                 .map(Column::getName)
                 .collect(toImmutableList());
-        List<HiveColumnHandle> hiveColumnHandles = hiveColumnHandles(table, typeManager);
+        // TODO: revisit when handling write path
+        List<HiveColumnHandle> hiveColumnHandles = hiveColumnHandles(table, typeManager, TimestampType.DEFAULT_PRECISION);
         Map<String, Type> columnTypes = hiveColumnHandles.stream()
                 .filter(columnHandle -> !columnHandle.isHidden())
                 .collect(toImmutableMap(HiveColumnHandle::getName, column -> column.getHiveType().getType(typeManager)));
@@ -1527,7 +1530,7 @@ public class HiveMetadata
             }
         }
 
-        List<HiveColumnHandle> handles = hiveColumnHandles(table, typeManager).stream()
+        List<HiveColumnHandle> handles = hiveColumnHandles(table, typeManager, getTimestampPrecision(session)).stream()
                 .filter(columnHandle -> !columnHandle.isHidden())
                 .collect(toList());
 
@@ -2282,7 +2285,7 @@ public class HiveMetadata
             }
         }
 
-        Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(table, typeManager);
+        Optional<HiveBucketHandle> hiveBucketHandle = getHiveBucketHandle(table, typeManager, getTimestampPrecision(session));
         if (hiveBucketHandle.isEmpty()) {
             // return preferred layout which is partitioned by partition columns
             List<Column> partitionColumns = table.getPartitionColumns();
