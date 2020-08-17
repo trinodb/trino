@@ -19,6 +19,7 @@ import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 
@@ -32,7 +33,6 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static java.util.stream.Collectors.toList;
@@ -61,7 +61,7 @@ public interface RcFileEncoding
 
     ColumnEncoding dateEncoding(Type type);
 
-    ColumnEncoding timestampEncoding(Type type);
+    ColumnEncoding timestampEncoding(TimestampType type);
 
     ColumnEncoding listEncoding(Type type, ColumnEncoding elementEncoding);
 
@@ -104,8 +104,8 @@ public interface RcFileEncoding
         if (DATE.equals(type)) {
             return dateEncoding(type);
         }
-        if (TIMESTAMP_MILLIS.equals(type)) {
-            return timestampEncoding(type);
+        if (type instanceof TimestampType) {
+            return timestampEncoding((TimestampType) type);
         }
         if (type instanceof ArrayType) {
             ColumnEncoding elementType = getEncoding(type.getTypeParameters().get(0));

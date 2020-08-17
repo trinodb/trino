@@ -512,6 +512,13 @@ public class TimestampColumnReader
             picosFraction = toIntExact(nanos * PICOSECONDS_PER_NANOSECOND);
         }
 
+        if (!isFileUtc()) {
+            long millis = floorDiv(micros, MICROSECONDS_PER_MILLISECOND);
+            int microsFraction = floorMod(micros, MICROSECONDS_PER_MILLISECOND);
+            millis = fileDateTimeZone.convertUTCToLocal(millis);
+            micros = (millis * MICROSECONDS_PER_MILLISECOND) + microsFraction;
+        }
+
         microsValues[i] = micros;
         picosFractionValues[i] = picosFraction;
     }

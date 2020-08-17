@@ -22,6 +22,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.NamedTypeSignature;
 import io.prestosql.spi.type.RowFieldName;
 import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
@@ -120,9 +121,20 @@ public final class HiveType
         return getTypeSignature(typeInfo);
     }
 
+    @Deprecated
     public Type getType(TypeManager typeManager)
     {
         return typeManager.getType(getTypeSignature());
+    }
+
+    public Type getType(TypeManager typeManager, int timestampPrecision)
+    {
+        Type tentativeType = typeManager.getType(getTypeSignature());
+        // TODO: handle timestamps in structural types (https://github.com/prestosql/presto/issues/5195)
+        if (tentativeType instanceof TimestampType) {
+            return TimestampType.createTimestampType(timestampPrecision);
+        }
+        return tentativeType;
     }
 
     @Override
