@@ -80,6 +80,8 @@ public class SymbolMapper
                 while (mapping.containsKey(symbol) && !mapping.get(symbol).equals(symbol)) {
                     symbol = mapping.get(symbol);
                 }
+                // do not remap the symbol further
+                mapping.put(symbol, symbol);
                 return symbol;
             }
             Symbol newSymbol = symbolAllocator.newSymbol(symbol);
