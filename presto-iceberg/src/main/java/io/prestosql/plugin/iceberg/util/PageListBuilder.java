@@ -104,32 +104,35 @@ public final class PageListBuilder
 
     public void appendVarchar(String value)
     {
+        if (value == null) {
+            appendNull();
+        }
         VARCHAR.writeString(nextColumn(), value);
     }
 
     public void appendVarbinary(Slice value)
     {
-        VARBINARY.writeSlice(nextColumn(), value);
+        if (value == null) {
+            appendNull();
+        }
+        else {
+            VARBINARY.writeSlice(nextColumn(), value);
+        }
     }
 
     public void appendBigintArray(Iterable<Long> values)
     {
-        BlockBuilder column = nextColumn();
-        BlockBuilder array = column.beginBlockEntry();
-        for (Long value : values) {
-            BIGINT.writeLong(array, value);
+        if (values == null) {
+            appendNull();
         }
-        column.closeEntry();
-    }
-
-    public void appendVarcharArray(Iterable<String> values)
-    {
-        BlockBuilder column = nextColumn();
-        BlockBuilder array = column.beginBlockEntry();
-        for (String value : values) {
-            VARCHAR.writeString(array, value);
+        else {
+            BlockBuilder column = nextColumn();
+            BlockBuilder array = column.beginBlockEntry();
+            for (Long value : values) {
+                BIGINT.writeLong(array, value);
+            }
+            column.closeEntry();
         }
-        column.closeEntry();
     }
 
     public void appendVarcharVarcharMap(Map<String, String> values)
@@ -138,28 +141,6 @@ public final class PageListBuilder
         BlockBuilder map = column.beginBlockEntry();
         values.forEach((key, value) -> {
             VARCHAR.writeString(map, key);
-            VARCHAR.writeString(map, value);
-        });
-        column.closeEntry();
-    }
-
-    public void appendIntegerBigintMap(Map<Integer, Long> values)
-    {
-        BlockBuilder column = nextColumn();
-        BlockBuilder map = column.beginBlockEntry();
-        values.forEach((key, value) -> {
-            INTEGER.writeLong(map, key);
-            BIGINT.writeLong(map, value);
-        });
-        column.closeEntry();
-    }
-
-    public void appendIntegerVarcharMap(Map<Integer, String> values)
-    {
-        BlockBuilder column = nextColumn();
-        BlockBuilder map = column.beginBlockEntry();
-        values.forEach((key, value) -> {
-            INTEGER.writeLong(map, key);
             VARCHAR.writeString(map, value);
         });
         column.closeEntry();

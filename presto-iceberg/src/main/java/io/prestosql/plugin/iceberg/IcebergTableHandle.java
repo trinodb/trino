@@ -19,6 +19,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.TupleDomain;
+import org.apache.iceberg.catalog.TableIdentifier;
 
 import java.util.Locale;
 import java.util.Objects;
@@ -128,6 +129,11 @@ public class IcebergTableHandle
     public String toString()
     {
         return getSchemaTableName().toString();
+    }
+
+    public TableIdentifier toTableIdentifier()
+    {
+        return TableIdentifier.of(schemaName, tableName, tableType.name());
     }
 
     public static IcebergTableHandle from(SchemaTableName name)

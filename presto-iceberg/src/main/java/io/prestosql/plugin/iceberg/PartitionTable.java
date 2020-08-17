@@ -280,7 +280,7 @@ public class PartitionTable
         return map.build();
     }
 
-    private static Object convert(Object value, Type type)
+    static Object convert(Object value, Type type)
     {
         if (value == null) {
             return null;
