@@ -1054,7 +1054,7 @@ public class ExpressionInterpreter
             }
 
             // do not optimize non-deterministic functions
-            if (optimize && (!metadata.getFunctionMetadata(resolvedFunction).isDeterministic() ||
+            if (optimize && (!metadata.getFunctionMetadata(session, resolvedFunction).isDeterministic() ||
                     hasUnresolvedValue(argumentValues) ||
                     isDynamicFilter(node) ||
                     resolvedFunction.getSignature().getName().equals("fail"))) {

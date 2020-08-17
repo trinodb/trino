@@ -39,6 +39,7 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.trino.SessionTestUtils.TEST_SESSION;
 import static io.trino.metadata.InternalFunctionBundle.extractFunctions;
 import static io.trino.metadata.Signature.mangleOperatorName;
 import static io.trino.metadata.Signature.unmangleOperator;
@@ -267,7 +268,7 @@ public class TestGlobalFunctionCatalog
                 .map(Signature::mangleOperatorName)
                 .collect(toImmutableSet());
 
-        return metadata.listFunctions().stream()
+        return metadata.listFunctions(TEST_SESSION).stream()
                 .filter(function -> operatorNames.contains(function.getSignature().getName()))
                 .collect(toImmutableList());
     }

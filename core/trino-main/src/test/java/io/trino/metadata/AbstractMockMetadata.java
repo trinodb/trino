@@ -705,7 +705,7 @@ public abstract class AbstractMockMetadata
     //
 
     @Override
-    public Collection<FunctionMetadata> listFunctions()
+    public Collection<FunctionMetadata> listFunctions(Session session)
     {
         throw new UnsupportedOperationException();
     }
@@ -755,13 +755,13 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public boolean isAggregationFunction(QualifiedName name)
+    public boolean isAggregationFunction(Session session, QualifiedName name)
     {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public FunctionMetadata getFunctionMetadata(ResolvedFunction resolvedFunction)
+    public FunctionMetadata getFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
     {
         BoundSignature signature = resolvedFunction.getSignature();
         if (signature.getName().equals("rand") && signature.getArgumentTypes().isEmpty()) {
@@ -775,7 +775,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public AggregationFunctionMetadata getAggregationFunctionMetadata(ResolvedFunction resolvedFunction)
+    public AggregationFunctionMetadata getAggregationFunctionMetadata(Session session, ResolvedFunction resolvedFunction)
     {
         throw new UnsupportedOperationException();
     }

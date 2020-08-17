@@ -96,7 +96,7 @@ public class ExpressionOptimizer
                     .collect(toImmutableList());
 
             // TODO: optimize function calls with lambda arguments. For example, apply(x -> x + 2, 1)
-            FunctionMetadata functionMetadata = metadata.getFunctionMetadata(call.getResolvedFunction());
+            FunctionMetadata functionMetadata = metadata.getFunctionMetadata(session, call.getResolvedFunction());
             if (arguments.stream().allMatch(ConstantExpression.class::isInstance) && functionMetadata.isDeterministic()) {
                 List<Object> constantArguments = arguments.stream()
                         .map(ConstantExpression.class::cast)
