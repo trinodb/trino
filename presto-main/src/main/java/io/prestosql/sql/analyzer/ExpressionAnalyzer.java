@@ -1070,7 +1070,7 @@ public class ExpressionAnalyzer
                 resultType = TIME_WITH_TIME_ZONE;
             }
             else if (valueType instanceof TimestampType) {
-                resultType = TIMESTAMP_WITH_TIME_ZONE;
+                resultType = createTimestampWithTimeZoneType(((TimestampType) valueType).getPrecision());
             }
 
             return setExpressionType(node, resultType);
