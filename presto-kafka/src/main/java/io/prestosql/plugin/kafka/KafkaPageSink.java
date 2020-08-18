@@ -29,7 +29,6 @@ import java.io.UncheckedIOException;
 import java.util.Collection;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.kafka.KafkaErrorCode.KAFKA_PRODUCER_ERROR;
@@ -68,12 +67,12 @@ public class KafkaPageSink
     private static class ProducerCallback
             implements Callback
     {
-        private final AtomicLong errorCounter;
+        private long errorCount;
         private long writtenBytes;
 
         public ProducerCallback()
         {
-            this.errorCounter = new AtomicLong(0);
+            this.errorCount = 0;
             this.writtenBytes = 0;
         }
 
@@ -81,7 +80,7 @@ public class KafkaPageSink
         public void onCompletion(RecordMetadata recordMetadata, Exception e)
         {
             if (e != null) {
-                errorCounter.incrementAndGet();
+                errorCount++;
             }
             else {
                 writtenBytes += recordMetadata.serializedValueSize() + recordMetadata.serializedKeySize();
@@ -90,7 +89,7 @@ public class KafkaPageSink
 
         public long getErrorCount()
         {
-            return errorCounter.get();
+            return errorCount;
         }
 
         public long getWrittenBytes()
