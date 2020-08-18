@@ -210,7 +210,10 @@ public class BenchmarkDecimalOperators
                 "s1 + s2 + s3 + s4",
                 "l1 + l2",
                 "l1 + l2 + l3 + l4",
-                "s2 + l3 + l1 + s4"})
+                "s2 + l3 + l1 + s4",
+                "lz1 + lz2",
+                "lz1 + lz2 + lz3 + lz4",
+                "s2 + lz3 + lz1 + s4"})
         private String expression = "d1 + d2";
 
         @Setup
@@ -230,6 +233,11 @@ public class BenchmarkDecimalOperators
             addSymbol("l2", createDecimalType(25, 5));
             addSymbol("l3", createDecimalType(20, 6));
             addSymbol("l4", createDecimalType(25, 8));
+
+            addSymbol("lz1", createDecimalType(35, 0));
+            addSymbol("lz2", createDecimalType(25, 0));
+            addSymbol("lz3", createDecimalType(20, 0));
+            addSymbol("lz4", createDecimalType(25, 0));
 
             generateRandomInputPage();
             generateProcessor(expression);
