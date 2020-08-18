@@ -631,13 +631,12 @@ public class TestOracleTypeMapping
                 .addRoundTrip(timestampDataType(), beforeEpoch)
                 .addRoundTrip(timestampDataType(), afterEpoch)
                 .addRoundTrip(timestampDataType(), timeDoubledInJvmZone)
-                .addRoundTrip(timestampDataType(), timeDoubledInVilnius);
-
-        addTimestampTestIfSupported(tests, epoch); // epoch also is a gap in JVM zone
-        addTimestampTestIfSupported(tests, timeGapInJvmZone1);
-        addTimestampTestIfSupported(tests, timeGapInJvmZone2);
-        addTimestampTestIfSupported(tests, timeGapInVilnius);
-        addTimestampTestIfSupported(tests, timeGapInKathmandu);
+                .addRoundTrip(timestampDataType(), timeDoubledInVilnius)
+                .addRoundTrip(timestampDataType(), epoch) // epoch also is a gap in JVM zone
+                .addRoundTrip(timestampDataType(), timeGapInJvmZone1)
+                .addRoundTrip(timestampDataType(), timeGapInJvmZone2)
+                .addRoundTrip(timestampDataType(), timeGapInVilnius)
+                .addRoundTrip(timestampDataType(), timeGapInKathmandu);
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -649,11 +648,6 @@ public class TestOracleTypeMapping
         else {
             tests.execute(getQueryRunner(), session, oracleCreateAndInsert("test_timestamp"));
         }
-    }
-
-    private void addTimestampTestIfSupported(DataTypeTest tests, LocalDateTime dateTime)
-    {
-        tests.addRoundTrip(timestampDataType(), dateTime);
     }
 
     @DataProvider
