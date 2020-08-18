@@ -2292,6 +2292,42 @@ public class TestTimestamp
         assertThat(assertions.expression("CAST(TIMESTAMP '2020-05-26 09:26:10.111111111111' as TIME(12))", session)).matches("TIME '09:26:10.111111111111'");
     }
 
+    @Test
+    public void testAtTimeZone()
+    {
+        Session session = assertions.sessionBuilder()
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey("Pacific/Apia"))
+                .build();
+
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56' AT TIME ZONE 'America/Los_Angeles'", session)).matches("TIMESTAMP '2020-04-30 16:34:56 America/Los_Angeles'");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1' AT TIME ZONE 'America/Los_Angeles'", session)).matches("TIMESTAMP '2020-04-30 16:34:56.1 America/Los_Angeles'");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.12' AT TIME ZONE 'America/Los_Angeles'", session)).matches("TIMESTAMP '2020-04-30 16:34:56.12 America/Los_Angeles'");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.123' AT TIME ZONE 'America/Los_Angeles'", session)).matches("TIMESTAMP '2020-04-30 16:34:56.123 America/Los_Angeles'");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1234' AT TIME ZONE 'America/Los_Angeles'", session)).matches("TIMESTAMP '2020-04-30 16:34:56.1234 America/Los_Angeles'");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.12345' AT TIME ZONE 'America/Los_Angeles'", session)).matches("TIMESTAMP '2020-04-30 16:34:56.12345 America/Los_Angeles'");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.123456' AT TIME ZONE 'America/Los_Angeles'", session)).matches("TIMESTAMP '2020-04-30 16:34:56.123456 America/Los_Angeles'");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1234567' AT TIME ZONE 'America/Los_Angeles'", session)).matches("TIMESTAMP '2020-04-30 16:34:56.1234567 America/Los_Angeles'");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.12345678' AT TIME ZONE 'America/Los_Angeles'", session)).matches("TIMESTAMP '2020-04-30 16:34:56.12345678 America/Los_Angeles'");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.123456789' AT TIME ZONE 'America/Los_Angeles'", session)).matches("TIMESTAMP '2020-04-30 16:34:56.123456789 America/Los_Angeles'");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1234567891' AT TIME ZONE 'America/Los_Angeles'", session)).matches("TIMESTAMP '2020-04-30 16:34:56.1234567891 America/Los_Angeles'");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.12345678912' AT TIME ZONE 'America/Los_Angeles'", session)).matches("TIMESTAMP '2020-04-30 16:34:56.12345678912 America/Los_Angeles'");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.123456789123' AT TIME ZONE 'America/Los_Angeles'", session)).matches("TIMESTAMP '2020-04-30 16:34:56.123456789123 America/Los_Angeles'");
+
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIMESTAMP '2020-05-01 09:34:56 +10:00'");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIMESTAMP '2020-05-01 09:34:56.1 +10:00'");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.12' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIMESTAMP '2020-05-01 09:34:56.12 +10:00'");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.123' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIMESTAMP '2020-05-01 09:34:56.123 +10:00'");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1234' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIMESTAMP '2020-05-01 09:34:56.1234 +10:00'");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.12345' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIMESTAMP '2020-05-01 09:34:56.12345 +10:00'");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.123456' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIMESTAMP '2020-05-01 09:34:56.123456 +10:00'");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1234567' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIMESTAMP '2020-05-01 09:34:56.1234567 +10:00'");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.12345678' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIMESTAMP '2020-05-01 09:34:56.12345678 +10:00'");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.123456789' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIMESTAMP '2020-05-01 09:34:56.123456789 +10:00'");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.1234567891' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIMESTAMP '2020-05-01 09:34:56.1234567891 +10:00'");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.12345678912' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIMESTAMP '2020-05-01 09:34:56.12345678912 +10:00'");
+        assertThat(assertions.expression("TIMESTAMP '2020-05-01 12:34:56.123456789123' AT TIME ZONE INTERVAL '10' HOUR", session)).matches("TIMESTAMP '2020-05-01 09:34:56.123456789123 +10:00'");
+    }
+
     private static BiFunction<Session, QueryRunner, Object> timestamp(int precision, int year, int month, int day, int hour, int minute, int second, long picoOfSecond)
     {
         return (session, queryRunner) -> {
