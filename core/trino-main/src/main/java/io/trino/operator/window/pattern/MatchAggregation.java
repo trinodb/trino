@@ -18,7 +18,6 @@ import io.trino.memory.context.LocalMemoryContext;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionNullability;
 import io.trino.operator.aggregation.AggregationMetadata;
-import io.trino.operator.aggregation.LambdaProvider;
 import io.trino.operator.aggregation.WindowAccumulator;
 import io.trino.operator.window.MappedWindowIndex;
 import io.trino.operator.window.matcher.ArrayView;
@@ -197,7 +196,7 @@ public class MatchAggregation
                 AggregationMetadata aggregationMetadata,
                 FunctionNullability functionNullability,
                 List<Integer> argumentChannels,
-                List<LambdaProvider> lambdaProviders,
+                List<Supplier<Object>> lambdaProviders,
                 SetEvaluatorSupplier setEvaluatorSupplier)
         {
             this.boundSignature = boundSignature;
@@ -214,7 +213,7 @@ public class MatchAggregation
             return new MatchAggregation(boundSignature, accumulatorFactory, argumentChannels, setEvaluatorSupplier.get(), memoryContextSupplier);
         }
 
-        private static WindowAccumulator createWindowAccumulator(Constructor<? extends WindowAccumulator> constructor, List<LambdaProvider> lambdaProviders)
+        private static WindowAccumulator createWindowAccumulator(Constructor<? extends WindowAccumulator> constructor, List<Supplier<Object>> lambdaProviders)
         {
             try {
                 return constructor.newInstance(lambdaProviders);

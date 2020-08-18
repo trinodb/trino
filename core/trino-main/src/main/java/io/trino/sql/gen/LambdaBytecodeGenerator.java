@@ -31,7 +31,6 @@ import io.airlift.bytecode.Variable;
 import io.airlift.bytecode.expression.BytecodeExpression;
 import io.trino.metadata.Metadata;
 import io.trino.operator.aggregation.AccumulatorCompiler;
-import io.trino.operator.aggregation.LambdaProvider;
 import io.trino.spi.connector.ConnectorSession;
 import io.trino.sql.relational.CallExpression;
 import io.trino.sql.relational.ConstantExpression;
@@ -50,6 +49,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.bytecode.Access.PRIVATE;
@@ -88,7 +88,7 @@ public final class LambdaBytecodeGenerator
 
         int counter = 0;
         for (LambdaDefinitionExpression lambdaExpression : lambdaExpressions) {
-            CompiledLambda compiledLambda = LambdaBytecodeGenerator.preGenerateLambdaExpression(
+            CompiledLambda compiledLambda = preGenerateLambdaExpression(
                     lambdaExpression,
                     "lambda_" + counter,
                     containerClassDefinition,
@@ -228,13 +228,13 @@ public final class LambdaBytecodeGenerator
         return block;
     }
 
-    public static Class<? extends LambdaProvider> compileLambdaProvider(LambdaDefinitionExpression lambdaExpression, Metadata metadata, Class<?> lambdaInterface)
+    public static Class<? extends Supplier<Object>> compileLambdaProvider(LambdaDefinitionExpression lambdaExpression, Metadata metadata, Class<?> lambdaInterface)
     {
         ClassDefinition lambdaProviderClassDefinition = new ClassDefinition(
                 a(PUBLIC, Access.FINAL),
                 makeClassName("LambdaProvider"),
                 type(Object.class),
-                type(LambdaProvider.class));
+                type(Supplier.class, Object.class));
 
         FieldDefinition sessionField = lambdaProviderClassDefinition.declareField(a(PRIVATE), "session", ConnectorSession.class);
 
@@ -250,7 +250,7 @@ public final class LambdaBytecodeGenerator
 
         MethodDefinition method = lambdaProviderClassDefinition.declareMethod(
                 a(PUBLIC),
-                "getLambda",
+                "get",
                 type(Object.class),
                 ImmutableList.of());
 
@@ -296,7 +296,8 @@ public final class LambdaBytecodeGenerator
         cachedInstanceBinder.generateInitializations(constructorThisVariable, constructorBody);
         constructorBody.ret();
 
-        return defineClass(lambdaProviderClassDefinition, LambdaProvider.class, callSiteBinder.getBindings(), AccumulatorCompiler.class.getClassLoader());
+        //noinspection unchecked
+        return (Class<? extends Supplier<Object>>) defineClass(lambdaProviderClassDefinition, Supplier.class, callSiteBinder.getBindings(), AccumulatorCompiler.class.getClassLoader());
     }
 
     private static Method getSingleApplyMethod(Class<?> lambdaFunctionInterface)
