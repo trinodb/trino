@@ -15,7 +15,6 @@ package io.prestosql.execution;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.plugin.tpch.TpchPlugin;
@@ -38,56 +37,59 @@ import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.EmptyPageSource;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.transaction.IsolationLevel;
 import io.prestosql.split.EmptySplit;
+import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.TestingHandleResolver;
 import io.prestosql.testing.TestingMetadata;
 import io.prestosql.testing.TestingPageSinkProvider;
 import io.prestosql.testing.TestingTransactionHandle;
-import org.testng.annotations.AfterClass;
+import org.intellij.lang.annotations.Language;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
+import static io.prestosql.spi.predicate.Domain.singleValue;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.PARTITIONED;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
-import static java.lang.String.format;
-import static java.lang.Thread.sleep;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
+@Test(singleThreaded = true)
 public class TestCoordinatorDynamicFiltering
-        extends AbstractCoordinatorDynamicFilteringTest
+        extends AbstractTestQueryFramework
 {
-    private ExecutorService executorService;
+    private static final TestingMetadata.TestingColumnHandle SUPP_KEY_HANDLE = new TestingMetadata.TestingColumnHandle("suppkey", 2, BIGINT);
+
+    private volatile TupleDomain<ColumnHandle> expectedDynamicFilter;
 
     @BeforeClass
     public void setup()
     {
-        executorService = newSingleThreadScheduledExecutor();
+        // create lineitem table in test connector
         getQueryRunner().installPlugin(new TestPlugin());
         getQueryRunner().installPlugin(new TpchPlugin());
         getQueryRunner().createCatalog("test", "test", ImmutableMap.of());
         getQueryRunner().createCatalog("tpch", "tpch", ImmutableMap.of());
         computeActual("CREATE TABLE lineitem AS SELECT * FROM tpch.tiny.lineitem");
-    }
-
-    @AfterClass(alwaysRun = true)
-    public void tearDown()
-    {
-        executorService.shutdownNow();
     }
 
     @Override
@@ -101,8 +103,183 @@ public class TestCoordinatorDynamicFiltering
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, PARTITIONED.name())
                 .build();
         return DistributedQueryRunner.builder(session)
-                .setExtraProperties(ImmutableMap.of("query.min-schedule-split-batch-size", "1"))
                 .build();
+    }
+
+    @Test(timeOut = 30_000)
+    public void testJoinWithEmptyBuildSide()
+    {
+        assertQueryDynamicFilters(
+                "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name = 'abc'",
+                TupleDomain.none());
+    }
+
+    @Test(timeOut = 30_000)
+    public void testBroadcastJoinWithEmptyBuildSide()
+    {
+        assertQueryDynamicFilters(
+                withBroadcastJoin(),
+                "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name = 'abc'",
+                TupleDomain.none());
+    }
+
+    @Test(timeOut = 30_000)
+    public void testJoinWithLargeBuildSide()
+    {
+        assertQueryDynamicFilters(
+                "SELECT * FROM lineitem JOIN tpch.tiny.orders ON lineitem.orderkey = orders.orderkey",
+                TupleDomain.all());
+    }
+
+    @Test(timeOut = 30_000)
+    public void testBroadcastJoinWithLargeBuildSide()
+    {
+        assertQueryDynamicFilters(
+                withBroadcastJoin(),
+                "SELECT * FROM lineitem JOIN tpch.tiny.orders ON lineitem.orderkey = orders.orderkey",
+                TupleDomain.all());
+    }
+
+    @Test(timeOut = 30_000)
+    public void testJoinWithSelectiveBuildSide()
+    {
+        assertQueryDynamicFilters(
+                "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name = 'Supplier#000000001'",
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SUPP_KEY_HANDLE,
+                        singleValue(BIGINT, 1L))));
+    }
+
+    @Test(timeOut = 30_000)
+    public void testBroadcastJoinWithSelectiveBuildSide()
+    {
+        assertQueryDynamicFilters(
+                withBroadcastJoin(),
+                "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name = 'Supplier#000000001'",
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SUPP_KEY_HANDLE,
+                        singleValue(BIGINT, 1L))));
+    }
+
+    @Test(timeOut = 30_000)
+    public void testJoinWithNonSelectiveBuildSide()
+    {
+        assertQueryDynamicFilters(
+                "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey",
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SUPP_KEY_HANDLE,
+                        Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, true, 100L, true)), false))));
+    }
+
+    @Test(timeOut = 30_000)
+    public void testJoinWithMultipleDynamicFiltersOnProbe()
+    {
+        // supplier names Supplier#000000001 and Supplier#000000002 match suppkey 1 and 2
+        assertQueryDynamicFilters(
+                "SELECT * FROM (" +
+                        "SELECT supplier.suppkey FROM " +
+                        "lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name IN ('Supplier#000000001', 'Supplier#000000002')" +
+                        ") t JOIN tpch.tiny.partsupp ON t.suppkey = partsupp.suppkey AND partsupp.suppkey IN (2, 3)",
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SUPP_KEY_HANDLE,
+                        singleValue(BIGINT, 2L))));
+    }
+
+    @Test(timeOut = 30_000)
+    public void testSemiJoinWithEmptyBuildSide()
+    {
+        assertQueryDynamicFilters(
+                "SELECT * FROM lineitem WHERE lineitem.suppkey IN (SELECT supplier.suppkey FROM tpch.tiny.supplier WHERE supplier.name = 'abc')",
+                TupleDomain.none());
+    }
+
+    @Test(timeOut = 30_000)
+    public void testBroadcastSemiJoinWithEmptyBuildSide()
+    {
+        assertQueryDynamicFilters(
+                withBroadcastJoin(),
+                "SELECT * FROM lineitem WHERE lineitem.suppkey IN (SELECT supplier.suppkey FROM tpch.tiny.supplier WHERE supplier.name = 'abc')",
+                TupleDomain.none());
+    }
+
+    @Test(timeOut = 30_000)
+    public void testSemiJoinWithLargeBuildSide()
+    {
+        assertQueryDynamicFilters(
+                "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM tpch.tiny.orders)",
+                TupleDomain.all());
+    }
+
+    @Test(timeOut = 30_000)
+    public void testBroadcastSemiJoinWithLargeBuildSide()
+    {
+        assertQueryDynamicFilters(
+                withBroadcastJoin(),
+                "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM tpch.tiny.orders)",
+                TupleDomain.all());
+    }
+
+    @Test(timeOut = 30_000)
+    public void testSemiJoinWithSelectiveBuildSide()
+    {
+        assertQueryDynamicFilters(
+                "SELECT * FROM lineitem WHERE lineitem.suppkey IN (SELECT supplier.suppkey FROM tpch.tiny.supplier WHERE supplier.name = 'Supplier#000000001')",
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SUPP_KEY_HANDLE,
+                        singleValue(BIGINT, 1L))));
+    }
+
+    @Test(timeOut = 30_000)
+    public void testBroadcastSemiJoinWithSelectiveBuildSide()
+    {
+        assertQueryDynamicFilters(
+                withBroadcastJoin(),
+                "SELECT * FROM lineitem WHERE lineitem.suppkey IN (SELECT supplier.suppkey FROM tpch.tiny.supplier WHERE supplier.name = 'Supplier#000000001')",
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SUPP_KEY_HANDLE,
+                        singleValue(BIGINT, 1L))));
+    }
+
+    @Test(timeOut = 30_000)
+    public void testSemiJoinWithNonSelectiveBuildSide()
+    {
+        assertQueryDynamicFilters(
+                "SELECT * FROM lineitem WHERE lineitem.suppkey IN (SELECT supplier.suppkey FROM tpch.tiny.supplier)",
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SUPP_KEY_HANDLE,
+                        Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, true, 100L, true)), false))));
+    }
+
+    @Test(timeOut = 30_000)
+    public void testSemiJoinWithMultipleDynamicFiltersOnProbe()
+    {
+        // supplier names Supplier#000000001 and Supplier#000000002 match suppkey 1 and 2
+        assertQueryDynamicFilters(
+                "SELECT * FROM (" +
+                        "SELECT lineitem.suppkey FROM lineitem WHERE lineitem.suppkey IN " +
+                        "(SELECT supplier.suppkey FROM tpch.tiny.supplier WHERE supplier.name IN ('Supplier#000000001', 'Supplier#000000002'))) t " +
+                        "WHERE t.suppkey IN (SELECT partsupp.suppkey FROM tpch.tiny.partsupp WHERE partsupp.suppkey IN (2, 3))",
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SUPP_KEY_HANDLE,
+                        singleValue(BIGINT, 2L))));
+    }
+
+    private Session withBroadcastJoin()
+    {
+        return Session.builder(this.getQueryRunner().getDefaultSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, BROADCAST.name())
+                .build();
+    }
+
+    private void assertQueryDynamicFilters(@Language("SQL") String query, TupleDomain<ColumnHandle> expectedTupleDomain)
+    {
+        assertQueryDynamicFilters(getSession(), query, expectedTupleDomain);
+    }
+
+    private void assertQueryDynamicFilters(Session session, @Language("SQL") String query, TupleDomain<ColumnHandle> expectedTupleDomain)
+    {
+        expectedDynamicFilter = expectedTupleDomain;
+        computeActual(query);
     }
 
     private class TestPlugin
@@ -130,7 +307,7 @@ public class TestCoordinatorDynamicFiltering
                 @Override
                 public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
                 {
-                    return new TestConnector(metadata, Duration.valueOf("10s"));
+                    return new TestConnector(metadata);
                 }
             });
         }
@@ -140,12 +317,10 @@ public class TestCoordinatorDynamicFiltering
             implements Connector
     {
         private final ConnectorMetadata metadata;
-        private final Duration scanDuration;
 
-        private TestConnector(ConnectorMetadata metadata, Duration scanDuration)
+        private TestConnector(ConnectorMetadata metadata)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
-            this.scanDuration = requireNonNull(scanDuration, "scanDuration is null");
         }
 
         @Override
@@ -173,9 +348,7 @@ public class TestCoordinatorDynamicFiltering
                         SplitSchedulingStrategy splitSchedulingStrategy,
                         DynamicFilter dynamicFilter)
                 {
-                    long start = System.nanoTime();
                     AtomicBoolean splitProduced = new AtomicBoolean();
-                    TupleDomain<ColumnHandle> expectedDynamicFilter = getExpectedDynamicFilter(session);
 
                     assertFalse(dynamicFilter.isBlocked().isDone(), "Dynamic filter should be initially blocked");
 
@@ -184,24 +357,17 @@ public class TestCoordinatorDynamicFiltering
                         @Override
                         public CompletableFuture<ConnectorSplitBatch> getNextBatch(ConnectorPartitionHandle partitionHandle, int maxSize)
                         {
-                            // producing single empty split allows to assert that dynamic filters will be collected for broadcast
-                            // joins once the first probe side task starts running
-                            if (!splitProduced.get()) {
+                            CompletableFuture<?> blocked = dynamicFilter.isBlocked();
+
+                            if (blocked.isDone()) {
                                 splitProduced.set(true);
-                                return completedFuture(new ConnectorSplitBatch(ImmutableList.of(new EmptySplit(new CatalogName("test"))), false));
+                                return completedFuture(new ConnectorSplitBatch(ImmutableList.of(new EmptySplit(new CatalogName("test"))), isFinished()));
                             }
 
-                            return CompletableFuture.supplyAsync(
-                                    () -> {
-                                        try {
-                                            sleep(50);
-                                            return new ConnectorSplitBatch(ImmutableList.of(), isFinished());
-                                        }
-                                        catch (InterruptedException e) {
-                                            throw new RuntimeException(e);
-                                        }
-                                    },
-                                    executorService);
+                            return blocked.thenApply(ignored -> {
+                                // yield until dynamic filter is fully loaded
+                                return new ConnectorSplitBatch(ImmutableList.of(), false);
+                            });
                         }
 
                         @Override
@@ -212,19 +378,14 @@ public class TestCoordinatorDynamicFiltering
                         @Override
                         public boolean isFinished()
                         {
-                            if (dynamicFilter.getCurrentPredicate().equals(expectedDynamicFilter)) {
-                                // if we received expected dynamic filter then we are done
-                                return true;
+                            if (!dynamicFilter.isComplete() || !splitProduced.get()) {
+                                return false;
                             }
-                            else if (Duration.nanosSince(start).compareTo(scanDuration) > 0) {
-                                throw new AssertionError(format(
-                                        "Received %s instead of expected dynamic filter %s after waiting for %s",
-                                        dynamicFilter.getCurrentPredicate().toString(session),
-                                        expectedDynamicFilter.toString(session),
-                                        scanDuration));
-                            }
-                            // expected dynamic filter is not set yet
-                            return false;
+
+                            assertEquals(dynamicFilter.getCurrentPredicate(), expectedDynamicFilter);
+                            assertTrue(dynamicFilter.isBlocked().isDone());
+
+                            return true;
                         }
                     };
                 }
