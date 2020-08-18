@@ -43,7 +43,7 @@ public class BenchmarkDriverOptions
     @Option(name = "--server", title = "server", description = "Presto server location (default: localhost:8080)")
     public String server = "localhost:8080";
 
-    @Option(name = "--user", title = "user", description = "Username")
+    @Option(name = "--user", title = "user", description = "Username (default: 'user.name' system properly)")
     public String user = System.getProperty("user.name");
 
     @Option(name = "--catalog", title = "catalog", description = "Default catalog")
@@ -76,7 +76,7 @@ public class BenchmarkDriverOptions
     @Option(name = "--warm", title = "warm", description = "Number of times to run each query for a warm-up (default: 1)")
     public int warm = 1;
 
-    @Option(name = "--max-failures", title = "max failures", description = "Max number of consecutive failures before benchmark fails")
+    @Option(name = "--max-failures", title = "max failures", description = "Max number of consecutive failures before benchmark fails (default: 10)")
     public int maxFailures = 10;
 
     @Option(name = "--socks", title = "socks", description = "Socks proxy to use")
