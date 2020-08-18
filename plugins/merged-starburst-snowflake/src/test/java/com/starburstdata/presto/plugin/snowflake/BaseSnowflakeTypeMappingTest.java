@@ -391,16 +391,12 @@ public abstract class BaseSnowflakeTypeMappingTest
                     .addRoundTrip(timestampDataType(), dateTimeBeforeEpoch)
                     .addRoundTrip(timestampDataType(), dateTimeAfterEpoch)
                     .addRoundTrip(timestampDataType(), dateTimeDoubledInJvmZone)
-                    .addRoundTrip(timestampDataType(), dateTimeDoubledInVilnius);
-
-            if (!insertWithPresto) {
-                addTimestampTestIfSupported(tests, dateTimeEpoch); // epoch also is a gap in JVM zone
-                addTimestampTestIfSupported(tests, dateTimeGapInJvmZone1);
-                addTimestampTestIfSupported(tests, dateTimeGapInJvmZone2);
-            }
-
-            addTimestampTestIfSupported(tests, dateTimeGapInVilnius);
-            addTimestampTestIfSupported(tests, dateTimeGapInKathmandu);
+                    .addRoundTrip(timestampDataType(), dateTimeDoubledInVilnius)
+                    .addRoundTrip(timestampDataType(), dateTimeEpoch) // epoch also is a gap in JVM zone
+                    .addRoundTrip(timestampDataType(), dateTimeGapInJvmZone1)
+                    .addRoundTrip(timestampDataType(), dateTimeGapInJvmZone2)
+                    .addRoundTrip(timestampDataType(), dateTimeGapInVilnius)
+                    .addRoundTrip(timestampDataType(), dateTimeGapInKathmandu);
 
             Session session = Session.builder(getQueryRunner().getDefaultSession())
                     .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
@@ -448,11 +444,6 @@ public abstract class BaseSnowflakeTypeMappingTest
 
             tests.execute(getQueryRunner(), session, snowflakeCreateAsSelect());
         }
-    }
-
-    private void addTimestampTestIfSupported(DataTypeTest tests, LocalDateTime dateTime)
-    {
-        tests.addRoundTrip(timestampDataType(), dateTime);
     }
 
     @Test(dataProvider = "testTimestampWithTimeZoneDataProvider")
