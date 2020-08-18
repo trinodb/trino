@@ -57,7 +57,6 @@
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.4.0</dep.errorprone.version>
         <dep.joda.version>2.10.6</dep.joda.version>
-        <dep.zookeeper.version>3.4.14</dep.zookeeper.version>
 
         <!--
           America/Bahia_Banderas has:
@@ -1147,7 +1146,7 @@
             <dependency>
                 <groupId>org.apache.zookeeper</groupId>
                 <artifactId>zookeeper</artifactId>
-                <version>${dep.zookeeper.version}</version>
+                <version>3.4.14</version>
                 <exclusions>
                     <exclusion>
                         <groupId>jline</groupId>
