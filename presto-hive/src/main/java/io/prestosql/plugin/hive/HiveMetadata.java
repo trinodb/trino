@@ -46,6 +46,7 @@ import io.prestosql.plugin.hive.security.AccessControlMetadata;
 import io.prestosql.plugin.hive.statistics.HiveStatisticsProvider;
 import io.prestosql.plugin.hive.util.HiveUtil;
 import io.prestosql.plugin.hive.util.HiveWriteUtils;
+import io.prestosql.spi.ErrorType;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.block.Block;
@@ -706,6 +707,12 @@ public class HiveMetadata
             }
             catch (TableNotFoundException e) {
                 // table disappeared during listing operation
+            }
+            catch (PrestoException e) {
+                // Skip this table if there's a failure due to Hive, a bad Serde, or bad metadata
+                if (!e.getErrorCode().getType().equals(ErrorType.EXTERNAL)) {
+                    throw e;
+                }
             }
         }
         return columns.build();
