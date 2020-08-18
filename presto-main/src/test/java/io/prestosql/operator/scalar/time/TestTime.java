@@ -1200,36 +1200,6 @@ public class TestTime
         assertThat(assertions.expression("format('%s', TIME '12:34:56.5555555555')")).isEqualTo("12:34:56.555555556");
         assertThat(assertions.expression("format('%s', TIME '12:34:56.55555555555')")).isEqualTo("12:34:56.555555556");
         assertThat(assertions.expression("format('%s', TIME '12:34:56.555555555555')")).isEqualTo("12:34:56.555555556");
-
-        // 6-digit year in the future
-        assertThat(assertions.expression("format('%s', TIME '12:34:56')")).isEqualTo("12:34:56");
-        assertThat(assertions.expression("format('%s', TIME '12:34:56.1')")).isEqualTo("12:34:56.100");
-        assertThat(assertions.expression("format('%s', TIME '12:34:56.11')")).isEqualTo("12:34:56.110");
-        assertThat(assertions.expression("format('%s', TIME '12:34:56.111')")).isEqualTo("12:34:56.111");
-        assertThat(assertions.expression("format('%s', TIME '12:34:56.1111')")).isEqualTo("12:34:56.111100");
-        assertThat(assertions.expression("format('%s', TIME '12:34:56.11111')")).isEqualTo("12:34:56.111110");
-        assertThat(assertions.expression("format('%s', TIME '12:34:56.111111')")).isEqualTo("12:34:56.111111");
-        assertThat(assertions.expression("format('%s', TIME '12:34:56.1111111')")).isEqualTo("12:34:56.111111100");
-        assertThat(assertions.expression("format('%s', TIME '12:34:56.11111111')")).isEqualTo("12:34:56.111111110");
-        assertThat(assertions.expression("format('%s', TIME '12:34:56.111111111')")).isEqualTo("12:34:56.111111111");
-        assertThat(assertions.expression("format('%s', TIME '12:34:56.1111111111')")).isEqualTo("12:34:56.111111111");
-        assertThat(assertions.expression("format('%s', TIME '12:34:56.11111111111')")).isEqualTo("12:34:56.111111111");
-        assertThat(assertions.expression("format('%s', TIME '12:34:56.111111111111')")).isEqualTo("12:34:56.111111111");
-
-        // 6-digit year in the past
-        assertThat(assertions.expression("format('%s', TIME '12:34:56')")).isEqualTo("12:34:56");
-        assertThat(assertions.expression("format('%s', TIME '12:34:56.1')")).isEqualTo("12:34:56.100");
-        assertThat(assertions.expression("format('%s', TIME '12:34:56.11')")).isEqualTo("12:34:56.110");
-        assertThat(assertions.expression("format('%s', TIME '12:34:56.111')")).isEqualTo("12:34:56.111");
-        assertThat(assertions.expression("format('%s', TIME '12:34:56.1111')")).isEqualTo("12:34:56.111100");
-        assertThat(assertions.expression("format('%s', TIME '12:34:56.11111')")).isEqualTo("12:34:56.111110");
-        assertThat(assertions.expression("format('%s', TIME '12:34:56.111111')")).isEqualTo("12:34:56.111111");
-        assertThat(assertions.expression("format('%s', TIME '12:34:56.1111111')")).isEqualTo("12:34:56.111111100");
-        assertThat(assertions.expression("format('%s', TIME '12:34:56.11111111')")).isEqualTo("12:34:56.111111110");
-        assertThat(assertions.expression("format('%s', TIME '12:34:56.111111111')")).isEqualTo("12:34:56.111111111");
-        assertThat(assertions.expression("format('%s', TIME '12:34:56.1111111111')")).isEqualTo("12:34:56.111111111");
-        assertThat(assertions.expression("format('%s', TIME '12:34:56.11111111111')")).isEqualTo("12:34:56.111111111");
-        assertThat(assertions.expression("format('%s', TIME '12:34:56.111111111111')")).isEqualTo("12:34:56.111111111");
     }
 
     @Test
