@@ -24,6 +24,7 @@ import io.prestosql.plugin.jdbc.JdbcSplit;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
 import io.prestosql.plugin.jdbc.LongWriteFunction;
+import io.prestosql.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
 import io.prestosql.plugin.jdbc.SliceReadFunction;
 import io.prestosql.plugin.jdbc.SliceWriteFunction;
 import io.prestosql.plugin.jdbc.WriteMapping;
@@ -207,7 +208,7 @@ public class SnowflakeClient
 
     private ColumnMapping withSimplifiedPushdownConverter(ColumnMapping mapping)
     {
-        verify(mapping.getPushdownConverter() != ColumnMapping.DISABLE_PUSHDOWN);
+        verify(mapping.getPredicatePushdownController() != ColumnMapping.DISABLE_PUSHDOWN);
         return new ColumnMapping(
                 mapping.getType(),
                 mapping.getReadFunction(),
@@ -381,12 +382,13 @@ public class SnowflakeClient
         }
     }
 
-    private static final Domain simplifyUnsupportedPushdown(Domain domain)
+    private static DomainPushdownResult simplifyUnsupportedPushdown(Domain domain)
     {
-        if (domain.getValues().getRanges().getRangeCount() <= SNOWFLAKE_MAX_LIST_EXPRESSIONS) {
-            return domain;
+        Domain pushedDown = domain;
+        if (domain.getValues().getRanges().getRangeCount() > SNOWFLAKE_MAX_LIST_EXPRESSIONS) {
+            pushedDown = domain.simplify();
         }
-
-        return domain.simplify();
+        // TODO https://starburstdata.atlassian.net/browse/PRESTO-4082
+        return new DomainPushdownResult(pushedDown, domain);
     }
 }
