@@ -177,16 +177,18 @@ The implementation of the cache exposes a `number of metrics
 :doc:`inspect these and other metrics directly in Presto with the JMX connector
 or in external tools </admin/jmx>`.
 
-The following example query returns the total amount of data fetched by the
-BookKeeper on the coordinator and all the separate nodes on the workers in the
-default async mode:
+Basic caching statistics for the catalog are available in the
+``jmx.current."rubix:catalog=<catalog_name>,name=stats"`` table.
+The table ``jmx.current."rubix:catalog=<catalog_name>,name=stats``
+contains more detailed statistics.
+
+The following example query returns the average cache hit ratio for the ``hive`` catalog:
 
 .. code-block:: sql
 
-  SELECT fs.readfromremote + async_downloaded_mb.count
-  FROM jmx.current."rubix:catalog=hive,name=stats" fs,
-       jmx.current."metrics:name=rubix.bookkeeper.count.async_downloaded_mb" async_downloaded_mb
-  WHERE fs.node = async_downloaded_mb.node;
+  SELECT avg(cache_hit)
+  FROM jmx.current."rubix:catalog=hive,name=stats"
+  WHERE NOT is_nan(cache_hit);
 
 Limitations
 -----------
