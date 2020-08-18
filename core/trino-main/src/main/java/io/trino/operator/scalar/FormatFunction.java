@@ -21,6 +21,7 @@ import io.trino.metadata.FunctionDependencies;
 import io.trino.metadata.FunctionDependencyDeclaration;
 import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.trino.metadata.FunctionMetadata;
+import io.trino.metadata.QualifiedFunctionName;
 import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.spi.TrinoException;
@@ -35,7 +36,6 @@ import io.trino.spi.type.TimestampWithTimeZoneType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.spi.type.VarcharType;
-import io.trino.sql.tree.QualifiedName;
 
 import java.lang.invoke.MethodHandle;
 import java.math.BigDecimal;
@@ -130,7 +130,7 @@ public final class FormatFunction
         }
 
         if (type.equals(JSON)) {
-            builder.addFunction(QualifiedName.of("json_format"), ImmutableList.of(JSON));
+            builder.addFunction(QualifiedFunctionName.of("json_format"), ImmutableList.of(JSON));
             return;
         }
         builder.addCast(type, VARCHAR);
@@ -212,7 +212,7 @@ public final class FormatFunction
         }
         // TODO: support TIME WITH TIME ZONE by https://github.com/trinodb/trino/issues/191 + mapping to java.time.OffsetTime
         if (type.equals(JSON)) {
-            MethodHandle handle = functionDependencies.getFunctionInvoker(QualifiedName.of("json_format"), ImmutableList.of(JSON), simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
+            MethodHandle handle = functionDependencies.getFunctionInvoker(QualifiedFunctionName.of("json_format"), ImmutableList.of(JSON), simpleConvention(FAIL_ON_NULL, NEVER_NULL)).getMethodHandle();
             return (session, block) -> convertToString(handle, type.getSlice(block, position));
         }
         if (isShortDecimal(type)) {

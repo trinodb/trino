@@ -17,7 +17,6 @@ import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.tree.QualifiedName;
 
 import java.util.List;
 
@@ -25,15 +24,15 @@ public interface FunctionDependencies
 {
     Type getType(TypeSignature typeSignature);
 
-    FunctionNullability getFunctionNullability(QualifiedName name, List<Type> parameterTypes);
+    FunctionNullability getFunctionNullability(QualifiedFunctionName name, List<Type> parameterTypes);
 
     FunctionNullability getOperatorNullability(OperatorType operatorType, List<Type> parameterTypes);
 
     FunctionNullability getCastNullability(Type fromType, Type toType);
 
-    FunctionInvoker getFunctionInvoker(QualifiedName name, List<Type> parameterTypes, InvocationConvention invocationConvention);
+    FunctionInvoker getFunctionInvoker(QualifiedFunctionName name, List<Type> parameterTypes, InvocationConvention invocationConvention);
 
-    FunctionInvoker getFunctionSignatureInvoker(QualifiedName name, List<TypeSignature> parameterTypes, InvocationConvention invocationConvention);
+    FunctionInvoker getFunctionSignatureInvoker(QualifiedFunctionName name, List<TypeSignature> parameterTypes, InvocationConvention invocationConvention);
 
     FunctionInvoker getOperatorInvoker(OperatorType operatorType, List<Type> parameterTypes, InvocationConvention invocationConvention);
 
