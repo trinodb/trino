@@ -219,22 +219,22 @@ public abstract class BaseOracleIntegrationSmokeTest
     {
         // TODO support aggregation pushdown with GROUPING SETS
 
-        assertAggregationPushedDown("SELECT count(*) FROM nation");
-        assertAggregationPushedDown("SELECT count(nationkey) FROM nation");
-        assertAggregationPushedDown("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey");
-        assertAggregationPushedDown("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey");
-        assertAggregationPushedDown("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey");
-        assertAggregationPushedDown("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey");
+        assertThat(query("SELECT count(*) FROM nation")).isCorrectlyPushedDown();
+        assertThat(query("SELECT count(nationkey) FROM nation")).isCorrectlyPushedDown();
+        assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
+        assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
+        assertThat(query("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
 
         try (TestTable testTable = new TestTable(inOracle(), getSession().getSchema().orElseThrow() + ".test_aggregation_pushdown",
                 "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (100.000, 100000000.000000000)");
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (123.321, 123456789.987654321)");
 
-            assertAggregationPushedDown("SELECT min(short_decimal), min(long_decimal) FROM " + testTable.getName());
-            assertAggregationPushedDown("SELECT max(short_decimal), max(long_decimal) FROM " + testTable.getName());
-            assertAggregationPushedDown("SELECT sum(short_decimal), sum(long_decimal) FROM " + testTable.getName());
-            assertAggregationPushedDown("SELECT avg(short_decimal), avg(long_decimal) FROM " + testTable.getName());
+            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT sum(short_decimal), sum(long_decimal) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT avg(short_decimal), avg(long_decimal) FROM " + testTable.getName())).isCorrectlyPushedDown();
         }
     }
 
@@ -243,22 +243,22 @@ public abstract class BaseOracleIntegrationSmokeTest
     {
         try (TestTable testTable = new TestTable(inOracle(), getSession().getSchema().orElseThrow() + ".test_stddev_pushdown",
                 "(t_double DOUBLE PRECISION)")) {
-            assertAggregationPushedDown("SELECT stddev_pop(t_double) FROM " + testTable.getName());
-            assertAggregationPushedDown("SELECT stddev(t_double) FROM " + testTable.getName());
-            assertAggregationPushedDown("SELECT stddev_samp(t_double) FROM " + testTable.getName());
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
 
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (1)");
 
-            assertAggregationPushedDown("SELECT stddev_pop(t_double) FROM " + testTable.getName());
-            assertAggregationPushedDown("SELECT stddev(t_double) FROM " + testTable.getName());
-            assertAggregationPushedDown("SELECT stddev_samp(t_double) FROM " + testTable.getName());
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
 
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (3)");
-            assertAggregationPushedDown("SELECT stddev_pop(t_double) FROM " + testTable.getName());
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
 
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (5)");
-            assertAggregationPushedDown("SELECT stddev(t_double) FROM " + testTable.getName());
-            assertAggregationPushedDown("SELECT stddev_samp(t_double) FROM " + testTable.getName());
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
         }
 
         try (TestTable testTable = new TestTable(inOracle(), getSession().getSchema().orElseThrow() + ".test_stddev_pushdown",
@@ -269,9 +269,9 @@ public abstract class BaseOracleIntegrationSmokeTest
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (4)");
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (5)");
 
-            assertAggregationPushedDown("SELECT stddev_pop(t_double) FROM " + testTable.getName());
-            assertAggregationPushedDown("SELECT stddev(t_double) FROM " + testTable.getName());
-            assertAggregationPushedDown("SELECT stddev_samp(t_double) FROM " + testTable.getName());
+            assertThat(query("SELECT stddev_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT stddev(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT stddev_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
         }
     }
 
@@ -280,22 +280,22 @@ public abstract class BaseOracleIntegrationSmokeTest
     {
         try (TestTable testTable = new TestTable(inOracle(), getSession().getSchema().orElseThrow() + ".test_variance_pushdown",
                 "(t_double DOUBLE PRECISION)")) {
-            assertAggregationPushedDown("SELECT var_pop(t_double) FROM " + testTable.getName());
-            assertAggregationPushedDown("SELECT variance(t_double) FROM " + testTable.getName());
-            assertAggregationPushedDown("SELECT var_samp(t_double) FROM " + testTable.getName());
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
 
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (1)");
 
-            assertAggregationPushedDown("SELECT var_pop(t_double) FROM " + testTable.getName());
-            assertAggregationPushedDown("SELECT variance(t_double) FROM " + testTable.getName());
-            assertAggregationPushedDown("SELECT var_samp(t_double) FROM " + testTable.getName());
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
 
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (3)");
-            assertAggregationPushedDown("SELECT var_pop(t_double) FROM " + testTable.getName());
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
 
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (5)");
-            assertAggregationPushedDown("SELECT variance(t_double) FROM " + testTable.getName());
-            assertAggregationPushedDown("SELECT var_samp(t_double) FROM " + testTable.getName());
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
         }
 
         try (TestTable testTable = new TestTable(inOracle(), getSession().getSchema().orElseThrow() + ".test_variance_pushdown",
@@ -307,9 +307,9 @@ public abstract class BaseOracleIntegrationSmokeTest
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (4)");
             executeInOracle("INSERT INTO " + testTable.getName() + " VALUES (5)");
 
-            assertAggregationPushedDown("SELECT var_pop(t_double) FROM " + testTable.getName());
-            assertAggregationPushedDown("SELECT variance(t_double) FROM " + testTable.getName());
-            assertAggregationPushedDown("SELECT var_samp(t_double) FROM " + testTable.getName());
+            assertThat(query("SELECT var_pop(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT variance(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
+            assertThat(query("SELECT var_samp(t_double) FROM " + testTable.getName())).isCorrectlyPushedDown();
         }
     }
 

@@ -23,6 +23,7 @@ import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcSplit;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
+import io.prestosql.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
 import io.prestosql.plugin.jdbc.QueryBuilder;
 import io.prestosql.plugin.jdbc.RemoteTableName;
 import io.prestosql.plugin.jdbc.expression.AggregateFunctionRewriter;
@@ -381,12 +382,14 @@ public class StarburstOracleClient
         }
     }
 
-    private static Domain simplifyUnsupportedPushdown(Domain domain)
+    private static DomainPushdownResult simplifyUnsupportedPushdown(Domain domain)
     {
-        if (domain.getValues().getRanges().getRangeCount() <= ORACLE_MAX_LIST_EXPRESSIONS) {
-            return domain;
+        Domain pushedDown = domain;
+        if (domain.getValues().getRanges().getRangeCount() > ORACLE_MAX_LIST_EXPRESSIONS) {
+            pushedDown = domain.simplify();
         }
-        return domain.simplify();
+        // TODO https://starburstdata.atlassian.net/browse/PRESTO-4064
+        return new DomainPushdownResult(pushedDown, domain);
     }
 
     private static class StatisticsDao
