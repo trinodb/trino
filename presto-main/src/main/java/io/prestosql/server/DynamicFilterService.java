@@ -68,6 +68,8 @@ import static com.google.common.collect.ImmutableListMultimap.toImmutableListMul
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
+import static com.google.common.collect.Sets.intersection;
+import static com.google.common.collect.Sets.union;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
@@ -76,6 +78,7 @@ import static io.prestosql.spi.connector.DynamicFilter.EMPTY;
 import static io.prestosql.spi.predicate.Domain.union;
 import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
 import static io.prestosql.sql.planner.ExpressionExtractor.extractExpressions;
+import static io.prestosql.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.prestosql.util.MorePredicates.isInstanceOfAny;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
@@ -131,7 +134,7 @@ public class DynamicFilterService
     }
 
     @VisibleForTesting
-    void registerQuery(
+    public void registerQuery(
             QueryId queryId,
             Supplier<List<StageDynamicFilters>> stageDynamicFiltersSupplier,
             Set<DynamicFilterId> dynamicFilters,
@@ -187,6 +190,41 @@ public class DynamicFilterService
     public void removeQuery(QueryId queryId)
     {
         dynamicFilterContexts.remove(queryId);
+    }
+
+    /**
+     * Dynamic filters are collected in same stage as the join operator. This can result in deadlock
+     * for source stage joins and connectors that wait for dynamic filters before generating splits
+     * (probe splits might be blocked on dynamic filters which require at least one probe task in order to be collected).
+     * To overcome this issue an initial task is created for source stages running broadcast join operator.
+     * This task allows for dynamic filters collection without any probe side splits being scheduled.
+     */
+    public boolean isCollectingTaskNeeded(QueryId queryId, PlanFragment plan)
+    {
+        DynamicFilterContext context = dynamicFilterContexts.get(queryId);
+        if (context == null) {
+            // query has been removed or not registered (e.g dynamic filtering is disabled)
+            return false;
+        }
+
+        return !getSourceStageInnerLazyDynamicFilters(plan).isEmpty();
+    }
+
+    /**
+     * Join build source tasks might become blocked waiting for join stage to collect build data.
+     * In such case dynamic filters must be unblocked (and probe split generation resumed) for
+     * source stage containing joins to allow build source tasks to flush data and complete.
+     */
+    public void unblockStageDynamicFilters(QueryId queryId, PlanFragment plan)
+    {
+        DynamicFilterContext context = dynamicFilterContexts.get(queryId);
+        if (context == null) {
+            // query has been removed or not registered (e.g dynamic filtering is disabled)
+            return;
+        }
+
+        getSourceStageInnerLazyDynamicFilters(plan).forEach(filter ->
+                requireNonNull(context.getLazyDynamicFilters().get(filter), "Future not found").set(null));
     }
 
     public DynamicFilter createDynamicFilter(QueryId queryId, List<DynamicFilters.Descriptor> dynamicFilterDescriptors, Map<Symbol, ColumnHandle> columnHandles)
@@ -327,8 +365,28 @@ public class DynamicFilterService
 
     private static Set<DynamicFilterId> getLazyDynamicFilters(PlanFragment plan)
     {
-        // lazy dynamic filters cannot be consumed by the same stage where they are produced as it would result in query deadlock
-        return difference(getProducedDynamicFilters(plan.getRoot()), getConsumedDynamicFilters(plan.getRoot()));
+        // To prevent deadlock dynamic filter can be lazy only when:
+        // 1. it's consumed by different stage from where it's produced
+        // 2. or it's produced by replicated join in source stage. In such case an extra
+        //    task is created that will collect dynamic filter and prevent deadlock.
+        Set<DynamicFilterId> interStageDynamicFilters = difference(getProducedDynamicFilters(plan.getRoot()), getConsumedDynamicFilters(plan.getRoot()));
+        return ImmutableSet.copyOf(union(interStageDynamicFilters, getSourceStageInnerLazyDynamicFilters(plan)));
+    }
+
+    @VisibleForTesting
+    static Set<DynamicFilterId> getSourceStageInnerLazyDynamicFilters(PlanFragment plan)
+    {
+        if (!plan.getPartitioning().equals(SOURCE_DISTRIBUTION)) {
+            // Only non-fixed source stages can have (replicated) lazy dynamic filters that are
+            // produced and consumed within stage. This is because for such stages an extra
+            // dynamic filtering collecting task can be added.
+            return ImmutableSet.of();
+        }
+
+        PlanNode planNode = plan.getRoot();
+        Set<DynamicFilterId> innerStageDynamicFilters = intersection(getProducedDynamicFilters(planNode), getConsumedDynamicFilters(planNode));
+        Set<DynamicFilterId> replicatedDynamicFilters = getReplicatedDynamicFilters(planNode);
+        return ImmutableSet.copyOf(intersection(innerStageDynamicFilters, replicatedDynamicFilters));
     }
 
     private static Set<DynamicFilterId> getReplicatedDynamicFilters(PlanNode planNode)
@@ -581,10 +639,7 @@ public class DynamicFilterService
         {
             newDynamicFilters.forEach((filter, domain) -> {
                 dynamicFilterSummaries.put(filter, domain);
-                SettableFuture<?> future = lazyDynamicFilters.get(filter);
-                if (future != null) {
-                    checkState(future.set(null), "Same future set twice");
-                }
+                Optional.ofNullable(lazyDynamicFilters.get(filter)).ifPresent(future -> future.set(null));
             });
 
             // stop collecting dynamic filters for query when all dynamic filters have been collected

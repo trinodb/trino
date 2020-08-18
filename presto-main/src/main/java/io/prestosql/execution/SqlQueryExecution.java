@@ -490,7 +490,8 @@ public class SqlQueryExecution
                 rootOutputBuffers,
                 nodeTaskMap,
                 executionPolicy,
-                schedulerStats);
+                schedulerStats,
+                dynamicFilterService);
 
         queryScheduler.set(scheduler);
 

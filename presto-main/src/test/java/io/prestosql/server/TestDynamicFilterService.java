@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.prestosql.Session;
+import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.execution.StageId;
 import io.prestosql.execution.StageState;
 import io.prestosql.execution.TaskId;
@@ -30,9 +31,21 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.sql.planner.Partitioning;
+import io.prestosql.sql.planner.PartitioningHandle;
+import io.prestosql.sql.planner.PartitioningScheme;
+import io.prestosql.sql.planner.PlanFragment;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.DynamicFilterId;
+import io.prestosql.sql.planner.plan.ExchangeNode;
+import io.prestosql.sql.planner.plan.FilterNode;
+import io.prestosql.sql.planner.plan.JoinNode;
+import io.prestosql.sql.planner.plan.PlanFragmentId;
+import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.sql.planner.plan.RemoteSourceNode;
+import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.tree.Expression;
+import io.prestosql.testing.TestingMetadata;
 import io.prestosql.testing.TestingSession;
 import org.testng.annotations.Test;
 
@@ -47,14 +60,26 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.execution.StageState.RUNNING;
 import static io.prestosql.execution.StageState.SCHEDULED;
 import static io.prestosql.execution.StageState.SCHEDULING;
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.prestosql.server.DynamicFilterService.DynamicFilterDomainStats;
 import static io.prestosql.server.DynamicFilterService.DynamicFiltersStats;
+import static io.prestosql.server.DynamicFilterService.getSourceStageInnerLazyDynamicFilters;
 import static io.prestosql.spi.predicate.Domain.multipleValues;
 import static io.prestosql.spi.predicate.Domain.none;
 import static io.prestosql.spi.predicate.Domain.singleValue;
 import static io.prestosql.spi.predicate.Range.range;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.DynamicFilters.createDynamicFilterExpression;
+import static io.prestosql.sql.planner.SystemPartitioningHandle.FIXED_HASH_DISTRIBUTION;
+import static io.prestosql.sql.planner.SystemPartitioningHandle.SINGLE_DISTRIBUTION;
+import static io.prestosql.sql.planner.SystemPartitioningHandle.SOURCE_DISTRIBUTION;
 import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
+import static io.prestosql.sql.planner.plan.ExchangeNode.Type.REPARTITION;
+import static io.prestosql.sql.planner.plan.ExchangeNode.Type.REPLICATE;
+import static io.prestosql.sql.planner.plan.JoinNode.Type.INNER;
+import static io.prestosql.testing.TestingHandles.TEST_TABLE_HANDLE;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -407,7 +432,7 @@ public class TestDynamicFilterService
         assertEquals(stats.getReplicatedDynamicFilters(), 1);
         assertEquals(stats.getLazyDynamicFilters(), 0);
 
-        // replicated dynamic filters cannot be lazy due to replicated join task scheduling dependencies
+        // filterId1 wasn't marked as lazy
         assertFalse(dynamicFilter.isComplete());
         assertFalse(dynamicFilter.isAwaitable());
         assertTrue(dynamicFilter.isBlocked().isDone());
@@ -570,6 +595,57 @@ public class TestDynamicFilterService
                 TupleDomain.withColumnDomains(ImmutableMap.of(
                         column1, domain,
                         column2, domain)));
+    }
+
+    @Test
+    public void testSourceStageInnerLazyDynamicFilters()
+    {
+        DynamicFilterId dynamicFilterId = new DynamicFilterId("filterId");
+        assertEquals(getSourceStageInnerLazyDynamicFilters(createPlan(dynamicFilterId, SOURCE_DISTRIBUTION, REPLICATE)), ImmutableSet.of(dynamicFilterId));
+        assertEquals(getSourceStageInnerLazyDynamicFilters(createPlan(dynamicFilterId, FIXED_HASH_DISTRIBUTION, REPLICATE)), ImmutableSet.of());
+        assertEquals(getSourceStageInnerLazyDynamicFilters(createPlan(dynamicFilterId, SOURCE_DISTRIBUTION, REPARTITION)), ImmutableSet.of());
+    }
+
+    private static PlanFragment createPlan(DynamicFilterId dynamicFilterId, PartitioningHandle stagePartitioning, ExchangeNode.Type exchangeType)
+    {
+        Symbol symbol = new Symbol("column");
+        Symbol buildSymbol = new Symbol("buildColumn");
+
+        PlanNodeId tableScanNodeId = new PlanNodeId("plan_id");
+        TableScanNode tableScan = TableScanNode.newInstance(
+                tableScanNodeId,
+                TEST_TABLE_HANDLE,
+                ImmutableList.of(symbol),
+                ImmutableMap.of(symbol, new TestingMetadata.TestingColumnHandle("column")));
+        FilterNode filterNode = new FilterNode(
+                new PlanNodeId("filter_node_id"),
+                tableScan,
+                createDynamicFilterExpression(createTestMetadataManager(), dynamicFilterId, VARCHAR, symbol.toSymbolReference()));
+
+        RemoteSourceNode remote = new RemoteSourceNode(new PlanNodeId("remote_id"), new PlanFragmentId("plan_fragment_id"), ImmutableList.of(buildSymbol), Optional.empty(), exchangeType);
+        return new PlanFragment(
+                new PlanFragmentId("plan_id"),
+                new JoinNode(new PlanNodeId("join_id"),
+                        INNER,
+                        filterNode,
+                        remote,
+                        ImmutableList.of(),
+                        tableScan.getOutputSymbols(),
+                        remote.getOutputSymbols(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        Optional.empty(),
+                        ImmutableMap.of(dynamicFilterId, buildSymbol),
+                        Optional.empty()),
+                ImmutableMap.of(symbol, VARCHAR),
+                stagePartitioning,
+                ImmutableList.of(tableScanNodeId),
+                new PartitioningScheme(Partitioning.create(SINGLE_DISTRIBUTION, ImmutableList.of()), ImmutableList.of(symbol)),
+                ungroupedExecution(),
+                StatsAndCosts.empty(),
+                Optional.empty());
     }
 
     private static String getExpectedDomainString(long low, long high)
