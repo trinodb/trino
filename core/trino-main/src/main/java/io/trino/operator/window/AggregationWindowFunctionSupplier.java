@@ -16,12 +16,12 @@ package io.trino.operator.window;
 import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionNullability;
 import io.trino.operator.aggregation.AggregationMetadata;
-import io.trino.operator.aggregation.LambdaProvider;
 import io.trino.operator.aggregation.WindowAccumulator;
 import io.trino.spi.function.WindowFunction;
 
 import java.lang.reflect.Constructor;
 import java.util.List;
+import java.util.function.Supplier;
 
 import static io.trino.operator.aggregation.AccumulatorCompiler.generateWindowAccumulatorClass;
 import static java.util.Objects.requireNonNull;
@@ -49,12 +49,12 @@ public class AggregationWindowFunctionSupplier
     }
 
     @Override
-    public WindowFunction createWindowFunction(boolean ignoreNulls, List<LambdaProvider> lambdaProviders)
+    public WindowFunction createWindowFunction(boolean ignoreNulls, List<Supplier<Object>> lambdaProviders)
     {
         return new AggregateWindowFunction(() -> createWindowAccumulator(lambdaProviders), hasRemoveInput);
     }
 
-    private WindowAccumulator createWindowAccumulator(List<LambdaProvider> lambdaProviders)
+    private WindowAccumulator createWindowAccumulator(List<Supplier<Object>> lambdaProviders)
     {
         try {
             return constructor.newInstance(lambdaProviders);
