@@ -724,27 +724,27 @@ public final class UnscaledDecimal128Arithmetic
 
     public static boolean isStrictlyNegative(Slice decimal)
     {
-        return isNegative(decimal) && (getLong(decimal, 0) != 0 || getLong(decimal, 1) != 0);
+        return isStrictlyNegative(getRawLong(decimal, 0), getRawLong(decimal, 1));
     }
 
     public static boolean isStrictlyNegative(long rawLow, long rawHigh)
     {
-        return isNegative(rawLow, rawHigh) && (rawLow != 0 || unpackUnsignedLong(rawHigh) != 0);
+        return isNegative(rawHigh) && (rawLow != 0 || unpackUnsignedLong(rawHigh) != 0);
     }
 
     private static boolean isNegative(int lastRawHigh)
     {
-        return (lastRawHigh & SIGN_INT_MASK) != 0;
+        return lastRawHigh >>> 31 != 0;
     }
 
     public static boolean isNegative(Slice decimal)
     {
-        return (getRawInt(decimal, SIGN_INT_INDEX) & SIGN_INT_MASK) != 0;
+        return isNegative(getRawInt(decimal, SIGN_INT_INDEX));
     }
 
-    public static boolean isNegative(long rawLow, long rawHigh)
+    public static boolean isNegative(long rawHigh)
     {
-        return (rawHigh & SIGN_LONG_MASK) != 0;
+        return rawHigh >>> 63 != 0;
     }
 
     public static boolean isZero(Slice decimal)
@@ -1215,8 +1215,8 @@ public final class UnscaledDecimal128Arithmetic
             throwOverflowException();
         }
 
-        boolean dividendIsNegative = isNegative(dividendLow, dividendHigh);
-        boolean divisorIsNegative = isNegative(divisorLow, divisorHigh);
+        boolean dividendIsNegative = isNegative(dividendHigh);
+        boolean divisorIsNegative = isNegative(divisorHigh);
         boolean quotientIsNegative = (dividendIsNegative != divisorIsNegative);
 
         // to fit 128b * 128b * 32b unsigned multiplication
