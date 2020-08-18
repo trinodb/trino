@@ -19,7 +19,6 @@ import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.tree.QualifiedName;
 
 import java.util.Collection;
 import java.util.List;
@@ -80,7 +79,7 @@ public class InternalFunctionDependencies
     }
 
     @Override
-    public FunctionNullability getFunctionNullability(QualifiedName name, List<Type> parameterTypes)
+    public FunctionNullability getFunctionNullability(QualifiedFunctionName name, List<Type> parameterTypes)
     {
         FunctionKey functionKey = new FunctionKey(name, toTypeSignatures(parameterTypes));
         ResolvedFunction resolvedFunction = functions.get(functionKey);
@@ -113,7 +112,7 @@ public class InternalFunctionDependencies
     }
 
     @Override
-    public FunctionInvoker getFunctionInvoker(QualifiedName name, List<Type> parameterTypes, InvocationConvention invocationConvention)
+    public FunctionInvoker getFunctionInvoker(QualifiedFunctionName name, List<Type> parameterTypes, InvocationConvention invocationConvention)
     {
         FunctionKey functionKey = new FunctionKey(name, toTypeSignatures(parameterTypes));
         ResolvedFunction resolvedFunction = functions.get(functionKey);
@@ -124,7 +123,7 @@ public class InternalFunctionDependencies
     }
 
     @Override
-    public FunctionInvoker getFunctionSignatureInvoker(QualifiedName name, List<TypeSignature> parameterTypes, InvocationConvention invocationConvention)
+    public FunctionInvoker getFunctionSignatureInvoker(QualifiedFunctionName name, List<TypeSignature> parameterTypes, InvocationConvention invocationConvention)
     {
         FunctionKey functionKey = new FunctionKey(name, parameterTypes);
         ResolvedFunction resolvedFunction = functions.get(functionKey);
@@ -199,19 +198,19 @@ public class InternalFunctionDependencies
 
     public static final class FunctionKey
     {
-        private final QualifiedName name;
+        private final QualifiedFunctionName name;
         private final List<TypeSignature> argumentTypes;
 
         private FunctionKey(ResolvedFunction resolvedFunction)
         {
             Signature signature = resolvedFunction.getSignature().toSignature();
-            name = QualifiedName.of(signature.getName());
+            name = QualifiedFunctionName.of(signature.getName());
             argumentTypes = resolvedFunction.getSignature().getArgumentTypes().stream()
                     .map(Type::getTypeSignature)
                     .collect(toImmutableList());
         }
 
-        private FunctionKey(QualifiedName name, List<TypeSignature> argumentTypes)
+        private FunctionKey(QualifiedFunctionName name, List<TypeSignature> argumentTypes)
         {
             this.name = requireNonNull(name, "name is null");
             this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));

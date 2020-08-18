@@ -2086,7 +2086,26 @@ public final class MetadataManager
     private ResolvedFunction resolvedFunctionInternal(Session session, QualifiedName name, List<TypeSignatureProvider> parameterTypes)
     {
         return functionDecoder.fromQualifiedName(name)
-                .orElseGet(() -> resolve(session, functionResolver.resolveFunction(session, name, parameterTypes, this::getFunctions)));
+                .orElseGet(() -> resolvedFunctionInternal(session, toQualifiedFunctionName(name), parameterTypes));
+    }
+
+    private ResolvedFunction resolvedFunctionInternal(Session session, QualifiedFunctionName name, List<TypeSignatureProvider> parameterTypes)
+    {
+        return resolve(session, functionResolver.resolveFunction(session, name, parameterTypes, this::getFunctions));
+    }
+
+    // this is only public for TableFunctionRegistry, which is effectively part of MetadataManager but for some reason is a separate class
+    public static QualifiedFunctionName toQualifiedFunctionName(QualifiedName qualifiedName)
+    {
+        List<String> parts = qualifiedName.getParts();
+        checkArgument(parts.size() <= 3, "Function name can only have 3 parts: " + qualifiedName);
+        if (parts.size() == 3) {
+            return QualifiedFunctionName.of(parts.get(0), parts.get(1), parts.get(2));
+        }
+        if (parts.size() == 2) {
+            return QualifiedFunctionName.of(parts.get(0), parts.get(1));
+        }
+        return QualifiedFunctionName.of(parts.get(0));
     }
 
     @Override
@@ -2099,7 +2118,7 @@ public final class MetadataManager
                 String name = mangleOperatorName(operatorType);
                 FunctionBinding functionBinding = functionResolver.resolveCoercion(
                         session,
-                        QualifiedName.of(name),
+                        QualifiedFunctionName.of(name),
                         Signature.builder()
                                 .name(name)
                                 .returnType(toType)
@@ -2126,7 +2145,7 @@ public final class MetadataManager
     {
         FunctionBinding functionBinding = functionResolver.resolveCoercion(
                 session,
-                name,
+                toQualifiedFunctionName(name),
                 Signature.builder()
                         .name(name.getSuffix())
                         .returnType(toType)
@@ -2213,7 +2232,7 @@ public final class MetadataManager
     @Override
     public boolean isAggregationFunction(Session session, QualifiedName name)
     {
-        return functionResolver.isAggregationFunction(session, name, this::getFunctions);
+        return functionResolver.isAggregationFunction(session, toQualifiedFunctionName(name), this::getFunctions);
     }
 
     private Collection<FunctionMetadata> getFunctions(CatalogSchemaFunctionName name)

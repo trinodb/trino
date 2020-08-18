@@ -23,7 +23,6 @@ import io.trino.spi.type.TypeManager;
 import io.trino.sql.SqlPathElement;
 import io.trino.sql.analyzer.TypeSignatureProvider;
 import io.trino.sql.tree.Identifier;
-import io.trino.sql.tree.QualifiedName;
 
 import java.util.ArrayList;
 import java.util.Collection;
@@ -61,7 +60,7 @@ public class FunctionResolver
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
     }
 
-    boolean isAggregationFunction(Session session, QualifiedName name, Function<CatalogSchemaFunctionName, Collection<FunctionMetadata>> candidateLoader)
+    boolean isAggregationFunction(Session session, QualifiedFunctionName name, Function<CatalogSchemaFunctionName, Collection<FunctionMetadata>> candidateLoader)
     {
         for (CatalogSchemaFunctionName catalogSchemaFunctionName : toPath(session, name)) {
             Collection<FunctionMetadata> candidates = candidateLoader.apply(catalogSchemaFunctionName);
@@ -74,7 +73,7 @@ public class FunctionResolver
         return false;
     }
 
-    FunctionBinding resolveCoercion(Session session, QualifiedName name, Signature signature, Function<CatalogSchemaFunctionName, Collection<FunctionMetadata>> candidateLoader)
+    FunctionBinding resolveCoercion(Session session, QualifiedFunctionName name, Signature signature, Function<CatalogSchemaFunctionName, Collection<FunctionMetadata>> candidateLoader)
     {
         for (CatalogSchemaFunctionName catalogSchemaFunctionName : toPath(session, name)) {
             Collection<FunctionMetadata> candidates = candidateLoader.apply(catalogSchemaFunctionName);
@@ -137,7 +136,7 @@ public class FunctionResolver
 
     FunctionBinding resolveFunction(
             Session session,
-            QualifiedName name,
+            QualifiedFunctionName name,
             List<TypeSignatureProvider> parameterTypes,
             Function<CatalogSchemaFunctionName, Collection<FunctionMetadata>> candidateLoader)
     {
@@ -188,31 +187,28 @@ public class FunctionResolver
         throw new TrinoException(FUNCTION_NOT_FOUND, message);
     }
 
-    public static List<CatalogSchemaFunctionName> toPath(Session session, QualifiedName name)
+    public static List<CatalogSchemaFunctionName> toPath(Session session, QualifiedFunctionName name)
     {
-        List<String> parts = name.getParts();
-        checkArgument(parts.size() <= 3, "Function name can only have 3 parts: " + name);
-        if (parts.size() == 3) {
-            return ImmutableList.of(new CatalogSchemaFunctionName(parts.get(0), parts.get(1), parts.get(2)));
+        if (name.getCatalogName().isPresent()) {
+            return ImmutableList.of(new CatalogSchemaFunctionName(name.getCatalogName().orElseThrow(), name.getSchemaName().orElseThrow(), name.getFunctionName()));
         }
 
-        if (parts.size() == 2) {
+        if (name.getSchemaName().isPresent()) {
             String currentCatalog = session.getCatalog()
                     .orElseThrow(() -> new IllegalArgumentException("Session default catalog must be set to resolve a partial function name: " + name));
-            return ImmutableList.of(new CatalogSchemaFunctionName(currentCatalog, parts.get(0), parts.get(1)));
+            return ImmutableList.of(new CatalogSchemaFunctionName(currentCatalog, name.getSchemaName().orElseThrow(), name.getFunctionName()));
         }
 
         ImmutableList.Builder<CatalogSchemaFunctionName> names = ImmutableList.builder();
-        String functionName = parts.get(0);
 
         // global namespace
-        names.add(new CatalogSchemaFunctionName(GLOBAL_CATALOG, GLOBAL_SCHEMA, functionName));
+        names.add(new CatalogSchemaFunctionName(GLOBAL_CATALOG, GLOBAL_SCHEMA, name.getFunctionName()));
 
         // add resolved path items
         for (SqlPathElement sqlPathElement : session.getPath().getParsedPath()) {
             String catalog = sqlPathElement.getCatalog().map(Identifier::getCanonicalValue).or(session::getCatalog)
                     .orElseThrow(() -> new IllegalArgumentException("Session default catalog must be set to resolve a partial function name: " + name));
-            names.add(new CatalogSchemaFunctionName(catalog, sqlPathElement.getSchema().getCanonicalValue(), functionName));
+            names.add(new CatalogSchemaFunctionName(catalog, sqlPathElement.getSchema().getCanonicalValue(), name.getFunctionName()));
         }
         return names.build();
     }
