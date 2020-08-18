@@ -755,11 +755,25 @@ Hive 3 Related Limitations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * For security reasons, the ``sys`` system catalog is not accessible.
+
 * Hive's ``timestamp with local zone`` data type is not supported.
   It is possible to read from a table with a column of this type, but the column
   data is not accessible. Writing to such a table is not supported.
+
 * Due to Hive issues `HIVE-21002 <https://issues.apache.org/jira/browse/HIVE-21002>`_
   and `HIVE-22167 <https://issues.apache.org/jira/browse/HIVE-22167>`_, Presto does
   not correctly read ``timestamp`` values from Parquet, RCBinary, or Avro
   file formats created by Hive 3.1 or later. When reading from these file formats,
   Presto returns different results than Hive.
+
+* :doc:`/sql/create-table-as` can be used to create transactional tables in ORC format like this::
+
+      CREATE TABLE <name>
+      WITH (
+          format='ORC',
+          transactional=true,
+      )
+      AS <query>
+
+  Presto does not support gathering table statistics for Hive transactional tables.
+  You need to use Hive to gather table statistics with ``ANALYZE TABLE COMPUTE STATISTICS`` after table creation.
