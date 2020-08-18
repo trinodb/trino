@@ -53,6 +53,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -87,7 +88,7 @@ public final class AccumulatorCompiler
             BoundSignature boundSignature,
             AggregationMetadata metadata,
             FunctionNullability functionNullability,
-            List<LambdaProvider> lambdaProviders)
+            List<Supplier<Object>> lambdaProviders)
     {
         // change types used in Aggregation methods to types used in the core Trino engine to simplify code generation
         metadata = normalizeAggregationMethods(metadata);
@@ -150,7 +151,7 @@ public final class AccumulatorCompiler
         int lambdaCount = metadata.getLambdaInterfaces().size();
         List<FieldDefinition> lambdaProviderFields = new ArrayList<>(lambdaCount);
         for (int i = 0; i < lambdaCount; i++) {
-            lambdaProviderFields.add(definition.declareField(a(PRIVATE, FINAL), "lambdaProvider_" + i, LambdaProvider.class));
+            lambdaProviderFields.add(definition.declareField(a(PRIVATE, FINAL), "lambdaProvider_" + i, Supplier.class));
         }
 
         // Generate constructors
@@ -247,7 +248,7 @@ public final class AccumulatorCompiler
         int lambdaCount = metadata.getLambdaInterfaces().size();
         List<FieldDefinition> lambdaProviderFields = new ArrayList<>(lambdaCount);
         for (int i = 0; i < lambdaCount; i++) {
-            lambdaProviderFields.add(definition.declareField(a(PRIVATE, FINAL), "lambdaProvider_" + i, LambdaProvider.class));
+            lambdaProviderFields.add(definition.declareField(a(PRIVATE, FINAL), "lambdaProvider_" + i, Supplier.class));
         }
 
         // Generate constructor
@@ -299,7 +300,7 @@ public final class AccumulatorCompiler
             List<FieldDefinition> lambdaProviderFields,
             CallSiteBinder callSiteBinder)
     {
-        Parameter lambdaProviders = arg("lambdaProviders", type(List.class, LambdaProvider.class));
+        Parameter lambdaProviders = arg("lambdaProviders", type(List.class, Supplier.class));
         MethodDefinition method = definition.declareConstructor(
                 a(PUBLIC),
                 lambdaProviders);
@@ -477,7 +478,7 @@ public final class AccumulatorCompiler
         // lambda parameters
         for (FieldDefinition lambdaProviderField : lambdaProviderFields) {
             expressions.add(scope.getThis().getField(lambdaProviderField)
-                    .invoke("getLambda", Object.class));
+                    .invoke("get", Object.class));
         }
 
         return expressions;
@@ -590,7 +591,7 @@ public final class AccumulatorCompiler
         // lambda parameters
         for (FieldDefinition lambdaProviderField : lambdaProviderFields) {
             parameters.add(scope.getThis().getField(lambdaProviderField)
-                    .invoke("getLambda", Object.class));
+                    .invoke("get", Object.class));
         }
 
         block.append(invoke(callSiteBinder.bind(inputFunction), "input", parameters));
@@ -679,7 +680,7 @@ public final class AccumulatorCompiler
         }
         for (FieldDefinition lambdaProviderField : lambdaProviderFields) {
             loopBody.append(scope.getThis().getField(lambdaProviderField)
-                    .invoke("getLambda", Object.class));
+                    .invoke("get", Object.class));
         }
         loopBody.append(invoke(callSiteBinder.bind(combineFunction.get()), "combine"));
 
@@ -917,7 +918,7 @@ public final class AccumulatorCompiler
             CallSiteBinder callSiteBinder,
             boolean grouped)
     {
-        Parameter lambdaProviders = arg("lambdaProviders", type(List.class, LambdaProvider.class));
+        Parameter lambdaProviders = arg("lambdaProviders", type(List.class, Supplier.class));
         MethodDefinition method = definition.declareConstructor(
                 a(PUBLIC),
                 lambdaProviders);
@@ -975,7 +976,7 @@ public final class AccumulatorCompiler
             body.append(thisVariable.setField(
                     lambdaProviderFields.get(i),
                     lambdaProviders.invoke("get", Object.class, constantInt(i))
-                            .cast(LambdaProvider.class)));
+                            .cast(Supplier.class)));
             body.append(generateRequireNotNull(thisVariable, lambdaProviderFields.get(i)));
         }
     }

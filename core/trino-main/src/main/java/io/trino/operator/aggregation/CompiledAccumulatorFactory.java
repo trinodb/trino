@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.lang.reflect.Constructor;
 import java.util.List;
+import java.util.function.Supplier;
 
 import static java.util.Objects.requireNonNull;
 
@@ -25,12 +26,12 @@ public class CompiledAccumulatorFactory
 {
     private final Constructor<? extends Accumulator> accumulatorConstructor;
     private final Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor;
-    private final List<LambdaProvider> lambdaProviders;
+    private final List<Supplier<Object>> lambdaProviders;
 
     public CompiledAccumulatorFactory(
             Constructor<? extends Accumulator> accumulatorConstructor,
             Constructor<? extends GroupedAccumulator> groupedAccumulatorConstructor,
-            List<LambdaProvider> lambdaProviders)
+            List<Supplier<Object>> lambdaProviders)
     {
         this.accumulatorConstructor = requireNonNull(accumulatorConstructor, "accumulatorConstructor is null");
         this.groupedAccumulatorConstructor = requireNonNull(groupedAccumulatorConstructor, "groupedAccumulatorConstructor is null");
