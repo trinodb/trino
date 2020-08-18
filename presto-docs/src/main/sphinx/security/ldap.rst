@@ -21,12 +21,6 @@ Presto Server Configuration
 Environment Configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Secure LDAP
-~~~~~~~~~~~
-
-Presto requires Secure LDAP (LDAPS), so make sure you have TLS
-enabled on your LDAP server.
-
 Presto Coordinator Node Configuration
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
@@ -95,8 +89,10 @@ Password authentication needs to be configured to use LDAP. Create an
 ======================================================= ======================================================
 Property                                                Description
 ======================================================= ======================================================
-``ldap.url``                                            The url to the LDAP server. The url scheme must be
-                                                        ``ldaps://`` since Presto allows only Secure LDAP.
+``ldap.url``                                            The URL to the LDAP server. The URL scheme must be
+                                                        ``ldaps://`` or ``ldap://``.
+``ldap.allow-insecure``                                 If ``true``, non-SSL connections to the LDAP server are
+                                                        allowed. Defaults to ``false``.
 ``ldap.ssl-trust-certificate``                          The path to the PEM encoded trust certificate  for the
                                                         LDAP server. This file should contain the LDAP
                                                         server's certificate or its certificate authority.
