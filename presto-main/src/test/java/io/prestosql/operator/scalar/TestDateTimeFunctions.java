@@ -774,12 +774,22 @@ public class TestDateTimeFunctions
     @Test
     public void testParseDatetime()
     {
+        // Modern date
+        assertFunction("parse_datetime('2020-08-18 03:04:05.678', 'yyyy-MM-dd HH:mm:ss.SSS')",
+                TIMESTAMP_WITH_TIME_ZONE,
+                toTimestampWithTimeZone(new DateTime(2020, 8, 18, 3, 4, 5, 678, DATE_TIME_ZONE)));
+
+        // Before epoch
         assertFunction("parse_datetime('1960/01/22 03:04', 'yyyy/MM/dd HH:mm')",
                 TIMESTAMP_WITH_TIME_ZONE,
                 toTimestampWithTimeZone(new DateTime(1960, 1, 22, 3, 4, 0, 0, DATE_TIME_ZONE)));
+
+        // With named zone
         assertFunction("parse_datetime('1960/01/22 03:04 Asia/Oral', 'yyyy/MM/dd HH:mm ZZZZZ')",
                 TIMESTAMP_WITH_TIME_ZONE,
                 toTimestampWithTimeZone(new DateTime(1960, 1, 22, 3, 4, 0, 0, DateTimeZone.forID("Asia/Oral"))));
+
+        // With zone offset
         assertFunction("parse_datetime('1960/01/22 03:04 +0500', 'yyyy/MM/dd HH:mm Z')",
                 TIMESTAMP_WITH_TIME_ZONE,
                 toTimestampWithTimeZone(new DateTime(1960, 1, 22, 3, 4, 0, 0, DateTimeZone.forOffsetHours(5))));
