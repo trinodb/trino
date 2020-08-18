@@ -20,7 +20,6 @@ import io.prestosql.tempto.query.QueryResult;
 
 import java.util.function.Supplier;
 
-import static io.prestosql.testing.assertions.Assert.assertEventually;
 import static java.lang.String.format;
 import static org.testng.Assert.fail;
 
@@ -29,6 +28,29 @@ public final class QueryAssertions
     public static void assertContainsEventually(Supplier<QueryResult> all, QueryResult expectedSubset, Duration timeout)
     {
         assertEventually(timeout, () -> assertContains(all.get(), expectedSubset));
+    }
+
+    public static void assertEventually(Duration timeout, Runnable assertion)
+    {
+        long start = System.nanoTime();
+        while (!Thread.currentThread().isInterrupted()) {
+            try {
+                assertion.run();
+                return;
+            }
+            catch (Exception | AssertionError e) {
+                if (Duration.nanosSince(start).compareTo(timeout) > 0) {
+                    throw e;
+                }
+            }
+            try {
+                Thread.sleep(50);
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     public static void assertContains(QueryResult all, QueryResult expectedSubset)

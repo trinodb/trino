@@ -28,9 +28,9 @@ import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.testing.assertions.Assert.assertEventually;
 import static io.prestosql.tests.TestGroups.HIVE_CACHING;
 import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.prestosql.tests.utils.QueryAssertions.assertEventually;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 
