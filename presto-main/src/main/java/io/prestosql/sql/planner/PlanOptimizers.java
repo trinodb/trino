@@ -136,6 +136,7 @@ import io.prestosql.sql.planner.iterative.rule.PushOffsetThroughProject;
 import io.prestosql.sql.planner.iterative.rule.PushPartialAggregationThroughExchange;
 import io.prestosql.sql.planner.iterative.rule.PushPartialAggregationThroughJoin;
 import io.prestosql.sql.planner.iterative.rule.PushPredicateIntoTableScan;
+import io.prestosql.sql.planner.iterative.rule.PushPredicateThroughProjectIntoRowNumber;
 import io.prestosql.sql.planner.iterative.rule.PushProjectionIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.PushProjectionThroughExchange;
 import io.prestosql.sql.planner.iterative.rule.PushProjectionThroughUnion;
@@ -574,6 +575,7 @@ public class PlanOptimizers
                                 // add UnaliasSymbolReferences when it's ported
                                 .add(new RemoveRedundantIdentityProjections())
                                 .addAll(GatherAndMergeWindows.rules())
+                                .add(new PushPredicateThroughProjectIntoRowNumber(metadata))
                                 .build()),
                 inlineProjections,
                 columnPruningOptimizer, // Make sure to run this at the end to help clean the plan for logging/execution and not remove info that other optimizers might need at an earlier point
