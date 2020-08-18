@@ -11,13 +11,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.metadata;
+package io.trino.spi.function;
+
+import io.trino.spi.Experimental;
 
 import java.util.Objects;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+@Experimental(eta = "2022-10-31")
 public final class SchemaFunctionName
 {
     private final String schemaName;
@@ -26,9 +28,13 @@ public final class SchemaFunctionName
     public SchemaFunctionName(String schemaName, String functionName)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
-        checkArgument(!schemaName.isEmpty(), "schemaName is empty");
+        if (schemaName.isEmpty()) {
+            throw new IllegalArgumentException("schemaName is empty");
+        }
         this.functionName = requireNonNull(functionName, "functionName is null");
-        checkArgument(!functionName.isEmpty(), "functionName is empty");
+        if (functionName.isEmpty()) {
+            throw new IllegalArgumentException("functionName is empty");
+        }
     }
 
     public String getSchemaName()

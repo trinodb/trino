@@ -11,12 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.aggregation;
+package io.trino.spi.function;
 
-import com.google.common.collect.ImmutableList;
-import io.trino.spi.function.AccumulatorState;
-import io.trino.spi.function.AccumulatorStateFactory;
-import io.trino.spi.function.AccumulatorStateSerializer;
+import io.trino.spi.Experimental;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -25,6 +22,7 @@ import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
+@Experimental(eta = "2022-10-31")
 public class AggregationImplementation
 {
     private final MethodHandle inputFunction;
@@ -47,7 +45,7 @@ public class AggregationImplementation
         this.combineFunction = requireNonNull(combineFunction, "combineFunction is null");
         this.outputFunction = requireNonNull(outputFunction, "outputFunction is null");
         this.accumulatorStateDescriptors = requireNonNull(accumulatorStateDescriptors, "accumulatorStateDescriptors is null");
-        this.lambdaInterfaces = ImmutableList.copyOf(requireNonNull(lambdaInterfaces, "lambdaInterfaces is null"));
+        this.lambdaInterfaces = List.copyOf(requireNonNull(lambdaInterfaces, "lambdaInterfaces is null"));
     }
 
     public MethodHandle getInputFunction()
@@ -156,7 +154,7 @@ public class AggregationImplementation
         private Optional<MethodHandle> combineFunction = Optional.empty();
         private MethodHandle outputFunction;
         private List<AccumulatorStateDescriptor<?>> accumulatorStateDescriptors = new ArrayList<>();
-        private List<Class<?>> lambdaInterfaces = ImmutableList.of();
+        private List<Class<?>> lambdaInterfaces = List.of();
 
         private Builder() {}
 
@@ -204,12 +202,12 @@ public class AggregationImplementation
 
         public Builder lambdaInterfaces(Class<?>... lambdaInterfaces)
         {
-            return lambdaInterfaces(ImmutableList.copyOf(lambdaInterfaces));
+            return lambdaInterfaces(List.of(lambdaInterfaces));
         }
 
         public Builder lambdaInterfaces(List<Class<?>> lambdaInterfaces)
         {
-            this.lambdaInterfaces = ImmutableList.copyOf(requireNonNull(lambdaInterfaces, "lambdaInterfaces is null"));
+            this.lambdaInterfaces = List.copyOf(requireNonNull(lambdaInterfaces, "lambdaInterfaces is null"));
             return this;
         }
 

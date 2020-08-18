@@ -15,14 +15,14 @@ package io.trino.sql.gen;
 
 import com.google.common.base.Joiner;
 import io.trino.annotation.UsedByGeneratedCode;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlScalarFunction;
 import io.trino.operator.scalar.AbstractTestFunctions;
 import io.trino.operator.scalar.ChoicesSpecializedSqlScalarFunction;
 import io.trino.operator.scalar.SpecializedSqlScalarFunction;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
+import io.trino.spi.function.Signature;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 

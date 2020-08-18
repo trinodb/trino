@@ -11,14 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.metadata;
+package io.trino.spi.function;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
-import io.trino.spi.function.OperatorType;
+import io.trino.spi.Experimental;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
@@ -28,12 +25,14 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.stream.Collectors;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 import static java.util.stream.Stream.concat;
 
+@Experimental(eta = "2022-10-31")
 public class Signature
 {
+    // Copied from OperatorNameUtil
     private static final String OPERATOR_PREFIX = "$operator$";
 
     private final String name;
@@ -56,28 +55,16 @@ public class Signature
         requireNonNull(longVariableConstraints, "longVariableConstraints is null");
 
         this.name = name;
-        this.typeVariableConstraints = ImmutableList.copyOf(typeVariableConstraints);
-        this.longVariableConstraints = ImmutableList.copyOf(longVariableConstraints);
+        this.typeVariableConstraints = List.copyOf(typeVariableConstraints);
+        this.longVariableConstraints = List.copyOf(longVariableConstraints);
         this.returnType = requireNonNull(returnType, "returnType is null");
-        this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
+        this.argumentTypes = List.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
         this.variableArity = variableArity;
     }
 
-    public static boolean isOperatorName(String mangledName)
+    boolean isOperator()
     {
-        return mangledName.startsWith(OPERATOR_PREFIX);
-    }
-
-    public static String mangleOperatorName(OperatorType operatorType)
-    {
-        return OPERATOR_PREFIX + operatorType.name();
-    }
-
-    @VisibleForTesting
-    public static OperatorType unmangleOperator(String mangledName)
-    {
-        checkArgument(mangledName.startsWith(OPERATOR_PREFIX), "not a mangled operator name: %s", mangledName);
-        return OperatorType.valueOf(mangledName.substring(OPERATOR_PREFIX.length()).toUpperCase(Locale.ENGLISH));
+        return name.startsWith(OPERATOR_PREFIX);
     }
 
     @JsonProperty
@@ -148,7 +135,10 @@ public class Signature
                 longVariableConstraints.stream().map(LongVariableConstraint::toString))
                 .collect(Collectors.toList());
 
-        return name + (allConstraints.isEmpty() ? "" : "<" + Joiner.on(",").join(allConstraints) + ">") + "(" + Joiner.on(",").join(argumentTypes) + "):" + returnType;
+        return name +
+                (allConstraints.isEmpty() ? "" : allConstraints.stream().collect(joining(",", "<", ">"))) +
+                argumentTypes.stream().map(Objects::toString).collect(joining(",", "(", ")")) +
+                ":" + returnType;
     }
 
     public Signature withName(String name)
@@ -186,7 +176,7 @@ public class Signature
 
         public Builder operatorType(OperatorType operatorType)
         {
-            this.name = mangleOperatorName(requireNonNull(operatorType, "operatorType is null"));
+            this.name = OPERATOR_PREFIX + requireNonNull(operatorType, "operatorType is null").name();
             return this;
         }
 

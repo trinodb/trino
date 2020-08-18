@@ -11,11 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.metadata;
+package io.trino.spi.function;
 
-import com.google.common.collect.ImmutableList;
-import com.google.common.collect.ImmutableSet;
-import io.trino.spi.function.OperatorType;
+import io.trino.spi.Experimental;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
@@ -25,10 +23,11 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
+@Experimental(eta = "2022-10-31")
 public class FunctionDependencyDeclaration
 {
     public static final FunctionDependencyDeclaration NO_DEPENDENCIES = builder().build();
@@ -49,10 +48,10 @@ public class FunctionDependencyDeclaration
             Set<OperatorDependency> operatorDependencies,
             Set<CastDependency> castDependencies)
     {
-        this.typeDependencies = ImmutableSet.copyOf(requireNonNull(typeDependencies, "typeDependencies is null"));
-        this.functionDependencies = ImmutableSet.copyOf(requireNonNull(functionDependencies, "functionDependencies is null"));
-        this.operatorDependencies = ImmutableSet.copyOf(requireNonNull(operatorDependencies, "operatorDependencies is null"));
-        this.castDependencies = ImmutableSet.copyOf(requireNonNull(castDependencies, "castDependencies is null"));
+        this.typeDependencies = Set.copyOf(requireNonNull(typeDependencies, "typeDependencies is null"));
+        this.functionDependencies = Set.copyOf(requireNonNull(functionDependencies, "functionDependencies is null"));
+        this.operatorDependencies = Set.copyOf(requireNonNull(operatorDependencies, "operatorDependencies is null"));
+        this.castDependencies = Set.copyOf(requireNonNull(castDependencies, "castDependencies is null"));
     }
 
     public Set<TypeSignature> getTypeDependencies()
@@ -94,7 +93,7 @@ public class FunctionDependencyDeclaration
         {
             functionDependencies.add(new FunctionDependency(name, parameterTypes.stream()
                     .map(Type::getTypeSignature)
-                    .collect(toImmutableList()), false));
+                    .collect(toUnmodifiableList()), false));
             return this;
         }
 
@@ -110,7 +109,7 @@ public class FunctionDependencyDeclaration
                     name,
                     parameterTypes.stream()
                             .map(Type::getTypeSignature)
-                            .collect(toImmutableList()),
+                            .collect(toUnmodifiableList()),
                     true));
             return this;
         }
@@ -125,7 +124,7 @@ public class FunctionDependencyDeclaration
         {
             operatorDependencies.add(new OperatorDependency(operatorType, parameterTypes.stream()
                     .map(Type::getTypeSignature)
-                    .collect(toImmutableList()), false));
+                    .collect(toUnmodifiableList()), false));
             return this;
         }
 
@@ -141,7 +140,7 @@ public class FunctionDependencyDeclaration
                     operatorType,
                     parameterTypes.stream()
                             .map(Type::getTypeSignature)
-                            .collect(toImmutableList()),
+                            .collect(toUnmodifiableList()),
                     true));
             return this;
         }
@@ -195,7 +194,7 @@ public class FunctionDependencyDeclaration
         private FunctionDependency(QualifiedFunctionName name, List<TypeSignature> argumentTypes, boolean optional)
         {
             this.name = requireNonNull(name, "name is null");
-            this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
+            this.argumentTypes = List.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
             this.optional = optional;
         }
 
@@ -252,7 +251,7 @@ public class FunctionDependencyDeclaration
         private OperatorDependency(OperatorType operatorType, List<TypeSignature> argumentTypes, boolean optional)
         {
             this.operatorType = requireNonNull(operatorType, "operatorType is null");
-            this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
+            this.argumentTypes = List.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
             this.optional = optional;
         }
 

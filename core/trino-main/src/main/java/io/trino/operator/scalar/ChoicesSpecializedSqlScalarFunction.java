@@ -15,15 +15,14 @@ package io.trino.operator.scalar;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.ScalarFunctionImplementation;
-import io.trino.metadata.ScalarFunctionImplementation.Builder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.trino.spi.function.InvocationConvention.InvocationReturnConvention;
 import io.trino.spi.function.ScalarFunctionAdapter;
+import io.trino.spi.function.ScalarFunctionImplementation;
 
 import java.lang.invoke.MethodHandle;
 import java.util.ArrayList;
@@ -120,7 +119,7 @@ public final class ChoicesSpecializedSqlScalarFunction
                 boundSignature.getArgumentTypes(),
                 bestChoice.getInvocationConvention(),
                 invocationConvention);
-        Builder builder = ScalarFunctionImplementation.builder()
+        ScalarFunctionImplementation.Builder builder = ScalarFunctionImplementation.builder()
                 .methodHandle(methodHandle);
         bestChoice.getInstanceFactory().ifPresent(builder::instanceFactory);
         builder.lambdaInterfaces(bestChoice.getLambdaInterfaces());
