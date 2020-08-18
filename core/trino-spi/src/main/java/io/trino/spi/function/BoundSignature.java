@@ -11,20 +11,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.metadata;
+package io.trino.spi.function;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
+import io.trino.spi.Experimental;
 import io.trino.spi.type.Type;
 
 import java.util.List;
 import java.util.Objects;
 
-import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
+import static java.util.stream.Collectors.toUnmodifiableList;
 
+@Experimental(eta = "2022-10-31")
 public class BoundSignature
 {
     private final String name;
@@ -39,7 +40,7 @@ public class BoundSignature
     {
         this.name = requireNonNull(name, "name is null");
         this.returnType = requireNonNull(returnType, "returnType is null");
-        this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
+        this.argumentTypes = List.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
     }
 
     @JsonProperty
@@ -77,7 +78,7 @@ public class BoundSignature
                 .returnType(returnType)
                 .argumentTypes(argumentTypes.stream()
                         .map(Type::getTypeSignature)
-                        .collect(toImmutableList()))
+                        .collect(toUnmodifiableList()))
                 .build();
     }
 

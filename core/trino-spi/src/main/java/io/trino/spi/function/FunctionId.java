@@ -11,16 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.metadata;
+package io.trino.spi.function;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonValue;
+import io.trino.spi.Experimental;
 
 import java.util.Locale;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
+@Experimental(eta = "2022-10-31")
 public class FunctionId
 {
     private final String id;
@@ -29,9 +30,15 @@ public class FunctionId
     public FunctionId(String id)
     {
         requireNonNull(id, "id is null");
-        checkArgument(!id.isEmpty(), "id must not be empty");
-        checkArgument(id.toLowerCase(Locale.US).equals(id), "id must be lowercase");
-        checkArgument(!id.contains("@"), "id must not contain '@'");
+        if (id.isEmpty()) {
+            throw new IllegalArgumentException("id must not be empty");
+        }
+        if (!id.toLowerCase(Locale.US).equals(id)) {
+            throw new IllegalArgumentException("id must be lowercase");
+        }
+        if (id.contains("@")) {
+            throw new IllegalArgumentException("id must not contain '@'");
+        }
         this.id = id;
     }
 

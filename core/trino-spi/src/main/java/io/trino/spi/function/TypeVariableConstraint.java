@@ -11,12 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.metadata;
+package io.trino.spi.function;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableSet;
+import io.trino.spi.Experimental;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 
@@ -26,7 +25,9 @@ import java.util.Optional;
 import java.util.Set;
 
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.joining;
 
+@Experimental(eta = "2022-10-31")
 public class TypeVariableConstraint
 {
     private final String name;
@@ -51,8 +52,8 @@ public class TypeVariableConstraint
         if (variadicBound.map(bound -> !bound.equalsIgnoreCase("row")).orElse(false)) {
             throw new IllegalArgumentException("variadicBound must be row but is " + variadicBound.get());
         }
-        this.castableTo = ImmutableSet.copyOf(requireNonNull(castableTo, "castableTo is null"));
-        this.castableFrom = ImmutableSet.copyOf(requireNonNull(castableFrom, "castableFrom is null"));
+        this.castableTo = Set.copyOf(requireNonNull(castableTo, "castableTo is null"));
+        this.castableFrom = Set.copyOf(requireNonNull(castableFrom, "castableFrom is null"));
     }
 
     @JsonProperty
@@ -105,10 +106,10 @@ public class TypeVariableConstraint
             value += ":" + variadicBound + "<*>";
         }
         if (!castableTo.isEmpty()) {
-            value += ":castableTo(" + Joiner.on(", ").join(castableTo) + ")";
+            value += castableTo.stream().map(Object::toString).collect(joining(", ", ":castableTo(", ")"));
         }
         if (!castableFrom.isEmpty()) {
-            value += ":castableFrom(" + Joiner.on(", ").join(castableFrom) + ")";
+            value += castableFrom.stream().map(Object::toString).collect(joining(", ", ":castableFrom(", ")"));
         }
         return value;
     }

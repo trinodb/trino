@@ -14,10 +14,6 @@
 package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.aggregation.state.GenericBooleanState;
 import io.trino.operator.aggregation.state.GenericBooleanStateSerializer;
@@ -28,6 +24,11 @@ import io.trino.operator.aggregation.state.GenericLongStateSerializer;
 import io.trino.operator.aggregation.state.StateCompiler;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.BlockBuilder;
+import io.trino.spi.function.AggregationFunctionMetadata;
+import io.trino.spi.function.AggregationImplementation;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.Signature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
 import io.trino.sql.gen.lambda.BinaryFunctionInterface;

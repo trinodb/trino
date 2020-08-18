@@ -16,7 +16,7 @@ package io.trino.sql.planner.sanity;
 import com.google.common.collect.ListMultimap;
 import io.trino.Session;
 import io.trino.execution.warnings.WarningCollector;
-import io.trino.metadata.BoundSignature;
+import io.trino.spi.function.BoundSignature;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeManager;
 import io.trino.sql.PlannerContext;

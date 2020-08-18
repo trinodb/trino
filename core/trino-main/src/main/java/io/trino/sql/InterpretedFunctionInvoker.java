@@ -14,14 +14,14 @@
 package io.trino.sql;
 
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionManager;
-import io.trino.metadata.FunctionNullability;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.metadata.ScalarFunctionImplementation;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
+import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.spi.type.Type;
 import io.trino.type.FunctionType;
 

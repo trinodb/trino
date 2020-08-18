@@ -15,6 +15,7 @@ package io.trino.metadata;
 
 import io.trino.connector.CatalogHandle;
 import io.trino.connector.CatalogServiceProvider;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.ptf.ConnectorTableFunction;
 
 import javax.annotation.concurrent.ThreadSafe;
