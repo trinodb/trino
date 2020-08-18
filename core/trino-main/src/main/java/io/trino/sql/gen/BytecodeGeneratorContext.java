@@ -18,8 +18,8 @@ import io.airlift.bytecode.Scope;
 import io.airlift.bytecode.Variable;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.ResolvedFunction;
-import io.trino.metadata.ScalarFunctionImplementation;
 import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.ScalarFunctionImplementation;
 import io.trino.sql.relational.RowExpression;
 
 import java.lang.invoke.MethodHandle;

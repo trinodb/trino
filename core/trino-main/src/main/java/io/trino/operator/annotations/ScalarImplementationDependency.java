@@ -14,10 +14,10 @@
 package io.trino.operator.annotations;
 
 import io.trino.metadata.FunctionBinding;
-import io.trino.metadata.FunctionDependencies;
-import io.trino.metadata.ScalarFunctionImplementation;
 import io.trino.spi.connector.ConnectorSession;
+import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.ScalarFunctionImplementation;
 
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandleProxies;

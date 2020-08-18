@@ -13,9 +13,16 @@
  */
 package io.trino.metadata;
 
-import io.trino.operator.aggregation.AggregationImplementation;
-import io.trino.operator.window.WindowFunctionSupplier;
+import io.trino.spi.function.AggregationFunctionMetadata;
+import io.trino.spi.function.AggregationImplementation;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionId;
+import io.trino.spi.function.FunctionMetadata;
 import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.ScalarFunctionImplementation;
+import io.trino.spi.function.WindowFunctionSupplier;
 
 import java.util.Collection;
 

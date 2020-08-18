@@ -14,6 +14,9 @@
 package io.trino.metadata;
 
 import io.trino.operator.scalar.SpecializedSqlScalarFunction;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionMetadata;
 
 public abstract class SqlScalarFunction
         implements SqlFunction

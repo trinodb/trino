@@ -15,8 +15,6 @@ package io.trino.operator.aggregation;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
-import io.trino.metadata.BoundSignature;
-import io.trino.metadata.FunctionNullability;
 import io.trino.operator.aggregation.state.StateCompiler;
 import io.trino.server.PluginManager;
 import io.trino.spi.Page;
@@ -25,6 +23,9 @@ import io.trino.spi.block.BlockBuilder;
 import io.trino.spi.function.AccumulatorState;
 import io.trino.spi.function.AccumulatorStateFactory;
 import io.trino.spi.function.AccumulatorStateSerializer;
+import io.trino.spi.function.AggregationImplementation;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionNullability;
 import io.trino.spi.type.LongTimestamp;
 import io.trino.spi.type.RealType;
 import io.trino.spi.type.TimestampType;

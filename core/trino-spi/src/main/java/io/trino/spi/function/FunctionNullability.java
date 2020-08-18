@@ -11,11 +11,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.metadata;
+package io.trino.spi.function;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.collect.ImmutableList;
+import io.trino.spi.Experimental;
 
 import java.util.List;
 import java.util.Objects;
@@ -23,6 +23,7 @@ import java.util.Objects;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
 
+@Experimental(eta = "2022-10-31")
 public class FunctionNullability
 {
     private final boolean returnNullable;
@@ -34,7 +35,7 @@ public class FunctionNullability
             @JsonProperty("argumentNullable") List<Boolean> argumentNullable)
     {
         this.returnNullable = returnNullable;
-        this.argumentNullable = ImmutableList.copyOf(requireNonNull(argumentNullable, "argumentNullable is null"));
+        this.argumentNullable = List.copyOf(requireNonNull(argumentNullable, "argumentNullable is null"));
     }
 
     @JsonProperty

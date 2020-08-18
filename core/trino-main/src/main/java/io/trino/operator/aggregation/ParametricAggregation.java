@@ -15,16 +15,7 @@ package io.trino.operator.aggregation;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
-import io.trino.metadata.AggregationFunctionMetadata;
-import io.trino.metadata.AggregationFunctionMetadata.AggregationFunctionMetadataBuilder;
-import io.trino.metadata.BoundSignature;
 import io.trino.metadata.FunctionBinding;
-import io.trino.metadata.FunctionDependencies;
-import io.trino.metadata.FunctionDependencyDeclaration;
-import io.trino.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
-import io.trino.metadata.FunctionMetadata;
-import io.trino.metadata.FunctionNullability;
-import io.trino.metadata.Signature;
 import io.trino.metadata.SignatureBinder;
 import io.trino.metadata.SqlAggregationFunction;
 import io.trino.operator.ParametricImplementationsGroup;
@@ -32,6 +23,16 @@ import io.trino.operator.aggregation.AggregationFromAnnotationsParser.Accumulato
 import io.trino.operator.aggregation.AggregationFunctionAdapter.AggregationParameterKind;
 import io.trino.operator.annotations.ImplementationDependency;
 import io.trino.spi.TrinoException;
+import io.trino.spi.function.AggregationFunctionMetadata;
+import io.trino.spi.function.AggregationFunctionMetadata.AggregationFunctionMetadataBuilder;
+import io.trino.spi.function.AggregationImplementation;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencies;
+import io.trino.spi.function.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.FunctionNullability;
+import io.trino.spi.function.Signature;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Collection;

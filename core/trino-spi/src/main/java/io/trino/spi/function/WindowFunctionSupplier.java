@@ -11,13 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.trino.operator.window;
+package io.trino.spi.function;
 
-import io.trino.spi.function.WindowFunction;
+import io.trino.spi.Experimental;
 
 import java.util.List;
 import java.util.function.Supplier;
 
+@Experimental(eta = "2022-10-31")
 public interface WindowFunctionSupplier
 {
     WindowFunction createWindowFunction(boolean ignoreNulls, List<Supplier<Object>> lambdaProviders);

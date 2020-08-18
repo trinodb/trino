@@ -13,8 +13,8 @@
  */
 package io.trino.operator.scalar;
 
-import io.trino.metadata.ScalarFunctionImplementation;
 import io.trino.spi.function.InvocationConvention;
+import io.trino.spi.function.ScalarFunctionImplementation;
 
 public interface SpecializedSqlScalarFunction
 {
