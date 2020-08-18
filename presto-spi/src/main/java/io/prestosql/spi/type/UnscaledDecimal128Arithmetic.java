@@ -327,19 +327,22 @@ public final class UnscaledDecimal128Arithmetic
 
     public static void subtract(Slice left, Slice right, Slice result)
     {
-        if (isNegative(left) != isNegative(right)) {
+        boolean leftNegative = isNegative(left);
+        boolean rightNegative = isNegative(right);
+
+        if (leftNegative != rightNegative) {
             // only one is negative
-            if (addUnsignedReturnOverflow(left, right, result, isNegative(left)) != 0) {
+            if (addUnsignedReturnOverflow(left, right, result, leftNegative) != 0) {
                 throwOverflowException();
             }
         }
         else {
             int compare = compareAbsolute(left, right);
             if (compare > 0) {
-                subtractUnsigned(left, right, result, isNegative(left) && isNegative(right));
+                subtractUnsigned(left, right, result, leftNegative);
             }
             else if (compare < 0) {
-                subtractUnsigned(right, left, result, !(isNegative(left) && isNegative(right)));
+                subtractUnsigned(right, left, result, !leftNegative);
             }
             else {
                 setToZero(result);
