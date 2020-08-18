@@ -18,7 +18,6 @@ import com.google.common.collect.ImmutableSet;
 import io.trino.spi.function.OperatorType;
 import io.trino.spi.type.Type;
 import io.trino.spi.type.TypeSignature;
-import io.trino.sql.tree.QualifiedName;
 
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -91,7 +90,7 @@ public class FunctionDependencyDeclaration
             return this;
         }
 
-        public FunctionDependencyDeclarationBuilder addFunction(QualifiedName name, List<Type> parameterTypes)
+        public FunctionDependencyDeclarationBuilder addFunction(QualifiedFunctionName name, List<Type> parameterTypes)
         {
             functionDependencies.add(new FunctionDependency(name, parameterTypes.stream()
                     .map(Type::getTypeSignature)
@@ -99,13 +98,13 @@ public class FunctionDependencyDeclaration
             return this;
         }
 
-        public FunctionDependencyDeclarationBuilder addFunctionSignature(QualifiedName name, List<TypeSignature> parameterTypes)
+        public FunctionDependencyDeclarationBuilder addFunctionSignature(QualifiedFunctionName name, List<TypeSignature> parameterTypes)
         {
             functionDependencies.add(new FunctionDependency(name, parameterTypes, false));
             return this;
         }
 
-        public FunctionDependencyDeclarationBuilder addOptionalFunction(QualifiedName name, List<Type> parameterTypes)
+        public FunctionDependencyDeclarationBuilder addOptionalFunction(QualifiedFunctionName name, List<Type> parameterTypes)
         {
             functionDependencies.add(new FunctionDependency(
                     name,
@@ -116,7 +115,7 @@ public class FunctionDependencyDeclaration
             return this;
         }
 
-        public FunctionDependencyDeclarationBuilder addOptionalFunctionSignature(QualifiedName name, List<TypeSignature> parameterTypes)
+        public FunctionDependencyDeclarationBuilder addOptionalFunctionSignature(QualifiedFunctionName name, List<TypeSignature> parameterTypes)
         {
             functionDependencies.add(new FunctionDependency(name, parameterTypes, true));
             return this;
@@ -189,18 +188,18 @@ public class FunctionDependencyDeclaration
 
     public static final class FunctionDependency
     {
-        private final QualifiedName name;
+        private final QualifiedFunctionName name;
         private final List<TypeSignature> argumentTypes;
         private final boolean optional;
 
-        private FunctionDependency(QualifiedName name, List<TypeSignature> argumentTypes, boolean optional)
+        private FunctionDependency(QualifiedFunctionName name, List<TypeSignature> argumentTypes, boolean optional)
         {
             this.name = requireNonNull(name, "name is null");
             this.argumentTypes = ImmutableList.copyOf(requireNonNull(argumentTypes, "argumentTypes is null"));
             this.optional = optional;
         }
 
-        public QualifiedName getName()
+        public QualifiedFunctionName getName()
         {
             return name;
         }

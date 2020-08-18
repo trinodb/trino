@@ -270,6 +270,7 @@ import static com.google.common.collect.Iterables.getLast;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.trino.SystemSessionProperties.getMaxGroupingSets;
 import static io.trino.metadata.FunctionResolver.toPath;
+import static io.trino.metadata.MetadataManager.toQualifiedFunctionName;
 import static io.trino.metadata.MetadataUtil.createQualifiedObjectName;
 import static io.trino.metadata.MetadataUtil.getRequiredCatalogHandle;
 import static io.trino.spi.StandardErrorCode.AMBIGUOUS_NAME;
@@ -1575,7 +1576,7 @@ class StatementAnalyzer
 
         private Optional<TableFunctionMetadata> resolveTableFunction(TableFunctionInvocation node)
         {
-            for (CatalogSchemaFunctionName name : toPath(session, node.getName())) {
+            for (CatalogSchemaFunctionName name : toPath(session, toQualifiedFunctionName(node.getName()))) {
                 CatalogHandle catalogHandle = getRequiredCatalogHandle(metadata, session, node, name.getCatalogName());
                 Optional<ConnectorTableFunction> resolved = tableFunctionRegistry.resolve(catalogHandle, name.getSchemaFunctionName());
                 if (resolved.isPresent()) {
