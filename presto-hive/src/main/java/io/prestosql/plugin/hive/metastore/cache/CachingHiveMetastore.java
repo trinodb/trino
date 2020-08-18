@@ -876,7 +876,7 @@ public class CachingHiveMetastore
             delegate.grantTablePrivileges(databaseName, tableName, tableOwner, grantee, privileges);
         }
         finally {
-            tablePrivilegesCache.invalidate(new UserTableKey(Optional.of(grantee), databaseName, tableName, tableOwner));
+            invalidateTablePrivilegeCacheEntries(databaseName, tableName, tableOwner, grantee);
         }
     }
 
@@ -887,8 +887,15 @@ public class CachingHiveMetastore
             delegate.revokeTablePrivileges(databaseName, tableName, tableOwner, grantee, privileges);
         }
         finally {
-            tablePrivilegesCache.invalidate(new UserTableKey(Optional.of(grantee), databaseName, tableName, tableOwner));
+            invalidateTablePrivilegeCacheEntries(databaseName, tableName, tableOwner, grantee);
         }
+    }
+
+    private void invalidateTablePrivilegeCacheEntries(String databaseName, String tableName, String tableOwner, HivePrincipal grantee)
+    {
+        // some callers of xxxxTablePrivileges use Optional.of(grantee), some Optional.empty() (to get all privileges), so have to invalidate them both
+        tablePrivilegesCache.invalidate(new UserTableKey(Optional.of(grantee), databaseName, tableName, tableOwner));
+        tablePrivilegesCache.invalidate(new UserTableKey(Optional.empty(), databaseName, tableName, tableOwner));
     }
 
     @Override
