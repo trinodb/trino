@@ -47,7 +47,6 @@ import io.prestosql.testing.TestingMetadata;
 import io.prestosql.testing.TestingPageSinkProvider;
 import io.prestosql.testing.TestingTransactionHandle;
 import org.testng.annotations.BeforeClass;
-import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
@@ -91,48 +90,6 @@ public class TestLazyCoordinatorDynamicFiltering
         return DistributedQueryRunner.builder(session)
                 .setExtraProperties(ImmutableMap.of("query.min-schedule-split-batch-size", "1"))
                 .build();
-    }
-
-    @Test(enabled = false)
-    @Override
-    public void testBroadcastJoinWithSelectiveBuildSide()
-    {
-        // for broadcast joins lazy dynamic filters are non blocking
-    }
-
-    @Test(enabled = false)
-    @Override
-    public void testBroadcastJoinWithEmptyBuildSide()
-    {
-        // for broadcast joins lazy dynamic filters are non blocking
-    }
-
-    @Test(enabled = false)
-    @Override
-    public void testBroadcastJoinWithLargeBuildSide()
-    {
-        // for broadcast joins lazy dynamic filters are non blocking
-    }
-
-    @Test(enabled = false)
-    @Override
-    public void testBroadcastSemiJoinWithSelectiveBuildSide()
-    {
-        // for broadcast semi-joins lazy dynamic filters are non blocking
-    }
-
-    @Test(enabled = false)
-    @Override
-    public void testBroadcastSemiJoinWithEmptyBuildSide()
-    {
-        // for broadcast semi-joins lazy dynamic filters are non blocking
-    }
-
-    @Test(enabled = false)
-    @Override
-    public void testBroadcastSemiJoinWithLargeBuildSide()
-    {
-        // for broadcast semi-joins lazy dynamic filters are non blocking
     }
 
     private class TestPlugin

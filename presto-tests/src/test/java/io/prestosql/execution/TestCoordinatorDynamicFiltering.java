@@ -177,7 +177,7 @@ public class TestCoordinatorDynamicFiltering
                     AtomicBoolean splitProduced = new AtomicBoolean();
                     TupleDomain<ColumnHandle> expectedDynamicFilter = getExpectedDynamicFilter(session);
 
-                    assertFalse(dynamicFilter.isBlocked().isDone() && isExpectedDynamicFilterLazy(session), "Dynamic filter should be initially blocked");
+                    assertFalse(dynamicFilter.isBlocked().isDone(), "Dynamic filter should be initially blocked");
 
                     return new ConnectorSplitSource()
                     {
