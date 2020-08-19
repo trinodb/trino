@@ -18,6 +18,7 @@
 ## Requirements
 
 * Mac OS X or Linux
+* Docker 
 * Java 11, 64-bit
 * Python 2.6+ (for running with the launcher script)
 
