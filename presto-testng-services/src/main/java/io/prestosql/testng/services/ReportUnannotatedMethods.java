@@ -13,6 +13,7 @@
  */
 package io.prestosql.testng.services;
 
+import com.google.common.annotations.VisibleForTesting;
 import org.testng.IClassListener;
 import org.testng.ITestClass;
 
@@ -21,6 +22,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Stream;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
@@ -32,27 +34,32 @@ public class ReportUnannotatedMethods
     @Override
     public void onBeforeClass(ITestClass testClass)
     {
-        Method[] publicMethods = testClass.getRealClass().getMethods();
-
-        List<Method> unannotatedMethods = Arrays.stream(publicMethods)
-                .filter(method -> method.getDeclaringClass() != Object.class)
-                .filter(method -> !Modifier.isStatic(method.getModifiers()))
-                .filter(method -> !method.isBridge())
-                .filter(method -> !isTestMethod(method))
-                .collect(toImmutableList());
-
-        if (!unannotatedMethods.isEmpty()) {
+        Class<?> realClass = testClass.getRealClass();
+        List<Method> unannotatedTestMethods = findUnannotatedTestMethods(realClass);
+        if (!unannotatedTestMethods.isEmpty()) {
             // TestNG may or may not propagate listener's exception as test execution exception.
             // Therefore, instead of throwing, we terminate the JVM.
             System.err.println(format(
                     "FATAL: Test class %s has methods which are public but not explicitly annotated. Are they missing @Test?%s",
-                    testClass.getRealClass().getName(),
-                    unannotatedMethods.stream()
+                    realClass.getName(),
+                    unannotatedTestMethods.stream()
                             .map(Method::toString)
                             .collect(joining("\n\t\t", "\n\t\t", ""))));
             System.err.println("JVM will be terminated");
             System.exit(1);
         }
+    }
+
+    @VisibleForTesting
+    static List<Method> findUnannotatedTestMethods(Class<?> realClass)
+    {
+        return Arrays.stream(realClass.getMethods())
+                .filter(method -> method.getDeclaringClass() != Object.class)
+                .filter(method -> !Modifier.isStatic(method.getModifiers()))
+                .filter(method -> !method.isBridge())
+                .filter(method -> !isTestMethod(method))
+                .filter(method -> !isTemptoSpiMethod(method))
+                .collect(toImmutableList());
     }
 
     @Override
@@ -92,11 +99,44 @@ public class ReportUnannotatedMethods
                         // testng annotation (@Test, @Before*, @DataProvider, etc.)
                         return true;
                     }
-                    if ("io.prestosql.tempto".equals(annotationClass.getPackage().getName())) {
+                    if (isTemptoClass(annotationClass)) {
                         // tempto annotation (@BeforeTestWithContext, @AfterTestWithContext)
                         return true;
                     }
                     return false;
                 });
+    }
+
+    private static boolean isTemptoSpiMethod(Method method)
+    {
+        return Stream.of(method.getDeclaringClass().getInterfaces())
+                .filter(ReportUnannotatedMethods::isTemptoClass)
+                .map(Class::getMethods)
+                .flatMap(Stream::of)
+                .anyMatch(actualMethod -> overrides(method, actualMethod));
+    }
+
+    private static boolean overrides(Method first, Method second)
+    {
+        if (!first.getName().equals(second.getName())) {
+            return false;
+        }
+
+        if (first.getParameterTypes().length != second.getParameterTypes().length) {
+            return false;
+        }
+
+        for (int i = 0; i < first.getParameterTypes().length; i++) {
+            if (!first.getParameterTypes()[i].getName().equals(second.getParameterTypes()[i].getName())) {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private static boolean isTemptoClass(Class<?> aClass)
+    {
+        return "io.prestosql.tempto".equals(aClass.getPackage().getName());
     }
 }
