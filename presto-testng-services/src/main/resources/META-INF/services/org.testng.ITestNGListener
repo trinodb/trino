@@ -1,0 +1,3 @@
+io.prestosql.testng.services.ReportUnannotatedMethods
+io.prestosql.testng.services.ReportIllNamedTest
+io.prestosql.testng.services.LogTestDurationListener
