@@ -10,7 +10,7 @@ function cleanup {
     fi
 }
 
-function test_container {
+function test_presto_starts {
     local QUERY_PERIOD=5
     local QUERY_RETRIES=30
 
@@ -32,4 +32,17 @@ function test_container {
 
     # Return proper exit code.
     [[ ${RESULT} == '"success"' ]]
+}
+
+function test_javahome {
+    local CONTAINER_NAME=$1
+    # Check if JAVA_HOME works
+    docker run --rm "${CONTAINER_NAME}" /bin/bash -c '$JAVA_HOME/bin/java -version' &> /dev/null
+
+    [[ "$?" == "0" ]]
+}
+
+function test_container {
+    local CONTAINER_NAME=$1
+    test_javahome ${CONTAINER_NAME} && test_presto_starts ${CONTAINER_NAME}
 }
