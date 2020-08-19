@@ -16,6 +16,7 @@ package io.prestosql.testng.services;
 import org.testng.IClassListener;
 import org.testng.ITestClass;
 
+import static io.prestosql.testng.services.ReportUnannotatedMethods.isTemptoClass;
 import static java.lang.String.format;
 
 public class ReportIllNamedTest
@@ -24,7 +25,8 @@ public class ReportIllNamedTest
     @Override
     public void onBeforeClass(ITestClass testClass)
     {
-        String testClassName = testClass.getRealClass().getSimpleName();
+        Class<?> realClass = testClass.getRealClass();
+        String testClassName = realClass.getSimpleName();
         if (testClassName.startsWith("Test") || testClassName.startsWith("Benchmark")) {
             return;
         }
@@ -32,12 +34,15 @@ public class ReportIllNamedTest
             // integration test
             return;
         }
+        if (isTemptoClass(realClass)) {
+            return;
+        }
 
         // TestNG may or may not propagate listener's exception as test execution exception.
         // Therefore, instead of throwing, we terminate the JVM.
         System.err.println(format(
                 "FATAL: Test class %s's name should start with Test",
-                testClass.getRealClass().getName()));
+                realClass.getName()));
         System.err.println("JVM will be terminated");
         System.exit(1);
     }
