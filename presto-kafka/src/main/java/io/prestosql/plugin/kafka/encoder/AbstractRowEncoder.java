@@ -23,6 +23,8 @@ import io.prestosql.spi.type.SqlTime;
 import io.prestosql.spi.type.SqlTimeWithTimeZone;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
+import io.prestosql.spi.type.TimeType;
+import io.prestosql.spi.type.TimeWithTimeZoneType;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
@@ -38,8 +40,6 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.isVarbinaryType;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
@@ -106,10 +106,10 @@ public abstract class AbstractRowEncoder
         else if (type == DATE) {
             appendSqlDate((SqlDate) type.getObjectValue(session, block, position));
         }
-        else if (type == TIME) {
+        else if (type instanceof TimeType) {
             appendSqlTime((SqlTime) type.getObjectValue(session, block, position));
         }
-        else if (type == TIME_WITH_TIME_ZONE) {
+        else if (type instanceof TimeWithTimeZoneType) {
             appendSqlTimeWithTimeZone((SqlTimeWithTimeZone) type.getObjectValue(session, block, position));
         }
         else if (type instanceof TimestampType) {
