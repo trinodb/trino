@@ -142,6 +142,7 @@
         <module>presto-testing</module>
         <module>presto-testing-kafka</module>
         <module>presto-testing-server-launcher</module>
+        <module>presto-testng-services</module>
         <module>presto-tests</module>
         <module>presto-thrift</module>
         <module>presto-thrift-api</module>
@@ -434,6 +435,12 @@
             <dependency>
                 <groupId>io.prestosql</groupId>
                 <artifactId>presto-testing-kafka</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-testng-services</artifactId>
                 <version>${project.version}</version>
             </dependency>
 
