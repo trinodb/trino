@@ -346,7 +346,7 @@ public class TestJdbcCompatibility
         });
     }
 
-    public <T> void checkRepresentation(String query, T expectedValue, int expectedType, ResultSetMapper<T> extractValue)
+    private <T> void checkRepresentation(String query, T expectedValue, int expectedType, ResultSetMapper<T> extractValue)
     {
         try (ResultSet rs = runQuery(query)) {
             assertThat(rs.next()).isTrue();
