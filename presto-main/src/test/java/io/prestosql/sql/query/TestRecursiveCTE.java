@@ -234,6 +234,26 @@ public class TestRecursiveCTE
     }
 
     @Test
+    public void testCorrelatedSubquery()
+    {
+        assertThat(assertions.query("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          SELECT b + 1 FROM ((SELECT 5) t1(m) JOIN LATERAL (SELECT * FROM t WHERE n * 3 < m) ON true) t(a, b)  WHERE b < 3" +
+                "          )" +
+                "          SELECT * from t"))
+                .matches("VALUES (1), (2)");
+
+        assertThat(assertions.query("WITH RECURSIVE t(n) AS (" +
+                "          SELECT 1" +
+                "          UNION ALL" +
+                "          SELECT * FROM (SELECT * FROM (VALUES 5) t1(m) WHERE 1 IN (SELECT * FROM t WHERE n * 3 < m))" +
+                "          )" +
+                "          SELECT * from t"))
+                .matches("VALUES (1), (5)");
+    }
+
+    @Test
     public void testSetOperation()
     {
         assertThat(assertions.query("WITH RECURSIVE t(n) AS (" +
