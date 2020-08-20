@@ -88,3 +88,9 @@ These requirements can be expressed with the following rules:
         }
       }
     ]
+
+Limitations
+-----------
+
+The session property manager only supports system session properties and does
+not support catalog session properties.
