@@ -63,6 +63,7 @@ import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.LongTimestampWithTimeZone;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
@@ -134,7 +135,7 @@ import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.StandardTypes.JSON;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
@@ -360,10 +361,11 @@ public class PostgreSqlClient
             return Optional.of(timeColumnMappingWithTruncation());
         }
         if (typeHandle.getJdbcType() == Types.TIMESTAMP) {
+            TimestampType timestampType = createTimestampType(typeHandle.getDecimalDigits());
             return Optional.of(ColumnMapping.longMapping(
-                    TIMESTAMP_MILLIS,
-                    timestampReadFunction(),
-                    timestampWriteFunction()));
+                    timestampType,
+                    timestampReadFunction(timestampType),
+                    timestampWriteFunction(timestampType)));
         }
         if (typeHandle.getJdbcType() == Types.NUMERIC && getDecimalRounding(session) == ALLOW_OVERFLOW) {
             if (typeHandle.getColumnSize() == 131089) {
@@ -439,8 +441,9 @@ public class PostgreSqlClient
         if (TIME.equals(type)) {
             return WriteMapping.longMapping("time", timeWriteFunction());
         }
-        if (TIMESTAMP_MILLIS.equals(type)) {
-            return WriteMapping.longMapping("timestamp", timestampWriteFunction());
+        if (type instanceof TimestampType && ((TimestampType) type).getPrecision() <= MAX_SUPPORTED_TIMESTAMP_PRECISION) {
+            TimestampType timestampType = (TimestampType) type;
+            return WriteMapping.longMapping(format("timestamp(%s)", timestampType.getPrecision()), timestampWriteFunction(timestampType));
         }
         if (type instanceof TimestampWithTimeZoneType && ((TimestampWithTimeZoneType) type).getPrecision() <= MAX_SUPPORTED_TIMESTAMP_PRECISION) {
             int precision = ((TimestampWithTimeZoneType) type).getPrecision();
@@ -496,7 +499,7 @@ public class PostgreSqlClient
     // When writing with setObject() using LocalDateTime, driver converts the value to string representing date-time in JVM zone,
     // therefore cannot represent local date-time which is a "gap" in this zone.
     // TODO replace this method with StandardColumnMappings#timestampWriteFunction when https://github.com/pgjdbc/pgjdbc/issues/1390 is done
-    private static LongWriteFunction timestampWriteFunction()
+    private static LongWriteFunction timestampWriteFunction(TimestampType timestampType)
     {
         return (statement, index, value) -> {
             LocalDateTime localDateTime = fromPrestoTimestamp(value);
