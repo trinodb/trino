@@ -253,7 +253,7 @@ public class TestingPrestoClient
         else if (type instanceof RowType) {
             List<Type> fieldTypes = type.getTypeParameters();
             Collection<?> values = ((Map<?, ?>) value).values();
-            return dataToRow(fieldTypes).apply(new ArrayList(values));
+            return dataToRow(fieldTypes).apply(new ArrayList<>(values));
         }
         else if (type instanceof DecimalType) {
             return new BigDecimal((String) value);
