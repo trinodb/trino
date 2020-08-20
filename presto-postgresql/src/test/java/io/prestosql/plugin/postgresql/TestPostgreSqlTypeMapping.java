@@ -147,7 +147,8 @@ public class TestPostgreSqlTypeMapping
                 postgreSqlServer,
                 ImmutableMap.of(),
                 ImmutableMap.of("jdbc-types-mapped-to-varchar", "Tsrange, Inet" /* make sure that types are compared case insensitively */),
-                ImmutableList.of());
+                ImmutableList.of(),
+                1);
     }
 
     @AfterClass(alwaysRun = true)

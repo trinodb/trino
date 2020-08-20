@@ -50,10 +50,22 @@ public final class PostgreSqlQueryRunner
             Iterable<TpchTable<?>> tables)
             throws Exception
     {
+        return createPostgreSqlQueryRunner(server, extraProperties, connectorProperties, tables, 3);
+    }
+
+    public static DistributedQueryRunner createPostgreSqlQueryRunner(
+            TestingPostgreSqlServer server,
+            Map<String, String> extraProperties,
+            Map<String, String> connectorProperties,
+            Iterable<TpchTable<?>> tables,
+            int nodeCount)
+            throws Exception
+    {
         DistributedQueryRunner queryRunner = null;
         try {
             queryRunner = DistributedQueryRunner.builder(createSession())
                     .setExtraProperties(extraProperties)
+                    .setNodeCount(nodeCount)
                     .build();
 
             queryRunner.installPlugin(new TpchPlugin());
