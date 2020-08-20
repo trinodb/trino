@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.LiteralFunction;
 import io.trino.metadata.ResolvedFunction;
 import io.trino.operator.scalar.Re2JCastToRegexpFunction;
@@ -85,6 +86,7 @@ public class TestLiteralEncoder
 
     private final ResolvedFunction literalFunction = new ResolvedFunction(
             new BoundSignature(LITERAL_FUNCTION_NAME, VARBINARY, ImmutableList.of(VARBINARY)),
+            GlobalSystemConnector.CATALOG_HANDLE,
             new LiteralFunction(PLANNER_CONTEXT.getBlockEncodingSerde()).getFunctionMetadata().getFunctionId(),
             SCALAR,
             true,
@@ -94,6 +96,7 @@ public class TestLiteralEncoder
 
     private final ResolvedFunction base64Function = new ResolvedFunction(
             new BoundSignature("from_base64", VARBINARY, ImmutableList.of(VARCHAR)),
+            GlobalSystemConnector.CATALOG_HANDLE,
             toFunctionId(Signature.builder()
                     .name("from_base64")
                     .returnType(VARBINARY)

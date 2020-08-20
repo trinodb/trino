@@ -21,6 +21,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.slice.Slice;
 import io.trino.Session;
 import io.trino.connector.CatalogHandle;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder;
 import io.trino.spi.TrinoException;
 import io.trino.spi.connector.AggregateFunction;
@@ -761,6 +762,7 @@ public abstract class AbstractMockMetadata
             BoundSignature boundSignature = new BoundSignature(nameSuffix, DOUBLE, ImmutableList.of());
             return new ResolvedFunction(
                     boundSignature,
+                    GlobalSystemConnector.CATALOG_HANDLE,
                     toFunctionId(boundSignature.toSignature()),
                     SCALAR,
                     true,
