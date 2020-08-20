@@ -405,10 +405,9 @@ public class TestDynamicFilterService
 
         void addTasks(List<TaskId> taskIds)
         {
-            taskIds.stream()
-                    .forEach(taskId -> stageDynamicFilters
-                            .computeIfAbsent(taskId.getStageId(), id -> new HashMap<>())
-                            .put(taskId, new HashMap<>()));
+            taskIds.forEach(taskId -> stageDynamicFilters
+                    .computeIfAbsent(taskId.getStageId(), id -> new HashMap<>())
+                    .put(taskId, new HashMap<>()));
         }
 
         void storeSummary(DynamicFilterId filterId, TaskId taskId, Domain domain)
