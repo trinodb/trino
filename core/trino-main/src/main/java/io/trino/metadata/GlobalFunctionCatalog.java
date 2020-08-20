@@ -54,8 +54,7 @@ import static java.util.Locale.ENGLISH;
 @ThreadSafe
 public class GlobalFunctionCatalog
 {
-    public static final String GLOBAL_CATALOG = "system";
-    public static final String GLOBAL_SCHEMA = "global";
+    public static final String BUILTIN_SCHEMA = "builtin";
     private volatile FunctionMap functions = new FunctionMap();
 
     public final synchronized void addFunctions(FunctionBundle functionBundle)
@@ -128,7 +127,7 @@ public class GlobalFunctionCatalog
 
     public Collection<FunctionMetadata> getFunctions(SchemaFunctionName name)
     {
-        if (!GLOBAL_SCHEMA.equals(name.getSchemaName())) {
+        if (!BUILTIN_SCHEMA.equals(name.getSchemaName())) {
             return ImmutableList.of();
         }
         return functions.get(name.getFunctionName());

@@ -18,6 +18,12 @@ import io.trino.spi.TrinoException;
 import io.trino.spi.expression.ConnectorExpression;
 import io.trino.spi.expression.Constant;
 import io.trino.spi.expression.Variable;
+import io.trino.spi.function.AggregationFunctionMetadata;
+import io.trino.spi.function.BoundSignature;
+import io.trino.spi.function.FunctionDependencyDeclaration;
+import io.trino.spi.function.FunctionId;
+import io.trino.spi.function.FunctionMetadata;
+import io.trino.spi.function.SchemaFunctionName;
 import io.trino.spi.predicate.TupleDomain;
 import io.trino.spi.ptf.ConnectorTableFunctionHandle;
 import io.trino.spi.security.GrantInfo;
@@ -852,6 +858,46 @@ public interface ConnectorMetadata
     default Optional<ConnectorResolvedIndex> resolveIndex(ConnectorSession session, ConnectorTableHandle tableHandle, Set<ColumnHandle> indexableColumns, Set<ColumnHandle> outputColumns, TupleDomain<ColumnHandle> tupleDomain)
     {
         return Optional.empty();
+    }
+
+    /**
+     * List available functions.
+     */
+    default Collection<FunctionMetadata> listFunctions(ConnectorSession session, String schemaName)
+    {
+        return List.of();
+    }
+
+    /**
+     * Get all functions with specified name.
+     */
+    default Collection<FunctionMetadata> getFunctions(ConnectorSession session, SchemaFunctionName name)
+    {
+        return List.of();
+    }
+
+    /**
+     * Return the function with the specified id.
+     */
+    default FunctionMetadata getFunctionMetadata(ConnectorSession session, FunctionId functionId)
+    {
+        throw new IllegalArgumentException("Unknown function " + functionId);
+    }
+
+    /**
+     * Returns the aggregation metadata for the aggregation function with the specified id.
+     */
+    default AggregationFunctionMetadata getAggregationFunctionMetadata(ConnectorSession session, FunctionId functionId)
+    {
+        throw new IllegalArgumentException("Unknown function " + functionId);
+    }
+
+    /**
+     * Returns the dependencies of the function with the specified id.
+     */
+    default FunctionDependencyDeclaration getFunctionDependencies(ConnectorSession session, FunctionId functionId, BoundSignature boundSignature)
+    {
+        throw new IllegalArgumentException("Unknown function " + functionId);
     }
 
     /**

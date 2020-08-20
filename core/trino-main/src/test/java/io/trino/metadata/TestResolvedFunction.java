@@ -15,6 +15,7 @@ package io.trino.metadata;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.ResolvedFunction.ResolvedFunctionDecoder;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionId;
@@ -55,6 +56,7 @@ public class TestResolvedFunction
     {
         return new ResolvedFunction(
                 new BoundSignature(name + "_" + depth, createVarcharType(10 + depth), ImmutableList.of(createVarcharType(20 + depth), createVarcharType(30 + depth))),
+                GlobalSystemConnector.CATALOG_HANDLE,
                 FunctionId.toFunctionId(Signature.builder()
                         .name(name)
                         .returnType(new TypeSignature("x"))
