@@ -35,6 +35,7 @@ import io.prestosql.testing.datatype.DataTypeTest;
 import io.prestosql.testing.sql.JdbcSqlExecutor;
 import io.prestosql.testing.sql.PrestoSqlExecutor;
 import io.prestosql.testing.sql.TestTable;
+import io.prestosql.testng.services.Flaky;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -365,6 +366,7 @@ public class TestPostgreSqlTypeMapping
                 "'12345678901234567890123456789012345678901234567890'");
     }
 
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4885")
     @Test
     public void testDecimalExceedingPrecisionMaxWithExceedingIntegerValues()
     {
