@@ -22,6 +22,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import org.joda.time.DateTimeZone;
@@ -48,7 +49,6 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
@@ -176,8 +176,9 @@ final class TypeUtils
             return new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis));
         }
 
-        if (TIMESTAMP.equals(prestoType)) {
-            return toPgTimestamp(fromPrestoTimestamp((long) prestoNative));
+        if (prestoType instanceof TimestampType) {
+            TimestampType timestampType = (TimestampType) prestoType;
+            return toPgTimestamp(fromPrestoTimestamp(timestampType, (long) prestoNative));
         }
 
         if (TIMESTAMP_WITH_TIME_ZONE.equals(prestoType)) {

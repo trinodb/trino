@@ -71,6 +71,7 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
@@ -141,7 +142,7 @@ import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.StandardTypes.JSON;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
@@ -363,10 +364,11 @@ public class PostgreSqlClient
             return Optional.of(timeColumnMappingWithTruncation());
         }
         if (typeHandle.getJdbcType() == Types.TIMESTAMP) {
+            TimestampType timestampType = createTimestampType(typeHandle.getDecimalDigits());
             return Optional.of(ColumnMapping.longMapping(
-                    TIMESTAMP,
-                    timestampReadFunction(),
-                    timestampWriteFunction()));
+                    timestampType,
+                    timestampReadFunction(timestampType),
+                    timestampWriteFunction(timestampType)));
         }
         if (typeHandle.getJdbcType() == Types.NUMERIC && getDecimalRounding(session) == ALLOW_OVERFLOW) {
             if (typeHandle.getColumnSize() == 131089) {
@@ -432,8 +434,9 @@ public class PostgreSqlClient
         if (TIME.equals(type)) {
             return WriteMapping.longMapping("time", timeWriteFunction());
         }
-        if (TIMESTAMP.equals(type)) {
-            return WriteMapping.longMapping("timestamp", timestampWriteFunction());
+        if (type instanceof TimestampType) {
+            TimestampType timestampType = (TimestampType) type;
+            return WriteMapping.longMapping(format("timestamp(%s)", timestampType.getPrecision()), timestampWriteFunction(timestampType));
         }
         if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
             return WriteMapping.longMapping("timestamptz", timestampWithTimeZoneWriteFunction());
@@ -482,10 +485,10 @@ public class PostgreSqlClient
     // When writing with setObject() using LocalDateTime, driver converts the value to string representing date-time in JVM zone,
     // therefore cannot represent local date-time which is a "gap" in this zone.
     // TODO replace this method with StandardColumnMappings#timestampWriteFunction when https://github.com/pgjdbc/pgjdbc/issues/1390 is done
-    private static LongWriteFunction timestampWriteFunction()
+    private static LongWriteFunction timestampWriteFunction(TimestampType timestampType)
     {
         return (statement, index, value) -> {
-            LocalDateTime localDateTime = fromPrestoTimestamp(value);
+            LocalDateTime localDateTime = fromPrestoTimestamp(timestampType, value);
             statement.setObject(index, toPgTimestamp(localDateTime));
         };
     }
@@ -598,10 +601,20 @@ public class PostgreSqlClient
 
     private static ObjectWriteFunction arrayWriteFunction(ConnectorSession session, Type elementType, String baseElementJdbcTypeName)
     {
+        String psqlBaseTypeName = getPgArrayBaseType(baseElementJdbcTypeName);
         return ObjectWriteFunction.of(Block.class, (statement, index, block) -> {
-            Array jdbcArray = statement.getConnection().createArrayOf(baseElementJdbcTypeName, getJdbcObjectArray(session, elementType, block));
+            Array jdbcArray = statement.getConnection().createArrayOf(psqlBaseTypeName, getJdbcObjectArray(session, elementType, block));
             statement.setArray(index, jdbcArray);
         });
+    }
+
+    private static String getPgArrayBaseType(String baseArrayTypeName)
+    {
+        if (baseArrayTypeName.matches("timestamp\\(\\d\\)")) {
+            // parametric timestamp is not supported in PSQL JDBC driver: https://github.com/pgjdbc/pgjdbc/issues/1864
+            return "timestamp";
+        }
+        return baseArrayTypeName;
     }
 
     private ColumnMapping arrayAsJsonColumnMapping(ConnectorSession session, ColumnMapping baseElementMapping)

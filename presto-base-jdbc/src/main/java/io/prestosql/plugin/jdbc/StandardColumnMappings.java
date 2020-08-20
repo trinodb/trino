@@ -19,6 +19,7 @@ import com.google.common.primitives.SignedBytes;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.VarcharType;
 import org.joda.time.DateTimeZone;
 import org.joda.time.chrono.ISOChronology;
@@ -55,8 +56,12 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
+import static io.prestosql.spi.type.TimestampType.MAX_SHORT_PRECISION;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_DAY;
+import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MICROSECOND;
 import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
@@ -68,6 +73,8 @@ import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -349,55 +356,81 @@ public final class StandardColumnMappings
      * {@link #timestampColumnMapping} instead.
      */
     @Deprecated
-    public static ColumnMapping timestampColumnMappingUsingSqlTimestamp()
+    public static ColumnMapping timestampColumnMappingUsingSqlTimestamp(TimestampType timestampType)
     {
         return ColumnMapping.longMapping(
                 TIMESTAMP,
                 (resultSet, columnIndex) -> {
                     Timestamp timestamp = resultSet.getTimestamp(columnIndex);
-                    return toPrestoTimestamp(timestamp.toLocalDateTime());
+                    return toPrestoTimestamp(timestampType, timestamp.toLocalDateTime());
                 },
-                timestampWriteFunctionUsingSqlTimestamp());
+                timestampWriteFunctionUsingSqlTimestamp(timestampType));
     }
 
+    @Deprecated
     public static ColumnMapping timestampColumnMapping()
     {
-        return ColumnMapping.longMapping(
-                TIMESTAMP,
-                timestampReadFunction(),
-                timestampWriteFunction());
+        return timestampColumnMapping(TIMESTAMP);
     }
 
-    public static LongReadFunction timestampReadFunction()
+    public static ColumnMapping timestampColumnMapping(TimestampType timestampType)
     {
-        return (resultSet, columnIndex) -> toPrestoTimestamp(resultSet.getObject(columnIndex, LocalDateTime.class));
+        return ColumnMapping.longMapping(
+                timestampType,
+                timestampReadFunction(timestampType),
+                timestampWriteFunction(timestampType));
+    }
+
+    public static LongReadFunction timestampReadFunction(TimestampType timestampType)
+    {
+        return (resultSet, columnIndex) -> toPrestoTimestamp(timestampType, resultSet.getObject(columnIndex, LocalDateTime.class));
     }
 
     /**
+     * @param timestampType
      * @deprecated This method uses {@link java.sql.Timestamp} and the class cannot represent date-time value when JVM zone had
      * forward offset change (a 'gap'). This includes regular DST changes (e.g. Europe/Warsaw) and one-time policy changes
      * (Asia/Kathmandu's shift by 15 minutes on January 1, 1986, 00:00:00). If driver only supports {@link LocalDateTime}, use
      * {@link #timestampWriteFunction} instead.
      */
     @Deprecated
-    public static LongWriteFunction timestampWriteFunctionUsingSqlTimestamp()
+    public static LongWriteFunction timestampWriteFunctionUsingSqlTimestamp(TimestampType timestampType)
     {
-        return (statement, index, value) -> statement.setTimestamp(index, Timestamp.valueOf(fromPrestoTimestamp(value)));
+        return (statement, index, value) -> statement.setTimestamp(index, Timestamp.valueOf(fromPrestoTimestamp(timestampType, value)));
     }
 
-    public static LongWriteFunction timestampWriteFunction()
+    public static LongWriteFunction timestampWriteFunction(TimestampType timestampType)
     {
-        return (statement, index, value) -> statement.setObject(index, fromPrestoTimestamp(value));
+        return (statement, index, value) -> statement.setObject(index, fromPrestoTimestamp(timestampType, value));
     }
 
-    public static long toPrestoTimestamp(LocalDateTime localDateTime)
+    public static long toPrestoTimestamp(TimestampType timestampType, LocalDateTime localDateTime)
     {
-        return localDateTime.atZone(UTC).toInstant().toEpochMilli();
+        long precision = timestampType.getPrecision();
+        checkArgument(precision <= MAX_SHORT_PRECISION, "Precision is out of range: %s", precision);
+        Instant instant = localDateTime.atZone(UTC).toInstant();
+        long epochMicros = instant.getEpochSecond() * MICROSECONDS_PER_SECOND + roundDiv(instant.getNano(), NANOSECONDS_PER_MICROSECOND);
+        if (precision <= 3) {
+            return roundDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
+        }
+        return epochMicros;
     }
 
-    public static LocalDateTime fromPrestoTimestamp(long value)
+    public static LocalDateTime fromPrestoTimestamp(TimestampType timestampType, long value)
     {
-        return Instant.ofEpochMilli(value).atZone(UTC).toLocalDateTime();
+        int precision = timestampType.getPrecision();
+        checkArgument(precision <= MAX_SHORT_PRECISION && precision >= 0, "Precision is out of range");
+        Instant instant;
+        if (precision <= 3) {
+            instant = Instant.ofEpochMilli(value);
+        }
+        else {
+            long epochMicros = value;
+            long epochSecond = floorDiv(epochMicros, MICROSECONDS_PER_SECOND);
+            int nanoFraction = floorMod(epochMicros, MICROSECONDS_PER_SECOND) * NANOSECONDS_PER_MICROSECOND;
+            instant = Instant.ofEpochSecond(epochSecond, nanoFraction);
+        }
+        return LocalDateTime.ofInstant(instant, UTC);
     }
 
     public static LocalTime fromPrestoTime(long value)
@@ -471,7 +504,7 @@ public final class StandardColumnMappings
 
             case Types.TIMESTAMP:
                 // TODO default to `timestampColumnMapping`
-                return Optional.of(timestampColumnMappingUsingSqlTimestamp());
+                return Optional.of(timestampColumnMappingUsingSqlTimestamp(TIMESTAMP));
         }
         return Optional.empty();
     }
