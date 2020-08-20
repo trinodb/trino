@@ -25,7 +25,6 @@ import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.TestingColumnHandle;
 import io.prestosql.spi.predicate.Domain;
-import io.prestosql.spi.predicate.SortedRangeSet;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.sql.DynamicFilters;
@@ -51,7 +50,6 @@ import static io.prestosql.server.DynamicFilterService.DynamicFiltersStats;
 import static io.prestosql.spi.predicate.Domain.multipleValues;
 import static io.prestosql.spi.predicate.Domain.none;
 import static io.prestosql.spi.predicate.Domain.singleValue;
-import static io.prestosql.spi.predicate.Range.equal;
 import static io.prestosql.spi.predicate.Range.range;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
@@ -76,11 +74,13 @@ public class TestDynamicFilterService
         dynamicFiltersStageSupplier.addTasks(taskIds);
         dynamicFilterService.registerQuery(queryId, dynamicFiltersStageSupplier, ImmutableSet.of(filterId), ImmutableSet.of(filterId), ImmutableSet.of());
         assertFalse(dynamicFilterService.getSummary(queryId, filterId).isPresent());
+
+        // assert initial dynamic filtering stats
         DynamicFiltersStats stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
-        assertEquals(stats.getNumTotalDynamicFilters(), 1);
-        assertEquals(stats.getNumDynamicFiltersCompleted(), 0);
-        assertEquals(stats.getNumRepartitionedDynamicFilters(), 1);
-        assertEquals(stats.getNumReplicatedDynamicFilters(), 0);
+        assertEquals(stats.getTotalDynamicFilters(), 1);
+        assertEquals(stats.getDynamicFiltersCompleted(), 0);
+        assertEquals(stats.getRepartitionedDynamicFilters(), 1);
+        assertEquals(stats.getReplicatedDynamicFilters(), 0);
 
         dynamicFiltersStageSupplier.storeSummary(
                 filterId,
@@ -89,8 +89,9 @@ public class TestDynamicFilterService
         dynamicFilterService.collectDynamicFilters();
         assertFalse(dynamicFilterService.getSummary(queryId, filterId).isPresent());
         assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 1);
+
         stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
-        assertEquals(stats.getNumDynamicFiltersCompleted(), 0);
+        assertEquals(stats.getDynamicFiltersCompleted(), 0);
 
         dynamicFiltersStageSupplier.storeSummary(
                 filterId,
@@ -99,8 +100,9 @@ public class TestDynamicFilterService
         dynamicFilterService.collectDynamicFilters();
         assertFalse(dynamicFilterService.getSummary(queryId, filterId).isPresent());
         assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 2);
+
         stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
-        assertEquals(stats.getNumDynamicFiltersCompleted(), 0);
+        assertEquals(stats.getDynamicFiltersCompleted(), 0);
 
         dynamicFiltersStageSupplier.storeSummary(
                 filterId,
@@ -113,9 +115,9 @@ public class TestDynamicFilterService
         assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 3);
 
         stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
-        assertEquals(stats.getNumDynamicFiltersCompleted(), 1);
-        assertEquals(stats.getNumRepartitionedDynamicFilters(), 1);
-        assertEquals(stats.getNumReplicatedDynamicFilters(), 0);
+        assertEquals(stats.getDynamicFiltersCompleted(), 1);
+        assertEquals(stats.getRepartitionedDynamicFilters(), 1);
+        assertEquals(stats.getReplicatedDynamicFilters(), 0);
         assertEquals(
                 stats.getDynamicFilterDomainStats(),
                 ImmutableList.of(new DynamicFilterDomainStats(
@@ -168,6 +170,13 @@ public class TestDynamicFilterService
         assertTrue(dynamicFilter.getCurrentPredicate().isAll());
         assertFalse(dynamicFilter.isComplete());
 
+        // assert initial dynamic filtering stats
+        DynamicFiltersStats stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
+        assertEquals(stats.getTotalDynamicFilters(), 3);
+        assertEquals(stats.getDynamicFiltersCompleted(), 0);
+        assertEquals(stats.getRepartitionedDynamicFilters(), 3);
+        assertEquals(stats.getReplicatedDynamicFilters(), 0);
+
         // dynamic filter should be blocked waiting for tuple domain to be provided
         CompletableFuture<?> blockedFuture = dynamicFilter.isBlocked();
         assertFalse(blockedFuture.isDone());
@@ -183,11 +192,6 @@ public class TestDynamicFilterService
         assertFalse(dynamicFilter.isComplete());
         assertFalse(blockedFuture.isDone());
         assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 1);
-        DynamicFiltersStats stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
-        assertEquals(stats.getNumTotalDynamicFilters(), 3);
-        assertEquals(stats.getNumDynamicFiltersCompleted(), 0);
-        assertEquals(stats.getNumRepartitionedDynamicFilters(), 3);
-        assertEquals(stats.getNumReplicatedDynamicFilters(), 0);
 
         dynamicFiltersStageSupplier.storeSummary(
                 filterId1,
@@ -201,8 +205,9 @@ public class TestDynamicFilterService
                 multipleValues(INTEGER, ImmutableList.of(1L, 2L)))));
         assertTrue(blockedFuture.isDone());
         assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 2);
+
         stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
-        assertEquals(stats.getNumDynamicFiltersCompleted(), 1);
+        assertEquals(stats.getDynamicFiltersCompleted(), 1);
 
         // there are still more dynamic filters to be collected
         assertFalse(dynamicFilter.isComplete());
@@ -222,8 +227,9 @@ public class TestDynamicFilterService
         assertFalse(dynamicFilter.isComplete());
         assertFalse(blockedFuture.isDone());
         assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 3);
+
         stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
-        assertEquals(stats.getNumDynamicFiltersCompleted(), 1);
+        assertEquals(stats.getDynamicFiltersCompleted(), 1);
 
         dynamicFiltersStageSupplier.storeSummary(
                 filterId2,
@@ -237,8 +243,9 @@ public class TestDynamicFilterService
                 singleValue(INTEGER, 2L))));
         assertTrue(blockedFuture.isDone());
         assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 4);
+
         stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
-        assertEquals(stats.getNumDynamicFiltersCompleted(), 2);
+        assertEquals(stats.getDynamicFiltersCompleted(), 2);
 
         // there are still more dynamic filters to be collected for columns A and B
         assertFalse(dynamicFilter.isComplete());
@@ -274,8 +281,9 @@ public class TestDynamicFilterService
         assertFalse(dynamicFilter.isComplete());
         assertFalse(blockedFuture.isDone());
         assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 5);
+
         stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
-        assertEquals(stats.getNumDynamicFiltersCompleted(), 2);
+        assertEquals(stats.getDynamicFiltersCompleted(), 2);
 
         dynamicFiltersStageSupplier.storeSummary(
                 filterId3,
@@ -289,16 +297,16 @@ public class TestDynamicFilterService
         assertTrue(blockedFuture.isDone());
 
         stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
-        assertEquals(stats.getNumDynamicFiltersCompleted(), 3);
-        assertEquals(stats.getNumRepartitionedDynamicFilters(), 3);
-        assertEquals(stats.getNumReplicatedDynamicFilters(), 0);
+        assertEquals(stats.getDynamicFiltersCompleted(), 3);
+        assertEquals(stats.getRepartitionedDynamicFilters(), 3);
+        assertEquals(stats.getReplicatedDynamicFilters(), 0);
         assertEquals(stats.getDynamicFilterDomainStats(), ImmutableList.of(
                 new DynamicFilterDomainStats(
                         filterId1, getExpectedDomainString(1L, 2L), 2, 0),
                 new DynamicFilterDomainStats(
                         filterId2, getExpectedDomainString(2L, 3L), 2, 0),
                 new DynamicFilterDomainStats(
-                        filterId3, Domain.create(ValueSet.none(INTEGER), false).toString(session.toConnectorSession()), 0, 0)));
+                        filterId3, Domain.none(INTEGER).toString(session.toConnectorSession()), 0, 0)));
 
         // all dynamic filters have been collected, no need for more requests
         dynamicFilterService.collectDynamicFilters();
@@ -334,6 +342,13 @@ public class TestDynamicFilterService
         assertTrue(dynamicFilter.getCurrentPredicate().isAll());
         assertFalse(dynamicFilter.isComplete());
 
+        // assert initial dynamic filtering stats
+        DynamicFiltersStats stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
+        assertEquals(stats.getTotalDynamicFilters(), 1);
+        assertEquals(stats.getDynamicFiltersCompleted(), 0);
+        assertEquals(stats.getReplicatedDynamicFilters(), 1);
+        assertEquals(stats.getRepartitionedDynamicFilters(), 0);
+
         // replicated dynamic filters cannot be lazy due to replicated join task scheduling dependencies
         assertTrue(dynamicFilter.isBlocked().isDone());
 
@@ -349,17 +364,20 @@ public class TestDynamicFilterService
                 singleValue(INTEGER, 1L))));
         assertTrue(dynamicFilter.isComplete());
         assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 1);
-        DynamicFiltersStats stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
-        assertEquals(stats.getNumTotalDynamicFilters(), 1);
-        assertEquals(stats.getNumDynamicFiltersCompleted(), 1);
-        assertEquals(stats.getNumReplicatedDynamicFilters(), 1);
-        assertEquals(stats.getNumRepartitionedDynamicFilters(), 0);
+
+        stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
+        assertEquals(stats.getTotalDynamicFilters(), 1);
+        assertEquals(stats.getDynamicFiltersCompleted(), 1);
+        assertEquals(stats.getReplicatedDynamicFilters(), 1);
+        assertEquals(stats.getRepartitionedDynamicFilters(), 0);
         assertEquals(
                 stats.getDynamicFilterDomainStats(),
-                ImmutableList.of(new DynamicFilterDomainStats(
-                        filterId1,
-                        Domain.create(SortedRangeSet.of(equal(INTEGER, 1L)), false)
-                                .toString(session.toConnectorSession()), 1, 0)));
+                ImmutableList.of(
+                        new DynamicFilterDomainStats(
+                                filterId1,
+                                Domain.singleValue(INTEGER, 1L).toString(session.toConnectorSession()),
+                                1,
+                                0)));
 
         // all dynamic filters have been collected, no need for more requests
         dynamicFilterService.collectDynamicFilters();
@@ -368,9 +386,7 @@ public class TestDynamicFilterService
 
     private static String getExpectedDomainString(long low, long high)
     {
-        return Domain.create(
-                SortedRangeSet.of(range(INTEGER, low, true, high, true)),
-                false)
+        return Domain.create(ValueSet.ofRanges(range(INTEGER, low, true, high, true)), false)
                 .toString(session.toConnectorSession());
     }
 
