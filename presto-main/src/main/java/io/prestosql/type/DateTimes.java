@@ -14,7 +14,6 @@
 package io.prestosql.type;
 
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.DateTimeEncoding;
 import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.LongTimestampWithTimeZone;
@@ -42,6 +41,7 @@ import static io.prestosql.spi.type.TimestampType.MAX_SHORT_PRECISION;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.multiplyExact;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 import static java.time.temporal.ChronoField.MICRO_OF_SECOND;
 
 public final class DateTimes
@@ -177,10 +177,6 @@ public final class DateTimes
      */
     public static long rescale(long value, int fromPrecision, int toPrecision)
     {
-        if (value < 0) {
-            throw new IllegalArgumentException("value must be >= 0");
-        }
-
         if (fromPrecision <= toPrecision) {
             value *= scaleFactor(fromPrecision, toPrecision);
         }
@@ -223,7 +219,7 @@ public final class DateTimes
         return fraction.length();
     }
 
-    public static LocalDateTime toLocalDateTime(TimestampType type, ConnectorSession session, Block block, int position)
+    public static LocalDateTime toLocalDateTime(TimestampType type, Block block, int position)
     {
         int precision = type.getPrecision();
 
@@ -245,11 +241,7 @@ public final class DateTimes
         int nanoFraction = getMicrosOfSecond(epochMicros) * NANOSECONDS_PER_MICROSECOND + (int) (roundToNearest(picosOfMicro, PICOSECONDS_PER_NANOSECOND) / PICOSECONDS_PER_NANOSECOND);
 
         Instant instant = Instant.ofEpochSecond(epochSecond, nanoFraction);
-        if (session.isLegacyTimestamp()) {
-            return LocalDateTime.ofInstant(instant, session.getTimeZoneKey().getZoneId());
-        }
-
-        return LocalDateTime.ofInstant(instant, ZoneOffset.UTC);
+        return LocalDateTime.ofInstant(instant, UTC);
     }
 
     public static ZonedDateTime toZonedDateTime(TimestampWithTimeZoneType type, Block block, int position)
@@ -327,19 +319,10 @@ public final class DateTimes
     public static Object parseTimestamp(int precision, String value)
     {
         if (precision <= MAX_SHORT_PRECISION) {
-            return parseShortTimestamp(value, ZoneOffset.UTC);
+            return parseShortTimestamp(value);
         }
 
-        return parseLongTimestamp(value, ZoneOffset.UTC);
-    }
-
-    public static Object parseLegacyTimestamp(int precision, TimeZoneKey timeZoneKey, String value)
-    {
-        if (precision <= MAX_SHORT_PRECISION) {
-            return parseShortTimestamp(value, timeZoneKey.getZoneId());
-        }
-
-        return parseLongTimestamp(value, timeZoneKey.getZoneId());
+        return parseLongTimestamp(value);
     }
 
     public static Object parseTimestampWithTimeZone(int precision, String value)
@@ -351,7 +334,7 @@ public final class DateTimes
         return parseLongTimestampWithTimeZone(value);
     }
 
-    private static long parseShortTimestamp(String value, ZoneId zoneId)
+    private static long parseShortTimestamp(String value)
     {
         Matcher matcher = DATETIME_PATTERN.matcher(value);
         if (!matcher.matches() || matcher.group("timezone") != null) {
@@ -366,7 +349,7 @@ public final class DateTimes
         String second = matcher.group("second");
         String fraction = matcher.group("fraction");
 
-        long epochSecond = toEpochSecond(year, month, day, hour, minute, second, zoneId);
+        long epochSecond = toEpochSecond(year, month, day, hour, minute, second, UTC);
 
         int precision = 0;
         long fractionValue = 0;
@@ -387,7 +370,7 @@ public final class DateTimes
         throw new IllegalArgumentException(format("Cannot parse '%s' as short timestamp. Max allowed precision = %s", value, MAX_SHORT_PRECISION));
     }
 
-    private static LongTimestamp parseLongTimestamp(String value, ZoneId zoneId)
+    private static LongTimestamp parseLongTimestamp(String value)
     {
         Matcher matcher = DATETIME_PATTERN.matcher(value);
         if (!matcher.matches() || matcher.group("timezone") != null) {
@@ -407,7 +390,7 @@ public final class DateTimes
         }
 
         int precision = fraction.length();
-        long epochSecond = toEpochSecond(year, month, day, hour, minute, second, zoneId);
+        long epochSecond = toEpochSecond(year, month, day, hour, minute, second, UTC);
         long picoFraction = rescale(Long.parseLong(fraction), precision, 12);
 
         return longTimestamp(epochSecond, picoFraction);
@@ -485,8 +468,6 @@ public final class DateTimes
                 second == null ? 0 : Integer.parseInt(second),
                 0);
 
-        // Only relevant for legacy timestamps. New timestamps are parsed using UTC, which doesn't
-        // have daylight savings transitions. TODO: remove once legacy timestamps are gone
         List<ZoneOffset> offsets = zoneId.getRules().getValidOffsets(timestamp);
         if (offsets.isEmpty()) {
             throw new IllegalArgumentException("Invalid timestamp due to daylight savings transition");

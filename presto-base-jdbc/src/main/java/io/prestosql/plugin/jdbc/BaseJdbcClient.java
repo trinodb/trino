@@ -14,6 +14,7 @@
 package io.prestosql.plugin.jdbc;
 
 import com.google.common.base.CharMatcher;
+import com.google.common.base.VerifyException;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
@@ -63,6 +64,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Verify.verify;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -325,7 +327,7 @@ public abstract class BaseJdbcClient
         if (mapping.isPresent()) {
             return mapping;
         }
-        Optional<ColumnMapping> connectorMapping = jdbcTypeToPrestoType(session, typeHandle);
+        Optional<ColumnMapping> connectorMapping = jdbcTypeToPrestoType(typeHandle);
         if (connectorMapping.isPresent()) {
             return connectorMapping;
         }
@@ -333,6 +335,20 @@ public abstract class BaseJdbcClient
             return mapToUnboundedVarchar(typeHandle);
         }
         return Optional.empty();
+    }
+
+    @Override
+    public List<ColumnMapping> getColumnMappings(ConnectorSession session, List<JdbcTypeHandle> typeHandles)
+    {
+        try (Connection connection = connectionFactory.openConnection(JdbcIdentity.from(session))) {
+            return typeHandles.stream()
+                    .map(typeHandle -> toPrestoType(session, connection, typeHandle)
+                            .orElseThrow(() -> new VerifyException(format("Unsupported type handle %s", typeHandle))))
+                    .collect(toImmutableList());
+        }
+        catch (SQLException e) {
+            throw new PrestoException(JDBC_ERROR, e);
+        }
     }
 
     protected Optional<ColumnMapping> getForcedMappingToVarchar(JdbcTypeHandle typeHandle)

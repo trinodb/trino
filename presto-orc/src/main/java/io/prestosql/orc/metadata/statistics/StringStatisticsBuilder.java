@@ -137,6 +137,7 @@ public class StringStatisticsBuilder
                 null,
                 null,
                 null,
+                null,
                 bloomFilterBuilder.buildBloomFilter());
     }
 

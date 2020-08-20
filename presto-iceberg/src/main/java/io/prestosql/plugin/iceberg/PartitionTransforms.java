@@ -34,6 +34,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static io.airlift.slice.SliceUtf8.offsetOfCodePoint;
+import static io.prestosql.plugin.iceberg.TypeConverter.TIME_MICROS;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateType.DATE;
@@ -46,6 +47,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -109,6 +111,9 @@ public final class PartitionTransforms
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'day': " + field);
             case "hour":
+                if (type.equals(TIME_MICROS)) {
+                    return new ColumnTransform(INTEGER, PartitionTransforms::hoursFromTime);
+                }
                 if (type.equals(TIMESTAMP)) {
                     return new ColumnTransform(INTEGER, PartitionTransforms::hoursFromTimestamp);
                 }
@@ -138,7 +143,7 @@ public final class PartitionTransforms
             if (type.equals(DATE)) {
                 return new ColumnTransform(INTEGER, block -> bucketDate(block, count));
             }
-            if (type.equals(TIME)) {
+            if (type.equals(TIME_MICROS)) {
                 return new ColumnTransform(INTEGER, block -> bucketTime(block, count));
             }
             if (type.equals(TIMESTAMP)) {
@@ -247,6 +252,26 @@ public final class PartitionTransforms
                 continue;
             }
             long value = TIMESTAMP.getLong(block, position);
+            value = function.applyAsLong(value);
+            INTEGER.writeLong(builder, value);
+        }
+        return builder.build();
+    }
+
+    private static Block hoursFromTime(Block block)
+    {
+        return extractTime(block, HOURS_DURATION::getValueAsLong);
+    }
+
+    private static Block extractTime(Block block, LongUnaryOperator function)
+    {
+        BlockBuilder builder = INTEGER.createFixedSizeBlockBuilder(block.getPositionCount());
+        for (int position = 0; position < block.getPositionCount(); position++) {
+            if (block.isNull(position)) {
+                builder.appendNull();
+                continue;
+            }
+            long value = TIME_MICROS.getLong(block, position) / MICROSECONDS_PER_MILLISECOND;
             value = function.applyAsLong(value);
             INTEGER.writeLong(builder, value);
         }

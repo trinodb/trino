@@ -158,7 +158,8 @@ class RelationPlanner
         // is this a recursive reference in expandable named query? If so, there's base relation already planned.
         RelationPlan expansion = recursiveSubqueries.get(NodeRef.of(node));
         if (expansion != null) {
-            return expansion;
+            // put the pre-planned recursive subquery in the actual outer context to enable resolving correlation
+            return new RelationPlan(expansion.getRoot(), expansion.getScope(), expansion.getFieldMappings(), outerContext);
         }
 
         Query namedQuery = analysis.getNamedQuery(node);

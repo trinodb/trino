@@ -46,7 +46,7 @@
         <dep.accumulo.version>1.7.4</dep.accumulo.version>
         <dep.accumulo-hadoop.version>2.7.7-1</dep.accumulo-hadoop.version>
         <dep.antlr.version>4.7.1</dep.antlr.version>
-        <dep.airlift.version>0.198</dep.airlift.version>
+        <dep.airlift.version>200</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
         <dep.aws-sdk.version>1.11.749</dep.aws-sdk.version>
         <dep.okhttp.version>3.9.0</dep.okhttp.version>
@@ -140,7 +140,9 @@
         <module>presto-teradata-functions</module>
         <module>presto-test-jdbc-compatibility</module>
         <module>presto-testing</module>
+        <module>presto-testing-kafka</module>
         <module>presto-testing-server-launcher</module>
+        <module>presto-testng-services</module>
         <module>presto-tests</module>
         <module>presto-thrift</module>
         <module>presto-thrift-api</module>
@@ -432,6 +434,18 @@
 
             <dependency>
                 <groupId>io.prestosql</groupId>
+                <artifactId>presto-testing-kafka</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
+                <artifactId>presto-testng-services</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>io.prestosql</groupId>
                 <artifactId>presto-tests</artifactId>
                 <version>${project.version}</version>
             </dependency>
@@ -490,7 +504,7 @@
             <dependency>
                 <groupId>io.prestosql.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>3.0.0-6</version>
+                <version>3.1.2-1</version>
             </dependency>
 
             <dependency>
@@ -983,7 +997,7 @@
             <dependency>
                 <groupId>com.qubole.rubix</groupId>
                 <artifactId>rubix-presto-shaded</artifactId>
-                <version>0.3.12</version>
+                <version>0.3.16</version>
             </dependency>
 
             <dependency>
@@ -1115,6 +1129,12 @@
             </dependency>
 
             <dependency>
+                <groupId>org.apache.kafka</groupId>
+                <artifactId>kafka-clients</artifactId>
+                <version>2.4.1</version>
+            </dependency>
+
+            <dependency>
                 <groupId>org.apache.thrift</groupId>
                 <artifactId>libthrift</artifactId>
                 <version>0.9.3-1</version>
@@ -1133,7 +1153,7 @@
             <dependency>
                 <groupId>org.apache.zookeeper</groupId>
                 <artifactId>zookeeper</artifactId>
-                <version>3.4.13</version>
+                <version>3.4.14</version>
                 <exclusions>
                     <exclusion>
                         <groupId>jline</groupId>

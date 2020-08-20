@@ -54,7 +54,7 @@ public class OracleClientModule
         connectionProperties.setProperty(OracleConnection.CONNECTION_PROPERTY_INCLUDE_SYNONYMS, String.valueOf(oracleConfig.isSynonymsEnabled()));
 
         if (oracleConfig.isConnectionPoolEnabled()) {
-            return new OraclePoolConnectorFactory(
+            return new OraclePoolConnectionFactory(
                     config.getConnectionUrl(),
                     connectionProperties,
                     credentialProvider,

@@ -17,6 +17,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import io.prestosql.decoder.DecoderColumnHandle;
 import io.prestosql.decoder.FieldValueProvider;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
 
 import java.util.concurrent.TimeUnit;
@@ -74,7 +75,7 @@ public abstract class AbstractDateTimeJsonValueProvider
             return millis;
         }
         if (type.equals(TIMESTAMP_WITH_TIME_ZONE) || type.equals(TIME_WITH_TIME_ZONE)) {
-            return packDateTimeWithZone(millis, 0);
+            return packDateTimeWithZone(millis, getTimeZone());
         }
 
         return millis;
@@ -84,4 +85,9 @@ public abstract class AbstractDateTimeJsonValueProvider
      * @return epoch milliseconds in UTC
      */
     protected abstract long getMillis();
+
+    /**
+     * @return TimeZoneKey for value
+     */
+    protected abstract TimeZoneKey getTimeZone();
 }

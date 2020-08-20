@@ -22,7 +22,6 @@ import io.airlift.airline.Arguments;
 import io.airlift.airline.Command;
 import io.airlift.airline.Option;
 import io.airlift.log.Logger;
-import io.airlift.units.Duration;
 import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
 import io.prestosql.tests.product.launcher.PathResolver;
@@ -45,7 +44,6 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -54,7 +52,6 @@ import static com.google.common.base.Strings.isNullOrEmpty;
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static io.prestosql.tests.product.launcher.docker.ContainerUtil.exposePort;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
-import static java.time.Duration.ofMillis;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
@@ -102,9 +99,6 @@ public final class TestRun
         @Option(name = "--reports-dir", title = "reports dir", description = "location of the reports directory")
         public Path reportsDirBase = Paths.get("presto-product-tests/target/reports/");
 
-        @Option(name = "--startup-timeout", title = "startup timeout", description = "environment startup timeout")
-        public Duration startupTimeout = Duration.valueOf("5m");
-
         @Option(name = "--startup-retries", title = "environment startup retries", description = "environment startup retries")
         public int startupRetries = 5;
 
@@ -123,19 +117,12 @@ public final class TestRun
             implements Runnable
     {
         private static final String CONTAINER_REPORTS_DIR = "/docker/test-reports";
-
-        // CI steps fail after 2h, starting environment should not take more than 30m
-        private static final long TEST_RUN_STARTUP_TIMEOUT = Duration.valueOf("30m").toMillis();
-        private static final long BACKOFF_MIN = 100L;
-        private static final long BACKOFF_MAX = Duration.valueOf("5m").toMillis();
-
         private final EnvironmentFactory environmentFactory;
         private final PathResolver pathResolver;
         private final boolean debug;
         private final File testJar;
         private final List<String> testArguments;
         private final String environment;
-        private final Duration startupTimeout;
         private final int startupRetries;
         private final Path reportsDirBase;
 
@@ -149,7 +136,6 @@ public final class TestRun
             this.testJar = requireNonNull(testRunOptions.testJar, "testOptions.testJar is null");
             this.testArguments = ImmutableList.copyOf(requireNonNull(testRunOptions.testArguments, "testOptions.testArguments is null"));
             this.environment = requireNonNull(testRunOptions.environment, "testRunOptions.environment is null");
-            this.startupTimeout = requireNonNull(testRunOptions.startupTimeout, "testRunOptions.startupTimeout is null");
             this.startupRetries = testRunOptions.startupRetries;
             this.reportsDirBase = buildFinalReportsDir(requireNonNull(testRunOptions.reportsDirBase, "testRunOptions.reportsDirBase is empty"), testRunOptions.environment);
         }
@@ -159,15 +145,13 @@ public final class TestRun
         {
             RetryPolicy<Object> retryPolicy = new RetryPolicy<>()
                     .withMaxRetries(startupRetries)
-                    .withMaxDuration(ofMillis(TEST_RUN_STARTUP_TIMEOUT))
-                    .withBackoff(BACKOFF_MIN, BACKOFF_MAX, ChronoUnit.MILLIS)
                     .onFailedAttempt(event -> log.warn("Could not start environment '%s': %s", environment, event.getLastFailure()))
                     .onRetry(event -> log.info("Trying to start environment '%s', %d failed attempt(s)", environment, event.getAttemptCount() + 1))
                     .onSuccess(event -> log.info("Environment '%s' started in %s, %d attempt(s)", environment, event.getElapsedTime(), event.getAttemptCount()));
 
             try (UncheckedCloseable ignore = this::cleanUp) {
                 Environment environment = Failsafe.with(retryPolicy)
-                        .get(() -> tryStartEnvironment(startupTimeout));
+                        .get(() -> tryStartEnvironment());
 
                 awaitTestsCompletion(environment);
             }
@@ -178,14 +162,14 @@ public final class TestRun
             }
         }
 
-        private Environment tryStartEnvironment(Duration startupTimeout)
+        private Environment tryStartEnvironment()
         {
             log.info("Pruning old environment(s)");
             Environments.pruneEnvironment();
 
             Environment environment = getEnvironment();
             log.info("Starting the environment '%s'", environment);
-            environment.start(startupTimeout);
+            environment.start();
 
             return environment;
         }
@@ -238,6 +222,7 @@ public final class TestRun
                                 .addAll(testArguments)
                                 .addAll(reportsDirOptions(reportsDirBase))
                                 .build().toArray(new String[0]))
+                        // this message marks that environment has started and tests are running
                         .waitingFor(new LogMessageWaitStrategy().withRegEx(".*\\[TestNG] Running.*"));
             });
 

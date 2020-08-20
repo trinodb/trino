@@ -207,7 +207,7 @@ import java.util.Set;
 public class PlanOptimizers
 {
     private final List<PlanOptimizer> optimizers;
-    private final RuleStatsRecorder ruleStats = new RuleStatsRecorder();
+    private final RuleStatsRecorder ruleStats;
     private final OptimizerStatsRecorder optimizerStats = new OptimizerStatsRecorder();
     private final MBeanExporter exporter;
 
@@ -223,7 +223,8 @@ public class PlanOptimizers
             CostCalculator costCalculator,
             @EstimatedExchanges CostCalculator estimatedExchangesCostCalculator,
             CostComparator costComparator,
-            TaskCountEstimator taskCountEstimator)
+            TaskCountEstimator taskCountEstimator,
+            RuleStatsRecorder ruleStats)
     {
         this(metadata,
                 typeAnalyzer,
@@ -236,7 +237,8 @@ public class PlanOptimizers
                 costCalculator,
                 estimatedExchangesCostCalculator,
                 costComparator,
-                taskCountEstimator);
+                taskCountEstimator,
+                ruleStats);
     }
 
     @PostConstruct
@@ -265,8 +267,10 @@ public class PlanOptimizers
             CostCalculator costCalculator,
             CostCalculator estimatedExchangesCostCalculator,
             CostComparator costComparator,
-            TaskCountEstimator taskCountEstimator)
+            TaskCountEstimator taskCountEstimator,
+            RuleStatsRecorder ruleStats)
     {
+        this.ruleStats = ruleStats;
         this.exporter = exporter;
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 

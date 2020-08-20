@@ -148,10 +148,10 @@ public class TestRowFilter
                 new ViewExpression(VIEW_OWNER, Optional.empty(), Optional.empty(), "nationkey = 1"));
 
         assertThat(assertions.query(
-                "SELECT name FROM mock.default.nation_view",
                 Session.builder(SESSION)
                         .setIdentity(Identity.forUser(RUN_AS_USER).build())
-                        .build()))
+                        .build(),
+                "SELECT name FROM mock.default.nation_view"))
                 .matches("VALUES CAST('ARGENTINA' AS VARCHAR(25))");
 
         // filter on the underlying table for view owner when running as themselves
@@ -162,10 +162,10 @@ public class TestRowFilter
                 new ViewExpression(VIEW_OWNER, Optional.of(CATALOG), Optional.of("tiny"), "nationkey = 1"));
 
         assertThat(assertions.query(
-                "SELECT name FROM mock.default.nation_view",
                 Session.builder(SESSION)
                         .setIdentity(Identity.forUser(VIEW_OWNER).build())
-                        .build()))
+                        .build(),
+                "SELECT name FROM mock.default.nation_view"))
                 .matches("VALUES CAST('ARGENTINA' AS VARCHAR(25))");
 
         // filter on the underlying table for user running the query (different from view owner) should not be applied
@@ -179,7 +179,7 @@ public class TestRowFilter
                 .setIdentity(Identity.forUser(RUN_AS_USER).build())
                 .build();
 
-        assertThat(assertions.query("SELECT count(*) FROM mock.default.nation_view", session)).matches("VALUES BIGINT '25'");
+        assertThat(assertions.query(session, "SELECT count(*) FROM mock.default.nation_view")).matches("VALUES BIGINT '25'");
 
         // filter on the view
         accessControl.reset();

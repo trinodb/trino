@@ -34,10 +34,13 @@ import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.PlanFragmenter;
 import io.prestosql.sql.planner.PlanOptimizers;
+import io.prestosql.sql.planner.RuleStatsRecorder;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
+import io.prestosql.sql.query.QueryAssertions.QueryAssert;
 import io.prestosql.sql.tree.ExplainType;
 import io.prestosql.testing.TestingAccessControlManager.TestingPrivilege;
+import org.assertj.core.api.AssertProvider;
 import org.intellij.lang.annotations.Language;
 import org.testng.SkipException;
 import org.testng.annotations.AfterClass;
@@ -60,6 +63,7 @@ import static io.prestosql.sql.SqlFormatter.formatSql;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
 
@@ -68,6 +72,7 @@ public abstract class AbstractTestQueryFramework
     private QueryRunner queryRunner;
     private H2QueryRunner h2QueryRunner;
     private SqlParser sqlParser;
+    private io.prestosql.sql.query.QueryAssertions queryAssertions;
 
     @BeforeClass
     public void init()
@@ -76,6 +81,7 @@ public abstract class AbstractTestQueryFramework
         queryRunner = createQueryRunner();
         h2QueryRunner = new H2QueryRunner();
         sqlParser = new SqlParser();
+        queryAssertions = new io.prestosql.sql.query.QueryAssertions(queryRunner);
     }
 
     protected abstract QueryRunner createQueryRunner()
@@ -88,6 +94,7 @@ public abstract class AbstractTestQueryFramework
         queryRunner = null;
         h2QueryRunner = null;
         sqlParser = null;
+        queryAssertions = null;
     }
 
     protected Session getSession()
@@ -113,6 +120,16 @@ public abstract class AbstractTestQueryFramework
     protected Object computeScalar(@Language("SQL") String sql)
     {
         return computeActual(sql).getOnlyValue();
+    }
+
+    protected AssertProvider<QueryAssert> query(@Language("SQL") String sql)
+    {
+        return queryAssertions.query(sql);
+    }
+
+    protected AssertProvider<QueryAssert> query(Session session, @Language("SQL") String sql)
+    {
+        return queryAssertions.query(session, sql);
     }
 
     protected void assertQuery(@Language("SQL") String sql)
@@ -228,12 +245,14 @@ public abstract class AbstractTestQueryFramework
 
     protected void assertQueryReturnsEmptyResult(@Language("SQL") String sql)
     {
-        QueryAssertions.assertQueryReturnsEmptyResult(queryRunner, getSession(), sql);
+        assertThat(query(sql))
+                .returnsEmptyResult();
     }
 
     protected void assertQueryReturnsEmptyResult(Session session, @Language("SQL") String sql)
     {
-        QueryAssertions.assertQueryReturnsEmptyResult(queryRunner, session, sql);
+        assertThat(query(session, sql))
+                .returnsEmptyResult();
     }
 
     protected void assertAccessAllowed(@Language("SQL") String sql, TestingPrivilege... deniedPrivileges)
@@ -358,7 +377,8 @@ public abstract class AbstractTestQueryFramework
                 costCalculator,
                 new CostCalculatorWithEstimatedExchanges(costCalculator, taskCountEstimator),
                 new CostComparator(featuresConfig),
-                taskCountEstimator).get();
+                taskCountEstimator,
+                new RuleStatsRecorder()).get();
         return new QueryExplainer(
                 optimizers,
                 new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig()),

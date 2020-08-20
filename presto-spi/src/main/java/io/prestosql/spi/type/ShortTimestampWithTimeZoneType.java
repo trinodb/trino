@@ -27,10 +27,9 @@ import static io.prestosql.spi.type.TimestampWithTimeZoneTypes.hashShortTimestam
 import static java.lang.String.format;
 
 /**
- * Encodes timestamps up to p = 6.
+ * Encodes timestamps up to p = 3.
  * <p>
- * For 0 <= p <= 3, the value is encoded as milliseconds from the 1970-01-01 00:00:00 epoch.
- * For 3 < p <= 6, the value is encoded as microseconds from the 1970-01-01 00:00:00 epoch.
+ * The value is encoded as milliseconds from the 1970-01-01 00:00:00 epoch.
  */
 class ShortTimestampWithTimeZoneType
         extends TimestampWithTimeZoneType

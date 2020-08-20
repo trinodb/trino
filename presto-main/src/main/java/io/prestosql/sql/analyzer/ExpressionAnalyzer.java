@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Multimap;
 import io.airlift.slice.SliceUtf8;
 import io.prestosql.Session;
-import io.prestosql.SystemSessionProperties;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.BoundSignature;
 import io.prestosql.metadata.FunctionMetadata;
@@ -171,7 +170,6 @@ import static io.prestosql.sql.tree.Extract.Field.TIMEZONE_MINUTE;
 import static io.prestosql.type.ArrayParametricType.ARRAY;
 import static io.prestosql.type.DateTimes.extractTimePrecision;
 import static io.prestosql.type.DateTimes.extractTimestampPrecision;
-import static io.prestosql.type.DateTimes.parseLegacyTimestamp;
 import static io.prestosql.type.DateTimes.parseTime;
 import static io.prestosql.type.DateTimes.parseTimestamp;
 import static io.prestosql.type.DateTimes.parseTimestampWithTimeZone;
@@ -876,12 +874,7 @@ public class ExpressionAnalyzer
                 else {
                     int precision = extractTimestampPrecision(node.getValue());
                     type = createTimestampType(precision);
-                    if (SystemSessionProperties.isLegacyTimestamp(session)) {
-                        parseLegacyTimestamp(precision, session.getTimeZoneKey(), node.getValue());
-                    }
-                    else {
-                        parseTimestamp(precision, node.getValue());
-                    }
+                    parseTimestamp(precision, node.getValue());
                 }
             }
             catch (PrestoException e) {
@@ -1151,7 +1144,7 @@ public class ExpressionAnalyzer
                 throw semanticException(TYPE_MISMATCH, node.getExpression(), "Type of argument to extract must be DATE, TIME, TIMESTAMP, or INTERVAL (actual %s)", type);
             }
             Extract.Field field = node.getField();
-            if ((field == TIMEZONE_HOUR || field == TIMEZONE_MINUTE) && !(type.equals(TIME_WITH_TIME_ZONE) || type.equals(TIMESTAMP_WITH_TIME_ZONE))) {
+            if ((field == TIMEZONE_HOUR || field == TIMEZONE_MINUTE) && !(type.equals(TIME_WITH_TIME_ZONE) || type instanceof TimestampWithTimeZoneType)) {
                 throw semanticException(TYPE_MISMATCH, node.getExpression(), "Type of argument to extract time zone field must have a time zone (actual %s)", type);
             }
 

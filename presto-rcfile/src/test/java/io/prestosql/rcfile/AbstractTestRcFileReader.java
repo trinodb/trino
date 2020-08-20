@@ -28,6 +28,7 @@ import org.testng.annotations.Test;
 import java.math.BigInteger;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import static com.google.common.collect.Iterables.cycle;
 import static com.google.common.collect.Iterables.limit;
@@ -44,7 +45,6 @@ import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
-import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
@@ -164,9 +164,9 @@ public abstract class AbstractTestRcFileReader
     {
         tester.testRoundTrip(
                 TIMESTAMP,
-                intsBetween(-31_234, 31_234).stream()
+                intsBetween(123_406_789, 123_456_789).stream()
                         .filter(i -> i % 19 == 0)
-                        .map(timestamp -> sqlTimestampOf(timestamp, SESSION))
+                        .map(timestamp -> sqlTimestampOf(timestamp))
                         .collect(toList()));
     }
 
@@ -253,14 +253,14 @@ public abstract class AbstractTestRcFileReader
         return values;
     }
 
-    private static ContiguousSet<Long> longsBetween(long lowerInclusive, long upperExclusive)
+    private static Set<Long> longsBetween(long lowerExclusive, long upperInclusive)
     {
-        return ContiguousSet.create(Range.openClosed(lowerInclusive, upperExclusive), DiscreteDomain.longs());
+        return ContiguousSet.create(Range.openClosed(lowerExclusive, upperInclusive), DiscreteDomain.longs());
     }
 
-    private static ContiguousSet<Integer> intsBetween(int lowerInclusive, int upperExclusive)
+    private static Set<Integer> intsBetween(int lowerExclusive, int upperInclusive)
     {
-        return ContiguousSet.create(Range.openClosed(lowerInclusive, upperExclusive), DiscreteDomain.integers());
+        return ContiguousSet.create(Range.openClosed(lowerExclusive, upperInclusive), DiscreteDomain.integers());
     }
 
     private static List<SqlDecimal> decimalSequence(String start, String step, int items, int precision, int scale)

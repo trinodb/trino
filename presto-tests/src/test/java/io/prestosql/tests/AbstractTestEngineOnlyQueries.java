@@ -25,7 +25,6 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
-import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.MaterializedResult;
@@ -86,7 +85,7 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestEngineOnlyQueries
         extends AbstractTestQueryFramework
 {
-    private static final DateTimeFormatter ZONED_DATE_TIME_FORMAT = DateTimeFormatter.ofPattern(SqlTimestampWithTimeZone.JSON_FORMAT);
+    private static final DateTimeFormatter ZONED_DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss[.SSS] VV");
 
     @Test
     public void testTimeLiterals()

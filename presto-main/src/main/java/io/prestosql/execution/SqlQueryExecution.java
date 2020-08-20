@@ -88,6 +88,7 @@ import static io.prestosql.SystemSessionProperties.isEnableDynamicFiltering;
 import static io.prestosql.execution.buffer.OutputBuffers.BROADCAST_PARTITION_ID;
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
 import static io.prestosql.execution.scheduler.SqlQueryScheduler.createSqlQueryScheduler;
+import static io.prestosql.server.DynamicFilterService.DynamicFiltersStats;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.sql.ParameterUtils.parameterExtractor;
 import static java.util.Objects.requireNonNull;
@@ -179,7 +180,8 @@ public class SqlQueryExecution
             // analyze query
             this.analysis = analyze(preparedQuery, stateMachine, metadata, accessControl, sqlParser, queryExplainer, warningCollector);
 
-            stateMachine.addStateChangeListener(state -> unregisterDynamicFilteringQuery());
+            stateMachine.addStateChangeListener(state -> unregisterDynamicFilteringQuery(
+                    dynamicFilterService.getDynamicFilteringStats(stateMachine.getQueryId(), stateMachine.getSession())));
 
             // when the query finishes cache the final query info, and clear the reference to the output stage
             AtomicReference<SqlQueryScheduler> queryScheduler = this.queryScheduler;
@@ -199,7 +201,7 @@ public class SqlQueryExecution
         }
     }
 
-    private synchronized void registerDynamicFilteringQuery()
+    private synchronized void registerDynamicFilteringQuery(PlanRoot plan)
     {
         if (!isEnableDynamicFiltering(stateMachine.getSession())) {
             return;
@@ -210,15 +212,19 @@ public class SqlQueryExecution
             return;
         }
 
-        dynamicFilterService.registerQuery(this);
+        dynamicFilterService.registerQuery(this, plan.getRoot());
+        stateMachine.setDynamicFiltersStatsSupplier(
+                () -> dynamicFilterService.getDynamicFilteringStats(
+                        stateMachine.getQueryId(),
+                        stateMachine.getSession()));
     }
 
-    private synchronized void unregisterDynamicFilteringQuery()
+    private synchronized void unregisterDynamicFilteringQuery(DynamicFiltersStats finalDynamicFiltersStats)
     {
         if (!isDone()) {
             return;
         }
-
+        stateMachine.setDynamicFiltersStatsSupplier(() -> finalDynamicFiltersStats);
         dynamicFilterService.removeQuery(stateMachine.getQueryId());
     }
 
@@ -365,7 +371,7 @@ public class SqlQueryExecution
                 PlanRoot plan = planQuery();
                 // DynamicFilterService needs plan for query to be registered.
                 // Query should be registered before dynamic filter suppliers are requested in distribution planning.
-                registerDynamicFilteringQuery();
+                registerDynamicFilteringQuery(plan);
                 planDistribution(plan);
 
                 if (!stateMachine.transitionToStarting()) {

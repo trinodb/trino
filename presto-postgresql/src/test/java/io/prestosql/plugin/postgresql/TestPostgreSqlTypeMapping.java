@@ -937,7 +937,7 @@ public class TestPostgreSqlTypeMapping
     }
 
     @Test(dataProvider = "testTimestampDataProvider")
-    public void testTime(boolean legacyTimestamp, boolean insertWithPresto, ZoneId sessionZone)
+    public void testTime(boolean insertWithPresto, ZoneId sessionZone)
     {
         LocalTime timeGapInJvmZone = LocalTime.of(0, 12, 34, 567_000_000);
         checkIsGap(jvmZone, timeGapInJvmZone.atDate(EPOCH_DAY));
@@ -972,7 +972,7 @@ public class TestPostgreSqlTypeMapping
     }
 
     @Test(dataProvider = "testTimestampDataProvider")
-    public void testTimestamp(boolean legacyTimestamp, boolean insertWithPresto, ZoneId sessionZone)
+    public void testTimestamp(boolean insertWithPresto, ZoneId sessionZone)
     {
         // using two non-JVM zones so that we don't need to worry what Postgres system zone is
         DataTypeTest tests = DataTypeTest.create(true)
@@ -981,15 +981,14 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(timestampDataType(), timeDoubledInJvmZone)
                 .addRoundTrip(timestampDataType(), timeDoubledInVilnius);
 
-        addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, epoch); // epoch also is a gap in JVM zone
-        addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInJvmZone1);
-        addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInJvmZone2);
-        addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInVilnius);
-        addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInKathmandu);
+        addTimestampTestIfSupported(tests, epoch); // epoch also is a gap in JVM zone
+        addTimestampTestIfSupported(tests, timeGapInJvmZone1);
+        addTimestampTestIfSupported(tests, timeGapInJvmZone2);
+        addTimestampTestIfSupported(tests, timeGapInVilnius);
+        addTimestampTestIfSupported(tests, timeGapInKathmandu);
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                .setSystemProperty("legacy_timestamp", Boolean.toString(legacyTimestamp))
                 .build();
 
         if (insertWithPresto) {
@@ -1000,18 +999,13 @@ public class TestPostgreSqlTypeMapping
         }
     }
 
-    private void addTimestampTestIfSupported(DataTypeTest tests, boolean legacyTimestamp, ZoneId sessionZone, LocalDateTime dateTime)
+    private void addTimestampTestIfSupported(DataTypeTest tests, LocalDateTime dateTime)
     {
-        if (legacyTimestamp && isGap(sessionZone, dateTime)) {
-            // in legacy timestamp semantics we cannot represent this dateTime
-            return;
-        }
-
         tests.addRoundTrip(timestampDataType(), dateTime);
     }
 
     @Test(dataProvider = "testTimestampDataProvider")
-    public void testArrayTimestamp(boolean legacyTimestamp, boolean insertWithPresto, ZoneId sessionZone)
+    public void testArrayTimestamp(boolean insertWithPresto, ZoneId sessionZone)
     {
         DataType<List<LocalDateTime>> dataType;
         DataSetup dataSetup;
@@ -1029,27 +1023,21 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(dataType, asList(timeDoubledInJvmZone))
                 .addRoundTrip(dataType, asList(timeDoubledInVilnius));
 
-        addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, epoch);
-        addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, timeGapInJvmZone1);
-        addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, timeGapInJvmZone2);
-        addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, timeGapInVilnius);
-        addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, timeGapInKathmandu);
+        addArrayTimestampTestIfSupported(tests, dataType, epoch);
+        addArrayTimestampTestIfSupported(tests, dataType, timeGapInJvmZone1);
+        addArrayTimestampTestIfSupported(tests, dataType, timeGapInJvmZone2);
+        addArrayTimestampTestIfSupported(tests, dataType, timeGapInVilnius);
+        addArrayTimestampTestIfSupported(tests, dataType, timeGapInKathmandu);
 
         Session session = Session.builder(sessionWithArrayAsArray())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                .setSystemProperty("legacy_timestamp", Boolean.toString(legacyTimestamp))
                 .build();
 
         tests.execute(getQueryRunner(), session, dataSetup);
     }
 
-    private void addArrayTimestampTestIfSupported(DataTypeTest tests, boolean legacyTimestamp, ZoneId sessionZone, DataType<List<LocalDateTime>> dataType, LocalDateTime dateTime)
+    private void addArrayTimestampTestIfSupported(DataTypeTest tests, DataType<List<LocalDateTime>> dataType, LocalDateTime dateTime)
     {
-        if (legacyTimestamp && isGap(sessionZone, dateTime)) {
-            // in legacy timestamp semantics we cannot represent this dateTime
-            return;
-        }
-
         tests.addRoundTrip(dataType, asList(dateTime));
     }
 
@@ -1057,31 +1045,21 @@ public class TestPostgreSqlTypeMapping
     public Object[][] testTimestampDataProvider()
     {
         return new Object[][] {
-                {true, true, ZoneOffset.UTC},
-                {false, true, ZoneOffset.UTC},
-                {true, false, ZoneOffset.UTC},
-                {false, false, ZoneOffset.UTC},
+                {true, UTC},
+                {false, UTC},
 
-                {true, true, jvmZone},
-                {false, true, jvmZone},
-                {true, false, jvmZone},
-                {false, false, jvmZone},
+                {true, jvmZone},
+                {false, jvmZone},
 
                 // using two non-JVM zones so that we don't need to worry what Postgres system zone is
-                {true, true, vilnius},
-                {false, true, vilnius},
-                {true, false, vilnius},
-                {false, false, vilnius},
+                {true, vilnius},
+                {false, vilnius},
 
-                {true, true, kathmandu},
-                {false, true, kathmandu},
-                {true, false, kathmandu},
-                {false, false, kathmandu},
+                {true, kathmandu},
+                {false, kathmandu},
 
-                {true, true, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
-                {false, true, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
-                {true, false, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
-                {false, false, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+                {true, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+                {false, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
         };
     }
 

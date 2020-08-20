@@ -15,11 +15,11 @@ package io.prestosql.tests.product.launcher.env;
 
 import com.github.dockerjava.api.DockerClient;
 import com.google.common.base.CaseFormat;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.ClassPath;
 import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
 import org.testcontainers.DockerClientFactory;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;

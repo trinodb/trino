@@ -26,7 +26,6 @@ import org.testng.annotations.Test;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestHiveAlluxioMetastore
         extends AbstractTestHive
@@ -46,14 +45,16 @@ public class TestHiveAlluxioMetastore
     public void setup(String host, String port, int hiveVersionMajor, String timeZone)
     {
         checkArgument(hiveVersionMajor > 0, "Invalid hiveVersionMajor: %s", hiveVersionMajor);
+        timeZone = hiveVersionMajor >= 3 ? "UTC" : timeZone;
 
         this.alluxioAddress = host + ":" + port;
         this.hiveVersionMajor = hiveVersionMajor;
 
         System.setProperty(PropertyKey.Name.SECURITY_LOGIN_USERNAME, "presto");
         System.setProperty(PropertyKey.Name.MASTER_HOSTNAME, host);
-        HiveConfig hiveConfig = new HiveConfig();
-        hiveConfig.setTimeZone(timeZone);
+        HiveConfig hiveConfig = new HiveConfig()
+                .setParquetTimeZone(timeZone)
+                .setRcfileTimeZone(timeZone);
 
         AlluxioHiveMetastoreConfig alluxioConfig = new AlluxioHiveMetastoreConfig();
         alluxioConfig.setMasterAddress(this.alluxioAddress);
@@ -259,38 +260,10 @@ public class TestHiveAlluxioMetastore
     }
 
     @Override
-    public void testTypesRcBinary()
-            throws Exception
-    {
-        if (getHiveVersionMajor() >= 3) {
-            // TODO (https://github.com/prestosql/presto/issues/1218) requires https://issues.apache.org/jira/browse/HIVE-22167
-            assertThatThrownBy(super::testTypesRcBinary)
-                    .isInstanceOf(AssertionError.class)
-                    .hasMessage("expected [2011-05-06 01:23:09.123] but found [2011-05-06 07:08:09.123]");
-            return;
-        }
-        super.testTypesRcBinary();
-    }
-
-    @Override
     public void testTypesOrc()
             throws Exception
     {
         super.testTypesOrc();
-    }
-
-    @Override
-    public void testTypesParquet()
-            throws Exception
-    {
-        if (getHiveVersionMajor() >= 3) {
-            // TODO (https://github.com/prestosql/presto/issues/1218) requires https://issues.apache.org/jira/browse/HIVE-21002
-            assertThatThrownBy(super::testTypesParquet)
-                    .isInstanceOf(AssertionError.class)
-                    .hasMessage("expected [2011-05-06 01:23:09.123] but found [2011-05-06 07:08:09.123]");
-            return;
-        }
-        super.testTypesParquet();
     }
 
     @Override

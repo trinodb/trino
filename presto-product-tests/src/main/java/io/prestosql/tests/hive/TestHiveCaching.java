@@ -28,9 +28,9 @@ import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.testing.assertions.Assert.assertEventually;
 import static io.prestosql.tests.TestGroups.HIVE_CACHING;
 import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
+import static io.prestosql.tests.utils.QueryAssertions.assertEventually;
 import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 
@@ -121,8 +121,11 @@ public class TestHiveCaching
 
     private QueryResult getCacheStats()
     {
-        return query("SELECT sum(cachedreads) as cachedreads, sum(remotereads) as remotereads, sum(nonlocalreads) as nonlocalreads FROM " +
-                "jmx.current.\"rubix:catalog=hive,name=stats\"");
+        return query("SELECT " +
+                "  sum(Cached_rrc_requests) as cachedreads, " +
+                "  sum(Remote_rrc_requests + Direct_rrc_requests) as remotereads, " +
+                "  sum(Nonlocal_rrc_requests) as nonlocalreads " +
+                "FROM jmx.current.\"rubix:catalog=hive,type=detailed,name=stats\";");
     }
 
     private long getCachedReads(QueryResult queryResult)

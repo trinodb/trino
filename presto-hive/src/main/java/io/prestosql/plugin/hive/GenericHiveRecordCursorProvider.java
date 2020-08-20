@@ -25,7 +25,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.io.Writable;
 import org.apache.hadoop.mapred.RecordReader;
 import org.apache.hadoop.mapreduce.lib.input.LineRecordReader;
-import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
@@ -70,7 +69,6 @@ public class GenericHiveRecordCursorProvider
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            DateTimeZone hiveStorageTimeZone,
             TypeManager typeManager,
             boolean s3SelectPushdownEnabled)
     {
@@ -105,8 +103,7 @@ public class GenericHiveRecordCursorProvider
                     schema,
                     projectedReaderColumns
                             .map(ReaderProjections::getReaderColumns)
-                            .orElse(columns),
-                    hiveStorageTimeZone);
+                            .orElse(columns));
         });
 
         return Optional.of(new ReaderRecordCursorWithProjections(cursor, projectedReaderColumns));

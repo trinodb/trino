@@ -16,7 +16,6 @@ package io.prestosql.pinot.query;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.pinot.PinotColumnHandle;
 import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ColumnNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import org.apache.pinot.common.request.FilterOperator;
 import org.apache.pinot.common.request.FilterQuery;
@@ -215,11 +214,11 @@ public final class FilterToPqlConverter
 
     private String getPinotColumnName(String columnName)
     {
-        String pinotColumnName = ((PinotColumnHandle) columnHandles.get(columnName)).getColumnName();
-        if (pinotColumnName == null) {
-            throw new ColumnNotFoundException(schemaTableName, columnName);
+        PinotColumnHandle columnHandle = ((PinotColumnHandle) columnHandles.get(columnName));
+        if (columnHandle != null) {
+            return columnHandle.getColumnName();
         }
-        return pinotColumnName;
+        return columnName;
     }
 
     private String getValuesList(List<String> values)

@@ -48,6 +48,7 @@ import static io.prestosql.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_SC
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
+import static java.time.ZoneOffset.UTC;
 import static java.time.ZoneOffset.systemDefault;
 import static java.util.stream.Collectors.toList;
 
@@ -116,7 +117,7 @@ public enum BigQueryType
 
     static long toPrestoTimestamp(String datetime)
     {
-        return toLocalDateTime(datetime).atZone(systemDefault()).toInstant().toEpochMilli();
+        return toLocalDateTime(datetime).toInstant(UTC).toEpochMilli();
     }
 
     static String simpleToStringConverter(Object value)

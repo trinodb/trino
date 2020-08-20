@@ -13,6 +13,7 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
+import io.prestosql.Session;
 import io.prestosql.matching.Capture;
 import io.prestosql.matching.Captures;
 import io.prestosql.matching.Pattern;
@@ -23,6 +24,7 @@ import io.prestosql.sql.planner.plan.SampleNode;
 import io.prestosql.sql.planner.plan.SampleNode.Type;
 import io.prestosql.sql.planner.plan.TableScanNode;
 
+import static io.prestosql.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.prestosql.matching.Capture.newCapture;
 import static io.prestosql.sql.planner.plan.Patterns.Sample.sampleType;
 import static io.prestosql.sql.planner.plan.Patterns.sample;
@@ -48,6 +50,12 @@ public class PushSampleIntoTableScan
     public Pattern<SampleNode> getPattern()
     {
         return PATTERN;
+    }
+
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        return isAllowPushdownIntoConnectors(session);
     }
 
     @Override

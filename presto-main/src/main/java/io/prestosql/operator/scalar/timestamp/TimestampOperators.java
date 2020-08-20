@@ -47,7 +47,6 @@ import static io.prestosql.type.DateTimes.rescale;
 import static io.prestosql.type.DateTimes.round;
 import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
-import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 import static java.lang.Math.multiplyExact;
 
 @SuppressWarnings("UtilityClassWithoutPrivateConstructor")
@@ -285,7 +284,6 @@ public final class TimestampOperators
         @SqlType("timestamp(p)")
         public static long add(
                 @LiteralParameter("p") long precision,
-                ConnectorSession session,
                 @SqlType("timestamp(p)") long timestamp,
                 @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
         {
@@ -295,13 +293,7 @@ public final class TimestampOperators
                 timestamp = scaleEpochMicrosToMillis(timestamp);
             }
 
-            long result;
-            if (session.isLegacyTimestamp()) {
-                result = getChronology(session.getTimeZoneKey()).monthOfYear().add(timestamp, interval);
-            }
-            else {
-                result = MONTH_OF_YEAR_UTC.add(timestamp, interval);
-            }
+            long result = MONTH_OF_YEAR_UTC.add(timestamp, interval);
 
             if (precision > 3) {
                 return scaleEpochMillisToMicros(result) + fractionMicros;
@@ -313,12 +305,11 @@ public final class TimestampOperators
         @LiteralParameters("p")
         @SqlType("timestamp(p)")
         public static LongTimestamp add(
-                ConnectorSession session,
                 @SqlType("timestamp(p)") LongTimestamp timestamp,
                 @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
         {
             return new LongTimestamp(
-                    add(6, session, timestamp.getEpochMicros(), interval),
+                    add(6, timestamp.getEpochMicros(), interval),
                     timestamp.getPicosOfMicro());
         }
     }
@@ -330,11 +321,10 @@ public final class TimestampOperators
         @SqlType("timestamp(p)")
         public static long add(
                 @LiteralParameter("p") long precision,
-                ConnectorSession session,
                 @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval,
                 @SqlType("timestamp(p)") long timestamp)
         {
-            return TimestampPlusIntervalYearToMonth.add(precision, session, timestamp, interval);
+            return TimestampPlusIntervalYearToMonth.add(precision, timestamp, interval);
         }
 
         @LiteralParameters("p")
@@ -344,7 +334,7 @@ public final class TimestampOperators
                 @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval,
                 @SqlType("timestamp(p)") LongTimestamp timestamp)
         {
-            return TimestampPlusIntervalYearToMonth.add(session, timestamp, interval);
+            return TimestampPlusIntervalYearToMonth.add(timestamp, interval);
         }
     }
 
@@ -355,11 +345,10 @@ public final class TimestampOperators
         @SqlType("timestamp(p)")
         public static long subtract(
                 @LiteralParameter("p") long precision,
-                ConnectorSession session,
                 @SqlType("timestamp(p)") long timestamp,
                 @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
         {
-            return TimestampPlusIntervalYearToMonth.add(precision, session, timestamp, -interval);
+            return TimestampPlusIntervalYearToMonth.add(precision, timestamp, -interval);
         }
 
         @LiteralParameters("p")
@@ -369,7 +358,7 @@ public final class TimestampOperators
                 @SqlType("timestamp(p)") LongTimestamp timestamp,
                 @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
         {
-            return TimestampPlusIntervalYearToMonth.add(session, timestamp, -interval);
+            return TimestampPlusIntervalYearToMonth.add(timestamp, -interval);
         }
     }
 

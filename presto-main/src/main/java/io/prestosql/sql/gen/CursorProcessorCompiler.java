@@ -15,7 +15,6 @@ package io.prestosql.sql.gen;
 
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.primitives.Primitives;
 import io.airlift.bytecode.BytecodeBlock;
 import io.airlift.bytecode.BytecodeNode;
 import io.airlift.bytecode.ClassDefinition;
@@ -305,9 +304,6 @@ public class CursorProcessorCompiler
                 Variable wasNullVariable = scope.getVariable("wasNull");
 
                 Class<?> javaType = type.getJavaType();
-                if (!javaType.isPrimitive() && javaType != Slice.class) {
-                    javaType = Object.class;
-                }
 
                 IfStatement ifStatement = new IfStatement();
                 ifStatement.condition()
@@ -322,8 +318,23 @@ public class CursorProcessorCompiler
 
                 ifStatement.ifFalse()
                         .getVariable(cursorVariable)
-                        .push(field)
-                        .invokeInterface(RecordCursor.class, "get" + Primitives.wrap(javaType).getSimpleName(), javaType, int.class);
+                        .push(field);
+                if (javaType == boolean.class) {
+                    ifStatement.ifFalse().invokeInterface(RecordCursor.class, "getBoolean", boolean.class, int.class);
+                }
+                else if (javaType == long.class) {
+                    ifStatement.ifFalse().invokeInterface(RecordCursor.class, "getLong", long.class, int.class);
+                }
+                else if (javaType == double.class) {
+                    ifStatement.ifFalse().invokeInterface(RecordCursor.class, "getDouble", double.class, int.class);
+                }
+                else if (javaType == Slice.class) {
+                    ifStatement.ifFalse().invokeInterface(RecordCursor.class, "getSlice", Slice.class, int.class);
+                }
+                else {
+                    ifStatement.ifFalse().invokeInterface(RecordCursor.class, "getObject", Object.class, int.class)
+                            .checkCast(javaType);
+                }
 
                 return ifStatement;
             }

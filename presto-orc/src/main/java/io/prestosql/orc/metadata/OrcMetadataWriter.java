@@ -34,12 +34,10 @@ import io.prestosql.orc.protobuf.MessageLite;
 
 import java.io.IOException;
 import java.io.OutputStream;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
-import java.util.TimeZone;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.orc.metadata.PostScript.MAGIC;
@@ -273,6 +271,13 @@ public class OrcMetadataWriter
                     .build());
         }
 
+        if (columnStatistics.getTimestampStatistics() != null) {
+            builder.setTimestampStatistics(OrcProto.TimestampStatistics.newBuilder()
+                    .setMinimumUtc(columnStatistics.getTimestampStatistics().getMin())
+                    .setMaximumUtc(columnStatistics.getTimestampStatistics().getMax())
+                    .build());
+        }
+
         if (columnStatistics.getDecimalStatistics() != null) {
             builder.setDecimalStatistics(OrcProto.DecimalStatistics.newBuilder()
                     .setMinimum(columnStatistics.getDecimalStatistics().getMin().toString())
@@ -301,8 +306,6 @@ public class OrcMetadataWriter
     public int writeStripeFooter(SliceOutput output, StripeFooter footer)
             throws IOException
     {
-        ZoneId zone = footer.getTimeZone().orElseThrow(() -> new IllegalArgumentException("Time zone not set"));
-
         OrcProto.StripeFooter footerProtobuf = OrcProto.StripeFooter.newBuilder()
                 .addAllStreams(footer.getStreams().stream()
                         .map(OrcMetadataWriter::toStream)
@@ -310,7 +313,7 @@ public class OrcMetadataWriter
                 .addAllColumns(footer.getColumnEncodings().stream()
                         .map(OrcMetadataWriter::toColumnEncoding)
                         .collect(toList()))
-                .setWriterTimezone(TimeZone.getTimeZone(zone).getID())
+                .setWriterTimezone(footer.getTimeZone().getId())
                 .build();
 
         return writeProtobufObject(output, footerProtobuf);

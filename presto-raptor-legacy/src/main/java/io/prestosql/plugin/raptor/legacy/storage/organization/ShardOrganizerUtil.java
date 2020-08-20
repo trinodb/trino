@@ -143,7 +143,7 @@ public final class ShardOrganizerUtil
                 temporalRange);
     }
 
-    public static Collection<Collection<ShardIndexInfo>> getShardsByDaysBuckets(Table tableInfo, Collection<ShardIndexInfo> shards, TemporalFunction temporalFunction)
+    public static Collection<Collection<ShardIndexInfo>> getShardsByDaysBuckets(Table tableInfo, Collection<ShardIndexInfo> shards)
     {
         if (shards.isEmpty()) {
             return ImmutableList.of();
@@ -164,7 +164,7 @@ public final class ShardOrganizerUtil
         shards.stream()
                 .filter(shard -> shard.getTemporalRange().isPresent())
                 .forEach(shard -> {
-                    long day = temporalFunction.getDayFromRange(shard.getTemporalRange().get());
+                    long day = TemporalFunction.getDayFromRange(shard.getTemporalRange().get());
                     shardsByDaysBuilder.put(day, shard);
                 });
 

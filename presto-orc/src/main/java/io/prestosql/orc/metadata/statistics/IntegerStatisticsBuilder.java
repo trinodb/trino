@@ -102,6 +102,7 @@ public class IntegerStatisticsBuilder
                 null,
                 null,
                 null,
+                null,
                 bloomFilterBuilder.buildBloomFilter());
     }
 

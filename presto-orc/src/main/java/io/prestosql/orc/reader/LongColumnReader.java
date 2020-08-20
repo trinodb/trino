@@ -31,6 +31,7 @@ import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.SmallintType;
+import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -85,7 +86,7 @@ public class LongColumnReader
             throws OrcCorruptionException
     {
         requireNonNull(type, "type is null");
-        verifyStreamType(column, type, t -> t instanceof BigintType || t instanceof IntegerType || t instanceof SmallintType || t instanceof DateType);
+        verifyStreamType(column, type, t -> t instanceof BigintType || t instanceof IntegerType || t instanceof SmallintType || t instanceof DateType || t instanceof TimeType);
         this.type = type;
 
         this.column = requireNonNull(column, "column is null");
@@ -161,6 +162,12 @@ public class LongColumnReader
             dataStream.next(values, nextBatchSize);
             return new LongArrayBlock(nextBatchSize, Optional.empty(), values);
         }
+        if (type instanceof TimeType) {
+            long[] values = new long[nextBatchSize];
+            dataStream.next(values, nextBatchSize);
+            maybeTransformValues(values, nextBatchSize);
+            return new LongArrayBlock(nextBatchSize, Optional.empty(), values);
+        }
         if (type instanceof IntegerType || type instanceof DateType) {
             int[] values = new int[nextBatchSize];
             dataStream.next(values, nextBatchSize);
@@ -173,6 +180,8 @@ public class LongColumnReader
         }
         throw new VerifyError("Unsupported type " + type);
     }
+
+    protected void maybeTransformValues(long[] values, int nextBatchSize) {}
 
     private Block readNullBlock(boolean[] isNull, int nonNullCount)
             throws IOException
@@ -250,7 +259,7 @@ public class LongColumnReader
     }
 
     @Override
-    public void startStripe(ZoneId fileTimeZone, ZoneId storageTimeZone, InputStreamSources dictionaryStreamSources, ColumnMetadata<ColumnEncoding> encoding)
+    public void startStripe(ZoneId fileTimeZone, InputStreamSources dictionaryStreamSources, ColumnMetadata<ColumnEncoding> encoding)
     {
         presentStreamSource = missingStreamSource(BooleanInputStream.class);
         dataStreamSource = missingStreamSource(LongInputStream.class);
