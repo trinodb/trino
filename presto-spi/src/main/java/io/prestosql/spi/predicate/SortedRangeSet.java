@@ -88,7 +88,7 @@ public final class SortedRangeSet
     /**
      * Provided Ranges are unioned together to form the SortedRangeSet
      */
-    public static SortedRangeSet of(Range first, Range... rest)
+    static SortedRangeSet of(Range first, Range... rest)
     {
         List<Range> rangeList = new ArrayList<>(rest.length + 1);
         rangeList.add(first);

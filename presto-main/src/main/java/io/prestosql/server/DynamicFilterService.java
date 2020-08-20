@@ -166,9 +166,9 @@ public class DynamicFilterService
     public DynamicFiltersStats getDynamicFilteringStats(QueryId queryId, Session session)
     {
         Map<DynamicFilterId, SettableFuture<Domain>> dynamicFilterFutures = dynamicFilterSummaries.getOrDefault(queryId, ImmutableMap.of());
-        int numRepartitionedFilters = queryRepartitionedDynamicFilters.getOrDefault(queryId, ImmutableSet.of()).size();
-        int numReplicatedFilters = queryReplicatedDynamicFilters.getOrDefault(queryId, ImmutableSet.of()).size();
-        int numTotalDynamicFilters = dynamicFilterFutures.size();
+        int repartitionedFilters = queryRepartitionedDynamicFilters.getOrDefault(queryId, ImmutableSet.of()).size();
+        int replicatedFilters = queryReplicatedDynamicFilters.getOrDefault(queryId, ImmutableSet.of()).size();
+        int totalDynamicFilters = dynamicFilterFutures.size();
 
         List<DynamicFilterDomainStats> dynamicFilterDomainStats = dynamicFilterFutures.entrySet().stream()
                 .filter(entry -> entry.getValue().isDone())
@@ -190,9 +190,9 @@ public class DynamicFilterService
                 .collect(toImmutableList());
         return new DynamicFiltersStats(
                 dynamicFilterDomainStats,
-                numRepartitionedFilters,
-                numReplicatedFilters,
-                numTotalDynamicFilters,
+                repartitionedFilters,
+                replicatedFilters,
+                totalDynamicFilters,
                 dynamicFilterDomainStats.size());
     }
 
@@ -396,24 +396,24 @@ public class DynamicFilterService
         public static final DynamicFiltersStats EMPTY = new DynamicFiltersStats(ImmutableList.of(), 0, 0, 0, 0);
 
         private final List<DynamicFilterDomainStats> dynamicFilterDomainStats;
-        private final int numRepartitionedDynamicFilters;
-        private final int numReplicatedDynamicFilters;
-        private final int numTotalDynamicFilters;
-        private final int numDynamicFiltersCompleted;
+        private final int repartitionedDynamicFilters;
+        private final int replicatedDynamicFilters;
+        private final int totalDynamicFilters;
+        private final int dynamicFiltersCompleted;
 
         @JsonCreator
         public DynamicFiltersStats(
                 @JsonProperty("dynamicFilterDomainStats") List<DynamicFilterDomainStats> dynamicFilterDomainStats,
-                @JsonProperty("numRepartitionedDynamicFilters") int numRepartitionedDynamicFilters,
-                @JsonProperty("numReplicatedDynamicFilters") int numReplicatedDynamicFilters,
-                @JsonProperty("numTotalDynamicFilters") int numTotalDynamicFilters,
-                @JsonProperty("numDynamicFiltersCompleted") int numDynamicFiltersCompleted)
+                @JsonProperty("repartitionedDynamicFilters") int repartitionedDynamicFilters,
+                @JsonProperty("replicatedDynamicFilters") int replicatedDynamicFilters,
+                @JsonProperty("totalDynamicFilters") int totalDynamicFilters,
+                @JsonProperty("dynamicFiltersCompleted") int dynamicFiltersCompleted)
         {
             this.dynamicFilterDomainStats = dynamicFilterDomainStats;
-            this.numRepartitionedDynamicFilters = numRepartitionedDynamicFilters;
-            this.numReplicatedDynamicFilters = numReplicatedDynamicFilters;
-            this.numTotalDynamicFilters = numTotalDynamicFilters;
-            this.numDynamicFiltersCompleted = numDynamicFiltersCompleted;
+            this.repartitionedDynamicFilters = repartitionedDynamicFilters;
+            this.replicatedDynamicFilters = replicatedDynamicFilters;
+            this.totalDynamicFilters = totalDynamicFilters;
+            this.dynamicFiltersCompleted = dynamicFiltersCompleted;
         }
 
         @JsonProperty
@@ -423,27 +423,27 @@ public class DynamicFilterService
         }
 
         @JsonProperty
-        public int getNumRepartitionedDynamicFilters()
+        public int getRepartitionedDynamicFilters()
         {
-            return numRepartitionedDynamicFilters;
+            return repartitionedDynamicFilters;
         }
 
         @JsonProperty
-        public int getNumReplicatedDynamicFilters()
+        public int getReplicatedDynamicFilters()
         {
-            return numReplicatedDynamicFilters;
+            return replicatedDynamicFilters;
         }
 
         @JsonProperty
-        public int getNumTotalDynamicFilters()
+        public int getTotalDynamicFilters()
         {
-            return numTotalDynamicFilters;
+            return totalDynamicFilters;
         }
 
         @JsonProperty
-        public int getNumDynamicFiltersCompleted()
+        public int getDynamicFiltersCompleted()
         {
-            return numDynamicFiltersCompleted;
+            return dynamicFiltersCompleted;
         }
 
         @Override
@@ -456,17 +456,17 @@ public class DynamicFilterService
                 return false;
             }
             DynamicFiltersStats that = (DynamicFiltersStats) o;
-            return numRepartitionedDynamicFilters == that.numRepartitionedDynamicFilters &&
-                    numReplicatedDynamicFilters == that.numReplicatedDynamicFilters &&
-                    numTotalDynamicFilters == that.numTotalDynamicFilters &&
-                    numDynamicFiltersCompleted == that.numDynamicFiltersCompleted &&
+            return repartitionedDynamicFilters == that.repartitionedDynamicFilters &&
+                    replicatedDynamicFilters == that.replicatedDynamicFilters &&
+                    totalDynamicFilters == that.totalDynamicFilters &&
+                    dynamicFiltersCompleted == that.dynamicFiltersCompleted &&
                     Objects.equals(dynamicFilterDomainStats, that.dynamicFilterDomainStats);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(dynamicFilterDomainStats, numRepartitionedDynamicFilters, numReplicatedDynamicFilters, numTotalDynamicFilters, numDynamicFiltersCompleted);
+            return Objects.hash(dynamicFilterDomainStats, repartitionedDynamicFilters, replicatedDynamicFilters, totalDynamicFilters, dynamicFiltersCompleted);
         }
     }
 
