@@ -39,7 +39,7 @@ public class TestReportUnannotatedMethods
     {
         assertThat(instance.findUnannotatedTestMethods(TestingTestWithoutTestAnnotation.class))
                 .extracting(Method::getName)
-                .contains("testWithMissingTestAnnotation");
+                .containsExactly("testWithMissingTestAnnotation");
     }
 
     @Test
@@ -58,6 +58,12 @@ public class TestReportUnannotatedMethods
     private static class TestingTestWithoutTestAnnotation
     {
         public void testWithMissingTestAnnotation() {}
+
+        @Override
+        public String toString()
+        {
+            return "test override";
+        }
     }
 
     private static class TestingRequirementsProvider
