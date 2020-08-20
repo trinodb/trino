@@ -40,7 +40,7 @@ Presto Cluster and Nodes
 ------------------------
 
 * Active nodes:
-  ``presto.failureDetector:name=HeartbeatFailureDetector:ActiveCount``
+  ``presto.failuredetector:name=HeartbeatFailureDetector:ActiveCount``
 
 * Free memory (general pool):
   ``presto.memory:type=ClusterMemoryPool:name=general:FreeDistributedBytes``
