@@ -74,6 +74,9 @@ public class ReportUnannotatedMethods
             return true;
         }
 
+        if (method.getDeclaringClass() == Object.class) {
+            return true;
+        }
         Class<?> superclass = method.getDeclaringClass().getSuperclass();
         Method overridden;
         try {
