@@ -25,7 +25,7 @@ import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.TestingSession;
+import io.prestosql.testing.TestngUtils;
 import io.prestosql.testing.datatype.CreateAndInsertDataSetup;
 import io.prestosql.testing.datatype.CreateAndPrestoInsertDataSetup;
 import io.prestosql.testing.datatype.CreateAsSelectDataSetup;
@@ -936,8 +936,8 @@ public class TestPostgreSqlTypeMapping
         }
     }
 
-    @Test(dataProvider = "testTimestampDataProvider")
-    public void testTime(boolean insertWithPresto, ZoneId sessionZone)
+    @Test(dataProvider = "trueFalse", dataProviderClass = TestngUtils.class)
+    public void testTime(boolean insertWithPresto)
     {
         LocalTime timeGapInJvmZone = LocalTime.of(0, 12, 34, 567_000_000);
         checkIsGap(jvmZone, timeGapInJvmZone.atDate(EPOCH_DAY));
@@ -959,20 +959,16 @@ public class TestPostgreSqlTypeMapping
         tests.addRoundTrip(timeDataType(), epoch.toLocalTime());
         tests.addRoundTrip(timeDataType(), timeGapInJvmZone);
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                .build();
-
         if (insertWithPresto) {
-            tests.execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_time"));
+            tests.execute(getQueryRunner(), prestoCreateAsSelect("test_time"));
         }
         else {
-            tests.execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_time"));
+            tests.execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_time"));
         }
     }
 
-    @Test(dataProvider = "testTimestampDataProvider")
-    public void testTimestamp(boolean insertWithPresto, ZoneId sessionZone)
+    @Test(dataProvider = "trueFalse", dataProviderClass = TestngUtils.class)
+    public void testTimestamp(boolean insertWithPresto)
     {
         // using two non-JVM zones so that we don't need to worry what Postgres system zone is
         DataTypeTest tests = DataTypeTest.create(true)
@@ -987,15 +983,11 @@ public class TestPostgreSqlTypeMapping
         addTimestampTestIfSupported(tests, timeGapInVilnius);
         addTimestampTestIfSupported(tests, timeGapInKathmandu);
 
-        Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                .build();
-
         if (insertWithPresto) {
-            tests.execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_timestamp"));
+            tests.execute(getQueryRunner(), prestoCreateAsSelect("test_timestamp"));
         }
         else {
-            tests.execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_timestamp"));
+            tests.execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_timestamp"));
         }
     }
 
@@ -1004,8 +996,8 @@ public class TestPostgreSqlTypeMapping
         tests.addRoundTrip(timestampDataType(), dateTime);
     }
 
-    @Test(dataProvider = "testTimestampDataProvider")
-    public void testArrayTimestamp(boolean insertWithPresto, ZoneId sessionZone)
+    @Test(dataProvider = "trueFalse", dataProviderClass = TestngUtils.class)
+    public void testArrayTimestamp(boolean insertWithPresto)
     {
         DataType<List<LocalDateTime>> dataType;
         DataSetup dataSetup;
@@ -1029,11 +1021,7 @@ public class TestPostgreSqlTypeMapping
         addArrayTimestampTestIfSupported(tests, dataType, timeGapInVilnius);
         addArrayTimestampTestIfSupported(tests, dataType, timeGapInKathmandu);
 
-        Session session = Session.builder(sessionWithArrayAsArray())
-                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                .build();
-
-        tests.execute(getQueryRunner(), session, dataSetup);
+        tests.execute(getQueryRunner(), sessionWithArrayAsArray(), dataSetup);
     }
 
     private void addArrayTimestampTestIfSupported(DataTypeTest tests, DataType<List<LocalDateTime>> dataType, LocalDateTime dateTime)
@@ -1041,29 +1029,7 @@ public class TestPostgreSqlTypeMapping
         tests.addRoundTrip(dataType, asList(dateTime));
     }
 
-    @DataProvider
-    public Object[][] testTimestampDataProvider()
-    {
-        return new Object[][] {
-                {true, UTC},
-                {false, UTC},
-
-                {true, jvmZone},
-                {false, jvmZone},
-
-                // using two non-JVM zones so that we don't need to worry what Postgres system zone is
-                {true, vilnius},
-                {false, vilnius},
-
-                {true, kathmandu},
-                {false, kathmandu},
-
-                {true, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
-                {false, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
-        };
-    }
-
-    @Test(dataProvider = "testTimestampWithTimeZoneDataProvider")
+    @Test(dataProvider = "trueFalse", dataProviderClass = TestngUtils.class)
     public void testTimestampWithTimeZone(boolean insertWithPresto)
     {
         DataType<ZonedDateTime> dataType;
@@ -1110,7 +1076,7 @@ public class TestPostgreSqlTypeMapping
         tests.execute(getQueryRunner(), dataSetup);
     }
 
-    @Test(dataProvider = "testTimestampWithTimeZoneDataProvider")
+    @Test(dataProvider = "trueFalse", dataProviderClass = TestngUtils.class)
     public void testArrayTimestampWithTimeZone(boolean insertWithPresto)
     {
         DataType<List<ZonedDateTime>> dataType;
@@ -1142,15 +1108,6 @@ public class TestPostgreSqlTypeMapping
             tests.addRoundTrip(dataType, asList(timeDoubledInJvmZone.atZone(jvmZone)));
         }
         tests.execute(getQueryRunner(), sessionWithArrayAsArray(), dataSetup);
-    }
-
-    @DataProvider
-    public Object[][] testTimestampWithTimeZoneDataProvider()
-    {
-        return new Object[][] {
-                {true},
-                {false},
-        };
     }
 
     @Test

@@ -13,10 +13,7 @@
  */
 package io.prestosql.plugin.phoenix;
 
-import com.google.common.collect.ImmutableList;
-import io.prestosql.Session;
 import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.QueryRunner;
@@ -45,7 +42,6 @@ import static io.prestosql.plugin.phoenix.PhoenixQueryRunner.createPhoenixQueryR
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.testing.datatype.DataType.bigintDataType;
 import static io.prestosql.testing.datatype.DataType.booleanDataType;
 import static io.prestosql.testing.datatype.DataType.dataType;
@@ -207,37 +203,21 @@ public class TestPhoenixSqlTypeMapping
     {
         // Note: there is identical test for MySQL
 
-        ZoneId jvmZone = ZoneId.systemDefault();
-        checkState(jvmZone.getId().equals("America/Bahia_Banderas"), "This test assumes certain JVM time zone");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInJvmZone = LocalDate.of(1970, 1, 1);
-        checkIsGap(jvmZone, dateOfLocalTimeChangeForwardAtMidnightInJvmZone.atStartOfDay());
-
-        ZoneId someZone = ZoneId.of("Europe/Vilnius");
-        LocalDate dateOfLocalTimeChangeForwardAtMidnightInSomeZone = LocalDate.of(1983, 4, 1);
-        checkIsGap(someZone, dateOfLocalTimeChangeForwardAtMidnightInSomeZone.atStartOfDay());
-        LocalDate dateOfLocalTimeChangeBackwardAtMidnightInSomeZone = LocalDate.of(1983, 10, 1);
-        checkIsDoubled(someZone, dateOfLocalTimeChangeBackwardAtMidnightInSomeZone.atStartOfDay().minusMinutes(1));
-
         DataTypeTest prestoTestCases = dateTests(
-                dateOfLocalTimeChangeForwardAtMidnightInJvmZone,
-                dateOfLocalTimeChangeForwardAtMidnightInSomeZone,
-                dateOfLocalTimeChangeBackwardAtMidnightInSomeZone,
+                LocalDate.of(1970, 1, 1),
+                LocalDate.of(1983, 4, 1),
+                LocalDate.of(1983, 10, 1),
                 dateDataType());
 
         DataTypeTest phoenixTestCases = dateTests(
-                dateOfLocalTimeChangeForwardAtMidnightInJvmZone,
-                dateOfLocalTimeChangeForwardAtMidnightInSomeZone,
-                dateOfLocalTimeChangeBackwardAtMidnightInSomeZone,
+                LocalDate.of(1970, 1, 1),
+                LocalDate.of(1983, 4, 1),
+                LocalDate.of(1983, 10, 1),
                 phoenixDateDataType())
                 .addRoundTrip(primaryKey(), 1);
 
-        for (String timeZoneId : ImmutableList.of(UTC_KEY.getId(), jvmZone.getId(), someZone.getId())) {
-            Session session = Session.builder(getQueryRunner().getDefaultSession())
-                    .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(timeZoneId))
-                    .build();
-            prestoTestCases.execute(getQueryRunner(), session, prestoCreateAsSelect("test_date"));
-            phoenixTestCases.execute(getQueryRunner(), session, phoenixCreateAndInsert("tpch.test_date"));
-        }
+        prestoTestCases.execute(getQueryRunner(), prestoCreateAsSelect("test_date"));
+        phoenixTestCases.execute(getQueryRunner(), phoenixCreateAndInsert("tpch.test_date"));
     }
 
     @Test
