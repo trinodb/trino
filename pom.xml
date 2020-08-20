@@ -53,6 +53,7 @@
         <dep.jdbi3.version>3.4.0</dep.jdbi3.version>
         <dep.oracle.version>19.3.0.0</dep.oracle.version>
         <dep.drift.version>1.14</dep.drift.version>
+        <dep.hive-apache.version>3.1.2-1</dep.hive-apache.version>
         <dep.tempto.version>180</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.4.0</dep.errorprone.version>
@@ -497,7 +498,7 @@
             <dependency>
                 <groupId>io.prestosql.hive</groupId>
                 <artifactId>hive-apache</artifactId>
-                <version>3.1.2-1</version>
+                <version>${dep.hive-apache.version}</version>
             </dependency>
 
             <dependency>
