@@ -110,7 +110,6 @@ import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.joining;
 import static java.util.stream.Collectors.toList;
 
-@Test
 public class TestPostgreSqlTypeMapping
         extends AbstractTestQueryFramework
 {
