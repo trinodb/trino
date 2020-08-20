@@ -26,6 +26,7 @@ import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.QueryRunner;
 import io.prestosql.testing.TestingSession;
+import io.prestosql.testing.TestngUtils;
 import io.prestosql.testing.datatype.CreateAndInsertDataSetup;
 import io.prestosql.testing.datatype.CreateAndPrestoInsertDataSetup;
 import io.prestosql.testing.datatype.CreateAsSelectDataSetup;
@@ -1086,7 +1087,7 @@ public class TestPostgreSqlTypeMapping
         };
     }
 
-    @Test(dataProvider = "testTimestampWithTimeZoneDataProvider")
+    @Test(dataProvider = "trueFalse", dataProviderClass = TestngUtils.class)
     public void testTimestampWithTimeZone(boolean insertWithPresto)
     {
         DataSetup dataSetup;
@@ -1152,7 +1153,7 @@ public class TestPostgreSqlTypeMapping
                 "Unsupported column type: timestamp\\(7\\) with time zone");
     }
 
-    @Test(dataProvider = "testTimestampWithTimeZoneDataProvider")
+    @Test(dataProvider = "trueFalse", dataProviderClass = TestngUtils.class)
     public void testArrayTimestampWithTimeZone(boolean insertWithPresto)
     {
         DataSetup dataSetup;
@@ -1196,15 +1197,6 @@ public class TestPostgreSqlTypeMapping
         tests.addRoundTrip(arrayOfTimestampWithTimeZoneDataType(6, insertWithPresto), asList(ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 123_456_000, kathmandu)));
 
         tests.execute(getQueryRunner(), sessionWithArrayAsArray(), dataSetup);
-    }
-
-    @DataProvider
-    public Object[][] testTimestampWithTimeZoneDataProvider()
-    {
-        return new Object[][] {
-                {true},
-                {false},
-        };
     }
 
     @Test

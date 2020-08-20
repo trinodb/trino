@@ -13,6 +13,8 @@
  */
 package io.prestosql.testing;
 
+import org.testng.annotations.DataProvider;
+
 import java.util.ArrayList;
 import java.util.stream.Collector;
 
@@ -30,5 +32,11 @@ public final class TestngUtils
                     return left;
                 },
                 builder -> builder.toArray(new Object[][] {}));
+    }
+
+    @DataProvider
+    public static Object[][] trueFalse()
+    {
+        return new Object[][] {{true}, {false}};
     }
 }
