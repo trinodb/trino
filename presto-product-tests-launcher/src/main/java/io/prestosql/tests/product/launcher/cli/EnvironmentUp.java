@@ -19,7 +19,6 @@ import com.google.inject.Module;
 import io.airlift.airline.Command;
 import io.airlift.airline.Option;
 import io.airlift.log.Logger;
-import io.airlift.units.Duration;
 import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
 import io.prestosql.tests.product.launcher.docker.ContainerUtil;
@@ -82,9 +81,6 @@ public final class EnvironmentUp
         @Option(name = "--environment", title = "environment", description = "the name of the environment to start", required = true)
         public String environment;
 
-        @Option(name = "--startup-timeout", title = "environment startup timeout", description = "environment startup timeout")
-        public Duration startupTimeout = Duration.valueOf("10m");
-
         public Module toModule()
         {
             return binder -> binder.bind(EnvironmentUpOptions.class).toInstance(this);
@@ -98,7 +94,6 @@ public final class EnvironmentUp
         private final boolean withoutPrestoMaster;
         private final boolean background;
         private final String environment;
-        private final Duration startupTimeout;
         private final boolean debug;
         private final EnvironmentConfig environmentConfig;
 
@@ -111,7 +106,6 @@ public final class EnvironmentUp
             this.background = environmentUpOptions.background;
             this.environment = environmentUpOptions.environment;
             this.debug = options.debug;
-            this.startupTimeout = requireNonNull(environmentUpOptions.startupTimeout, "environmentUpOptions.startupTimeout is null");
         }
 
         @Override
