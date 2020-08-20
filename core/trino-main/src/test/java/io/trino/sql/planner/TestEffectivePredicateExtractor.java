@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Maps;
 import io.trino.Session;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.AbstractMockMetadata;
 import io.trino.metadata.Metadata;
 import io.trino.metadata.ResolvedFunction;
@@ -1193,6 +1194,7 @@ public class TestEffectivePredicateExtractor
         BoundSignature boundSignature = new BoundSignature(name, UNKNOWN, ImmutableList.of());
         return new ResolvedFunction(
                 boundSignature,
+                GlobalSystemConnector.CATALOG_HANDLE,
                 toFunctionId(boundSignature.toSignature()),
                 SCALAR,
                 true,

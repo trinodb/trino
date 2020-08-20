@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.metadata.FunctionBinding;
 import io.trino.metadata.FunctionManager;
 import io.trino.metadata.InternalFunctionDependencies;
@@ -1172,7 +1173,7 @@ public class TestAnnotationEngineForAggregates
         assertFalse(aggregationMetadata.isOrderSensitive());
         assertFalse(aggregationMetadata.getIntermediateTypes().isEmpty());
 
-        ResolvedFunction resolvedFunction = METADATA.resolve(TEST_SESSION, functionBinding, functionMetadata, aggregation.getFunctionDependencies(boundSignature));
+        ResolvedFunction resolvedFunction = METADATA.resolve(TEST_SESSION, GlobalSystemConnector.CATALOG_HANDLE, functionBinding, functionMetadata, aggregation.getFunctionDependencies(boundSignature));
         FunctionDependencies functionDependencies = new InternalFunctionDependencies(FUNCTION_MANAGER::getScalarFunctionImplementation, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
         aggregation.specialize(boundSignature, functionDependencies);
     }
