@@ -23,6 +23,7 @@ import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.LongTimestampWithTimeZone;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
@@ -53,7 +54,6 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
@@ -90,6 +90,12 @@ final class TypeUtils
         // Map all timestamptz(x) types to unparametrized one which defaults to highest precision
         if (elementType instanceof TimestampWithTimeZoneType) {
             return "timestamptz";
+        }
+
+        // TypeInfoCache#getPGArrayType doesn't allow for specifying variable-length limits.
+        // Map all timestamp(x) types to unparametrized one which defaults to highest precision
+        if (elementType instanceof TimestampType) {
+            return "timestamp";
         }
 
         if (elementType instanceof DecimalType) {
@@ -189,7 +195,8 @@ final class TypeUtils
             return new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis));
         }
 
-        if (TIMESTAMP_MILLIS.equals(prestoType)) {
+        if (prestoType instanceof TimestampType && ((TimestampType) prestoType).isShort()) {
+            TimestampType timestampType = (TimestampType) prestoType;
             return toPgTimestamp(fromPrestoTimestamp((long) prestoNative));
         }
 

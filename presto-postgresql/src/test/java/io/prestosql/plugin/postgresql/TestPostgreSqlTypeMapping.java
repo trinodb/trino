@@ -685,8 +685,8 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(arrayDataType(booleanDataType()), null)
                 .addRoundTrip(arrayDataType(realDataType()), singletonList(null))
                 .addRoundTrip(arrayDataType(integerDataType()), asList(1, null, 3, null))
-                .addRoundTrip(arrayDataType(timestampDataType()), asList())
-                .addRoundTrip(arrayDataType(timestampDataType()), singletonList(null))
+                .addRoundTrip(arrayDataType(timestampDataType(3)), asList())
+                .addRoundTrip(arrayDataType(timestampDataType(3)), singletonList(null))
                 .addRoundTrip(arrayDataType(prestoTimestampWithTimeZoneDataType(3)), asList())
                 .addRoundTrip(arrayDataType(prestoTimestampWithTimeZoneDataType(3)), singletonList(null))
                 .execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_empty_or_nulls"));
@@ -854,7 +854,7 @@ public class TestPostgreSqlTypeMapping
 
         DataTypeTest.create()
                 .addRoundTrip(arrayAsJsonDataType("timestamp[]"), null)
-                .addRoundTrip(arrayAsJsonDataType("timestamp[]"), "[\"2019-01-02 03:04:05.789\"]")
+                .addRoundTrip(arrayAsJsonDataType("timestamp[]"), "[\"2019-01-02 03:04:05.789000\"]")
                 .addRoundTrip(arrayAsJsonDataType("timestamp[]"), "[null,null]")
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_timestamp_array_as_json"));
 
@@ -1004,24 +1004,36 @@ public class TestPostgreSqlTypeMapping
     @Test(dataProvider = "testTimestampDataProvider")
     public void testTimestamp(boolean insertWithPresto, ZoneId sessionZone)
     {
-        // using two non-JVM zones so that we don't need to worry what Postgres system zone is
-        DataTypeTest tests = DataTypeTest.create(true)
-                .addRoundTrip(timestampDataType(), beforeEpoch)
-                .addRoundTrip(timestampDataType(), afterEpoch)
-                .addRoundTrip(timestampDataType(), timeDoubledInJvmZone)
-                .addRoundTrip(timestampDataType(), timeDoubledInVilnius)
-                .addRoundTrip(timestampDataType(), epoch) // epoch also is a gap in JVM zone
-                .addRoundTrip(timestampDataType(), timeGapInJvmZone1)
-                .addRoundTrip(timestampDataType(), timeGapInJvmZone2)
-                .addRoundTrip(timestampDataType(), timeGapInVilnius)
-                .addRoundTrip(timestampDataType(), timeGapInKathmandu);
+        DataTypeTest tests = DataTypeTest.create(true);
+
+        // no need to test gap for multiple precisions as both Presto and PostgreSql JDBC
+        // uses same representation for all precisions 1-6
+        DataType<LocalDateTime> timestampDataType = timestampDataType(3);
+        tests.addRoundTrip(timestampDataType, beforeEpoch);
+        tests.addRoundTrip(timestampDataType, afterEpoch);
+        tests.addRoundTrip(timestampDataType, timeDoubledInJvmZone);
+        tests.addRoundTrip(timestampDataType, timeDoubledInVilnius);
+        tests.addRoundTrip(timestampDataType, epoch); // epoch also is a gap in JVM zone
+        tests.addRoundTrip(timestampDataType, timeGapInJvmZone1);
+        tests.addRoundTrip(timestampDataType, timeGapInJvmZone2);
+        tests.addRoundTrip(timestampDataType, timeGapInVilnius);
+        tests.addRoundTrip(timestampDataType, timeGapInKathmandu);
+
+        // test arbitrary time for all supported precisions
+        tests.addRoundTrip(timestampDataType(0), LocalDateTime.of(1970, 1, 1, 0, 0, 0));
+        tests.addRoundTrip(timestampDataType(1), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 100_000_000));
+        tests.addRoundTrip(timestampDataType(2), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 120_000_000));
+        tests.addRoundTrip(timestampDataType(3), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_000_000));
+        tests.addRoundTrip(timestampDataType(4), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_400_000));
+        tests.addRoundTrip(timestampDataType(5), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_450_000));
+        tests.addRoundTrip(timestampDataType(6), LocalDateTime.of(1970, 1, 1, 0, 0, 0, 123_456_000));
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
 
         if (insertWithPresto) {
-            tests.execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_timestamp"));
+            tests.execute(getQueryRunner(), session, prestoCreateAsSelect("test_timestamp"));
         }
         else {
             tests.execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_timestamp"));
@@ -1031,32 +1043,48 @@ public class TestPostgreSqlTypeMapping
     @Test(dataProvider = "testTimestampDataProvider")
     public void testArrayTimestamp(boolean insertWithPresto, ZoneId sessionZone)
     {
-        DataType<List<LocalDateTime>> dataType;
-        DataSetup dataSetup;
-        if (insertWithPresto) {
-            dataType = arrayDataType(timestampDataType());
-            dataSetup = prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_timestamp");
-        }
-        else {
-            dataType = arrayDataType(timestampDataType(), "timestamp[]");
-            dataSetup = postgresCreateAndInsert("tpch.test_array_timestamp");
-        }
-        DataTypeTest tests = DataTypeTest.create(true)
-                .addRoundTrip(dataType, asList(beforeEpoch))
-                .addRoundTrip(dataType, asList(afterEpoch))
-                .addRoundTrip(dataType, asList(timeDoubledInJvmZone))
-                .addRoundTrip(dataType, asList(timeDoubledInVilnius))
-                .addRoundTrip(dataType, asList(epoch))
-                .addRoundTrip(dataType, asList(timeGapInJvmZone1))
-                .addRoundTrip(dataType, asList(timeGapInJvmZone2))
-                .addRoundTrip(dataType, asList(timeGapInVilnius))
-                .addRoundTrip(dataType, asList(timeGapInKathmandu));
+        DataTypeTest tests = DataTypeTest.create(true);
+        // no need to test gap for multiple precisions as both Presto and PostgreSql JDBC
+        // uses same representation for all precisions 1-6
+        DataType<List<LocalDateTime>> dataType = arrayOfTimestampDataType(3, insertWithPresto);
+        tests.addRoundTrip(dataType, asList(beforeEpoch));
+        tests.addRoundTrip(dataType, asList(afterEpoch));
+        tests.addRoundTrip(dataType, asList(timeDoubledInJvmZone));
+        tests.addRoundTrip(dataType, asList(timeDoubledInVilnius));
+        tests.addRoundTrip(dataType, asList(epoch));
+        tests.addRoundTrip(dataType, asList(timeGapInJvmZone1));
+        tests.addRoundTrip(dataType, asList(timeGapInJvmZone2));
+        tests.addRoundTrip(dataType, asList(timeGapInVilnius));
+        tests.addRoundTrip(dataType, asList(timeGapInKathmandu));
+
+        // test arbitrary time for all supported precisions
+        tests.addRoundTrip(arrayOfTimestampDataType(1, insertWithPresto), asList(LocalDateTime.of(1970, 1, 1, 1, 1, 1, 100_000_000)));
+        tests.addRoundTrip(arrayOfTimestampDataType(2, insertWithPresto), asList(LocalDateTime.of(1970, 1, 1, 1, 1, 1, 120_000_000)));
+        tests.addRoundTrip(arrayOfTimestampDataType(3, insertWithPresto), asList(LocalDateTime.of(1970, 1, 1, 1, 1, 1, 123_000_000)));
+        tests.addRoundTrip(arrayOfTimestampDataType(4, insertWithPresto), asList(LocalDateTime.of(1970, 1, 1, 1, 1, 1, 123_400_000)));
+        tests.addRoundTrip(arrayOfTimestampDataType(5, insertWithPresto), asList(LocalDateTime.of(1970, 1, 1, 1, 1, 1, 123_450_000)));
+        tests.addRoundTrip(arrayOfTimestampDataType(6, insertWithPresto), asList(LocalDateTime.of(1970, 1, 1, 1, 1, 1, 123_456_000)));
 
         Session session = Session.builder(sessionWithArrayAsArray())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
 
-        tests.execute(getQueryRunner(), session, dataSetup);
+        if (insertWithPresto) {
+            tests.execute(getQueryRunner(), session, prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_timestamp"));
+        }
+        else {
+            tests.execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_array_timestamp"));
+        }
+    }
+
+    private DataType<List<LocalDateTime>> arrayOfTimestampDataType(int precision, boolean insertWithPresto)
+    {
+        if (insertWithPresto) {
+            return arrayDataType(timestampDataType(precision));
+        }
+        else {
+            return arrayDataType(timestampDataType(precision), format("timestamp(%d)[]", precision));
+        }
     }
 
     @DataProvider

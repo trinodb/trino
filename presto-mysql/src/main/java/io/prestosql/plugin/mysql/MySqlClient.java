@@ -262,7 +262,7 @@ public class MySqlClient
         }
         if (TIMESTAMP_MILLIS.equals(type)) {
             // TODO use `timestampWriteFunction`
-            return WriteMapping.longMapping("datetime", timestampWriteFunctionUsingSqlTimestamp());
+            return WriteMapping.longMapping("datetime", timestampWriteFunctionUsingSqlTimestamp(TIMESTAMP_MILLIS));
         }
         if (VARBINARY.equals(type)) {
             return WriteMapping.sliceMapping("mediumblob", varbinaryWriteFunction());
