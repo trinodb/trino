@@ -66,6 +66,7 @@ public class TestHiveTransactionalTable
         doTestReadFullAcid(false, BucketingType.NONE);
     }
 
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4927")
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
     public void testReadFullAcidBucketed()
     {
