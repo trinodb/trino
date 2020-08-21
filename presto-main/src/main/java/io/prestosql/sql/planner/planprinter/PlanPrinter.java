@@ -449,6 +449,7 @@ public class PlanPrinter
                             node.getFilteringSourceJoinSymbol(),
                             formatHash(node.getSourceHashSymbol(), node.getFilteringSourceHashSymbol())));
             node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetailsLine("Distribution: %s", distributionType));
+            node.getDynamicFilterId().ifPresent(dynamicFilterId -> nodeOutput.appendDetailsLine("dynamicFilterId: %s", dynamicFilterId));
             node.getSource().accept(this, context);
             node.getFilteringSource().accept(this, context);
 
