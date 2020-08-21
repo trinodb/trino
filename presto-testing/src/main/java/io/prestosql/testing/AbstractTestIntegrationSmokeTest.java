@@ -14,11 +14,15 @@
 package io.prestosql.testing;
 
 import io.prestosql.Session;
+import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import static io.prestosql.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
+import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.prestosql.testing.QueryAssertions.assertContains;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
@@ -194,6 +198,26 @@ public abstract class AbstractTestIntegrationSmokeTest
     public void testSelectAll()
     {
         assertQuery("SELECT * FROM orders");
+    }
+
+    /**
+     * Test interactions between optimizer (including CBO), scheduling and connector metadata APIs.
+     */
+    @Test(timeOut = 300_000)
+    public void testJoinWithEmptySides()
+    {
+        for (JoinDistributionType joinDistributionType : JoinDistributionType.values()) {
+            Session session = Session.builder(getSession())
+                    .setSystemProperty(JOIN_DISTRIBUTION_TYPE, joinDistributionType.toString())
+                    .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.toString())
+                    .build();
+            // empty build side
+            assertQuery(session, "SELECT count(*) FROM nation JOIN region ON nation.regionkey = region.regionkey AND region.name = ''", "VALUES 0");
+            assertQuery(session, "SELECT count(*) FROM nation JOIN region ON nation.regionkey = region.regionkey AND region.regionkey < 0", "VALUES 0");
+            // empty probe side
+            assertQuery(session, "SELECT count(*) FROM region JOIN nation ON nation.regionkey = region.regionkey AND region.name = ''", "VALUES 0");
+            assertQuery(session, "SELECT count(*) FROM nation JOIN region ON nation.regionkey = region.regionkey AND region.regionkey < 0", "VALUES 0");
+        }
     }
 
     /**
