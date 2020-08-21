@@ -49,6 +49,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static com.google.common.base.Throwables.getStackTraceAsString;
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static io.prestosql.tests.product.launcher.docker.ContainerUtil.exposePort;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
@@ -146,9 +147,10 @@ public final class TestRun
         {
             RetryPolicy<Object> retryPolicy = new RetryPolicy<>()
                     .withMaxRetries(startupRetries)
-                    .onFailedAttempt(event -> log.warn("Could not start environment '%s': %s", environment, event.getLastFailure()))
+                    .onFailedAttempt(event -> log.warn("Could not start environment '%s': %s", environment, getStackTraceAsString(event.getLastFailure())))
                     .onRetry(event -> log.info("Trying to start environment '%s', %d failed attempt(s)", environment, event.getAttemptCount() + 1))
-                    .onSuccess(event -> log.info("Environment '%s' started in %s, %d attempt(s)", environment, event.getElapsedTime(), event.getAttemptCount()));
+                    .onSuccess(event -> log.info("Environment '%s' started in %s, %d attempt(s)", environment, event.getElapsedTime(), event.getAttemptCount()))
+                    .onFailure(event -> log.info("Environment '%s' failed to start in attempt(s): %d: %s", environment, event.getAttemptCount(), event.getFailure()));
 
             try (UncheckedCloseable ignore = this::cleanUp) {
                 Environment environment = Failsafe.with(retryPolicy)
