@@ -50,7 +50,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.type.TimeType.createTimeType;
+import static io.prestosql.spi.type.TimeType.TIME_MICROS;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static java.lang.String.format;
 
@@ -59,7 +59,6 @@ public final class TypeConverter
     public static final String ORC_ICEBERG_ID_KEY = "iceberg.id";
     public static final String ORC_ICEBERG_REQUIRED_KEY = "iceberg.required";
     public static final String ICEBERG_LONG_TYPE = "iceberg.long-type";
-    public static final TimeType TIME_MICROS = createTimeType(6);
 
     private static final Map<Class<? extends Type>, org.apache.iceberg.types.Type> PRESTO_TO_ICEBERG = ImmutableMap.<Class<? extends Type>, org.apache.iceberg.types.Type>builder()
             .put(BooleanType.class, Types.BooleanType.get())
@@ -69,7 +68,6 @@ public final class TypeConverter
             .put(BigintType.class, Types.LongType.get())
             .put(RealType.class, Types.FloatType.get())
             .put(IntegerType.class, Types.IntegerType.get())
-            .put(TimeType.class, Types.TimeType.get())
             .put(TimestampWithTimeZoneType.class, Types.TimestampType.withZone())
             .put(VarcharType.class, Types.StringType.get())
             .build();
