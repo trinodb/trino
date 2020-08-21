@@ -71,6 +71,16 @@ public class TestImpersonation
         checkTableOwner(tableName, aliceJdbcUser, aliceExecutor);
     }
 
+    private void checkTableOwner(String tableName, String expectedOwner, QueryExecutor executor)
+    {
+        executor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+        executor.executeQuery(format("CREATE TABLE %s AS SELECT 'abc' c", tableName));
+        String tableLocation = getTableLocation(executor, tableName);
+        String owner = hdfsClient.getOwner(tableLocation);
+        assertEquals(owner, expectedOwner);
+        executor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+    }
+
     private static String getTableLocation(QueryExecutor executor, String tableName)
     {
         String location = getOnlyElement(executor.executeQuery(format("SELECT DISTINCT regexp_replace(\"$path\", '/[^/]*$', '') FROM %s", tableName)).column(1));
@@ -84,15 +94,5 @@ public class TestImpersonation
             }
         }
         return location;
-    }
-
-    private void checkTableOwner(String tableName, String expectedOwner, QueryExecutor executor)
-    {
-        executor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
-        executor.executeQuery(format("CREATE TABLE %s AS SELECT 'abc' c", tableName));
-        String tableLocation = getTableLocation(executor, tableName);
-        String owner = hdfsClient.getOwner(tableLocation);
-        assertEquals(owner, expectedOwner);
-        executor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
     }
 }
