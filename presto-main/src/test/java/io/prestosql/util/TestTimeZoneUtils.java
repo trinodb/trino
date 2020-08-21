@@ -13,6 +13,7 @@
  */
 package io.prestosql.util;
 
+import com.google.common.collect.Sets;
 import io.prestosql.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
@@ -33,8 +34,9 @@ public class TestTimeZoneUtils
     @Test
     public void test()
     {
-        TreeSet<String> jdkZones = new TreeSet<>(ZoneId.getAvailableZoneIds());
-        for (String zoneId : jdkZones) {
+        // Only test zones known to JDK and Joda.
+        TreeSet<String> testedZones = new TreeSet<>(Sets.intersection(ZoneId.getAvailableZoneIds(), DateTimeZone.getAvailableIDs()));
+        for (String zoneId : testedZones) {
             if (zoneId.startsWith("Etc/") || zoneId.startsWith("GMT") || zoneId.startsWith("SystemV/")) {
                 continue;
             }
