@@ -53,7 +53,6 @@ import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static io.prestosql.tests.product.launcher.docker.ContainerUtil.exposePort;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.util.Objects.requireNonNull;
-import static java.util.UUID.randomUUID;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
 
 @Command(name = "run", description = "Presto product test launcher")
@@ -97,7 +96,7 @@ public final class TestRun
         public String environment;
 
         @Option(name = "--reports-dir", title = "reports dir", description = "location of the reports directory")
-        public Path reportsDirBase = Paths.get("presto-product-tests/target/reports/");
+        public String reportsDir = "presto-product-tests/target/";
 
         @Option(name = "--startup-retries", title = "environment startup retries", description = "environment startup retries")
         public int startupRetries = 5;
@@ -139,7 +138,7 @@ public final class TestRun
             this.testArguments = ImmutableList.copyOf(requireNonNull(testRunOptions.testArguments, "testOptions.testArguments is null"));
             this.environment = requireNonNull(testRunOptions.environment, "testRunOptions.environment is null");
             this.startupRetries = testRunOptions.startupRetries;
-            this.reportsDirBase = buildFinalReportsDir(requireNonNull(testRunOptions.reportsDirBase, "testRunOptions.reportsDirBase is empty"), testRunOptions.environment);
+            this.reportsDirBase = Paths.get(requireNonNull(testRunOptions.reportsDir, "testRunOptions.reportsDirBase is empty"));
         }
 
         @Override
@@ -246,6 +245,13 @@ public final class TestRun
                 return;
             }
 
+            ensureReportsDirExists(reportsDirBase);
+            container.withFileSystemBind(reportsDirBase.toString(), CONTAINER_REPORTS_DIR, BindMode.READ_WRITE);
+            log.info("Bound host %s into container's %s report dir", reportsDirBase, CONTAINER_REPORTS_DIR);
+        }
+
+        private static void ensureReportsDirExists(Path reportsDirBase)
+        {
             if (!Files.exists(reportsDirBase)) {
                 try {
                     Files.createDirectories(reportsDirBase);
@@ -255,9 +261,6 @@ public final class TestRun
                     throw new UncheckedIOException(e);
                 }
             }
-
-            container.withFileSystemBind(reportsDirBase.toAbsolutePath().toString(), CONTAINER_REPORTS_DIR, BindMode.READ_WRITE);
-            log.info("Bound host %s into container's %s report dir", reportsDirBase, CONTAINER_REPORTS_DIR);
         }
 
         private void awaitTestsCompletion(Environment environment)
@@ -283,13 +286,6 @@ public final class TestRun
                 Thread.currentThread().interrupt();
                 throw new RuntimeException("Interrupted", e);
             }
-        }
-
-        private static Path buildFinalReportsDir(Path reportsDirBase, String environment)
-        {
-            return reportsDirBase
-                    .resolve(environment)
-                    .resolve(randomUUID().toString().replace("-", ""));
         }
     }
 
