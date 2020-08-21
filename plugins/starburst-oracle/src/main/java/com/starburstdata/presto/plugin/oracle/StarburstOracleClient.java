@@ -23,7 +23,6 @@ import io.prestosql.plugin.jdbc.JdbcIdentity;
 import io.prestosql.plugin.jdbc.JdbcSplit;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
-import io.prestosql.plugin.jdbc.PredicatePushdownController.DomainPushdownResult;
 import io.prestosql.plugin.jdbc.QueryBuilder;
 import io.prestosql.plugin.jdbc.RemoteTableName;
 import io.prestosql.plugin.jdbc.expression.AggregateFunctionRewriter;
@@ -43,7 +42,6 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
-import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.ColumnStatistics;
 import io.prestosql.spi.statistics.Estimate;
@@ -260,26 +258,7 @@ public class StarburstOracleClient
             return mappingToVarchar;
         }
 
-        return super.toPrestoType(session, connection, type).map(mapping -> simplifyUnsupportedPushdown(mapping, type.getJdbcType()));
-    }
-
-    private ColumnMapping simplifyUnsupportedPushdown(ColumnMapping mapping, int jdbcType)
-    {
-        switch (jdbcType) {
-            case OracleTypes.BINARY_FLOAT:
-            case OracleTypes.BINARY_DOUBLE:
-            case OracleTypes.FLOAT:
-            case OracleTypes.NUMBER:
-            case OracleTypes.CHAR:
-            case OracleTypes.NCHAR:
-            case OracleTypes.VARCHAR:
-            case OracleTypes.NVARCHAR:
-            case OracleTypes.TIMESTAMP:
-            case OracleTypes.TIMESTAMPTZ:
-                return new ColumnMapping(mapping.getType(), mapping.getReadFunction(), mapping.getWriteFunction(), StarburstOracleClient::simplifyUnsupportedPushdown);
-        }
-
-        return mapping;
+        return super.toPrestoType(session, connection, type);
     }
 
     @Override
@@ -380,16 +359,6 @@ public class StarburstOracleClient
 
             return Optional.of(tableStatistics.build());
         }
-    }
-
-    private static DomainPushdownResult simplifyUnsupportedPushdown(Domain domain)
-    {
-        Domain pushedDown = domain;
-        if (domain.getValues().getRanges().getRangeCount() > ORACLE_MAX_LIST_EXPRESSIONS) {
-            pushedDown = domain.simplify();
-        }
-        // TODO https://starburstdata.atlassian.net/browse/PRESTO-4064
-        return new DomainPushdownResult(pushedDown, domain);
     }
 
     private static class StatisticsDao
