@@ -29,6 +29,7 @@ import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanVisitor;
+import io.prestosql.sql.planner.plan.SemiJoinNode;
 import io.prestosql.sql.planner.plan.SpatialJoinNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.tree.Expression;
@@ -58,8 +59,10 @@ import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 /**
- * Dynamic filters are supported only right after TableScan and only if the subtree is on the probe side of some downstream join node
- * Dynamic filters are removed from JoinNode if there is no consumer for it on probe side
+ * Dynamic filters are supported only right after TableScan and only if the subtree is on
+ *  1. the probe side of some downstream JoinNode or
+ *  2. the source side of some downstream SemiJoinNode node
+ * Dynamic filters are removed from JoinNode/SemiJoinNode if there is no consumer for it on probe/source side
  */
 public class RemoveUnsupportedDynamicFilters
         implements PlanOptimizer
@@ -182,6 +185,54 @@ public class RemoveUnsupportedDynamicFilters
             }
 
             return new PlanWithConsumedDynamicFilters(node, consumed);
+        }
+
+        @Override
+        public PlanWithConsumedDynamicFilters visitSemiJoin(SemiJoinNode node, Set<DynamicFilterId> allowedDynamicFilterIds)
+        {
+            if (node.getDynamicFilterId().isEmpty()) {
+                return visitPlan(node, allowedDynamicFilterIds);
+            }
+
+            DynamicFilterId dynamicFilterId = node.getDynamicFilterId().get();
+
+            Set<DynamicFilterId> allowedDynamicFilterIdsSourceSide = ImmutableSet.<DynamicFilterId>builder()
+                    .add(dynamicFilterId)
+                    .addAll(allowedDynamicFilterIds)
+                    .build();
+            PlanWithConsumedDynamicFilters sourceResult = node.getSource().accept(this, allowedDynamicFilterIdsSourceSide);
+            PlanWithConsumedDynamicFilters filteringSourceResult = node.getFilteringSource().accept(this, allowedDynamicFilterIds);
+
+            Set<DynamicFilterId> consumed = new HashSet<>(filteringSourceResult.getConsumedDynamicFilterIds());
+            consumed.addAll(sourceResult.getConsumedDynamicFilterIds());
+            Optional<DynamicFilterId> newFilterId;
+            if (consumed.contains(dynamicFilterId)) {
+                consumed.remove(dynamicFilterId);
+                newFilterId = Optional.of(dynamicFilterId);
+            }
+            else {
+                newFilterId = Optional.empty();
+            }
+
+            PlanNode newSource = sourceResult.getNode();
+            PlanNode newFilteringSource = filteringSourceResult.getNode();
+            if (!newSource.equals(node.getSource())
+                    || !newFilteringSource.equals(node.getFilteringSource())
+                    || !newFilterId.equals(node.getDynamicFilterId())) {
+                return new PlanWithConsumedDynamicFilters(new SemiJoinNode(
+                        node.getId(),
+                        newSource,
+                        newFilteringSource,
+                        node.getSourceJoinSymbol(),
+                        node.getFilteringSourceJoinSymbol(),
+                        node.getSemiJoinOutput(),
+                        node.getSourceHashSymbol(),
+                        node.getFilteringSourceHashSymbol(),
+                        node.getDistributionType(),
+                        newFilterId),
+                        ImmutableSet.copyOf(consumed));
+            }
+            return new PlanWithConsumedDynamicFilters(node, ImmutableSet.copyOf(consumed));
         }
 
         @Override

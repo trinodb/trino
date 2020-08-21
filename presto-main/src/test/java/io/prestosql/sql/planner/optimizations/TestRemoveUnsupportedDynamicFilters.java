@@ -55,6 +55,7 @@ import static io.prestosql.sql.ExpressionUtils.combineDisjuncts;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.output;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.spatialJoin;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.tableScan;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
@@ -318,6 +319,106 @@ public class TestRemoveUnsupportedDynamicFilters
                                 "true",
                                 values("LEFT_SYMBOL"),
                                 values("RIGHT_SYMBOL"))));
+    }
+
+    @Test
+    public void testUnconsumedDynamicFilterInSemiJoin()
+    {
+        PlanNode root = builder.semiJoin(
+                builder.filter(expression("ORDERS_OK > 0"), ordersTableScanNode),
+                lineitemTableScanNode,
+                ordersOrderKeySymbol,
+                lineitemOrderKeySymbol,
+                new Symbol("SEMIJOIN_OUTPUT"),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(new DynamicFilterId("DF")));
+        assertPlan(
+                removeUnsupportedDynamicFilters(root),
+                semiJoin("ORDERS_OK", "LINEITEM_OK", "SEMIJOIN_OUTPUT", false,
+                        filter(expression("ORDERS_OK > 0"),
+                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
+                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))));
+    }
+
+    @Test
+    public void testDynamicFilterConsumedOnFilteringSourceSideInSemiJoin()
+    {
+        PlanNode root = builder.semiJoin(
+                ordersTableScanNode,
+                builder.filter(
+                        combineConjuncts(
+                                metadata,
+                                expression("LINEITEM_OK > 0"),
+                                createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, lineitemOrderKeySymbol.toSymbolReference())),
+                        lineitemTableScanNode),
+                ordersOrderKeySymbol,
+                lineitemOrderKeySymbol,
+                new Symbol("SEMIJOIN_OUTPUT"),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(new DynamicFilterId("DF")));
+        assertPlan(
+                removeUnsupportedDynamicFilters(root),
+                semiJoin("ORDERS_OK", "LINEITEM_OK", "SEMIJOIN_OUTPUT", false,
+                        tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
+                        filter(expression("LINEITEM_OK > 0"),
+                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))));
+    }
+
+    @Test
+    public void testUnmatchedDynamicFilterInSemiJoin()
+    {
+        PlanNode root = builder.semiJoin(
+                builder.filter(
+                        combineConjuncts(
+                                metadata,
+                                expression("ORDERS_OK > 0"),
+                                createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, ordersOrderKeySymbol.toSymbolReference())),
+                        ordersTableScanNode),
+                lineitemTableScanNode,
+                ordersOrderKeySymbol,
+                lineitemOrderKeySymbol,
+                new Symbol("SEMIJOIN_OUTPUT"),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty());
+        assertPlan(
+                removeUnsupportedDynamicFilters(root),
+                semiJoin("ORDERS_OK", "LINEITEM_OK", "SEMIJOIN_OUTPUT", false,
+                        filter(expression("ORDERS_OK > 0"),
+                                tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
+                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))));
+    }
+
+    @Test
+    public void testRemoveDynamicFilterNotAboveTableScanWithSemiJoin()
+    {
+        PlanNode root = builder.semiJoin(
+                builder.filter(
+                        combineConjuncts(
+                                metadata,
+                                expression("ORDERS_OK > 0"),
+                                createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, ordersOrderKeySymbol.toSymbolReference())),
+                        builder.values(ordersOrderKeySymbol)),
+                lineitemTableScanNode,
+                ordersOrderKeySymbol,
+                lineitemOrderKeySymbol,
+                new Symbol("SEMIJOIN_OUTPUT"),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.empty(),
+                Optional.of(new DynamicFilterId("DF")));
+
+        assertPlan(
+                removeUnsupportedDynamicFilters(root),
+                semiJoin("ORDERS_OK", "LINEITEM_OK", "SEMIJOIN_OUTPUT", false,
+                        filter(expression("ORDERS_OK > 0"),
+                                values("ORDERS_OK")),
+                        tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))));
     }
 
     private static PlanMatchPattern filter(Expression expectedPredicate, PlanMatchPattern source)
