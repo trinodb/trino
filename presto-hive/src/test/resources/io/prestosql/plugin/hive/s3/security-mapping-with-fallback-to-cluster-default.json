@@ -1,0 +1,11 @@
+{
+  "mappings": [
+    {
+      "prefix": "s3://bar/abc",
+      "iamRole": "arn:aws:iam::123456789101:role/allow_path"
+    },
+    {
+      "useClusterDefault": "true"
+    }
+  ]
+}
