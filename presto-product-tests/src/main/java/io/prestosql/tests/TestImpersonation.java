@@ -23,8 +23,11 @@ import org.testng.annotations.Test;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.util.List;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
+import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tests.TestGroups.HDFS_IMPERSONATION;
 import static io.prestosql.tests.TestGroups.HDFS_NO_IMPERSONATION;
 import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
@@ -36,6 +39,7 @@ public class TestImpersonation
         extends ProductTest
 {
     private QueryExecutor aliceExecutor;
+    private QueryExecutor bobExecutor;
 
     @Inject
     private HdfsClient hdfsClient;
@@ -43,6 +47,10 @@ public class TestImpersonation
     @Inject
     @Named("databases.alice@presto.jdbc_user")
     private String aliceJdbcUser;
+
+    @Inject
+    @Named("databases.bob@presto.jdbc_user")
+    private String bobJdbcUser;
 
     // The value for configuredHdfsUser is profile dependent
     // For non-Kerberos environments this variable will be equal to -DHADOOP_USER_NAME as set in jvm.config
@@ -55,6 +63,7 @@ public class TestImpersonation
     public void setup()
     {
         aliceExecutor = connectToPresto("alice@presto");
+        bobExecutor = connectToPresto("bob@presto");
     }
 
     @Test(groups = {HDFS_NO_IMPERSONATION, PROFILE_SPECIFIC_TESTS})
@@ -94,5 +103,28 @@ public class TestImpersonation
             }
         }
         return location;
+    }
+
+    @Test(groups = {HDFS_IMPERSONATION, PROFILE_SPECIFIC_TESTS})
+    public void testSelectHdfsImpersonationEnabled()
+    {
+        String tableName = "select_hdfs_impersonation_enabled";
+
+        aliceExecutor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+        aliceExecutor.executeQuery(format("CREATE TABLE %s AS SELECT 'abc' c", tableName));
+        String tableLocation = getTableLocation(aliceExecutor, tableName);
+
+        // make table file not readable to everyone
+        List<String> tableFiles = hdfsClient.listDirectory(tableLocation);
+        tableFiles.forEach(file -> hdfsClient.setPermission(tableLocation + "/" + file, "640"));
+
+        assertThat(aliceExecutor.executeQuery("SELECT * FROM " + tableName)).containsExactly(row("abc"));
+        assertThat(() -> bobExecutor.executeQuery("SELECT * FROM " + tableName))
+                .failsWithMessageMatching("(?s).*Error opening Hive split.*Permission denied: user=bob.*alice:supergroup:-rw-r-----.*");
+
+        // reset permission so every one can read
+        tableFiles.forEach(file -> hdfsClient.setPermission(tableLocation + "/" + file, "644"));
+        assertThat(aliceExecutor.executeQuery("SELECT * FROM " + tableName)).containsExactly(row("abc"));
+        assertThat(bobExecutor.executeQuery("SELECT * FROM " + tableName)).containsExactly(row("abc"));
     }
 }
