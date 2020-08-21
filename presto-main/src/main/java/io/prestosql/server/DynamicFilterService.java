@@ -268,6 +268,11 @@ public class DynamicFilterService
                         .collect(groupingBy(Map.Entry::getKey, mapping(Map.Entry::getValue, toImmutableList())))
                         .entrySet().stream()
                         .filter(stageDomains -> {
+                            if (stageDomains.getValue().stream().anyMatch(Domain::isAll)) {
+                                // if one of the domains is all, we don't need to get dynamic filters from all tasks
+                                return true;
+                            }
+
                             if (context.getReplicatedDynamicFilters().contains(stageDomains.getKey())) {
                                 // for replicated dynamic filters it's enough to get dynamic filter from a single task
                                 return true;

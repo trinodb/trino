@@ -316,6 +316,55 @@ public class TestDynamicFilterService
     }
 
     @Test
+    public void testShortCircuitOnAllTupleDomain()
+    {
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(new FeaturesConfig());
+        DynamicFilterId filterId1 = new DynamicFilterId("df1");
+        Expression df1 = expression("DF_SYMBOL1");
+
+        QueryId queryId = new QueryId("query");
+        StageId stageId1 = new StageId(queryId, 1);
+
+        TestDynamicFiltersStageSupplier dynamicFiltersStageSupplier = new TestDynamicFiltersStageSupplier(RUNNING);
+        dynamicFiltersStageSupplier.addTasks(ImmutableList.of(new TaskId(stageId1, 0), new TaskId(stageId1, 1)));
+
+        dynamicFilterService.registerQuery(
+                queryId,
+                dynamicFiltersStageSupplier,
+                ImmutableSet.of(filterId1),
+                ImmutableSet.of(filterId1),
+                ImmutableSet.of());
+
+        DynamicFilter dynamicFilter = dynamicFilterService.createDynamicFilter(
+                queryId,
+                ImmutableList.of(
+                        new DynamicFilters.Descriptor(filterId1, df1)),
+                ImmutableMap.of(
+                        Symbol.from(df1), new TestingColumnHandle("probeColumnA")));
+
+        // dynamic filter is initially blocked
+        assertTrue(dynamicFilter.getCurrentPredicate().isAll());
+        assertFalse(dynamicFilter.isComplete());
+        assertFalse(dynamicFilter.isBlocked().isDone());
+
+        dynamicFiltersStageSupplier.storeSummary(
+                filterId1,
+                new TaskId(stageId1, 1),
+                Domain.all(INTEGER));
+        dynamicFilterService.collectDynamicFilters();
+
+        // dynamic filter should be unblocked and completed
+        assertTrue(dynamicFilter.getCurrentPredicate().isAll());
+        assertTrue(dynamicFilter.isComplete());
+        assertTrue(dynamicFilter.isBlocked().isDone());
+        assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 1);
+
+        // all dynamic filters have been collected, no need for more requests
+        dynamicFilterService.collectDynamicFilters();
+        assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 1);
+    }
+
+    @Test
     public void testReplicatedDynamicFilter()
     {
         DynamicFilterService dynamicFilterService = new DynamicFilterService(new FeaturesConfig());
