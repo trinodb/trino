@@ -91,16 +91,22 @@ public class LocalDynamicFilterConsumer
         return Futures.transform(resultFuture, this::convertTupleDomainForLocalFilters, directExecutor());
     }
 
-    private synchronized void addPartition(TupleDomain<DynamicFilterId> tupleDomain)
+    private void addPartition(TupleDomain<DynamicFilterId> tupleDomain)
     {
-        // Called concurrently by each DynamicFilterSourceOperator instance (when collection is over).
-        verify(partitions.size() < partitionCount);
-        // NOTE: may result in a bit more relaxed constraint if there are multiple columns and multiple rows.
-        // See the comment at TupleDomain::columnWiseUnion() for more details.
-        partitions.add(tupleDomain);
-        if (partitions.size() == partitionCount) {
-            TupleDomain<DynamicFilterId> result = TupleDomain.columnWiseUnion(partitions);
-            // No more partitions are left to be processed.
+        TupleDomain<DynamicFilterId> result = null;
+        synchronized (this) {
+            // Called concurrently by each DynamicFilterSourceOperator instance (when collection is over).
+            verify(partitions.size() < partitionCount);
+            // NOTE: may result in a bit more relaxed constraint if there are multiple columns and multiple rows.
+            // See the comment at TupleDomain::columnWiseUnion() for more details.
+            partitions.add(tupleDomain);
+            if (partitions.size() == partitionCount) {
+                // No more partitions are left to be processed.
+                result = TupleDomain.columnWiseUnion(partitions);
+            }
+        }
+
+        if (result != null) {
             resultFuture.set(result);
         }
     }
