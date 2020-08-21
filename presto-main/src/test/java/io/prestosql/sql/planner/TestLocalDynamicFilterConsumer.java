@@ -79,6 +79,30 @@ public class TestLocalDynamicFilterConsumer
     }
 
     @Test
+    public void testShortCircuitOnAllTupleDomain()
+            throws ExecutionException, InterruptedException
+    {
+        LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
+                ImmutableMultimap.of(new DynamicFilterId("123"), new Symbol("a")),
+                ImmutableMap.of(new DynamicFilterId("123"), 0),
+                ImmutableMap.of(new DynamicFilterId("123"), INTEGER),
+                2);
+
+        Consumer<TupleDomain<DynamicFilterId>> consumer = filter.getTupleDomainConsumer();
+        ListenableFuture<Map<Symbol, Domain>> result = filter.getNodeLocalDynamicFilterForSymbols();
+        assertFalse(result.isDone());
+
+        consumer.accept(TupleDomain.withColumnDomains(ImmutableMap.of(
+                new DynamicFilterId("123"), Domain.all(INTEGER))));
+        assertEquals(result.get(), ImmutableMap.of());
+
+        // adding another partition domain won't change final domain
+        consumer.accept(TupleDomain.withColumnDomains(ImmutableMap.of(
+                new DynamicFilterId("123"), Domain.singleValue(INTEGER, 1L))));
+        assertEquals(result.get(), ImmutableMap.of());
+    }
+
+    @Test
     public void testMultipleProbeSymbols()
             throws ExecutionException, InterruptedException
     {
