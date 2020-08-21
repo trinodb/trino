@@ -58,16 +58,16 @@ public class TestImpersonation
     }
 
     @Test(groups = {HDFS_NO_IMPERSONATION, PROFILE_SPECIFIC_TESTS})
-    public void testHdfsImpersonationDisabled()
+    public void testCreateTableHdfsImpersonationDisabled()
     {
-        String tableName = "check_hdfs_impersonation_disabled";
+        String tableName = "create_hdfs_impersonation_disabled";
         checkTableOwner(tableName, configuredHdfsUser, aliceExecutor);
     }
 
     @Test(groups = {HDFS_IMPERSONATION, PROFILE_SPECIFIC_TESTS})
-    public void testHdfsImpersonationEnabled()
+    public void testCreateTableHdfsImpersonationEnabled()
     {
-        String tableName = "check_hdfs_impersonation_enabled";
+        String tableName = "create_hdfs_impersonation_enabled";
         checkTableOwner(tableName, aliceJdbcUser, aliceExecutor);
     }
 
