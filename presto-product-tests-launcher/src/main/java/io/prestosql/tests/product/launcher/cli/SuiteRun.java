@@ -43,6 +43,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static io.prestosql.tests.product.launcher.env.EnvironmentOptions.applySuiteConfig;
+import static java.lang.String.format;
 import static java.lang.System.exit;
 import static java.util.Objects.requireNonNull;
 
@@ -130,11 +131,13 @@ public class SuiteRun
         @Override
         public void run()
         {
-            Suite suite = suiteFactory.getSuite(suiteRunOptions.suite);
+            String suiteName = requireNonNull(suiteRunOptions.suite, "suiteRunOptions.suite is null");
+
+            Suite suite = suiteFactory.getSuite(suiteName);
             SuiteConfig suiteConfig = suiteFactory.getSuiteConfig(suiteRunOptions.config);
             List<SuiteTestRun> suiteTestRuns = suite.getTestRuns(suiteConfig);
 
-            log.info("Starting suite '%s' with config '%s' and test runs: ", suite.getSuiteName(), suiteConfig.getConfigName());
+            log.info("Starting suite '%s' with config '%s' and test runs: ", suiteName, suiteConfig.getConfigName());
             suiteTestRuns.forEach(job ->
                     log.info(" * environment '%s': groups: %s, excluded groups: %s, tests: %s, excluded tests: %s",
                             job.getEnvironmentName(), job.getGroups(), job.getExcludedGroups(), job.getTests(), job.getExcludedTests()));
@@ -143,7 +146,7 @@ public class SuiteRun
             ImmutableList.Builder<TestRunResult> results = ImmutableList.builder();
 
             for (SuiteTestRun testRun : suiteTestRuns) {
-                results.add(executeSuiteTestRun(testRun, suiteConfig));
+                results.add(executeSuiteTestRun(suiteName, testRun, suiteConfig));
             }
 
             List<TestRunResult> testRunsResults = results.build();
@@ -171,14 +174,14 @@ public class SuiteRun
             results.forEach(result -> log.info(" * '%s' %s in %s", result.getSuiteRun(), result.isSuccessful() ? "PASSED" : "FAILED", result.getDuration()));
         }
 
-        public TestRunResult executeSuiteTestRun(SuiteTestRun suiteTestRun, SuiteConfig suiteConfig)
+        public TestRunResult executeSuiteTestRun(String suiteName, SuiteTestRun suiteTestRun, SuiteConfig suiteConfig)
         {
             log.info("Starting test run %s with config %s", suiteTestRun, suiteConfig);
             long startTime = System.nanoTime();
 
             Throwable t = null;
             try {
-                TestRun.TestRunOptions testRunOptions = createTestRunOptions(suiteTestRun, suiteConfig);
+                TestRun.TestRunOptions testRunOptions = createTestRunOptions(suiteName, suiteTestRun, suiteConfig);
                 log.info("Execute this test run using:\npresto-product-tests-launcher/bin/run-launcher test run %s", OptionsPrinter.format(environmentOptions, testRunOptions));
                 new TestRun.Execution(environmentFactory, pathResolver, environmentOptions, testRunOptions).run();
             }
@@ -190,13 +193,14 @@ public class SuiteRun
             return new TestRunResult(suiteTestRun, suiteConfig, nanosSince(startTime), Optional.ofNullable(t));
         }
 
-        private TestRun.TestRunOptions createTestRunOptions(SuiteTestRun suiteTestRun, SuiteConfig suiteConfig)
+        private TestRun.TestRunOptions createTestRunOptions(String suiteName, SuiteTestRun suiteTestRun, SuiteConfig suiteConfig)
         {
-            TestRun.TestRunOptions runOptions = new TestRun.TestRunOptions();
-            runOptions.environment = suiteTestRun.getEnvironmentName();
-            runOptions.testArguments = suiteTestRun.getTemptoRunArguments(suiteConfig);
-            runOptions.testJar = pathResolver.resolvePlaceholders(suiteRunOptions.testJar);
-            return runOptions;
+            TestRun.TestRunOptions testRunOptions = new TestRun.TestRunOptions();
+            testRunOptions.environment = suiteTestRun.getEnvironmentName();
+            testRunOptions.testArguments = suiteTestRun.getTemptoRunArguments(suiteConfig);
+            testRunOptions.testJar = pathResolver.resolvePlaceholders(suiteRunOptions.testJar);
+            testRunOptions.reportsDir = format("presto-product-tests/target/%s/%s/%s", suiteName, suiteConfig.getConfigName(), suiteTestRun.getEnvironmentName());
+            return testRunOptions;
         }
     }
 
