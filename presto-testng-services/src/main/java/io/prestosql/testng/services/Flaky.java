@@ -27,5 +27,5 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 @Target(METHOD)
 public @interface Flaky
 {
-    String issue() default "";
+    String issue();
 }
