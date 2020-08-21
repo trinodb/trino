@@ -159,6 +159,20 @@ For example, the mapping list might have URL prefix ``s3://abc/xyz/`` followed b
 than for other paths within the bucket. You can set default configuration by not
 including any match criteria for the last entry in the list.
 
+In addition to the rules above, the default mapping can contain the optional
+``useClusterDefault`` boolean property with the following behavior:
+
+- ``false`` - (is set by default) property is ignored.
+- ``true`` - This causes the the default cluster role to be used as a fallback option.
+  It can not be used with the following configuration properties:
+
+  - ``accessKey``
+  - ``secretKey``
+  - ``iamRole``
+  - ``allowedIamRoles``
+
+If no mapping entry matches and no default is configured, the access is denied.
+
 Example JSON configuration file:
 
 .. code-block:: json
