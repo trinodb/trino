@@ -978,7 +978,8 @@ public class UnaliasSymbolReferences
                             newSemiJoinOutput,
                             newSourceHashSymbol,
                             newFilteringSourceHashSymbol,
-                            node.getDistributionType()),
+                            node.getDistributionType(),
+                            node.getDynamicFilterId()),
                     outputMapping);
         }
 
