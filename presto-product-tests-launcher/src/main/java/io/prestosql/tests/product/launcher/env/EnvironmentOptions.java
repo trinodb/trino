@@ -27,16 +27,16 @@ import static java.util.Objects.requireNonNull;
 public final class EnvironmentOptions
 {
     @Option(name = "--hadoop-base-image", title = "image", description = "Hadoop base image")
-    public String hadoopBaseImage = EnvironmentDefaults.getHadoopBaseImage();
+    public String hadoopBaseImage = EnvironmentDefaults.HADOOP_BASE_IMAGE;
 
     @Option(name = "--image-version", title = "version", description = "docker images version")
-    public String imagesVersion = EnvironmentDefaults.getImagesVersion();
+    public String imagesVersion = EnvironmentDefaults.DOCKER_IMAGES_VERSION;
 
     @Option(name = "--hadoop-image-version", title = "version", description = "docker images version")
-    public String hadoopImagesVersion = EnvironmentDefaults.getHadoopImagesVersion();
+    public String hadoopImagesVersion = EnvironmentDefaults.HADOOP_IMAGES_VERSION;
 
     @Option(name = "--tempto-environment-config-file", title = "tempto-config-file", description = "tempto environment config file")
-    public String temptoEnvironmentConfigFile = EnvironmentDefaults.getTemptoConfigurationFile();
+    public String temptoEnvironmentConfigFile = EnvironmentDefaults.TEMPTO_ENVIRONMENT_CONFIG;
 
     @Option(name = "--server-package", title = "server-package", description = "path to Presto server package")
     public File serverPackage = new File("presto-server/target/presto-server-${project.version}.tar.gz");

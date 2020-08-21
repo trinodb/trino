@@ -13,8 +13,6 @@
  */
 package io.prestosql.tests.product.launcher.env;
 
-import static java.lang.System.getenv;
-
 public class EnvironmentDefaults
 {
     public static final String DOCKER_IMAGES_VERSION = "31";
@@ -23,24 +21,4 @@ public class EnvironmentDefaults
     public static final String TEMPTO_ENVIRONMENT_CONFIG = "/dev/null";
 
     private EnvironmentDefaults() {}
-
-    public static String getImagesVersion()
-    {
-        return getenv().getOrDefault("DOCKER_IMAGES_VERSION", DOCKER_IMAGES_VERSION);
-    }
-
-    public static String getHadoopImagesVersion()
-    {
-        return getenv().getOrDefault("HADOOP_IMAGES_VERSION", getenv().getOrDefault("DOCKER_IMAGES_VERSION", HADOOP_IMAGES_VERSION));
-    }
-
-    public static String getHadoopBaseImage()
-    {
-        return getenv().getOrDefault("HADOOP_BASE_IMAGE", HADOOP_BASE_IMAGE);
-    }
-
-    public static String getTemptoConfigurationFile()
-    {
-        return getenv().getOrDefault("TEMPTO_ENVIRONMENT_CONFIG_FILE", TEMPTO_ENVIRONMENT_CONFIG);
-    }
 }

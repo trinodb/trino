@@ -25,25 +25,25 @@ public class ConfigDefault
     @Override
     public String getHadoopBaseImage()
     {
-        return EnvironmentDefaults.getHadoopBaseImage();
+        return EnvironmentDefaults.HADOOP_BASE_IMAGE;
     }
 
     @Override
     public String getImagesVersion()
     {
-        return EnvironmentDefaults.getImagesVersion();
+        return EnvironmentDefaults.DOCKER_IMAGES_VERSION;
     }
 
     @Override
     public String getHadoopImagesVersion()
     {
-        return EnvironmentDefaults.getHadoopImagesVersion();
+        return EnvironmentDefaults.HADOOP_IMAGES_VERSION;
     }
 
     @Override
     public String getTemptoEnvironmentConfigFile()
     {
-        return EnvironmentDefaults.getTemptoConfigurationFile();
+        return EnvironmentDefaults.TEMPTO_ENVIRONMENT_CONFIG;
     }
 
     @Override
