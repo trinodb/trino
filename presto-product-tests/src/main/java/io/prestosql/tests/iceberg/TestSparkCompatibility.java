@@ -196,6 +196,58 @@ public class TestSparkCompatibility
         onSpark().executeQuery("DROP TABLE " + sparkTableName);
     }
 
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testPrestoReadingCompositeSparkData()
+    {
+        String baseTableName = "test_presto_reading_spark_composites";
+        String sparkTableName = sparkTableName(baseTableName);
+
+        String sparkTableDefinition = "" +
+                "CREATE TABLE %s (" +
+                "  doc_id string,\n" +
+                "  info MAP<STRING, INT>,\n" +
+                "  pets ARRAY<STRING>,\n" +
+                "  user_info STRUCT<name:STRING, surname:STRING, age:INT, gender:STRING>)" +
+                "  USING ICEBERG";
+        onSpark().executeQuery(format(sparkTableDefinition, sparkTableName));
+
+        String insert = "" +
+                "INSERT INTO TABLE %s SELECT 'Doc213', map('age', 28, 'children', 3), array('Dog', 'Cat', 'Pig'), \n" +
+                "named_struct('name', 'Santa', 'surname', 'Claus','age', 1000,'gender', 'MALE')";
+        onSpark().executeQuery(format(insert, sparkTableName));
+
+        String prestoTableName = prestoTableName(baseTableName);
+        String prestoSelect = "SELECT doc_id, info['age'], pets[2], user_info.surname FROM " + prestoTableName;
+
+        QueryResult prestoResult = onPresto().executeQuery(prestoSelect);
+        Row row = row("Doc213", 28, "Cat", "Claus");
+        assertThat(prestoResult).containsOnly(row);
+    }
+
+    @Test(groups = {ICEBERG, PROFILE_SPECIFIC_TESTS})
+    public void testSparkReadingCompositePrestoData()
+    {
+        String baseTableName = "test_spark_reading_presto_composites";
+        String prestoTableName = prestoTableName(baseTableName);
+
+        String prestoTableDefinition = "" +
+                "CREATE TABLE %s (" +
+                "  doc_id VARCHAR,\n" +
+                "  info MAP(VARCHAR, INTEGER),\n" +
+                "  pets ARRAY(VARCHAR),\n" +
+                "  user_info ROW(name VARCHAR, surname VARCHAR, age INTEGER, gender VARCHAR))";
+        onPresto().executeQuery(format(prestoTableDefinition, prestoTableName));
+
+        String insert = "INSERT INTO %s VALUES('Doc213', MAP(ARRAY['age', 'children'], ARRAY[28, 3]), ARRAY['Dog', 'Cat', 'Pig'], ROW('Santa', 'Claus', 1000, 'MALE'))";
+        onPresto().executeQuery(format(insert, prestoTableName));
+
+        String sparkTableName = sparkTableName(baseTableName);
+        String sparkSelect = "SELECT doc_id, info['age'], pets[1], user_info.surname FROM " + sparkTableName;
+        QueryResult sparkResult = onSpark().executeQuery(sparkSelect);
+        Row row = row("Doc213", 28, "Cat", "Claus");
+        assertThat(sparkResult).containsOnly(row);
+    }
+
     private static String sparkTableName(String tableName)
     {
         return format("%s.default.%s", SPARK_CATALOG, tableName);
