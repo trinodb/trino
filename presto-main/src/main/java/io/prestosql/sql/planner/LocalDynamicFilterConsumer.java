@@ -100,7 +100,7 @@ public class LocalDynamicFilterConsumer
             // NOTE: may result in a bit more relaxed constraint if there are multiple columns and multiple rows.
             // See the comment at TupleDomain::columnWiseUnion() for more details.
             partitions.add(tupleDomain);
-            if (partitions.size() == partitionCount) {
+            if (partitions.size() == partitionCount || tupleDomain.isAll()) {
                 // No more partitions are left to be processed.
                 result = TupleDomain.columnWiseUnion(partitions);
             }
