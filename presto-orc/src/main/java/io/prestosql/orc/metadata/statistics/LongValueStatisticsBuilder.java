@@ -24,9 +24,14 @@ public interface LongValueStatisticsBuilder
     {
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
-                addValue(type.getLong(block, position));
+                addValue(getValueFromBlock(type, block, position));
             }
         }
+    }
+
+    default long getValueFromBlock(Type type, Block block, int position)
+    {
+        return type.getLong(block, position);
     }
 
     void addValue(long value);

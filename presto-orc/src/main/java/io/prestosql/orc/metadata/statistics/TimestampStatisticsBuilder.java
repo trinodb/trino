@@ -13,6 +13,9 @@
  */
 package io.prestosql.orc.metadata.statistics;
 
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.Type;
+
 import java.util.List;
 import java.util.Optional;
 
@@ -22,14 +25,37 @@ import static java.util.Objects.requireNonNull;
 public class TimestampStatisticsBuilder
         implements LongValueStatisticsBuilder
 {
+    public interface MillisFunction
+    {
+        long getMillis(Type type, Block block, int position);
+    }
+
     private long nonNullValueCount;
     private long minimum = Long.MAX_VALUE;
     private long maximum = Long.MIN_VALUE;
     private final BloomFilterBuilder bloomFilterBuilder;
+    private final MillisFunction millisFunction;
 
     public TimestampStatisticsBuilder(BloomFilterBuilder bloomFilterBuilder)
     {
+        this(bloomFilterBuilder, Type::getLong);
+    }
+
+    public TimestampStatisticsBuilder(MillisFunction millisFunction)
+    {
+        this(new NoOpBloomFilterBuilder(), millisFunction);
+    }
+
+    public TimestampStatisticsBuilder(BloomFilterBuilder bloomFilterBuilder, MillisFunction millisFunction)
+    {
         this.bloomFilterBuilder = requireNonNull(bloomFilterBuilder, "bloomFilterBuilder is nulll");
+        this.millisFunction = requireNonNull(millisFunction, "millisFunction is null");
+    }
+
+    @Override
+    public long getValueFromBlock(Type type, Block block, int position)
+    {
+        return millisFunction.getMillis(type, block, position);
     }
 
     @Override

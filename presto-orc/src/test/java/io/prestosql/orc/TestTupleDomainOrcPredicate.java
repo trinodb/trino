@@ -25,6 +25,8 @@ import io.prestosql.orc.metadata.statistics.StringStatistics;
 import io.prestosql.orc.metadata.statistics.TimestampStatistics;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.ValueSet;
+import io.prestosql.spi.type.LongTimestamp;
+import io.prestosql.spi.type.LongTimestampWithTimeZone;
 import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
@@ -45,15 +47,23 @@ import static io.prestosql.spi.predicate.Range.range;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.CharType.createCharType;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.Decimals.encodeScaledValue;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_NANOS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.Float.floatToRawIntBits;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 
 public class TestTupleDomainOrcPredicate
@@ -271,28 +281,250 @@ public class TestTupleDomainOrcPredicate
     }
 
     @Test
-    public void testTimestamp()
-            throws Exception
+    public void testTimestampMillis()
     {
-        assertEquals(getDomain(TIMESTAMP, 0, null), none(TIMESTAMP));
-        assertEquals(getDomain(TIMESTAMP, 10, null), all(TIMESTAMP));
+        assertThat(getDomain(TIMESTAMP_MILLIS, 0, null))
+                .isEqualTo(none(TIMESTAMP_MILLIS));
+        assertThat(getDomain(TIMESTAMP_MILLIS, 10, null))
+                .isEqualTo(all(TIMESTAMP_MILLIS));
 
-        assertEquals(getDomain(TIMESTAMP, 0, timeStampColumnStats(null, null, null)), none(TIMESTAMP));
-        assertEquals(getDomain(TIMESTAMP, 0, timeStampColumnStats(0L, null, null)), none(TIMESTAMP));
-        assertEquals(getDomain(TIMESTAMP, 0, timeStampColumnStats(0L, 100L, 100L)), none(TIMESTAMP));
+        assertThat(getDomain(TIMESTAMP_MILLIS, 0, timeStampColumnStats(null, null, null)))
+                .isEqualTo(none(TIMESTAMP_MILLIS));
+        assertThat(getDomain(TIMESTAMP_MILLIS, 0, timeStampColumnStats(0L, null, null)))
+                .isEqualTo(none(TIMESTAMP_MILLIS));
+        assertThat(getDomain(TIMESTAMP_MILLIS, 0, timeStampColumnStats(0L, 100L, 100L)))
+                .isEqualTo(none(TIMESTAMP_MILLIS));
 
-        assertEquals(getDomain(TIMESTAMP, 10, timeStampColumnStats(0L, null, null)), onlyNull(TIMESTAMP));
-        assertEquals(getDomain(TIMESTAMP, 10, timeStampColumnStats(10L, null, null)), notNull(TIMESTAMP));
+        assertThat(getDomain(TIMESTAMP_MILLIS, 10, timeStampColumnStats(0L, null, null)))
+                .isEqualTo(onlyNull(TIMESTAMP_MILLIS));
+        assertThat(getDomain(TIMESTAMP_MILLIS, 10, timeStampColumnStats(10L, null, null)))
+                .isEqualTo(notNull(TIMESTAMP_MILLIS));
 
-        assertEquals(getDomain(TIMESTAMP, 10, timeStampColumnStats(10L, 100L, 100L)), singleValue(TIMESTAMP, 100L));
+        assertThat(getDomain(TIMESTAMP_MILLIS, 10, timeStampColumnStats(10L, 100L, 100L)))
+                .isEqualTo(singleValue(TIMESTAMP_MILLIS, 100L));
 
-        assertEquals(getDomain(TIMESTAMP, 10, timeStampColumnStats(10L, 0L, 100L)), create(ValueSet.ofRanges(range(TIMESTAMP, 0L, true, 100L, true)), false));
-        assertEquals(getDomain(TIMESTAMP, 10, timeStampColumnStats(10L, null, 100L)), create(ValueSet.ofRanges(lessThanOrEqual(TIMESTAMP, 100L)), false));
-        assertEquals(getDomain(TIMESTAMP, 10, timeStampColumnStats(10L, 0L, null)), create(ValueSet.ofRanges(greaterThanOrEqual(TIMESTAMP, 0L)), false));
+        assertThat(getDomain(TIMESTAMP_MILLIS, 10, timeStampColumnStats(10L, 13L, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_MILLIS, 13L, true, 100L, true)), false));
+        assertThat(getDomain(TIMESTAMP_MILLIS, 10, timeStampColumnStats(10L, null, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(TIMESTAMP_MILLIS, 100L)), false));
+        assertThat(getDomain(TIMESTAMP_MILLIS, 10, timeStampColumnStats(10L, 13L, null)))
+                .isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(TIMESTAMP_MILLIS, 13L)), false));
 
-        assertEquals(getDomain(TIMESTAMP, 10, timeStampColumnStats(5L, 0L, 100L)), create(ValueSet.ofRanges(range(TIMESTAMP, 0L, true, 100L, true)), true));
-        assertEquals(getDomain(TIMESTAMP, 10, timeStampColumnStats(5L, null, 100L)), create(ValueSet.ofRanges(lessThanOrEqual(TIMESTAMP, 100L)), true));
-        assertEquals(getDomain(TIMESTAMP, 10, timeStampColumnStats(5L, 0L, null)), create(ValueSet.ofRanges(greaterThanOrEqual(TIMESTAMP, 0L)), true));
+        assertThat(getDomain(TIMESTAMP_MILLIS, 10, timeStampColumnStats(5L, 13L, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_MILLIS, 13L, true, 100L, true)), true));
+        assertThat(getDomain(TIMESTAMP_MILLIS, 10, timeStampColumnStats(5L, null, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(TIMESTAMP_MILLIS, 100L)), true));
+        assertThat(getDomain(TIMESTAMP_MILLIS, 10, timeStampColumnStats(5L, 13L, null)))
+                .isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(TIMESTAMP_MILLIS, 13L)), true));
+    }
+
+    @Test
+    public void testTimestampMicros()
+    {
+        assertThat(getDomain(TIMESTAMP_MICROS, 0, null))
+                .isEqualTo(none(TIMESTAMP_MICROS));
+        assertThat(getDomain(TIMESTAMP_MICROS, 10, null))
+                .isEqualTo(all(TIMESTAMP_MICROS));
+
+        assertThat(getDomain(TIMESTAMP_MICROS, 0, timeStampColumnStats(null, null, null)))
+                .isEqualTo(none(TIMESTAMP_MICROS));
+        assertThat(getDomain(TIMESTAMP_MICROS, 0, timeStampColumnStats(0L, null, null)))
+                .isEqualTo(none(TIMESTAMP_MICROS));
+        assertThat(getDomain(TIMESTAMP_MICROS, 0, timeStampColumnStats(0L, 100L, 100L)))
+                .isEqualTo(none(TIMESTAMP_MICROS));
+
+        assertThat(getDomain(TIMESTAMP_MICROS, 10, timeStampColumnStats(0L, null, null)))
+                .isEqualTo(onlyNull(TIMESTAMP_MICROS));
+        assertThat(getDomain(TIMESTAMP_MICROS, 10, timeStampColumnStats(10L, null, null)))
+                .isEqualTo(notNull(TIMESTAMP_MICROS));
+
+        long low13 = 13_000L;
+        long low100 = 100_000L;
+        long high100 = 100_999L;
+
+        assertThat(getDomain(TIMESTAMP_MICROS, 10, timeStampColumnStats(10L, 100L, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_MICROS, low100, true, high100, true)), false));
+
+        assertThat(getDomain(TIMESTAMP_MICROS, 10, timeStampColumnStats(10L, 13L, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_MICROS, low13, true, high100, true)), false));
+        assertThat(getDomain(TIMESTAMP_MICROS, 10, timeStampColumnStats(10L, null, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(TIMESTAMP_MICROS, high100)), false));
+        assertThat(getDomain(TIMESTAMP_MICROS, 10, timeStampColumnStats(10L, 13L, null)))
+                .isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(TIMESTAMP_MICROS, low13)), false));
+
+        assertThat(getDomain(TIMESTAMP_MICROS, 10, timeStampColumnStats(5L, 13L, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_MICROS, low13, true, high100, true)), true));
+        assertThat(getDomain(TIMESTAMP_MICROS, 10, timeStampColumnStats(5L, null, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(TIMESTAMP_MICROS, high100)), true));
+        assertThat(getDomain(TIMESTAMP_MICROS, 10, timeStampColumnStats(5L, 13L, null)))
+                .isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(TIMESTAMP_MICROS, low13)), true));
+    }
+
+    @Test
+    public void testTimestampNanos()
+    {
+        assertThat(getDomain(TIMESTAMP_NANOS, 0, null))
+                .isEqualTo(none(TIMESTAMP_NANOS));
+        assertThat(getDomain(TIMESTAMP_NANOS, 10, null))
+                .isEqualTo(all(TIMESTAMP_NANOS));
+
+        assertThat(getDomain(TIMESTAMP_NANOS, 0, timeStampColumnStats(null, null, null)))
+                .isEqualTo(none(TIMESTAMP_NANOS));
+        assertThat(getDomain(TIMESTAMP_NANOS, 0, timeStampColumnStats(0L, null, null)))
+                .isEqualTo(none(TIMESTAMP_NANOS));
+        assertThat(getDomain(TIMESTAMP_NANOS, 0, timeStampColumnStats(0L, 100L, 100L)))
+                .isEqualTo(none(TIMESTAMP_NANOS));
+
+        assertThat(getDomain(TIMESTAMP_NANOS, 10, timeStampColumnStats(0L, null, null)))
+                .isEqualTo(onlyNull(TIMESTAMP_NANOS));
+        assertThat(getDomain(TIMESTAMP_NANOS, 10, timeStampColumnStats(10L, null, null)))
+                .isEqualTo(notNull(TIMESTAMP_NANOS));
+
+        LongTimestamp low13 = new LongTimestamp(13_000L, 0);
+        LongTimestamp low100 = new LongTimestamp(100_000L, 0);
+        LongTimestamp high100 = new LongTimestamp(100_999L, 999_000);
+
+        assertThat(getDomain(TIMESTAMP_NANOS, 10, timeStampColumnStats(10L, 100L, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_NANOS, low100, true, high100, true)), false));
+
+        assertThat(getDomain(TIMESTAMP_NANOS, 10, timeStampColumnStats(10L, 13L, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_NANOS, low13, true, high100, true)), false));
+        assertThat(getDomain(TIMESTAMP_NANOS, 10, timeStampColumnStats(10L, null, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(TIMESTAMP_NANOS, high100)), false));
+        assertThat(getDomain(TIMESTAMP_NANOS, 10, timeStampColumnStats(10L, 13L, null)))
+                .isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(TIMESTAMP_NANOS, low13)), false));
+
+        assertThat(getDomain(TIMESTAMP_NANOS, 10, timeStampColumnStats(5L, 13L, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_NANOS, low13, true, high100, true)), true));
+        assertThat(getDomain(TIMESTAMP_NANOS, 10, timeStampColumnStats(5L, null, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(TIMESTAMP_NANOS, high100)), true));
+        assertThat(getDomain(TIMESTAMP_NANOS, 10, timeStampColumnStats(5L, 13L, null)))
+                .isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(TIMESTAMP_NANOS, low13)), true));
+    }
+
+    @Test
+    public void testInstantMillis()
+    {
+        assertThat(getDomain(TIMESTAMP_TZ_MILLIS, 0, null))
+                .isEqualTo(none(TIMESTAMP_TZ_MILLIS));
+        assertThat(getDomain(TIMESTAMP_TZ_MILLIS, 10, null))
+                .isEqualTo(all(TIMESTAMP_TZ_MILLIS));
+
+        assertThat(getDomain(TIMESTAMP_TZ_MILLIS, 0, timeStampColumnStats(null, null, null)))
+                .isEqualTo(none(TIMESTAMP_TZ_MILLIS));
+        assertThat(getDomain(TIMESTAMP_TZ_MILLIS, 0, timeStampColumnStats(0L, null, null)))
+                .isEqualTo(none(TIMESTAMP_TZ_MILLIS));
+        assertThat(getDomain(TIMESTAMP_TZ_MILLIS, 0, timeStampColumnStats(0L, 100L, 100L)))
+                .isEqualTo(none(TIMESTAMP_TZ_MILLIS));
+
+        assertThat(getDomain(TIMESTAMP_TZ_MILLIS, 10, timeStampColumnStats(0L, null, null)))
+                .isEqualTo(onlyNull(TIMESTAMP_TZ_MILLIS));
+        assertThat(getDomain(TIMESTAMP_TZ_MILLIS, 10, timeStampColumnStats(10L, null, null)))
+                .isEqualTo(notNull(TIMESTAMP_TZ_MILLIS));
+
+        long instant13 = packDateTimeWithZone(13, UTC_KEY);
+        long instant100 = packDateTimeWithZone(100, UTC_KEY);
+
+        assertThat(getDomain(TIMESTAMP_TZ_MILLIS, 10, timeStampColumnStats(10L, 100L, 100L)))
+                .isEqualTo(singleValue(TIMESTAMP_TZ_MILLIS, instant100));
+
+        assertThat(getDomain(TIMESTAMP_TZ_MILLIS, 10, timeStampColumnStats(10L, 13L, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_TZ_MILLIS, instant13, true, instant100, true)), false));
+        assertThat(getDomain(TIMESTAMP_TZ_MILLIS, 10, timeStampColumnStats(10L, null, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(TIMESTAMP_TZ_MILLIS, instant100)), false));
+        assertThat(getDomain(TIMESTAMP_TZ_MILLIS, 10, timeStampColumnStats(10L, 13L, null)))
+                .isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(TIMESTAMP_TZ_MILLIS, instant13)), false));
+
+        assertThat(getDomain(TIMESTAMP_TZ_MILLIS, 10, timeStampColumnStats(5L, 13L, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_TZ_MILLIS, instant13, true, instant100, true)), true));
+        assertThat(getDomain(TIMESTAMP_TZ_MILLIS, 10, timeStampColumnStats(5L, null, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(TIMESTAMP_TZ_MILLIS, instant100)), true));
+        assertThat(getDomain(TIMESTAMP_TZ_MILLIS, 10, timeStampColumnStats(5L, 13L, null)))
+                .isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(TIMESTAMP_TZ_MILLIS, instant13)), true));
+    }
+
+    @Test
+    public void testInstantMicros()
+    {
+        assertThat(getDomain(TIMESTAMP_TZ_MICROS, 0, null))
+                .isEqualTo(none(TIMESTAMP_TZ_MICROS));
+        assertThat(getDomain(TIMESTAMP_TZ_MICROS, 10, null))
+                .isEqualTo(all(TIMESTAMP_TZ_MICROS));
+
+        assertThat(getDomain(TIMESTAMP_TZ_MICROS, 0, timeStampColumnStats(null, null, null)))
+                .isEqualTo(none(TIMESTAMP_TZ_MICROS));
+        assertThat(getDomain(TIMESTAMP_TZ_MICROS, 0, timeStampColumnStats(0L, null, null)))
+                .isEqualTo(none(TIMESTAMP_TZ_MICROS));
+        assertThat(getDomain(TIMESTAMP_TZ_MICROS, 0, timeStampColumnStats(0L, 100L, 100L)))
+                .isEqualTo(none(TIMESTAMP_TZ_MICROS));
+
+        assertThat(getDomain(TIMESTAMP_TZ_MICROS, 10, timeStampColumnStats(0L, null, null)))
+                .isEqualTo(onlyNull(TIMESTAMP_TZ_MICROS));
+        assertThat(getDomain(TIMESTAMP_TZ_MICROS, 10, timeStampColumnStats(10L, null, null)))
+                .isEqualTo(notNull(TIMESTAMP_TZ_MICROS));
+
+        LongTimestampWithTimeZone low13 = LongTimestampWithTimeZone.fromEpochMillisAndFraction(13L, 0, UTC_KEY);
+        LongTimestampWithTimeZone low100 = LongTimestampWithTimeZone.fromEpochMillisAndFraction(100L, 0, UTC_KEY);
+        LongTimestampWithTimeZone high100 = LongTimestampWithTimeZone.fromEpochMillisAndFraction(100L, 999_000_000, UTC_KEY);
+
+        assertThat(getDomain(TIMESTAMP_TZ_MICROS, 10, timeStampColumnStats(10L, 100L, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_TZ_MICROS, low100, true, high100, true)), false));
+
+        assertThat(getDomain(TIMESTAMP_TZ_MICROS, 10, timeStampColumnStats(10L, 13L, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_TZ_MICROS, low13, true, high100, true)), false));
+        assertThat(getDomain(TIMESTAMP_TZ_MICROS, 10, timeStampColumnStats(10L, null, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(TIMESTAMP_TZ_MICROS, high100)), false));
+        assertThat(getDomain(TIMESTAMP_TZ_MICROS, 10, timeStampColumnStats(10L, 13L, null)))
+                .isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(TIMESTAMP_TZ_MICROS, low13)), false));
+
+        assertThat(getDomain(TIMESTAMP_TZ_MICROS, 10, timeStampColumnStats(5L, 13L, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_TZ_MICROS, low13, true, high100, true)), true));
+        assertThat(getDomain(TIMESTAMP_TZ_MICROS, 10, timeStampColumnStats(5L, null, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(TIMESTAMP_TZ_MICROS, high100)), true));
+        assertThat(getDomain(TIMESTAMP_TZ_MICROS, 10, timeStampColumnStats(5L, 13L, null)))
+                .isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(TIMESTAMP_TZ_MICROS, low13)), true));
+    }
+
+    @Test
+    public void testInstantNanos()
+    {
+        assertThat(getDomain(TIMESTAMP_TZ_NANOS, 0, null))
+                .isEqualTo(none(TIMESTAMP_TZ_NANOS));
+        assertThat(getDomain(TIMESTAMP_TZ_NANOS, 10, null))
+                .isEqualTo(all(TIMESTAMP_TZ_NANOS));
+
+        assertThat(getDomain(TIMESTAMP_TZ_NANOS, 0, timeStampColumnStats(null, null, null)))
+                .isEqualTo(none(TIMESTAMP_TZ_NANOS));
+        assertThat(getDomain(TIMESTAMP_TZ_NANOS, 0, timeStampColumnStats(0L, null, null)))
+                .isEqualTo(none(TIMESTAMP_TZ_NANOS));
+        assertThat(getDomain(TIMESTAMP_TZ_NANOS, 0, timeStampColumnStats(0L, 100L, 100L)))
+                .isEqualTo(none(TIMESTAMP_TZ_NANOS));
+
+        assertThat(getDomain(TIMESTAMP_TZ_NANOS, 10, timeStampColumnStats(0L, null, null)))
+                .isEqualTo(onlyNull(TIMESTAMP_TZ_NANOS));
+        assertThat(getDomain(TIMESTAMP_TZ_NANOS, 10, timeStampColumnStats(10L, null, null)))
+                .isEqualTo(notNull(TIMESTAMP_TZ_NANOS));
+
+        LongTimestampWithTimeZone low13 = LongTimestampWithTimeZone.fromEpochMillisAndFraction(13L, 0, UTC_KEY);
+        LongTimestampWithTimeZone low100 = LongTimestampWithTimeZone.fromEpochMillisAndFraction(100L, 0, UTC_KEY);
+        LongTimestampWithTimeZone high100 = LongTimestampWithTimeZone.fromEpochMillisAndFraction(100L, 999_999_000, UTC_KEY);
+
+        assertThat(getDomain(TIMESTAMP_TZ_NANOS, 10, timeStampColumnStats(10L, 100L, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_TZ_NANOS, low100, true, high100, true)), false));
+
+        assertThat(getDomain(TIMESTAMP_TZ_NANOS, 10, timeStampColumnStats(10L, 13L, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_TZ_NANOS, low13, true, high100, true)), false));
+        assertThat(getDomain(TIMESTAMP_TZ_NANOS, 10, timeStampColumnStats(10L, null, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(TIMESTAMP_TZ_NANOS, high100)), false));
+        assertThat(getDomain(TIMESTAMP_TZ_NANOS, 10, timeStampColumnStats(10L, 13L, null)))
+                .isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(TIMESTAMP_TZ_NANOS, low13)), false));
+
+        assertThat(getDomain(TIMESTAMP_TZ_NANOS, 10, timeStampColumnStats(5L, 13L, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_TZ_NANOS, low13, true, high100, true)), true));
+        assertThat(getDomain(TIMESTAMP_TZ_NANOS, 10, timeStampColumnStats(5L, null, 100L)))
+                .isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(TIMESTAMP_TZ_NANOS, high100)), true));
+        assertThat(getDomain(TIMESTAMP_TZ_NANOS, 10, timeStampColumnStats(5L, 13L, null)))
+                .isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(TIMESTAMP_TZ_NANOS, low13)), true));
     }
 
     private static ColumnStatistics timeStampColumnStats(Long numberOfValues, Long minimum, Long maximum)

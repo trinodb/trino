@@ -51,6 +51,8 @@ import io.prestosql.spi.type.AbstractLongType;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.LongTimestamp;
+import io.prestosql.spi.type.LongTimestampWithTimeZone;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.TimestampType;
@@ -87,14 +89,23 @@ import static io.prestosql.spi.block.ColumnarArray.toColumnarArray;
 import static io.prestosql.spi.block.ColumnarMap.toColumnarMap;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_NANOS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static java.lang.Math.floorDiv;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.function.Function.identity;
@@ -677,8 +688,28 @@ public class OrcWriteValidation
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
-            else if (TIMESTAMP.equals(type)) {
-                statisticsBuilder = new TimestampStatisticsBuilder(new NoOpBloomFilterBuilder());
+            else if (TIMESTAMP_MILLIS.equals(type)) {
+                statisticsBuilder = new TimestampStatisticsBuilder(Type::getLong);
+                fieldExtractor = ignored -> ImmutableList.of();
+                fieldBuilders = ImmutableList.of();
+            }
+            else if (TIMESTAMP_MICROS.equals(type)) {
+                statisticsBuilder = new TimestampStatisticsBuilder(this::timestampMicrosToMillis);
+                fieldExtractor = ignored -> ImmutableList.of();
+                fieldBuilders = ImmutableList.of();
+            }
+            else if (TIMESTAMP_NANOS.equals(type)) {
+                statisticsBuilder = new TimestampStatisticsBuilder(this::timestampNanosToMillis);
+                fieldExtractor = ignored -> ImmutableList.of();
+                fieldBuilders = ImmutableList.of();
+            }
+            else if (TIMESTAMP_TZ_MILLIS.equals(type)) {
+                statisticsBuilder = new TimestampStatisticsBuilder(this::timestampTzShortToMillis);
+                fieldExtractor = ignored -> ImmutableList.of();
+                fieldBuilders = ImmutableList.of();
+            }
+            else if (TIMESTAMP_TZ_MICROS.equals(type) || TIMESTAMP_TZ_NANOS.equals(type)) {
+                statisticsBuilder = new TimestampStatisticsBuilder(this::timestampTzLongToMillis);
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
@@ -725,6 +756,26 @@ public class OrcWriteValidation
             else {
                 throw new PrestoException(NOT_SUPPORTED, format("Unsupported Hive type: %s", type));
             }
+        }
+
+        private long timestampMicrosToMillis(Type blockType, Block block, int position)
+        {
+            return floorDiv(blockType.getLong(block, position), MICROSECONDS_PER_MILLISECOND);
+        }
+
+        private long timestampNanosToMillis(Type blockType, Block block, int position)
+        {
+            return floorDiv(((LongTimestamp) blockType.getObject(block, position)).getEpochMicros(), MICROSECONDS_PER_MILLISECOND);
+        }
+
+        private long timestampTzShortToMillis(Type blockType, Block block, int position)
+        {
+            return unpackMillisUtc(blockType.getLong(block, position));
+        }
+
+        private long timestampTzLongToMillis(Type blockType, Block block, int position)
+        {
+            return ((LongTimestampWithTimeZone) blockType.getObject(block, position)).getEpochMillis();
         }
 
         private void addBlock(Block block)
