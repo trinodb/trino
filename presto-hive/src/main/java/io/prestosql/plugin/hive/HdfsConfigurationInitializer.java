@@ -44,6 +44,7 @@ import static org.apache.hadoop.fs.CommonConfigurationKeysPublic.NET_TOPOLOGY_NO
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_CLIENT_KEY_PROVIDER_CACHE_EXPIRY_MS;
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_CLIENT_SOCKET_TIMEOUT_KEY;
 import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_DOMAIN_SOCKET_PATH_KEY;
+import static org.apache.hadoop.hdfs.client.HdfsClientConfigKeys.DFS_REPLICATION_KEY;
 
 public class HdfsConfigurationInitializer
 {
@@ -58,6 +59,7 @@ public class HdfsConfigurationInitializer
     private final int fileSystemMaxCacheSize;
     private final Set<ConfigurationInitializer> configurationInitializers;
     private final boolean wireEncryptionEnabled;
+    private final Integer dfsReplication;
 
     @VisibleForTesting
     public HdfsConfigurationInitializer(HdfsConfig hdfsConfig)
@@ -80,6 +82,7 @@ public class HdfsConfigurationInitializer
         this.resourcesConfiguration = readConfiguration(config.getResourceConfigFiles());
         this.fileSystemMaxCacheSize = config.getFileSystemMaxCacheSize();
         this.wireEncryptionEnabled = config.isWireEncryptionEnabled();
+        this.dfsReplication = config.getDfsReplication();
 
         this.configurationInitializers = ImmutableSet.copyOf(requireNonNull(configurationInitializers, "configurationInitializers is null"));
     }
@@ -117,6 +120,10 @@ public class HdfsConfigurationInitializer
         }
 
         config.setInt("fs.cache.max-size", fileSystemMaxCacheSize);
+
+        if (dfsReplication != null) {
+            config.setInt(DFS_REPLICATION_KEY, dfsReplication);
+        }
 
         configurationInitializers.forEach(configurationInitializer -> configurationInitializer.initializeConfiguration(config));
     }
