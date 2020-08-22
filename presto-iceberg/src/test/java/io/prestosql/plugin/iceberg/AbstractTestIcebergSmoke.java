@@ -202,7 +202,7 @@ public abstract class AbstractTestIcebergSmoke
     }
 
     @Test
-    public void testParquetPartitionByTimestamp()
+    public void testPartitionByTimestamp()
     {
         testSelectOrPartitionedByTimestamp(true);
     }
