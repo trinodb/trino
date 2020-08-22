@@ -248,6 +248,8 @@ Property Name                                      Description                  
 
 ``hive.hdfs.presto.keytab``                        HDFS client keytab location.
 
+``hive.dfs.replication``                           Hadoop file system replication factor.
+
 ``hive.security``                                  See :doc:`hive-security`.
 
 ``security.config-file``                           Path of config file to use when ``hive.security=file``.
