@@ -50,6 +50,7 @@ public class HdfsConfig
     private HostAndPort socksProxy;
     private boolean wireEncryptionEnabled;
     private int fileSystemMaxCacheSize = 1000;
+    private Integer dfsReplication;
 
     @NotNull
     public List<@FileExists File> getResourceConfigFiles()
@@ -228,6 +229,20 @@ public class HdfsConfig
     public HdfsConfig setFileSystemMaxCacheSize(int fileSystemMaxCacheSize)
     {
         this.fileSystemMaxCacheSize = fileSystemMaxCacheSize;
+        return this;
+    }
+
+    @Min(1)
+    public Integer getDfsReplication()
+    {
+        return dfsReplication;
+    }
+
+    @Config("hive.dfs.replication")
+    @ConfigDescription("Hadoop FileSystem replication factor")
+    public HdfsConfig setDfsReplication(Integer dfsReplication)
+    {
+        this.dfsReplication = dfsReplication;
         return this;
     }
 }
