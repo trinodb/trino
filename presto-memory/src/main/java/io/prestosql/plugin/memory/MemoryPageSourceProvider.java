@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.memory;
 
-import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorPageSource;
@@ -22,6 +21,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.FixedPageSource;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -32,6 +32,7 @@ import javax.inject.Inject;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalDouble;
+import java.util.concurrent.CompletableFuture;
 
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -40,11 +41,13 @@ public final class MemoryPageSourceProvider
         implements ConnectorPageSourceProvider
 {
     private final MemoryPagesStore pagesStore;
+    private final boolean enableLazyDynamicFiltering;
 
     @Inject
-    public MemoryPageSourceProvider(MemoryPagesStore pagesStore)
+    public MemoryPageSourceProvider(MemoryPagesStore pagesStore, MemoryConfig config)
     {
         this.pagesStore = requireNonNull(pagesStore, "pagesStore is null");
+        this.enableLazyDynamicFiltering = config.isEnableLazyDynamicFiltering();
     }
 
     @Override
@@ -54,7 +57,7 @@ public final class MemoryPageSourceProvider
             ConnectorSplit split,
             ConnectorTableHandle table,
             List<ColumnHandle> columns,
-            TupleDomain<ColumnHandle> dynamicFilter)
+            DynamicFilter dynamicFilter)
     {
         MemorySplit memorySplit = (MemorySplit) split;
         long tableId = memorySplit.getTable();
@@ -63,14 +66,6 @@ public final class MemoryPageSourceProvider
         long expectedRows = memorySplit.getExpectedRows();
         MemoryTableHandle memoryTable = (MemoryTableHandle) table;
         OptionalDouble sampleRatio = memoryTable.getSampleRatio();
-
-        if (dynamicFilter.isNone()) {
-            return new FixedPageSource(ImmutableList.of());
-        }
-        Map<Integer, Domain> domains = dynamicFilter
-                .transform(columns::indexOf)
-                .getDomains()
-                .get();
 
         List<Integer> columnIndexes = columns.stream()
                 .map(MemoryColumnHandle.class::cast)
@@ -83,12 +78,85 @@ public final class MemoryPageSourceProvider
                 expectedRows,
                 memorySplit.getLimit(),
                 sampleRatio);
-        return new FixedPageSource(pages.stream()
-                .map(page -> applyFilter(page, domains))
-                .collect(toList()));
+
+        return new DynamicFilteringPageSource(new FixedPageSource(pages), columns, dynamicFilter, enableLazyDynamicFiltering);
     }
 
-    private Page applyFilter(Page page, Map<Integer, Domain> domains)
+    private static class DynamicFilteringPageSource
+            implements ConnectorPageSource
+    {
+        private final FixedPageSource delegate;
+        private final List<ColumnHandle> columns;
+        private final DynamicFilter dynamicFilter;
+        private final boolean enableLazyDynamicFiltering;
+
+        private DynamicFilteringPageSource(FixedPageSource delegate, List<ColumnHandle> columns, DynamicFilter dynamicFilter, boolean enableLazyDynamicFiltering)
+        {
+            this.delegate = delegate;
+            this.columns = columns;
+            this.dynamicFilter = dynamicFilter;
+            this.enableLazyDynamicFiltering = enableLazyDynamicFiltering;
+        }
+
+        @Override
+        public long getCompletedBytes()
+        {
+            return delegate.getCompletedBytes();
+        }
+
+        @Override
+        public long getReadTimeNanos()
+        {
+            return delegate.getReadTimeNanos();
+        }
+
+        @Override
+        public boolean isFinished()
+        {
+            return delegate.isFinished();
+        }
+
+        @Override
+        public Page getNextPage()
+        {
+            if (enableLazyDynamicFiltering && !dynamicFilter.isComplete()) {
+                return null;
+            }
+            TupleDomain<ColumnHandle> predicate = dynamicFilter.getCurrentPredicate();
+            if (predicate.isNone()) {
+                close();
+                return null;
+            }
+            Page page = delegate.getNextPage();
+            if (page != null && !predicate.isAll()) {
+                page = applyFilter(page, predicate.transform(columns::indexOf).getDomains().get());
+            }
+            return page;
+        }
+
+        @Override
+        public CompletableFuture<?> isBlocked()
+        {
+            if (enableLazyDynamicFiltering) {
+                return dynamicFilter.isBlocked();
+            }
+            return NOT_BLOCKED;
+        }
+
+        @Override
+        public long getSystemMemoryUsage()
+        {
+            return delegate.getSystemMemoryUsage();
+        }
+
+        @Override
+        public void close()
+        {
+            delegate.close();
+        }
+    }
+
+    private static Page applyFilter(Page page, Map<Integer, Domain> domains)
     {
         int[] positions = new int[page.getPositionCount()];
         int length = 0;
@@ -100,7 +168,7 @@ public final class MemoryPageSourceProvider
         return page.getPositions(positions, 0, length);
     }
 
-    private boolean positionMatchesPredicate(Page page, int position, Map<Integer, Domain> domains)
+    private static boolean positionMatchesPredicate(Page page, int position, Map<Integer, Domain> domains)
     {
         for (Map.Entry<Integer, Domain> entry : domains.entrySet()) {
             int channel = entry.getKey();
