@@ -560,6 +560,8 @@ public class OrcMetadataReader
                 return OrcTypeKind.BINARY;
             case TIMESTAMP:
                 return OrcTypeKind.TIMESTAMP;
+            case TIMESTAMP_INSTANT:
+                return OrcTypeKind.TIMESTAMP_INSTANT;
             case LIST:
                 return OrcTypeKind.LIST;
             case MAP:

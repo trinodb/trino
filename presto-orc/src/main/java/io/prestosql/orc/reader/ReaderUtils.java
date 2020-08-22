@@ -28,16 +28,21 @@ final class ReaderUtils
     public static void verifyStreamType(OrcColumn column, Type actual, Predicate<Type> validTypes)
             throws OrcCorruptionException
     {
-        if (validTypes.test(actual)) {
-            return;
+        if (!validTypes.test(actual)) {
+            throw invalidStreamType(column, actual);
         }
+    }
 
+    public static OrcCorruptionException invalidStreamType(OrcColumn column, Type type)
+            throws OrcCorruptionException
+    {
         throw new OrcCorruptionException(
                 column.getOrcDataSourceId(),
-                "Cannot read SQL type %s from ORC stream %s of type %s",
-                actual,
+                "Cannot read SQL type '%s' from ORC stream '%s' of type %s with attributes %s",
+                type,
                 column.getPath(),
-                column.getColumnType());
+                column.getColumnType(),
+                column.getAttributes());
     }
 
     public static int minNonNullValueSize(int nonNullCount)
