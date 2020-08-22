@@ -55,7 +55,7 @@ public class TestOrcWithoutRowGroupInfo
             throws IOException
     {
         // this file was written by minor compaction in hive
-        File file = new File(getResource("orcFileWithoutRowGroupInfo").getPath());
+        File file = new File(getResource("orcFileWithoutRowGroupInfo.orc").getPath());
 
         OrcReader orcReader = new OrcReader(new FileOrcDataSource(file, new OrcReaderOptions()), new OrcReaderOptions());
 
