@@ -83,6 +83,7 @@ public final class ColumnWriters
                 return new DecimalColumnWriter(columnId, type, compression, bufferSize);
 
             case TIMESTAMP:
+            case TIMESTAMP_INSTANT:
                 return new TimestampColumnWriter(columnId, type, compression, bufferSize, () -> new TimestampStatisticsBuilder(bloomFilterBuilder.get()));
 
             case BINARY:

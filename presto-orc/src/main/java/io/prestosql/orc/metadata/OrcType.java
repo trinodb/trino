@@ -40,7 +40,12 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_NANOS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.String.format;
@@ -69,6 +74,7 @@ public class OrcType
 
         DATE,
         TIMESTAMP,
+        TIMESTAMP_INSTANT,
 
         LIST,
         MAP,
@@ -220,8 +226,11 @@ public class OrcType
         if (DATE.equals(type)) {
             return ImmutableList.of(new OrcType(OrcTypeKind.DATE));
         }
-        if (TIMESTAMP.equals(type)) {
+        if (TIMESTAMP_MILLIS.equals(type) || TIMESTAMP_MICROS.equals(type) || TIMESTAMP_NANOS.equals(type)) {
             return ImmutableList.of(new OrcType(OrcTypeKind.TIMESTAMP));
+        }
+        if (TIMESTAMP_TZ_MILLIS.equals(type) || TIMESTAMP_TZ_MICROS.equals(type) || TIMESTAMP_TZ_NANOS.equals(type)) {
+            return ImmutableList.of(new OrcType(OrcTypeKind.TIMESTAMP_INSTANT));
         }
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;

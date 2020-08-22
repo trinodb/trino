@@ -22,6 +22,8 @@ import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.Type;
 
 import static io.prestosql.orc.metadata.OrcType.OrcTypeKind.LONG;
+import static io.prestosql.orc.reader.ReaderUtils.invalidStreamType;
+import static io.prestosql.spi.type.TimeType.TIME_MICROS;
 
 public final class ColumnReaders
 {
@@ -36,19 +38,13 @@ public final class ColumnReaders
             throws OrcCorruptionException
     {
         if (type instanceof TimeType) {
-            TimeType timeType = (TimeType) type;
-            if (timeType.getPrecision() != 6 || column.getColumnType() != LONG ||
-                    !"TIME" .equals(column.getAttributes().get("iceberg.long-type"))) {
-                throw new OrcCorruptionException(
-                        column.getOrcDataSourceId(),
-                        "Cannot read SQL type %s from ORC stream %s of type %s with attributes %s",
-                        type,
-                        column.getPath(),
-                        column.getColumnType(),
-                        column.getAttributes());
+            if (!type.equals(TIME_MICROS) || column.getColumnType() != LONG ||
+                    !"TIME".equals(column.getAttributes().get("iceberg.long-type"))) {
+                throw invalidStreamType(column, type);
             }
             return new TimeColumnReader(type, column, systemMemoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
         }
+
         switch (column.getColumnType()) {
             case BOOLEAN:
                 return new BooleanColumnReader(type, column, systemMemoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
@@ -69,6 +65,7 @@ public final class ColumnReaders
             case CHAR:
                 return new SliceColumnReader(type, column, systemMemoryContext);
             case TIMESTAMP:
+            case TIMESTAMP_INSTANT:
                 return new TimestampColumnReader(type, column, systemMemoryContext.newLocalMemoryContext(ColumnReaders.class.getSimpleName()));
             case LIST:
                 return new ListColumnReader(type, column, systemMemoryContext, blockFactory);

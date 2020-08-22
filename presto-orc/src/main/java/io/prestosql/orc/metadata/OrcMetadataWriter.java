@@ -199,6 +199,8 @@ public class OrcMetadataWriter
                 return OrcProto.Type.Kind.DATE;
             case TIMESTAMP:
                 return OrcProto.Type.Kind.TIMESTAMP;
+            case TIMESTAMP_INSTANT:
+                return OrcProto.Type.Kind.TIMESTAMP_INSTANT;
             case LIST:
                 return OrcProto.Type.Kind.LIST;
             case MAP:
