@@ -18,6 +18,7 @@ import com.amazonaws.services.glue.model.StorageDescriptor;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.hive.HiveBucketProperty;
+import io.prestosql.plugin.hive.HiveStorageFormat;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.metastore.Column;
 import io.prestosql.plugin.hive.metastore.Database;
@@ -76,7 +77,7 @@ public final class GlueToPrestoConverter
                 // Athena treats missing table type as EXTERNAL_TABLE.
                 .setTableType(firstNonNull(glueTable.getTableType(), EXTERNAL_TABLE.name()))
                 .setDataColumns(sd.getColumns().stream()
-                        .map(GlueToPrestoConverter::convertColumn)
+                        .map(glueColumn -> convertColumn(glueColumn, sd))
                         .collect(toImmutableList()))
                 .setParameters(tableParameters)
                 .setViewOriginalText(Optional.ofNullable(glueTable.getViewOriginalText()))
@@ -84,7 +85,7 @@ public final class GlueToPrestoConverter
 
         if (glueTable.getPartitionKeys() != null) {
             tableBuilder.setPartitionColumns(glueTable.getPartitionKeys().stream()
-                    .map(GlueToPrestoConverter::convertColumn)
+                    .map(glueColumn -> convertColumn(glueColumn, sd))
                     .collect(toImmutableList()));
         }
         else {
@@ -125,17 +126,13 @@ public final class GlueToPrestoConverter
                 .build();
     }
 
-	private static Column convertColumn(com.amazonaws.services.glue.model.Column glueColumn, StorageDescriptor storageDescriptor)
-	{
-		if(storageDescriptor.getSerdeInfo().getName() != null &&
-		! ((storageDescriptor.getSerdeInfo().getName().contains("csv")) ||
-		(storageDescriptor.getSerdeInfo().getName().contains("CSV")))) {
-		return new Column(glueColumn.getName(), HiveType.valueOf(glueColumn.getType().toLowerCase(Locale.ENGLISH)), Optional.ofNullable(glueColumn.getComment()));
-		}
-		else{
-		return new Column(glueColumn.getName(), HiveType. HIVE_STRING, Optional.ofNullable(glueColumn.getComment()));
-		}
-	}
+    private static Column convertColumn(com.amazonaws.services.glue.model.Column glueColumn, StorageDescriptor storageDescriptor) {
+        if (HiveStorageFormat.CSV.getSerDe().equals(storageDescriptor.getSerdeInfo().getSerializationLib())) {
+            return new Column(glueColumn.getName(), HiveType.HIVE_STRING, Optional.ofNullable(glueColumn.getComment()));
+        } else {
+            return new Column(glueColumn.getName(), HiveType.valueOf(glueColumn.getType().toLowerCase(Locale.ENGLISH)), Optional.ofNullable(glueColumn.getComment()));
+        }
+    }
 
     public static Partition convertPartition(com.amazonaws.services.glue.model.Partition gluePartition, Map<String, String> tableParameters)
     {
@@ -147,7 +144,7 @@ public final class GlueToPrestoConverter
                 .setTableName(gluePartition.getTableName())
                 .setValues(gluePartition.getValues())
                 .setColumns(sd.getColumns().stream()
-                        .map(GlueToPrestoConverter::convertColumn)
+                        .map(glueColumn -> convertColumn(glueColumn, sd))
                         .collect(toImmutableList()))
                 .setParameters(firstNonNull(gluePartition.getParameters(), ImmutableMap.of()));
 
