@@ -511,6 +511,10 @@ public final class StandardColumnMappings
         return LocalTime.ofNanoOfDay(roundDiv(value, PICOSECONDS_PER_NANOSECOND) % NANOSECONDS_PER_DAY);
     }
 
+    /**
+     * @deprecated Each connector should provide its own explicit type mapping, along with respective tests.
+     */
+    @Deprecated
     public static Optional<ColumnMapping> jdbcTypeToPrestoType(JdbcTypeHandle type)
     {
         switch (type.getJdbcType()) {
