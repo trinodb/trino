@@ -20,6 +20,7 @@ import io.airlift.configuration.ConfigDescription;
 import io.airlift.units.Duration;
 import io.airlift.units.MinDuration;
 
+import javax.annotation.Nonnull;
 import javax.validation.constraints.NotNull;
 
 import java.util.Set;
@@ -29,10 +30,23 @@ import static java.util.concurrent.TimeUnit.MINUTES;
 
 public class BaseJdbcConfig
 {
+    public static final String LEGACY_GENERIC_COLUMN_MAPPING = "legacy-generic-column-mapping";
+
+    public enum LegacyGenericColumnMapping
+    {
+        // Enable legacy column mapping
+        ENABLE,
+        // Detect when legacy column mapping would be effective and report (throw)
+        THROW,
+        // Ignore columns not explicitly mapped
+        IGNORE,
+    }
+
     private String connectionUrl;
     private boolean caseInsensitiveNameMatching;
     private Duration caseInsensitiveNameMatchingCacheTtl = new Duration(1, MINUTES);
     private Set<String> jdbcTypesMappedToVarchar = ImmutableSet.of();
+    private LegacyGenericColumnMapping legacyGenericColumnMapping = LegacyGenericColumnMapping.ENABLE; // TODO change to THROW
     private Duration metadataCacheTtl = new Duration(0, MINUTES);
     private boolean cacheMissing;
 
@@ -84,6 +98,27 @@ public class BaseJdbcConfig
     public BaseJdbcConfig setJdbcTypesMappedToVarchar(String jdbcTypesMappedToVarchar)
     {
         this.jdbcTypesMappedToVarchar = ImmutableSet.copyOf(Splitter.on(",").omitEmptyStrings().trimResults().split(nullToEmpty(jdbcTypesMappedToVarchar)));
+        return this;
+    }
+
+    /**
+     * @deprecated Fallback flag, to be removed after some time.
+     */
+    @Deprecated
+    @Nonnull
+    public LegacyGenericColumnMapping getLegacyGenericColumnMapping()
+    {
+        return legacyGenericColumnMapping;
+    }
+
+    /**
+     * @deprecated Fallback flag, to be removed after some time.
+     */
+    @Config(LEGACY_GENERIC_COLUMN_MAPPING)
+    @Deprecated
+    public BaseJdbcConfig setLegacyGenericColumnMapping(LegacyGenericColumnMapping legacyGenericColumnMapping)
+    {
+        this.legacyGenericColumnMapping = legacyGenericColumnMapping;
         return this;
     }
 
