@@ -29,7 +29,6 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
-import io.prestosql.spi.type.VarcharType;
 
 import javax.inject.Inject;
 
@@ -50,9 +49,9 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
-import static io.prestosql.spi.type.VarcharType.createVarcharType;
 
 public class DruidJdbcClient
         extends BaseJdbcClient
@@ -138,10 +137,10 @@ public class DruidJdbcClient
         switch (typeHandle.getJdbcType()) {
             case Types.VARCHAR:
                 int columnSize = typeHandle.getColumnSize();
-                if (columnSize > VarcharType.MAX_LENGTH || columnSize == -1) {
+                if (columnSize == -1) {
                     return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
                 }
-                return Optional.of(varcharColumnMapping(createVarcharType(columnSize)));
+                return Optional.of(defaultVarcharColumnMapping(columnSize));
         }
         return super.toPrestoType(session, connection, typeHandle);
     }

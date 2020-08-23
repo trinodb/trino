@@ -41,6 +41,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
@@ -61,13 +62,43 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
 import static io.prestosql.plugin.jdbc.PredicatePushdownController.FULL_PUSHDOWN;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.charWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.dateColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.dateWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.defaultCharColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.realColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.timeColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.timestampColumnMappingUsingSqlTimestamp;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TimeType.TIME;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
+import static java.lang.Math.max;
 import static java.lang.String.format;
+import static java.math.RoundingMode.UNNECESSARY;
 import static java.util.stream.Collectors.joining;
 
 public class SqlServerClient
@@ -148,15 +179,9 @@ public class SqlServerClient
             return mapping;
         }
 
-        String jdbcTypeName = typeHandle.getJdbcTypeName()
-                .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
-
-        if (jdbcTypeName.equals("varbinary")) {
-            return Optional.of(varbinaryColumnMapping());
-        }
-
-        // TODO (https://github.com/prestosql/presto/issues/4593) implement proper type mapping
-        return super.toPrestoType(session, connection, typeHandle)
+        // TODO how to provide SIMPLIFY_UNSUPPORTED_PUSHDOWN in most readable & maintainable way?
+        return toColumnMapping(typeHandle)
+                .or(() -> super.toPrestoType(session, connection, typeHandle))
                 .map(columnMapping -> new ColumnMapping(
                         columnMapping.getType(),
                         columnMapping.getReadFunction(),
@@ -164,11 +189,99 @@ public class SqlServerClient
                         FULL_PUSHDOWN));
     }
 
+    private Optional<ColumnMapping> toColumnMapping(JdbcTypeHandle typeHandle)
+    {
+        // TODO (https://github.com/prestosql/presto/issues/4593) implement proper type mapping
+
+        String jdbcTypeName = typeHandle.getJdbcTypeName()
+                .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
+
+        switch (jdbcTypeName) {
+            case "varbinary":
+                return Optional.of(varbinaryColumnMapping());
+        }
+
+        int columnSize = typeHandle.getColumnSize();
+        switch (typeHandle.getJdbcType()) {
+            case Types.BIT:
+                return Optional.of(booleanColumnMapping());
+
+            case Types.TINYINT:
+                return Optional.of(tinyintColumnMapping());
+
+            case Types.SMALLINT:
+                return Optional.of(smallintColumnMapping());
+
+            case Types.INTEGER:
+                return Optional.of(integerColumnMapping());
+
+            case Types.BIGINT:
+                return Optional.of(bigintColumnMapping());
+
+            case Types.REAL:
+                return Optional.of(realColumnMapping());
+
+            case Types.DOUBLE:
+                return Optional.of(doubleColumnMapping());
+
+            case Types.NUMERIC:
+            case Types.DECIMAL:
+                int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
+                // TODO does sql server support negative scale?
+                int precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
+                if (precision > Decimals.MAX_PRECISION) {
+                    break;
+                }
+                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY));
+
+            case Types.CHAR:
+            case Types.NCHAR:
+                return Optional.of(defaultCharColumnMapping(columnSize));
+
+            case Types.VARCHAR:
+            case Types.NVARCHAR:
+                return Optional.of(defaultVarcharColumnMapping(columnSize));
+
+            case Types.BINARY:
+            case Types.VARBINARY:
+            case Types.LONGVARBINARY:
+                return Optional.of(varbinaryColumnMapping());
+
+            case Types.DATE:
+                return Optional.of(dateColumnMapping());
+
+            case Types.TIME:
+                return Optional.of(timeColumnMapping(TIME));
+
+            case Types.TIMESTAMP:
+                return Optional.of(timestampColumnMappingUsingSqlTimestamp(TIMESTAMP));
+        }
+
+        return Optional.empty();
+    }
+
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         if (type == BOOLEAN) {
             return WriteMapping.booleanMapping("bit", booleanWriteFunction());
+        }
+
+        if (type == BIGINT) {
+            return WriteMapping.longMapping("bigint", bigintWriteFunction());
+        }
+        if (type == INTEGER) {
+            return WriteMapping.longMapping("integer", integerWriteFunction());
+        }
+        if (type == SMALLINT) {
+            return WriteMapping.longMapping("smallint", smallintWriteFunction());
+        }
+        if (type == TINYINT) {
+            return WriteMapping.longMapping("tinyint", tinyintWriteFunction());
+        }
+
+        if (type == DOUBLE) {
+            return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
         }
 
         if (type instanceof VarcharType) {
@@ -197,6 +310,10 @@ public class SqlServerClient
 
         if (type instanceof VarbinaryType) {
             return WriteMapping.sliceMapping("varbinary(max)", varbinaryWriteFunction());
+        }
+
+        if (type == DATE) {
+            return WriteMapping.longMapping("date", dateWriteFunction());
         }
 
         // TODO implement proper type mapping
