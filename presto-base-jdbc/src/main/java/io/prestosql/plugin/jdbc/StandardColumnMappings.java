@@ -231,6 +231,14 @@ public final class StandardColumnMappings
         };
     }
 
+    public static ColumnMapping defaultCharColumnMapping(int columnSize)
+    {
+        if (columnSize > CharType.MAX_LENGTH) {
+            return defaultVarcharColumnMapping(columnSize);
+        }
+        return charColumnMapping(createCharType(columnSize));
+    }
+
     public static ColumnMapping charColumnMapping(CharType charType)
     {
         requireNonNull(charType, "charType is null");
@@ -252,6 +260,14 @@ public final class StandardColumnMappings
         return (statement, index, value) -> {
             statement.setString(index, value.toStringUtf8());
         };
+    }
+
+    public static ColumnMapping defaultVarcharColumnMapping(int columnSize)
+    {
+        if (columnSize > VarcharType.MAX_LENGTH) {
+            return varcharColumnMapping(createUnboundedVarcharType());
+        }
+        return varcharColumnMapping(createVarcharType(columnSize));
     }
 
     public static ColumnMapping varcharColumnMapping(VarcharType varcharType)
@@ -533,22 +549,13 @@ public final class StandardColumnMappings
 
             case Types.CHAR:
             case Types.NCHAR:
-                if (columnSize > CharType.MAX_LENGTH) {
-                    if (columnSize > VarcharType.MAX_LENGTH) {
-                        return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
-                    }
-                    return Optional.of(varcharColumnMapping(createVarcharType(columnSize)));
-                }
-                return Optional.of(charColumnMapping(createCharType(columnSize)));
+                return Optional.of(defaultCharColumnMapping(columnSize));
 
             case Types.VARCHAR:
             case Types.NVARCHAR:
             case Types.LONGVARCHAR:
             case Types.LONGNVARCHAR:
-                if (columnSize > VarcharType.MAX_LENGTH) {
-                    return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
-                }
-                return Optional.of(varcharColumnMapping(createVarcharType(columnSize)));
+                return Optional.of(defaultVarcharColumnMapping(columnSize));
 
             case Types.BINARY:
             case Types.VARBINARY:
