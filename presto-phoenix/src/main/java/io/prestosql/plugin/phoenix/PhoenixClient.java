@@ -36,7 +36,12 @@ import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.CharType;
+import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.VarbinaryType;
+import io.prestosql.spi.type.VarcharType;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hbase.HColumnDescriptor;
 import org.apache.hadoop.hbase.HConstants;
@@ -97,11 +102,33 @@ import java.util.function.BiFunction;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.charWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.dateColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.dateWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.defaultCharColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.realColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.realWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.timeWriteFunctionUsingSqlTime;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.prestosql.plugin.phoenix.MetadataUtil.getEscapedTableName;
@@ -117,16 +144,24 @@ import static io.prestosql.plugin.phoenix.TypeUtils.jdbcObjectArrayToBlock;
 import static io.prestosql.plugin.phoenix.TypeUtils.toBoxedArray;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DateType.DATE;
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.lang.Math.max;
 import static java.lang.String.format;
 import static java.lang.String.join;
+import static java.math.RoundingMode.UNNECESSARY;
 import static java.sql.Types.ARRAY;
-import static java.sql.Types.FLOAT;
 import static java.sql.Types.LONGNVARCHAR;
 import static java.sql.Types.LONGVARCHAR;
 import static java.sql.Types.NVARCHAR;
@@ -274,15 +309,56 @@ public class PhoenixClient
     @Override
     public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
+        int columnSize = typeHandle.getColumnSize();
         switch (typeHandle.getJdbcType()) {
+            case Types.BOOLEAN:
+                return Optional.of(booleanColumnMapping());
+
+            case Types.TINYINT:
+                return Optional.of(tinyintColumnMapping());
+
+            case Types.SMALLINT:
+                return Optional.of(smallintColumnMapping());
+
+            case Types.INTEGER:
+                return Optional.of(integerColumnMapping());
+
+            case Types.BIGINT:
+                return Optional.of(bigintColumnMapping());
+
+            case Types.FLOAT:
+                return Optional.of(realColumnMapping());
+
+            case Types.DOUBLE:
+                return Optional.of(doubleColumnMapping());
+
+            case Types.DECIMAL:
+                int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
+                // TODO does phoenix support negative scale?
+                int precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
+                if (precision > Decimals.MAX_PRECISION) {
+                    break;
+                }
+                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY));
+
+            case Types.CHAR:
+                return Optional.of(defaultCharColumnMapping(columnSize));
+
             case VARCHAR:
             case NVARCHAR:
             case LONGVARCHAR:
             case LONGNVARCHAR:
-                if (typeHandle.getColumnSize() == 0) {
+                if (columnSize == 0) {
                     return Optional.of(varcharColumnMapping(createUnboundedVarcharType()));
                 }
-                break;
+                return Optional.of(defaultVarcharColumnMapping(columnSize));
+
+            case Types.VARBINARY:
+                return Optional.of(varbinaryColumnMapping());
+
+            case Types.DATE:
+                return Optional.of(dateColumnMapping());
+
             // TODO add support for TIMESTAMP after Phoenix adds support for LocalDateTime
             case TIMESTAMP:
             case TIME_WITH_TIMEZONE:
@@ -291,8 +367,7 @@ public class PhoenixClient
                     return mapToUnboundedVarchar(typeHandle);
                 }
                 return Optional.empty();
-            case FLOAT:
-                return Optional.of(realColumnMapping());
+
             case ARRAY:
                 JdbcTypeHandle elementTypeHandle = getArrayElementTypeHandle(typeHandle);
                 if (elementTypeHandle.getJdbcType() == Types.VARBINARY) {
@@ -314,11 +389,58 @@ public class PhoenixClient
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
-        if (DOUBLE.equals(type)) {
+        if (type == BOOLEAN) {
+            return WriteMapping.booleanMapping("boolean", booleanWriteFunction());
+        }
+
+        if (type == TINYINT) {
+            return WriteMapping.longMapping("tinyint", tinyintWriteFunction());
+        }
+        if (type == SMALLINT) {
+            return WriteMapping.longMapping("smallint", smallintWriteFunction());
+        }
+        if (type == INTEGER) {
+            return WriteMapping.longMapping("integer", integerWriteFunction());
+        }
+        if (type == BIGINT) {
+            return WriteMapping.longMapping("bigint", bigintWriteFunction());
+        }
+        if (type == REAL) {
+            return WriteMapping.longMapping("float", realWriteFunction());
+        }
+        if (type == DOUBLE) {
             return WriteMapping.doubleMapping("double", doubleWriteFunction());
         }
-        if (REAL.equals(type)) {
-            return WriteMapping.longMapping("float", realWriteFunction());
+
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+            if (decimalType.isShort()) {
+                return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
+            }
+            return WriteMapping.sliceMapping(dataType, longDecimalWriteFunction(decimalType));
+        }
+
+        if (type instanceof CharType) {
+            return WriteMapping.sliceMapping("char(" + ((CharType) type).getLength() + ")", charWriteFunction());
+        }
+        if (type instanceof VarcharType) {
+            VarcharType varcharType = (VarcharType) type;
+            String dataType;
+            if (varcharType.isUnbounded()) {
+                dataType = "varchar";
+            }
+            else {
+                dataType = "varchar(" + varcharType.getBoundedLength() + ")";
+            }
+            return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
+        }
+        if (type instanceof VarbinaryType) {
+            return WriteMapping.sliceMapping("varbinary", varbinaryWriteFunction());
+        }
+
+        if (type == DATE) {
+            return WriteMapping.longMapping("date", dateWriteFunction());
         }
         if (TIME.equals(type)) {
             return WriteMapping.longMapping("time", timeWriteFunctionUsingSqlTime());

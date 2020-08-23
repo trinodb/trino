@@ -58,6 +58,7 @@ import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.type.ArrayType;
+import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.LongTimestamp;
@@ -67,10 +68,10 @@ import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
-import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.VarcharType;
 import org.postgresql.core.TypeInfo;
 import org.postgresql.jdbc.PgConnection;
 import org.postgresql.util.PGobject;
@@ -113,11 +114,32 @@ import static io.prestosql.plugin.jdbc.DecimalSessionSessionProperties.getDecima
 import static io.prestosql.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.PredicatePushdownController.DISABLE_PUSHDOWN;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.bigintWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.booleanColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.booleanWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.charWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.dateColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.dateWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.defaultCharColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.defaultVarcharColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.doubleColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.doubleWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoTimestamp;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.integerColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.integerWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.longDecimalWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.realColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.realWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.shortDecimalWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.smallintColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.smallintWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.timestampReadFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryColumnMapping;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.varbinaryWriteFunction;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.varcharWriteFunction;
 import static io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties.getUnsupportedTypeHandling;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_ARRAY;
@@ -131,9 +153,16 @@ import static io.prestosql.plugin.postgresql.TypeUtils.toPgTimestamp;
 import static io.prestosql.spi.StandardErrorCode.ALREADY_EXISTS;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static io.prestosql.spi.type.RealType.REAL;
+import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.StandardTypes.JSON;
 import static io.prestosql.spi.type.TimeType.createTimeType;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
@@ -146,11 +175,15 @@ import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_DAY;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.prestosql.spi.type.Timestamps.round;
+import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.spi.type.Varchars.isVarcharType;
+import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.String.format;
+import static java.math.RoundingMode.UNNECESSARY;
 import static java.sql.DatabaseMetaData.columnNoNulls;
 import static java.util.Collections.addAll;
 
@@ -336,6 +369,7 @@ public class PostgreSqlClient
     @Override
     public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
+        int columnSize = typeHandle.getColumnSize();
         String jdbcTypeName = typeHandle.getJdbcTypeName()
                 .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Type name is missing: " + typeHandle));
 
@@ -360,12 +394,61 @@ public class PostgreSqlClient
         }
 
         switch (typeHandle.getJdbcType()) {
+            case Types.BIT:
+                return Optional.of(booleanColumnMapping());
+
+            case Types.SMALLINT:
+                return Optional.of(smallintColumnMapping());
+
+            case Types.INTEGER:
+                return Optional.of(integerColumnMapping());
+
+            case Types.BIGINT:
+                return Optional.of(bigintColumnMapping());
+
+            case Types.REAL:
+                return Optional.of(realColumnMapping());
+
+            case Types.DOUBLE:
+                return Optional.of(doubleColumnMapping());
+
+            case Types.NUMERIC: {
+                int precision;
+                int decimalDigits = typeHandle.getDecimalDigits().orElseThrow(() -> new IllegalStateException("decimal digits not present"));
+                if (getDecimalRounding(session) == ALLOW_OVERFLOW) {
+                    if (typeHandle.getColumnSize() == 131089) {
+                        // decimal type with unspecified scale - up to 131072 digits before the decimal point; up to 16383 digits after the decimal point)
+                        // 131089 = SELECT LENGTH(pow(10::numeric,131071)::varchar); 131071 = 2^17-1  (org.postgresql.jdbc.TypeInfoCache#getDisplaySize)
+                        return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, getDecimalDefaultScale(session)), getDecimalRoundingMode(session)));
+                    }
+                    precision = typeHandle.getColumnSize();
+                    if (precision > Decimals.MAX_PRECISION) {
+                        int scale = min(decimalDigits, getDecimalDefaultScale(session));
+                        return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
+                    }
+                }
+                precision = columnSize + max(-decimalDigits, 0); // Map decimal(p, -s) (negative scale) to decimal(p+s, 0).
+                if (precision > Decimals.MAX_PRECISION) {
+                    break;
+                }
+                return Optional.of(decimalColumnMapping(createDecimalType(precision, max(decimalDigits, 0)), UNNECESSARY));
+            }
+
+            case Types.CHAR:
+                return Optional.of(defaultCharColumnMapping(columnSize));
+
             case Types.VARCHAR:
                 if (!jdbcTypeName.equals("varchar")) {
                     // This can be e.g. an ENUM
                     return Optional.of(typedVarcharColumnMapping(jdbcTypeName));
                 }
-                break;
+                return Optional.of(defaultVarcharColumnMapping(columnSize));
+
+            case Types.BINARY:
+                return Optional.of(varbinaryColumnMapping());
+
+            case Types.DATE:
+                return Optional.of(dateColumnMapping());
 
             case Types.TIME:
                 return Optional.of(timeColumnMapping(typeHandle.getRequiredDecimalDigits()));
@@ -376,22 +459,6 @@ public class PostgreSqlClient
                         timestampType,
                         timestampReadFunction(timestampType),
                         PostgreSqlClient::shortTimestampWriteFunction));
-
-            case Types.NUMERIC:
-                if (getDecimalRounding(session) == ALLOW_OVERFLOW) {
-                    if (typeHandle.getColumnSize() == 131089) {
-                        // decimal type with unspecified scale - up to 131072 digits before the decimal point; up to 16383 digits after the decimal point)
-                        // 131089 = SELECT LENGTH(pow(10::numeric,131071)::varchar); 131071 = 2^17-1  (org.postgresql.jdbc.TypeInfoCache#getDisplaySize)
-                        return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, getDecimalDefaultScale(session)), getDecimalRoundingMode(session)));
-                    }
-                    int precision = typeHandle.getColumnSize();
-                    int decimalDigits = typeHandle.getRequiredDecimalDigits();
-                    if (precision > Decimals.MAX_PRECISION) {
-                        int scale = min(decimalDigits, getDecimalDefaultScale(session));
-                        return Optional.of(decimalColumnMapping(createDecimalType(Decimals.MAX_PRECISION, scale), getDecimalRoundingMode(session)));
-                    }
-                }
-                break;
 
             case Types.ARRAY:
                 Optional<ColumnMapping> columnMapping = arrayToPrestoType(session, connection, typeHandle);
@@ -451,9 +518,63 @@ public class PostgreSqlClient
     @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
+        if (type == BOOLEAN) {
+            return WriteMapping.booleanMapping("boolean", booleanWriteFunction());
+        }
+
+        if (type == TINYINT) {
+            // PostgreSQL has no type corresponding to tinyint
+            return WriteMapping.longMapping("smallint", tinyintWriteFunction());
+        }
+        if (type == SMALLINT) {
+            return WriteMapping.longMapping("smallint", smallintWriteFunction());
+        }
+        if (type == INTEGER) {
+            return WriteMapping.longMapping("integer", integerWriteFunction());
+        }
+        if (type == BIGINT) {
+            return WriteMapping.longMapping("bigint", bigintWriteFunction());
+        }
+
+        if (type == REAL) {
+            return WriteMapping.longMapping("real", realWriteFunction());
+        }
+        if (type == DOUBLE) {
+            return WriteMapping.doubleMapping("double precision", doubleWriteFunction());
+        }
+
+        if (type instanceof DecimalType) {
+            DecimalType decimalType = (DecimalType) type;
+            String dataType = format("decimal(%s, %s)", decimalType.getPrecision(), decimalType.getScale());
+            if (decimalType.isShort()) {
+                return WriteMapping.longMapping(dataType, shortDecimalWriteFunction(decimalType));
+            }
+            return WriteMapping.sliceMapping(dataType, longDecimalWriteFunction(decimalType));
+        }
+
+        if (type instanceof CharType) {
+            return WriteMapping.sliceMapping("char(" + ((CharType) type).getLength() + ")", charWriteFunction());
+        }
+
+        if (isVarcharType(type)) {
+            VarcharType varcharType = (VarcharType) type;
+            String dataType;
+            if (varcharType.isUnbounded()) {
+                dataType = "varchar";
+            }
+            else {
+                dataType = "varchar(" + varcharType.getBoundedLength() + ")";
+            }
+            return WriteMapping.sliceMapping(dataType, varcharWriteFunction());
+        }
         if (VARBINARY.equals(type)) {
             return WriteMapping.sliceMapping("bytea", varbinaryWriteFunction());
         }
+
+        if (type == DATE) {
+            return WriteMapping.longMapping("date", dateWriteFunction());
+        }
+
         if (type instanceof TimeType) {
             TimeType timeType = (TimeType) type;
             if (timeType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
@@ -461,6 +582,7 @@ public class PostgreSqlClient
             }
             return WriteMapping.longMapping(format("time(%s)", POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION), timeWriteFunction(POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION));
         }
+
         if (type instanceof TimestampType) {
             TimestampType timestampType = (TimestampType) type;
             if (timestampType.getPrecision() <= POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION) {
@@ -480,9 +602,6 @@ public class PostgreSqlClient
                 return WriteMapping.objectMapping(dataType, longTimestampWithTimeZoneWriteFunction());
             }
             return WriteMapping.objectMapping(format("timestamptz(%d)", POSTGRESQL_MAX_SUPPORTED_TIMESTAMP_PRECISION), longTimestampWithTimeZoneWriteFunction());
-        }
-        if (TinyintType.TINYINT.equals(type)) {
-            return WriteMapping.longMapping("smallint", tinyintWriteFunction());
         }
         if (type.equals(jsonType)) {
             return WriteMapping.sliceMapping("jsonb", typedVarcharWriteFunction("json"));
