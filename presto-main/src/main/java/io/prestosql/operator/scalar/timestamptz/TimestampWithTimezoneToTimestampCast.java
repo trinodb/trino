@@ -47,10 +47,6 @@ public final class TimestampWithTimezoneToTimestampCast
                 .getZone()
                 .convertUTCToLocal(unpackMillisUtc(timestamp));
 
-        if (targetPrecision <= 3) {
-            return round(epochMillis, (int) (3 - targetPrecision));
-        }
-
         return round(scaleEpochMillisToMicros(epochMillis), (int) (6 - targetPrecision));
     }
 
@@ -64,17 +60,6 @@ public final class TimestampWithTimezoneToTimestampCast
                 .getZone()
                 .convertUTCToLocal(timestamp.getEpochMillis());
         int picosOfMilli = timestamp.getPicosOfMilli();
-
-        if (targetPrecision < 3) {
-            return round(epochMillis, (int) (3 - targetPrecision));
-        }
-
-        if (targetPrecision == 3) {
-            if (roundToNearest(timestamp.getPicosOfMilli(), PICOSECONDS_PER_MILLISECOND) == PICOSECONDS_PER_MILLISECOND) {
-                epochMillis++;
-            }
-            return epochMillis;
-        }
 
         long epochMicros = toEpochMicros(epochMillis, picosOfMilli);
         if (targetPrecision < 6) {
@@ -111,11 +96,7 @@ public final class TimestampWithTimezoneToTimestampCast
 
         long epochMicros;
         int picosOfMicro;
-        if (targetPrecision <= 3) {
-            epochMicros = scaleEpochMillisToMicros(round(epochMillis, (int) (3 - targetPrecision)));
-            picosOfMicro = 0;
-        }
-        else if (targetPrecision <= 6) {
+        if (targetPrecision <= 6) {
             epochMicros = toEpochMicros(epochMillis, timestamp.getPicosOfMilli());
             epochMicros = round(epochMicros, (int) (6 - targetPrecision));
             picosOfMicro = 0;

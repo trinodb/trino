@@ -72,9 +72,10 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_SECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
+import static java.lang.Math.floorDiv;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class Statistics
 {
@@ -459,7 +460,7 @@ public final class Statistics
 
     private static OptionalLong getTimestampValue(Block block)
     {
-        return block.isNull(0) ? OptionalLong.empty() : OptionalLong.of(MILLISECONDS.toSeconds(block.getLong(0, 0)));
+        return block.isNull(0) ? OptionalLong.empty() : OptionalLong.of(floorDiv(block.getLong(0, 0), MICROSECONDS_PER_SECOND));
     }
 
     private static Optional<BigDecimal> getDecimalValue(ConnectorSession session, Type type, Block block)

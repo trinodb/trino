@@ -57,7 +57,9 @@ import static io.prestosql.plugin.hive.util.HiveUtil.isMapType;
 import static io.prestosql.plugin.hive.util.HiveUtil.isRowType;
 import static io.prestosql.plugin.hive.util.HiveWriteUtils.getHiveDecimal;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.floorDiv;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -374,7 +376,7 @@ public final class FieldSetterFactory
         @Override
         public void setField(Block block, int position)
         {
-            long epochMilli = TIMESTAMP_MILLIS.getLong(block, position);
+            long epochMilli = floorDiv(TIMESTAMP_MILLIS.getLong(block, position), MICROSECONDS_PER_MILLISECOND);
             epochMilli = timeZone.convertLocalToUTC(epochMilli, false);
             value.set(Timestamp.ofEpochMilli(epochMilli));
             rowInspector.setStructFieldData(row, field, value);

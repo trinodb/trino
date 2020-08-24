@@ -92,6 +92,9 @@ public abstract class PrimitiveColumnReader
                 if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.TIMESTAMP_MICROS) {
                     return new TimestampMicrosColumnReader(descriptor);
                 }
+                if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.TIMESTAMP_MILLIS) {
+                    return new Int64TimestampMillisColumnReader(descriptor, timeZone);
+                }
                 return createDecimalColumnReader(descriptor).orElse(new LongColumnReader(descriptor));
             case INT96:
                 return new TimestampColumnReader(descriptor, timeZone);

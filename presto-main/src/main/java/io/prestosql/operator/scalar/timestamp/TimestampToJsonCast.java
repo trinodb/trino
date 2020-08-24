@@ -32,7 +32,6 @@ import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.StandardTypes.JSON;
 import static io.prestosql.type.DateTimes.formatTimestamp;
-import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
 import static io.prestosql.util.JsonUtil.JSON_FACTORY;
 import static io.prestosql.util.JsonUtil.createJsonGenerator;
 import static java.lang.String.format;
@@ -49,12 +48,7 @@ public final class TimestampToJsonCast
     @SqlType(JSON)
     public static Slice cast(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") long timestamp)
     {
-        long epochMicros = timestamp;
-        if (precision <= 3) {
-            epochMicros = scaleEpochMillisToMicros(timestamp);
-        }
-
-        return toJson(formatTimestamp((int) precision, epochMicros, 0, UTC, TIMESTAMP_FORMATTER));
+        return toJson(formatTimestamp((int) precision, timestamp, 0, UTC, TIMESTAMP_FORMATTER));
     }
 
     @LiteralParameters({"x", "p"})

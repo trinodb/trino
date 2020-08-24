@@ -14,7 +14,6 @@
 package io.prestosql.operator.scalar.timestamp;
 
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.ScalarOperator;
@@ -22,10 +21,9 @@ import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.StandardTypes;
 
-import java.util.concurrent.TimeUnit;
-
 import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
+import static io.prestosql.type.DateTimes.MICROSECONDS_PER_DAY;
+import static java.lang.Math.floorDiv;
 
 @ScalarOperator(CAST)
 @ScalarFunction("date")
@@ -35,19 +33,15 @@ public final class TimestampToDateCast
 
     @LiteralParameters("p")
     @SqlType(StandardTypes.DATE)
-    public static long cast(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") long timestamp)
+    public static long cast(ConnectorSession session, @SqlType("timestamp(p)") long timestamp)
     {
-        if (precision > 3) {
-            timestamp = scaleEpochMicrosToMillis(timestamp);
-        }
-
-        return TimeUnit.MILLISECONDS.toDays(timestamp);
+        return floorDiv(timestamp, MICROSECONDS_PER_DAY);
     }
 
     @LiteralParameters("p")
     @SqlType(StandardTypes.DATE)
     public static long cast(ConnectorSession session, @SqlType("timestamp(p)") LongTimestamp timestamp)
     {
-        return cast(6, session, timestamp.getEpochMicros());
+        return cast(session, timestamp.getEpochMicros());
     }
 }

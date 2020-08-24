@@ -38,8 +38,8 @@ public class TestMillisecondsSinceEpochJsonFieldDecoder
         tester.assertDecodedAs("\"33701000\"", TIME, 33_701_000_000_000_000L);
         tester.assertDecodedAs("33701000", TIME_WITH_TIME_ZONE, packTimeWithTimeZone(33_701_000_000_000L, 0));
         tester.assertDecodedAs("\"33701000\"", TIME_WITH_TIME_ZONE, packTimeWithTimeZone(33_701_000_000_000L, 0));
-        tester.assertDecodedAs("1519032101123", TIMESTAMP_MILLIS, 1519032101123L);
-        tester.assertDecodedAs("\"1519032101123\"", TIMESTAMP_MILLIS, 1519032101123L);
+        tester.assertDecodedAs("1519032101123", TIMESTAMP_MILLIS, 1_519_032_101_123_000L);
+        tester.assertDecodedAs("\"1519032101123\"", TIMESTAMP_MILLIS, 1_519_032_101_123_000L);
         tester.assertDecodedAs("1519032101123", TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(1519032101123L, UTC_KEY));
         tester.assertDecodedAs("\"1519032101123\"", TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(1519032101123L, UTC_KEY));
     }

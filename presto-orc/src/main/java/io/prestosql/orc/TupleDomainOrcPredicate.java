@@ -253,10 +253,7 @@ public class TupleDomainOrcPredicate
         else if (type instanceof DateType && columnStatistics.getDateStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getDateStatistics(), value -> (long) value);
         }
-        else if (type.equals(TIMESTAMP_MILLIS) && columnStatistics.getTimestampStatistics() != null) {
-            return createDomain(type, hasNullValue, columnStatistics.getTimestampStatistics(), value -> value);
-        }
-        else if (type.equals(TIMESTAMP_MICROS) && columnStatistics.getTimestampStatistics() != null) {
+        else if ((type.equals(TIMESTAMP_MILLIS) || type.equals(TIMESTAMP_MICROS)) && columnStatistics.getTimestampStatistics() != null) {
             return createDomain(
                     type,
                     hasNullValue,

@@ -25,7 +25,6 @@ import java.time.format.DateTimeFormatter;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.type.DateTimes.formatTimestamp;
-import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
 import static java.time.ZoneOffset.UTC;
 
 @ScalarFunction("to_iso8601")
@@ -45,13 +44,8 @@ public final class ToIso8601
     @LiteralParameters({"p", "n"})
     @SqlType("varchar(n)")
     @Constraint(variable = "n", expression = RESULT_LENGTH)
-    public static Slice toIso8601(@LiteralParameter("p") long precision, @SqlType("timestamp(p)") long timestamp)
+    public static Slice toIso8601(@LiteralParameter("p") long precision, @SqlType("timestamp(p)") long epochMicros)
     {
-        long epochMicros = timestamp;
-        if (precision <= 3) {
-            epochMicros = scaleEpochMillisToMicros(timestamp);
-        }
-
         return utf8Slice(formatTimestamp((int) precision, epochMicros, 0, UTC, ISO8601_FORMATTER));
     }
 

@@ -27,6 +27,7 @@ import java.util.function.Supplier;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
 import static java.util.Objects.requireNonNull;
@@ -77,11 +78,9 @@ public class TimestampDecoder
                         value.getClass().getSimpleName()));
             }
 
-            long epochMillis = timestamp.atOffset(ZoneOffset.UTC)
-                    .toInstant()
-                    .toEpochMilli();
+            long epochMicros = timestamp.atOffset(ZoneOffset.UTC).toInstant().toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
 
-            TIMESTAMP_MILLIS.writeLong(output, epochMillis);
+            TIMESTAMP_MILLIS.writeLong(output, epochMicros);
         }
     }
 }

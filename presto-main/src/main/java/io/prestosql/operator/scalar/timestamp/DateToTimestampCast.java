@@ -13,7 +13,6 @@
  */
 package io.prestosql.operator.scalar.timestamp;
 
-import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlType;
@@ -23,7 +22,6 @@ import io.prestosql.spi.type.StandardTypes;
 import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
 
 @ScalarOperator(CAST)
 public final class DateToTimestampCast
@@ -32,21 +30,15 @@ public final class DateToTimestampCast
 
     @LiteralParameters("p")
     @SqlType("timestamp(p)")
-    public static long cast(@LiteralParameter("p") long precision, @SqlType(StandardTypes.DATE) long date)
+    public static long castToShort(@SqlType(StandardTypes.DATE) long date)
     {
-        long result = TimeUnit.DAYS.toMillis(date);
-
-        if (precision > 3) {
-            return scaleEpochMillisToMicros(result);
-        }
-
-        return result;
+        return TimeUnit.DAYS.toMicros(date);
     }
 
     @LiteralParameters("p")
     @SqlType("timestamp(p)")
-    public static LongTimestamp cast(@SqlType(StandardTypes.DATE) long date)
+    public static LongTimestamp castToLong(@SqlType(StandardTypes.DATE) long date)
     {
-        return new LongTimestamp(cast(6, date), 0);
+        return new LongTimestamp(castToShort(date), 0);
     }
 }

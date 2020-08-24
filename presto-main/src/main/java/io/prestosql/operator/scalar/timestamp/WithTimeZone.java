@@ -55,7 +55,7 @@ public class WithTimeZone
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("'%s' is not a valid time zone", zoneId.toStringUtf8()));
         }
         DateTimeZone toDateTimeZone = getDateTimeZone(toTimeZoneKey);
-        return packDateTimeWithZone(UTC.getMillisKeepLocal(toDateTimeZone, timestamp), toTimeZoneKey);
+        return packDateTimeWithZone(UTC.getMillisKeepLocal(toDateTimeZone, scaleEpochMicrosToMillis(timestamp)), toTimeZoneKey);
     }
 
     @LiteralParameters({"x", "p"})

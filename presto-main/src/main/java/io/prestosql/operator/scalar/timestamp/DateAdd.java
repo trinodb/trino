@@ -44,20 +44,16 @@ public class DateAdd
             @SqlType(StandardTypes.BIGINT) long value,
             @SqlType("timestamp(p)") long timestamp)
     {
-        long epochMillis = timestamp;
-        int microFraction = 0;
-        if (precision > 3) {
-            epochMillis = scaleEpochMicrosToMillis(timestamp);
-            microFraction = getMicrosOfMilli(timestamp);
-        }
+        long epochMillis = scaleEpochMicrosToMillis(timestamp);
+        int microsOfMilli = getMicrosOfMilli(timestamp);
 
-        long result = DateTimeFunctions.getTimestampField(ISOChronology.getInstanceUTC(), unit).add(epochMillis, toIntExact(value));
+        epochMillis = DateTimeFunctions.getTimestampField(ISOChronology.getInstanceUTC(), unit).add(epochMillis, toIntExact(value));
 
         if (precision <= 3) {
-            return round(result, (int) (3 - precision));
+            epochMillis = round(epochMillis, (int) (3 - precision));
         }
 
-        return scaleEpochMillisToMicros(result) + microFraction;
+        return scaleEpochMillisToMicros(epochMillis) + microsOfMilli;
     }
 
     @LiteralParameters({"x", "p"})

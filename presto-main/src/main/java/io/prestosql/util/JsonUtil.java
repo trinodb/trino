@@ -89,7 +89,6 @@ import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.type.DateTimes.formatTimestamp;
-import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.TypeUtils.hashPosition;
 import static io.prestosql.type.TypeUtils.positionEqualsPosition;
@@ -520,9 +519,6 @@ public final class JsonUtil
 
                 if (type.isShort()) {
                     epochMicros = type.getLong(block, position);
-                    if (type.getPrecision() <= 3) {
-                        epochMicros = scaleEpochMillisToMicros(epochMicros);
-                    }
                     fraction = 0;
                 }
                 else {

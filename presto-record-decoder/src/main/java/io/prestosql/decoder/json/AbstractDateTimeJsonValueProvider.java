@@ -30,6 +30,7 @@ import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static java.lang.String.format;
@@ -74,7 +75,7 @@ public abstract class AbstractDateTimeJsonValueProvider
             return millis * PICOSECONDS_PER_MILLISECOND;
         }
         if (type.equals(TIMESTAMP_MILLIS)) {
-            return millis;
+            return millis * MICROSECONDS_PER_MILLISECOND;
         }
         if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
             return packDateTimeWithZone(millis, getTimeZone());

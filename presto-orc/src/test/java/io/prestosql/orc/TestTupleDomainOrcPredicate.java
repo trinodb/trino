@@ -301,21 +301,21 @@ public class TestTupleDomainOrcPredicate
                 .isEqualTo(notNull(TIMESTAMP_MILLIS));
 
         assertThat(getDomain(TIMESTAMP_MILLIS, 10, timeStampColumnStats(10L, 100L, 100L)))
-                .isEqualTo(singleValue(TIMESTAMP_MILLIS, 100L));
+                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_MILLIS, 100000L, true, 100999L, true)), false));
 
         assertThat(getDomain(TIMESTAMP_MILLIS, 10, timeStampColumnStats(10L, 13L, 100L)))
-                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_MILLIS, 13L, true, 100L, true)), false));
+                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_MILLIS, 13000L, true, 100999L, true)), false));
         assertThat(getDomain(TIMESTAMP_MILLIS, 10, timeStampColumnStats(10L, null, 100L)))
-                .isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(TIMESTAMP_MILLIS, 100L)), false));
+                .isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(TIMESTAMP_MILLIS, 100999L)), false));
         assertThat(getDomain(TIMESTAMP_MILLIS, 10, timeStampColumnStats(10L, 13L, null)))
-                .isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(TIMESTAMP_MILLIS, 13L)), false));
+                .isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(TIMESTAMP_MILLIS, 13000L)), false));
 
         assertThat(getDomain(TIMESTAMP_MILLIS, 10, timeStampColumnStats(5L, 13L, 100L)))
-                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_MILLIS, 13L, true, 100L, true)), true));
+                .isEqualTo(create(ValueSet.ofRanges(range(TIMESTAMP_MILLIS, 13000L, true, 100999L, true)), true));
         assertThat(getDomain(TIMESTAMP_MILLIS, 10, timeStampColumnStats(5L, null, 100L)))
-                .isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(TIMESTAMP_MILLIS, 100L)), true));
+                .isEqualTo(create(ValueSet.ofRanges(lessThanOrEqual(TIMESTAMP_MILLIS, 100999L)), true));
         assertThat(getDomain(TIMESTAMP_MILLIS, 10, timeStampColumnStats(5L, 13L, null)))
-                .isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(TIMESTAMP_MILLIS, 13L)), true));
+                .isEqualTo(create(ValueSet.ofRanges(greaterThanOrEqual(TIMESTAMP_MILLIS, 13000L)), true));
     }
 
     @Test

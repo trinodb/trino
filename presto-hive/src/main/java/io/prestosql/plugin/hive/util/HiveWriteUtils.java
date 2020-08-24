@@ -114,7 +114,9 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.Chars.padSpaces;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.floorDiv;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -319,7 +321,7 @@ public final class HiveWriteUtils
             return Date.ofEpochDay(toIntExact(type.getLong(block, position)));
         }
         if (TIMESTAMP_MILLIS.equals(type)) {
-            return Timestamp.ofEpochMilli(type.getLong(block, position));
+            return Timestamp.ofEpochMilli(floorDiv(type.getLong(block, position), MICROSECONDS_PER_MILLISECOND));
         }
         if (type instanceof DecimalType) {
             DecimalType decimalType = (DecimalType) type;

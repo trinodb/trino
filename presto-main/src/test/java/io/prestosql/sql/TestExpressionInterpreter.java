@@ -22,7 +22,6 @@ import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
-import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.sql.parser.ParsingOptions;
@@ -80,6 +79,7 @@ import static io.prestosql.sql.ExpressionUtils.rewriteIdentifiersToSymbolReferen
 import static io.prestosql.sql.ParsingUtil.createParsingOptions;
 import static io.prestosql.sql.planner.ExpressionInterpreter.expressionInterpreter;
 import static io.prestosql.sql.planner.ExpressionInterpreter.expressionOptimizer;
+import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
 import static io.prestosql.type.IntervalDayTimeType.INTERVAL_DAY_TIME;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -1486,7 +1486,7 @@ public class TestExpressionInterpreter
                 case "bound_time":
                     return new LocalTime(3, 4, 5, 321).toDateTime(new DateTime(0, UTC)).getMillis();
                 case "bound_timestamp":
-                    return new DateTime(2001, 8, 22, 3, 4, 5, 321, UTC).getMillis();
+                    return scaleEpochMillisToMicros(new DateTime(2001, 8, 22, 3, 4, 5, 321, UTC).getMillis());
                 case "bound_pattern":
                     return utf8Slice("%el%");
                 case "bound_timestamp_with_timezone":

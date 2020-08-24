@@ -25,7 +25,6 @@ import java.time.format.DateTimeFormatter;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
 import static java.time.ZoneOffset.UTC;
 
 @ScalarOperator(CAST)
@@ -37,13 +36,8 @@ public final class TimestampToVarcharCast
 
     @LiteralParameters({"x", "p"})
     @SqlType("varchar(x)")
-    public static Slice cast(@LiteralParameter("p") long precision, @SqlType("timestamp(p)") long timestamp)
+    public static Slice cast(@LiteralParameter("p") long precision, @SqlType("timestamp(p)") long epochMicros)
     {
-        long epochMicros = timestamp;
-        if (precision <= 3) {
-            epochMicros = scaleEpochMillisToMicros(timestamp);
-        }
-
         return utf8Slice(DateTimes.formatTimestamp((int) precision, epochMicros, 0, UTC, TIMESTAMP_FORMATTER));
     }
 

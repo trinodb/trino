@@ -33,9 +33,9 @@ public class TestISO8601JsonFieldDecoder
     @Test
     public void testDecode()
     {
-        tester.assertDecodedAs("\"2018-02-19T09:20:11\"", TIMESTAMP_MILLIS, 1519032011000L);
-        tester.assertDecodedAs("\"2018-02-19T09:20:11Z\"", TIMESTAMP_MILLIS, 1519032011000L);
-        tester.assertDecodedAs("\"2018-02-19T09:20:11+10:00\"", TIMESTAMP_MILLIS, 1519032011000L);
+        tester.assertDecodedAs("\"2018-02-19T09:20:11\"", TIMESTAMP_MILLIS, 1_519_032_011_000_000L);
+        tester.assertDecodedAs("\"2018-02-19T09:20:11Z\"", TIMESTAMP_MILLIS, 1_519_032_011_000_000L);
+        tester.assertDecodedAs("\"2018-02-19T09:20:11+10:00\"", TIMESTAMP_MILLIS, 1_519_032_011_000_000L);
         tester.assertDecodedAs("\"13:15:18\"", TIME, 47_718_000_000_000_000L);
         tester.assertDecodedAs("\"13:15\"", TIME, 47_700_000_000_000_000L);
         tester.assertDecodedAs("\"13:15:18Z\"", TIME, 47_718_000_000_000_000L);

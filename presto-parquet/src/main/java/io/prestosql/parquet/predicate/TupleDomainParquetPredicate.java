@@ -58,6 +58,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.floatToRawIntBits;
@@ -250,9 +251,9 @@ public class TupleDomainParquetPredicate
         if (type instanceof TimestampType && statistics instanceof BinaryStatistics) {
             BinaryStatistics binaryStatistics = (BinaryStatistics) statistics;
             long max = getTimestampMillis(binaryStatistics.genericGetMax());
-            max = timeZone.convertUTCToLocal(max);
+            max = timeZone.convertUTCToLocal(max) * MICROSECONDS_PER_MILLISECOND;
             long min = getTimestampMillis(binaryStatistics.genericGetMin());
-            min = timeZone.convertUTCToLocal(min);
+            min = timeZone.convertUTCToLocal(min) * MICROSECONDS_PER_MILLISECOND;
             if (min > max) {
                 failWithCorruptionException(failOnCorruptedParquetStatistics, column, id, binaryStatistics);
                 return Domain.create(ValueSet.all(type), hasNullValue);
