@@ -38,6 +38,7 @@ import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.TimeZoneKey.MAX_TIME_ZONE_KEY;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeys;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.teradata.functions.dateformat.DateFormatParser.createDateTimeFormatter;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -84,7 +85,7 @@ public final class TeradataDateFunctions
             @SqlType(StandardTypes.VARCHAR) Slice dateTime,
             @SqlType(StandardTypes.VARCHAR) Slice formatString)
     {
-        return parseMillis(session, dateTime, formatString);
+        return parseMillis(session, dateTime, formatString) * MICROSECONDS_PER_MILLISECOND;
     }
 
     private static long parseMillis(ConnectorSession session, Slice dateTime, Slice formatString)

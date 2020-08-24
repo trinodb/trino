@@ -43,8 +43,10 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static java.lang.Math.floorDiv;
 import static java.lang.Math.toIntExact;
 import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
 
@@ -158,7 +160,7 @@ public final class ElasticsearchQueryBuilder
             return ((Slice) value).toStringUtf8();
         }
         if (type.equals(TIMESTAMP_MILLIS)) {
-            return Instant.ofEpochMilli((Long) value)
+            return Instant.ofEpochMilli(floorDiv((Long) value, MICROSECONDS_PER_MILLISECOND))
                     .atZone(ZoneOffset.UTC)
                     .toLocalDateTime()
                     .format(ISO_DATE_TIME);

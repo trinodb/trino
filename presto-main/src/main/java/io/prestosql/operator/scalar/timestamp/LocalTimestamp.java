@@ -30,7 +30,6 @@ import static io.prestosql.spi.type.TimestampType.MAX_SHORT_PRECISION;
 import static io.prestosql.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
 import static io.prestosql.type.DateTimes.epochSecondToMicrosWithRounding;
 import static io.prestosql.type.DateTimes.round;
-import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
 
 @ScalarFunction(value = "$localtimestamp", hidden = true)
 public final class LocalTimestamp
@@ -48,13 +47,7 @@ public final class LocalTimestamp
                 .toInstant(ZoneOffset.UTC);
 
         long epochMicros = epochSecondToMicrosWithRounding(start.getEpochSecond(), ((long) start.getNano()) * PICOSECONDS_PER_NANOSECOND);
-        epochMicros = round(epochMicros, (int) (MAX_SHORT_PRECISION - precision));
-
-        if (precision <= 3) {
-            epochMicros = scaleEpochMicrosToMillis(epochMicros);
-        }
-
-        return epochMicros;
+        return round(epochMicros, (int) (MAX_SHORT_PRECISION - precision));
     }
 
     @LiteralParameters("p")

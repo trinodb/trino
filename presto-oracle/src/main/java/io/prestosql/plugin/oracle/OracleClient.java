@@ -96,6 +96,8 @@ import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.prestosql.spi.type.Timestamps.epochMicrosToMillisWithRounding;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
@@ -376,7 +378,7 @@ public class OracleClient
     public static LongWriteFunction oracleTimestampWriteFunction()
     {
         return (statement, index, utcMillis) -> {
-            statement.setObject(index, new oracle.sql.TIMESTAMP(new Timestamp(utcMillis), Calendar.getInstance(TimeZone.getTimeZone("UTC"))));
+            statement.setObject(index, new oracle.sql.TIMESTAMP(new Timestamp(epochMicrosToMillisWithRounding(utcMillis)), Calendar.getInstance(TimeZone.getTimeZone("UTC"))));
         };
     }
 
@@ -386,7 +388,7 @@ public class OracleClient
                 TIMESTAMP_MILLIS,
                 (resultSet, columnIndex) -> {
                     LocalDateTime timestamp = resultSet.getObject(columnIndex, LocalDateTime.class);
-                    return timestamp.toInstant(ZoneOffset.UTC).toEpochMilli();
+                    return timestamp.toInstant(ZoneOffset.UTC).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
                 },
                 oracleTimestampWriteFunction(),
                 OracleClient::fullPushdownIfSupported);

@@ -50,6 +50,7 @@ import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -217,7 +218,7 @@ public class AccumuloRecordCursor
             return serializer.getTime(fieldToColumnName[field]).getTime();
         }
         if (type.equals(TIMESTAMP_MILLIS)) {
-            return serializer.getTimestamp(fieldToColumnName[field]).getTime();
+            return serializer.getTimestamp(fieldToColumnName[field]).getTime() * MICROSECONDS_PER_MILLISECOND;
         }
         if (type.equals(TINYINT)) {
             return serializer.getByte(fieldToColumnName[field]);

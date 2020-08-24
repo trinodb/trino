@@ -30,7 +30,6 @@ import static io.prestosql.type.DateTimes.getMicrosOfMilli;
 import static io.prestosql.type.DateTimes.round;
 import static io.prestosql.type.DateTimes.roundToNearest;
 import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
-import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
 import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 
 @ScalarOperator(CAST)
@@ -41,17 +40,11 @@ public final class TimestampToTimestampWithTimezoneCast
     @LiteralParameters({"sourcePrecision", "targetPrecision"})
     @SqlType("timestamp(targetPrecision) with time zone")
     public static long shortToShort(
-            @LiteralParameter("sourcePrecision") long sourcePrecision,
             @LiteralParameter("targetPrecision") long targetPrecision,
             ConnectorSession session,
             @SqlType("timestamp(sourcePrecision)") long timestamp)
     {
-        long epochMillis = timestamp;
-
-        if (sourcePrecision > 3) {
-            epochMillis = scaleEpochMicrosToMillis(round(timestamp, 3));
-        }
-
+        long epochMillis = scaleEpochMicrosToMillis(round(timestamp, 3));
         epochMillis = round(epochMillis, (int) (3 - targetPrecision));
         return toShort(session, epochMillis);
     }
@@ -73,13 +66,8 @@ public final class TimestampToTimestampWithTimezoneCast
             @LiteralParameter("sourcePrecision") long sourcePrecision,
             @LiteralParameter("targetPrecision") long targetPrecision,
             ConnectorSession session,
-            @SqlType("timestamp(sourcePrecision)") long timestamp)
+            @SqlType("timestamp(sourcePrecision)") long epochMicros)
     {
-        long epochMicros = timestamp;
-        if (sourcePrecision <= 3) {
-            epochMicros = scaleEpochMillisToMicros(epochMicros);
-        }
-
         if (sourcePrecision > targetPrecision) {
             epochMicros = round(epochMicros, (int) (6 - targetPrecision));
         }

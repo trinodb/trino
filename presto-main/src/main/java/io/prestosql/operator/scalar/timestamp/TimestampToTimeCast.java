@@ -23,16 +23,13 @@ import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
 import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.type.DateTimes.MICROSECONDS_PER_SECOND;
-import static io.prestosql.type.DateTimes.MILLISECONDS_PER_SECOND;
 import static io.prestosql.type.DateTimes.PICOSECONDS_PER_DAY;
 import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
 import static io.prestosql.type.DateTimes.PICOSECONDS_PER_SECOND;
 import static io.prestosql.type.DateTimes.rescale;
 import static io.prestosql.type.DateTimes.round;
 import static io.prestosql.type.DateTimes.scaleEpochMicrosToSeconds;
-import static io.prestosql.type.DateTimes.scaleEpochMillisToSeconds;
 import static java.lang.Math.multiplyExact;
 
 @ScalarOperator(CAST)
@@ -47,16 +44,8 @@ public final class TimestampToTimeCast
             @LiteralParameter("targetPrecision") long targetPrecision,
             @SqlType("timestamp(sourcePrecision)") long timestamp)
     {
-        long epochSeconds;
-        long microOfSecond;
-        if (sourcePrecision <= 3) {
-            epochSeconds = scaleEpochMillisToSeconds(timestamp);
-            microOfSecond = (timestamp % MILLISECONDS_PER_SECOND) * MICROSECONDS_PER_MILLISECOND;
-        }
-        else {
-            epochSeconds = scaleEpochMicrosToSeconds(timestamp);
-            microOfSecond = timestamp % MICROSECONDS_PER_SECOND;
-        }
+        long epochSeconds = scaleEpochMicrosToSeconds(timestamp);
+        long microOfSecond = timestamp % MICROSECONDS_PER_SECOND;
 
         long microOfDay = multiplyExact(getSecondOfDay(epochSeconds), MICROSECONDS_PER_SECOND) + microOfSecond;
 

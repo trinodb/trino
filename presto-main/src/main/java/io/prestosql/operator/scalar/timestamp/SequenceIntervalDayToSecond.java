@@ -15,7 +15,6 @@ package io.prestosql.operator.scalar.timestamp;
 
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
@@ -44,15 +43,12 @@ public final class SequenceIntervalDayToSecond
     @LiteralParameters("p")
     @SqlType("array(timestamp(p))")
     public static Block sequence(
-            @LiteralParameter("p") long precision,
             @SqlType("timestamp(p)") long start,
             @SqlType("timestamp(p)") long stop,
             @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long step)
     {
-        if (precision > 3) {
-            // scale to micros
-            step = multiplyExact(step, MICROSECONDS_PER_MILLISECOND);
-        }
+        // scale to micros
+        step = multiplyExact(step, MICROSECONDS_PER_MILLISECOND);
 
         checkValidStep(start, stop, step);
 

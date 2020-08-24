@@ -33,7 +33,6 @@ import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.TimestampType.MAX_PRECISION;
 import static io.prestosql.spi.type.TimestampType.MAX_SHORT_PRECISION;
 import static io.prestosql.type.DateTimes.MICROSECONDS_PER_SECOND;
-import static io.prestosql.type.DateTimes.MILLISECONDS_PER_SECOND;
 import static io.prestosql.type.DateTimes.longTimestamp;
 import static io.prestosql.type.DateTimes.rescale;
 import static io.prestosql.type.DateTimes.round;
@@ -106,10 +105,6 @@ public final class VarcharToTimestampCast
 
         if (actualPrecision > precision) {
             fractionValue = round(fractionValue, actualPrecision - precision);
-        }
-
-        if (precision <= 3) {
-            return epochSecond * MILLISECONDS_PER_SECOND + rescale(fractionValue, actualPrecision, 3);
         }
 
         // scale to micros

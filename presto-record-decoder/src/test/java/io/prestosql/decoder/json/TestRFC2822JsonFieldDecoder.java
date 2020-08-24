@@ -37,9 +37,9 @@ public class TestRFC2822JsonFieldDecoder
         tester.assertDecodedAs("\"Mon Feb 12 13:15:16 Z 2018\"", DATE, 17574); // TODO should it be supported really?
         tester.assertDecodedAs("\"Thu Jan 01 13:15:19 Z 1970\"", TIME, 47_719_000_000_000_000L); // TODO should it be supported really?
         tester.assertDecodedAs("\"Thu Jan 01 13:15:19 Z 1970\"", TIME_WITH_TIME_ZONE, packTimeWithTimeZone(47_719_000_000_000L, 0)); // TODO should it be supported really?
-        tester.assertDecodedAs("\"Fri Feb 09 13:15:19 Z 2018\"", TIMESTAMP_MILLIS, 1518182119000L);
+        tester.assertDecodedAs("\"Fri Feb 09 13:15:19 Z 2018\"", TIMESTAMP_MILLIS, 1_518_182_119_000_000L);
         tester.assertDecodedAs("\"Fri Feb 09 13:15:19 Z 2018\"", TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(1518182119000L, UTC_KEY));
-        tester.assertDecodedAs("\"Fri Feb 09 15:15:19 +02:00 2018\"", TIMESTAMP_MILLIS, 1518182119000L);
+        tester.assertDecodedAs("\"Fri Feb 09 15:15:19 +02:00 2018\"", TIMESTAMP_MILLIS, 1_518_182_119_000_000L);
         tester.assertDecodedAs("\"Fri Feb 09 15:15:19 +02:00 2018\"", TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(1518182119000L, getTimeZoneKeyForOffset(120)));
     }
 

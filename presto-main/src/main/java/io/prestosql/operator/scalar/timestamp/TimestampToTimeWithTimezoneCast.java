@@ -31,7 +31,6 @@ import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
 import static io.prestosql.type.DateTimes.getOffsetMinutes;
 import static io.prestosql.type.DateTimes.rescale;
 import static io.prestosql.type.DateTimes.round;
-import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
 import static java.lang.Math.floorMod;
 
 @ScalarOperator(CAST)
@@ -42,14 +41,13 @@ public final class TimestampToTimeWithTimezoneCast
     @LiteralParameters({"sourcePrecision", "targetPrecision"})
     @SqlType("time(targetPrecision) with time zone")
     public static long shortToShort(
-            @LiteralParameter("sourcePrecision") long sourcePrecision,
             @LiteralParameter("targetPrecision") long targetPrecision,
             ConnectorSession session,
             @SqlType("timestamp(sourcePrecision)") long timestamp)
     {
         // source precision <= 6
         // target precision <= 9
-        long nanos = getMicros(sourcePrecision, timestamp) * NANOSECONDS_PER_MICROSECOND;
+        long nanos = floorMod(timestamp, MICROSECONDS_PER_DAY) * NANOSECONDS_PER_MICROSECOND;
 
         nanos = round(nanos, (int) (9 - targetPrecision)) % NANOSECONDS_PER_DAY;
 
@@ -59,14 +57,13 @@ public final class TimestampToTimeWithTimezoneCast
     @LiteralParameters({"sourcePrecision", "targetPrecision"})
     @SqlType("time(targetPrecision) with time zone")
     public static long longToShort(
-            @LiteralParameter("sourcePrecision") long sourcePrecision,
             @LiteralParameter("targetPrecision") long targetPrecision,
             ConnectorSession session,
             @SqlType("timestamp(sourcePrecision)") LongTimestamp timestamp)
     {
         // source precision > 6
         // target precision <= 9
-        long picos = getMicros(sourcePrecision, timestamp.getEpochMicros()) * PICOSECONDS_PER_MICROSECOND + timestamp.getPicosOfMicro();
+        long picos = floorMod(timestamp.getEpochMicros(), MICROSECONDS_PER_DAY) * PICOSECONDS_PER_MICROSECOND + timestamp.getPicosOfMicro();
         picos = round(picos, (int) (12 - targetPrecision));
 
         long nanos = rescale(picos, 12, 9) % NANOSECONDS_PER_DAY;
@@ -76,40 +73,28 @@ public final class TimestampToTimeWithTimezoneCast
     @LiteralParameters({"sourcePrecision", "targetPrecision"})
     @SqlType("time(targetPrecision) with time zone")
     public static LongTimeWithTimeZone shortToLong(
-            @LiteralParameter("sourcePrecision") long sourcePrecision,
             ConnectorSession session,
             @SqlType("timestamp(sourcePrecision)") long timestamp)
     {
         // source precision <= 6
         // target precision > 9
-        long picos = getMicros(sourcePrecision, timestamp) * PICOSECONDS_PER_MICROSECOND;
+        long picos = floorMod(timestamp, MICROSECONDS_PER_DAY) * PICOSECONDS_PER_MICROSECOND;
         return new LongTimeWithTimeZone(picos, getOffsetMinutes(session.getStart(), session.getTimeZoneKey()));
     }
 
     @LiteralParameters({"sourcePrecision", "targetPrecision"})
     @SqlType("time(targetPrecision) with time zone")
     public static LongTimeWithTimeZone longToLong(
-            @LiteralParameter("sourcePrecision") long sourcePrecision,
             @LiteralParameter("targetPrecision") long targetPrecision,
             ConnectorSession session,
             @SqlType("timestamp(sourcePrecision)") LongTimestamp timestamp)
     {
         // source precision > 6
         // target precision > 9
-        long picos = getMicros(sourcePrecision, timestamp.getEpochMicros()) * PICOSECONDS_PER_MICROSECOND + timestamp.getPicosOfMicro();
+        long picos = floorMod(timestamp.getEpochMicros(), MICROSECONDS_PER_DAY) * PICOSECONDS_PER_MICROSECOND + timestamp.getPicosOfMicro();
 
         picos = round(picos, (int) (12 - targetPrecision)) % PICOSECONDS_PER_DAY;
 
         return new LongTimeWithTimeZone(picos, getOffsetMinutes(session.getStart(), session.getTimeZoneKey()));
-    }
-
-    private static long getMicros(long sourcePrecision, long timestamp)
-    {
-        long epochMicros = timestamp;
-        if (sourcePrecision <= 3) {
-            epochMicros = scaleEpochMillisToMicros(timestamp);
-        }
-
-        return floorMod(epochMicros, MICROSECONDS_PER_DAY);
     }
 }

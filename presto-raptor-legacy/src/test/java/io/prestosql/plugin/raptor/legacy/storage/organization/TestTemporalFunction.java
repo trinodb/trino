@@ -22,6 +22,7 @@ import java.time.Duration;
 
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 
@@ -47,8 +48,8 @@ public class TestTemporalFunction
         BlockBuilder blockBuilder = TIMESTAMP_MILLIS.createBlockBuilder(null, 4);
 
         // start and end of UTC day
-        TIMESTAMP_MILLIS.writeLong(blockBuilder, DATE_TIME.getMillis());
-        TIMESTAMP_MILLIS.writeLong(blockBuilder, DATE_TIME.getMillis() + Duration.ofHours(23).toMillis());
+        TIMESTAMP_MILLIS.writeLong(blockBuilder, DATE_TIME.getMillis() * MICROSECONDS_PER_MILLISECOND);
+        TIMESTAMP_MILLIS.writeLong(blockBuilder, (DATE_TIME.getMillis() + Duration.ofHours(23).toMillis()) * MICROSECONDS_PER_MILLISECOND);
 
         Block block = blockBuilder.build();
 

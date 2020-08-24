@@ -49,6 +49,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -125,10 +126,19 @@ public class ColumnRangesSystemTable
                 for (int i = 0; i < columnTypes.size(); ++i) {
                     BlockBuilder blockBuilder = pageListBuilder.nextBlockBuilder();
                     Type columnType = columnTypes.get(i);
-                    if (columnType.equals(BIGINT) || columnType.equals(DATE) || columnType.equals(TIMESTAMP_MILLIS)) {
+                    if (columnType.equals(BIGINT) || columnType.equals(DATE)) {
                         long value = resultSet.getLong(i + 1);
                         if (!resultSet.wasNull()) {
                             columnType.writeLong(blockBuilder, value);
+                        }
+                        else {
+                            blockBuilder.appendNull();
+                        }
+                    }
+                    else if (columnType.equals(TIMESTAMP_MILLIS)) {
+                        long value = resultSet.getLong(i + 1);
+                        if (!resultSet.wasNull()) {
+                            columnType.writeLong(blockBuilder, value * MICROSECONDS_PER_MILLISECOND);
                         }
                         else {
                             blockBuilder.appendNull();

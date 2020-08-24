@@ -26,6 +26,8 @@ import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.DateTimeParser;
 import org.joda.time.format.DateTimePrinter;
 
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static java.lang.Math.floorDiv;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 
 public class TimestampEncoding
@@ -66,7 +68,7 @@ public class TimestampEncoding
                 output.writeBytes(nullSequence);
             }
             else {
-                long millis = type.getLong(block, position);
+                long millis = floorDiv(type.getLong(block, position), MICROSECONDS_PER_MILLISECOND);
                 buffer.setLength(0);
                 HIVE_TIMESTAMP_PARSER.printTo(buffer, millis);
                 for (int index = 0; index < buffer.length(); index++) {
@@ -80,7 +82,7 @@ public class TimestampEncoding
     @Override
     public void encodeValueInto(int depth, Block block, int position, SliceOutput output)
     {
-        long millis = type.getLong(block, position);
+        long millis = floorDiv(type.getLong(block, position), MICROSECONDS_PER_MILLISECOND);
         buffer.setLength(0);
         HIVE_TIMESTAMP_PARSER.printTo(buffer, millis);
         for (int index = 0; index < buffer.length(); index++) {
@@ -111,12 +113,11 @@ public class TimestampEncoding
     @Override
     public void decodeValueInto(int depth, BlockBuilder builder, Slice slice, int offset, int length)
     {
-        long millis = parseTimestamp(slice, offset, length);
-        type.writeLong(builder, millis);
+        type.writeLong(builder, parseTimestamp(slice, offset, length));
     }
 
     private static long parseTimestamp(Slice slice, int offset, int length)
     {
-        return HIVE_TIMESTAMP_PARSER.parseMillis(new String(slice.getBytes(offset, length), US_ASCII));
+        return HIVE_TIMESTAMP_PARSER.parseMillis(new String(slice.getBytes(offset, length), US_ASCII)) * MICROSECONDS_PER_MILLISECOND;
     }
 }

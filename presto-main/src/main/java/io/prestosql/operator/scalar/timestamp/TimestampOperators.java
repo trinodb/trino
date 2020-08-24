@@ -16,7 +16,6 @@ package io.prestosql.operator.scalar.timestamp;
 import io.airlift.slice.XxHash64;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.IsNull;
-import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlNullable;
@@ -227,14 +226,11 @@ public final class TimestampOperators
         @SqlType("timestamp(u)")
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static long add(
-                @LiteralParameter("p") long precision,
                 @SqlType("timestamp(p)") long timestamp,
                 @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
         {
-            if (precision > 3) {
-                // scale to micros
-                interval = multiplyExact(interval, MICROSECONDS_PER_MILLISECOND);
-            }
+            // scale to micros
+            interval = multiplyExact(interval, MICROSECONDS_PER_MILLISECOND);
 
             return timestamp + interval;
         }
@@ -257,11 +253,10 @@ public final class TimestampOperators
         @SqlType("timestamp(u)")
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static long add(
-                @LiteralParameter("p") long precision,
                 @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval,
                 @SqlType("timestamp(p)") long timestamp)
         {
-            return TimestampPlusIntervalDayToSecond.add(precision, timestamp, interval);
+            return TimestampPlusIntervalDayToSecond.add(timestamp, interval);
         }
 
         @LiteralParameters({"p", "u"})
@@ -283,23 +278,12 @@ public final class TimestampOperators
         @LiteralParameters("p")
         @SqlType("timestamp(p)")
         public static long add(
-                @LiteralParameter("p") long precision,
                 @SqlType("timestamp(p)") long timestamp,
                 @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
         {
-            long fractionMicros = 0;
-            if (precision > 3) {
-                fractionMicros = getMicrosOfMilli(timestamp);
-                timestamp = scaleEpochMicrosToMillis(timestamp);
-            }
-
-            long result = MONTH_OF_YEAR_UTC.add(timestamp, interval);
-
-            if (precision > 3) {
-                return scaleEpochMillisToMicros(result) + fractionMicros;
-            }
-
-            return result;
+            long fractionMicros = getMicrosOfMilli(timestamp);
+            long result = MONTH_OF_YEAR_UTC.add(scaleEpochMicrosToMillis(timestamp), interval);
+            return scaleEpochMillisToMicros(result) + fractionMicros;
         }
 
         @LiteralParameters("p")
@@ -309,7 +293,7 @@ public final class TimestampOperators
                 @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
         {
             return new LongTimestamp(
-                    add(6, timestamp.getEpochMicros(), interval),
+                    add(timestamp.getEpochMicros(), interval),
                     timestamp.getPicosOfMicro());
         }
     }
@@ -320,11 +304,10 @@ public final class TimestampOperators
         @LiteralParameters("p")
         @SqlType("timestamp(p)")
         public static long add(
-                @LiteralParameter("p") long precision,
                 @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval,
                 @SqlType("timestamp(p)") long timestamp)
         {
-            return TimestampPlusIntervalYearToMonth.add(precision, timestamp, interval);
+            return TimestampPlusIntervalYearToMonth.add(timestamp, interval);
         }
 
         @LiteralParameters("p")
@@ -344,11 +327,10 @@ public final class TimestampOperators
         @LiteralParameters("p")
         @SqlType("timestamp(p)")
         public static long subtract(
-                @LiteralParameter("p") long precision,
                 @SqlType("timestamp(p)") long timestamp,
                 @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
         {
-            return TimestampPlusIntervalYearToMonth.add(precision, timestamp, -interval);
+            return TimestampPlusIntervalYearToMonth.add(timestamp, -interval);
         }
 
         @LiteralParameters("p")
@@ -369,11 +351,10 @@ public final class TimestampOperators
         @SqlType("timestamp(u)")
         @Constraint(variable = "u", expression = "max(3, p)") // Interval is currently p = 3, so the minimum result precision is 3.
         public static long subtract(
-                @LiteralParameter("p") long precision,
                 @SqlType("timestamp(p)") long timestamp,
                 @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
         {
-            return TimestampPlusIntervalDayToSecond.add(precision, timestamp, -interval);
+            return TimestampPlusIntervalDayToSecond.add(timestamp, -interval);
         }
 
         @LiteralParameters({"p", "u"})
@@ -393,16 +374,13 @@ public final class TimestampOperators
         @LiteralParameters("p")
         @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND)
         public static long subtract(
-                @LiteralParameter("p") long precision,
                 @SqlType("timestamp(p)") long left,
                 @SqlType("timestamp(p)") long right)
         {
             long interval = left - right;
 
-            if (precision > 3) {
-                interval = round(interval, 3);
-                interval = rescale(interval, MAX_SHORT_PRECISION, 3);
-            }
+            interval = round(interval, 3);
+            interval = rescale(interval, MAX_SHORT_PRECISION, 3);
 
             return interval;
         }
@@ -413,7 +391,7 @@ public final class TimestampOperators
                 @SqlType("timestamp(p)") LongTimestamp left,
                 @SqlType("timestamp(p)") LongTimestamp right)
         {
-            return subtract(6, left.getEpochMicros(), right.getEpochMicros());
+            return subtract(left.getEpochMicros(), right.getEpochMicros());
         }
     }
 }

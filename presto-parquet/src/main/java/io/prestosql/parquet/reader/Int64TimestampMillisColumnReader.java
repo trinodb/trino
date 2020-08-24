@@ -19,18 +19,17 @@ import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import org.joda.time.DateTimeZone;
 
-import static io.prestosql.parquet.ParquetTimestampUtils.getTimestampMillis;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static java.util.Objects.requireNonNull;
 
-public class TimestampColumnReader
+public class Int64TimestampMillisColumnReader
         extends PrimitiveColumnReader
 {
     private final DateTimeZone timeZone;
 
-    public TimestampColumnReader(RichColumnDescriptor descriptor, DateTimeZone timeZone)
+    public Int64TimestampMillisColumnReader(RichColumnDescriptor descriptor, DateTimeZone timeZone)
     {
         super(descriptor);
         this.timeZone = requireNonNull(timeZone, "timeZone is null");
@@ -40,7 +39,7 @@ public class TimestampColumnReader
     protected void readValue(BlockBuilder blockBuilder, Type type)
     {
         if (definitionLevel == columnDescriptor.getMaxDefinitionLevel()) {
-            long utcMillis = getTimestampMillis(valuesReader.readBytes());
+            long utcMillis = valuesReader.readLong();
             if (type instanceof TimestampWithTimeZoneType) {
                 type.writeLong(blockBuilder, packDateTimeWithZone(utcMillis, UTC_KEY));
             }

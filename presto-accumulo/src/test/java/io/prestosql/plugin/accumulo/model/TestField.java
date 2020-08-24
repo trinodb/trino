@@ -203,7 +203,7 @@ public class TestField
     {
         Type type = TIMESTAMP_MILLIS;
         Timestamp expected = new Timestamp(new GregorianCalendar(1999, 0, 1, 12, 30, 0).getTime().getTime());
-        Field f1 = new Field(915219000000L, type);
+        Field f1 = new Field(915_219_000_000_000L, type);
         assertEquals(f1.getTimestamp(), expected);
         assertEquals(f1.getObject(), expected);
         assertEquals(f1.getType(), type);

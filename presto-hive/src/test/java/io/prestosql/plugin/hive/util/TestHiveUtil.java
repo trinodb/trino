@@ -33,6 +33,7 @@ import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.prestosql.plugin.hive.util.HiveUtil.getDeserializer;
 import static io.prestosql.plugin.hive.util.HiveUtil.parseHiveTimestamp;
 import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
+import static io.prestosql.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_CLASS;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_FORMAT;
 import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
@@ -94,7 +95,7 @@ public class TestHiveUtil
     private static long unixTime(DateTime time, int factionalDigits)
     {
         int factor = (int) Math.pow(10, Math.max(0, 3 - factionalDigits));
-        return (time.getMillis() / factor) * factor;
+        return (time.getMillis() / factor) * factor * MICROSECONDS_PER_MILLISECOND;
     }
 
     public static DateTimeZone nonDefaultTimeZone()

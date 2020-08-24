@@ -24,6 +24,7 @@ import io.prestosql.parquet.writer.valuewriter.IntegerValueWriter;
 import io.prestosql.parquet.writer.valuewriter.PrimitiveValueWriter;
 import io.prestosql.parquet.writer.valuewriter.RealValueWriter;
 import io.prestosql.parquet.writer.valuewriter.TimeMicrosValueWriter;
+import io.prestosql.parquet.writer.valuewriter.TimestampMillisValueWriter;
 import io.prestosql.parquet.writer.valuewriter.TimestampTzMicrosValueWriter;
 import io.prestosql.parquet.writer.valuewriter.TimestampTzMillisValueWriter;
 import io.prestosql.spi.PrestoException;
@@ -183,7 +184,7 @@ final class ParquetWriters
         }
         if (TIMESTAMP_MILLIS.equals(type)) {
             verifyParquetType(type, parquetType, OriginalType.TIMESTAMP_MILLIS);
-            return new BigintValueWriter(valuesWriter, type, parquetType);
+            return new TimestampMillisValueWriter(valuesWriter, type, parquetType);
         }
         if (TIMESTAMP_MICROS.equals(type)) {
             verifyParquetType(type, parquetType, OriginalType.TIMESTAMP_MICROS);

@@ -148,6 +148,7 @@ import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static io.prestosql.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.Math.toIntExact;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
@@ -710,7 +711,7 @@ public class RcFileTester
             }
             else if (TIMESTAMP_MILLIS.equals(type)) {
                 long millis = ((SqlTimestamp) value).getMillis();
-                type.writeLong(blockBuilder, millis);
+                type.writeLong(blockBuilder, millis * MICROSECONDS_PER_MILLISECOND);
             }
             else {
                 if (type instanceof ArrayType) {

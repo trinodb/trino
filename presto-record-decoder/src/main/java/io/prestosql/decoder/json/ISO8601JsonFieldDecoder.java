@@ -47,6 +47,7 @@ import static java.time.format.DateTimeFormatter.ISO_OFFSET_TIME;
 import static java.time.format.DateTimeFormatter.ISO_TIME;
 import static java.time.temporal.ChronoField.EPOCH_DAY;
 import static java.time.temporal.ChronoField.INSTANT_SECONDS;
+import static java.time.temporal.ChronoField.MICRO_OF_DAY;
 import static java.time.temporal.ChronoField.MILLI_OF_DAY;
 import static java.time.temporal.ChronoField.MILLI_OF_SECOND;
 import static java.util.Objects.requireNonNull;
@@ -111,11 +112,11 @@ public class ISO8601JsonFieldDecoder
                     // Equivalent to: ISO_DATE_TIME.parse(textValue, LocalDateTime::from).toInstant(UTC).toEpochMilli();
                     try {
                         TemporalAccessor parseResult = ISO_OFFSET_DATE_TIME.parse(textValue);
-                        return TimeUnit.DAYS.toMillis(parseResult.getLong(EPOCH_DAY)) + parseResult.getLong(MILLI_OF_DAY);
+                        return TimeUnit.DAYS.toMicros(parseResult.getLong(EPOCH_DAY)) + parseResult.getLong(MICRO_OF_DAY);
                     }
                     catch (DateTimeParseException e) {
                         TemporalAccessor parseResult = ISO_DATE_TIME.parse(textValue);
-                        return TimeUnit.DAYS.toMillis(parseResult.getLong(EPOCH_DAY)) + parseResult.getLong(MILLI_OF_DAY);
+                        return TimeUnit.DAYS.toMicros(parseResult.getLong(EPOCH_DAY)) + parseResult.getLong(MICRO_OF_DAY);
                     }
                 }
                 if (columnType.equals(TIMESTAMP_WITH_TIME_ZONE)) {
