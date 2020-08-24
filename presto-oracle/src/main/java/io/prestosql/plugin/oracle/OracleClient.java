@@ -239,6 +239,11 @@ public class OracleClient
     {
         int columnSize = typeHandle.getColumnSize();
 
+        Optional<ColumnMapping> mappingToVarchar = getForcedMappingToVarchar(typeHandle);
+        if (mappingToVarchar.isPresent()) {
+            return mappingToVarchar;
+        }
+
         switch (typeHandle.getJdbcType()) {
             case Types.SMALLINT:
                 return Optional.of(smallintColumnMapping());
