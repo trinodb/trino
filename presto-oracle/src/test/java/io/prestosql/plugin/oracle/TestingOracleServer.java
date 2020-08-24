@@ -17,6 +17,7 @@ import io.prestosql.plugin.jdbc.BaseJdbcConfig;
 import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.JdbcIdentity;
+import io.prestosql.plugin.jdbc.RetryingConnectionFactory;
 import io.prestosql.plugin.jdbc.credential.StaticCredentialProvider;
 import oracle.jdbc.OracleDriver;
 import org.testcontainers.containers.OracleContainer;
@@ -121,7 +122,7 @@ public class TestingOracleServer
                 new OracleDriver(),
                 new BaseJdbcConfig().setConnectionUrl(getJdbcUrl()),
                 StaticCredentialProvider.of(username, password));
-        return connectionFactory;
+        return new RetryingConnectionFactory(connectionFactory);
     }
 
     @Override
