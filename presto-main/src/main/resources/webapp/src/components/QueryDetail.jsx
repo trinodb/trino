@@ -1373,7 +1373,7 @@ export class QueryDetail extends React.Component {
                                             Physical Input Read Time
                                         </td>
                                         <td className="info-text">
-                                            {parseAndFormatDataSize(query.queryStats.physicalInputReadTime)}
+                                            {query.queryStats.physicalInputReadTime}
                                         </td>
                                     </tr>
                                     <tr>
