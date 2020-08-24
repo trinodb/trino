@@ -105,7 +105,7 @@ public class TestDynamicFilter
                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
                                 exchange(
                                         project(
-                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))), metadata)));
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
     }
 
     @Test
@@ -137,7 +137,7 @@ public class TestDynamicFilter
                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey", "ORDERS_CK", "custkey")),
                                 exchange(
                                         project(
-                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey", "LINEITEM_PK", "partkey")))), metadata)));
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey", "LINEITEM_PK", "partkey")))))));
     }
 
     @Test
@@ -153,7 +153,7 @@ public class TestDynamicFilter
                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
                                 exchange(
                                         project(
-                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))), metadata)));
+                                                tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")))))));
     }
 
     @Test
@@ -171,7 +171,7 @@ public class TestDynamicFilter
                                         node(
                                                 EnforceSingleRowNode.class,
                                                 anyTree(
-                                                        tableScan("lineitem", ImmutableMap.of("Y", "orderkey"))))), metadata)));
+                                                        tableScan("lineitem", ImmutableMap.of("Y", "orderkey"))))))));
 
         assertPlan("SELECT * FROM orders WHERE orderkey IN (SELECT orderkey FROM lineitem WHERE linenumber % 4 = 0)",
                 anyTree(
@@ -233,7 +233,7 @@ public class TestDynamicFilter
                                                 Optional.empty(),
                                                 tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey")),
                                                 exchange(
-                                                        project(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))), metadata)), metadata)));
+                                                        project(tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))))))));
     }
 
     @Test
@@ -290,7 +290,7 @@ public class TestDynamicFilter
                                                                         project(
                                                                                 tableScan("orders", ImmutableMap.of("ORDERS_CK16", "clerk")))))),
                                                 anyTree(
-                                                        tableScan("orders", ImmutableMap.of("ORDERS_CK27", "clerk"))))), metadata)));
+                                                        tableScan("orders", ImmutableMap.of("ORDERS_CK27", "clerk"))))))));
     }
 
     @Test
