@@ -31,7 +31,6 @@ import static io.prestosql.type.DateTimes.PICOSECONDS_PER_SECOND;
 import static io.prestosql.type.DateTimes.SECONDS_PER_DAY;
 import static io.prestosql.type.DateTimes.rescale;
 import static io.prestosql.type.DateTimes.round;
-import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
 import static java.lang.Math.multiplyExact;
 
 @ScalarOperator(CAST)
@@ -51,13 +50,7 @@ public final class TimeWithTimezoneToTimestampCast
         long picos = rescale(unpackTimeNanos(packedTime), 9, 12);
         picos = round(picos, (int) (12 - targetPrecision));
 
-        long epochMicros = calculateEpochMicros(session, picos);
-
-        if (targetPrecision <= 3) {
-            return scaleEpochMicrosToMillis(epochMicros);
-        }
-
-        return epochMicros;
+        return calculateEpochMicros(session, picos);
     }
 
     @LiteralParameters({"sourcePrecision", "targetPrecision"})
@@ -72,13 +65,7 @@ public final class TimeWithTimezoneToTimestampCast
         long picos = time.getPicoSeconds();
         picos = round(picos, (int) (12 - targetPrecision));
 
-        long epochMicros = calculateEpochMicros(session, picos);
-
-        if (targetPrecision <= 3) {
-            return scaleEpochMicrosToMillis(epochMicros);
-        }
-
-        return epochMicros;
+        return calculateEpochMicros(session, picos);
     }
 
     @LiteralParameters({"sourcePrecision", "targetPrecision"})

@@ -190,8 +190,6 @@ public class TimestampColumnWriter
         // record values
         switch (timestampKind) {
             case TIMESTAMP_MILLIS:
-                writeTimestampMillis(block);
-                break;
             case TIMESTAMP_MICROS:
                 writeTimestampMicros(block);
                 break;

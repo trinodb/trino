@@ -46,6 +46,8 @@ import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
+import static io.prestosql.type.DateTimes.MICROSECONDS_PER_SECOND;
+import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
 import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.prestosql.util.DateTimeZoneIndex.packDateTimeWithZone;
@@ -112,7 +114,7 @@ public final class DateTimeFunctions
     @SqlType("timestamp(3)")
     public static long fromUnixTime(@SqlType(StandardTypes.DOUBLE) double unixTime)
     {
-        return Math.round(unixTime * 1000);
+        return Math.round(unixTime * MICROSECONDS_PER_SECOND);
     }
 
     @ScalarFunction("from_unixtime")
@@ -308,7 +310,7 @@ public final class DateTimeFunctions
                 .withLocale(session.getLocale());
 
         try {
-            return formatter.parseMillis(dateTime.toStringUtf8());
+            return scaleEpochMillisToMicros(formatter.parseMillis(dateTime.toStringUtf8()));
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);

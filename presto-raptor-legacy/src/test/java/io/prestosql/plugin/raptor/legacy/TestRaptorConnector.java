@@ -232,8 +232,8 @@ public class TestRaptorConnector
         Object timestamp1 = null;
         Object timestamp2 = null;
         if (temporalType.equals(TIMESTAMP_MILLIS)) {
-            timestamp1 = SqlTimestamp.fromMillis(3, castToShortTimestamp(TIMESTAMP_MILLIS.getPrecision(), min));
-            timestamp2 = SqlTimestamp.fromMillis(3, castToShortTimestamp(TIMESTAMP_MILLIS.getPrecision(), max));
+            timestamp1 = SqlTimestamp.newInstance(3, castToShortTimestamp(TIMESTAMP_MILLIS.getPrecision(), min), 0);
+            timestamp2 = SqlTimestamp.newInstance(3, castToShortTimestamp(TIMESTAMP_MILLIS.getPrecision(), max), 0);
         }
         else if (temporalType.equals(DATE)) {
             timestamp1 = new SqlDate(parseDate(min));

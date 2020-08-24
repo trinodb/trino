@@ -98,6 +98,7 @@ import static io.prestosql.sql.tree.Extract.Field.TIMEZONE_HOUR;
 import static io.prestosql.sql.tree.Extract.Field.TIMEZONE_MINUTE;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.testing.SqlVarbinaryTestingUtil.sqlVarbinary;
+import static io.prestosql.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static io.prestosql.util.StructuralTestUtil.mapType;
@@ -1528,16 +1529,16 @@ public class TestExpressionCompiler
                     continue;
                 }
                 Long expected = null;
-                Long millis = null;
+                Long micros = null;
                 if (left != null) {
-                    millis = left.getMillis();
-                    expected = callExtractFunction(TEST_SESSION.toConnectorSession(), millis, 3, field);
+                    micros = left.getMillis() * MICROSECONDS_PER_MILLISECOND;
+                    expected = callExtractFunction(TEST_SESSION.toConnectorSession(), micros, field);
                 }
                 String expressionPattern = format(
-                        "extract(%s from from_unixtime(cast(%s as double) / 1000))",
+                        "extract(%s from from_unixtime(cast(%s as double) / 1000000))",
                         field,
-                        millis);
-                assertExecute(generateExpression(expressionPattern, millis), BIGINT, expected);
+                        micros);
+                assertExecute(generateExpression(expressionPattern, micros), BIGINT, expected);
             }
         }
 
@@ -1545,35 +1546,35 @@ public class TestExpressionCompiler
     }
 
     @SuppressWarnings("fallthrough")
-    private static long callExtractFunction(ConnectorSession session, long value, int precision, Field field)
+    private static long callExtractFunction(ConnectorSession session, long value, Field field)
     {
         switch (field) {
             case YEAR:
-                return ExtractYear.extract(precision, value);
+                return ExtractYear.extract(value);
             case QUARTER:
-                return ExtractQuarter.extract(precision, value);
+                return ExtractQuarter.extract(value);
             case MONTH:
-                return ExtractMonth.extract(precision, value);
+                return ExtractMonth.extract(value);
             case WEEK:
-                return ExtractWeekOfYear.extract(precision, value);
+                return ExtractWeekOfYear.extract(value);
             case DAY:
             case DAY_OF_MONTH:
-                return ExtractDay.extract(precision, value);
+                return ExtractDay.extract(value);
             case DAY_OF_WEEK:
             case DOW:
-                return ExtractDayOfWeek.extract(precision, value);
+                return ExtractDayOfWeek.extract(value);
             case YEAR_OF_WEEK:
             case YOW:
-                return ExtractYearOfWeek.extract(precision, value);
+                return ExtractYearOfWeek.extract(value);
             case DAY_OF_YEAR:
             case DOY:
-                return ExtractDayOfYear.extract(precision, value);
+                return ExtractDayOfYear.extract(value);
             case HOUR:
-                return ExtractHour.extract(precision, value);
+                return ExtractHour.extract(value);
             case MINUTE:
-                return ExtractMinute.extract(precision, value);
+                return ExtractMinute.extract(value);
             case SECOND:
-                return ExtractSecond.extract(precision, value);
+                return ExtractSecond.extract(value);
         }
         throw new AssertionError("Unhandled field: " + field);
     }

@@ -69,6 +69,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
@@ -285,7 +286,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
             return ((Date) value).toEpochDay();
         }
         if (value instanceof Timestamp) {
-            return ((Timestamp) value).toEpochMilli();
+            return ((Timestamp) value).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
         }
         if (value instanceof Float) {
             return floatToRawIntBits(((Float) value));

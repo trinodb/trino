@@ -56,6 +56,7 @@ import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_DAY;
 import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_DAY;
@@ -68,6 +69,7 @@ import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.floorDiv;
 import static java.lang.Math.max;
 import static java.lang.Math.min;
 import static java.lang.Math.toIntExact;
@@ -392,12 +394,12 @@ public final class StandardColumnMappings
 
     public static long toPrestoTimestamp(LocalDateTime localDateTime)
     {
-        return localDateTime.atZone(UTC).toInstant().toEpochMilli();
+        return localDateTime.atZone(UTC).toInstant().toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
     }
 
     public static LocalDateTime fromPrestoTimestamp(long value)
     {
-        return Instant.ofEpochMilli(value).atZone(UTC).toLocalDateTime();
+        return Instant.ofEpochMilli(floorDiv(value, MICROSECONDS_PER_MILLISECOND)).atZone(UTC).toLocalDateTime();
     }
 
     public static LocalTime fromPrestoTime(long value)

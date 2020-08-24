@@ -74,6 +74,7 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimeOf;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static io.prestosql.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.DAYS;
@@ -509,7 +510,7 @@ public class TestJdbcQueryBuilder
 
     private static long toPrestoTimestamp(int year, int month, int day, int hour, int minute, int second)
     {
-        return sqlTimestampOf(3, year, month, day, hour, minute, second, 0).getMillis();
+        return sqlTimestampOf(3, year, month, day, hour, minute, second, 0).getMillis() * MICROSECONDS_PER_MILLISECOND;
     }
 
     private static Timestamp toTimestamp(int year, int month, int day, int hour, int minute, int second)

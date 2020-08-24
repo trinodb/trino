@@ -30,7 +30,6 @@ import static io.prestosql.type.DateTimes.PICOSECONDS_PER_SECOND;
 import static io.prestosql.type.DateTimes.SECONDS_PER_DAY;
 import static io.prestosql.type.DateTimes.rescale;
 import static io.prestosql.type.DateTimes.round;
-import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
 import static java.lang.Math.multiplyExact;
 
 @ScalarOperator(CAST)
@@ -46,12 +45,7 @@ public final class TimeToTimestampCast
             ConnectorSession session,
             @SqlType("time(sourcePrecision)") long time)
     {
-        long epochMicros = cast(sourcePrecision, targetPrecision, session, time);
-        if (targetPrecision <= 3) {
-            return scaleEpochMicrosToMillis(epochMicros);
-        }
-
-        return epochMicros;
+        return cast(sourcePrecision, targetPrecision, session, time);
     }
 
     @LiteralParameters({"sourcePrecision", "targetPrecision"})

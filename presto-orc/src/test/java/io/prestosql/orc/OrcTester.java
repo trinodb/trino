@@ -677,8 +677,7 @@ public class OrcTester
                 type.writeLong(blockBuilder, days);
             }
             else if (TIMESTAMP_MILLIS.equals(type)) {
-                long millis = ((SqlTimestamp) value).getMillis();
-                type.writeLong(blockBuilder, millis);
+                type.writeLong(blockBuilder, ((SqlTimestamp) value).getEpochMicros());
             }
             else if (TIMESTAMP_MICROS.equals(type)) {
                 long micros = ((SqlTimestamp) value).getEpochMicros();

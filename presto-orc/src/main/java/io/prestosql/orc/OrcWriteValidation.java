@@ -559,7 +559,7 @@ public class OrcWriteValidation
                 // A flaw in ORC encoding makes it impossible to represent timestamp
                 // between 1969-12-31 23:59:59.000, exclusive, and 1970-01-01 00:00:00.000, exclusive.
                 // Therefore, such data won't round trip. The data read back is expected to be 1 second later than the original value.
-                long mills = TIMESTAMP_MILLIS.getLong(block, position);
+                long mills = floorDiv(TIMESTAMP_MILLIS.getLong(block, position), MICROSECONDS_PER_MILLISECOND);
                 if (mills > -1000 && mills < 0) {
                     return AbstractLongType.hash(mills + 1000);
                 }
@@ -687,12 +687,7 @@ public class OrcWriteValidation
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();
             }
-            else if (TIMESTAMP_MILLIS.equals(type)) {
-                statisticsBuilder = new TimestampStatisticsBuilder(Type::getLong);
-                fieldExtractor = ignored -> ImmutableList.of();
-                fieldBuilders = ImmutableList.of();
-            }
-            else if (TIMESTAMP_MICROS.equals(type)) {
+            else if (TIMESTAMP_MILLIS.equals(type) || TIMESTAMP_MICROS.equals(type)) {
                 statisticsBuilder = new TimestampStatisticsBuilder(this::timestampMicrosToMillis);
                 fieldExtractor = ignored -> ImmutableList.of();
                 fieldBuilders = ImmutableList.of();

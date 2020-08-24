@@ -22,8 +22,9 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_DAY;
+import static java.lang.Math.floorDiv;
 import static java.lang.Math.toIntExact;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class TemporalFunction
 {
@@ -36,8 +37,7 @@ public final class TemporalFunction
         }
 
         if (type.equals(TIMESTAMP_MILLIS)) {
-            long millis = TIMESTAMP_MILLIS.getLong(block, position);
-            long days = MILLISECONDS.toDays(millis);
+            long days = floorDiv(TIMESTAMP_MILLIS.getLong(block, position), MICROSECONDS_PER_DAY);
             return toIntExact(days);
         }
 

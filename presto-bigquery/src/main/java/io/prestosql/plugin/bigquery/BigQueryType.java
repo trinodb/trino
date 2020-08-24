@@ -45,6 +45,7 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_PRECISION;
 import static io.prestosql.plugin.bigquery.BigQueryMetadata.NUMERIC_DATA_TYPE_SCALE;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Integer.parseInt;
 import static java.lang.String.format;
@@ -117,7 +118,7 @@ public enum BigQueryType
 
     static long toPrestoTimestamp(String datetime)
     {
-        return toLocalDateTime(datetime).toInstant(UTC).toEpochMilli();
+        return toLocalDateTime(datetime).toInstant(UTC).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
     }
 
     static String simpleToStringConverter(Object value)

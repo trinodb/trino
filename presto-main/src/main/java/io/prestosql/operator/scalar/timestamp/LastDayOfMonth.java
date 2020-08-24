@@ -14,7 +14,6 @@
 package io.prestosql.operator.scalar.timestamp;
 
 import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
@@ -35,13 +34,9 @@ public class LastDayOfMonth
 
     @LiteralParameters("p")
     @SqlType(StandardTypes.DATE)
-    public static long lastDayOfMonth(@LiteralParameter("p") long precision, @SqlType("timestamp(p)") long timestamp)
+    public static long lastDayOfMonth(@SqlType("timestamp(p)") long timestamp)
     {
-        long epochMillis = timestamp;
-        if (precision > 3) {
-            epochMillis = scaleEpochMicrosToMillis(timestamp);
-        }
-
+        long epochMillis = scaleEpochMicrosToMillis(timestamp);
         long millis = ISOChronology.getInstanceUTC().monthOfYear().roundCeiling(epochMillis + 1) - MILLISECONDS_IN_DAY;
         return MILLISECONDS.toDays(millis);
     }
@@ -50,6 +45,6 @@ public class LastDayOfMonth
     @SqlType(StandardTypes.DATE)
     public static long lastDayOfMonth(@SqlType("timestamp(p)") LongTimestamp timestamp)
     {
-        return lastDayOfMonth(6, timestamp.getEpochMicros());
+        return lastDayOfMonth(timestamp.getEpochMicros());
     }
 }

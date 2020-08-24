@@ -44,6 +44,7 @@ import static io.prestosql.spi.connector.SystemTable.Distribution.SINGLE_COORDIN
 import static io.prestosql.spi.predicate.TupleDomain.extractFixedValues;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.stream.Collectors.toList;
@@ -108,8 +109,8 @@ public class TableStatsSystemTable
             pageBuilder.beginRow();
             VARCHAR.writeSlice(pageBuilder.nextBlockBuilder(), utf8Slice(row.getSchemaName()));
             VARCHAR.writeSlice(pageBuilder.nextBlockBuilder(), utf8Slice(row.getTableName()));
-            TIMESTAMP_MILLIS.writeLong(pageBuilder.nextBlockBuilder(), row.getCreateTime());
-            TIMESTAMP_MILLIS.writeLong(pageBuilder.nextBlockBuilder(), row.getUpdateTime());
+            TIMESTAMP_MILLIS.writeLong(pageBuilder.nextBlockBuilder(), row.getCreateTime() * MICROSECONDS_PER_MILLISECOND);
+            TIMESTAMP_MILLIS.writeLong(pageBuilder.nextBlockBuilder(), row.getUpdateTime() * MICROSECONDS_PER_MILLISECOND);
             BIGINT.writeLong(pageBuilder.nextBlockBuilder(), row.getTableVersion());
             BIGINT.writeLong(pageBuilder.nextBlockBuilder(), row.getShardCount());
             BIGINT.writeLong(pageBuilder.nextBlockBuilder(), row.getRowCount());

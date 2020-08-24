@@ -71,6 +71,7 @@ import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
+import static io.prestosql.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.Float.NaN;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Math.toIntExact;
@@ -359,10 +360,10 @@ public class TestTupleDomainParquetPredicate
         String column = "timestampColumn";
         TimestampType timestampType = createTimestampType(3);
         assertEquals(getDomain(timestampType, 0, null, ID, column, true, UTC), all(timestampType));
-        assertEquals(getDomain(timestampType, 10, timestampColumnStats(baseTime, baseTime), ID, column, true, UTC), singleValue(timestampType, baseTime.toEpochMilli()));
+        assertEquals(getDomain(timestampType, 10, timestampColumnStats(baseTime, baseTime), ID, column, true, UTC), singleValue(timestampType, baseTime.toEpochMilli() * MICROSECONDS_PER_MILLISECOND));
         assertEquals(
                 getDomain(timestampType, 10, timestampColumnStats(baseTime.minusSeconds(10), baseTime), ID, column, true, UTC),
-                create(ValueSet.ofRanges(range(timestampType, baseTime.minusSeconds(10).toEpochMilli(), true, baseTime.toEpochMilli(), true)), false));
+                create(ValueSet.ofRanges(range(timestampType, baseTime.minusSeconds(10).toEpochMilli() * MICROSECONDS_PER_MILLISECOND, true, baseTime.toEpochMilli() * MICROSECONDS_PER_MILLISECOND, true)), false));
 
         // ignore corrupted statistics
         assertEquals(getDomain(timestampType, 10, timestampColumnStats(baseTime.plusSeconds(10), baseTime), ID, column, false, UTC), create(ValueSet.all(timestampType), false));

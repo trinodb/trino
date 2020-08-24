@@ -80,7 +80,6 @@ import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.prestosql.spi.type.Timestamps.roundDiv;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
-import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.prestosql.type.JsonType.JSON;
 import static java.lang.Float.floatToRawIntBits;
 import static java.util.Objects.requireNonNull;
@@ -298,12 +297,7 @@ public class MaterializedResult
         else if (type instanceof TimestampType) {
             long micros = ((SqlTimestamp) value).getEpochMicros();
             int precision = ((TimestampType) type).getPrecision();
-            if (precision <= 3) {
-                type.writeLong(blockBuilder, scaleEpochMicrosToMillis(micros));
-            }
-            else {
-                type.writeLong(blockBuilder, micros);
-            }
+            type.writeLong(blockBuilder, micros);
         }
         else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
             long millisUtc = ((SqlTimestampWithTimeZone) value).getMillisUtc();

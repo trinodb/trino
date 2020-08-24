@@ -15,7 +15,6 @@ package io.prestosql.operator.scalar.timestamp;
 
 import io.airlift.slice.Slice;
 import io.prestosql.spi.function.Description;
-import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
@@ -35,21 +34,14 @@ public final class DateTrunc
     @LiteralParameters({"x", "p"})
     @SqlType("timestamp(p)")
     public static long truncate(
-            @LiteralParameter("p") long precision,
             @SqlType("varchar(x)") Slice unit,
             @SqlType("timestamp(p)") long timestamp)
     {
-        if (precision > 3) {
-            timestamp = scaleEpochMicrosToMillis(timestamp);
-        }
+        timestamp = scaleEpochMicrosToMillis(timestamp);
 
         long result = getTimestampField(ISOChronology.getInstanceUTC(), unit).roundFloor(timestamp);
 
-        if (precision > 3) {
-            result = scaleEpochMillisToMicros(result);
-        }
-
-        return result;
+        return scaleEpochMillisToMicros(result);
     }
 
     @LiteralParameters({"x", "p"})

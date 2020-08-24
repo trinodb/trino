@@ -121,6 +121,11 @@ public final class DateTimes
         return Math.floorDiv(value, MICROSECONDS_PER_MILLISECOND);
     }
 
+    public static long epochMicrosToMillisWithRounding(long epochMicros)
+    {
+        return roundDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
+    }
+
     public static long scaleEpochMillisToSeconds(long epochMillis)
     {
         return Math.floorDiv(epochMillis, MILLISECONDS_PER_SECOND);
@@ -233,10 +238,7 @@ public final class DateTimes
 
         long epochMicros;
         int picosOfMicro = 0;
-        if (precision <= 3) {
-            epochMicros = scaleEpochMillisToMicros(type.getLong(block, position));
-        }
-        else if (precision <= MAX_SHORT_PRECISION) {
+        if (precision <= MAX_SHORT_PRECISION) {
             epochMicros = type.getLong(block, position);
         }
         else {
@@ -366,16 +368,12 @@ public final class DateTimes
             fractionValue = Long.parseLong(fraction);
         }
 
-        if (precision <= 3) {
-            // scale to millis
-            return epochSecond * MILLISECONDS_PER_SECOND + rescale(fractionValue, precision, 3);
-        }
-        else if (precision <= MAX_SHORT_PRECISION) {
-            // scale to micros
-            return epochSecond * MICROSECONDS_PER_SECOND + rescale(fractionValue, precision, 6);
+        if (precision > MAX_SHORT_PRECISION) {
+            throw new IllegalArgumentException(format("Cannot parse '%s' as short timestamp. Max allowed precision = %s", value, MAX_SHORT_PRECISION));
         }
 
-        throw new IllegalArgumentException(format("Cannot parse '%s' as short timestamp. Max allowed precision = %s", value, MAX_SHORT_PRECISION));
+        // scale to micros
+        return multiplyExact(epochSecond, MICROSECONDS_PER_SECOND) + rescale(fractionValue, precision, 6);
     }
 
     private static LongTimestamp parseLongTimestamp(String value)

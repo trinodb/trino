@@ -408,7 +408,7 @@ public class TimestampColumnReader
             millis = fileDateTimeZone.convertUTCToLocal(millis);
         }
 
-        return millis;
+        return millis * MICROSECONDS_PER_MILLISECOND;
     }
 
     // TIMESTAMP MICROS

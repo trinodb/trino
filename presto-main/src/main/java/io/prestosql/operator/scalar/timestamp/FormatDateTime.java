@@ -39,12 +39,10 @@ public class FormatDateTime
 
     @LiteralParameters({"x", "p"})
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice format(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") long timestamp, @SqlType("varchar(x)") Slice formatString)
+    public static Slice format(ConnectorSession session, @SqlType("timestamp(p)") long timestamp, @SqlType("varchar(x)") Slice formatString)
     {
         // TODO: currently, date formatting only supports up to millis, so we round to that unit
-        if (precision > 3) {
-            timestamp = scaleEpochMicrosToMillis(round(timestamp, 3));
-        }
+        timestamp = scaleEpochMicrosToMillis(round(timestamp, 3));
 
         if (datetimeFormatSpecifiesZone(formatString)) {
             // Timezone is unknown for TIMESTAMP w/o TZ so it cannot be printed out.
@@ -68,7 +66,7 @@ public class FormatDateTime
     public static Slice formatDatetime(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") LongTimestamp timestamp, @SqlType("varchar(x)") Slice formatString)
     {
         // Currently, date formatting only supports up to millis, so anything in the microsecond fraction is irrelevant
-        return format(6, session, timestamp.getEpochMicros(), formatString);
+        return format(session, timestamp.getEpochMicros(), formatString);
     }
 
     /**

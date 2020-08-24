@@ -783,8 +783,7 @@ public class ParquetTester
                 type.writeLong(blockBuilder, days);
             }
             else if (TIMESTAMP_MILLIS.equals(type)) {
-                long millis = ((SqlTimestamp) value).getMillis();
-                type.writeLong(blockBuilder, millis);
+                type.writeLong(blockBuilder, ((SqlTimestamp) value).getEpochMicros());
             }
             else {
                 if (type instanceof ArrayType) {

@@ -61,6 +61,7 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.spi.type.Chars.truncateToLengthAndTrimSpaces;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static java.lang.Float.floatToRawIntBits;
@@ -325,8 +326,8 @@ public final class SerDeUtils
     private static long formatTimestampAsLong(Object object, TimestampObjectInspector inspector)
     {
         if (object instanceof TimestampWritable) {
-            return ((TimestampWritable) object).getTimestamp().getTime();
+            return ((TimestampWritable) object).getTimestamp().getTime() * MICROSECONDS_PER_MILLISECOND;
         }
-        return inspector.getPrimitiveJavaObject(object).toEpochMilli();
+        return inspector.getPrimitiveJavaObject(object).toEpochMilli() * MICROSECONDS_PER_MILLISECOND;
     }
 }

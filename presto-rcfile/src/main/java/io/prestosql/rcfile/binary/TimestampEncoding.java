@@ -27,6 +27,7 @@ import static io.prestosql.rcfile.RcFileDecoderUtils.decodeVIntSize;
 import static io.prestosql.rcfile.RcFileDecoderUtils.isNegativeVInt;
 import static io.prestosql.rcfile.RcFileDecoderUtils.readVInt;
 import static io.prestosql.rcfile.RcFileDecoderUtils.writeVInt;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.Math.floorDiv;
 import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
@@ -49,7 +50,7 @@ public class TimestampEncoding
     {
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
-                writeTimestamp(output, type.getLong(block, position));
+                writeTimestamp(output, floorDiv(type.getLong(block, position), MICROSECONDS_PER_MILLISECOND));
             }
             encodeOutput.closeEntry();
         }
@@ -58,7 +59,7 @@ public class TimestampEncoding
     @Override
     public void encodeValueInto(Block block, int position, SliceOutput output)
     {
-        writeTimestamp(output, type.getLong(block, position));
+        writeTimestamp(output, floorDiv(type.getLong(block, position), MICROSECONDS_PER_MILLISECOND));
     }
 
     @Override
@@ -73,7 +74,7 @@ public class TimestampEncoding
             if (length != 0) {
                 int offset = columnData.getOffset(i);
                 long millis = getTimestamp(slice, offset);
-                type.writeLong(builder, millis);
+                type.writeLong(builder, millis * MICROSECONDS_PER_MILLISECOND);
             }
             else {
                 builder.appendNull();
@@ -108,7 +109,7 @@ public class TimestampEncoding
     public void decodeValueInto(BlockBuilder builder, Slice slice, int offset, int length)
     {
         long millis = getTimestamp(slice, offset);
-        type.writeLong(builder, millis);
+        type.writeLong(builder, millis * MICROSECONDS_PER_MILLISECOND);
     }
 
     private static boolean hasNanosVInt(byte b)
