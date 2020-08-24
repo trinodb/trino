@@ -201,7 +201,7 @@ public class DynamicFilterService
                 .map(context.getLazyDynamicFilters()::get)
                 .filter(Objects::nonNull)
                 .collect(toImmutableList());
-        AtomicReference<TupleDomain<ColumnHandle>> completedDynamicFilter = new AtomicReference<>();
+        AtomicReference<CurrentDynamicFilter> currentDynamicFilter = new AtomicReference<>(new CurrentDynamicFilter(0, TupleDomain.all()));
 
         return new DynamicFilter()
         {
@@ -230,22 +230,25 @@ public class DynamicFilterService
             @Override
             public TupleDomain<ColumnHandle> getCurrentPredicate()
             {
-                TupleDomain<ColumnHandle> dynamicFilter = completedDynamicFilter.get();
-                if (dynamicFilter != null) {
-                    return dynamicFilter;
+                Set<DynamicFilterId> completedDynamicFilters = dynamicFilters.stream()
+                        .filter(filter -> context.getDynamicFilterSummaries().containsKey(filter))
+                        .collect(toImmutableSet());
+
+                CurrentDynamicFilter currentFilter = currentDynamicFilter.get();
+                if (currentFilter.getCompletedDynamicFiltersCount() >= completedDynamicFilters.size()) {
+                    // return current dynamic filter as it's more complete
+                    return currentFilter.getDynamicFilter();
                 }
 
-                dynamicFilter = dynamicFilters.stream()
-                        .map(filter -> Optional.ofNullable(context.getDynamicFilterSummaries().get(filter))
-                                .map(summary -> translateSummaryToTupleDomain(filter, summary, sourceColumnHandles)))
-                        .filter(Optional::isPresent)
-                        .map(Optional::get)
+                TupleDomain<ColumnHandle> dynamicFilter = completedDynamicFilters.stream()
+                        .map(filter -> translateSummaryToTupleDomain(filter, context.getDynamicFilterSummaries().get(filter), sourceColumnHandles))
                         .reduce(TupleDomain.all(), TupleDomain::intersect);
 
-                if (isComplete()) {
-                    completedDynamicFilter.set(dynamicFilter);
-                }
-
+                // It could happen that two threads update currentDynamicFilter concurrently.
+                // In such case, currentDynamicFilter might be set to dynamic filter with less domains.
+                // However, this isn't an issue since in the next getCurrentPredicate() call currentDynamicFilter
+                // will be updated again with most accurate dynamic filter.
+                currentDynamicFilter.set(new CurrentDynamicFilter(completedDynamicFilters.size(), dynamicFilter));
                 return dynamicFilter;
             }
         };
@@ -589,6 +592,28 @@ public class DynamicFilterService
         private boolean isCompleted()
         {
             return completed.get();
+        }
+    }
+
+    private static class CurrentDynamicFilter
+    {
+        private final int completedDynamicFiltersCount;
+        private final TupleDomain<ColumnHandle> dynamicFilter;
+
+        private CurrentDynamicFilter(int completedDynamicFiltersCount, TupleDomain<ColumnHandle> dynamicFilter)
+        {
+            this.completedDynamicFiltersCount = completedDynamicFiltersCount;
+            this.dynamicFilter = requireNonNull(dynamicFilter, "dynamicFilter is null");
+        }
+
+        private int getCompletedDynamicFiltersCount()
+        {
+            return completedDynamicFiltersCount;
+        }
+
+        private TupleDomain<ColumnHandle> getDynamicFilter()
+        {
+            return dynamicFilter;
         }
     }
 }
