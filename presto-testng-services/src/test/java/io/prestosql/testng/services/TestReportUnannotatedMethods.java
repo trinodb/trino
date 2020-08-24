@@ -17,11 +17,15 @@ import io.prestosql.tempto.Requirement;
 import io.prestosql.tempto.Requirements;
 import io.prestosql.tempto.RequirementsProvider;
 import io.prestosql.tempto.configuration.Configuration;
+import io.prestosql.tempto.testmarkers.WithName;
 import org.testng.annotations.Test;
 
 import java.lang.reflect.Method;
 
+import static io.prestosql.testng.services.ReportUnannotatedMethods.isTemptoClass;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public class TestReportUnannotatedMethods
 {
@@ -47,6 +51,14 @@ public class TestReportUnannotatedMethods
     {
         assertThat(instance.findUnannotatedTestMethods(TestingRequirementsProvider.class))
                 .isEmpty();
+    }
+
+    @Test
+    public void testTemptoPackage()
+    {
+        assertTrue(isTemptoClass(RequirementsProvider.class));
+        assertTrue(isTemptoClass(WithName.class));
+        assertFalse(isTemptoClass(getClass()));
     }
 
     private static class TestingTest
