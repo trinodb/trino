@@ -157,8 +157,11 @@ public class ReportUnannotatedMethods
         return true;
     }
 
-    public static boolean isTemptoClass(Class<?> aClass)
+    @VisibleForTesting
+    static boolean isTemptoClass(Class<?> aClass)
     {
-        return "io.prestosql.tempto".equals(aClass.getPackage().getName());
+        String temptoPackage = "io.prestosql.tempto";
+        String aPackage = aClass.getPackage().getName();
+        return aPackage.equals(temptoPackage) || aPackage.startsWith(temptoPackage + ".");
     }
 }
