@@ -89,17 +89,20 @@ public class TestLocalDynamicFilterConsumer
                 2);
 
         Consumer<TupleDomain<DynamicFilterId>> consumer = filter.getTupleDomainConsumer();
-        ListenableFuture<Map<Symbol, Domain>> result = filter.getNodeLocalDynamicFilterForSymbols();
+        ListenableFuture<Map<Symbol, Domain>> localResult = filter.getNodeLocalDynamicFilterForSymbols();
+        ListenableFuture<Map<DynamicFilterId, Domain>> result = filter.getDynamicFilterDomains();
+        assertFalse(localResult.isDone());
         assertFalse(result.isDone());
 
         consumer.accept(TupleDomain.withColumnDomains(ImmutableMap.of(
                 new DynamicFilterId("123"), Domain.all(INTEGER))));
-        assertEquals(result.get(), ImmutableMap.of());
+        assertEquals(localResult.get(), ImmutableMap.of());
+        assertEquals(result.get(), ImmutableMap.of(new DynamicFilterId("123"), Domain.all(INTEGER)));
 
         // adding another partition domain won't change final domain
         consumer.accept(TupleDomain.withColumnDomains(ImmutableMap.of(
                 new DynamicFilterId("123"), Domain.singleValue(INTEGER, 1L))));
-        assertEquals(result.get(), ImmutableMap.of());
+        assertEquals(localResult.get(), ImmutableMap.of());
     }
 
     @Test
@@ -146,6 +149,34 @@ public class TestLocalDynamicFilterConsumer
 
         assertEquals(result.get(), ImmutableMap.of(
                 new Symbol("a"), Domain.multipleValues(INTEGER, ImmutableList.of(10L, 20L))));
+    }
+
+    @Test
+    public void testAllDomain()
+            throws Exception
+    {
+        DynamicFilterId filter1 = new DynamicFilterId("123");
+        DynamicFilterId filter2 = new DynamicFilterId("124");
+        LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
+                ImmutableMultimap.of(
+                        filter1, new Symbol("a"),
+                        filter2, new Symbol("b")),
+                ImmutableMap.of(
+                        filter1, 0,
+                        filter2, 1),
+                ImmutableMap.of(
+                        filter1, INTEGER,
+                        filter2, INTEGER),
+                1);
+
+        Consumer<TupleDomain<DynamicFilterId>> consumer = filter.getTupleDomainConsumer();
+        ListenableFuture<Map<DynamicFilterId, Domain>> result = filter.getDynamicFilterDomains();
+        assertFalse(result.isDone());
+
+        consumer.accept(TupleDomain.withColumnDomains(ImmutableMap.of(
+                filter1, Domain.all(INTEGER),
+                filter2, Domain.singleValue(INTEGER, 1L))));
+        assertEquals(result.get(), ImmutableMap.of(filter1, Domain.all(INTEGER), filter2, Domain.singleValue(INTEGER, 1L)));
     }
 
     @Test
