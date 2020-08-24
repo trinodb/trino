@@ -53,7 +53,6 @@ import static io.prestosql.sql.DynamicFilters.createDynamicFilterExpression;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
 import static io.prestosql.sql.ExpressionUtils.combineDisjuncts;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.equiJoinClause;
-import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.join;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.output;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.spatialJoin;
@@ -116,8 +115,9 @@ public class TestRemoveUnsupportedDynamicFilters
                 join(
                         INNER,
                         ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
-                        filter(
-                                "ORDERS_OK > 0",
+                        PlanMatchPattern.filter(
+                                expression("ORDERS_OK > 0"),
+                                TRUE_LITERAL,
                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
                         tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))));
     }
@@ -145,7 +145,7 @@ public class TestRemoveUnsupportedDynamicFilters
                 removeUnsupportedDynamicFilters(root),
                 join(INNER,
                         ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
-                        filter(
+                        PlanMatchPattern.filter(
                                 TRUE_LITERAL,
                                 createDynamicFilterExpression(metadata, new DynamicFilterId("DF"), BIGINT, new SymbolReference("ORDERS_OK")),
                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
@@ -181,7 +181,7 @@ public class TestRemoveUnsupportedDynamicFilters
                                 ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
                                 filter(
-                                        "LINEITEM_OK > 0",
+                                        expression("LINEITEM_OK > 0"),
                                         tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
     }
 
@@ -215,7 +215,6 @@ public class TestRemoveUnsupportedDynamicFilters
                                 ImmutableList.of(equiJoinClause("LINEITEM_OK", "ORDERS_OK")),
                                 filter(
                                         expression("LINEITEM_OK > 0"),
-                                        TRUE_LITERAL,
                                         values("LINEITEM_OK")),
                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")))));
     }
@@ -319,6 +318,12 @@ public class TestRemoveUnsupportedDynamicFilters
                                 "true",
                                 values("LEFT_SYMBOL"),
                                 values("RIGHT_SYMBOL"))));
+    }
+
+    private static PlanMatchPattern filter(Expression expectedPredicate, PlanMatchPattern source)
+    {
+        // assert explicitly that no dynamic filters are present
+        return PlanMatchPattern.filter(expectedPredicate, TRUE_LITERAL, source);
     }
 
     private PlanNode removeUnsupportedDynamicFilters(PlanNode root)
