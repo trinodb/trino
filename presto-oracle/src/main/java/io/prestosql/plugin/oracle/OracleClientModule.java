@@ -23,6 +23,7 @@ import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
+import io.prestosql.plugin.jdbc.RetryingConnectionFactory;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 import oracle.jdbc.OracleConnection;
 import oracle.jdbc.OracleDriver;
@@ -63,10 +64,10 @@ public class OracleClientModule
                     oracleConfig.getInactiveConnectionTimeout());
         }
 
-        return new DriverConnectionFactory(
+        return new RetryingConnectionFactory(new DriverConnectionFactory(
                 new OracleDriver(),
                 config.getConnectionUrl(),
                 connectionProperties,
-                credentialProvider);
+                credentialProvider));
     }
 }
