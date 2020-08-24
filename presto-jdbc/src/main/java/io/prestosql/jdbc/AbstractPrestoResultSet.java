@@ -59,6 +59,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -127,9 +128,11 @@ abstract class AbstractPrestoResultSet
     private final AtomicReference<List<Object>> row = new AtomicReference<>();
     private final AtomicBoolean wasNull = new AtomicBoolean();
     protected final AtomicBoolean closed = new AtomicBoolean();
+    private final Optional<Statement> statement;
 
-    AbstractPrestoResultSet(ZoneId resultTimeZone, List<Column> columns, Iterator<List<Object>> results)
+    AbstractPrestoResultSet(Optional<Statement> statement, ZoneId resultTimeZone, List<Column> columns, Iterator<List<Object>> results)
     {
+        this.statement = requireNonNull(statement, "statement is null");
         this.resultTimeZone = DateTimeZone.forID(requireNonNull(resultTimeZone, "resultTimeZone is null").getId());
 
         requireNonNull(columns, "columns is null");
@@ -1101,7 +1104,11 @@ abstract class AbstractPrestoResultSet
     public Statement getStatement()
             throws SQLException
     {
-        throw new NotImplementedException("ResultSet", "getStatement");
+        if (statement.isPresent()) {
+            return statement.get();
+        }
+
+        throw new SQLException("Statement not available");
     }
 
     @Override
