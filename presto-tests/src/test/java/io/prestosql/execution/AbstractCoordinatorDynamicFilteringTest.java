@@ -63,6 +63,23 @@ public abstract class AbstractCoordinatorDynamicFilteringTest
     }
 
     @Test(timeOut = 30_000)
+    public void testJoinWithLargeBuildSide()
+    {
+        assertQueryDynamicFilters(
+                "SELECT * FROM lineitem JOIN tpch.tiny.orders ON lineitem.orderkey = orders.orderkey",
+                TupleDomain.all());
+    }
+
+    @Test(timeOut = 30_000)
+    public void testBroadcastJoinWithLargeBuildSide()
+    {
+        assertQueryDynamicFilters(
+                withBroadcastJoin(),
+                "SELECT * FROM lineitem JOIN tpch.tiny.orders ON lineitem.orderkey = orders.orderkey",
+                TupleDomain.all());
+    }
+
+    @Test(timeOut = 30_000)
     public void testJoinWithSelectiveBuildSide()
     {
         assertQueryDynamicFilters(

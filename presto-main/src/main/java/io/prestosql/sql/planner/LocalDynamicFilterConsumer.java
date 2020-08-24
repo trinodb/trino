@@ -28,6 +28,7 @@ import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -144,7 +145,11 @@ public class LocalDynamicFilterConsumer
             return buildChannels.keySet().stream()
                     .collect(toImmutableMap(identity(), filterId -> Domain.none(filterBuildTypes.get(filterId))));
         }
-        return result.getDomains().get();
+
+        Map<DynamicFilterId, Domain> domains = new HashMap<>(result.getDomains().get());
+        // Add `all` domain explicitly for dynamic filters to notify dynamic filter listeners
+        buildChannels.keySet().forEach(filterId -> domains.putIfAbsent(filterId, Domain.all(filterBuildTypes.get(filterId))));
+        return ImmutableMap.copyOf(domains);
     }
 
     public static LocalDynamicFilterConsumer create(JoinNode planNode, List<Type> buildSourceTypes, int partitionCount)
