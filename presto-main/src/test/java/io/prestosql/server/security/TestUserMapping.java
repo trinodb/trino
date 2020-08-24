@@ -23,6 +23,7 @@ import java.io.File;
 import java.net.URISyntaxException;
 import java.util.Optional;
 
+import static io.prestosql.server.security.UserMapping.Case.KEEP;
 import static io.prestosql.server.security.UserMapping.createUserMapping;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
@@ -70,21 +71,21 @@ public class TestUserMapping
     public void testReplacePatternRule()
             throws Exception
     {
-        UserMapping userMapping = new UserMapping(ImmutableList.of(new Rule("(.*?)@.*", "$1 ^ $1", true)));
+        UserMapping userMapping = new UserMapping(ImmutableList.of(new Rule("(.*?)@.*", "$1 ^ $1", true, KEEP)));
         assertEquals(userMapping.mapUser("test@example.com"), "test ^ test");
         assertThrows(UserMappingException.class, () -> userMapping.mapUser("no at sign"));
 
-        UserMapping emptyMapping = new UserMapping(ImmutableList.of(new Rule("(.*?)@.*", "  ", true)));
+        UserMapping emptyMapping = new UserMapping(ImmutableList.of(new Rule("(.*?)@.*", "  ", true, KEEP)));
         assertThrows(UserMappingException.class, () -> emptyMapping.mapUser("test@example.com"));
     }
 
     @Test
     public void testNotAllowedRule()
     {
-        UserMapping userMapping = new UserMapping(ImmutableList.of(new Rule("(.*?)@.*", "$1", false)));
+        UserMapping userMapping = new UserMapping(ImmutableList.of(new Rule("(.*?)@.*", "$1", false, KEEP)));
         assertThrows(UserMappingException.class, () -> userMapping.mapUser("test@example.com"));
 
-        UserMapping emptyMapping = new UserMapping(ImmutableList.of(new Rule("(.*?)@.*", "", false)));
+        UserMapping emptyMapping = new UserMapping(ImmutableList.of(new Rule("(.*?)@.*", "", false, KEEP)));
         assertThrows(UserMappingException.class, () -> emptyMapping.mapUser("test@example.com"));
     }
 
@@ -92,10 +93,26 @@ public class TestUserMapping
     public void testMultipleRule()
             throws Exception
     {
-        UserMapping userMapping = new UserMapping(ImmutableList.of(new Rule("test@example.com", "", false), new Rule("(.*?)@example.com")));
+        UserMapping userMapping = new UserMapping(ImmutableList.of(new Rule("test@example.com", "", false, KEEP), new Rule("(.*?)@example.com")));
         assertEquals(userMapping.mapUser("apple@example.com"), "apple");
         assertThrows(UserMappingException.class, () -> userMapping.mapUser("test@example.com"));
         assertThrows(UserMappingException.class, () -> userMapping.mapUser("apple@other.example.com"));
+    }
+
+    @Test
+    public void testLowercaseUsernameRule()
+            throws UserMappingException
+    {
+        UserMapping userMapping = new UserMapping(ImmutableList.of(new Rule("(.*)@EXAMPLE\\.COM", "$1", true, UserMapping.Case.LOWER)));
+        assertEquals(userMapping.mapUser("TEST@EXAMPLE.COM"), "test");
+    }
+
+    @Test
+    public void testUppercaseUsernameRule()
+            throws UserMappingException
+    {
+        UserMapping userMapping = new UserMapping(ImmutableList.of(new Rule("(.*)@example\\.com", "$1", true, UserMapping.Case.UPPER)));
+        assertEquals(userMapping.mapUser("test@example.com"), "TEST");
     }
 
     @Test
@@ -111,5 +128,6 @@ public class TestUserMapping
         assertEquals(userMapping.mapUser("apple@de.example.com"), "apple_de");
         assertThrows(UserMappingException.class, () -> userMapping.mapUser("apple@unknown.com"));
         assertThrows(UserMappingException.class, () -> userMapping.mapUser("test@example.com"));
+        assertEquals(userMapping.mapUser("test@uppercase.com"), "TEST");
     }
 }
