@@ -16,14 +16,29 @@ package io.prestosql.testng.services;
 import org.testng.IClassListener;
 import org.testng.ITestClass;
 
+import static com.google.common.base.Throwables.getStackTraceAsString;
+import static io.prestosql.testng.services.Listeners.reportListenerFailure;
 import static io.prestosql.testng.services.ReportUnannotatedMethods.isTemptoClass;
-import static java.lang.String.format;
 
 public class ReportIllNamedTest
         implements IClassListener
 {
     @Override
     public void onBeforeClass(ITestClass testClass)
+    {
+        try {
+            reportIllNamedTest(testClass);
+        }
+        catch (RuntimeException | Error e) {
+            reportListenerFailure(
+                    ReportIllNamedTest.class,
+                    "Failed to process %s: \n%s",
+                    testClass,
+                    getStackTraceAsString(e));
+        }
+    }
+
+    private void reportIllNamedTest(ITestClass testClass)
     {
         Class<?> realClass = testClass.getRealClass();
         String testClassName = realClass.getSimpleName();
@@ -38,13 +53,10 @@ public class ReportIllNamedTest
             return;
         }
 
-        // TestNG may or may not propagate listener's exception as test execution exception.
-        // Therefore, instead of throwing, we terminate the JVM.
-        System.err.println(format(
-                "FATAL: Test class %s's name should start with Test",
-                realClass.getName()));
-        System.err.println("JVM will be terminated");
-        System.exit(1);
+        reportListenerFailure(
+                ReportIllNamedTest.class,
+                "Test class %s's name should start with Test",
+                realClass.getName());
     }
 
     @Override
