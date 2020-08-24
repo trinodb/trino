@@ -18,6 +18,7 @@ import io.prestosql.client.Column;
 import java.sql.SQLException;
 import java.time.ZoneId;
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
 
@@ -26,7 +27,7 @@ class InMemoryPrestoResultSet
 {
     public InMemoryPrestoResultSet(ZoneId sessionTimeZone, List<Column> columns, List<List<Object>> results)
     {
-        super(sessionTimeZone, columns, requireNonNull(results, "results is null").iterator());
+        super(Optional.empty(), sessionTimeZone, columns, requireNonNull(results, "results is null").iterator());
     }
 
     @Override

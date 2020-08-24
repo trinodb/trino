@@ -20,9 +20,11 @@ import io.prestosql.client.QueryStatusInfo;
 import io.prestosql.client.StatementClient;
 
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.time.ZoneId;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
@@ -45,18 +47,19 @@ public class PrestoResultSet
     private final StatementClient client;
     private final String queryId;
 
-    static PrestoResultSet create(StatementClient client, long maxRows, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
+    static PrestoResultSet create(Statement statement, StatementClient client, long maxRows, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
             throws SQLException
     {
         requireNonNull(client, "client is null");
         List<Column> columns = getColumns(client, progressCallback);
-        return new PrestoResultSet(client, columns, maxRows, progressCallback, warningsManager);
+        return new PrestoResultSet(statement, client, columns, maxRows, progressCallback, warningsManager);
     }
 
-    private PrestoResultSet(StatementClient client, List<Column> columns, long maxRows, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
+    private PrestoResultSet(Statement statement, StatementClient client, List<Column> columns, long maxRows, Consumer<QueryStats> progressCallback, WarningsManager warningsManager)
             throws SQLException
     {
         super(
+                Optional.of(requireNonNull(statement, "statement is null")),
                 getResultTimeZone(requireNonNull(client, "client is null")),
                 columns,
                 new AsyncIterator<>(flatten(new ResultsPageIterator(client, progressCallback, warningsManager), maxRows), client));
