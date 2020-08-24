@@ -59,10 +59,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 /**
  * The main purpose of this class is to test cases when current server implementation breaks older JDBC clients
  * to ensure that current implementation is backward-compatible.
- *
+ * <p>
  * {@link TestJdbcResultSetCompatibilityOldDriver} in that regard is responsible for testing forward compatibility
  * as it's using old test code and old JDBC client against current server implementation.
- *
+ * <p>
  * This test in turn is run using an old JDBC client against current server implementation.
  */
 public class TestJdbcCompatibility
@@ -296,7 +296,7 @@ public class TestJdbcCompatibility
     {
         String query = "SELECT ObjectId('55b151633864d6438c61a9ce') AS objectId";
         checkRepresentation(query, JAVA_OBJECT, (resultSet, columnIndex) -> {
-            assertThat(resultSet.getObject(columnIndex)).isEqualTo(new byte[]{85, -79, 81, 99, 56, 100, -42, 67, -116, 97, -87, -50});
+            assertThat(resultSet.getObject(columnIndex)).isEqualTo(new byte[] {85, -79, 81, 99, 56, 100, -42, 67, -116, 97, -87, -50});
         });
     }
 
@@ -311,7 +311,7 @@ public class TestJdbcCompatibility
     public void testSelectArray()
     {
         String query = "SELECT ARRAY['presto', 'is', 'awesome']";
-        checkRepresentation(query, ARRAY, (rs, column) -> assertThat(rs.getArray(column).getArray()).isEqualTo(new Object[]{"presto", "is", "awesome"}));
+        checkRepresentation(query, ARRAY, (rs, column) -> assertThat(rs.getArray(column).getArray()).isEqualTo(new Object[] {"presto", "is", "awesome"}));
     }
 
     @Test
