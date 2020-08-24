@@ -50,6 +50,13 @@ public class ReportUnannotatedMethods
     private void reportUnannotatedTestMethods(ITestClass testClass)
     {
         Class<?> realClass = testClass.getRealClass();
+
+        if (realClass.getSuperclass() != null &&
+                "io.prestosql.tempto.internal.convention.ConventionBasedTestProxyGenerator$ConventionBasedTestProxy".equals(realClass.getSuperclass().getName())) {
+            // Ignore tempto generated convention tests.
+            return;
+        }
+
         List<Method> unannotatedTestMethods = findUnannotatedTestMethods(realClass);
         if (!unannotatedTestMethods.isEmpty()) {
             reportListenerFailure(
