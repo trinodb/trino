@@ -16,18 +16,18 @@ package io.prestosql.plugin.hive.coercions;
 
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.VarcharType;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 
-public class DoubleToVarcharCoercer<F extends Type>
-        extends TypeCoercer<F, VarcharType>
+public class DoubleToVarcharCoercer
+        extends TypeCoercer<DoubleType, VarcharType>
 {
-    public DoubleToVarcharCoercer(F fromType, VarcharType toType)
+    public DoubleToVarcharCoercer(VarcharType toType)
     {
-        super(fromType, toType);
+        super(DOUBLE, toType);
     }
 
     @Override

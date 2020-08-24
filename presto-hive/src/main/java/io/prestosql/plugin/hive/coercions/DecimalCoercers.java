@@ -18,12 +18,11 @@ import io.airlift.slice.Slice;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.VarcharType;
 
-import java.math.BigDecimal;
-import java.math.BigInteger;
 import java.util.function.Function;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -342,8 +341,7 @@ public final class DecimalCoercers
         @Override
         protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
         {
-            toType.writeSlice(blockBuilder,
-                    utf8Slice(new BigDecimal(BigInteger.valueOf(fromType.getLong(block, position)), fromType.getScale()).toString()));
+            toType.writeSlice(blockBuilder, utf8Slice(Decimals.toString(fromType.getSlice(block, position), fromType.getScale())));
         }
     }
 }

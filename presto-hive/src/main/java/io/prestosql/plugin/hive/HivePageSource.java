@@ -364,10 +364,10 @@ public class HivePageSource
             return new IntegerNumberToVarcharCoercer<>(fromType, (VarcharType) toType);
         }
         if (toType instanceof VarcharType && fromHiveType.equals(HIVE_FLOAT)) {
-            return new FloatToVarcharCoercer<>(fromType, (VarcharType) toType);
+            return new FloatToVarcharCoercer((VarcharType) toType);
         }
         if (toType instanceof VarcharType && fromHiveType.equals(HIVE_DOUBLE)) {
-            return new DoubleToVarcharCoercer<>(fromType, (VarcharType) toType);
+            return new DoubleToVarcharCoercer((VarcharType) toType);
         }
         if (toType instanceof VarcharType && (fromType instanceof DecimalType)) {
             return createDecimalToVarcharCoercer((DecimalType) fromType, (VarcharType) toType);

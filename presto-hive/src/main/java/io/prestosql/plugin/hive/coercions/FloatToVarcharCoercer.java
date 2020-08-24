@@ -16,19 +16,19 @@ package io.prestosql.plugin.hive.coercions;
 
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.VarcharType;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.type.RealType.REAL;
 import static java.lang.Float.intBitsToFloat;
 
-public class FloatToVarcharCoercer<F extends Type>
-        extends TypeCoercer<F, VarcharType>
+public class FloatToVarcharCoercer
+        extends TypeCoercer<RealType, VarcharType>
 {
-    public FloatToVarcharCoercer(F fromType, VarcharType toType)
+    public FloatToVarcharCoercer(VarcharType toType)
     {
-        super(fromType, toType);
+        super(REAL, toType);
     }
 
     @Override
