@@ -570,31 +570,29 @@ public class PredicatePushDown
 
         private DynamicFiltersResult createDynamicFilters(JoinNode node, List<JoinNode.EquiJoinClause> equiJoinClauses, Session session, PlanNodeIdAllocator idAllocator)
         {
-            Map<DynamicFilterId, Symbol> dynamicFilters = ImmutableMap.of();
-            List<Expression> predicates = ImmutableList.of();
-            if (node.getType() == INNER && isEnableDynamicFiltering(session) && dynamicFiltering) {
-                // New equiJoinClauses could potentially not contain symbols used in current dynamic filters.
-                // Since we use PredicatePushdown to push dynamic filters themselves,
-                // instead of separate ApplyDynamicFilters rule we derive dynamic filters within PredicatePushdown itself.
-                // Even if equiJoinClauses.equals(node.getCriteria), current dynamic filters may not match equiJoinClauses
-                ImmutableMap.Builder<DynamicFilterId, Symbol> dynamicFiltersBuilder = ImmutableMap.builder();
-                ImmutableList.Builder<Expression> predicatesBuilder = ImmutableList.builder();
-                // reuse existing dynamic filters to make planning more stable
-                Map<Symbol, DynamicFilterId> buildSymbolToDynamicFilter = new HashMap<>(node.getDynamicFilters().entrySet().stream()
-                        .collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey)));
-                for (JoinNode.EquiJoinClause clause : equiJoinClauses) {
-                    Symbol probeSymbol = clause.getLeft();
-                    Symbol buildSymbol = clause.getRight();
-                    DynamicFilterId id = buildSymbolToDynamicFilter.computeIfAbsent(
-                            buildSymbol,
-                            key -> new DynamicFilterId("df_" + idAllocator.getNextId().toString()));
-                    predicatesBuilder.add(createDynamicFilterExpression(metadata, id, symbolAllocator.getTypes().get(probeSymbol), probeSymbol.toSymbolReference()));
-                    dynamicFiltersBuilder.put(id, buildSymbol);
-                }
-                dynamicFilters = dynamicFiltersBuilder.build();
-                predicates = predicatesBuilder.build();
+            if (node.getType() != INNER || !isEnableDynamicFiltering(session) || !dynamicFiltering) {
+                return new DynamicFiltersResult(ImmutableMap.of(), ImmutableList.of());
             }
-            return new DynamicFiltersResult(dynamicFilters, predicates);
+
+            // New equiJoinClauses could potentially not contain symbols used in current dynamic filters.
+            // Since we use PredicatePushdown to push dynamic filters themselves,
+            // instead of separate ApplyDynamicFilters rule we derive dynamic filters within PredicatePushdown itself.
+            // Even if equiJoinClauses.equals(node.getCriteria), current dynamic filters may not match equiJoinClauses
+            ImmutableMap.Builder<DynamicFilterId, Symbol> dynamicFiltersBuilder = ImmutableMap.builder();
+            ImmutableList.Builder<Expression> predicatesBuilder = ImmutableList.builder();
+            // reuse existing dynamic filters to make planning more stable
+            Map<Symbol, DynamicFilterId> buildSymbolToDynamicFilter = new HashMap<>(node.getDynamicFilters().entrySet().stream()
+                    .collect(toImmutableMap(Map.Entry::getValue, Map.Entry::getKey)));
+            for (JoinNode.EquiJoinClause clause : equiJoinClauses) {
+                Symbol probeSymbol = clause.getLeft();
+                Symbol buildSymbol = clause.getRight();
+                DynamicFilterId id = buildSymbolToDynamicFilter.computeIfAbsent(
+                        buildSymbol,
+                        key -> new DynamicFilterId("df_" + idAllocator.getNextId().toString()));
+                predicatesBuilder.add(createDynamicFilterExpression(metadata, id, symbolAllocator.getTypes().get(probeSymbol), probeSymbol.toSymbolReference()));
+                dynamicFiltersBuilder.put(id, buildSymbol);
+            }
+            return new DynamicFiltersResult(dynamicFiltersBuilder.build(), predicatesBuilder.build());
         }
 
         private static class DynamicFiltersResult
