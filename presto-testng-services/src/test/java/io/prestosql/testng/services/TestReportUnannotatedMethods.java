@@ -36,6 +36,8 @@ public class TestReportUnannotatedMethods
     {
         assertThat(instance.findUnannotatedTestMethods(TestingTest.class))
                 .isEmpty();
+        assertThat(instance.findUnannotatedTestMethods(TestingTestWithProxy.class))
+                .isEmpty();
     }
 
     @Test
@@ -43,14 +45,18 @@ public class TestReportUnannotatedMethods
     {
         assertThat(instance.findUnannotatedTestMethods(TestingTestWithoutTestAnnotation.class))
                 .extracting(Method::getName)
-                .containsExactly("testWithMissingTestAnnotation");
+                .containsExactly("testWithMissingTestAnnotation", "methodInInterface");
     }
 
     @Test
     public void testTemptoRequirementsProvider()
     {
         assertThat(instance.findUnannotatedTestMethods(TestingRequirementsProvider.class))
-                .isEmpty();
+                .extracting(Method::getName)
+                .containsExactly("testWithMissingTestAnnotation");
+        assertThat(instance.findUnannotatedTestMethods(TestingRequirementsProviderWithProxyClass.class))
+                .extracting(Method::getName)
+                .containsExactly("testWithMissingTestAnnotation", "testWithMissingTestAnnotationInProxy");
     }
 
     @Test
@@ -62,12 +68,21 @@ public class TestReportUnannotatedMethods
     }
 
     private static class TestingTest
+            implements TestingInterfaceWithTest
+    {
+        @Test
+        public void test() {}
+    }
+
+    private static class TestingTestWithProxy
+            extends TestingInterfaceWithTestProxy
     {
         @Test
         public void test() {}
     }
 
     private static class TestingTestWithoutTestAnnotation
+            implements TestingInterface
     {
         public void testWithMissingTestAnnotation() {}
 
@@ -86,5 +101,39 @@ public class TestReportUnannotatedMethods
         {
             return Requirements.allOf();
         }
+
+        public void testWithMissingTestAnnotation() {}
+    }
+
+    private static class TestingRequirementsProviderWithProxyClass
+            extends RequirementsProviderProxy
+    {
+        @Override
+        public Requirement getRequirements(Configuration configuration)
+        {
+            return Requirements.allOf();
+        }
+
+        public void testWithMissingTestAnnotation() {}
+    }
+
+    private abstract static class RequirementsProviderProxy
+            implements RequirementsProvider
+    {
+        public void testWithMissingTestAnnotationInProxy() {}
+    }
+
+    private static class TestingInterfaceWithTestProxy
+            implements TestingInterfaceWithTest {}
+
+    private interface TestingInterfaceWithTest
+    {
+        @Test
+        default void testInInterface() {}
+    }
+
+    private interface TestingInterface
+    {
+        default void methodInInterface() {}
     }
 }

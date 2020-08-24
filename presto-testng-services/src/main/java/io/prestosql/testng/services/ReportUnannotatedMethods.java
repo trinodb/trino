@@ -22,7 +22,7 @@ import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Stream;
+import java.util.Optional;
 
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -76,8 +76,7 @@ public class ReportUnannotatedMethods
                 .filter(method -> method.getDeclaringClass() != Object.class)
                 .filter(method -> !Modifier.isStatic(method.getModifiers()))
                 .filter(method -> !method.isBridge())
-                .filter(method -> !isTestMethod(method))
-                .filter(method -> !isTemptoSpiMethod(method))
+                .filter(method -> !isAllowedPublicMethodInTest(method))
                 .collect(toImmutableList());
     }
 
@@ -85,9 +84,9 @@ public class ReportUnannotatedMethods
     public void onAfterClass(ITestClass testClass) {}
 
     /**
-     * Is explicitly annotated as @Test, @BeforeMethod, @DataProvider, etc.
+     * Is explicitly annotated as @Test, @BeforeMethod, @DataProvider, or any method that implements Tempto SPI
      */
-    private static boolean isTestMethod(Method method)
+    private static boolean isAllowedPublicMethodInTest(Method method)
     {
         if (isTestAnnotated(method)) {
             return true;
@@ -96,17 +95,35 @@ public class ReportUnannotatedMethods
         if (method.getDeclaringClass() == Object.class) {
             return true;
         }
-        Class<?> superclass = method.getDeclaringClass().getSuperclass();
-        Method overridden;
-        try {
-            // Simplistic override detection
-            overridden = superclass.getMethod(method.getName(), method.getParameterTypes());
-        }
-        catch (NoSuchMethodException ignored) {
+
+        if (method.getDeclaringClass().isInterface()) {
+            if (isTemptoClass(method.getDeclaringClass())) {
+                return true;
+            }
             return false;
         }
 
-        return isTestMethod(overridden);
+        for (Class<?> interfaceClass : method.getDeclaringClass().getInterfaces()) {
+            Optional<Method> overridden = getOverridden(method, interfaceClass);
+            if (overridden.isPresent() && isTemptoClass(interfaceClass)) {
+                return true;
+            }
+        }
+
+        return getOverridden(method, method.getDeclaringClass().getSuperclass())
+                .map(ReportUnannotatedMethods::isAllowedPublicMethodInTest)
+                .orElse(false);
+    }
+
+    private static Optional<Method> getOverridden(Method method, Class<?> base)
+    {
+        try {
+            // Simplistic override detection
+            return Optional.of(base.getMethod(method.getName(), method.getParameterTypes()));
+        }
+        catch (NoSuchMethodException ignored) {
+            return Optional.empty();
+        }
     }
 
     private static boolean isTestAnnotated(Method method)
@@ -127,34 +144,6 @@ public class ReportUnannotatedMethods
                     }
                     return false;
                 });
-    }
-
-    private static boolean isTemptoSpiMethod(Method method)
-    {
-        return Stream.of(method.getDeclaringClass().getInterfaces())
-                .filter(ReportUnannotatedMethods::isTemptoClass)
-                .map(Class::getMethods)
-                .flatMap(Stream::of)
-                .anyMatch(actualMethod -> overrides(method, actualMethod));
-    }
-
-    private static boolean overrides(Method first, Method second)
-    {
-        if (!first.getName().equals(second.getName())) {
-            return false;
-        }
-
-        if (first.getParameterTypes().length != second.getParameterTypes().length) {
-            return false;
-        }
-
-        for (int i = 0; i < first.getParameterTypes().length; i++) {
-            if (!first.getParameterTypes()[i].getName().equals(second.getParameterTypes()[i].getName())) {
-                return false;
-            }
-        }
-
-        return true;
     }
 
     @VisibleForTesting
