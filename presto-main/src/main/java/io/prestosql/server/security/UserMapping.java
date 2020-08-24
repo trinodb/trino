@@ -26,7 +26,9 @@ import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.base.util.JsonUtils.parseJson;
+import static io.prestosql.server.security.UserMapping.Case.KEEP;
 import static java.lang.Boolean.TRUE;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public final class UserMapping
@@ -84,33 +86,64 @@ public final class UserMapping
         }
     }
 
+    enum Case
+    {
+        KEEP {
+            @Override
+            public String transform(String value)
+            {
+                return value;
+            }
+        },
+        LOWER {
+            @Override
+            public String transform(String value)
+            {
+                return value.toLowerCase(ENGLISH);
+            }
+        },
+        UPPER {
+            @Override
+            public String transform(String value)
+            {
+                return value.toUpperCase(ENGLISH);
+            }
+        };
+
+        public abstract String transform(String value);
+    }
+
     public static final class Rule
     {
         private final Pattern pattern;
         private final String user;
         private final boolean allow;
+        private final Case userCase;
 
         public Rule(String pattern)
         {
-            this(pattern, "$1", true);
+            this(pattern, "$1", true, KEEP);
         }
 
         @JsonCreator
         public Rule(
                 @JsonProperty("pattern") String pattern,
                 @JsonProperty("user") Optional<String> user,
-                @JsonProperty("allow") Optional<Boolean> allow)
+                @JsonProperty("allow") Optional<Boolean> allow,
+                @JsonProperty("case") Optional<Case> userCase)
         {
             this(pattern,
                     requireNonNull(user, "user is null").orElse("$1"),
-                    requireNonNull(allow, "allow is null").orElse(TRUE));
+                    requireNonNull(allow, "allow is null").orElse(TRUE),
+                    requireNonNull(userCase, "userCase is null").orElse(KEEP));
         }
 
-        public Rule(String pattern, String user, boolean allow)
+        public Rule(String pattern, String user, boolean allow, Case userCase)
         {
             this.pattern = Pattern.compile(requireNonNull(pattern, "pattern is null"));
             this.user = requireNonNull(user, "user is null");
             this.allow = allow;
+            this.userCase = requireNonNull(userCase, "userCase is null");
         }
 
         public Optional<String> mapUser(String principal)
@@ -127,7 +160,7 @@ public final class UserMapping
             if (result.isEmpty()) {
                 throw new UserMappingException("Principal matched, but mapped user is empty");
             }
-            return Optional.of(result);
+            return Optional.of(userCase.transform(result));
         }
     }
 }
