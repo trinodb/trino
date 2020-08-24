@@ -465,13 +465,11 @@ public final class PlanMatchPattern
             Map<String, String> expectedDynamicFilter,
             Optional<String> expectedStaticFilter,
             PlanMatchPattern leftSource,
-            PlanMatchPattern right,
-            Metadata metadata)
+            PlanMatchPattern right)
     {
         Map<SymbolAlias, SymbolAlias> expectedDynamicFilterAliases = expectedDynamicFilter.entrySet().stream()
                 .collect(toImmutableMap(entry -> new SymbolAlias(entry.getKey()), entry -> new SymbolAlias(entry.getValue())));
         DynamicFilterMatcher dynamicFilterMatcher = new DynamicFilterMatcher(
-                metadata,
                 expectedDynamicFilterAliases,
                 expectedStaticFilter.map(predicate -> rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(predicate, new ParsingOptions()))));
         JoinMatcher joinMatcher = new JoinMatcher(
