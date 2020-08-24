@@ -11,11 +11,11 @@ package com.starburstdata.presto.plugin.oracle;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.sql.SqlExecutor;
 import io.prestosql.testing.sql.TestTable;
-import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
 
 import java.time.LocalDateTime;
@@ -140,9 +140,9 @@ public abstract class BaseOracleIntegrationSmokeTest
                 getUser() + ".test_predicate_pushdown_numeric",
                 "(c_binary_float BINARY_FLOAT, c_binary_double BINARY_DOUBLE, c_number NUMBER(5,3))",
                 ImmutableList.of("5.0f, 20.233, 5.0"))) {
-            assertQuery(format("SELECT c_binary_double FROM %s WHERE c_binary_float = cast(5.0 as real)", table.getName()), "SELECT 20.233");
-            assertQuery(format("SELECT c_binary_float FROM %s WHERE c_binary_double = cast(20.233 as double)", table.getName()), "SELECT 5.0");
-            assertQuery(format("SELECT c_binary_float FROM %s WHERE c_number = cast(5.0 as decimal(5,3))", table.getName()), "SELECT 5.0");
+            assertThat(query(format("SELECT c_binary_double FROM %s WHERE c_binary_float = cast(5.0 as real)", table.getName()))).isCorrectlyPushedDown();
+            assertThat(query(format("SELECT c_binary_float FROM %s WHERE c_binary_double = cast(20.233 as double)", table.getName()))).isCorrectlyPushedDown();
+            assertThat(query(format("SELECT c_binary_float FROM %s WHERE c_number = cast(5.0 as decimal(5,3))", table.getName()))).isCorrectlyPushedDown();
         }
     }
 
@@ -154,15 +154,16 @@ public abstract class BaseOracleIntegrationSmokeTest
                 getUser() + ".test_predicate_pushdown_char",
                 "(c_char CHAR(7), c_nchar NCHAR(8), c_varchar VARCHAR2(20), c_nvarchar NVARCHAR2(20), c_clob CLOB, c_nclob NCLOB, c_long_char CHAR(2000), c_long_varchar VARCHAR2(4000))",
                 ImmutableList.of("'my_char', 'my_nchar', 'my_varchar', 'my_nvarchar', 'my_clob', 'my_nclob', 'my_long_char', 'my_long_varchar'"))) {
-            assertQuery(format("SELECT c_nchar FROM %s WHERE c_char = cast('my_char' as char(7))", table.getName()), "SELECT 'my_nchar'");
-            assertQuery(format("SELECT c_char FROM %s WHERE c_nchar = cast('my_nchar' as char(8))", table.getName()), "SELECT 'my_char'");
-            assertQuery(format("SELECT c_char FROM %s WHERE c_varchar = cast('my_varchar' as varchar(20))", table.getName()), "SELECT 'my_char'");
-            assertQuery(format("SELECT c_char FROM %s WHERE c_nvarchar = cast('my_nvarchar' as varchar(20))", table.getName()), "SELECT 'my_char'");
-            assertQuery(format("SELECT c_char FROM %s WHERE c_clob = cast('my_clob' as varchar)", table.getName()), "SELECT 'my_char'");
-            assertQuery(format("SELECT c_char FROM %s WHERE c_nclob = cast('my_nclob' as varchar)", table.getName()), "SELECT 'my_char'");
+            assertThat(query(format("SELECT c_nchar FROM %s WHERE c_char = cast('my_char' as char(7))", table.getName()))).isCorrectlyPushedDown();
+            assertThat(query(format("SELECT c_char FROM %s WHERE c_nchar = cast('my_nchar' as char(8))", table.getName()))).isCorrectlyPushedDown();
+            assertThat(query(format("SELECT c_char FROM %s WHERE c_varchar = cast('my_varchar' as varchar(20))", table.getName()))).isCorrectlyPushedDown();
+            assertThat(query(format("SELECT c_char FROM %s WHERE c_nvarchar = cast('my_nvarchar' as varchar(20))", table.getName()))).isCorrectlyPushedDown();
             //Verify using a large value in WHERE, larger than the 2000 and 4000 bytes Oracle max
-            assertQueryReturnsEmptyResult(format("SELECT c_char FROM %s WHERE c_long_char = '" + repeat("💩", 2000) + "'", table.getName()));
-            assertQueryReturnsEmptyResult(format("SELECT c_char FROM %s WHERE c_long_varchar = '" + repeat("💩", 4000) + "'", table.getName()));
+            assertThat(query(format("SELECT c_char FROM %s WHERE c_long_char = '" + repeat("💩", 2000) + "'", table.getName()))).isCorrectlyPushedDown();
+            assertThat(query(format("SELECT c_char FROM %s WHERE c_long_varchar = '" + repeat("💩", 4000) + "'", table.getName()))).isCorrectlyPushedDown();
+
+            assertThat(query(format("SELECT c_char FROM %s WHERE c_clob = cast('my_clob' as varchar)", table.getName()))).isNotFullyPushedDown(FilterNode.class);
+            assertThat(query(format("SELECT c_char FROM %s WHERE c_nclob = cast('my_nclob' as varchar)", table.getName()))).isNotFullyPushedDown(FilterNode.class);
         }
     }
 
@@ -186,31 +187,28 @@ public abstract class BaseOracleIntegrationSmokeTest
                 .add("'result_value'")
                 .build();
 
-        @Language("SQL")
-        String expectedQueryResult = "SELECT 'result_value'";
-
         try (TestTable table = new TestTable(
                 inOracle(),
                 getUser() + ".test_predicate_pushdown_timestamp",
                 "(t_timestamp TIMESTAMP, t_timestamp3_with_tz TIMESTAMP(3) WITH TIME ZONE, t_timestamp_with_tz TIMESTAMP WITH TIME ZONE, dummy_col VARCHAR(12))",
                 ImmutableList.of(Joiner.on(", ").join(values)))) {
-            assertQuery(format(
+            assertThat(query(format(
                     "SELECT dummy_col FROM %s WHERE t_timestamp = %s",
                     table.getName(),
-                    format("timestamp '%s'", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").format(date1950))),
-                    expectedQueryResult);
+                    format("timestamp '%s'", DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS").format(date1950)))))
+                    .isCorrectlyPushedDown();
 
-            assertQuery(format(
+            assertThat(query(format(
                     "SELECT dummy_col FROM %s WHERE t_timestamp3_with_tz = %s",
                     table.getName(),
-                    prestoTimestampWithTimeZoneDataType().toLiteral(yakutat1978)),
-                    expectedQueryResult);
+                    prestoTimestampWithTimeZoneDataType().toLiteral(yakutat1978))))
+                    .isCorrectlyPushedDown();
 
-            assertQuery(format(
+            assertThat(query(format(
                     "SELECT dummy_col FROM %s WHERE t_timestamp_with_tz = %s",
                     table.getName(),
-                    prestoTimestampWithTimeZoneDataType().toLiteral(pacific1976)),
-                    expectedQueryResult);
+                    prestoTimestampWithTimeZoneDataType().toLiteral(pacific1976))))
+                    .isCorrectlyPushedDown();
         }
     }
 
