@@ -116,7 +116,8 @@ public class TestRemoveUnsupportedDynamicFilters
                 join(
                         INNER,
                         ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
-                        filter("ORDERS_OK > 0",
+                        filter(
+                                "ORDERS_OK > 0",
                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey"))),
                         tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))));
     }
@@ -179,7 +180,8 @@ public class TestRemoveUnsupportedDynamicFilters
                         join(INNER,
                                 ImmutableList.of(equiJoinClause("ORDERS_OK", "LINEITEM_OK")),
                                 tableScan("orders", ImmutableMap.of("ORDERS_OK", "orderkey")),
-                                filter("LINEITEM_OK > 0",
+                                filter(
+                                        "LINEITEM_OK > 0",
                                         tableScan("lineitem", ImmutableMap.of("LINEITEM_OK", "orderkey"))))));
     }
 
