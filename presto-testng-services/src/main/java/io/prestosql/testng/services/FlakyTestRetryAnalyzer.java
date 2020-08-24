@@ -13,6 +13,7 @@
  */
 package io.prestosql.testng.services;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.log.Logger;
 import org.testng.IRetryAnalyzer;
 import org.testng.ITestNGMethod;
@@ -33,7 +34,12 @@ public class FlakyTestRetryAnalyzer
 {
     private static final Logger log = Logger.get(FlakyTestRetryAnalyzer.class);
 
-    public static final int ALLOWED_RETRIES_COUNT = 2;
+    // This property exists so that flaky tests are retried on CI only by default but tests of retrying pass locally as well.
+    // TODO replace pom.xml property with explicit invocation of a testng runner (test suite with a test) and amend the retryer behavior on that level
+    private static final String ENABLE_PROPERTY = "io.prestosql.testng.services.FlakyTestRetryAnalyzer.enabled";
+
+    @VisibleForTesting
+    static final int ALLOWED_RETRIES_COUNT = 2;
 
     @GuardedBy("this")
     private final Map<String, Long> retryCounter = new HashMap<>();
@@ -41,6 +47,9 @@ public class FlakyTestRetryAnalyzer
     @Override
     public boolean retry(ITestResult result)
     {
+        if (!isEnabled()) {
+            return false;
+        }
         if (!isTestRetryable(result)) {
             return false;
         }
@@ -62,6 +71,16 @@ public class FlakyTestRetryAnalyzer
                 method.getMethodName(),
                 retryCount);
         return true;
+    }
+
+    private static boolean isEnabled()
+    {
+        if (System.getProperty(ENABLE_PROPERTY) != null) {
+            return Boolean.getBoolean(ENABLE_PROPERTY);
+        }
+
+        // Enable retry on CI by default
+        return System.getenv("CONTINUOUS_INTEGRATION") != null;
     }
 
     private static boolean isTestRetryable(ITestResult result)
