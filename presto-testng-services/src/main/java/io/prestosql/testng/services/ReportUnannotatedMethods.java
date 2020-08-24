@@ -24,8 +24,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static java.lang.String.format;
+import static io.prestosql.testng.services.Listeners.reportListenerFailure;
 import static java.util.stream.Collectors.joining;
 
 public class ReportUnannotatedMethods
@@ -34,19 +35,30 @@ public class ReportUnannotatedMethods
     @Override
     public void onBeforeClass(ITestClass testClass)
     {
+        try {
+            reportUnannotatedTestMethods(testClass);
+        }
+        catch (RuntimeException | Error e) {
+            reportListenerFailure(
+                    ReportUnannotatedMethods.class,
+                    "Failed to process %s: \n%s",
+                    testClass,
+                    getStackTraceAsString(e));
+        }
+    }
+
+    private void reportUnannotatedTestMethods(ITestClass testClass)
+    {
         Class<?> realClass = testClass.getRealClass();
         List<Method> unannotatedTestMethods = findUnannotatedTestMethods(realClass);
         if (!unannotatedTestMethods.isEmpty()) {
-            // TestNG may or may not propagate listener's exception as test execution exception.
-            // Therefore, instead of throwing, we terminate the JVM.
-            System.err.println(format(
-                    "FATAL: Test class %s has methods which are public but not explicitly annotated. Are they missing @Test?%s",
+            reportListenerFailure(
+                    ReportUnannotatedMethods.class,
+                    "Test class %s has methods which are public but not explicitly annotated. Are they missing @Test?%s",
                     realClass.getName(),
                     unannotatedTestMethods.stream()
                             .map(Method::toString)
-                            .collect(joining("\n\t\t", "\n\t\t", ""))));
-            System.err.println("JVM will be terminated");
-            System.exit(1);
+                            .collect(joining("\n\t\t", "\n\t\t", "")));
         }
     }
 
