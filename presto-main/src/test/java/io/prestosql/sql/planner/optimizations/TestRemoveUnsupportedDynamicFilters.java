@@ -321,7 +321,7 @@ public class TestRemoveUnsupportedDynamicFilters
                                 values("RIGHT_SYMBOL"))));
     }
 
-    PlanNode removeUnsupportedDynamicFilters(PlanNode root)
+    private PlanNode removeUnsupportedDynamicFilters(PlanNode root)
     {
         return getQueryRunner().inTransaction(session -> {
             // metadata.getCatalogHandle() registers the catalog for the transaction
