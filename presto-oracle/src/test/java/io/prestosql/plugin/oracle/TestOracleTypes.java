@@ -26,8 +26,8 @@ import io.prestosql.testing.datatype.CreateAsSelectDataSetup;
 import io.prestosql.testing.datatype.DataSetup;
 import io.prestosql.testing.datatype.DataType;
 import io.prestosql.testing.datatype.DataTypeTest;
-import io.prestosql.testing.sql.JdbcSqlExecutor;
 import io.prestosql.testing.sql.PrestoSqlExecutor;
+import io.prestosql.testing.sql.SqlExecutor;
 import io.prestosql.testing.sql.TestTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -43,7 +43,6 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.IntFunction;
@@ -86,8 +85,6 @@ import static io.prestosql.plugin.oracle.OracleDataTypes.varchar2DataType;
 import static io.prestosql.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 import static io.prestosql.plugin.oracle.OracleSessionProperties.NUMBER_DEFAULT_SCALE;
 import static io.prestosql.plugin.oracle.OracleSessionProperties.NUMBER_ROUNDING_MODE;
-import static io.prestosql.plugin.oracle.TestingOracleServer.TEST_PASS;
-import static io.prestosql.plugin.oracle.TestingOracleServer.TEST_USER;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.testing.datatype.DataType.timestampDataType;
@@ -899,12 +896,9 @@ public class TestOracleTypes
         test.execute(getQueryRunner(), session.build(), dataSetup);
     }
 
-    private JdbcSqlExecutor getSqlExecutor()
+    private SqlExecutor getSqlExecutor()
     {
-        Properties properties = new Properties();
-        properties.setProperty("user", TEST_USER);
-        properties.setProperty("password", TEST_PASS);
-        return new JdbcSqlExecutor(oracleServer.getJdbcUrl(), properties);
+        return sql -> oracleServer.execute(sql);
     }
 
     private static ToIntFunction<String> codePoints()
