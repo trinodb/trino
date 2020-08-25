@@ -31,7 +31,6 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
 import java.util.function.Consumer;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -60,7 +59,7 @@ public class TestLocalDynamicFilterConsumer
 
     @Test
     public void testSimple()
-            throws ExecutionException, InterruptedException
+            throws Exception
     {
         LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
                 ImmutableMultimap.of(new DynamicFilterId("123"), new Symbol("a")),
@@ -80,7 +79,7 @@ public class TestLocalDynamicFilterConsumer
 
     @Test
     public void testShortCircuitOnAllTupleDomain()
-            throws ExecutionException, InterruptedException
+            throws Exception
     {
         LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
                 ImmutableMultimap.of(new DynamicFilterId("123"), new Symbol("a")),
@@ -107,7 +106,7 @@ public class TestLocalDynamicFilterConsumer
 
     @Test
     public void testMultipleProbeSymbols()
-            throws ExecutionException, InterruptedException
+            throws Exception
     {
         LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
                 ImmutableMultimap.of(new DynamicFilterId("123"), new Symbol("a1"), new DynamicFilterId("123"), new Symbol("a2")),
@@ -128,7 +127,7 @@ public class TestLocalDynamicFilterConsumer
 
     @Test
     public void testMultiplePartitions()
-            throws ExecutionException, InterruptedException
+            throws Exception
     {
         LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
                 ImmutableMultimap.of(new DynamicFilterId("123"), new Symbol("a")),
@@ -181,7 +180,7 @@ public class TestLocalDynamicFilterConsumer
 
     @Test
     public void testNone()
-            throws ExecutionException, InterruptedException
+            throws Exception
     {
         LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
                 ImmutableMultimap.of(new DynamicFilterId("123"), new Symbol("a")),
@@ -201,7 +200,7 @@ public class TestLocalDynamicFilterConsumer
 
     @Test
     public void testMultipleColumns()
-            throws ExecutionException, InterruptedException
+            throws Exception
     {
         LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
                 ImmutableMultimap.of(new DynamicFilterId("123"), new Symbol("a"), new DynamicFilterId("456"), new Symbol("b")),
@@ -223,7 +222,7 @@ public class TestLocalDynamicFilterConsumer
 
     @Test
     public void testMultiplePartitionsAndColumns()
-            throws ExecutionException, InterruptedException
+            throws Exception
     {
         LocalDynamicFilterConsumer filter = new LocalDynamicFilterConsumer(
                 ImmutableMultimap.of(new DynamicFilterId("123"), new Symbol("a"), new DynamicFilterId("456"), new Symbol("b")),
@@ -251,7 +250,7 @@ public class TestLocalDynamicFilterConsumer
 
     @Test
     public void testCreateSingleColumn()
-            throws ExecutionException, InterruptedException
+            throws Exception
     {
         SubPlan subplan = subplan(
                 "SELECT count() FROM lineitem, orders WHERE lineitem.orderkey = orders.orderkey " +
@@ -296,7 +295,7 @@ public class TestLocalDynamicFilterConsumer
 
     @Test
     public void testCreateMultipleCriteria()
-            throws ExecutionException, InterruptedException
+            throws Exception
     {
         SubPlan subplan = subplan(
                 "SELECT count() FROM lineitem, partsupp " +
@@ -325,7 +324,7 @@ public class TestLocalDynamicFilterConsumer
 
     @Test
     public void testCreateMultipleJoins()
-            throws ExecutionException, InterruptedException
+            throws Exception
     {
         SubPlan subplan = subplan(
                 "SELECT count() FROM lineitem, orders, part " +
@@ -350,7 +349,7 @@ public class TestLocalDynamicFilterConsumer
 
     @Test
     public void testCreateProbeSideUnion()
-            throws ExecutionException, InterruptedException
+            throws Exception
     {
         SubPlan subplan = subplan(
                 "WITH union_table(key) AS " +
