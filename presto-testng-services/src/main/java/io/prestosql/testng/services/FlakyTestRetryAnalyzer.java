@@ -24,8 +24,10 @@ import javax.annotation.concurrent.GuardedBy;
 import java.lang.reflect.Method;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.lang.String.format;
 
@@ -50,9 +52,22 @@ public class FlakyTestRetryAnalyzer
         if (!isEnabled()) {
             return false;
         }
-        if (!isTestRetryable(result)) {
+        Method javaMethod = result.getMethod().getConstructorOrMethod().getMethod();
+        if (javaMethod == null) {
             return false;
         }
+        Flaky annotation = javaMethod.getAnnotation(Flaky.class);
+        if (annotation == null) {
+            return false;
+        }
+        if (result.getThrowable() == null) {
+            return false;
+        }
+        String stackTrace = getStackTraceAsString(result.getThrowable());
+        if (!Pattern.compile(annotation.match()).matcher(stackTrace).find()) {
+            return false;
+        }
+
         long retryCount;
         ITestNGMethod method = result.getMethod();
         synchronized (this) {
@@ -81,15 +96,6 @@ public class FlakyTestRetryAnalyzer
 
         // Enable retry on CI by default
         return System.getenv("CONTINUOUS_INTEGRATION") != null;
-    }
-
-    private static boolean isTestRetryable(ITestResult result)
-    {
-        Method method = result.getMethod().getConstructorOrMethod().getMethod();
-        if (method == null) {
-            return false;
-        }
-        return method.getAnnotation(Flaky.class) != null;
     }
 
     private static String getName(ITestNGMethod method, Object[] parameters)

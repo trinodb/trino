@@ -158,7 +158,7 @@ public class TestHiveStorageFormats
     }
 
     @Test(dataProvider = "storage_formats", groups = STORAGE_FORMATS)
-    @Flaky(issue = "https://github.com/prestosql/presto/issues/2390")
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/2390", match = "File .* could only be written to 0 of the 1 minReplication nodes")
     public void testInsertIntoPartitionedTable(StorageFormat storageFormat)
     {
         // only admin user is allowed to change session properties

@@ -66,7 +66,7 @@ public class TestHiveTransactionalTable
         doTestReadFullAcid(false, BucketingType.NONE);
     }
 
-    @Flaky(issue = "https://github.com/prestosql/presto/issues/4927")
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4927", match = "Hive table .* is is corrupt. Found sub-directory in bucket directory for partition")
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
     public void testReadFullAcidBucketed()
     {
@@ -88,13 +88,13 @@ public class TestHiveTransactionalTable
     }
 
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
-    @Flaky(issue = "https://github.com/prestosql/presto/issues/4857")
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4927", match = "Hive table .* is is corrupt. Found sub-directory in bucket directory for partition")
     public void testReadFullAcidBucketedV1()
     {
         doTestReadFullAcid(false, BucketingType.BUCKETED_V1);
     }
 
-    @Flaky(issue = "https://github.com/prestosql/presto/issues/4857")
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4927", match = "Hive table .* is is corrupt. Found sub-directory in bucket directory for partition")
     @Test(groups = HIVE_TRANSACTIONAL, timeOut = TEST_TIMEOUT)
     public void testReadFullAcidBucketedV2()
     {
