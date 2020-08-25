@@ -32,7 +32,6 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
@@ -91,7 +90,6 @@ public class TestMemorySmoke
         assertQueryResult("SELECT COUNT() FROM orders WHERE totalprice < 0", 0L);
 
         Session session = Session.builder(getSession())
-                .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
                 .build();
         DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
@@ -120,7 +118,6 @@ public class TestMemorySmoke
         assertQueryResult("SELECT COUNT() FROM lineitem WHERE orderkey = 1", 6L);
 
         Session session = Session.builder(getSession())
-                .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
                 .build();
         DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
@@ -150,7 +147,6 @@ public class TestMemorySmoke
 
         String query = "SELECT k0, k1, k2 FROM t0, t1, t2 WHERE (k0 = k1) AND (k0 = k2) AND (v0 + v1 = v2)";
         Session session = Session.builder(getSession())
-                .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, FeaturesConfig.JoinReorderingStrategy.NONE.name())
                 .build();
