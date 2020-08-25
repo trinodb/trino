@@ -83,7 +83,7 @@ public class SqlTask
     private final SqlTaskExecutionFactory sqlTaskExecutionFactory;
 
     private final AtomicReference<DateTime> lastHeartbeat = new AtomicReference<>(DateTime.now());
-    private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskStatus.STARTING_VERSION);
+    private final AtomicLong nextTaskStatusVersion = new AtomicLong(TaskStatus.STARTING_VERSION);
 
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
     private final AtomicBoolean needsPlan = new AtomicBoolean(true);
@@ -221,9 +221,9 @@ public class SqlTask
 
     private TaskStatus createTaskStatus(TaskHolder taskHolder)
     {
-        // Always return a new TaskInfo with a larger version number;
+        // Always return a new TaskStatus with a larger version number;
         // otherwise a client will not accept the update
-        long versionNumber = nextTaskInfoVersion.getAndIncrement();
+        long versionNumber = nextTaskStatusVersion.getAndIncrement();
 
         TaskState state = taskStateMachine.getState();
         List<ExecutionFailureInfo> failures = ImmutableList.of();
