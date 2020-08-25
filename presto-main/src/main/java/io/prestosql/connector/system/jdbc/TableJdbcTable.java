@@ -40,6 +40,7 @@ import static io.prestosql.metadata.MetadataListing.listTables;
 import static io.prestosql.metadata.MetadataListing.listViews;
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 public class TableJdbcTable
@@ -93,6 +94,11 @@ public class TableJdbcTable
             return table.build().cursor();
         }
 
+        if (isNonLowercase(schemaFilter) || isNonLowercase(tableFilter)) {
+            // Non-lowercase predicate will never match a lowercase name (until TODO https://github.com/prestosql/presto/issues/17)
+            return table.build().cursor();
+        }
+
         for (String catalog : listCatalogs(session, metadata, accessControl, catalogFilter).keySet()) {
             QualifiedTablePrefix prefix = tablePrefix(catalog, schemaFilter, tableFilter);
 
@@ -105,6 +111,11 @@ public class TableJdbcTable
             }
         }
         return table.build().cursor();
+    }
+
+    private static boolean isNonLowercase(Optional<String> filter)
+    {
+        return filter.filter(value -> !value.equals(value.toLowerCase(ENGLISH))).isPresent();
     }
 
     private static Object[] tableRow(String catalog, SchemaTableName name, String type)
