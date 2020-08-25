@@ -525,7 +525,7 @@ public class DynamicFilterService
         final Set<DynamicFilterId> replicatedDynamicFilters;
         final AtomicBoolean completed = new AtomicBoolean();
 
-        public DynamicFilterContext(
+        private DynamicFilterContext(
                 Supplier<List<StageDynamicFilters>> dynamicFilterSupplier,
                 Set<DynamicFilterId> dynamicFilters,
                 Map<DynamicFilterId, SettableFuture<?>> lazyDynamicFilters,
@@ -568,22 +568,22 @@ public class DynamicFilterService
             return dynamicFilterSummaries;
         }
 
-        public Supplier<List<StageDynamicFilters>> getDynamicFilterSupplier()
+        private Supplier<List<StageDynamicFilters>> getDynamicFilterSupplier()
         {
             return dynamicFilterSupplier;
         }
 
-        public Map<DynamicFilterId, SettableFuture<?>> getLazyDynamicFilters()
+        private Map<DynamicFilterId, SettableFuture<?>> getLazyDynamicFilters()
         {
             return lazyDynamicFilters;
         }
 
-        public Set<DynamicFilterId> getReplicatedDynamicFilters()
+        private Set<DynamicFilterId> getReplicatedDynamicFilters()
         {
             return replicatedDynamicFilters;
         }
 
-        public boolean isCompleted()
+        private boolean isCompleted()
         {
             return completed.get();
         }
