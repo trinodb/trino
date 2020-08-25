@@ -44,6 +44,7 @@ import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.execution.StageState.RUNNING;
+import static io.prestosql.execution.StageState.SCHEDULED;
 import static io.prestosql.execution.StageState.SCHEDULING;
 import static io.prestosql.server.DynamicFilterService.DynamicFilterDomainStats;
 import static io.prestosql.server.DynamicFilterService.DynamicFiltersStats;
@@ -431,6 +432,49 @@ public class TestDynamicFilterService
         // all dynamic filters have been collected, no need for more requests
         dynamicFilterService.collectDynamicFilters();
         assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 1);
+    }
+
+    @Test
+    public void testMultipleColumnMapping()
+    {
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(new FeaturesConfig());
+        DynamicFilterId filterId1 = new DynamicFilterId("df1");
+        Expression df1 = expression("DF_SYMBOL1");
+        Expression df2 = expression("DF_SYMBOL2");
+        QueryId queryId = new QueryId("query");
+        StageId stageId1 = new StageId(queryId, 1);
+
+        TestDynamicFiltersStageSupplier dynamicFiltersStageSupplier = new TestDynamicFiltersStageSupplier(SCHEDULED);
+        dynamicFiltersStageSupplier.addTasks(ImmutableList.of(new TaskId(stageId1, 0)));
+
+        dynamicFilterService.registerQuery(
+                queryId,
+                dynamicFiltersStageSupplier,
+                ImmutableSet.of(filterId1),
+                ImmutableSet.of(filterId1),
+                ImmutableSet.of());
+
+        TestingColumnHandle column1 = new TestingColumnHandle("probeColumnA");
+        TestingColumnHandle column2 = new TestingColumnHandle("probeColumnB");
+
+        DynamicFilter dynamicFilter = dynamicFilterService.createDynamicFilter(
+                queryId,
+                ImmutableList.of(
+                        new DynamicFilters.Descriptor(filterId1, df1),
+                        new DynamicFilters.Descriptor(filterId1, df2)),
+                ImmutableMap.of(
+                        Symbol.from(df1), column1,
+                        Symbol.from(df2), column2));
+
+        Domain domain = singleValue(INTEGER, 1L);
+        dynamicFiltersStageSupplier.storeSummary(filterId1, new TaskId(stageId1, 0), domain);
+        dynamicFilterService.collectDynamicFilters();
+
+        assertEquals(
+                dynamicFilter.getCurrentPredicate(),
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        column1, domain,
+                        column2, domain)));
     }
 
     private static String getExpectedDomainString(long low, long high)
