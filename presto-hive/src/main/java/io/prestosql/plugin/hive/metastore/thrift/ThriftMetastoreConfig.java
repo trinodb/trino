@@ -49,6 +49,7 @@ public class ThriftMetastoreConfig
     private String keystorePassword;
     private File truststorePath;
     private String trustStorePassword;
+    private boolean assumeCanonicalPartitionKeys;
 
     @NotNull
     public Duration getMetastoreTimeout()
@@ -283,5 +284,17 @@ public class ThriftMetastoreConfig
     public boolean isTruststorePathValid()
     {
         return !tlsEnabled || getTruststorePath() != null;
+    }
+
+    public boolean isAssumeCanonicalPartitionKeys()
+    {
+        return assumeCanonicalPartitionKeys;
+    }
+
+    @Config("hive.metastore.thrift.assume-canonical-partition-keys")
+    public ThriftMetastoreConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
+    {
+        this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
+        return this;
     }
 }

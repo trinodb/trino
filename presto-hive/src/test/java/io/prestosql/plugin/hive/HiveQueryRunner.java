@@ -90,7 +90,7 @@ public final class HiveQueryRunner
         private List<TpchTable<?>> initialTables = ImmutableList.of();
         private Function<DistributedQueryRunner, HiveMetastore> metastore = queryRunner -> {
             File baseDir = queryRunner.getCoordinator().getBaseDataDir().resolve("hive_data").toFile();
-            return new FileHiveMetastore(HDFS_ENVIRONMENT, baseDir.toURI().toString(), "test");
+            return new FileHiveMetastore(HDFS_ENVIRONMENT, baseDir.toURI().toString(), "test", true);
         };
         private Module module = EMPTY_MODULE;
 
@@ -143,8 +143,6 @@ public final class HiveQueryRunner
                         .put("hive.rcfile.time-zone", TIME_ZONE.getID())
                         .put("hive.parquet.time-zone", TIME_ZONE.getID())
                         .put("hive.max-partitions-per-scan", "1000")
-                        // TODO why is this default?
-                        .put("hive.assume-canonical-partition-keys", "true")
                         .build();
 
                 hiveProperties = new HashMap<>(hiveProperties);

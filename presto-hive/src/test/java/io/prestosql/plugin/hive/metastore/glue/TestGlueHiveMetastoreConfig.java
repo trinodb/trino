@@ -41,7 +41,8 @@ public class TestGlueHiveMetastoreConfig
                 .setAwsCredentialsProvider(null)
                 .setCatalogId(null)
                 .setPartitionSegments(5)
-                .setGetPartitionThreads(20));
+                .setGetPartitionThreads(20)
+                .setAssumeCanonicalPartitionKeys(false));
     }
 
     @Test
@@ -62,6 +63,7 @@ public class TestGlueHiveMetastoreConfig
                 .put("hive.metastore.glue.catalogid", "0123456789")
                 .put("hive.metastore.glue.partitions-segments", "10")
                 .put("hive.metastore.glue.get-partition-threads", "42")
+                .put("hive.metastore.glue.assume-canonical-partition-keys", "true")
                 .build();
 
         GlueHiveMetastoreConfig expected = new GlueHiveMetastoreConfig()
@@ -78,7 +80,8 @@ public class TestGlueHiveMetastoreConfig
                 .setAwsCredentialsProvider("custom")
                 .setCatalogId("0123456789")
                 .setPartitionSegments(10)
-                .setGetPartitionThreads(42);
+                .setGetPartitionThreads(42)
+                .setAssumeCanonicalPartitionKeys(true);
 
         assertFullMapping(properties, expected);
     }

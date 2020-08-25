@@ -27,6 +27,7 @@ import io.prestosql.spi.classloader.ThreadContextClassLoader;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.procedure.Procedure;
 import io.prestosql.spi.procedure.Procedure.Argument;
 import io.prestosql.spi.type.ArrayType;
@@ -132,7 +133,7 @@ public class DropStatsProcedure
             }
             else {
                 // the table is partitioned; remove stats for every partition
-                metastore.getPartitionNames(new HiveIdentity(session.getIdentity()), handle.getSchemaName(), handle.getTableName())
+                metastore.getPartitionNamesByFilter(new HiveIdentity(session.getIdentity()), handle.getSchemaName(), handle.getTableName(), partitionColumns, TupleDomain.all())
                         .ifPresent(partitions -> partitions.forEach(partitionName -> metastore.updatePartitionStatistics(
                                 new HiveIdentity(session.getIdentity()),
                                 schema,
