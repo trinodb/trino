@@ -31,6 +31,7 @@ import io.prestosql.plugin.hive.metastore.thrift.ThriftHiveMetastore;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreClient;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreConfig;
 import io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreStats;
+import io.prestosql.spi.predicate.TupleDomain;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -48,6 +49,7 @@ import static io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastore.cach
 import static io.prestosql.plugin.hive.metastore.cache.CachingHiveMetastore.memoizeMetastore;
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.BAD_DATABASE;
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.BAD_PARTITION;
+import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.PARTITION_COLUMN_NAMES;
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_COLUMN;
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_DATABASE;
 import static io.prestosql.plugin.hive.metastore.thrift.MockThriftMetastoreClient.TEST_PARTITION1;
@@ -174,44 +176,39 @@ public class TestCachingHiveMetastore
     {
         ImmutableList<String> expectedPartitions = ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2);
         assertEquals(mockClient.getAccessCount(), 0);
-        assertEquals(metastore.getPartitionNames(IDENTITY, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
+        assertEquals(metastore.getPartitionNamesByFilter(IDENTITY, TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).get(), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getPartitionNames(IDENTITY, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
+        assertEquals(metastore.getPartitionNamesByFilter(IDENTITY, TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).get(), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getPartitionNamesStats().getRequestCount(), 2);
-        assertEquals(metastore.getPartitionNamesStats().getHitRate(), 0.5);
 
         metastore.flushCache();
 
-        assertEquals(metastore.getPartitionNames(IDENTITY, TEST_DATABASE, TEST_TABLE).get(), expectedPartitions);
+        assertEquals(metastore.getPartitionNamesByFilter(IDENTITY, TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).get(), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 2);
-        assertEquals(metastore.getPartitionNamesStats().getRequestCount(), 3);
-        assertEquals(metastore.getPartitionNamesStats().getHitRate(), 1.0 / 3);
     }
 
     @Test
-    public void testInvalidGetPartitionNames()
+    public void testInvalidGetPartitionNamesByFilterAll()
     {
-        assertEquals(metastore.getPartitionNames(IDENTITY, BAD_DATABASE, TEST_TABLE).get(), ImmutableList.of());
+        assertTrue(metastore.getPartitionNamesByFilter(IDENTITY, BAD_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).isEmpty());
     }
 
     @Test
     public void testGetPartitionNamesByParts()
     {
-        ImmutableList<String> parts = ImmutableList.of();
         ImmutableList<String> expectedPartitions = ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2);
 
         assertEquals(mockClient.getAccessCount(), 0);
-        assertEquals(metastore.getPartitionNamesByParts(IDENTITY, TEST_DATABASE, TEST_TABLE, parts).get(), expectedPartitions);
+        assertEquals(metastore.getPartitionNamesByFilter(IDENTITY, TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).get(), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 1);
-        assertEquals(metastore.getPartitionNamesByParts(IDENTITY, TEST_DATABASE, TEST_TABLE, parts).get(), expectedPartitions);
+        assertEquals(metastore.getPartitionNamesByFilter(IDENTITY, TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).get(), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 1);
         assertEquals(metastore.getPartitionFilterStats().getRequestCount(), 2);
         assertEquals(metastore.getPartitionFilterStats().getHitRate(), 0.5);
 
         metastore.flushCache();
 
-        assertEquals(metastore.getPartitionNamesByParts(IDENTITY, TEST_DATABASE, TEST_TABLE, parts).get(), expectedPartitions);
+        assertEquals(metastore.getPartitionNamesByFilter(IDENTITY, TEST_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).get(), expectedPartitions);
         assertEquals(mockClient.getAccessCount(), 2);
         assertEquals(metastore.getPartitionFilterStats().getRequestCount(), 3);
         assertEquals(metastore.getPartitionFilterStats().getHitRate(), 1.0 / 3);
@@ -220,8 +217,7 @@ public class TestCachingHiveMetastore
     @Test
     public void testInvalidGetPartitionNamesByParts()
     {
-        ImmutableList<String> parts = ImmutableList.of();
-        assertFalse(metastore.getPartitionNamesByParts(IDENTITY, BAD_DATABASE, TEST_TABLE, parts).isPresent());
+        assertFalse(metastore.getPartitionNamesByFilter(IDENTITY, BAD_DATABASE, TEST_TABLE, PARTITION_COLUMN_NAMES, TupleDomain.all()).isPresent());
     }
 
     @Test

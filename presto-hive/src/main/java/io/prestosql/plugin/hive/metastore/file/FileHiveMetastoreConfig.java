@@ -22,6 +22,7 @@ public class FileHiveMetastoreConfig
 {
     private String catalogDirectory;
     private String metastoreUser = "presto";
+    private boolean assumeCanonicalPartitionKeys;
 
     @NotNull
     public String getCatalogDirectory()
@@ -47,5 +48,17 @@ public class FileHiveMetastoreConfig
     public void setMetastoreUser(String metastoreUser)
     {
         this.metastoreUser = metastoreUser;
+    }
+
+    public boolean isAssumeCanonicalPartitionKeys()
+    {
+        return assumeCanonicalPartitionKeys;
+    }
+
+    @Config("hive.metastore.assume-canonical-partition-keys")
+    public FileHiveMetastoreConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
+    {
+        this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
+        return this;
     }
 }

@@ -3935,7 +3935,7 @@ public abstract class AbstractTestHive
                 .map(Column::getName)
                 .collect(toImmutableList());
         if (!table.getPartitionColumns().isEmpty()) {
-            List<String> partitionNames = metastoreClient.getPartitionNames(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName())
+            List<String> partitionNames = metastoreClient.getPartitionNamesByFilter(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionColumns, TupleDomain.all())
                     .orElse(ImmutableList.of());
             List<Partition> partitions = metastoreClient
                     .getPartitionsByNames(identity, table, partitionNames)
