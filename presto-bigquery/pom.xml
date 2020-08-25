@@ -21,7 +21,7 @@
             <dependency>
                 <groupId>com.google.cloud</groupId>
                 <artifactId>libraries-bom</artifactId>
-                <version>4.4.1</version>
+                <version>8.0.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -29,7 +29,7 @@
             <dependency>
                 <groupId>org.threeten</groupId>
                 <artifactId>threetenbp</artifactId>
-                <version>1.4.2</version>
+                <version>1.4.4</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -68,6 +68,12 @@
         <dependency>
             <groupId>com.google.api</groupId>
             <artifactId>gax-grpc</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>io.grpc</groupId>
+                    <artifactId>grpc-protobuf</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
 
         <dependency>
@@ -93,6 +99,10 @@
                     <groupId>commons-logging</groupId>
                     <artifactId>commons-logging</artifactId>
                 </exclusion>
+                <exclusion>
+                    <groupId>com.google.guava</groupId>
+                    <artifactId>listenablefuture</artifactId>
+                </exclusion>
             </exclusions>
         </dependency>
 
@@ -103,6 +113,10 @@
                 <exclusion>
                     <groupId>commons-logging</groupId>
                     <artifactId>commons-logging</artifactId>
+                </exclusion>
+                <exclusion>
+                    <groupId>com.google.guava</groupId>
+                    <artifactId>listenablefuture</artifactId>
                 </exclusion>
             </exclusions>
         </dependency>
