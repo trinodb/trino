@@ -366,8 +366,7 @@ public class TestPostgreSqlTypeMapping
                 "'12345678901234567890123456789012345678901234567890'");
     }
 
-    // "Unsupported type handling is set to CONVERT_TO_VARCHAR, but toPrestoType() returned empty"
-    @Flaky(issue = "https://github.com/prestosql/presto/issues/4885")
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4885", match = "Unsupported type handling is set to CONVERT_TO_VARCHAR, but toPrestoType() returned empty")
     @Test
     public void testDecimalExceedingPrecisionMaxWithExceedingIntegerValues()
     {
@@ -401,8 +400,7 @@ public class TestPostgreSqlTypeMapping
         }
     }
 
-    // "Unsupported type handling is set to CONVERT_TO_VARCHAR, but toPrestoType() returned empty"
-    @Flaky(issue = "https://github.com/prestosql/presto/issues/4885")
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4885", match = "Unsupported type handling is set to CONVERT_TO_VARCHAR, but toPrestoType() returned empty")
     @Test
     public void testDecimalExceedingPrecisionMaxWithNonExceedingIntegerValues()
     {
