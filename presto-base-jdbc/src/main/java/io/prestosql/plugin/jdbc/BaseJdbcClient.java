@@ -294,7 +294,11 @@ public abstract class BaseJdbcClient
                 }
                 if (columnMapping.isEmpty()) {
                     UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
-                    verify(unsupportedTypeHandling == IGNORE, "Unsupported type handling is set to %s, but toPrestoType() returned empty", unsupportedTypeHandling);
+                    verify(
+                            unsupportedTypeHandling == IGNORE,
+                            "Unsupported type handling is set to %s, but toPrestoType() returned empty for %s",
+                            unsupportedTypeHandling,
+                            typeHandle);
                 }
             }
             if (columns.isEmpty()) {
