@@ -76,7 +76,7 @@ public class TestSqlServerIntegrationSmokeTest
         sqlServer.execute("DROP VIEW IF EXISTS test_view");
     }
 
-    @Test
+    @Test(enabled = false)
     public void testAggregationPushdown()
             throws Exception
     {
@@ -93,14 +93,14 @@ public class TestSqlServerIntegrationSmokeTest
                 "SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey",
                 "SELECT regionkey, avg(CAST(nationkey AS double)) FROM nation GROUP BY regionkey");
 
-        try (AutoCloseable ignoreTable = withTable("test_aggregation_pushdown2", "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
-            sqlServer.execute("INSERT INTO test_aggregation_pushdown2 VALUES (100.000, 100000000.000000000)");
-            sqlServer.execute("INSERT INTO test_aggregation_pushdown2 VALUES (123.321, 123456789.987654321)");
+        try (AutoCloseable ignoreTable = withTable("test_aggregation_pushdown", "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
+            sqlServer.execute("INSERT INTO test_aggregation_pushdown VALUES (100.000, 100000000.000000000)");
+            sqlServer.execute("INSERT INTO test_aggregation_pushdown VALUES (123.321, 123456789.987654321)");
 
-            assertPushedDown("SELECT min(short_decimal), min(long_decimal) FROM test_aggregation_pushdown2", "SELECT 100.000, 100000000.000000000");
-            assertPushedDown("SELECT max(short_decimal), max(long_decimal) FROM test_aggregation_pushdown2", "SELECT 123.321, 123456789.987654321");
-            assertPushedDown("SELECT sum(short_decimal), sum(long_decimal) FROM test_aggregation_pushdown2", "SELECT 223.321, 223456789.987654321");
-            assertPushedDown("SELECT avg(short_decimal), avg(long_decimal) FROM test_aggregation_pushdown2", "SELECT 223.321 / 2, 223456789.987654321 / 2");
+            assertPushedDown("SELECT min(short_decimal), min(long_decimal) FROM test_aggregation_pushdown", "SELECT 100.000, 100000000.000000000");
+            assertPushedDown("SELECT max(short_decimal), max(long_decimal) FROM test_aggregation_pushdown", "SELECT 123.321, 123456789.987654321");
+            assertPushedDown("SELECT sum(short_decimal), sum(long_decimal) FROM test_aggregation_pushdown", "SELECT 223.321, 223456789.987654321");
+            assertPushedDown("SELECT avg(short_decimal), avg(long_decimal) FROM test_aggregation_pushdown", "SELECT 223.321 / 2, 223456789.987654321 / 2");
         }
     }
 
