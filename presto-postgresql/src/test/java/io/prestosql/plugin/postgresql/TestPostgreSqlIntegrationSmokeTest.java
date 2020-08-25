@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.postgresql;
 
+import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.QueryRunner;
 import org.intellij.lang.annotations.Language;
@@ -340,18 +341,31 @@ public class TestPostgreSqlIntegrationSmokeTest
         // TODO support aggregation pushdown with GROUPING SETS
         // TODO support aggregation over expressions
 
+        // SELECT DISTINCT
+        assertThat(query("SELECT DISTINCT regionkey FROM nation")).isCorrectlyPushedDown();
+
+        // count()
         assertThat(query("SELECT count(*) FROM nation")).isCorrectlyPushedDown();
         assertThat(query("SELECT count(nationkey) FROM nation")).isCorrectlyPushedDown();
         assertThat(query("SELECT count(1) FROM nation")).isCorrectlyPushedDown();
         assertThat(query("SELECT count() FROM nation")).isCorrectlyPushedDown();
+        assertThat(query("SELECT count(DISTINCT regionkey) FROM nation")).isNotFullyPushedDown(AggregationNode.class);
+
+        // GROUP BY
         assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
         assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
         assertThat(query("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
 
+        // GROUP BY and WHERE on bigint column
+        // GROUP BY and WHERE on aggregation key
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 GROUP BY regionkey")).isCorrectlyPushedDown();
+
+        // GROUP BY and WHERE on varchar column
+        // GROUP BY and WHERE on "other" (not aggregation key, not aggregation input)
         assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey")).isCorrectlyPushedDown();
 
+        // decimals
         try (AutoCloseable ignoreTable = withTable("tpch.test_aggregation_pushdown", "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
             execute("INSERT INTO tpch.test_aggregation_pushdown VALUES (100.000, 100000000.000000000)");
             execute("INSERT INTO tpch.test_aggregation_pushdown VALUES (123.321, 123456789.987654321)");
