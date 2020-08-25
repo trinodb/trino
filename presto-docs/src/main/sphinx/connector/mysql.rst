@@ -71,6 +71,18 @@ Finally, you can access the ``clicks`` table in the ``web`` database::
 If you used a different name for your catalog properties file, use
 that catalog name instead of ``mysql`` in the above examples.
 
+Pushdown
+--------
+
+The connector supports :doc:`pushdown </optimizer/pushdown>` for processing the
+following aggregate functions:
+
+* :func:`avg`
+* :func:`count`
+* :func:`max`
+* :func:`min`
+* :func:`sum`
+
 Limitations
 -----------
 
