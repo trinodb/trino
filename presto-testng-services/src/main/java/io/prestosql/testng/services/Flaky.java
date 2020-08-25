@@ -15,6 +15,7 @@ package io.prestosql.testng.services;
 
 import java.lang.annotation.Retention;
 import java.lang.annotation.Target;
+import java.util.regex.Matcher;
 
 import static java.lang.annotation.ElementType.METHOD;
 import static java.lang.annotation.RetentionPolicy.RUNTIME;
@@ -28,4 +29,10 @@ import static java.lang.annotation.RetentionPolicy.RUNTIME;
 public @interface Flaky
 {
     String issue();
+
+    /**
+     * A test is retried when it fails with a stacktrace, which string representation matches given regular expression.
+     * The pattern is searched for, as if {@link Matcher#find()} was used.
+     */
+    String match();
 }
