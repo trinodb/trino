@@ -44,6 +44,7 @@ import io.prestosql.plugin.hive.metastore.UserTableKey;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
@@ -108,7 +109,6 @@ public class CachingHiveMetastore
     private final LoadingCache<String, List<String>> viewNamesCache;
     private final LoadingCache<WithIdentity<HivePartitionName>, Optional<Partition>> partitionCache;
     private final LoadingCache<WithIdentity<PartitionFilter>, Optional<List<String>>> partitionFilterCache;
-    private final LoadingCache<WithIdentity<HiveTableName>, Optional<List<String>>> partitionNamesCache;
     private final LoadingCache<UserTableKey, Set<HivePrivilegeInfo>> tablePrivilegesCache;
     private final LoadingCache<String, Set<String>> rolesCache;
     private final LoadingCache<HivePrincipal, Set<RoleGrant>> roleGrantsCache;
@@ -197,11 +197,8 @@ public class CachingHiveMetastore
         viewNamesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
                 .build(asyncReloading(CacheLoader.from(this::loadAllViews), executor));
 
-        partitionNamesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
-                .build(asyncReloading(CacheLoader.from(this::loadPartitionNames), executor));
-
         partitionFilterCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
-                .build(asyncReloading(CacheLoader.from(this::loadPartitionNamesByParts), executor));
+                .build(asyncReloading(CacheLoader.from(this::loadPartitionNamesByFilter), executor));
 
         partitionCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
                 .build(asyncReloading(new CacheLoader<>()
@@ -241,7 +238,6 @@ public class CachingHiveMetastore
         databaseNamesCache.invalidateAll();
         tableNamesCache.invalidateAll();
         viewNamesCache.invalidateAll();
-        partitionNamesCache.invalidateAll();
         databaseCache.invalidateAll();
         tableCache.invalidateAll();
         partitionCache.invalidateAll();
@@ -660,29 +656,23 @@ public class CachingHiveMetastore
     }
 
     @Override
-    public Optional<List<String>> getPartitionNames(HiveIdentity identity, String databaseName, String tableName)
+    public Optional<List<String>> getPartitionNamesByFilter(HiveIdentity identity, String databaseName, String tableName, List<String> columnNames, TupleDomain<String> partitionKeysFilter)
     {
-        return get(partitionNamesCache, new WithIdentity<>(updateIdentity(identity), hiveTableName(databaseName, tableName)));
+        if (partitionKeysFilter.isNone()) {
+            return Optional.of(ImmutableList.of());
+        }
+
+        return get(partitionFilterCache, new WithIdentity<>(updateIdentity(identity), partitionFilter(databaseName, tableName, columnNames, partitionKeysFilter)));
     }
 
-    private Optional<List<String>> loadPartitionNames(WithIdentity<HiveTableName> hiveTableName)
+    private Optional<List<String>> loadPartitionNamesByFilter(WithIdentity<PartitionFilter> partitionFilter)
     {
-        return delegate.getPartitionNames(hiveTableName.getIdentity(), hiveTableName.getKey().getDatabaseName(), hiveTableName.getKey().getTableName());
-    }
-
-    @Override
-    public Optional<List<String>> getPartitionNamesByParts(HiveIdentity identity, String databaseName, String tableName, List<String> parts)
-    {
-        return get(partitionFilterCache, new WithIdentity<>(updateIdentity(identity), partitionFilter(databaseName, tableName, parts)));
-    }
-
-    private Optional<List<String>> loadPartitionNamesByParts(WithIdentity<PartitionFilter> partitionFilter)
-    {
-        return delegate.getPartitionNamesByParts(
+        return delegate.getPartitionNamesByFilter(
                 partitionFilter.getIdentity(),
                 partitionFilter.getKey().getHiveTableName().getDatabaseName(),
                 partitionFilter.getKey().getHiveTableName().getTableName(),
-                partitionFilter.getKey().getParts());
+                partitionFilter.getKey().getPartitionColumnNames(),
+                partitionFilter.getKey().getPartitionKeysFilter());
     }
 
     @Override
@@ -855,9 +845,6 @@ public class CachingHiveMetastore
     private void invalidatePartitionCache(String databaseName, String tableName)
     {
         HiveTableName hiveTableName = hiveTableName(databaseName, tableName);
-        partitionNamesCache.asMap().keySet().stream()
-                .filter(partitionName -> partitionName.getKey().equals(hiveTableName))
-                .forEach(partitionNamesCache::invalidate);
         partitionCache.asMap().keySet().stream()
                 .filter(partitionName -> partitionName.getKey().getHiveTableName().equals(hiveTableName))
                 .forEach(partitionCache::invalidate);
@@ -1100,13 +1087,6 @@ public class CachingHiveMetastore
     public CacheStatsMBean getPartitionFilterStats()
     {
         return new CacheStatsMBean(partitionFilterCache);
-    }
-
-    @Managed
-    @Nested
-    public CacheStatsMBean getPartitionNamesStats()
-    {
-        return new CacheStatsMBean(partitionNamesCache);
     }
 
     @Managed

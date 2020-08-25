@@ -34,6 +34,7 @@ import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.file.FileHiveMetastore;
+import io.prestosql.plugin.hive.metastore.file.FileHiveMetastoreConfig;
 import io.prestosql.plugin.hive.testing.TestingHiveConnectorFactory;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -96,10 +97,11 @@ public class TestConnectorPushdownRulesWithHive
     {
         baseDir = Files.createTempDir();
         HdfsConfig config = new HdfsConfig();
+        FileHiveMetastoreConfig metastoreConfig = new FileHiveMetastoreConfig();
         HdfsConfiguration configuration = new HiveHdfsConfiguration(new HdfsConfigurationInitializer(config), ImmutableSet.of());
         HdfsEnvironment environment = new HdfsEnvironment(configuration, config, new NoHdfsAuthentication());
 
-        metastore = new FileHiveMetastore(environment, baseDir.toURI().toString(), "test");
+        metastore = new FileHiveMetastore(environment, baseDir.toURI().toString(), "test", metastoreConfig.isAssumeCanonicalPartitionKeys());
         Database database = Database.builder()
                 .setDatabaseName(SCHEMA_NAME)
                 .setOwnerName("public")

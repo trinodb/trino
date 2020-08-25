@@ -46,6 +46,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "hive.optimized-reader.enabled",
         "hive.rcfile-optimized-writer.enabled",
         "hive.time-zone",
+        "hive.assume-canonical-partition-keys",
 })
 public class HiveConfig
 {
@@ -90,8 +91,6 @@ public class HiveConfig
 
     private String parquetTimeZone = TimeZone.getDefault().getID();
     private boolean useParquetColumnNames;
-
-    private boolean assumeCanonicalPartitionKeys;
 
     private String rcfileTimeZone = TimeZone.getDefault().getID();
     private boolean rcfileWriterValidate;
@@ -535,18 +534,6 @@ public class HiveConfig
     public HiveConfig setRcfileWriterValidate(boolean rcfileWriterValidate)
     {
         this.rcfileWriterValidate = rcfileWriterValidate;
-        return this;
-    }
-
-    public boolean isAssumeCanonicalPartitionKeys()
-    {
-        return assumeCanonicalPartitionKeys;
-    }
-
-    @Config("hive.assume-canonical-partition-keys")
-    public HiveConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
-    {
-        this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         return this;
     }
 
