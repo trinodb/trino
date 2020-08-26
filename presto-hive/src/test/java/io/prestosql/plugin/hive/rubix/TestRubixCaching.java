@@ -277,17 +277,6 @@ public class TestRubixCaching
         }
     }
 
-    private static CachingFileSystem<?> unwrapCachingFileSystem(FileSystem fileSystem)
-    {
-        if (fileSystem instanceof CachingFileSystem) {
-            return (CachingFileSystem<?>) fileSystem;
-        }
-        if (fileSystem instanceof FilterFileSystem) {
-            return unwrapCachingFileSystem(((FilterFileSystem) fileSystem).getRawFileSystem());
-        }
-        throw new IllegalStateException();
-    }
-
     @DataProvider
     public static Object[][] readMode()
     {
