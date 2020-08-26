@@ -612,6 +612,8 @@ public class TestPostgreSqlTypeMapping
     @Test
     public void testArray()
     {
+        Session session = sessionWithArrayAsArray();
+
         // basic types
         DataTypeTest.create(true)
                 .addRoundTrip(arrayDataType(booleanDataType()), asList(true, false))
@@ -620,31 +622,31 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(arrayDataType(smallintDataType()), asList((short) 32_456))
                 .addRoundTrip(arrayDataType(doubleDataType()), asList(123.45d))
                 .addRoundTrip(arrayDataType(realDataType()), asList(123.45f))
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_basic"));
+                .execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_array_basic"));
 
         arrayDateTest(TestPostgreSqlTypeMapping::arrayDataType)
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_date"));
+                .execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_array_date"));
         arrayDateTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), postgresCreateAndInsert("tpch.test_array_date"));
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_array_date"));
 
         arrayDecimalTest(TestPostgreSqlTypeMapping::arrayDataType)
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_decimal"));
+                .execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_array_decimal"));
         arrayDecimalTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), postgresCreateAndInsert("tpch.test_array_decimal"));
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_array_decimal"));
 
         arrayVarcharDataTypeTest(TestPostgreSqlTypeMapping::arrayDataType)
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_varchar"));
+                .execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_array_varchar"));
         arrayVarcharDataTypeTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), postgresCreateAndInsert("tpch.test_array_varchar"));
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_array_varchar"));
 
         arrayUnicodeDataTypeTest(TestPostgreSqlTypeMapping::arrayDataType, DataType::charDataType)
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_parameterized_char_unicode"));
+                .execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_array_parameterized_char_unicode"));
         arrayUnicodeDataTypeTest(TestPostgreSqlTypeMapping::postgresArrayDataType, DataType::charDataType)
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), postgresCreateAndInsert("tpch.test_array_parameterized_char_unicode"));
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_array_parameterized_char_unicode"));
         arrayVarcharUnicodeDataTypeTest(TestPostgreSqlTypeMapping::arrayDataType)
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_parameterized_varchar_unicode"));
+                .execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_array_parameterized_varchar_unicode"));
         arrayVarcharUnicodeDataTypeTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), postgresCreateAndInsert("tpch.test_array_parameterized_varchar_unicode"));
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_array_parameterized_varchar_unicode"));
     }
 
     @Test
