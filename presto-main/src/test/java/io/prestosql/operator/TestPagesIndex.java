@@ -82,6 +82,18 @@ public class TestPagesIndex
         assertEquals(lazyCompactPagesIndex.getEstimatedSize(), eagerCompactPagesIndex.getEstimatedSize());
     }
 
+    @Test
+    public void testCompactWithNoColumns()
+    {
+        PagesIndex index = newPagesIndex(ImmutableList.of(), 50, false);
+        index.addPage(new Page(10));
+        index.addPage(new Page(20));
+
+        index.compact();
+
+        assertEquals(index.getPositionCount(), 30);
+    }
+
     private static PagesIndex newPagesIndex(List<Type> types, int expectedPositions, boolean eagerCompact)
     {
         return new PagesIndex.TestingFactory(eagerCompact).newPagesIndex(types, expectedPositions);
