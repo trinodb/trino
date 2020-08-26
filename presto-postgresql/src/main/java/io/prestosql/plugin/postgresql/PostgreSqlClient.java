@@ -385,46 +385,56 @@ public class PostgreSqlClient
             }
         }
         if (typeHandle.getJdbcType() == Types.ARRAY) {
-            ArrayMapping arrayMapping = getArrayMapping(session);
-            if (arrayMapping == DISABLED) {
-                return Optional.empty();
+            Optional<ColumnMapping> columnMapping = arrayToPrestoType(session, connection, typeHandle);
+            if (columnMapping.isPresent()) {
+                return columnMapping;
             }
-            // resolve and map base array element type
-            JdbcTypeHandle baseElementTypeHandle = getArrayElementTypeHandle(connection, typeHandle);
-            String baseElementTypeName = baseElementTypeHandle.getJdbcTypeName()
-                    .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Element type name is missing: " + baseElementTypeHandle));
-            if (baseElementTypeHandle.getJdbcType() == Types.BINARY) {
-                // PostgreSQL jdbc driver doesn't currently support array of varbinary (bytea[])
-                // https://github.com/pgjdbc/pgjdbc/pull/1184
-                return Optional.empty();
-            }
-            Optional<ColumnMapping> baseElementMapping = toPrestoType(session, connection, baseElementTypeHandle);
-
-            if (arrayMapping == AS_ARRAY) {
-                if (typeHandle.getArrayDimensions().isEmpty()) {
-                    return Optional.empty();
-                }
-                return baseElementMapping
-                        .map(elementMapping -> {
-                            ArrayType prestoArrayType = new ArrayType(elementMapping.getType());
-                            ColumnMapping arrayColumnMapping = arrayColumnMapping(session, prestoArrayType, elementMapping, baseElementTypeName);
-
-                            int arrayDimensions = typeHandle.getArrayDimensions().get();
-                            for (int i = 1; i < arrayDimensions; i++) {
-                                prestoArrayType = new ArrayType(prestoArrayType);
-                                arrayColumnMapping = arrayColumnMapping(session, prestoArrayType, arrayColumnMapping, baseElementTypeName);
-                            }
-                            return arrayColumnMapping;
-                        });
-            }
-            if (arrayMapping == AS_JSON) {
-                return baseElementMapping
-                        .map(elementMapping -> arrayAsJsonColumnMapping(session, elementMapping));
-            }
-            throw new IllegalStateException("Unsupported array mapping type: " + arrayMapping);
         }
         // TODO support PostgreSQL's TIME WITH TIME ZONE explicitly, otherwise predicate pushdown for these types may be incorrect
         return super.toPrestoType(session, connection, typeHandle);
+    }
+
+    private Optional<ColumnMapping> arrayToPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
+    {
+        checkArgument(typeHandle.getJdbcType() == Types.ARRAY, "Not array type");
+
+        ArrayMapping arrayMapping = getArrayMapping(session);
+        if (arrayMapping == DISABLED) {
+            return Optional.empty();
+        }
+        // resolve and map base array element type
+        JdbcTypeHandle baseElementTypeHandle = getArrayElementTypeHandle(connection, typeHandle);
+        String baseElementTypeName = baseElementTypeHandle.getJdbcTypeName()
+                .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Element type name is missing: " + baseElementTypeHandle));
+        if (baseElementTypeHandle.getJdbcType() == Types.BINARY) {
+            // PostgreSQL jdbc driver doesn't currently support array of varbinary (bytea[])
+            // https://github.com/pgjdbc/pgjdbc/pull/1184
+            return Optional.empty();
+        }
+        Optional<ColumnMapping> baseElementMapping = toPrestoType(session, connection, baseElementTypeHandle);
+
+        if (arrayMapping == AS_ARRAY) {
+            if (typeHandle.getArrayDimensions().isEmpty()) {
+                return Optional.empty();
+            }
+            return baseElementMapping
+                    .map(elementMapping -> {
+                        ArrayType prestoArrayType = new ArrayType(elementMapping.getType());
+                        ColumnMapping arrayColumnMapping = arrayColumnMapping(session, prestoArrayType, elementMapping, baseElementTypeName);
+
+                        int arrayDimensions = typeHandle.getArrayDimensions().get();
+                        for (int i = 1; i < arrayDimensions; i++) {
+                            prestoArrayType = new ArrayType(prestoArrayType);
+                            arrayColumnMapping = arrayColumnMapping(session, prestoArrayType, arrayColumnMapping, baseElementTypeName);
+                        }
+                        return arrayColumnMapping;
+                    });
+        }
+        if (arrayMapping == AS_JSON) {
+            return baseElementMapping
+                    .map(elementMapping -> arrayAsJsonColumnMapping(session, elementMapping));
+        }
+        throw new IllegalStateException("Unsupported array mapping type: " + arrayMapping);
     }
 
     @Override
