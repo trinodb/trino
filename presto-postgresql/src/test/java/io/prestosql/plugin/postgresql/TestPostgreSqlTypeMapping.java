@@ -639,6 +639,11 @@ public class TestPostgreSqlTypeMapping
         arrayVarcharDataTypeTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_array_varchar"));
 
+        testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY['binary value'::bytea]");
+        testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY[ARRAY['binary value'::bytea]]");
+        testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY[ARRAY[ARRAY['binary value'::bytea]]]");
+        testUnsupportedDataTypeAsIgnored(session, "_bytea", "ARRAY['binary value'::bytea]");
+
         arrayUnicodeDataTypeTest(TestPostgreSqlTypeMapping::arrayDataType, DataType::charDataType)
                 .execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_array_parameterized_char_unicode"));
         arrayUnicodeDataTypeTest(TestPostgreSqlTypeMapping::postgresArrayDataType, DataType::charDataType)
@@ -820,6 +825,11 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(arrayAsJsonDataType("_text"), "[[\"one\",null]]")
                 .addRoundTrip(arrayAsJsonDataType("_text"), "[]")
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_varchar_array_as_json"));
+
+        testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY['binary value'::bytea]");
+        testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY[ARRAY['binary value'::bytea]]");
+        testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY[ARRAY[ARRAY['binary value'::bytea]]]");
+        testUnsupportedDataTypeAsIgnored(session, "_bytea", "ARRAY['binary value'::bytea]");
 
         DataTypeTest.create()
                 .addRoundTrip(arrayAsJsonDataType("date[]"), null)
@@ -1278,6 +1288,11 @@ public class TestPostgreSqlTypeMapping
 
     private void testUnsupportedDataTypeAsIgnored(String dataTypeName, String databaseValue)
     {
+        testUnsupportedDataTypeAsIgnored(getSession(), dataTypeName, databaseValue);
+    }
+
+    private void testUnsupportedDataTypeAsIgnored(Session session, String dataTypeName, String databaseValue)
+    {
         JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
         try (TestTable table = new TestTable(
                 jdbcSqlExecutor,
@@ -1286,13 +1301,14 @@ public class TestPostgreSqlTypeMapping
                 ImmutableList.of(
                         "'1', NULL",
                         "'2', " + databaseValue))) {
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES 1, 2");
+            assertQuery(session, "SELECT * FROM " + table.getName(), "VALUES 1, 2");
             assertQuery(
+                    session,
                     "DESC " + table.getName(),
                     "VALUES ('key', 'varchar(5)','', '')"); // no 'unsupported_column'
 
-            assertUpdate(format("INSERT INTO %s VALUES '3'", table.getName()), 1);
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES '1', '2', '3'");
+            assertUpdate(session, format("INSERT INTO %s VALUES '3'", table.getName()), 1);
+            assertQuery(session, "SELECT * FROM " + table.getName(), "VALUES '1', '2', '3'");
         }
     }
 
