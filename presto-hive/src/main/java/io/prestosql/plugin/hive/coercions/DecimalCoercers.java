@@ -327,13 +327,18 @@ public final class DecimalCoercers
 
     public static Function<Block, Block> createDecimalToVarcharCoercer(DecimalType fromType, VarcharType toType)
     {
-        return new DecimalToVarcharCoercer(fromType, toType);
+        if (fromType.isShort()) {
+            return new ShortDecimalToVarcharCoercer(fromType, toType);
+        }
+        else {
+            return new LongDecimalToVarcharCoercer(fromType, toType);
+        }
     }
 
-    private static class DecimalToVarcharCoercer
+    private static class LongDecimalToVarcharCoercer
             extends TypeCoercer<DecimalType, VarcharType>
     {
-        public DecimalToVarcharCoercer(DecimalType fromType, VarcharType toType)
+        public LongDecimalToVarcharCoercer(DecimalType fromType, VarcharType toType)
         {
             super(fromType, toType);
         }
@@ -342,6 +347,21 @@ public final class DecimalCoercers
         protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
         {
             toType.writeSlice(blockBuilder, utf8Slice(Decimals.toString(fromType.getSlice(block, position), fromType.getScale())));
+        }
+    }
+
+    private static class ShortDecimalToVarcharCoercer
+            extends TypeCoercer<DecimalType, VarcharType>
+    {
+        public ShortDecimalToVarcharCoercer(DecimalType fromType, VarcharType toType)
+        {
+            super(fromType, toType);
+        }
+
+        @Override
+        protected void applyCoercedValue(BlockBuilder blockBuilder, Block block, int position)
+        {
+            toType.writeSlice(blockBuilder, utf8Slice(Decimals.toString(fromType.getLong(block, position), fromType.getScale())));
         }
     }
 }
