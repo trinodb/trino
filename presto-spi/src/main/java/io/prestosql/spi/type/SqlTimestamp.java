@@ -87,7 +87,7 @@ public final class SqlTimestamp
         return epochMicros;
     }
 
-    public long getPicosOfMicros()
+    public int getPicosOfMicros()
     {
         return picosOfMicros;
     }
