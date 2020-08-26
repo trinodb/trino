@@ -106,7 +106,6 @@ public class TestRubixCaching
     private java.nio.file.Path tempDirectory;
     private Path cacheStoragePath;
     private HdfsConfig config;
-    private List<PropertyMetadata<?>> hiveSessionProperties;
     private HdfsContext context;
     private RubixInitializer rubixInitializer;
     private RubixConfigurationInitializer rubixConfigInitializer;
@@ -119,7 +118,7 @@ public class TestRubixCaching
     {
         cacheStoragePath = getStoragePath("/");
         config = new HdfsConfig();
-        hiveSessionProperties = getHiveSessionProperties(
+        List<PropertyMetadata<?>> hiveSessionProperties = getHiveSessionProperties(
                 new HiveConfig(),
                 new RubixEnabledConfig().setCacheEnabled(true),
                 new OrcReaderConfig()).getSessionProperties();
