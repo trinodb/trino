@@ -22,10 +22,7 @@ import org.testng.annotations.Test;
 import java.util.stream.Stream;
 
 import static io.prestosql.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
-import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.prestosql.testing.QueryAssertions.assertContains;
 import static io.prestosql.testing.TestngUtils.toDataProvider;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
@@ -210,10 +207,7 @@ public abstract class AbstractTestIntegrationSmokeTest
     @Test(timeOut = 300_000, dataProvider = "joinDistributionTypes")
     public void testJoinWithEmptySides(JoinDistributionType joinDistributionType)
     {
-        Session session = Session.builder(getSession())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, joinDistributionType.toString())
-                .setSystemProperty(JOIN_REORDERING_STRATEGY, NONE.toString())
-                .build();
+        Session session = noJoinReordering(joinDistributionType);
         // empty build side
         assertQuery(session, "SELECT count(*) FROM nation JOIN region ON nation.regionkey = region.regionkey AND region.name = ''", "VALUES 0");
         assertQuery(session, "SELECT count(*) FROM nation JOIN region ON nation.regionkey = region.regionkey AND region.regionkey < 0", "VALUES 0");

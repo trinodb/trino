@@ -22,8 +22,6 @@ import io.prestosql.tests.QueryTemplate;
 import org.testng.annotations.Test;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
-import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
-import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
@@ -2280,13 +2278,5 @@ public abstract class AbstractTestJoinQueries
                         "WHERE lineitem.orderkey = 31718 " +
                         "AND customer.name >= 'Customer#000001463' ",
                 "VALUES 3");
-    }
-
-    private Session noJoinReordering()
-    {
-        return Session.builder(getSession())
-                .setSystemProperty(JOIN_REORDERING_STRATEGY, FeaturesConfig.JoinReorderingStrategy.NONE.name())
-                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.PARTITIONED.name())
-                .build();
     }
 }
