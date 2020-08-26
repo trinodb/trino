@@ -20,7 +20,6 @@ import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.testing.TestingConnectorSession;
 import org.testng.annotations.Test;
 
@@ -120,7 +119,6 @@ public class TestPinotSplitManager
                         .put(PinotSessionProperties.SEGMENTS_PER_SPLIT, numSegmentsPerSplit)
                         .put(PinotSessionProperties.FORBID_SEGMENT_QUERIES, forbidSegmentQueries)
                         .build())
-                .setOmitTimestampPrecision(new FeaturesConfig().isOmitDateTimeTypePrecision())
                 .build();
     }
 
