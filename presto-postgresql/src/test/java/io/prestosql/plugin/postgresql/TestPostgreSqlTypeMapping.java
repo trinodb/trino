@@ -35,7 +35,6 @@ import io.prestosql.testing.datatype.DataTypeTest;
 import io.prestosql.testing.sql.JdbcSqlExecutor;
 import io.prestosql.testing.sql.PrestoSqlExecutor;
 import io.prestosql.testing.sql.TestTable;
-import io.prestosql.testng.services.Flaky;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -74,6 +73,7 @@ import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHA
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_ARRAY;
 import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_JSON;
+import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.DISABLED;
 import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
@@ -361,12 +361,12 @@ public class TestPostgreSqlTypeMapping
     public void testDecimalExceedingPrecisionMaxConvertedToVarchar()
     {
         testUnsupportedDataTypeConvertedToVarchar(
+                getSession(),
                 "decimal(50,0)",
                 "12345678901234567890123456789012345678901234567890",
                 "'12345678901234567890123456789012345678901234567890'");
     }
 
-    @Flaky(issue = "https://github.com/prestosql/presto/issues/4885", match = "Unsupported type handling is set to CONVERT_TO_VARCHAR, but toPrestoType() returned empty")
     @Test
     public void testDecimalExceedingPrecisionMaxWithExceedingIntegerValues()
     {
@@ -400,7 +400,6 @@ public class TestPostgreSqlTypeMapping
         }
     }
 
-    @Flaky(issue = "https://github.com/prestosql/presto/issues/4885", match = "Unsupported type handling is set to CONVERT_TO_VARCHAR, but toPrestoType() returned empty")
     @Test
     public void testDecimalExceedingPrecisionMaxWithNonExceedingIntegerValues()
     {
@@ -610,6 +609,20 @@ public class TestPostgreSqlTypeMapping
     }
 
     @Test
+    public void testArrayDisabled()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("postgresql", PostgreSqlSessionProperties.ARRAY_MAPPING, DISABLED.name())
+                .build();
+
+        testUnsupportedDataTypeAsIgnored(session, "bigint[]", "ARRAY[42]");
+        testUnsupportedDataTypeConvertedToVarchar(session, "bigint[]", "ARRAY[42]", "'{42}'");
+
+        testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY['binary'::bytea]");
+        testUnsupportedDataTypeConvertedToVarchar(session, "bytea[]", "ARRAY['binary'::bytea]", "'{\"\\\\x62696e617279\"}'");
+    }
+
+    @Test
     public void testArray()
     {
         Session session = sessionWithArrayAsArray();
@@ -643,6 +656,7 @@ public class TestPostgreSqlTypeMapping
         testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY[ARRAY['binary value'::bytea]]");
         testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY[ARRAY[ARRAY['binary value'::bytea]]]");
         testUnsupportedDataTypeAsIgnored(session, "_bytea", "ARRAY['binary value'::bytea]");
+        testUnsupportedDataTypeConvertedToVarchar(session, "bytea[]", "ARRAY['binary value'::bytea]", "'{\"\\\\x62696e6172792076616c7565\"}'");
 
         arrayUnicodeDataTypeTest(TestPostgreSqlTypeMapping::arrayDataType, DataType::charDataType)
                 .execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_array_parameterized_char_unicode"));
@@ -830,6 +844,7 @@ public class TestPostgreSqlTypeMapping
         testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY[ARRAY['binary value'::bytea]]");
         testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY[ARRAY[ARRAY['binary value'::bytea]]]");
         testUnsupportedDataTypeAsIgnored(session, "_bytea", "ARRAY['binary value'::bytea]");
+        testUnsupportedDataTypeConvertedToVarchar(session, "bytea[]", "ARRAY['binary value'::bytea]", "'{\"\\\\x62696e6172792076616c7565\"}'");
 
         DataTypeTest.create()
                 .addRoundTrip(arrayAsJsonDataType("date[]"), null)
@@ -1312,7 +1327,7 @@ public class TestPostgreSqlTypeMapping
         }
     }
 
-    private void testUnsupportedDataTypeConvertedToVarchar(String dataTypeName, String databaseValue, String prestoValue)
+    private void testUnsupportedDataTypeConvertedToVarchar(Session session, String dataTypeName, String databaseValue, String prestoValue)
     {
         JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
         try (TestTable table = new TestTable(
@@ -1322,7 +1337,9 @@ public class TestPostgreSqlTypeMapping
                 ImmutableList.of(
                         "1, NULL",
                         "2, " + databaseValue))) {
-            Session convertToVarchar = withUnsupportedType(CONVERT_TO_VARCHAR);
+            Session convertToVarchar = Session.builder(getSession())
+                    .setCatalogSessionProperty("postgresql", UNSUPPORTED_TYPE_HANDLING, CONVERT_TO_VARCHAR.name())
+                    .build();
             assertQuery(
                     convertToVarchar,
                     "SELECT * FROM " + table.getName(),
@@ -1344,7 +1361,7 @@ public class TestPostgreSqlTypeMapping
             assertQueryFails(
                     convertToVarchar,
                     format("INSERT INTO %s (key, unsupported_column) VALUES (4, %s)", table.getName(), prestoValue),
-                    "Insert query has mismatched column types: Table: \\[varchar\\(5\\), varchar\\], Query: \\[integer, varchar\\(50\\)\\]");
+                    "Insert query has mismatched column types: Table: \\[varchar\\(5\\), varchar\\], Query: \\[integer, varchar\\(\\d+\\)\\]");
             assertUpdate(
                     convertToVarchar,
                     format("INSERT INTO %s (key) VALUES '5'", table.getName()),
@@ -1354,13 +1371,6 @@ public class TestPostgreSqlTypeMapping
                     "SELECT * FROM " + table.getName(),
                     format("VALUES ('1', NULL), ('2', %s), ('5', NULL)", prestoValue));
         }
-    }
-
-    private Session withUnsupportedType(UnsupportedTypeHandling unsupportedTypeHandling)
-    {
-        return Session.builder(getSession())
-                .setCatalogSessionProperty("postgresql", UNSUPPORTED_TYPE_HANDLING, unsupportedTypeHandling.name())
-                .build();
     }
 
     public static DataType<ZonedDateTime> prestoTimestampWithTimeZoneDataType()
