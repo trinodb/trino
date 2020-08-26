@@ -521,12 +521,12 @@ public class DynamicFilterService
 
     private static class DynamicFilterContext
     {
-        final Map<DynamicFilterId, Domain> dynamicFilterSummaries = new ConcurrentHashMap<>();
-        final Supplier<List<StageDynamicFilters>> dynamicFilterSupplier;
-        final Set<DynamicFilterId> dynamicFilters;
-        final Map<DynamicFilterId, SettableFuture<?>> lazyDynamicFilters;
-        final Set<DynamicFilterId> replicatedDynamicFilters;
-        final AtomicBoolean completed = new AtomicBoolean();
+        private final Map<DynamicFilterId, Domain> dynamicFilterSummaries = new ConcurrentHashMap<>();
+        private final Supplier<List<StageDynamicFilters>> dynamicFilterSupplier;
+        private final Set<DynamicFilterId> dynamicFilters;
+        private final Map<DynamicFilterId, SettableFuture<?>> lazyDynamicFilters;
+        private final Set<DynamicFilterId> replicatedDynamicFilters;
+        private final AtomicBoolean completed = new AtomicBoolean();
 
         private DynamicFilterContext(
                 Supplier<List<StageDynamicFilters>> dynamicFilterSupplier,
