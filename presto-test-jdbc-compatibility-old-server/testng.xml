@@ -1,0 +1,35 @@
+<!DOCTYPE suite SYSTEM "http://testng.org/testng-1.0.dtd" >
+<!--
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~     http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+
+<suite name="JdbcCompatibilytOldServer" verbose="1" >
+    <!-- We need testng.xml file to express the intent to group tests execution by instances.
+          - instanceA.test1()
+          - instanceA.test2()
+          - instanceB.test1()
+          - instanceB.test2()
+         Without it the tests are group by test method:
+          - instanceA.test1()
+          - instanceB.test1()
+          - instanceA.test2()
+          - instanceB.test2()
+
+         With grouping by test method, test execution is very resource intensive, as each test class instance
+         starts up separate Presto server docker container -->
+    <test name="all" group-by-instances="true">
+        <packages>
+            <package name="io.prestosql"/>
+        </packages>
+    </test>
+</suite>
