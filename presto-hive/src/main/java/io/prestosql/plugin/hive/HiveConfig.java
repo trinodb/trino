@@ -133,6 +133,8 @@ public class HiveConfig
 
     private boolean projectionPushdownEnabled = true;
 
+    private Duration dynamicFilteringProbeBlockingTimeout = new Duration(0, MINUTES);
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -962,6 +964,20 @@ public class HiveConfig
     public HiveConfig setProjectionPushdownEnabled(boolean projectionPushdownEnabled)
     {
         this.projectionPushdownEnabled = projectionPushdownEnabled;
+        return this;
+    }
+
+    @NotNull
+    public Duration getDynamicFilteringProbeBlockingTimeout()
+    {
+        return dynamicFilteringProbeBlockingTimeout;
+    }
+
+    @Config("hive.dynamic-filtering-probe-blocking-timeout")
+    @ConfigDescription("Duration to wait for completion of dynamic filters during split generation for probe side table")
+    public HiveConfig setDynamicFilteringProbeBlockingTimeout(Duration dynamicFilteringProbeBlockingTimeout)
+    {
+        this.dynamicFilteringProbeBlockingTimeout = dynamicFilteringProbeBlockingTimeout;
         return this;
     }
 }

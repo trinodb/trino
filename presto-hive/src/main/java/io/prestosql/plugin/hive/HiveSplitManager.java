@@ -65,6 +65,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_INVALID_METADATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMATCH;
 import static io.prestosql.plugin.hive.HivePartition.UNPARTITIONED_ID;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getDynamicFilteringProbeBlockingTimeout;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isIgnoreAbsentPartitions;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isPartitionUseColumnNames;
 import static io.prestosql.plugin.hive.TableToPartitionMapping.mapColumnsByIndex;
@@ -219,7 +220,8 @@ public class HiveSplitManager
                 table,
                 hivePartitions,
                 hiveTable.getCompactEffectivePredicate(),
-                dynamicFilter::getCurrentPredicate,
+                dynamicFilter,
+                getDynamicFilteringProbeBlockingTimeout(session),
                 typeManager,
                 createBucketSplitInfo(bucketHandle, bucketFilter),
                 session,

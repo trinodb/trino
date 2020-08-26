@@ -95,7 +95,8 @@ public class TestHiveConfig
                 .setAllowRegisterPartition(false)
                 .setQueryPartitionFilterRequired(false)
                 .setPartitionUseColumnNames(false)
-                .setProjectionPushdownEnabled(true));
+                .setProjectionPushdownEnabled(true)
+                .setDynamicFilteringProbeBlockingTimeout(new Duration(0, TimeUnit.MINUTES)));
     }
 
     @Test
@@ -164,6 +165,7 @@ public class TestHiveConfig
                 .put("hive.query-partition-filter-required", "true")
                 .put("hive.partition-use-column-names", "true")
                 .put("hive.projection-pushdown-enabled", "false")
+                .put("hive.dynamic-filtering-probe-blocking-timeout", "10s")
                 .build();
 
         HiveConfig expected = new HiveConfig()
@@ -228,7 +230,8 @@ public class TestHiveConfig
                 .setAllowRegisterPartition(true)
                 .setQueryPartitionFilterRequired(true)
                 .setPartitionUseColumnNames(true)
-                .setProjectionPushdownEnabled(false);
+                .setProjectionPushdownEnabled(false)
+                .setDynamicFilteringProbeBlockingTimeout(new Duration(10, TimeUnit.SECONDS));
 
         assertFullMapping(properties, expected);
     }

@@ -15,6 +15,7 @@ package io.prestosql.plugin.hive;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.units.DataSize;
+import io.airlift.units.Duration;
 import io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode;
 import io.prestosql.plugin.hive.orc.OrcReaderConfig;
 import io.prestosql.plugin.hive.orc.OrcWriterConfig;
@@ -31,6 +32,7 @@ import java.util.concurrent.ThreadLocalRandom;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
+import static io.prestosql.plugin.base.session.PropertyMetadataUtil.durationProperty;
 import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
 import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
@@ -91,6 +93,7 @@ public final class HiveSessionProperties
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private static final String PARQUET_OPTIMIZED_WRITER_ENABLED = "parquet_optimized_writer_enabled";
+    private static final String DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT = "dynamic_filtering_probe_blocking_timeout";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -369,6 +372,11 @@ public final class HiveSessionProperties
                         PARQUET_OPTIMIZED_WRITER_ENABLED,
                         "Experimental: Enable optimized writer",
                         parquetWriterConfig.isParquetOptimizedWriterEnabled(),
+                        false),
+                durationProperty(
+                        DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT,
+                        "Duration to wait for completion of dynamic filters during split generation for probe side table",
+                        hiveConfig.getDynamicFilteringProbeBlockingTimeout(),
                         false));
     }
 
@@ -634,5 +642,10 @@ public final class HiveSessionProperties
     public static boolean isParquetOptimizedWriterEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_OPTIMIZED_WRITER_ENABLED, Boolean.class);
+    }
+
+    public static Duration getDynamicFilteringProbeBlockingTimeout(ConnectorSession session)
+    {
+        return session.getProperty(DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT, Duration.class);
     }
 }
