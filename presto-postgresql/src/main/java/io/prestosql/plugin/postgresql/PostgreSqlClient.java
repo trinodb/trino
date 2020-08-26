@@ -393,7 +393,7 @@ public class PostgreSqlClient
             JdbcTypeHandle baseElementTypeHandle = getArrayElementTypeHandle(connection, typeHandle);
             String baseElementTypeName = baseElementTypeHandle.getJdbcTypeName()
                     .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Element type name is missing: " + baseElementTypeHandle));
-            if (baseElementTypeHandle.getJdbcType() == Types.VARBINARY) {
+            if (baseElementTypeHandle.getJdbcType() == Types.BINARY) {
                 // PostgreSQL jdbc driver doesn't currently support array of varbinary (bytea[])
                 // https://github.com/pgjdbc/pgjdbc/pull/1184
                 return Optional.empty();
