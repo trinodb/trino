@@ -61,6 +61,8 @@ The table comments table contains the list of table comment.
 The nodes table contains the list of visible nodes in the Presto
 cluster along with their status.
 
+.. _optimizer_rule_stats:
+
 ``runtime.optimizer_rule_stats``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
