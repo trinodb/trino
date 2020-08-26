@@ -29,7 +29,23 @@ public final class TimeType
     public static final int MAX_PRECISION = 12;
     public static final int DEFAULT_PRECISION = 3; // TODO: should be 6 per SQL spec
 
-    @Deprecated
+    private static final TimeType[] TYPES = new TimeType[MAX_PRECISION + 1];
+
+    static {
+        for (int precision = 0; precision <= MAX_PRECISION; precision++) {
+            TYPES[precision] = new TimeType(precision);
+        }
+    }
+
+    public static final TimeType TIME_SECONDS = createTimeType(0);
+    public static final TimeType TIME_MILLIS = createTimeType(3);
+    public static final TimeType TIME_MICROS = createTimeType(6);
+    public static final TimeType TIME_NANOS = createTimeType(9);
+    public static final TimeType TIME_PICOS = createTimeType(12);
+
+    /**
+     * @deprecated use {@link #TIME_MILLIS} instead
+     */
     public static final TimeType TIME = new TimeType(DEFAULT_PRECISION);
 
     private final int precision;
@@ -42,16 +58,10 @@ public final class TimeType
 
     public static TimeType createTimeType(int precision)
     {
-        if (precision == DEFAULT_PRECISION) {
-            // Use singleton for backwards compatibility with code checking `type == TIME`
-            return TIME;
-        }
-
         if (precision < 0 || precision > MAX_PRECISION) {
             throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("TIME precision must be in range [0, %s]", MAX_PRECISION));
         }
-
-        return new TimeType(precision);
+        return TYPES[precision];
     }
 
     public int getPrecision()
