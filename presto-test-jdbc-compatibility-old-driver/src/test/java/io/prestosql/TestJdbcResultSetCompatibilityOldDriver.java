@@ -78,4 +78,7 @@ public class TestJdbcResultSetCompatibilityOldDriver
             throw new SkipException("TIME WITH TIME ZONE TYPE is not supported properly");
         }
     }
+
+    @Test
+    public void forceTestNgToRespectSingleThreaded() {}
 }
