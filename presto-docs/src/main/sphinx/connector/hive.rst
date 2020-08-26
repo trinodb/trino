@@ -303,6 +303,8 @@ Property Name                                      Description                  
                                         subsequent accesses to see fresh data.
 
 ``hive.metastore-refresh-max-threads``  Maximum threads used to refresh cached metastore data.        100
+
+``hive.metastore-timeout``              Timeout for Hive metastore requests.                         ``10s``
 ======================================= ============================================================ ============
 
 Thrift Metastore Configuration Properties
