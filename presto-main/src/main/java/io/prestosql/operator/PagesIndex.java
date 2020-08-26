@@ -237,7 +237,7 @@ public class PagesIndex
 
     public void compact()
     {
-        if (eagerCompact) {
+        if (eagerCompact || channels.length == 0) {
             return;
         }
         for (int channel = 0; channel < types.size(); channel++) {
