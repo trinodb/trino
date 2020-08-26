@@ -68,19 +68,24 @@ public class LocalDynamicFiltersCollector
                 "LocalDynamicFiltersCollector: duplicate filter %s", filterId));
     }
 
+    public Set<DynamicFilterId> getRegisteredDynamicFilterIds()
+    {
+        return futures.keySet();
+    }
+
     // Used during execution (after build-side dynamic filter collection is over).
     // No need to be synchronized as the futures map doesn't change.
     public void collectDynamicFilterDomains(Map<DynamicFilterId, Domain> dynamicFilterDomains)
     {
-        dynamicFilterDomains
-                .entrySet()
-                .forEach(entry -> {
-                    SettableFuture<Domain> future = futures.get(entry.getKey());
-                    // Skip dynamic filters that are not applied locally.
-                    if (future != null) {
-                        verify(future.set(entry.getValue()), "Dynamic filter %s already collected", entry.getKey());
-                    }
-                });
+        dynamicFilterDomains.forEach((key, value) -> {
+            SettableFuture<Domain> future = futures.get(key);
+            // Skip dynamic filters that are not applied locally.
+            if (future != null) {
+                // Coordinator may re-send dynamicFilterDomain if sendUpdate request fails
+                // It's possible that the request failed after the DF was already collected here
+                future.set(value);
+            }
+        });
     }
 
     // Called during TableScan planning (no need to be synchronized as local planning is single threaded)
