@@ -256,12 +256,14 @@ import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.concat;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.google.common.collect.Range.closedOpen;
+import static com.google.common.collect.Sets.difference;
 import static io.airlift.concurrent.MoreFutures.addSuccessCallback;
 import static io.trino.SystemSessionProperties.getAggregationOperatorUnspillMemoryLimit;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageRowCount;
 import static io.trino.SystemSessionProperties.getFilterAndProjectMinOutputPageSize;
 import static io.trino.SystemSessionProperties.getTaskConcurrency;
 import static io.trino.SystemSessionProperties.getTaskWriterCount;
+import static io.trino.SystemSessionProperties.isEnableCoordinatorDynamicFiltersDistribution;
 import static io.trino.SystemSessionProperties.isEnableLargeDynamicFilters;
 import static io.trino.SystemSessionProperties.isExchangeCompressionEnabled;
 import static io.trino.SystemSessionProperties.isLateMaterializationEnabled;
@@ -676,6 +678,20 @@ public class LocalExecutionPlanner
         private void addLocalDynamicFilters(Map<DynamicFilterId, Domain> dynamicTupleDomain)
         {
             taskContext.addDynamicFilter(dynamicTupleDomain);
+        }
+
+        private void registerCoordinatorDynamicFilters(List<DynamicFilters.Descriptor> dynamicFilters)
+        {
+            if (!isEnableCoordinatorDynamicFiltersDistribution(taskContext.getSession())) {
+                return;
+            }
+            Set<DynamicFilterId> consumedFilterIds = dynamicFilters.stream()
+                    .map(DynamicFilters.Descriptor::getId)
+                    .collect(toImmutableSet());
+            LocalDynamicFiltersCollector dynamicFiltersCollector = getDynamicFiltersCollector();
+            // Don't repeat registration of node-local filters or those already registered by another scan (e.g. co-located joins)
+            dynamicFiltersCollector.register(
+                    difference(consumedFilterIds, dynamicFiltersCollector.getRegisteredDynamicFilterIds()));
         }
 
         private void addCoordinatorDynamicFilters(Map<DynamicFilterId, Domain> dynamicTupleDomain)
@@ -1753,6 +1769,7 @@ public class LocalExecutionPlanner
             }
 
             log.debug("[TableScan] Dynamic filters: %s", dynamicFilters);
+            context.registerCoordinatorDynamicFilters(dynamicFilters);
             return context.getDynamicFiltersCollector().createDynamicFilter(
                     dynamicFilters,
                     tableScanNode.getAssignments(),
