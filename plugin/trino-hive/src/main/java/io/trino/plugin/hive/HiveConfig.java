@@ -30,6 +30,7 @@ import javax.annotation.Nullable;
 import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
+import javax.validation.constraints.NotEmpty;
 import javax.validation.constraints.NotNull;
 
 import java.util.List;
@@ -144,6 +145,9 @@ public class HiveConfig
     private boolean optimizeSymlinkListing = true;
 
     private boolean legacyHiveViewTranslation;
+
+    private boolean redirectToIcebergEnabled;
+    private String redirectToIcebergCatalog = "iceberg";
 
     public int getMaxInitialSplits()
     {
@@ -1038,5 +1042,33 @@ public class HiveConfig
     public boolean isLegacyHiveViewTranslation()
     {
         return this.legacyHiveViewTranslation;
+    }
+
+    public boolean isRedirectToIcebergEnabled()
+    {
+        return redirectToIcebergEnabled;
+    }
+
+    @Config("hive.redirect-to-iceberg-enabled")
+    @ConfigDescription("Redirect to a catalog configured with Iceberg Connector")
+    public HiveConfig setRedirectToIcebergEnabled(boolean redirectToIcebergEnabled)
+    {
+        this.redirectToIcebergEnabled = redirectToIcebergEnabled;
+        return this;
+    }
+
+    @NotNull
+    @NotEmpty(message = "hive.redirect-to-iceberg-catalog cannot be empty")
+    public String getRedirectToIcebergCatalog()
+    {
+        return redirectToIcebergCatalog;
+    }
+
+    @Config("hive.redirect-to-iceberg-catalog")
+    @ConfigDescription("The Iceberg catalog to redirect to")
+    public HiveConfig setRedirectToIcebergCatalog(String redirectToIcebergCatalog)
+    {
+        this.redirectToIcebergCatalog = redirectToIcebergCatalog;
+        return this;
     }
 }

@@ -96,7 +96,8 @@ public final class HiveSessionProperties
     private static final String DYNAMIC_FILTERING_PROBE_BLOCKING_TIMEOUT = "dynamic_filtering_probe_blocking_timeout";
     private static final String OPTIMIZE_SYMLINK_LISTING = "optimize_symlink_listing";
     private static final String LEGACY_HIVE_VIEW_TRANSLATION = "legacy_hive_view_translation";
-
+    private static final String REDIRECT_TO_ICEBERG_ENABLED = "redirect_to_iceberg_enabled";
+    private static final String REDIRECT_TO_ICEBERG_CATALOG = "redirect_to_iceberg_catalog";
     private final List<PropertyMetadata<?>> sessionProperties;
 
     public enum InsertExistingPartitionsBehavior
@@ -402,6 +403,16 @@ public final class HiveSessionProperties
                         LEGACY_HIVE_VIEW_TRANSLATION,
                         "Use legacy Hive view translation mechanism",
                         hiveConfig.isLegacyHiveViewTranslation(),
+                        false),
+                booleanProperty(
+                        REDIRECT_TO_ICEBERG_ENABLED,
+                        "Enable redirecting to a catalog configured with Iceberg Connector",
+                        hiveConfig.isRedirectToIcebergEnabled(),
+                        false),
+                stringProperty(
+                        REDIRECT_TO_ICEBERG_CATALOG,
+                        "The target Iceberg catalog for redirection",
+                        hiveConfig.getRedirectToIcebergCatalog(),
                         false));
     }
 
@@ -687,5 +698,15 @@ public final class HiveSessionProperties
     public static boolean isLegacyHiveViewTranslation(ConnectorSession session)
     {
         return session.getProperty(LEGACY_HIVE_VIEW_TRANSLATION, Boolean.class);
+    }
+
+    public static boolean isRedirectToIcebergEnabled(ConnectorSession session)
+    {
+        return session.getProperty(REDIRECT_TO_ICEBERG_ENABLED, Boolean.class);
+    }
+
+    public static String getRedirectToIcebergCatalog(ConnectorSession session)
+    {
+        return session.getProperty(REDIRECT_TO_ICEBERG_CATALOG, String.class);
     }
 }

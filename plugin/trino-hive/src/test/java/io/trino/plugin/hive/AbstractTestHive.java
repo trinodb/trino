@@ -86,6 +86,7 @@ import io.trino.spi.connector.Constraint;
 import io.trino.spi.connector.ConstraintApplicationResult;
 import io.trino.spi.connector.DiscretePredicates;
 import io.trino.spi.connector.DynamicFilter;
+import io.trino.spi.connector.ListTableColumnsResult;
 import io.trino.spi.connector.ProjectionApplicationResult;
 import io.trino.spi.connector.RecordCursor;
 import io.trino.spi.connector.RecordPageSource;
@@ -992,7 +993,9 @@ public abstract class AbstractTestHive
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            Map<SchemaTableName, List<ColumnMetadata>> allColumns = metadata.listTableColumns(newSession(), new SchemaTablePrefix());
+            Map<SchemaTableName, List<ColumnMetadata>> allColumns = metadata.listTableColumnsStream(newSession(), new SchemaTablePrefix())
+                    .filter(result -> result.getColumns().isPresent())
+                    .collect(toImmutableMap(ListTableColumnsResult::getTableName, result -> result.getColumns().get()));
             assertTrue(allColumns.containsKey(tablePartitionFormat));
             assertTrue(allColumns.containsKey(tableUnpartitioned));
         }
@@ -1003,7 +1006,9 @@ public abstract class AbstractTestHive
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            Map<SchemaTableName, List<ColumnMetadata>> allColumns = metadata.listTableColumns(newSession(), new SchemaTablePrefix(database));
+            Map<SchemaTableName, List<ColumnMetadata>> allColumns = metadata.listTableColumnsStream(newSession(), new SchemaTablePrefix(database))
+                    .filter(result -> result.getColumns().isPresent())
+                    .collect(toImmutableMap(ListTableColumnsResult::getTableName, result -> result.getColumns().get()));
             assertTrue(allColumns.containsKey(tablePartitionFormat));
             assertTrue(allColumns.containsKey(tableUnpartitioned));
         }
@@ -1017,7 +1022,7 @@ public abstract class AbstractTestHive
             ConnectorSession session = newSession();
             assertNull(metadata.getTableHandle(session, new SchemaTableName(INVALID_DATABASE, INVALID_TABLE)));
             assertEquals(metadata.listTables(session, Optional.of(INVALID_DATABASE)), ImmutableList.of());
-            assertEquals(metadata.listTableColumns(session, new SchemaTablePrefix(INVALID_DATABASE, INVALID_TABLE)), ImmutableMap.of());
+            assertEquals(metadata.listTableColumnsStream(session, new SchemaTablePrefix(INVALID_DATABASE, INVALID_TABLE)).count(), 0L);
             assertEquals(metadata.listViews(session, Optional.of(INVALID_DATABASE)), ImmutableList.of());
             assertEquals(metadata.getViews(session, Optional.of(INVALID_DATABASE)), ImmutableMap.of());
             assertEquals(metadata.getView(session, new SchemaTableName(INVALID_DATABASE, INVALID_TABLE)), Optional.empty());
@@ -1266,9 +1271,11 @@ public abstract class AbstractTestHive
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            Map<SchemaTableName, List<ColumnMetadata>> columns = metadata.listTableColumns(newSession(), tableOffline.toSchemaTablePrefix());
+            List<ListTableColumnsResult> columns = metadata.listTableColumnsStream(newSession(), tableOffline.toSchemaTablePrefix())
+                    .filter(result -> result.getColumns().isPresent())
+                    .collect(toImmutableList());
             assertEquals(columns.size(), 1);
-            Map<String, ColumnMetadata> map = uniqueIndex(getOnlyElement(columns.values()), ColumnMetadata::getName);
+            Map<String, ColumnMetadata> map = uniqueIndex(getOnlyElement(columns).getColumns().get(), ColumnMetadata::getName);
 
             assertPrimitiveField(map, "t_string", createUnboundedVarcharType(), false);
         }
@@ -2179,7 +2186,7 @@ public abstract class AbstractTestHive
     {
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            assertEquals(metadata.listTableColumns(newSession(), new SchemaTablePrefix(view.getSchemaName(), view.getTableName())), ImmutableMap.of());
+            assertEquals(metadata.listTableColumnsStream(newSession(), new SchemaTablePrefix(view.getSchemaName(), view.getTableName())).count(), 0L);
         }
     }
 
@@ -2706,16 +2713,16 @@ public abstract class AbstractTestHive
                         .doesNotContain(tableName);
 
                 // list all columns
-                assertThat(metadata.listTableColumns(session, new SchemaTablePrefix()).keySet())
-                        .doesNotContain(tableName);
+                assertEquals(metadata.listTableColumnsStream(session, new SchemaTablePrefix())
+                        .filter(result -> result.getTableName().equals(tableName)).count(), 0L);
 
                 // list all columns in a schema
-                assertThat(metadata.listTableColumns(session, new SchemaTablePrefix(tableName.getSchemaName())).keySet())
-                        .doesNotContain(tableName);
+                assertEquals(metadata.listTableColumnsStream(session, new SchemaTablePrefix(tableName.getSchemaName()))
+                        .filter(result -> result.getTableName().equals(tableName)).count(), 0L);
 
                 // list all columns in a table
-                assertThat(metadata.listTableColumns(session, new SchemaTablePrefix(tableName.getSchemaName(), tableName.getTableName())).keySet())
-                        .doesNotContain(tableName);
+                assertEquals(metadata.listTableColumnsStream(session, new SchemaTablePrefix(tableName.getSchemaName(), tableName.getTableName()))
+                        .filter(result -> result.getTableName().equals(tableName)).count(), 0L);
             }
         }
         finally {
@@ -2888,8 +2895,10 @@ public abstract class AbstractTestHive
         // to make sure it can still be retrieved instead of throwing exception.
         try (Transaction transaction = newTransaction()) {
             ConnectorMetadata metadata = transaction.getMetadata();
-            Map<SchemaTableName, List<ColumnMetadata>> allColumns = metadata.listTableColumns(newSession(), new SchemaTablePrefix(schemaTableName.getSchemaName()));
-            assertTrue(allColumns.containsKey(schemaTableName));
+            assertEquals(metadata.listTableColumnsStream(newSession(), new SchemaTablePrefix(schemaTableName.getSchemaName()))
+                    .filter(result -> result.getTableName().equals(schemaTableName))
+                    .filter(result -> result.getColumns().isPresent())
+                    .count(), 1L);
         }
         finally {
             dropTable(schemaTableName);
