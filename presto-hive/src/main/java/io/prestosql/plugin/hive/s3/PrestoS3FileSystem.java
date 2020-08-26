@@ -172,6 +172,7 @@ public class PrestoS3FileSystem
     public static final String S3_SKIP_GLACIER_OBJECTS = "presto.s3.skip-glacier-objects";
     public static final String S3_REQUESTER_PAYS_ENABLED = "presto.s3.requester-pays.enabled";
     public static final String S3_STORAGE_CLASS = "presto.s3.storage-class";
+    public static final String S3_CSV_COMMENTS = "presto.s3.csv-comments";
 
     static final String S3_DIRECTORY_OBJECT_CONTENT_TYPE = "application/x-directory";
 

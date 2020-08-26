@@ -66,6 +66,15 @@ public class HiveS3Config
     private boolean skipGlacierObjects;
     private boolean requesterPaysEnabled;
 
+    /*
+     * Sentinel unicode comment character (http://www.unicode.org/faq/private_use.html#nonchar_codes).
+     * It is expected that \uFDD0 sentinel comment character is not the first character in any row of user's CSV S3 object.
+     * The rows starting with \uFDD0 will be skipped by S3Select and will not be a part of the result set or aggregations.
+     * To process CSV objects that may contain \uFDD0 as first row character please disable S3SelectPushdown.
+     * TODO: Remove this proxy logic when S3Select API supports disabling of row level comments.
+     */
+    private String s3CsvComments = "\uFDD0";
+
     public String getS3AwsAccessKey()
     {
         return s3AwsAccessKey;
@@ -460,6 +469,19 @@ public class HiveS3Config
     public HiveS3Config setRequesterPaysEnabled(boolean requesterPaysEnabled)
     {
         this.requesterPaysEnabled = requesterPaysEnabled;
+        return this;
+    }
+
+    @NotNull
+    public String getS3CsvComments()
+    {
+        return s3CsvComments;
+    }
+
+    @Config("hive.s3.csv-comments")
+    public HiveS3Config setS3CsvComments(String s3CsvComments)
+    {
+        this.s3CsvComments = s3CsvComments;
         return this;
     }
 }

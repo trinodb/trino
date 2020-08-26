@@ -101,7 +101,7 @@ public abstract class S3SelectLineRecordReader
         this.isFirstLine = true;
 
         this.compressionCodecFactory = new CompressionCodecFactory(configuration);
-        this.selectObjectContentRequest = buildSelectObjectRequest(schema, ionSqlQuery, path);
+        this.selectObjectContentRequest = buildSelectObjectRequest(schema, ionSqlQuery, path, configuration);
 
         HiveS3Config defaults = new HiveS3Config();
         this.maxAttempts = configuration.getInt(S3_MAX_CLIENT_RETRIES, defaults.getS3MaxClientRetries()) + 1;
@@ -112,7 +112,7 @@ public abstract class S3SelectLineRecordReader
         closer.register(selectClient);
     }
 
-    public abstract SelectObjectContentRequest buildSelectObjectRequest(Properties schema, String query, Path path);
+    public abstract SelectObjectContentRequest buildSelectObjectRequest(Properties schema, String query, Path path, Configuration configuration);
 
     protected CompressionType getCompressionType(Path path)
     {
