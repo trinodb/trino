@@ -134,6 +134,9 @@ public class HiveConfig
 
     private boolean projectionPushdownEnabled = true;
 
+    private boolean redirectToIcebergEnabled;
+    private String redirectToIcebergCatalog = "iceberg";
+
     public int getMaxInitialSplits()
     {
         return maxInitialSplits;
@@ -975,6 +978,33 @@ public class HiveConfig
     public HiveConfig setProjectionPushdownEnabled(boolean projectionPushdownEnabled)
     {
         this.projectionPushdownEnabled = projectionPushdownEnabled;
+        return this;
+    }
+
+    public boolean isRedirectToIcebergEnabled()
+    {
+        return redirectToIcebergEnabled;
+    }
+
+    @Config("hive.redirect-to-iceberg-enabled")
+    @ConfigDescription("Redirect to a catalog configured with Iceberg Connector")
+    public HiveConfig setRedirectToIcebergEnabled(boolean redirectToIcebergEnabled)
+    {
+        this.redirectToIcebergEnabled = redirectToIcebergEnabled;
+        return this;
+    }
+
+    @NotNull
+    public String getRedirectToIcebergCatalog()
+    {
+        return redirectToIcebergCatalog;
+    }
+
+    @Config("hive.redirect-to-iceberg-catalog")
+    @ConfigDescription("The Iceberg catalog to redirect to")
+    public HiveConfig setRedirectToIcebergCatalog(String redirectToIcebergCatalog)
+    {
+        this.redirectToIcebergCatalog = redirectToIcebergCatalog;
         return this;
     }
 }

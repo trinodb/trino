@@ -120,6 +120,8 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.function.Supplier;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -159,11 +161,13 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_WRITER_CLOSE_ERROR;
 import static io.prestosql.plugin.hive.HivePartitionManager.extractPartitionValues;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getCompressionCodec;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getHiveStorageFormat;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getRedirectToIcebergCatalog;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isBucketExecutionEnabled;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isCollectColumnStatisticsOnWrite;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isCreateEmptyBucketFiles;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isOptimizedMismatchedBucketCount;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isProjectionPushdownEnabled;
+import static io.prestosql.plugin.hive.HiveSessionProperties.isRedirectToIcebergEnabled;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isRespectTableFormat;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isSortedWritingEnabled;
 import static io.prestosql.plugin.hive.HiveSessionProperties.isStatisticsEnabled;
@@ -279,6 +283,8 @@ public class HiveMetadata
     public static final String AVRO_SCHEMA_URL_KEY = "avro.schema.url";
     public static final String SPARK_TABLE_PROVIDER_KEY = "spark.sql.sources.provider";
     public static final String DELTA_LAKE_PROVIDER = "delta";
+    public static final String TABLE_TYPE_PROP = "table_type";
+    public static final String ICEBERG_TABLE_TYPE_VALUE = "iceberg";
 
     private static final String CSV_SEPARATOR_KEY = OpenCSVSerde.SEPARATORCHAR;
     private static final String CSV_QUOTE_KEY = OpenCSVSerde.QUOTECHAR;
@@ -297,6 +303,12 @@ public class HiveMetadata
     private final String prestoVersion;
     private final HiveStatisticsProvider hiveStatisticsProvider;
     private final AccessControlMetadata accessControlMetadata;
+
+    // Copied from IcebergTableHandle
+    private static final Pattern ICEBERG_TABLE_NAME_PATTERN = Pattern.compile("" +
+            "(?<table>[^$@]+)" +
+            "(?:@(?<ver1>[0-9]+))?" +
+            "(?:\\$(?<type>[^@]+)(?:@(?<ver2>[0-9]+))?)?");
 
     public HiveMetadata(
             CatalogName catalogName,
@@ -2652,6 +2664,37 @@ public class HiveMetadata
     public void cleanupQuery(ConnectorSession session)
     {
         metastore.cleanupQuery(session);
+    }
+
+    @Override
+    public Optional<String> redirectCatalog(ConnectorSession session, SchemaTableName tableName)
+    {
+        if (!isRedirectToIcebergEnabled(session)) {
+            return Optional.empty();
+        }
+        if (!filterSchema(tableName.getSchemaName())) {
+            return Optional.empty();
+        }
+        String table = tableName.getTableName();
+        Matcher icebergNameMatch = ICEBERG_TABLE_NAME_PATTERN.matcher(table);
+        if (icebergNameMatch.matches()) {
+            table = icebergNameMatch.group("table");
+        }
+        Optional<Table> hiveTable = metastore.getTable(new HiveIdentity(session), tableName.getSchemaName(), table);
+        if (hiveTable.isEmpty()) {
+            return Optional.empty();
+        }
+
+        if (isIcebergTable(hiveTable.get())) {
+            return Optional.of(getRedirectToIcebergCatalog(session));
+        }
+
+        return Optional.empty();
+    }
+
+    private static boolean isIcebergTable(Table table)
+    {
+        return ICEBERG_TABLE_TYPE_VALUE.equalsIgnoreCase(table.getParameters().get(TABLE_TYPE_PROP));
     }
 
     public static Optional<SchemaTableName> getSourceTableNameFromSystemTable(SchemaTableName tableName)

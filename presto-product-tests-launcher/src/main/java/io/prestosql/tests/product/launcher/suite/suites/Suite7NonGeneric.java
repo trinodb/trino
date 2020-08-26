@@ -15,6 +15,7 @@ package io.prestosql.tests.product.launcher.suite.suites;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.tests.product.launcher.env.EnvironmentDefaults;
+import io.prestosql.tests.product.launcher.env.environment.SinglenodeHiveRedirectionToIceberg;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHdfsImpersonationCrossRealm;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeLdapBindDn;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeMysql;
@@ -78,6 +79,14 @@ public class Suite7NonGeneric
                  *     || suite_exit_code=1
                  */
                 testOnEnvironment(SinglenodeSparkIceberg.class).withGroups("iceberg").withExcludedGroups("storage_formats").build(),
+
+                /**
+                 * presto-product-tests-launcher/bin/run-launcher test run \
+                 *     --environment singlenode-hive-redirection-to-iceberg \
+                 *     -- -g hive_redirection_to_iceberg \
+                 *     || suite_exit_code=1
+                 */
+                testOnEnvironment(SinglenodeHiveRedirectionToIceberg.class).withGroups("hive_redirection_to_iceberg").build(),
 
                 /**
                  * Environment not set up on CDH. (TODO run on HDP 2.6 and HDP 3.1)

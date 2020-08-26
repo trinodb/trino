@@ -91,6 +91,8 @@ public final class HiveSessionProperties
     private static final String QUERY_PARTITION_FILTER_REQUIRED = "query_partition_filter_required";
     private static final String PROJECTION_PUSHDOWN_ENABLED = "projection_pushdown_enabled";
     private static final String PARQUET_OPTIMIZED_WRITER_ENABLED = "parquet_optimized_writer_enabled";
+    private static final String REDIRECT_TO_ICEBERG_ENABLED = "redirect_to_iceberg_enabled";
+    private static final String REDIRECT_TO_ICEBERG_CATALOG = "redirect_to_iceberg_catalog";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 
@@ -369,6 +371,16 @@ public final class HiveSessionProperties
                         PARQUET_OPTIMIZED_WRITER_ENABLED,
                         "Experimental: Enable optimized writer",
                         parquetWriterConfig.isParquetOptimizedWriterEnabled(),
+                        false),
+                booleanProperty(
+                        REDIRECT_TO_ICEBERG_ENABLED,
+                        "Enable redirecting to a catalog configured with Iceberg Connector",
+                        hiveConfig.isRedirectToIcebergEnabled(),
+                        false),
+                stringProperty(
+                        REDIRECT_TO_ICEBERG_CATALOG,
+                        "The target Iceberg catalog for redirection",
+                        hiveConfig.getRedirectToIcebergCatalog(),
                         false));
     }
 
@@ -634,5 +646,15 @@ public final class HiveSessionProperties
     public static boolean isParquetOptimizedWriterEnabled(ConnectorSession session)
     {
         return session.getProperty(PARQUET_OPTIMIZED_WRITER_ENABLED, Boolean.class);
+    }
+
+    public static boolean isRedirectToIcebergEnabled(ConnectorSession session)
+    {
+        return session.getProperty(REDIRECT_TO_ICEBERG_ENABLED, Boolean.class);
+    }
+
+    public static String getRedirectToIcebergCatalog(ConnectorSession session)
+    {
+        return session.getProperty(REDIRECT_TO_ICEBERG_CATALOG, String.class);
     }
 }

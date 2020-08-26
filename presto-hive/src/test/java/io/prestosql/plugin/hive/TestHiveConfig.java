@@ -96,7 +96,9 @@ public class TestHiveConfig
                 .setAllowRegisterPartition(false)
                 .setQueryPartitionFilterRequired(false)
                 .setPartitionUseColumnNames(false)
-                .setProjectionPushdownEnabled(true));
+                .setProjectionPushdownEnabled(true)
+                .setRedirectToIcebergEnabled(false)
+                .setRedirectToIcebergCatalog("iceberg"));
     }
 
     @Test
@@ -166,6 +168,8 @@ public class TestHiveConfig
                 .put("hive.query-partition-filter-required", "true")
                 .put("hive.partition-use-column-names", "true")
                 .put("hive.projection-pushdown-enabled", "false")
+                .put("hive.redirect-to-iceberg-enabled", "true")
+                .put("hive.redirect-to-iceberg-catalog", "myiceberg")
                 .build();
 
         HiveConfig expected = new HiveConfig()
@@ -231,7 +235,9 @@ public class TestHiveConfig
                 .setAllowRegisterPartition(true)
                 .setQueryPartitionFilterRequired(true)
                 .setPartitionUseColumnNames(true)
-                .setProjectionPushdownEnabled(false);
+                .setProjectionPushdownEnabled(false)
+                .setRedirectToIcebergEnabled(true)
+                .setRedirectToIcebergCatalog("myiceberg");
 
         assertFullMapping(properties, expected);
     }
