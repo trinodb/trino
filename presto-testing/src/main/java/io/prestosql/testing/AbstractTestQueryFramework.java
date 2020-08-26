@@ -437,6 +437,9 @@ public abstract class AbstractTestQueryFramework
                         return false;
                     }
                     ProjectNode projectNode = (ProjectNode) node;
+                    if (!(projectNode.getSource() instanceof FilterNode)) {
+                        return false;
+                    }
                     FilterNode filterNode = (FilterNode) projectNode.getSource();
                     TableScanNode tableScanNode = (TableScanNode) filterNode.getSource();
                     return tableName.equals(tableScanNode.getTable().getConnectorHandle().toString());
@@ -449,7 +452,7 @@ public abstract class AbstractTestQueryFramework
                 .getQueryStats()
                 .getOperatorSummaries()
                 .stream()
-                .filter(summary -> nodeId.equals(summary.getPlanNodeId()))
+                .filter(summary -> nodeId.equals(summary.getPlanNodeId()) && summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
                 .collect(MoreCollectors.onlyElement());
     }
 }
