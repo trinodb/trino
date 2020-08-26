@@ -29,6 +29,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.prestosql.sql.analyzer.QueryExplainer;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.Plan;
@@ -58,6 +59,8 @@ import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.nullToEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
+import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.sql.ParsingUtil.createParsingOptions;
 import static io.prestosql.sql.SqlFormatter.formatSql;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
@@ -401,5 +404,18 @@ public abstract class AbstractTestQueryFramework
     {
         checkState(queryRunner != null, "queryRunner not set");
         return queryRunner;
+    }
+
+    protected Session noJoinReordering()
+    {
+        return noJoinReordering(JoinDistributionType.PARTITIONED);
+    }
+
+    protected Session noJoinReordering(JoinDistributionType distributionType)
+    {
+        return Session.builder(getSession())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, FeaturesConfig.JoinReorderingStrategy.NONE.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, distributionType.name())
+                .build();
     }
 }
