@@ -33,7 +33,7 @@ import static io.prestosql.TestingServerUtils.setTestingServer;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Test(singleThreaded = true)
-public class TestJdbcResultSetCompatibility
+public class TestJdbcResultSetCompatibilityOldDriver
         extends TestJdbcResultSet
 {
     private static final Optional<Integer> VERSION_UNDER_TEST = testedVersion();

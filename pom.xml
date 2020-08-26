@@ -138,7 +138,7 @@
         <module>presto-spi</module>
         <module>presto-sqlserver</module>
         <module>presto-teradata-functions</module>
-        <module>presto-test-jdbc-compatibility</module>
+        <module>presto-test-jdbc-compatibility-old-driver</module>
         <module>presto-testing</module>
         <module>presto-testing-kafka</module>
         <module>presto-testng-services</module>

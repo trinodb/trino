@@ -60,7 +60,7 @@ import static org.assertj.core.api.Assertions.assertThat;
  * The main purpose of this class is to test cases when current server implementation breaks older JDBC clients
  * to ensure that current implementation is backward-compatible.
  *
- * {@link TestJdbcResultSetCompatibility} in that regard is responsible for testing forward compatibility
+ * {@link TestJdbcResultSetCompatibilityOldDriver} in that regard is responsible for testing forward compatibility
  * as it's using old test code and old JDBC client against current server implementation.
  *
  * This test in turn is run using an old JDBC client against current server implementation.

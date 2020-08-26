@@ -8,7 +8,7 @@
         <version>342-SNAPSHOT</version>
     </parent>
 
-    <artifactId>presto-test-jdbc-compatibility</artifactId>
+    <artifactId>presto-test-jdbc-compatibility-old-driver</artifactId>
     <description>Presto - Tests whether older Presto JDBC clients are compatible with current Presto server</description>
 
     <properties>
