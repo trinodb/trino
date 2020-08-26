@@ -47,7 +47,6 @@ import java.time.ZoneOffset;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
-import static io.prestosql.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.prestosql.operator.scalar.DateTimeFunctions.currentDate;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -163,7 +162,6 @@ public class TestDateTimeFunctions
         TestingConnectorSession connectorSession = TestingConnectorSession.builder()
                 .setStart(instant)
                 .setTimeZoneKey(timeZoneKey)
-                .setOmitTimestampPrecision(isOmitDateTimeTypePrecision(session))
                 .build();
         long dateTimeCalculation = currentDate(connectorSession);
         assertEquals(dateTimeCalculation, expectedDays);
