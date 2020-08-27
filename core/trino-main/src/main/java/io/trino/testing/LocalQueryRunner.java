@@ -221,6 +221,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.trino.connector.CatalogServiceProviderModule.createAccessControlProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createAnalyzePropertyManager;
 import static io.trino.connector.CatalogServiceProviderModule.createColumnPropertyManager;
+import static io.trino.connector.CatalogServiceProviderModule.createFunctionProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createIndexProvider;
 import static io.trino.connector.CatalogServiceProviderModule.createMaterializedViewPropertyManager;
 import static io.trino.connector.CatalogServiceProviderModule.createNodePartitioningProvider;
@@ -367,27 +368,17 @@ public class LocalQueryRunner
         this.globalFunctionCatalog = new GlobalFunctionCatalog();
         globalFunctionCatalog.addFunctions(new InternalFunctionBundle(new LiteralFunction(blockEncodingSerde)));
         globalFunctionCatalog.addFunctions(SystemFunctionBundle.create(featuresConfig, typeOperators, blockTypeOperators, nodeManager.getCurrentNode().getNodeVersion()));
-        this.functionManager = new FunctionManager(globalFunctionCatalog);
         Metadata metadata = metadataProvider.getMetadata(
                 new DisabledSystemSecurityMetadata(),
                 transactionManager,
                 globalFunctionCatalog,
                 typeManager);
-        globalFunctionCatalog.addFunctions(new InternalFunctionBundle(
-                new JsonExistsFunction(functionManager, metadata, typeManager),
-                new JsonValueFunction(functionManager, metadata, typeManager),
-                new JsonQueryFunction(functionManager, metadata, typeManager)));
         typeRegistry.addType(new JsonPath2016Type(new TypeDeserializer(typeManager), blockEncodingSerde));
-        this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde, typeManager, functionManager);
         this.joinCompiler = new JoinCompiler(typeOperators);
         PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler, blockTypeOperators);
         this.groupProvider = new TestingGroupProvider();
         this.accessControl = new TestingAccessControlManager(transactionManager, eventListenerManager);
         accessControl.loadSystemAccessControl(AllowAllSystemAccessControl.NAME, ImmutableMap.of());
-
-        this.pageFunctionCompiler = new PageFunctionCompiler(functionManager, 0);
-        this.expressionCompiler = new ExpressionCompiler(functionManager, pageFunctionCompiler);
-        this.joinFilterFunctionCompiler = new JoinFilterFunctionCompiler(functionManager);
 
         HandleResolver handleResolver = new HandleResolver();
 
@@ -412,6 +403,7 @@ public class LocalQueryRunner
         this.sessionPropertyManager = createSessionPropertyManager(catalogManager, extraSessionProperties, taskManagerConfig, featuresConfig, optimizerConfig);
         this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, blockTypeOperators, createNodePartitioningProvider(catalogManager));
         TableProceduresRegistry tableProceduresRegistry = new TableProceduresRegistry(createTableProceduresProvider(catalogManager));
+        this.functionManager = new FunctionManager(createFunctionProvider(catalogManager), globalFunctionCatalog);
         TableFunctionRegistry tableFunctionRegistry = new TableFunctionRegistry(createTableFunctionProvider(catalogManager));
         this.schemaPropertyManager = createSchemaPropertyManager(catalogManager);
         this.columnPropertyManager = createColumnPropertyManager(catalogManager);
@@ -421,6 +413,16 @@ public class LocalQueryRunner
         TableProceduresPropertyManager tableProceduresPropertyManager = createTableProceduresPropertyManager(catalogManager);
 
         accessControl.setConnectorAccessControlProvider(createAccessControlProvider(catalogManager));
+
+        globalFunctionCatalog.addFunctions(new InternalFunctionBundle(
+                new JsonExistsFunction(functionManager, metadata, typeManager),
+                new JsonValueFunction(functionManager, metadata, typeManager),
+                new JsonQueryFunction(functionManager, metadata, typeManager)));
+
+        this.plannerContext = new PlannerContext(metadata, typeOperators, blockEncodingSerde, typeManager, functionManager);
+        this.pageFunctionCompiler = new PageFunctionCompiler(functionManager, 0);
+        this.expressionCompiler = new ExpressionCompiler(functionManager, pageFunctionCompiler);
+        this.joinFilterFunctionCompiler = new JoinFilterFunctionCompiler(functionManager);
 
         this.statementAnalyzerFactory = new StatementAnalyzerFactory(
                 plannerContext,

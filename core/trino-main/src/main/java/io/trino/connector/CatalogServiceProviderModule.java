@@ -34,6 +34,7 @@ import io.trino.spi.connector.ConnectorNodePartitioningProvider;
 import io.trino.spi.connector.ConnectorPageSinkProvider;
 import io.trino.spi.connector.ConnectorPageSourceProvider;
 import io.trino.spi.connector.ConnectorSplitManager;
+import io.trino.spi.function.FunctionProvider;
 
 import javax.inject.Inject;
 import javax.inject.Singleton;
@@ -160,6 +161,13 @@ public class CatalogServiceProviderModule
     public static CatalogServiceProvider<Optional<ConnectorAccessControl>> createAccessControlProvider(ConnectorServicesProvider connectorServicesProvider)
     {
         return new ConnectorCatalogServiceProvider<>("access control", connectorServicesProvider, ConnectorServices::getAccessControl);
+    }
+
+    @Provides
+    @Singleton
+    public static CatalogServiceProvider<FunctionProvider> createFunctionProvider(ConnectorServicesProvider connectorServicesProvider)
+    {
+        return new ConnectorCatalogServiceProvider<>("function provider", connectorServicesProvider, ConnectorServices::getFunctionProvider);
     }
 
     private static class ConnectorAccessControlLazyRegister

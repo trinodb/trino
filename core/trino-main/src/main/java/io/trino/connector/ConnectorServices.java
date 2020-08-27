@@ -34,6 +34,7 @@ import io.trino.spi.connector.ConnectorSplitManager;
 import io.trino.spi.connector.SystemTable;
 import io.trino.spi.connector.TableProcedureMetadata;
 import io.trino.spi.eventlistener.EventListener;
+import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.procedure.Procedure;
 import io.trino.spi.ptf.ArgumentSpecification;
 import io.trino.spi.ptf.ConnectorTableFunction;
@@ -65,6 +66,7 @@ public class ConnectorServices
     private final Set<SystemTable> systemTables;
     private final CatalogProcedures procedures;
     private final CatalogTableProcedures tableProcedures;
+    private final Optional<FunctionProvider> functionProvider;
     private final CatalogTableFunctions tableFunctions;
     private final Optional<ConnectorSplitManager> splitManager;
     private final Optional<ConnectorPageSourceProvider> pageSourceProvider;
@@ -100,6 +102,8 @@ public class ConnectorServices
         Set<TableProcedureMetadata> tableProcedures = connector.getTableProcedures();
         requireNonNull(procedures, format("Connector '%s' returned a null table procedures set", catalogHandle));
         this.tableProcedures = new CatalogTableProcedures(tableProcedures);
+
+        this.functionProvider = requireNonNull(connector.getFunctionProvider(), format("Connector '%s' returned a null function provider", catalogHandle));
 
         Set<ConnectorTableFunction> tableFunctions = connector.getTableFunctions();
         requireNonNull(tableFunctions, format("Connector '%s' returned a null table functions set", catalogHandle));
@@ -224,6 +228,12 @@ public class ConnectorServices
     public CatalogTableProcedures getTableProcedures()
     {
         return tableProcedures;
+    }
+
+    public FunctionProvider getFunctionProvider()
+    {
+        checkArgument(functionProvider.isPresent(), "Connector '%s' does not have functions", catalogHandle);
+        return functionProvider.get();
     }
 
     public CatalogTableFunctions getTableFunctions()

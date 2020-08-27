@@ -17,6 +17,8 @@ import com.google.common.cache.CacheBuilder;
 import com.google.common.util.concurrent.UncheckedExecutionException;
 import io.trino.FeaturesConfig;
 import io.trino.collect.cache.NonEvictableCache;
+import io.trino.connector.CatalogServiceProvider;
+import io.trino.connector.system.GlobalSystemConnector;
 import io.trino.spi.TrinoException;
 import io.trino.spi.block.Block;
 import io.trino.spi.connector.ConnectorSession;
@@ -24,6 +26,7 @@ import io.trino.spi.function.AggregationImplementation;
 import io.trino.spi.function.BoundSignature;
 import io.trino.spi.function.FunctionDependencies;
 import io.trino.spi.function.FunctionId;
+import io.trino.spi.function.FunctionProvider;
 import io.trino.spi.function.InOut;
 import io.trino.spi.function.InvocationConvention;
 import io.trino.spi.function.InvocationConvention.InvocationArgumentConvention;
@@ -59,10 +62,11 @@ public class FunctionManager
     private final NonEvictableCache<FunctionKey, AggregationImplementation> specializedAggregationCache;
     private final NonEvictableCache<FunctionKey, WindowFunctionSupplier> specializedWindowCache;
 
+    private final CatalogServiceProvider<FunctionProvider> functionProviders;
     private final GlobalFunctionCatalog globalFunctionCatalog;
 
     @Inject
-    public FunctionManager(GlobalFunctionCatalog globalFunctionCatalog)
+    public FunctionManager(CatalogServiceProvider<FunctionProvider> functionProviders, GlobalFunctionCatalog globalFunctionCatalog)
     {
         specializedScalarCache = buildNonEvictableCache(CacheBuilder.newBuilder()
                 .maximumSize(1000)
@@ -76,7 +80,8 @@ public class FunctionManager
                 .maximumSize(1000)
                 .expireAfterWrite(1, HOURS));
 
-        this.globalFunctionCatalog = globalFunctionCatalog;
+        this.functionProviders = requireNonNull(functionProviders, "functionProviders is null");
+        this.globalFunctionCatalog = requireNonNull(globalFunctionCatalog, "globalFunctionCatalog is null");
     }
 
     public ScalarFunctionImplementation getScalarFunctionImplementation(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
@@ -93,7 +98,7 @@ public class FunctionManager
     private ScalarFunctionImplementation getScalarFunctionImplementationInternal(ResolvedFunction resolvedFunction, InvocationConvention invocationConvention)
     {
         FunctionDependencies functionDependencies = getFunctionDependencies(resolvedFunction);
-        ScalarFunctionImplementation scalarFunctionImplementation = globalFunctionCatalog.getScalarFunctionImplementation(
+        ScalarFunctionImplementation scalarFunctionImplementation = getFunctionProvider(resolvedFunction).getScalarFunctionImplementation(
                 resolvedFunction.getFunctionId(),
                 resolvedFunction.getSignature(),
                 functionDependencies,
@@ -116,7 +121,7 @@ public class FunctionManager
     private AggregationImplementation getAggregationImplementationInternal(ResolvedFunction resolvedFunction)
     {
         FunctionDependencies functionDependencies = getFunctionDependencies(resolvedFunction);
-        return globalFunctionCatalog.getAggregationImplementation(
+        return getFunctionProvider(resolvedFunction).getAggregationImplementation(
                 resolvedFunction.getFunctionId(),
                 resolvedFunction.getSignature(),
                 functionDependencies);
@@ -136,7 +141,7 @@ public class FunctionManager
     private WindowFunctionSupplier getWindowFunctionSupplierInternal(ResolvedFunction resolvedFunction)
     {
         FunctionDependencies functionDependencies = getFunctionDependencies(resolvedFunction);
-        return globalFunctionCatalog.getWindowFunctionSupplier(
+        return getFunctionProvider(resolvedFunction).getWindowFunctionSupplier(
                 resolvedFunction.getFunctionId(),
                 resolvedFunction.getSignature(),
                 functionDependencies);
@@ -145,6 +150,17 @@ public class FunctionManager
     private FunctionDependencies getFunctionDependencies(ResolvedFunction resolvedFunction)
     {
         return new InternalFunctionDependencies(this::getScalarFunctionImplementation, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
+    }
+
+    private FunctionProvider getFunctionProvider(ResolvedFunction resolvedFunction)
+    {
+        if (resolvedFunction.getCatalogHandle().equals(GlobalSystemConnector.CATALOG_HANDLE)) {
+            return globalFunctionCatalog;
+        }
+
+        FunctionProvider functionProvider = functionProviders.getService(resolvedFunction.getCatalogHandle());
+        checkArgument(functionProvider != null, "No function provider for catalog: '%s' (function '%s')", resolvedFunction.getCatalogHandle(), resolvedFunction.getSignature().getName());
+        return functionProvider;
     }
 
     private static void verifyMethodHandleSignature(BoundSignature boundSignature, ScalarFunctionImplementation scalarFunctionImplementation, InvocationConvention convention)
@@ -301,6 +317,6 @@ public class FunctionManager
         GlobalFunctionCatalog functionCatalog = new GlobalFunctionCatalog();
         functionCatalog.addFunctions(SystemFunctionBundle.create(new FeaturesConfig(), typeOperators, new BlockTypeOperators(typeOperators), UNKNOWN));
         functionCatalog.addFunctions(new InternalFunctionBundle(new LiteralFunction(new InternalBlockEncodingSerde(new BlockEncodingManager(), TESTING_TYPE_MANAGER))));
-        return new FunctionManager(functionCatalog);
+        return new FunctionManager(CatalogServiceProvider.fail(), functionCatalog);
     }
 }
