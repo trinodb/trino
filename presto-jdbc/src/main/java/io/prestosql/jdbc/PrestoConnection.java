@@ -92,6 +92,7 @@ public class PrestoConnection
     private final String user;
     private final Map<String, String> extraCredentials;
     private final Optional<String> applicationNamePrefix;
+    private final Optional<String> source;
     private final Map<ClientInfoProperty, String> clientInfo = new ConcurrentHashMap<>();
     private final Map<String, String> sessionProperties = new ConcurrentHashMap<>();
     private final Map<String, String> preparedStatements = new ConcurrentHashMap<>();
@@ -109,6 +110,7 @@ public class PrestoConnection
         this.catalog.set(uri.getCatalog());
         this.user = uri.getUser();
         this.applicationNamePrefix = uri.getApplicationNamePrefix();
+        this.source = uri.getSource();
         this.extraCredentials = uri.getExtraCredentials();
         this.queryExecutor = requireNonNull(queryExecutor, "queryExecutor is null");
         uri.getClientInfo().ifPresent(tags -> clientInfo.put(CLIENT_INFO, tags));
@@ -695,17 +697,7 @@ public class PrestoConnection
 
     StatementClient startQuery(String sql, Map<String, String> sessionPropertiesOverride)
     {
-        String source = "presto-jdbc";
-        String applicationName = clientInfo.get(APPLICATION_NAME);
-        if (applicationNamePrefix.isPresent()) {
-            source = applicationNamePrefix.get();
-            if (applicationName != null) {
-                source += applicationName;
-            }
-        }
-        else if (applicationName != null) {
-            source = applicationName;
-        }
+        String source = getActualSource();
 
         Iterable<String> clientTags = Splitter.on(',').trimResults().omitEmptyStrings()
                 .split(nullToEmpty(clientInfo.get(CLIENT_TAGS)));
@@ -804,5 +796,24 @@ public class PrestoConnection
                 return "SERIALIZABLE";
         }
         throw new SQLException("Invalid transaction isolation level: " + level);
+    }
+
+    private String getActualSource()
+    {
+        if (source.isPresent()) {
+            return source.get();
+        }
+        String source = "presto-jdbc";
+        String applicationName = clientInfo.get(APPLICATION_NAME);
+        if (applicationNamePrefix.isPresent()) {
+            source = applicationNamePrefix.get();
+            if (applicationName != null) {
+                source += applicationName;
+            }
+        }
+        else if (applicationName != null) {
+            source = applicationName;
+        }
+        return source;
     }
 }
