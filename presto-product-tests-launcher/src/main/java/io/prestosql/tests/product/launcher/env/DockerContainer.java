@@ -95,4 +95,9 @@ public class DockerContainer
             throw new IllegalArgumentException("Host path does not exist: " + hostPath);
         }
     }
+
+    public void clearDependencies()
+    {
+        dependencies.clear();
+    }
 }

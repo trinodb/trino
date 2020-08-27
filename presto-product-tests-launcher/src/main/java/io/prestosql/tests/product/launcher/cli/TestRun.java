@@ -22,6 +22,7 @@ import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
 import io.prestosql.tests.product.launcher.PathResolver;
+import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.EnvironmentFactory;
@@ -29,6 +30,7 @@ import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 import io.prestosql.tests.product.launcher.env.Environments;
 import io.prestosql.tests.product.launcher.env.common.Standard;
+import io.prestosql.tests.product.launcher.testcontainers.ExistingNetwork;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import org.testcontainers.containers.BindMode;
@@ -107,6 +109,9 @@ public final class TestRun
         @Option(names = "--environment", paramLabel = "<environment>", description = "Name of the environment to start", required = true)
         public String environment;
 
+        @Option(names = "--attach", description = "attach to an existing environment")
+        public boolean attach;
+
         @Option(names = "--reports-dir", paramLabel = "<dir>", defaultValue = TARGET, description = "Location of the reports directory " + DEFAULT_VALUE)
         public Path reportsDir;
 
@@ -132,6 +137,7 @@ public final class TestRun
         private final File testJar;
         private final List<String> testArguments;
         private final String environment;
+        private final boolean attach;
         private final int startupRetries;
         private final Path reportsDirBase;
         private final EnvironmentConfig environmentConfig;
@@ -146,6 +152,7 @@ public final class TestRun
             this.testJar = requireNonNull(testRunOptions.testJar, "testOptions.testJar is null");
             this.testArguments = ImmutableList.copyOf(requireNonNull(testRunOptions.testArguments, "testOptions.testArguments is null"));
             this.environment = requireNonNull(testRunOptions.environment, "testRunOptions.environment is null");
+            this.attach = testRunOptions.attach;
             this.startupRetries = testRunOptions.startupRetries;
             this.reportsDirBase = requireNonNull(testRunOptions.reportsDir, "testRunOptions.reportsDirBase is empty");
             this.environmentConfig = requireNonNull(environmentConfig, "environmentConfig is null");
@@ -176,21 +183,32 @@ public final class TestRun
 
         private Environment tryStartEnvironment()
         {
-            log.info("Pruning old environment(s)");
-            Environments.pruneEnvironment();
-
-            log.info("Creating environment '%s' with configuration %s", environment, environmentConfig);
             Environment environment = getEnvironment();
-            log.info("Starting the environment '%s'", environment);
-            environment.start();
+
+            if (!attach) {
+                log.info("Pruning old environment(s)");
+                Environments.pruneEnvironment();
+
+                log.info("Starting the environment '%s' with configuration %s", this.environment, environmentConfig);
+                environment.start();
+            }
+            else {
+                DockerContainer tests = (DockerContainer) environment.getContainer("tests");
+                tests.clearDependencies();
+                tests.setNetwork(new ExistingNetwork(Environment.PRODUCT_TEST_LAUNCHER_NETWORK));
+                // TODO prune previous ptl-tests container
+                tests.start();
+            }
 
             return environment;
         }
 
         private void cleanUp()
         {
-            log.info("Done, cleaning up");
-            Environments.pruneEnvironment();
+            if (!attach) {
+                log.info("Done, cleaning up");
+                Environments.pruneEnvironment();
+            }
         }
 
         private Environment getEnvironment()
