@@ -250,22 +250,22 @@ public class MaterializedResult
             blockBuilder.appendNull();
         }
         else if (BIGINT.equals(type)) {
-            type.writeLong(blockBuilder, ((Number) value).longValue());
+            type.writeLong(blockBuilder, (Long) value);
         }
         else if (INTEGER.equals(type)) {
-            type.writeLong(blockBuilder, ((Number) value).intValue());
+            type.writeLong(blockBuilder, (Integer) value);
         }
         else if (SMALLINT.equals(type)) {
-            type.writeLong(blockBuilder, ((Number) value).shortValue());
+            type.writeLong(blockBuilder, (Short) value);
         }
         else if (TINYINT.equals(type)) {
-            type.writeLong(blockBuilder, ((Number) value).byteValue());
+            type.writeLong(blockBuilder, (Byte) value);
         }
         else if (REAL.equals(type)) {
-            type.writeLong(blockBuilder, floatToRawIntBits(((Number) value).floatValue()));
+            type.writeLong(blockBuilder, floatToRawIntBits(((Float) value)));
         }
         else if (DOUBLE.equals(type)) {
-            type.writeDouble(blockBuilder, ((Number) value).doubleValue());
+            type.writeDouble(blockBuilder, (Double) value);
         }
         else if (BOOLEAN.equals(type)) {
             type.writeBoolean(blockBuilder, (Boolean) value);
