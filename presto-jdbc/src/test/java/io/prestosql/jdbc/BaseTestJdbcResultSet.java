@@ -14,6 +14,7 @@
 package io.prestosql.jdbc;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
@@ -42,7 +43,11 @@ import static org.testng.Assert.assertTrue;
 
 public abstract class BaseTestJdbcResultSet
 {
+    private static final Logger log = Logger.get(BaseTestJdbcResultSet.class);
+
     protected abstract Connection createConnection() throws SQLException;
+
+    protected abstract int getTestedPrestoServerVersion();
 
     @Test
     public void testDuplicateColumnLabels()
@@ -202,19 +207,23 @@ public abstract class BaseTestJdbcResultSet
                 assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 123_000_000)));
             });
 
-            checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2018-02-13 13:14:15.111111111111'", Types.TIMESTAMP, (rs, column) -> {
-                assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 111_111_111)));
-                assertThrows(() -> rs.getDate(column));
-                assertThrows(() -> rs.getTime(column));
-                assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 111_111_111)));
-            });
+            if (serverSupportsVariablePrecisionTimestamp()) {
+                checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2018-02-13 13:14:15.111111111111'", Types.TIMESTAMP, (rs, column) -> {
+                    assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 111_111_111)));
+                    assertThrows(() -> rs.getDate(column));
+                    assertThrows(() -> rs.getTime(column));
+                    assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 111_111_111)));
+                });
+            }
 
-            checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2018-02-13 13:14:15.555555555555'", Types.TIMESTAMP, (rs, column) -> {
-                assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 555_555_556)));
-                assertThrows(() -> rs.getDate(column));
-                assertThrows(() -> rs.getTime(column));
-                assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 555_555_556)));
-            });
+            if (serverSupportsVariablePrecisionTimestamp()) {
+                checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2018-02-13 13:14:15.555555555555'", Types.TIMESTAMP, (rs, column) -> {
+                    assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 555_555_556)));
+                    assertThrows(() -> rs.getDate(column));
+                    assertThrows(() -> rs.getTime(column));
+                    assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 13, 14, 15, 555_555_556)));
+                });
+            }
 
             // distant past, but apparently not an uncommon value in practice
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '0001-01-01 00:00:00'", Types.TIMESTAMP, (rs, column) -> {
@@ -261,18 +270,14 @@ public abstract class BaseTestJdbcResultSet
 //            ...
 //        });
 
-            // TODO https://github.com/prestosql/presto/issues/4363
-//        checkRepresentation(statementWrapper.getStatement(), "TIMESTAMP '-123456-01-23 01:23:45.123456789'", Types.TIMESTAMP, (rs, column) -> {
-//            ...
-//        });
-
-            checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '123456-01-23 01:23:45.123456789'", Types.TIMESTAMP, (rs, column) -> {
-                assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(123456, 1, 23, 1, 23, 45, 123_456_789)));
-                assertThrows(() -> rs.getDate(column));
-                assertThrows(() -> rs.getTime(column));
-                assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(123456, 1, 23, 1, 23, 45, 123_456_789)));
-            });
-
+            if (serverSupportsVariablePrecisionTimestamp()) {
+                checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '123456-01-23 01:23:45.123456789'", Types.TIMESTAMP, (rs, column) -> {
+                    assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(123456, 1, 23, 1, 23, 45, 123_456_789)));
+                    assertThrows(() -> rs.getDate(column));
+                    assertThrows(() -> rs.getTime(column));
+                    assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(123456, 1, 23, 1, 23, 45, 123_456_789)));
+                });
+            }
             checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
                 assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(2018, 2, 13, 6, 14, 15, 227_000_000))); // TODO this should represent TIMESTAMP '2018-02-13 13:14:15.227 Europe/Warsaw'
                 assertThrows(() -> rs.getDate(column));
@@ -300,12 +305,14 @@ public abstract class BaseTestJdbcResultSet
 //            ...
 //        });
 
-            checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '12345-01-23 01:23:45.123456789 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
-                assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(12345, 1, 22, 18, 23, 45, 123_456_789))); // TODO this should contain the zone
-                assertThrows(() -> rs.getDate(column));
-                assertThrows(() -> rs.getTime(column));
-                assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(12345, 1, 22, 18, 23, 45, 123_456_789)));
-            });
+            if (serverSupportsVariablePrecisionTimestampWithTimeZone()) {
+                checkRepresentation(connectedStatement.getStatement(), "TIMESTAMP '12345-01-23 01:23:45.123456789 Europe/Warsaw'", Types.TIMESTAMP /* TODO TIMESTAMP_WITH_TIMEZONE */, (rs, column) -> {
+                    assertEquals(rs.getObject(column), Timestamp.valueOf(LocalDateTime.of(12345, 1, 22, 18, 23, 45, 123_456_789))); // TODO this should contain the zone
+                    assertThrows(() -> rs.getDate(column));
+                    assertThrows(() -> rs.getTime(column));
+                    assertEquals(rs.getTimestamp(column), Timestamp.valueOf(LocalDateTime.of(12345, 1, 22, 18, 23, 45, 123_456_789)));
+                });
+            }
         }
     }
 
@@ -595,5 +602,15 @@ public abstract class BaseTestJdbcResultSet
         {
             return statement;
         }
+    }
+
+    private boolean serverSupportsVariablePrecisionTimestamp()
+    {
+        return getTestedPrestoServerVersion() >= 335;
+    }
+
+    private boolean serverSupportsVariablePrecisionTimestampWithTimeZone()
+    {
+        return getTestedPrestoServerVersion() >= 337;
     }
 }
