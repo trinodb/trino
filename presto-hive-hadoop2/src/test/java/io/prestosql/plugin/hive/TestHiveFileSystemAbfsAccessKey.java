@@ -41,7 +41,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.lang.String.format;
 import static org.testng.util.Strings.isNullOrEmpty;
 
-public class TestHiveFileSystemAbfs
+public class TestHiveFileSystemAbfsAccessKey
         extends AbstractTestHiveFileSystem
 {
     private String container;

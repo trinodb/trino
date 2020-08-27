@@ -14,7 +14,7 @@ start_hadoop_docker_containers
 test_directory="$(date '+%Y%m%d-%H%M%S')-$(uuidgen | sha1sum | cut -b 1-6)"
 
 # insert Azure credentials
-deploy_core_site_xml core-site.xml.abfs-template \
+deploy_core_site_xml core-site.xml.abfs-access-key-template \
     ABFS_ACCESS_KEY ABFS_ACCOUNT
 
 # restart hive-server2 to apply changes in core-site.xml
@@ -28,7 +28,7 @@ stop_unnecessary_hadoop_services
 # run product tests
 pushd $PROJECT_ROOT
 set +e
-./mvnw -B -pl presto-hive-hadoop2 test -P test-hive-hadoop2-abfs \
+./mvnw -B -pl presto-hive-hadoop2 test -P test-hive-hadoop2-abfs-access-key \
     -DHADOOP_USER_NAME=hive \
     -Dhive.hadoop2.metastoreHost=localhost \
     -Dhive.hadoop2.metastorePort=9083 \
