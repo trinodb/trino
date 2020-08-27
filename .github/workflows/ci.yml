@@ -142,6 +142,19 @@ jobs:
             source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
               presto-hive-hadoop2/bin/run_hive_abfs_access_key_tests.sh
           fi
+      - name: Run Hive Azure ABFS OAuth Tests
+        if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
+        env:
+          ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
+          ABFS_ACCOUNT: ${{ secrets.AZURE_ABFS_ACCOUNT }}
+          ABFS_OAUTH_CLIENT_ENDPOINT: ${{ secrets.AZURE_ABFS_OAUTH_CLIENT_ENDPOINT }}
+          ABFS_OAUTH_CLIENT_ID: ${{ secrets.AZURE_ABFS_OAUTH_CLIENT_ID }}
+          ABFS_OAUTH_CLIENT_SECRET: ${{ secrets.AZURE_ABFS_OAUTH_CLIENT_SECRET }}
+        run: |
+          if [ -n "$ABFS_CONTAINER" ]; then
+            source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+              presto-hive-hadoop2/bin/run_hive_abfs_oauth_tests.sh
+          fi
       - name: Run Hive Azure WASB Tests
         if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
         env:

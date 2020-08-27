@@ -48,6 +48,9 @@ public class TestHiveAzureConfig
                 .put("hive.azure.adl-client-id", "adlclientid")
                 .put("hive.azure.adl-credential", "adlcredential")
                 .put("hive.azure.adl-refresh-url", "adlrefreshurl")
+                .put("hive.azure.abfs.oauth-client-endpoint", "abfsoauthclientendpoint")
+                .put("hive.azure.abfs.oauth-client-id", "abfsoauthclientid")
+                .put("hive.azure.abfs.oauth-client-secret", "abfsoauthclientsecret")
                 .build();
 
         HiveAzureConfig expected = new HiveAzureConfig()
@@ -57,7 +60,10 @@ public class TestHiveAzureConfig
                 .setAbfsAccessKey("abfssecret")
                 .setAdlClientId("adlclientid")
                 .setAdlCredential("adlcredential")
-                .setAdlRefreshUrl("adlrefreshurl");
+                .setAdlRefreshUrl("adlrefreshurl")
+                .setAbfsOAuthClientEndpoint("abfsoauthclientendpoint")
+                .setAbfsOAuthClientId("abfsoauthclientid")
+                .setAbfsOAuthClientSecret("abfsoauthclientsecret");
 
         assertFullMapping(properties, expected);
     }

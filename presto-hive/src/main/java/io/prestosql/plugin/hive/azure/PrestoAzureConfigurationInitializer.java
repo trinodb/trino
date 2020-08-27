@@ -35,6 +35,9 @@ public class PrestoAzureConfigurationInitializer
     private final Optional<String> adlRefreshUrl;
     private final Optional<String> abfsAccessKey;
     private final Optional<String> abfsStorageAccount;
+    private final Optional<String> abfsOAuthClientEndpoint;
+    private final Optional<String> abfsOAuthClientId;
+    private final Optional<String> abfsOAuthClientSecret;
 
     @Inject
     public PrestoAzureConfigurationInitializer(HiveAzureConfig config)
@@ -63,6 +66,19 @@ public class PrestoAzureConfigurationInitializer
                     adlClientId.isPresent() && adlCredential.isPresent() && adlRefreshUrl.isPresent(),
                     "If any of ADL client ID, credential, and refresh URL are set, all must be set");
         }
+
+        this.abfsOAuthClientEndpoint = dropEmpty(config.getAbfsOAuthClientEndpoint());
+        this.abfsOAuthClientId = dropEmpty(config.getAbfsOAuthClientId());
+        this.abfsOAuthClientSecret = dropEmpty(config.getAbfsOAuthClientSecret());
+        if (abfsOAuthClientEndpoint.isPresent() || abfsOAuthClientSecret.isPresent() || abfsOAuthClientId.isPresent()) {
+            checkArgument(
+                    abfsOAuthClientEndpoint.isPresent() && abfsOAuthClientId.isPresent() && abfsOAuthClientSecret.isPresent(),
+                    "If any of ABFS OAuth2 Client endpoint, ID, and secret are set, all must be set.");
+        }
+
+        checkArgument(
+                !(abfsAccessKey.isPresent() && abfsOAuthClientSecret.isPresent()),
+                "Multiple ABFS authentication methods configured: access key and OAuth2");
     }
 
     @Override
@@ -75,6 +91,13 @@ public class PrestoAzureConfigurationInitializer
         if (abfsAccessKey.isPresent() && abfsStorageAccount.isPresent()) {
             config.set(format("fs.azure.account.key.%s.dfs.core.windows.net", abfsStorageAccount.get()), abfsAccessKey.get());
             config.set("fs.abfs.impl", AzureBlobFileSystem.class.getName());
+        }
+        if (abfsOAuthClientEndpoint.isPresent() && abfsOAuthClientId.isPresent() && abfsOAuthClientSecret.isPresent()) {
+            config.set("fs.azure.account.auth.type", "OAuth");
+            config.set("fs.azure.account.oauth.provider.type", "org.apache.hadoop.fs.azurebfs.oauth2.ClientCredsTokenProvider");
+            config.set("fs.azure.account.oauth2.client.endpoint", abfsOAuthClientEndpoint.get());
+            config.set("fs.azure.account.oauth2.client.id", abfsOAuthClientId.get());
+            config.set("fs.azure.account.oauth2.client.secret", abfsOAuthClientSecret.get());
         }
 
         if (adlClientId.isPresent() && adlCredential.isPresent() && adlRefreshUrl.isPresent()) {
