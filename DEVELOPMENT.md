@@ -1,5 +1,8 @@
 ## Development
 
+Developers should read [the development section of the website](https://prestosql.io/development),
+which covers thing like development philosophy and contribution process.
+
 ### Code Style
 
 We recommend you use IntelliJ as your IDE. The code style template for the project can be found in the [codestyle](https://github.com/airlift/codestyle) repository along with our general programming and Java guidelines. In addition to those you should also adhere to the following:
@@ -8,10 +11,23 @@ We recommend you use IntelliJ as your IDE. The code style template for the proje
 * When appropriate, use the stream API. However, note that the stream implementation does not perform well so avoid using it in inner loops or otherwise performance sensitive sections.
 * Categorize errors when throwing exceptions. For example, PrestoException takes an error code as an argument, `PrestoException(HIVE_TOO_MANY_OPEN_PARTITIONS)`. This categorization lets you generate reports so you can monitor the frequency of various failures.
 * Ensure that all files have the appropriate license header; you can generate the license by running `mvn license:format`.
-* Consider using String formatting (printf style formatting using the Java `Formatter` class): `format("Session property %s is invalid: %s", name, value)` (note that `format()` should always be statically imported). Sometimes, if you only need to append something, consider using the `+` operator.
+* Consider using String formatting (printf style formatting using the Java `Formatter` class):
+    `format("Session property %s is invalid: %s", name, value)` (note that `format()` should always be statically imported).
+   Sometimes, if you only need to append something, consider using the `+` operator.
+   Please avoid `format()` or concatenation in performance critical sections of code.
 * Avoid using the ternary operator except for trivial expressions.
+* It is suggested to declare members in private inner classes as public if they are part of the class API.
+* Do not use mocking libraries. These libraries encourage testing specific call sequences,
+  interactions, and other internal behavior, which we believe leads to fragile tests.
+  They also make it possible to mock complex interfaces or classes, which hides the fact that these classes are not
+  (easily) testable.
+  We prefer to write mocks by hand, which forces code to be written in a certain testable style.
 * Use an assertion from Airlift's `Assertions` class if there is one that covers your case rather than writing the assertion by hand. Over time we may move over to more fluent assertions like AssertJ.
+* Using ``var`` is discouraged.
+* Prefer using immutable collections from Guava over unmodifiable collections from JDK. The main motivation behind this is deterministic iteration.
+* Maintain the same quality for production and test code.
 * When writing a Git commit message, follow these [guidelines](https://chris.beams.io/posts/git-commit/).
+* Please avoid abbreviations, slang or inside jokes as this makes harder for non-native english speaker to understand the code.
 
 ### Additional IDE configuration
 
