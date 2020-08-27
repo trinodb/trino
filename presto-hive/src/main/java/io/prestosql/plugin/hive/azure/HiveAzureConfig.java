@@ -27,6 +27,9 @@ public class HiveAzureConfig
     private String adlClientId;
     private String adlCredential;
     private String adlRefreshUrl;
+    private String abfsOAuthClientEndpoint;
+    private String abfsOAuthClientId;
+    private String abfsOAuthClientSecret;
 
     public Optional<String> getWasbStorageAccount()
     {
@@ -117,5 +120,44 @@ public class HiveAzureConfig
     {
         this.adlRefreshUrl = adlRefreshUrl;
         return this;
+    }
+
+    @ConfigSecuritySensitive
+    @Config("hive.azure.abfs.oauth.endpoint")
+    public HiveAzureConfig setAbfsOAuthClientEndpoint(String endpoint)
+    {
+        abfsOAuthClientEndpoint = endpoint;
+        return this;
+    }
+
+    public Optional<String> getAbfsOAuthClientEndpoint()
+    {
+        return Optional.ofNullable(abfsOAuthClientEndpoint);
+    }
+
+    @ConfigSecuritySensitive
+    @Config("hive.azure.abfs.oauth.client-id")
+    public HiveAzureConfig setAbfsOAuthClientId(String id)
+    {
+        abfsOAuthClientId = id;
+        return this;
+    }
+
+    public Optional<String> getAbfsOAuthClientId()
+    {
+        return Optional.ofNullable(abfsOAuthClientId);
+    }
+
+    @ConfigSecuritySensitive
+    @Config("hive.azure.abfs.oauth.secret")
+    public HiveAzureConfig setAbfsOAuthClientSecret(String secret)
+    {
+        abfsOAuthClientSecret = secret;
+        return this;
+    }
+
+    public Optional<String> getAbfsOAuthClientSecret()
+    {
+        return Optional.ofNullable(abfsOAuthClientSecret);
     }
 }
