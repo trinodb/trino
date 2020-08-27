@@ -58,6 +58,7 @@ import static io.prestosql.jdbc.ConnectionProperties.PASSWORD;
 import static io.prestosql.jdbc.ConnectionProperties.ROLES;
 import static io.prestosql.jdbc.ConnectionProperties.SESSION_PROPERTIES;
 import static io.prestosql.jdbc.ConnectionProperties.SOCKS_PROXY;
+import static io.prestosql.jdbc.ConnectionProperties.SOURCE;
 import static io.prestosql.jdbc.ConnectionProperties.SSL;
 import static io.prestosql.jdbc.ConnectionProperties.SSL_KEY_STORE_PASSWORD;
 import static io.prestosql.jdbc.ConnectionProperties.SSL_KEY_STORE_PATH;
@@ -189,6 +190,12 @@ final class PrestoDriverUri
             throws SQLException
     {
         return SESSION_PROPERTIES.getValue(properties).orElse(ImmutableMap.of());
+    }
+
+    public Optional<String> getSource()
+            throws SQLException
+    {
+        return SOURCE.getValue(properties);
     }
 
     public void setupClient(OkHttpClient.Builder builder)
