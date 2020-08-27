@@ -183,7 +183,7 @@ public class SuiteRun
             try {
                 TestRun.TestRunOptions testRunOptions = createTestRunOptions(suiteName, suiteTestRun, suiteConfig);
                 log.info("Execute this test run using:\npresto-product-tests-launcher/bin/run-launcher test run %s", OptionsPrinter.format(environmentOptions, testRunOptions));
-                new TestRun.Execution(environmentFactory, pathResolver, environmentOptions, testRunOptions).run();
+                new TestRun.Execution(environmentFactory, pathResolver, environmentOptions, testRunOptions, suiteConfig.extendEnvironment(suiteTestRun.getEnvironment())).run();
             }
             catch (Exception e) {
                 t = e;

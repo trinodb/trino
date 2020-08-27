@@ -14,6 +14,8 @@
 package io.prestosql.tests.product.launcher.suite;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.tests.product.launcher.env.EnvironmentProvider;
+import io.prestosql.tests.product.launcher.env.common.EnvironmentExtender;
 
 import java.util.List;
 import java.util.Optional;
@@ -45,7 +47,7 @@ public interface SuiteConfig
         return nameForConfigClass(getClass());
     }
 
-    default Optional<String> getHadoopInitScript()
+    default Optional<EnvironmentExtender> extendEnvironment(Class<? extends EnvironmentProvider> environment)
     {
         return Optional.empty();
     }

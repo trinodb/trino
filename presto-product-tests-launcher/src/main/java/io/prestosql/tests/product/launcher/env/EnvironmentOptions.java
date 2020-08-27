@@ -50,9 +50,6 @@ public final class EnvironmentOptions
     @Option(name = "--debug", description = "open Java debug ports")
     public boolean debug;
 
-    @Option(name = "--hadoop-init-script", description = "Hadoop init script")
-    public String hadoopInitScript = "";
-
     public Module toModule()
     {
         return binder -> {
@@ -83,7 +80,6 @@ public final class EnvironmentOptions
         copy.temptoEnvironmentConfigFile = suiteConfig.getTemptoEnvironmentConfigFile();
         copy.hadoopImagesVersion = suiteConfig.getHadoopImagesVersion();
         copy.serverPackage = new PathResolver().resolvePlaceholders(copy.serverPackage);
-        suiteConfig.getHadoopInitScript().ifPresent(initScript -> copy.hadoopInitScript = initScript);
         return copy;
     }
 
