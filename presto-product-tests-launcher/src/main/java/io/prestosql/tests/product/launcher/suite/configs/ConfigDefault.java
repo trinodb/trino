@@ -58,7 +58,6 @@ public class ConfigDefault
         return toStringHelper(this)
                 .add("hadoopBaseImage", getHadoopBaseImage())
                 .add("hadoopImagesVersion", getHadoopImagesVersion())
-                .add("hadoopInitScript", getHadoopInitScript())
                 .add("imagesVersion", getImagesVersion())
                 .add("excludedGroups", getExcludedGroups())
                 .add("excludedTests", getExcludedTests())
