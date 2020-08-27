@@ -127,7 +127,7 @@
                                 <exclude>**/TestHiveFileSystemS3.java</exclude>
                                 <exclude>**/TestHiveFileSystemS3SelectPushdown.java</exclude>
                                 <exclude>**/TestHiveFileSystemWasb.java</exclude>
-                                <exclude>**/TestHiveFileSystemAbfs.java</exclude>
+                                <exclude>**/TestHiveFileSystemAbfsAccessKey.java</exclude>
                                 <exclude>**/TestHiveFileSystemAdl.java</exclude>
                                 <exclude>**/TestHiveAzure.java</exclude>
                             </excludes>
@@ -186,7 +186,7 @@
             </build>
         </profile>
         <profile>
-            <id>test-hive-hadoop2-abfs</id>
+            <id>test-hive-hadoop2-abfs-access-key</id>
             <build>
                 <plugins>
                     <plugin>
@@ -194,7 +194,7 @@
                         <artifactId>maven-surefire-plugin</artifactId>
                         <configuration>
                             <includes>
-                                <include>**/TestHiveFileSystemAbfs.java</include>
+                                <include>**/TestHiveFileSystemAbfsAccessKey.java</include>
                             </includes>
                         </configuration>
                     </plugin>
