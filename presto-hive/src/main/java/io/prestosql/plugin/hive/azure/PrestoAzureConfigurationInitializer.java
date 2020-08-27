@@ -37,38 +37,31 @@ public class PrestoAzureConfigurationInitializer
     private final Optional<String> abfsStorageAccount;
 
     @Inject
-    public PrestoAzureConfigurationInitializer(HiveAzureConfig hiveAzureConfig)
+    public PrestoAzureConfigurationInitializer(HiveAzureConfig config)
     {
-        this.wasbAccessKey = hiveAzureConfig.getWasbAccessKey();
-        this.wasbStorageAccount = hiveAzureConfig.getWasbStorageAccount();
+        this.wasbAccessKey = dropEmpty(config.getWasbAccessKey());
+        this.wasbStorageAccount = dropEmpty(config.getWasbStorageAccount());
         if (wasbAccessKey.isPresent() || wasbStorageAccount.isPresent()) {
             checkArgument(
-                    wasbAccessKey.isPresent() && !wasbAccessKey.get().isEmpty(),
-                    "hive.azure.wasb-storage-account is set, but hive.azure.wasb-access-key is not");
-            checkArgument(
-                    wasbStorageAccount.isPresent() && !wasbStorageAccount.get().isEmpty(),
-                    "hive.azure.wasb-access-key is set, but hive.azure.wasb-storage-account is not");
+                    wasbAccessKey.isPresent() && wasbStorageAccount.isPresent(),
+                    "If WASB storage account or access key is set, both must be set");
         }
 
-        this.abfsAccessKey = hiveAzureConfig.getAbfsAccessKey();
-        this.abfsStorageAccount = hiveAzureConfig.getAbfsStorageAccount();
+        this.abfsAccessKey = dropEmpty(config.getAbfsAccessKey());
+        this.abfsStorageAccount = dropEmpty(config.getAbfsStorageAccount());
         if (abfsAccessKey.isPresent() || abfsStorageAccount.isPresent()) {
             checkArgument(
-                    abfsAccessKey.isPresent() && !abfsAccessKey.get().isEmpty(),
-                    "hive.azure.abfs-storage-account is set, but hive.azure.abfs-access-key is not");
-            checkArgument(
-                    abfsStorageAccount.isPresent() && !abfsStorageAccount.get().isEmpty(),
-                    "hive.azure.abfs-access-key is set, but hive.azure.abfs-storage-account is not");
+                    abfsStorageAccount.isPresent() && abfsAccessKey.isPresent(),
+                    "If ABFS storage account or access key is set, both must be set");
         }
 
-        this.adlClientId = hiveAzureConfig.getAdlClientId();
-        this.adlCredential = hiveAzureConfig.getAdlCredential();
-        this.adlRefreshUrl = hiveAzureConfig.getAdlRefreshUrl();
+        this.adlClientId = dropEmpty(config.getAdlClientId());
+        this.adlCredential = dropEmpty(config.getAdlCredential());
+        this.adlRefreshUrl = dropEmpty(config.getAdlRefreshUrl());
         if (adlClientId.isPresent() || adlCredential.isPresent() || adlRefreshUrl.isPresent()) {
-            checkArgument(adlClientId.isPresent() && !adlClientId.get().isEmpty() &&
-                            adlCredential.isPresent() && !adlCredential.get().isEmpty() &&
-                            adlRefreshUrl.isPresent() && !adlRefreshUrl.get().isEmpty(),
-                    "If one of adlClientId, adlCredential, adlRefreshUrl is set, all must be set");
+            checkArgument(
+                    adlClientId.isPresent() && adlCredential.isPresent() && adlRefreshUrl.isPresent(),
+                    "If any of ADL client ID, credential, and refresh URL are set, all must be set");
         }
     }
 
@@ -91,7 +84,13 @@ public class PrestoAzureConfigurationInitializer
             config.set("fs.adl.oauth2.refresh.url", adlRefreshUrl.get());
             config.set("fs.adl.impl", AdlFileSystem.class.getName());
         }
+
         // do not rely on information returned from local system about users and groups
         config.set("fs.azure.skipUserGroupMetadataDuringInitialization", "true");
+    }
+
+    private static Optional<String> dropEmpty(Optional<String> optional)
+    {
+        return optional.filter(value -> !value.isEmpty());
     }
 }
