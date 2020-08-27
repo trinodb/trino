@@ -263,6 +263,15 @@ Property Name                                      Description                  
 ``hive.file-status-cache-expire-time``             How long a cached directory listing should be considered     ``1m``
                                                    valid.
 
+``hive.parquet.time-zone``                         Adjusts timestamp values to a specific time zone.     	JVM default  
+                                                   For Hive 3.1+, this should be set to UTC. 
+
+``hive.rcfile.time-zone``                          Adjusts binary encoded timestamp values to a specific	JVM default  
+                                                   time zone. For Hive 3.1+, this should be set to UTC. 
+
+``hive.orc.time-zone``                             Sets the default time zone for legacy ORC files that did	JVM default        
+                                                   not declare a time zone.
+
 ``hive.temporary-staging-directory-enabled``       Controls whether the temporary staging directory configured  ``true``
                                                    at ``hive.temporary-staging-directory-path`` should be
                                                    used for write operations. Temporary staging directory is
