@@ -48,6 +48,26 @@ public class TestPrestoAzureConfigurationInitializer
                 HiveAzureConfig::setAbfsStorageAccount);
     }
 
+    @Test
+    public void testAbfsOAuth()
+    {
+        testPropertyGroup(
+                HiveAzureConfig::setAbfsOAuthClientEndpoint,
+                HiveAzureConfig::setAbfsOAuthClientId,
+                HiveAzureConfig::setAbfsOAuthClientSecret);
+    }
+
+    @Test
+    public void testExclusiveProperties()
+    {
+        assertThrows(() -> testProperties(
+                HiveAzureConfig::setAbfsAccessKey,
+                HiveAzureConfig::setAbfsStorageAccount,
+                HiveAzureConfig::setAbfsOAuthClientEndpoint,
+                HiveAzureConfig::setAbfsOAuthClientId,
+                HiveAzureConfig::setAbfsOAuthClientSecret));
+    }
+
     @SafeVarargs
     private static void testPropertyGroup(BiConsumer<HiveAzureConfig, String>... setters)
     {
@@ -63,6 +83,12 @@ public class TestPrestoAzureConfigurationInitializer
         for (var setter : setters) {
             assertThrows(() -> testProperties(difference(setters, Set.of(setter))));
         }
+    }
+
+    @SafeVarargs
+    private static void testProperties(BiConsumer<HiveAzureConfig, String>... setters)
+    {
+        testProperties(Set.of(setters));
     }
 
     private static void testProperties(Set<BiConsumer<HiveAzureConfig, String>> setters)
