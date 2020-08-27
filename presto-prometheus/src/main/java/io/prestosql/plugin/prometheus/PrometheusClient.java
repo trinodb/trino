@@ -154,6 +154,7 @@ public class PrometheusClient
                     requestBuilder.addHeader("Authorization", "Bearer " + bearerToken));
         }
         requestBuilder.setUri(uri);
+        requestBuilder.setMethod("GET");
         Request request = requestBuilder.build();
         Response response = (Response) httpClient.execute(request, createFullJsonResponseHandler(metricsCodec));
 
