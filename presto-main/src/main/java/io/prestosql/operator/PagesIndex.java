@@ -35,6 +35,7 @@ import io.prestosql.sql.gen.JoinCompiler.LookupSourceSupplierFactory;
 import io.prestosql.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import io.prestosql.sql.gen.OrderingCompiler;
 import it.unimi.dsi.fastutil.Swapper;
+import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.openjdk.jol.info.ClassLayout;
@@ -84,8 +85,10 @@ public class PagesIndex
     private final List<Type> types;
     private final LongArrayList valueAddresses;
     private final ObjectArrayList<Block>[] channels;
+    private final IntArrayList positionCounts;
     private final boolean eagerCompact;
 
+    private int pageCount;
     private int nextBlockToCompact;
     private int positionCount;
     private long pagesMemorySize;
@@ -111,6 +114,8 @@ public class PagesIndex
         for (int i = 0; i < channels.length; i++) {
             channels[i] = ObjectArrayList.wrap(new Block[1024], 0);
         }
+
+        positionCounts = new IntArrayList(1024);
 
         estimatedSize = calculateEstimatedSize();
     }
@@ -206,7 +211,9 @@ public class PagesIndex
             return;
         }
 
+        pageCount++;
         positionCount += page.getPositionCount();
+        positionCounts.add(page.getPositionCount());
 
         int pageIndex = (channels.length > 0) ? channels[0].size() : 0;
         for (int i = 0; i < channels.length; i++) {
@@ -261,7 +268,8 @@ public class PagesIndex
         long elementsSize = (channels.length > 0) ? sizeOf(channels[0].elements()) : 0;
         long channelsArraySize = elementsSize * channels.length;
         long addressesArraySize = sizeOf(valueAddresses.elements());
-        return INSTANCE_SIZE + pagesMemorySize + channelsArraySize + addressesArraySize;
+        long positionCountsSize = sizeOf(positionCounts.elements());
+        return INSTANCE_SIZE + pagesMemorySize + channelsArraySize + addressesArraySize + positionCountsSize;
     }
 
     public Type getType(int channel)
@@ -542,20 +550,22 @@ public class PagesIndex
     {
         return new AbstractIterator<>()
         {
-            private int pageCounter;
+            private int currentPage;
 
             @Override
             protected Page computeNext()
             {
-                if (pageCounter == channels[0].size()) {
+                if (currentPage == pageCount) {
                     return endOfData();
                 }
 
+                int positions = positionCounts.getInt(currentPage);
                 Block[] blocks = Stream.of(channels)
-                        .map(channel -> channel.get(pageCounter))
+                        .map(channel -> channel.get(currentPage))
                         .toArray(Block[]::new);
-                pageCounter++;
-                return new Page(blocks);
+
+                currentPage++;
+                return new Page(positions, blocks);
             }
         };
     }
