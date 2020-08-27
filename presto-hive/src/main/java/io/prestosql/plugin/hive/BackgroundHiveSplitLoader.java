@@ -481,7 +481,7 @@ public class BackgroundHiveSplitLoader
                     // Handling different formats of Delete delta file:
                     // 1. delete_delta_minWriteId_maxWriteID_statementId: default case
                     // 2. delete_delta_minWriteId_maxWriteID: after minor compaction
-                    if (delta.getPath().getName().split("_").length == 5) {
+                    if (AcidUtils.deleteDeltaSubdir(delta.getMinWriteId(), delta.getMaxWriteId(), delta.getStatementId()).equals(delta.getPath().getName())) {
                         statementId = OptionalInt.of(delta.getStatementId());
                     }
                     acidInfoBuilder.addDeleteDelta(delta.getPath(), delta.getMinWriteId(), delta.getMaxWriteId(), statementId);

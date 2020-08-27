@@ -245,15 +245,10 @@ public class OrcDeletedRows
     {
         String deleteDeltaSubdir;
         if (deleteDeltaInfo.getStatementId().isPresent()) {
-            deleteDeltaSubdir = deleteDeltaSubdir(
-                    deleteDeltaInfo.getMinWriteId(),
-                    deleteDeltaInfo.getMaxWriteId(),
-                    deleteDeltaInfo.getStatementId().getAsInt());
+            deleteDeltaSubdir = deleteDeltaSubdir(deleteDeltaInfo.getMinWriteId(), deleteDeltaInfo.getMaxWriteId(), deleteDeltaInfo.getStatementId().getAsInt());
         }
         else {
-            deleteDeltaSubdir = deleteDeltaSubdir(
-                    deleteDeltaInfo.getMinWriteId(),
-                    deleteDeltaInfo.getMaxWriteId());
+            deleteDeltaSubdir = deleteDeltaSubdir(deleteDeltaInfo.getMinWriteId(), deleteDeltaInfo.getMaxWriteId());
         }
         Path directory = new Path(acidInfo.getPartitionLocation(), deleteDeltaSubdir);
 

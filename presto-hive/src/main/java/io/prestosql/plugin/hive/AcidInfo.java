@@ -125,7 +125,7 @@ public class AcidInfo
         {
             this.minWriteId = minWriteId;
             this.maxWriteId = maxWriteId;
-            this.statementId = statementId;
+            this.statementId = requireNonNull(statementId, "statementId is null");
         }
 
         @JsonProperty
