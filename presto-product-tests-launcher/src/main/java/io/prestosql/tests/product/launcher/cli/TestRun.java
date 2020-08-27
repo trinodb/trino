@@ -30,6 +30,7 @@ import io.prestosql.tests.product.launcher.env.EnvironmentFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 import io.prestosql.tests.product.launcher.env.Environments;
+import io.prestosql.tests.product.launcher.env.common.EnvironmentExtender;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import org.testcontainers.containers.BindMode;
@@ -46,6 +47,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -126,9 +128,15 @@ public final class TestRun
         private final int startupRetries;
         private final Path reportsDirBase;
         private final String temptoEnvironmentConfigurationFile;
+        private final Optional<EnvironmentExtender> environmentExtender;
 
         @Inject
         public Execution(EnvironmentFactory environmentFactory, PathResolver pathResolver, EnvironmentOptions environmentOptions, TestRunOptions testRunOptions)
+        {
+            this(environmentFactory, pathResolver, environmentOptions, testRunOptions, Optional.empty());
+        }
+
+        protected Execution(EnvironmentFactory environmentFactory, PathResolver pathResolver, EnvironmentOptions environmentOptions, TestRunOptions testRunOptions, Optional<EnvironmentExtender> environmentExtender)
         {
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             this.pathResolver = requireNonNull(pathResolver, "pathResolver is null");
@@ -140,6 +148,7 @@ public final class TestRun
             this.environment = requireNonNull(testRunOptions.environment, "testRunOptions.environment is null");
             this.startupRetries = testRunOptions.startupRetries;
             this.reportsDirBase = Paths.get(requireNonNull(testRunOptions.reportsDir, "testRunOptions.reportsDirBase is empty"));
+            this.environmentExtender = requireNonNull(environmentExtender, "environmentExtender is null");
         }
 
         @Override
@@ -228,6 +237,8 @@ public final class TestRun
                         // this message marks that environment has started and tests are running
                         .waitingFor(new LogMessageWaitStrategy().withRegEx(".*\\[TestNG] Running.*"));
             });
+
+            environmentExtender.ifPresent(extender -> extender.extendEnvironment(environment));
 
             return environment.build();
         }
