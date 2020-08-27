@@ -50,4 +50,11 @@ public class TestJdbcResultSet
         String url = format("jdbc:presto://%s", server.getAddress());
         return DriverManager.getConnection(url, "test", null);
     }
+
+    @Override
+    protected int getTestedPrestoServerVersion()
+    {
+        // Lastest version
+        return Integer.MAX_VALUE;
+    }
 }
