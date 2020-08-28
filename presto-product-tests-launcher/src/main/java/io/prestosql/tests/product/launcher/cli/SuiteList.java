@@ -23,6 +23,7 @@ import io.prestosql.tests.product.launcher.env.EnvironmentConfigFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 import io.prestosql.tests.product.launcher.suite.SuiteFactory;
+import io.prestosql.tests.product.launcher.suite.SuiteModule;
 
 import javax.inject.Inject;
 
@@ -40,10 +41,12 @@ public final class SuiteList
         implements Runnable
 {
     private final Module additionalEnvironments;
+    private final Module additionalSuites;
 
     public SuiteList(Extensions extensions)
     {
         this.additionalEnvironments = requireNonNull(extensions, "extensions is null").getAdditionalEnvironments();
+        this.additionalSuites = requireNonNull(extensions, "extensions is null").getAdditionalSuites();
     }
 
     @Override
@@ -53,6 +56,7 @@ public final class SuiteList
                 ImmutableList.<Module>builder()
                         .add(new LauncherModule())
                         .add(new EnvironmentModule(EnvironmentOptions.empty(), additionalEnvironments))
+                        .add(new SuiteModule(additionalSuites))
                         .build(),
                 SuiteList.Execution.class);
     }
@@ -84,7 +88,7 @@ public final class SuiteList
             out.println("Available suites: ");
             this.suiteFactory.listSuites().forEach(out::println);
 
-            out.println("\nAvailable environment configuration profiles: ");
+            out.println("\nAvailable environment configs: ");
             this.configFactory.listConfigs().forEach(out::println);
         }
     }

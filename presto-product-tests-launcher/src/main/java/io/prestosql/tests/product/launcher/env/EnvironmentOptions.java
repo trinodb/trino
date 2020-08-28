@@ -38,6 +38,17 @@ public final class EnvironmentOptions
     @Option(name = "--debug", description = "open Java debug ports")
     public boolean debug;
 
+    public EnvironmentOptions copyOf()
+    {
+        EnvironmentOptions copy = new EnvironmentOptions();
+        copy.bindPorts = bindPorts;
+        copy.debug = debug;
+        copy.withoutPrestoMaster = withoutPrestoMaster;
+        copy.serverPackage = serverPackage;
+        copy.config = config;
+        return copy;
+    }
+
     private static boolean toBoolean(String value)
     {
         requireNonNull(value, "value is null");
