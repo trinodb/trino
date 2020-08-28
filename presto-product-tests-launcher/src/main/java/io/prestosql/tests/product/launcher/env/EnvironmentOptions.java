@@ -16,7 +16,6 @@ package io.prestosql.tests.product.launcher.env;
 import com.google.inject.Module;
 import io.airlift.airline.Option;
 import io.prestosql.tests.product.launcher.PathResolver;
-import io.prestosql.tests.product.launcher.suite.SuiteConfig;
 
 import java.io.File;
 import java.util.Locale;
@@ -71,14 +70,14 @@ public final class EnvironmentOptions
         return copy;
     }
 
-    public static EnvironmentOptions applySuiteConfig(EnvironmentOptions source, SuiteConfig suiteConfig)
+    public static EnvironmentOptions applySuiteConfig(EnvironmentOptions source, EnvironmentConfig environmentConfig)
     {
         // Override environment options using SuiteConfig values
         EnvironmentOptions copy = copy(source);
-        copy.imagesVersion = suiteConfig.getImagesVersion();
-        copy.hadoopBaseImage = suiteConfig.getHadoopBaseImage();
-        copy.temptoEnvironmentConfigFile = suiteConfig.getTemptoEnvironmentConfigFile();
-        copy.hadoopImagesVersion = suiteConfig.getHadoopImagesVersion();
+        copy.imagesVersion = environmentConfig.getImagesVersion();
+        copy.hadoopBaseImage = environmentConfig.getHadoopBaseImage();
+        copy.temptoEnvironmentConfigFile = environmentConfig.getTemptoEnvironmentConfigFile();
+        copy.hadoopImagesVersion = environmentConfig.getHadoopImagesVersion();
         copy.serverPackage = new PathResolver().resolvePlaceholders(copy.serverPackage);
         return copy;
     }

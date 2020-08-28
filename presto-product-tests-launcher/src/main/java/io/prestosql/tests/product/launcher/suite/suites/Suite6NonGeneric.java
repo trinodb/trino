@@ -14,6 +14,7 @@
 package io.prestosql.tests.product.launcher.suite.suites;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.EnvironmentDefaults;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeCassandra;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKafka;
@@ -23,7 +24,6 @@ import io.prestosql.tests.product.launcher.env.environment.SinglenodeLdap;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeLdapInsecure;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeLdapReferrals;
 import io.prestosql.tests.product.launcher.suite.Suite;
-import io.prestosql.tests.product.launcher.suite.SuiteConfig;
 import io.prestosql.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
@@ -35,7 +35,7 @@ public class Suite6NonGeneric
         extends Suite
 {
     @Override
-    public List<SuiteTestRun> getTestRuns(SuiteConfig config)
+    public List<SuiteTestRun> getTestRuns(EnvironmentConfig config)
     {
         verify(config.getHadoopBaseImage().equals(EnvironmentDefaults.HADOOP_BASE_IMAGE), "The suite should be run with default HADOOP_BASE_IMAGE. Leave HADOOP_BASE_IMAGE unset.");
 

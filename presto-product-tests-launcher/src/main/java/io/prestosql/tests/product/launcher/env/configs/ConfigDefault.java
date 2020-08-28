@@ -11,16 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.tests.product.launcher.suite.configs;
+package io.prestosql.tests.product.launcher.env.configs;
 
+import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.EnvironmentDefaults;
-import io.prestosql.tests.product.launcher.suite.SuiteConfig;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static io.prestosql.tests.product.launcher.suite.Suites.nameForConfigClass;
+import static io.prestosql.tests.product.launcher.env.Environments.nameForConfigClass;
 
 public class ConfigDefault
-        implements SuiteConfig
+        implements EnvironmentConfig
 {
     @Override
     public String getHadoopBaseImage()

@@ -22,9 +22,11 @@ import io.airlift.airline.Option;
 import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
 import io.prestosql.tests.product.launcher.PathResolver;
+import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
+import io.prestosql.tests.product.launcher.env.EnvironmentConfigFactory;
+import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 import io.prestosql.tests.product.launcher.suite.Suite;
-import io.prestosql.tests.product.launcher.suite.SuiteConfig;
 import io.prestosql.tests.product.launcher.suite.SuiteFactory;
 import io.prestosql.tests.product.launcher.suite.SuiteModule;
 import io.prestosql.tests.product.launcher.suite.SuiteTestRun;
@@ -47,6 +49,7 @@ public class SuiteDescribe
         implements Runnable
 {
     private final Module additionalSuites;
+    private final Module additionalEnvironments;
 
     @Inject
     public SuiteDescribeOptions options = new SuiteDescribeOptions();
@@ -54,29 +57,31 @@ public class SuiteDescribe
     public SuiteDescribe(Extensions extensions)
     {
         this.additionalSuites = requireNonNull(extensions, "extensions is null").getAdditionalSuites();
+        this.additionalEnvironments = requireNonNull(extensions, "extensions is null").getAdditionalEnvironments();
     }
 
     @Override
     public void run()
     {
-        Module suiteModule = new SuiteModule(additionalSuites);
-        SuiteConfig config = getSuiteConfig(suiteModule, options.config);
+        Module environmentModule = new EnvironmentModule(additionalEnvironments);
+        EnvironmentConfig config = getEnvironmentConfig(environmentModule, options.config);
 
         runCommand(
                 ImmutableList.<Module>builder()
                         .add(new LauncherModule())
                         .add(new SuiteModule(additionalSuites))
+                        .add(new EnvironmentModule(additionalEnvironments))
                         .add(options.toModule())
                         .add(applySuiteConfig(new EnvironmentOptions(), config).toModule())
                         .build(),
                 SuiteDescribe.Execution.class);
     }
 
-    private static SuiteConfig getSuiteConfig(Module suiteModule, String configName)
+    private static EnvironmentConfig getEnvironmentConfig(Module environmentModule, String configName)
     {
-        Injector injector = Guice.createInjector(suiteModule);
-        SuiteFactory instance = injector.getInstance(SuiteFactory.class);
-        return instance.getSuiteConfig(configName);
+        Injector injector = Guice.createInjector(environmentModule);
+        EnvironmentConfigFactory instance = injector.getInstance(EnvironmentConfigFactory.class);
+        return instance.getConfig(configName);
     }
 
     public static class SuiteDescribeOptions
@@ -84,7 +89,7 @@ public class SuiteDescribe
         @Option(name = "--suite", title = "suite", description = "the name of the suite to run", required = true)
         public String suite;
 
-        @Option(name = "--suite-config", title = "suite-config", description = "the name of the suite config to use")
+        @Option(name = "--config", title = "config", description = "the name of the environment config to use")
         public String config = "config-default";
 
         public Module toModule()
@@ -97,18 +102,25 @@ public class SuiteDescribe
             implements Runnable
     {
         private final String suiteName;
-        private final String suiteConfig;
+        private final String config;
         private final SuiteFactory suiteFactory;
+        private final EnvironmentConfigFactory configFactory;
         private final EnvironmentOptions environmentOptions;
         private final PathResolver pathResolver;
         private final PrintStream out;
 
         @Inject
-        public Execution(SuiteDescribeOptions describeOptions, SuiteFactory suiteFactory, PathResolver pathResolver, EnvironmentOptions environmentOptions)
+        public Execution(
+                SuiteDescribeOptions describeOptions,
+                SuiteFactory suiteFactory,
+                EnvironmentConfigFactory configFactory,
+                PathResolver pathResolver,
+                EnvironmentOptions environmentOptions)
         {
             this.suiteName = requireNonNull(describeOptions.suite, "describeOptions.suite is null");
-            this.suiteConfig = requireNonNull(describeOptions.config, "describeOptions.config is null");
+            this.config = requireNonNull(describeOptions.config, "describeOptions.config is null");
             this.suiteFactory = requireNonNull(suiteFactory, "suiteFactory is null");
+            this.configFactory = requireNonNull(configFactory, "configFactory is null");
             this.pathResolver = requireNonNull(pathResolver, "pathResolver is null");
             this.environmentOptions = requireNonNull(environmentOptions, "environmentOptions is null");
 
@@ -124,9 +136,9 @@ public class SuiteDescribe
         public void run()
         {
             Suite suite = suiteFactory.getSuite(suiteName);
-            SuiteConfig config = suiteFactory.getSuiteConfig(suiteConfig);
+            EnvironmentConfig config = configFactory.getConfig(this.config);
 
-            out.println(format("Suite '%s' with configuration '%s' consists of following test runs: ", suiteName, suiteConfig));
+            out.println(format("Suite '%s' with configuration '%s' consists of following test runs: ", suiteName, this.config));
 
             for (SuiteTestRun testRun : suite.getTestRuns(config)) {
                 TestRun.TestRunOptions runOptions = createTestRunOptions(suiteName, testRun, config);
@@ -134,13 +146,13 @@ public class SuiteDescribe
             }
         }
 
-        private TestRun.TestRunOptions createTestRunOptions(String suiteName, SuiteTestRun suiteTestRun, SuiteConfig suiteConfig)
+        private TestRun.TestRunOptions createTestRunOptions(String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig)
         {
             TestRun.TestRunOptions testRunOptions = new TestRun.TestRunOptions();
             testRunOptions.environment = suiteTestRun.getEnvironmentName();
-            testRunOptions.testArguments = suiteTestRun.getTemptoRunArguments(suiteConfig);
+            testRunOptions.testArguments = suiteTestRun.getTemptoRunArguments(environmentConfig);
             testRunOptions.testJar = pathResolver.resolvePlaceholders(testRunOptions.testJar);
-            testRunOptions.reportsDir = format("presto-product-tests/target/%s/%s/%s", suiteName, suiteConfig.getConfigName(), suiteTestRun.getEnvironmentName());
+            testRunOptions.reportsDir = format("presto-product-tests/target/%s/%s/%s", suiteName, environmentConfig.getConfigName(), suiteTestRun.getEnvironmentName());
             return testRunOptions;
         }
     }

@@ -19,8 +19,9 @@ import com.google.inject.Module;
 import io.airlift.airline.Command;
 import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
+import io.prestosql.tests.product.launcher.env.EnvironmentConfigFactory;
+import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.suite.SuiteFactory;
-import io.prestosql.tests.product.launcher.suite.SuiteModule;
 
 import javax.inject.Inject;
 
@@ -37,11 +38,11 @@ import static java.util.Objects.requireNonNull;
 public final class SuiteList
         implements Runnable
 {
-    private final Module additionalSuites;
+    private final Module additionalEnvironments;
 
     public SuiteList(Extensions extensions)
     {
-        this.additionalSuites = requireNonNull(extensions, "extensions is null").getAdditionalSuites();
+        this.additionalEnvironments = requireNonNull(extensions, "extensions is null").getAdditionalEnvironments();
     }
 
     @Override
@@ -50,7 +51,7 @@ public final class SuiteList
         runCommand(
                 ImmutableList.<Module>builder()
                         .add(new LauncherModule())
-                        .add(new SuiteModule(additionalSuites))
+                        .add(new EnvironmentModule(additionalEnvironments))
                         .build(),
                 SuiteList.Execution.class);
     }
@@ -59,12 +60,14 @@ public final class SuiteList
             implements Runnable
     {
         private final PrintStream out;
-        private final SuiteFactory factory;
+        private final EnvironmentConfigFactory configFactory;
+        private final SuiteFactory suiteFactory;
 
         @Inject
-        public Execution(SuiteFactory factory)
+        public Execution(SuiteFactory suiteFactory, EnvironmentConfigFactory configFactory)
         {
-            this.factory = requireNonNull(factory, "factory is null");
+            this.configFactory = requireNonNull(configFactory, "factory is null");
+            this.suiteFactory = requireNonNull(suiteFactory, "suiteFactory is null");
 
             try {
                 this.out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, Charset.defaultCharset().name());
@@ -78,10 +81,10 @@ public final class SuiteList
         public void run()
         {
             out.println("Available suites: ");
-            this.factory.listSuites().forEach(out::println);
+            this.suiteFactory.listSuites().forEach(out::println);
 
-            out.println("\nAvailable suite configuration profiles: ");
-            this.factory.listSuiteConfigs().forEach(out::println);
+            out.println("\nAvailable environment configuration profiles: ");
+            this.configFactory.listConfigs().forEach(out::println);
         }
     }
 }
