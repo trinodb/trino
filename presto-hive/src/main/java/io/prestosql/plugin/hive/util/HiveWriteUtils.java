@@ -543,11 +543,6 @@ public final class HiveWriteUtils
         }
     }
 
-    public static Path createTemporaryPath(ConnectorSession session, HdfsContext context, HdfsEnvironment hdfsEnvironment, Path targetPath)
-    {
-        return createTemporaryPath(session, context, hdfsEnvironment, targetPath, false);
-    }
-
     public static Path createTemporaryPath(ConnectorSession session, HdfsContext context, HdfsEnvironment hdfsEnvironment, Path targetPath, boolean hdfsImpersonationEnabled)
     {
         // use a per-user temporary directory to avoid permission problems

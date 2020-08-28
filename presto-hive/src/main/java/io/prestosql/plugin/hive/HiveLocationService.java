@@ -45,13 +45,13 @@ public class HiveLocationService
         implements LocationService
 {
     private final HdfsEnvironment hdfsEnvironment;
-    private final HiveAuthenticationConfig hiveAuthenticationConfig;
+    private final boolean hdfsImpersonationEnabled;
 
     @Inject
     public HiveLocationService(HdfsEnvironment hdfsEnvironment, HiveAuthenticationConfig hiveAuthenticationConfig)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        this.hiveAuthenticationConfig = requireNonNull(hiveAuthenticationConfig, "hiveAuthenticationConfig is null");
+        this.hdfsImpersonationEnabled = requireNonNull(hiveAuthenticationConfig, "hiveAuthenticationConfig is null").isHdfsImpersonationEnabled();
     }
 
     @Override
@@ -67,7 +67,7 @@ public class HiveLocationService
 
         // TODO detect when existing table's location is a on a different file system than the temporary directory
         if (shouldUseTemporaryDirectory(session, context, targetPath, externalLocation)) {
-            Path writePath = createTemporaryPath(session, context, hdfsEnvironment, targetPath, hiveAuthenticationConfig.isHdfsImpersonationEnabled());
+            Path writePath = createTemporaryPath(session, context, hdfsEnvironment, targetPath, hdfsImpersonationEnabled);
             return new LocationHandle(targetPath, writePath, false, STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
         }
         else {
@@ -82,7 +82,7 @@ public class HiveLocationService
         Path targetPath = new Path(table.getStorage().getLocation());
 
         if (shouldUseTemporaryDirectory(session, context, targetPath, Optional.empty())) {
-            Path writePath = createTemporaryPath(session, context, hdfsEnvironment, targetPath, hiveAuthenticationConfig.isHdfsImpersonationEnabled());
+            Path writePath = createTemporaryPath(session, context, hdfsEnvironment, targetPath, hdfsImpersonationEnabled);
             return new LocationHandle(targetPath, writePath, true, STAGE_AND_MOVE_TO_TARGET_DIRECTORY);
         }
         else {
