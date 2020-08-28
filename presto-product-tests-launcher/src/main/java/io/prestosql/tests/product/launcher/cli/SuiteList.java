@@ -21,6 +21,7 @@ import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentConfigFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentModule;
+import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 import io.prestosql.tests.product.launcher.suite.SuiteFactory;
 
 import javax.inject.Inject;
@@ -51,7 +52,7 @@ public final class SuiteList
         runCommand(
                 ImmutableList.<Module>builder()
                         .add(new LauncherModule())
-                        .add(new EnvironmentModule(additionalEnvironments))
+                        .add(new EnvironmentModule(EnvironmentOptions.empty(), additionalEnvironments))
                         .build(),
                 SuiteList.Execution.class);
     }

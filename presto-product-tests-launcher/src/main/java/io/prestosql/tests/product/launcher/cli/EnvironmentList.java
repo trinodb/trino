@@ -39,9 +39,6 @@ public final class EnvironmentList
 {
     private final Module additionalEnvironments;
 
-    @Inject
-    public EnvironmentOptions environmentOptions = new EnvironmentOptions();
-
     public EnvironmentList(Extensions extensions)
     {
         this.additionalEnvironments = requireNonNull(extensions, "extensions is null").getAdditionalEnvironments();
@@ -53,8 +50,7 @@ public final class EnvironmentList
         runCommand(
                 ImmutableList.<Module>builder()
                         .add(new LauncherModule())
-                        .add(new EnvironmentModule(additionalEnvironments))
-                        .add(environmentOptions.toModule())
+                        .add(new EnvironmentModule(EnvironmentOptions.empty(), additionalEnvironments))
                         .build(),
                 EnvironmentList.Execution.class);
     }
