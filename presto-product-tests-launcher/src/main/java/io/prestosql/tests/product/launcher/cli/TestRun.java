@@ -31,6 +31,7 @@ import io.prestosql.tests.product.launcher.env.EnvironmentFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 import io.prestosql.tests.product.launcher.env.Environments;
+import io.prestosql.tests.product.launcher.env.common.Standard;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import org.testcontainers.containers.BindMode;
@@ -127,7 +128,8 @@ public final class TestRun
         private final Path reportsDirBase;
         private final EnvironmentConfig environmentConfig;
 
-        protected Execution(EnvironmentFactory environmentFactory, PathResolver pathResolver, EnvironmentOptions environmentOptions, EnvironmentConfig environmentConfig, TestRunOptions testRunOptions)
+        @Inject
+        public Execution(EnvironmentFactory environmentFactory, PathResolver pathResolver, EnvironmentOptions environmentOptions, EnvironmentConfig environmentConfig, TestRunOptions testRunOptions)
         {
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             this.pathResolver = requireNonNull(pathResolver, "pathResolver is null");
@@ -169,6 +171,7 @@ public final class TestRun
             log.info("Pruning old environment(s)");
             Environments.pruneEnvironment();
 
+            log.info("Creating environment '%s' with configuration %s", environment, environmentConfig);
             Environment environment = getEnvironment();
             log.info("Starting the environment '%s'", environment);
             environment.start();
@@ -186,6 +189,10 @@ public final class TestRun
         {
             Environment.Builder environment = environmentFactory.get(this.environment)
                     .containerDependsOnRest("tests");
+
+            if (debug) {
+                environment.configureContainers(Standard::enablePrestoJavaDebugger);
+            }
 
             environment.configureContainer("tests", this::mountReportsDir);
             environment.configureContainer("tests", container -> {

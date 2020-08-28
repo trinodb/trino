@@ -18,6 +18,7 @@ import com.google.inject.Module;
 import io.airlift.airline.Command;
 import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
+import io.prestosql.tests.product.launcher.env.EnvironmentConfigFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
@@ -60,11 +61,13 @@ public final class EnvironmentList
     {
         private final PrintStream out;
         private final EnvironmentFactory factory;
+        private final EnvironmentConfigFactory configFactory;
 
         @Inject
-        public Execution(EnvironmentFactory factory)
+        public Execution(EnvironmentFactory factory, EnvironmentConfigFactory configFactory)
         {
             this.factory = requireNonNull(factory, "factory is null");
+            this.configFactory = requireNonNull(configFactory, "configFactory is null");
 
             try {
                 this.out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, Charset.defaultCharset().name());
@@ -78,8 +81,10 @@ public final class EnvironmentList
         public void run()
         {
             out.println("Available environments: ");
-
             this.factory.list().forEach(out::println);
+
+            out.println("\nAvailable environment configs: ");
+            this.configFactory.listConfigs().forEach(out::println);
         }
     }
 }
