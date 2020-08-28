@@ -33,6 +33,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -147,6 +148,13 @@ public final class Environment
             requireNonNull(name, "name is null");
             checkState(containers.containsKey(name), "Container with name %s is not registered", name);
             requireNonNull(configurer, "configurer is null").accept(containers.get(name));
+            return this;
+        }
+
+        public Builder configureContainers(BiConsumer<String, DockerContainer> configurer)
+        {
+            requireNonNull(configurer, "configurer is null");
+            containers.forEach(configurer);
             return this;
         }
 
