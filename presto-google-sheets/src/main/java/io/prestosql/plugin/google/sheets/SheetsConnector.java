@@ -16,6 +16,7 @@ package io.prestosql.plugin.google.sheets;
 import io.airlift.bootstrap.LifeCycleManager;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorMetadata;
+import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorRecordSetProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
@@ -33,18 +34,21 @@ public class SheetsConnector
     private final SheetsMetadata metadata;
     private final SheetsSplitManager splitManager;
     private final SheetsRecordSetProvider recordSetProvider;
+    private final SheetsPageSinkProvider pageSinkProvider;
 
     @Inject
     public SheetsConnector(
             LifeCycleManager lifeCycleManager,
             SheetsMetadata metadata,
             SheetsSplitManager splitManager,
-            SheetsRecordSetProvider recordSetProvider)
+            SheetsRecordSetProvider recordSetProvider,
+            SheetsPageSinkProvider pageSinkProvider)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.splitManager = requireNonNull(splitManager, "splitManager is null");
         this.recordSetProvider = requireNonNull(recordSetProvider, "recordSetProvider is null");
+        this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
     }
 
     @Override
@@ -69,6 +73,12 @@ public class SheetsConnector
     public ConnectorRecordSetProvider getRecordSetProvider()
     {
         return recordSetProvider;
+    }
+
+    @Override
+    public ConnectorPageSinkProvider getPageSinkProvider()
+    {
+        return pageSinkProvider;
     }
 
     @Override

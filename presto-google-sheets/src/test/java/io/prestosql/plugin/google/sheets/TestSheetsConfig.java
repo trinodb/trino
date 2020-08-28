@@ -36,7 +36,12 @@ public class TestSheetsConfig
                 .setCredentialsFilePath(null)
                 .setMetadataSheetId(null)
                 .setSheetsDataMaxCacheSize(1000)
-                .setSheetsDataExpireAfterWrite(new Duration(5, TimeUnit.MINUTES)));
+                .setSheetsDataExpireAfterWrite(new Duration(5, TimeUnit.MINUTES))
+                .setSheetRange(null)
+                .setSheetsValueInputOption(null)
+                .setDrivePermissionType(null)
+                .setDrivePermissionRole(null)
+                .setDrivePermissionEmailAddress(null));
     }
 
     @Test
@@ -44,19 +49,28 @@ public class TestSheetsConfig
             throws IOException
     {
         Path credentialsFile = Files.createTempFile(null, null);
-
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("credentials-path", credentialsFile.toString())
                 .put("metadata-sheet-id", "foo_bar_sheet_id#Sheet1")
                 .put("sheets-data-max-cache-size", "2000")
                 .put("sheets-data-expire-after-write", "10m")
+                .put("sheets-range","Sheet1")
+                .put("sheets-value-input-option","RAW")
+                .put("drive-permission-type","user")
+                .put("drive-permission-role","writer")
+                .put("drive-permission-email-address","<<insertYourEmailHere@InsertYourEmailHere.com>>")
                 .build();
 
         SheetsConfig expected = new SheetsConfig()
-                .setCredentialsFilePath(credentialsFile.toString())
+                .setCredentialsFilePath("/foo/bar/credentials.json")
                 .setMetadataSheetId("foo_bar_sheet_id#Sheet1")
                 .setSheetsDataMaxCacheSize(2000)
-                .setSheetsDataExpireAfterWrite(new Duration(10, TimeUnit.MINUTES));
+                .setSheetsDataExpireAfterWrite(new Duration(10, TimeUnit.MINUTES))
+                .setSheetRange("Sheet1")
+                .setSheetsValueInputOption("RAW")
+                .setDrivePermissionType("user")
+                .setDrivePermissionRole("writer")
+                .setDrivePermissionEmailAddress("cla@prestosql.io");
 
         assertFullMapping(properties, expected);
     }
