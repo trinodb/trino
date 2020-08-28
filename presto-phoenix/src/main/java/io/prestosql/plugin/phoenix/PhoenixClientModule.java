@@ -56,6 +56,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.reflect.Reflection.newProxy;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.prestosql.plugin.jdbc.JdbcModule.bindSessionPropertiesProvider;
+import static io.prestosql.plugin.jdbc.JdbcModule.bindTablePropertiesProvider;
 import static io.prestosql.plugin.phoenix.PhoenixErrorCode.PHOENIX_CONFIG_ERROR;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -91,7 +92,7 @@ public class PhoenixClientModule
         binder.bind(ConnectorMetadata.class).annotatedWith(ForClassLoaderSafe.class).to(PhoenixMetadata.class).in(Scopes.SINGLETON);
         binder.bind(ConnectorMetadata.class).to(ClassLoaderSafeConnectorMetadata.class).in(Scopes.SINGLETON);
 
-        binder.bind(PhoenixTableProperties.class).in(Scopes.SINGLETON);
+        bindTablePropertiesProvider(binder, PhoenixTableProperties.class);
         binder.bind(PhoenixColumnProperties.class).in(Scopes.SINGLETON);
 
         binder.bind(PhoenixConnector.class).in(Scopes.SINGLETON);
