@@ -11,36 +11,35 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.tests.product.launcher.suite;
+package io.prestosql.tests.product.launcher.env;
 
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Ordering;
-
-import javax.inject.Inject;
+import com.google.inject.Inject;
 
 import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Objects.requireNonNull;
 
-public final class SuiteFactory
+public class EnvironmentConfigFactory
 {
-    private final Map<String, Suite> suiteProviders;
+    private final Map<String, EnvironmentConfig> configurations;
 
     @Inject
-    public SuiteFactory(Map<String, Suite> suiteProviders)
+    public EnvironmentConfigFactory(Map<String, EnvironmentConfig> configurations)
     {
-        this.suiteProviders = requireNonNull(suiteProviders, "suiteProviders is null");
+        this.configurations = ImmutableMap.copyOf(configurations);
     }
 
-    public Suite getSuite(String suiteName)
+    public EnvironmentConfig getConfig(String configName)
     {
-        checkArgument(suiteProviders.containsKey(suiteName), "No suite with name '%s'. Those do exist, however: %s", suiteName, listSuites());
-        return suiteProviders.get(suiteName);
+        checkArgument(configurations.containsKey(configName), "No environment config with name '%s'. Those do exist, however: %s", configName, listConfigs());
+        return configurations.get(configName);
     }
 
-    public List<String> listSuites()
+    public List<String> listConfigs()
     {
-        return Ordering.natural().sortedCopy(suiteProviders.keySet());
+        return Ordering.natural().sortedCopy(configurations.keySet());
     }
 }

@@ -13,7 +13,8 @@
  */
 package io.prestosql.tests.product.launcher.suite;
 
-import io.prestosql.tests.product.launcher.suite.configs.ConfigDefault;
+import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
+import io.prestosql.tests.product.launcher.env.configs.ConfigDefault;
 
 import java.util.List;
 
@@ -22,7 +23,7 @@ import static io.prestosql.tests.product.launcher.suite.Suites.nameForSuiteClass
 
 public abstract class Suite
 {
-    public abstract List<SuiteTestRun> getTestRuns(SuiteConfig config);
+    public abstract List<SuiteTestRun> getTestRuns(EnvironmentConfig config);
 
     @Override
     public String toString()

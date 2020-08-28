@@ -42,28 +42,8 @@ public class Suites
         }
     }
 
-    public static List<Class<? extends SuiteConfig>> findSuiteConfigsByPackageName(String packageName)
-    {
-        try {
-            return ClassPath.from(Environments.class.getClassLoader()).getTopLevelClassesRecursive(packageName).stream()
-                    .map(ClassPath.ClassInfo::load)
-                    .filter(clazz -> !isAbstract(clazz.getModifiers()))
-                    .filter(clazz -> SuiteConfig.class.isAssignableFrom(clazz))
-                    .map(clazz -> (Class<? extends SuiteConfig>) clazz.asSubclass(SuiteConfig.class))
-                    .collect(toImmutableList());
-        }
-        catch (IOException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
     public static String nameForSuiteClass(Class<? extends Suite> clazz)
     {
         return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_HYPHEN, clazz.getSimpleName().replace("Suite", "Suite-")).replace("--", "-");
-    }
-
-    public static String nameForConfigClass(Class<? extends SuiteConfig> clazz)
-    {
-        return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_HYPHEN, clazz.getSimpleName());
     }
 }
