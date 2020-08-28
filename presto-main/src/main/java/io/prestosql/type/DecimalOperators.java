@@ -28,6 +28,7 @@ import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.TypeSignature;
+import io.prestosql.spi.type.UnscaledDecimal128Arithmetic;
 
 import java.math.BigInteger;
 import java.util.List;
@@ -262,7 +263,14 @@ public final class DecimalOperators
     @UsedByGeneratedCode
     public static Slice multiplyShortShortLong(long a, long b)
     {
-        return multiplyLongLongLong(encodeUnscaledValue(a), encodeUnscaledValue(b));
+        try {
+            Slice result = multiply(a, b);
+            throwIfOverflows(result);
+            return result;
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+        }
     }
 
     @UsedByGeneratedCode
@@ -281,13 +289,20 @@ public final class DecimalOperators
     @UsedByGeneratedCode
     public static Slice multiplyShortLongLong(long a, Slice b)
     {
-        return multiplyLongLongLong(encodeUnscaledValue(a), b);
+        return multiplyLongShortLong(b, a);
     }
 
     @UsedByGeneratedCode
     public static Slice multiplyLongShortLong(Slice a, long b)
     {
-        return multiplyLongLongLong(a, encodeUnscaledValue(b));
+        try {
+            Slice result = UnscaledDecimal128Arithmetic.multiply(a, b);
+            throwIfOverflows(result);
+            return result;
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+        }
     }
 
     private static SqlScalarFunction decimalDivideOperator()
