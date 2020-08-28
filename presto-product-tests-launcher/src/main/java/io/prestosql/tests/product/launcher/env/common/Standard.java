@@ -24,7 +24,6 @@ import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.containers.wait.strategy.WaitAllStrategy;
-import org.testcontainers.utility.MountableFile;
 
 import javax.inject.Inject;
 
@@ -157,7 +156,7 @@ public final class Standard
                             "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=0.0.0.0:" + debugPort,
                             CONTAINER_PRESTO_JVM_CONFIG),
                     UTF_8);
-            container.withCopyFileToContainer(MountableFile.forHostPath(script), "/docker/presto-init.d/enable-java-debugger.sh");
+            container.withCopyFileToContainer(forHostPath(script), "/docker/presto-init.d/enable-java-debugger.sh");
 
             // expose debug port unconditionally when debug is enabled
             exposePort(container, debugPort);
