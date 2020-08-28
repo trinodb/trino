@@ -2,8 +2,21 @@
 JDBC Driver
 ===========
 
-Presto can be accessed from Java using the JDBC driver.
-Download :maven_download:`jdbc` and add it to the class path of your Java application.
+The Presto JDBC (Java Database Connectivity) driver allows users to access 
+Presto using Java-based applications. Both desktop and server-side 
+applications, such as those used for reporting and database development, use 
+the JDBC driver. 
+
+Requirements
+------------
+
+The JDBC driver is compatible with Java 8+, and can be used with applications 
+running on Java virtual machines version 8 or higher.
+
+Installing
+----------
+
+Download :maven_download:`jdbc` and add it to the classpath of your Java application.
 
 The driver is also available from Maven Central:
 
@@ -15,20 +28,54 @@ The driver is also available from Maven Central:
         <version>\ |version|\ </version>
     </dependency>
 
-Requirements
-------------
+You should be using the same version of the JDBC driver as your Presto 
+installation. If you are not on the latest release shown above, a list of all 
+currently available versions can be found `here <https://repo1.maven.org/maven2/io/prestosql/presto-jdbc>`__.
 
-The JDBC driver is compatible with Java 8, and can be used with applications
-running on Java virtual machines version 8 and higher.
+Once downloaded, you must add the JAR file to the classpath of your Java 
+application. Often, this will be the lib folder of a Java application, but
+you should check the documentation for your specific application. Depending 
+on your application, you may be able to accomplish this from a dialog rather 
+than on the command line.  
 
-Driver Name
------------
+Once you have downloaded the JDBC driver and added it to your 
+classpath, you'll typically need to restart your application in order to 
+recognize the new driver. After that, depending on your application, you 
+may need to manually register and configure the driver.
 
-The driver class name is ``io.prestosql.jdbc.PrestoDriver``.
-Most users do not need this information as drivers are loaded automatically.
+Registering & configuring the driver
+------------------------------------
+
+Drivers are commonly automatically loaded by applications once they are added 
+to its classpath. If your application does not, this section will be helpful.
+
+If your application has a UI, look for a Settings option or a Drivers tab and 
+register the JDBC driver there. The steps to register the JDBC
+driver on the command line depend on the specific application you are using. 
+Please check your application's documentation.
+
+Once registered, you must also configure the following two required 
+parameters in your Java application:
+
+* Class name: ``io.prestosql.jdbc.PrestoDriver`` 
+* JDBC URL (example): ``jdbc:presto://host:port/catalog/schema``
+
+Note that the JDBC URL itself is a connection configuration. 
 
 Connecting
 ----------
+
+When your driver is loaded, registered and configured, you are ready to 
+connect to Presto from your application. The following example illustrates
+using a JDBC URL to create a connection:
+
+.. code-block:: java
+
+    String url = "jdbc:presto://example.net:8080/hive/sales";
+    Connection connection = DriverManager.getConnection(url, "test", null);
+
+This example JDBC URL locates a Presto instance running on port ``8080`` in
+``example.net``, with the catalog ``hive`` and the schema ``sales`` defined. 
 
 The following JDBC URL formats are supported:
 
@@ -37,21 +84,6 @@ The following JDBC URL formats are supported:
     jdbc:presto://host:port
     jdbc:presto://host:port/catalog
     jdbc:presto://host:port/catalog/schema
-
-For example, use the following URL to connect to Presto
-running on ``example.net`` port ``8080`` with the catalog ``hive``
-and the schema ``sales``:
-
-.. code-block:: none
-
-    jdbc:presto://example.net:8080/hive/sales
-
-The above URL can be used as follows to create a connection:
-
-.. code-block:: java
-
-    String url = "jdbc:presto://example.net:8080/hive/sales";
-    Connection connection = DriverManager.getConnection(url, "test", null);
 
 Connection Parameters
 ---------------------
