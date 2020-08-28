@@ -223,7 +223,7 @@ public final class DecimalCasts
     public static Slice bigintToLongDecimal(long value, long precision, long scale, BigInteger tenToScale)
     {
         try {
-            Slice decimal = multiply(unscaledDecimal(value), unscaledDecimal(tenToScale));
+            Slice decimal = multiply(unscaledDecimal(tenToScale), value);
             if (overflows(decimal, DecimalConversions.intScale(precision))) {
                 throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast BIGINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
@@ -281,7 +281,7 @@ public final class DecimalCasts
     public static Slice integerToLongDecimal(long value, long precision, long scale, BigInteger tenToScale)
     {
         try {
-            Slice decimal = multiply(unscaledDecimal(value), unscaledDecimal(tenToScale));
+            Slice decimal = multiply(unscaledDecimal(tenToScale), value);
             if (overflows(decimal, DecimalConversions.intScale(precision))) {
                 throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast INTEGER '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
@@ -339,7 +339,7 @@ public final class DecimalCasts
     public static Slice smallintToLongDecimal(long value, long precision, long scale, BigInteger tenToScale)
     {
         try {
-            Slice decimal = multiply(unscaledDecimal(value), unscaledDecimal(tenToScale));
+            Slice decimal = multiply(unscaledDecimal(tenToScale), value);
             if (overflows(decimal, DecimalConversions.intScale(precision))) {
                 throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast SMALLINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }
@@ -397,7 +397,7 @@ public final class DecimalCasts
     public static Slice tinyintToLongDecimal(long value, long precision, long scale, BigInteger tenToScale)
     {
         try {
-            Slice decimal = multiply(unscaledDecimal(value), unscaledDecimal(tenToScale));
+            Slice decimal = multiply(unscaledDecimal(tenToScale), value);
             if (overflows(decimal, DecimalConversions.intScale(precision))) {
                 throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast TINYINT '%s' to DECIMAL(%s, %s)", value, precision, scale));
             }

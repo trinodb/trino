@@ -28,7 +28,6 @@ import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.UnscaledDecimal128Arithmetic;
 
 import java.math.BigInteger;
 import java.util.List;
@@ -296,7 +295,7 @@ public final class DecimalOperators
     public static Slice multiplyLongShortLong(Slice a, long b)
     {
         try {
-            Slice result = UnscaledDecimal128Arithmetic.multiply(a, b);
+            Slice result = multiply(a, b);
             throwIfOverflows(result);
             return result;
         }
