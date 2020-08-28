@@ -15,7 +15,6 @@ package io.prestosql.tests.product.launcher.docker;
 
 import com.github.dockerjava.api.DockerClient;
 import com.github.dockerjava.api.command.ListContainersCmd;
-import com.github.dockerjava.api.command.ListNetworksCmd;
 import com.github.dockerjava.api.exception.ConflictException;
 import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.model.Container;
@@ -52,10 +51,8 @@ public final class ContainerUtil
         }
     }
 
-    public static void removeNetworks(DockerClient dockerClient, Function<ListNetworksCmd, ListNetworksCmd> filter)
+    public static void removeNetworks(DockerClient dockerClient, List<Network> networks)
     {
-        ListNetworksCmd listNetworksCmd = filter.apply(dockerClient.listNetworksCmd());
-        List<Network> networks = listNetworksCmd.exec();
         for (Network network : networks) {
             try {
                 dockerClient.removeNetworkCmd(network.getId())

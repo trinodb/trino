@@ -24,13 +24,14 @@ import org.testcontainers.DockerClientFactory;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.Objects;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.tests.product.launcher.docker.ContainerUtil.killContainers;
 import static io.prestosql.tests.product.launcher.docker.ContainerUtil.removeNetworks;
-import static io.prestosql.tests.product.launcher.env.Environment.PRODUCT_TEST_LAUNCHER_NETWORK;
 import static io.prestosql.tests.product.launcher.env.Environment.PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME;
 import static io.prestosql.tests.product.launcher.env.Environment.PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE;
+import static io.prestosql.tests.product.launcher.testcontainers.TestContainersUtil.isContainerReuseEnabled;
 
 public final class Environments
 {
@@ -38,7 +39,17 @@ public final class Environments
 
     private static final Logger log = Logger.get(Environments.class);
 
-    public static void pruneEnvironment()
+    public static void pruneEnvironments()
+    {
+        if (isContainerReuseEnabled()) {
+            log.info("testcontainers.reuse.enable=true is enabled, previous containers won't be pruned. If you need to prune them, run manually `...launcher env down`, or `docker rm ...`");
+        }
+        else {
+            pruneEnvironmentForcefully();
+        }
+    }
+
+    public static void pruneEnvironmentForcefully()
     {
         log.info("Shutting down previous containers");
         try (DockerClient dockerClient = DockerClientFactory.lazyClient()) {
@@ -47,7 +58,9 @@ public final class Environments
                     listContainersCmd -> listContainersCmd.withLabelFilter(ImmutableMap.of(PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME, PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE)));
             removeNetworks(
                     dockerClient,
-                    listNetworksCmd -> listNetworksCmd.withNameFilter(PRODUCT_TEST_LAUNCHER_NETWORK));
+                    dockerClient.listNetworksCmd().exec().stream()
+                            .filter(it -> Objects.equals(it.getLabels().get(PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME), PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE))
+                            .collect(toImmutableList()));
         }
         catch (IOException e) {
             throw new UncheckedIOException(e);
