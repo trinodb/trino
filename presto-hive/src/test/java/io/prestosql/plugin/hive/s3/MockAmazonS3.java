@@ -121,6 +121,12 @@ public class MockAmazonS3
                 glacier.setKey("test/glacier");
                 glacier.setLastModified(new Date());
                 listingV2.getObjectSummaries().add(glacier);
+
+                S3ObjectSummary deepArchive = new S3ObjectSummary();
+                deepArchive.setStorageClass(StorageClass.DeepArchive.toString());
+                deepArchive.setKey("test/deepArchive");
+                deepArchive.setLastModified(new Date());
+                listingV2.getObjectSummaries().add(deepArchive);
             }
         }
         else {
