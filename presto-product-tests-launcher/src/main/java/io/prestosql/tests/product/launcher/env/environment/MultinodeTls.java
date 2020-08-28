@@ -19,7 +19,7 @@ import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
-import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
+import io.prestosql.tests.product.launcher.env.ServerPackage;
 import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Standard;
@@ -56,15 +56,15 @@ public final class MultinodeTls
             PortBinder portBinder,
             Standard standard,
             Hadoop hadoop,
-            EnvironmentOptions environmentOptions,
-            EnvironmentConfig environmentConfig)
+            EnvironmentConfig environmentConfig,
+            @ServerPackage File serverPackage)
     {
         super(ImmutableList.of(standard, hadoop));
         this.pathResolver = requireNonNull(pathResolver, "pathResolver is null");
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
-        imagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getImagesVersion();
-        serverPackage = requireNonNull(environmentOptions.serverPackage, "environmentOptions.serverPackage is null");
+        this.imagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getImagesVersion();
+        this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");
     }
 
     @Override

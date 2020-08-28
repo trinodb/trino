@@ -19,7 +19,7 @@ import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
-import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
+import io.prestosql.tests.product.launcher.env.ServerPackage;
 import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Kerberos;
@@ -56,16 +56,16 @@ public final class MultinodeTlsKerberos
             Standard standard,
             Hadoop hadoop,
             Kerberos kerberos,
-            EnvironmentOptions environmentOptions,
-            EnvironmentConfig config)
+            EnvironmentConfig config,
+            @ServerPackage File serverPackage)
     {
         super(ImmutableList.of(standard, hadoop, kerberos));
         this.pathResolver = requireNonNull(pathResolver, "pathResolver is null");
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         String hadoopBaseImage = requireNonNull(config, "config is null").getHadoopBaseImage();
         String hadoopImagesVersion = requireNonNull(config, "config is null").getHadoopImagesVersion();
-        prestoDockerImageName = hadoopBaseImage + "-kerberized:" + hadoopImagesVersion;
-        serverPackage = requireNonNull(environmentOptions.serverPackage, "environmentOptions.serverPackage is null");
+        this.prestoDockerImageName = hadoopBaseImage + "-kerberized:" + hadoopImagesVersion;
+        this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");
     }
 
     @Override

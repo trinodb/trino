@@ -19,12 +19,15 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.MapBinder;
+import io.prestosql.tests.product.launcher.PathResolver;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Kafka;
 import io.prestosql.tests.product.launcher.env.common.Kerberos;
 import io.prestosql.tests.product.launcher.env.common.KerberosKms;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
+
+import java.io.File;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.prestosql.tests.product.launcher.env.Environments.nameForConfigClass;
@@ -35,19 +38,18 @@ public final class EnvironmentModule
 {
     public static final String BASE_PACKAGE = "io.prestosql.tests.product.launcher.env.environment";
     public static final String BASE_CONFIG_PACKAGE = "io.prestosql.tests.product.launcher.env.configs";
-    private final EnvironmentOptions environmentOptions;
+    private final EnvironmentOptions baseEnvironmentOptions;
     private final Module additionalEnvironments;
 
-    public EnvironmentModule(EnvironmentOptions environmentOptions, Module additionalEnvironments)
+    public EnvironmentModule(EnvironmentOptions baseEnvironmentOptions, Module additionalEnvironments)
     {
-        this.environmentOptions = requireNonNull(environmentOptions, "environmentOptions is null");
+        this.baseEnvironmentOptions = requireNonNull(baseEnvironmentOptions, "baseEnvironmentOptions is null");
         this.additionalEnvironments = requireNonNull(additionalEnvironments, "additionalEnvironments is null");
     }
 
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(EnvironmentOptions.class).toInstance(environmentOptions);
         binder.bind(PortBinder.class);
         binder.bind(EnvironmentFactory.class);
         binder.bind(EnvironmentConfigFactory.class);
@@ -58,7 +60,6 @@ public final class EnvironmentModule
         binder.bind(Kafka.class);
 
         MapBinder<String, EnvironmentProvider> environments = newMapBinder(binder, String.class, EnvironmentProvider.class);
-
         Environments.findByBasePackage(BASE_PACKAGE).forEach(clazz -> environments.addBinding(Environments.nameForClass(clazz)).to(clazz));
 
         MapBinder<String, EnvironmentConfig> environmentConfigs = newMapBinder(binder, String.class, EnvironmentConfig.class);
@@ -67,11 +68,30 @@ public final class EnvironmentModule
         binder.install(additionalEnvironments);
     }
 
+    @Provides
+    @Inject
+    @Singleton
+    private EnvironmentOptions provideEnvironmentOptions(PathResolver pathResolver)
+    {
+        EnvironmentOptions copy = baseEnvironmentOptions.copyOf();
+        copy.serverPackage = pathResolver.resolvePlaceholders(baseEnvironmentOptions.serverPackage);
+        return copy;
+    }
+
     @Inject
     @Provides
     @Singleton
     public EnvironmentConfig provideEnvironmentConfig(EnvironmentOptions options, EnvironmentConfigFactory factory)
     {
         return factory.getConfig(options.config);
+    }
+
+    @Provides
+    @Singleton
+    @Inject
+    @ServerPackage
+    public File provideServerPackage(EnvironmentOptions options)
+    {
+        return options.serverPackage;
     }
 }

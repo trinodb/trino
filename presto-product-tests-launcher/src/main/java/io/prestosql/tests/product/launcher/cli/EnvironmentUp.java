@@ -24,10 +24,12 @@ import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
 import io.prestosql.tests.product.launcher.docker.ContainerUtil;
 import io.prestosql.tests.product.launcher.env.Environment;
+import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.EnvironmentFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 import io.prestosql.tests.product.launcher.env.Environments;
+import io.prestosql.tests.product.launcher.env.common.Standard;
 import org.testcontainers.DockerClientFactory;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.ContainerState;
@@ -97,14 +99,18 @@ public final class EnvironmentUp
         private final boolean background;
         private final String environment;
         private final Duration startupTimeout;
+        private final boolean debug;
+        private final EnvironmentConfig environmentConfig;
 
         @Inject
-        public Execution(EnvironmentFactory environmentFactory, EnvironmentOptions options, EnvironmentUpOptions environmentUpOptions)
+        public Execution(EnvironmentFactory environmentFactory, EnvironmentConfig environmentConfig, EnvironmentOptions options, EnvironmentUpOptions environmentUpOptions)
         {
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
+            this.environmentConfig = requireNonNull(environmentConfig, "environmentConfig is null");
             this.withoutPrestoMaster = options.withoutPrestoMaster;
             this.background = environmentUpOptions.background;
             this.environment = environmentUpOptions.environment;
+            this.debug = options.debug;
             this.startupTimeout = requireNonNull(environmentUpOptions.startupTimeout, "environmentUpOptions.startupTimeout is null");
         }
 
@@ -119,6 +125,11 @@ public final class EnvironmentUp
 
             if (withoutPrestoMaster) {
                 builder.removeContainer("presto-master");
+            }
+
+            log.info("Creating environment '%s' with configuration %s", environment, environmentConfig);
+            if (debug) {
+                builder.configureContainers(Standard::enablePrestoJavaDebugger);
             }
 
             Environment environment = builder.build();
