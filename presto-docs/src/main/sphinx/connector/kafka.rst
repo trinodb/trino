@@ -510,17 +510,72 @@ For fields, the following attributes are supported:
 * ``type`` - Presto type of column.
 * ``mapping`` - slash-separated list of field names to select a field from the
   JSON object
+* ``dataFormat`` - name of formatter (required for temporal types)
+* ``formatHint`` - pattern to format temporal data (only use with
+  ``custom-date-time`` formatter)
 
-The following Presto data types are supported by the JSON encoder
+The following Presto data types are supported by the JSON encoder:
 
-* ``BIGINT``
-* ``INTEGER``
-* ``SMALLINT``
-* ``TINYINT``
-* ``DOUBLE``
-* ``REAL``
-* ``BOOLEAN``
-* ``VARCHAR``
++-------------------------------------+
+| Presto data types                   |
++=====================================+
+| ``BIGINT``                          |
+|                                     |
+| ``INTEGER``                         |
+|                                     |
+| ``SMALLINT``                        |
+|                                     |
+| ``TINYINT``                         |
+|                                     |
+| ``DOUBLE``                          |
+|                                     |
+| ``REAL``                            |
+|                                     |
+| ``BOOLEAN``                         |
+|                                     |
+| ``VARCHAR``                         |
+|                                     |
+| ``DATE``                            |
+|                                     |
+| ``TIME``                            |
+|                                     |
+| ``TIME WITH TIME ZONE``             |
+|                                     |
+| ``TIMESTAMP``                       |
+|                                     |
+| ``TIMESTAMP WITH TIME ZONE``        |
++-------------------------------------+
+
+The following ``dataFormats`` are available for temporal data:
+
+* ``iso8601``
+* ``rfc2822``
+* ``custom-date-time`` - formats temporal data according to
+  `Joda Time <https://www.joda.org/joda-time/key_format.html>`__
+  pattern given by ``formatHint`` field
+* ``milliseconds-since-epoch``
+* ``seconds-since-epoch``
+
+All temporal data in Kafka supports milliseconds precision
+
+The following table defines which temporal data types are supported by
+``dataFormats``:
+
++-------------------------------------+--------------------------------------------------------------------------------+
+| Presto data type                    | Decoding rules                                                                 |
++=====================================+================================================================================+
+| ``DATE``                            | ``custom-date-time``, ``iso8601``                                              |
++-------------------------------------+--------------------------------------------------------------------------------+
+| ``TIME``                            | ``custom-date-time``, ``iso8601``, ``milliseconds-since-epoch``,               |
+|                                     | ``seconds-since-epoch``                                                        |
++-------------------------------------+--------------------------------------------------------------------------------+
+| ``TIME WITH TIME ZONE``             | ``custom-date-time``, ``iso8601``                                              |
++-------------------------------------+--------------------------------------------------------------------------------+
+| ``TIMESTAMP``                       | ``custom-date-time``, ``iso8601``, ``rfc2822``,                                |
+|                                     | ``milliseconds-since-epoch``, ``seconds-since-epoch``                          |
++-------------------------------------+--------------------------------------------------------------------------------+
+| ``TIMESTAMP WITH TIME ZONE``        | ``custom-date-time``, ``iso8601``, ``rfc2822``,                                |
++-------------------------------------+--------------------------------------------------------------------------------+
 
 Example JSON field definition in a `table definition file <#table-definition-files>`__
 for a Kafka message:
@@ -547,7 +602,9 @@ for a Kafka message:
           },
           {
             "name": "field3",
-            "type": "BOOLEAN",
+            "type": "TIMESTAMP",
+            "dataFormat": "custom-date-time",
+            "formatHint": "yyyy-dd-MM HH:mm:ss.SSS",
             "mapping": "field3"
           }
         ]
@@ -557,7 +614,7 @@ for a Kafka message:
 Example insert query for the above table definition::
 
     INSERT INTO example_json_table (field1, field2, field3)
-      VALUES (123456789, 'example text', TRUE);
+      VALUES (123456789, 'example text', TIMESTAMP '2020-07-15 01:02:03.456');
 
 Avro Encoder
 ^^^^^^^^^^^^
