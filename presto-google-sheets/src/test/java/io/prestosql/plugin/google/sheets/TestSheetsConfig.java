@@ -49,6 +49,7 @@ public class TestSheetsConfig
             throws IOException
     {
         Path credentialsFile = Files.createTempFile(null, null);
+
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("credentials-path", credentialsFile.toString())
                 .put("metadata-sheet-id", "foo_bar_sheet_id#Sheet1")
@@ -62,7 +63,7 @@ public class TestSheetsConfig
                 .build();
 
         SheetsConfig expected = new SheetsConfig()
-                .setCredentialsFilePath("/foo/bar/credentials.json")
+                .setCredentialsFilePath(credentialsFile.toString())
                 .setMetadataSheetId("foo_bar_sheet_id#Sheet1")
                 .setSheetsDataMaxCacheSize(2000)
                 .setSheetsDataExpireAfterWrite(new Duration(10, TimeUnit.MINUTES))
