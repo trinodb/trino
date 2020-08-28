@@ -10,15 +10,11 @@ start_hadoop_docker_containers
 test_directory="$(date '+%Y%m%d-%H%M%S')-$(uuidgen | sha1sum | cut -b 1-6)"
 
 # insert AWS credentials
-# TODO replace core-site.xml.s3-template with apply-site-xml-override.sh
-exec_in_hadoop_master_container cp /docker/files/core-site.xml.s3-template /etc/hadoop/conf/core-site.xml
-exec_in_hadoop_master_container sed -i \
-    -e "s|%AWS_ACCESS_KEY%|${AWS_ACCESS_KEY_ID}|g" \
-    -e "s|%AWS_SECRET_KEY%|${AWS_SECRET_ACCESS_KEY}|g" \
-    -e "s|%S3_BUCKET_ENDPOINT%|${S3_BUCKET_ENDPOINT}|g" \
-    /etc/hadoop/conf/core-site.xml
+deploy_core_site_xml core-site.xml.s3-template \
+    AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY S3_BUCKET_ENDPOINT
 
-# create test table
+# create test tables
+# can't use create_test_tables because the first table is created with different commands
 table_path="s3a://${S3_BUCKET}/${test_directory}/presto_test_external_fs/"
 exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
 exec_in_hadoop_master_container /docker/files/hadoop-put.sh /docker/files/test_table.csv{,.gz,.bz2,.lz4} "${table_path}"
