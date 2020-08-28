@@ -25,12 +25,12 @@ import io.prestosql.spi.type.LongTimestampWithTimeZone;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.prestosql.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
-import static io.prestosql.type.Timestamps.getMicrosOfMilli;
-import static io.prestosql.type.Timestamps.round;
-import static io.prestosql.type.Timestamps.roundToNearest;
-import static io.prestosql.type.Timestamps.scaleEpochMicrosToMillis;
-import static io.prestosql.type.Timestamps.scaleEpochMillisToMicros;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
+import static io.prestosql.type.DateTimes.getMicrosOfMilli;
+import static io.prestosql.type.DateTimes.round;
+import static io.prestosql.type.DateTimes.roundToNearest;
+import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
+import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
 import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 
 @ScalarOperator(CAST)
@@ -121,13 +121,11 @@ public final class TimestampToTimestampWithTimezoneCast
 
     private static long toShort(ConnectorSession session, long epochMillis)
     {
-        if (!session.isLegacyTimestamp()) {
-            // This cast does treat TIMESTAMP as wall time in session TZ. This means that in order to get
-            // its UTC representation we need to shift the value by the offset of TZ.
-            epochMillis = getChronology(session.getTimeZoneKey())
-                    .getZone()
-                    .convertLocalToUTC(epochMillis, false);
-        }
+        // This cast does treat TIMESTAMP as wall time in session TZ. This means that in order to get
+        // its UTC representation we need to shift the value by the offset of TZ.
+        epochMillis = getChronology(session.getTimeZoneKey())
+                .getZone()
+                .convertLocalToUTC(epochMillis, false);
 
         try {
             return packDateTimeWithZone(epochMillis, session.getTimeZoneKey());
@@ -139,15 +137,11 @@ public final class TimestampToTimestampWithTimezoneCast
 
     private static LongTimestampWithTimeZone toLong(ConnectorSession session, long epochMicros, int picoOfMicroFraction)
     {
-        long epochMillis = scaleEpochMicrosToMillis(epochMicros);
-
-        if (!session.isLegacyTimestamp()) {
-            // This cast does treat TIMESTAMP as wall time in session TZ. This means that in order to get
-            // its UTC representation we need to shift the value by the offset of TZ.
-            epochMillis = getChronology(session.getTimeZoneKey())
-                    .getZone()
-                    .convertLocalToUTC(epochMillis, false);
-        }
+        // This cast does treat TIMESTAMP as wall time in session TZ. This means that in order to get
+        // its UTC representation we need to shift the value by the offset of TZ.
+        long epochMillis = getChronology(session.getTimeZoneKey())
+                .getZone()
+                .convertLocalToUTC(scaleEpochMicrosToMillis(epochMicros), false);
 
         int picoOfMilliFraction = getMicrosOfMilli(epochMicros) * PICOSECONDS_PER_MICROSECOND + picoOfMicroFraction;
         return LongTimestampWithTimeZone.fromEpochMillisAndFraction(epochMillis, picoOfMilliFraction, session.getTimeZoneKey());

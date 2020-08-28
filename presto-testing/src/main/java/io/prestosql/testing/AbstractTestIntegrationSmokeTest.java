@@ -14,21 +14,18 @@
 package io.prestosql.testing;
 
 import io.prestosql.Session;
-import io.prestosql.cost.PlanNodeStatsEstimate;
-import io.prestosql.execution.warnings.WarningCollector;
-import io.prestosql.sql.planner.Plan;
-import io.prestosql.sql.planner.assertions.PlanMatchPattern;
-import io.prestosql.sql.planner.plan.TableScanNode;
+import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import org.intellij.lang.annotations.Language;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
+
+import java.util.stream.Stream;
 
 import static io.prestosql.SystemSessionProperties.IGNORE_STATS_CALCULATOR_FAILURES;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.sql.planner.assertions.PlanAssert.assertPlan;
 import static io.prestosql.testing.QueryAssertions.assertContains;
-import static io.prestosql.testing.QueryAssertions.assertEqualsIgnoreOrder;
+import static io.prestosql.testing.TestngUtils.toDataProvider;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
-import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.lang.String.join;
 import static java.util.Collections.nCopies;
@@ -202,6 +199,28 @@ public abstract class AbstractTestIntegrationSmokeTest
     public void testSelectAll()
     {
         assertQuery("SELECT * FROM orders");
+    }
+
+    /**
+     * Test interactions between optimizer (including CBO), scheduling and connector metadata APIs.
+     */
+    @Test(timeOut = 300_000, dataProvider = "joinDistributionTypes")
+    public void testJoinWithEmptySides(JoinDistributionType joinDistributionType)
+    {
+        Session session = noJoinReordering(joinDistributionType);
+        // empty build side
+        assertQuery(session, "SELECT count(*) FROM nation JOIN region ON nation.regionkey = region.regionkey AND region.name = ''", "VALUES 0");
+        assertQuery(session, "SELECT count(*) FROM nation JOIN region ON nation.regionkey = region.regionkey AND region.regionkey < 0", "VALUES 0");
+        // empty probe side
+        assertQuery(session, "SELECT count(*) FROM region JOIN nation ON nation.regionkey = region.regionkey AND region.name = ''", "VALUES 0");
+        assertQuery(session, "SELECT count(*) FROM nation JOIN region ON nation.regionkey = region.regionkey AND region.regionkey < 0", "VALUES 0");
+    }
+
+    @DataProvider
+    public Object[][] joinDistributionTypes()
+    {
+        return Stream.of(JoinDistributionType.values())
+                .collect(toDataProvider());
     }
 
     /**
@@ -440,30 +459,5 @@ public abstract class AbstractTestIntegrationSmokeTest
                         "('table_privileges'), " +
                         "('tables'), " +
                         "('views')");
-    }
-
-    protected void assertAggregationPushedDown(@Language("SQL") String sql)
-    {
-        String catalog = getSession().getCatalog().orElseThrow();
-        Session withoutPushdown = Session.builder(getSession())
-                .setCatalogSessionProperty(catalog, "allow_aggregation_pushdown", "false")
-                .build();
-
-        MaterializedResult actualResults = computeActual(sql);
-        MaterializedResult expectedResults = computeActual(withoutPushdown, sql);
-        assertEqualsIgnoreOrder(actualResults.getMaterializedRows(), expectedResults.getMaterializedRows());
-
-        transaction(getQueryRunner().getTransactionManager(), getQueryRunner().getAccessControl())
-                .execute(getSession(), session -> {
-                    Plan plan = getQueryRunner().createPlan(session, sql, WarningCollector.NOOP);
-                    assertPlan(
-                            session,
-                            getQueryRunner().getMetadata(),
-                            (node, sourceStats, lookup, ignore, types) -> PlanNodeStatsEstimate.unknown(),
-                            plan,
-                            PlanMatchPattern.output(
-                                    PlanMatchPattern.exchange(
-                                            PlanMatchPattern.node(TableScanNode.class))));
-                });
     }
 }

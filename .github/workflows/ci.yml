@@ -5,6 +5,8 @@ on:
   - pull_request
 
 env:
+  # An envar that signals to tests we are executing in the CI environment
+  CONTINUOUS_INTEGRATION: true
   # maven.wagon.rto is in millis, defaults to 30m
   MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
@@ -149,7 +151,7 @@ jobs:
             !presto-hive,!presto-orc,!presto-parquet,
             !presto-mongodb,!presto-kafka,!presto-elasticsearch,
             !presto-redis,
-            !presto-sqlserver,!presto-postgresql,!presto-mysql,
+            !presto-sqlserver,!presto-postgresql,!presto-mysql,!presto-memsql,
             !presto-oracle,
             !presto-kudu,
             !presto-phoenix,!presto-iceberg,!presto-druid,
@@ -187,13 +189,34 @@ jobs:
       - name: Maven Tests
         run: ./mvnw test -B -fae -Dair.check.skip-all -pl ${{ matrix.modules }}
 
+  test-memsql:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 11
+      - name: Maven Install
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-memsql
+      - name: Memsql Tests
+        env:
+          MEMSQL_LICENSE: ${{ secrets.MEMSQL_LICENSE }}
+        run: |
+          if [ "${MEMSQL_LICENSE}" != "" ]; then
+            ./mvnw test -B -fae -Dair.check.skip-all -pl presto-memsql -Dmemsql.license=${MEMSQL_LICENSE}
+          fi
+
   pt:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         config:
-          - config-empty
+          - config-default
           - config-hdp3
           - config-cdh5
         suite:
@@ -240,5 +263,5 @@ jobs:
       - name: Product Tests
         run: |
           export PTL_BIND_PORTS=false &&
-          source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
-            presto-product-tests/bin/product-tests-${{ matrix.suite }}.sh
+          presto-product-tests-launcher/bin/run-launcher suite run --suite ${{ matrix.suite }} --suite-config ${{ matrix.config }}
+

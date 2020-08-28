@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>340-SNAPSHOT</version>
+        <version>341-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-sqlserver</artifactId>
@@ -53,6 +53,13 @@
         </dependency>
 
         <dependency>
+            <!-- transitive compile, but used in tests -->
+            <groupId>net.jodah</groupId>
+            <artifactId>failsafe</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-spi</artifactId>
             <scope>provided</scope>
@@ -85,6 +92,13 @@
 
         <dependency>
             <groupId>io.prestosql</groupId>
+            <artifactId>presto-main</artifactId>
+            <type>test-jar</type>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
             <artifactId>presto-testing</artifactId>
             <scope>test</scope>
         </dependency>
@@ -108,8 +122,8 @@
         </dependency>
 
         <dependency>
-            <groupId>net.jodah</groupId>
-            <artifactId>failsafe</artifactId>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
             <scope>test</scope>
         </dependency>
 

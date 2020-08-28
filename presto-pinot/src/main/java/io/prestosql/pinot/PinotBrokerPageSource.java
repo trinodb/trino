@@ -110,7 +110,9 @@ public class PinotBrokerPageSource
             return null;
         }
         long size = 0;
+        int rowCount = 0;
         while (size < PageBuilderStatus.DEFAULT_MAX_PAGE_SIZE_IN_BYTES && resultIterator.hasNext()) {
+            rowCount++;
             BrokerResultRow row = resultIterator.next();
             for (int i = 0; i < decoders.size(); i++) {
                 int fieldIndex = i;
@@ -125,6 +127,9 @@ public class PinotBrokerPageSource
         for (int i = 0; i < columnBuilders.length; i++) {
             blocks[i] = columnBuilders[i].build();
             columnBuilders[i] = columnBuilders[i].newBlockBuilderLike(null);
+        }
+        if (decoders.isEmpty()) {
+            return new Page(rowCount);
         }
         return new Page(blocks);
     }

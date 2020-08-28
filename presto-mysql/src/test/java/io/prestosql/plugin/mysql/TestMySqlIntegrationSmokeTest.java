@@ -14,6 +14,7 @@
 package io.prestosql.plugin.mysql;
 
 import io.prestosql.Session;
+import io.prestosql.sql.planner.plan.FilterNode;
 import io.prestosql.testing.AbstractTestIntegrationSmokeTest;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
@@ -226,6 +227,36 @@ public class TestMySqlIntegrationSmokeTest
     }
 
     @Test
+    public void testAggregationPushdown()
+            throws Exception
+    {
+        // TODO support aggregation pushdown with GROUPING SETS
+        // TODO support aggregation over expressions
+
+        assertThat(query("SELECT count(*) FROM nation")).isCorrectlyPushedDown();
+        assertThat(query("SELECT count(nationkey) FROM nation")).isCorrectlyPushedDown();
+        assertThat(query("SELECT count(1) FROM nation")).isCorrectlyPushedDown();
+        assertThat(query("SELECT count() FROM nation")).isCorrectlyPushedDown();
+        assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
+        assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
+        assertThat(query("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
+
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 GROUP BY regionkey")).isCorrectlyPushedDown();
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation WHERE regionkey < 4 AND name > 'AAA' GROUP BY regionkey")).isNotFullyPushedDown(FilterNode.class);
+
+        try (AutoCloseable ignoreTable = withTable("tpch.test_aggregation_pushdown", "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
+            execute("INSERT INTO tpch.test_aggregation_pushdown VALUES (100.000, 100000000.000000000)");
+            execute("INSERT INTO tpch.test_aggregation_pushdown VALUES (123.321, 123456789.987654321)");
+
+            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM test_aggregation_pushdown")).isCorrectlyPushedDown();
+            assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM test_aggregation_pushdown")).isCorrectlyPushedDown();
+            assertThat(query("SELECT sum(short_decimal), sum(long_decimal) FROM test_aggregation_pushdown")).isCorrectlyPushedDown();
+            assertThat(query("SELECT avg(short_decimal), avg(long_decimal) FROM test_aggregation_pushdown")).isCorrectlyPushedDown();
+        }
+    }
+
+    @Test
     public void testColumnComment()
     {
         execute("CREATE TABLE tpch.test_column_comment (col1 bigint COMMENT 'test comment', col2 bigint COMMENT '', col3 bigint)");
@@ -235,6 +266,54 @@ public class TestMySqlIntegrationSmokeTest
                 "VALUES ('col1', 'test comment'), ('col2', null), ('col3', null)");
 
         assertUpdate("DROP TABLE test_column_comment");
+    }
+
+    @Test
+    public void testPredicatePushdown()
+    {
+        // varchar equality
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'ROMANIA'"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255)))")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // varchar range
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name BETWEEN 'POLAND' AND 'RPA'"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255)))")
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // varchar different case
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE name = 'romania'"))
+                .returnsEmptyResult()
+                .isNotFullyPushedDown(FilterNode.class);
+
+        // bigint equality
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey = 19"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255)))")
+                .isCorrectlyPushedDown();
+
+        // bigint range, with decimal to bigint simplification
+        assertThat(query("SELECT regionkey, nationkey, name FROM nation WHERE nationkey BETWEEN 18.5 AND 19.5"))
+                .matches("VALUES (BIGINT '3', BIGINT '19', CAST('ROMANIA' AS varchar(255)))")
+                .isCorrectlyPushedDown();
+
+        // date equality
+        assertThat(query("SELECT orderkey FROM orders WHERE orderdate = DATE '1992-09-29'"))
+                .matches("VALUES BIGINT '1250', 34406, 38436, 57570")
+                .isCorrectlyPushedDown();
+    }
+
+    private AutoCloseable withTable(String tableName, String tableDefinition)
+            throws Exception
+    {
+        execute(format("CREATE TABLE %s%s", tableName, tableDefinition));
+        return () -> {
+            try {
+                execute(format("DROP TABLE %s", tableName));
+            }
+            catch (RuntimeException e) {
+                throw new RuntimeException(e);
+            }
+        };
     }
 
     private void execute(String sql)

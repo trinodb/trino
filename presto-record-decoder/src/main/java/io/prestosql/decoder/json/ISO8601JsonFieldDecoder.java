@@ -35,6 +35,7 @@ import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_DATE;
 import static java.time.format.DateTimeFormatter.ISO_DATE_TIME;
@@ -105,8 +106,14 @@ public class ISO8601JsonFieldDecoder
                 String textValue = value.asText();
                 if (columnType.equals(TIMESTAMP)) {
                     // Equivalent to: ISO_DATE_TIME.parse(textValue, LocalDateTime::from).toInstant(UTC).toEpochMilli();
-                    TemporalAccessor parseResult = ISO_DATE_TIME.parse(textValue);
-                    return TimeUnit.DAYS.toMillis(parseResult.getLong(EPOCH_DAY)) + parseResult.getLong(MILLI_OF_DAY);
+                    try {
+                        TemporalAccessor parseResult = ISO_OFFSET_DATE_TIME.parse(textValue);
+                        return TimeUnit.DAYS.toMillis(parseResult.getLong(EPOCH_DAY)) + parseResult.getLong(MILLI_OF_DAY);
+                    }
+                    catch (DateTimeParseException e) {
+                        TemporalAccessor parseResult = ISO_DATE_TIME.parse(textValue);
+                        return TimeUnit.DAYS.toMillis(parseResult.getLong(EPOCH_DAY)) + parseResult.getLong(MILLI_OF_DAY);
+                    }
                 }
                 if (columnType.equals(TIMESTAMP_WITH_TIME_ZONE)) {
                     // Equivalent to:
@@ -116,7 +123,7 @@ public class ISO8601JsonFieldDecoder
                     return packDateTimeWithZone(parseResult.getLong(INSTANT_SECONDS) * 1000 + parseResult.getLong(MILLI_OF_SECOND), getTimeZoneKey(ZoneId.from(parseResult).getId()));
                 }
                 if (columnType.equals(TIME)) {
-                    return ISO_TIME.parse(textValue).getLong(MILLI_OF_DAY);
+                    return ISO_TIME.parse(textValue).getLong(MILLI_OF_DAY) * PICOSECONDS_PER_MILLISECOND;
                 }
                 if (columnType.equals(TIME_WITH_TIME_ZONE)) {
                     TemporalAccessor parseResult = ISO_OFFSET_TIME.parse(textValue);

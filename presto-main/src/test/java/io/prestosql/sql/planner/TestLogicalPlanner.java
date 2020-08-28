@@ -276,6 +276,19 @@ public class TestLogicalPlanner
     }
 
     @Test
+    public void testTrivialFilterOverDuplicateSymbol()
+    {
+        assertPlan(
+                "WITH t AS (SELECT DISTINCT cast(null AS varchar), cast(null AS varchar)) " +
+                        "SELECT * FROM t WHERE 1 = 0",
+                output(ImmutableList.of("expr", "expr"), values("expr")));
+
+        assertPlan(
+                "SELECT * FROM (SELECT DISTINCT 1, 1) WHERE 1 = 0",
+                output(ImmutableList.of("expr", "expr"), values("expr")));
+    }
+
+    @Test
     public void testDistinctLimitOverInequalityJoin()
     {
         assertPlan("SELECT DISTINCT o.orderkey FROM orders o JOIN lineitem l ON o.orderkey < l.orderkey LIMIT 1",

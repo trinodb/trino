@@ -58,7 +58,9 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "analyzer.experimental-syntax-enabled",
         "optimizer.processing-optimization",
         "deprecated.legacy-order-by",
-        "deprecated.legacy-join-using"})
+        "deprecated.legacy-join-using",
+        "deprecated.legacy-timestamp",
+})
 public class FeaturesConfig
 {
     @VisibleForTesting
@@ -89,13 +91,13 @@ public class FeaturesConfig
     private boolean pushTableWriteThroughUnion = true;
     private DataIntegrityVerification exchangeDataIntegrityVerification = DataIntegrityVerification.ABORT;
     private boolean exchangeCompressionEnabled;
-    private boolean legacyTimestamp = true;
     private boolean optimizeMixedDistinctAggregations;
     private boolean unwrapCasts = true;
     private boolean forceSingleNodeOutput = true;
     private boolean pagesIndexEagerCompactionEnabled;
     private boolean distributedSort = true;
     private boolean omitDateTimeTypePrecision;
+    private int maxRecursionDepth = 10;
 
     private boolean dictionaryAggregation;
 
@@ -231,18 +233,6 @@ public class FeaturesConfig
     {
         this.omitDateTimeTypePrecision = value;
         return this;
-    }
-
-    @Config("deprecated.legacy-timestamp")
-    public FeaturesConfig setLegacyTimestamp(boolean value)
-    {
-        this.legacyTimestamp = value;
-        return this;
-    }
-
-    public boolean isLegacyTimestamp()
-    {
-        return legacyTimestamp;
     }
 
     public JoinDistributionType getJoinDistributionType()
@@ -1000,6 +990,18 @@ public class FeaturesConfig
     public FeaturesConfig setDistributedSortEnabled(boolean enabled)
     {
         distributedSort = enabled;
+        return this;
+    }
+
+    public int getMaxRecursionDepth()
+    {
+        return maxRecursionDepth;
+    }
+
+    @Config("max-recursion-depth")
+    public FeaturesConfig setMaxRecursionDepth(int maxRecursionDepth)
+    {
+        this.maxRecursionDepth = maxRecursionDepth;
         return this;
     }
 

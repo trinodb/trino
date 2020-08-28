@@ -21,13 +21,11 @@ import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.StandardTypes;
-import org.joda.time.chrono.ISOChronology;
 
 import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.type.Timestamps.scaleEpochMicrosToMillis;
-import static io.prestosql.util.DateTimeZoneIndex.getChronology;
+import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
 
 @ScalarOperator(CAST)
 @ScalarFunction("date")
@@ -41,17 +39,6 @@ public final class TimestampToDateCast
     {
         if (precision > 3) {
             timestamp = scaleEpochMicrosToMillis(timestamp);
-        }
-
-        ISOChronology chronology;
-        if (session.isLegacyTimestamp()) {
-            // round down the current timestamp to days
-            chronology = getChronology(session.getTimeZoneKey());
-            long date = chronology.dayOfYear().roundFloor(timestamp);
-            // date is currently midnight in timezone of the session
-            // convert to UTC
-            long millis = date + chronology.getZone().getOffset(date);
-            return TimeUnit.MILLISECONDS.toDays(millis);
         }
 
         return TimeUnit.MILLISECONDS.toDays(timestamp);

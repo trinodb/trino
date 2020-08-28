@@ -37,7 +37,6 @@ import org.apache.iceberg.Metrics;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Conversions;
 import org.apache.iceberg.types.Types;
-import org.joda.time.DateTimeZone;
 
 import java.math.BigDecimal;
 import java.nio.ByteBuffer;
@@ -73,12 +72,11 @@ public class IcebergOrcFileWriter
             boolean writeLegacyVersion,
             int[] fileInputColumnIndexes,
             Map<String, String> metadata,
-            DateTimeZone hiveStorageTimeZone,
             Optional<Supplier<OrcDataSource>> validationInputFactory,
             OrcWriteValidation.OrcWriteValidationMode validationMode,
             OrcWriterStats stats)
     {
-        super(orcDataSink, rollbackAction, columnNames, fileColumnTypes, fileColumnOrcTypes, compression, options, writeLegacyVersion, fileInputColumnIndexes, metadata, hiveStorageTimeZone, validationInputFactory, validationMode, stats);
+        super(orcDataSink, rollbackAction, columnNames, fileColumnTypes, fileColumnOrcTypes, compression, options, writeLegacyVersion, fileInputColumnIndexes, metadata, validationInputFactory, validationMode, stats);
         this.icebergSchema = requireNonNull(icebergSchema, "icebergSchema is null");
         orcColumns = fileColumnOrcTypes;
     }

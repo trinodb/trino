@@ -14,7 +14,6 @@
 package io.prestosql.elasticsearch;
 
 import io.airlift.slice.Slice;
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
@@ -28,7 +27,7 @@ import org.elasticsearch.index.query.RangeQueryBuilder;
 import org.elasticsearch.index.query.TermQueryBuilder;
 
 import java.time.Instant;
-import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.HashSet;
 import java.util.Map;
 import java.util.Optional;
@@ -53,7 +52,7 @@ public final class ElasticsearchQueryBuilder
 {
     private ElasticsearchQueryBuilder() {}
 
-    public static QueryBuilder buildSearchQuery(ConnectorSession session, TupleDomain<ElasticsearchColumnHandle> constraint, Optional<String> query)
+    public static QueryBuilder buildSearchQuery(TupleDomain<ElasticsearchColumnHandle> constraint, Optional<String> query)
     {
         BoolQueryBuilder queryBuilder = new BoolQueryBuilder();
         if (constraint.getDomains().isPresent()) {
@@ -63,7 +62,7 @@ public final class ElasticsearchQueryBuilder
 
                 checkArgument(!domain.isNone(), "Unexpected NONE domain for %s", column.getName());
                 if (!domain.isAll()) {
-                    queryBuilder.filter(new BoolQueryBuilder().must(buildPredicate(session, column.getName(), domain, column.getType())));
+                    queryBuilder.filter(new BoolQueryBuilder().must(buildPredicate(column.getName(), domain, column.getType())));
                 }
             }
         }
@@ -76,7 +75,7 @@ public final class ElasticsearchQueryBuilder
         return new MatchAllQueryBuilder();
     }
 
-    private static QueryBuilder buildPredicate(ConnectorSession session, String columnName, Domain domain, Type type)
+    private static QueryBuilder buildPredicate(String columnName, Domain domain, Type type)
     {
         checkArgument(domain.getType().isOrderable(), "Domain type must be orderable");
         BoolQueryBuilder boolQueryBuilder = new BoolQueryBuilder();
@@ -91,10 +90,10 @@ public final class ElasticsearchQueryBuilder
             return boolQueryBuilder;
         }
 
-        return buildTermQuery(boolQueryBuilder, session, columnName, domain, type);
+        return buildTermQuery(boolQueryBuilder, columnName, domain, type);
     }
 
-    private static QueryBuilder buildTermQuery(BoolQueryBuilder queryBuilder, ConnectorSession session, String columnName, Domain domain, Type type)
+    private static QueryBuilder buildTermQuery(BoolQueryBuilder queryBuilder, String columnName, Domain domain, Type type)
     {
         for (Range range : domain.getValues().getRanges().getOrderedRanges()) {
             BoolQueryBuilder rangeQueryBuilder = new BoolQueryBuilder();
@@ -107,10 +106,10 @@ public final class ElasticsearchQueryBuilder
                 if (!range.getLow().isLowerUnbounded()) {
                     switch (range.getLow().getBound()) {
                         case ABOVE:
-                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gt(getValue(session, type, range.getLow().getValue())));
+                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gt(getValue(type, range.getLow().getValue())));
                             break;
                         case EXACTLY:
-                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gte(getValue(session, type, range.getLow().getValue())));
+                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).gte(getValue(type, range.getLow().getValue())));
                             break;
                         case BELOW:
                             throw new IllegalArgumentException("Low marker should never use BELOW bound");
@@ -121,10 +120,10 @@ public final class ElasticsearchQueryBuilder
                 if (!range.getHigh().isUpperUnbounded()) {
                     switch (range.getHigh().getBound()) {
                         case EXACTLY:
-                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lte(getValue(session, type, range.getHigh().getValue())));
+                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lte(getValue(type, range.getHigh().getValue())));
                             break;
                         case BELOW:
-                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lt(getValue(session, type, range.getHigh().getValue())));
+                            rangeQueryBuilder.filter(new RangeQueryBuilder(columnName).lt(getValue(type, range.getHigh().getValue())));
                             break;
                         case ABOVE:
                             throw new IllegalArgumentException("High marker should never use ABOVE bound");
@@ -135,14 +134,14 @@ public final class ElasticsearchQueryBuilder
             }
 
             if (valuesToInclude.size() == 1) {
-                rangeQueryBuilder.filter(new TermQueryBuilder(columnName, getValue(session, type, getOnlyElement(valuesToInclude))));
+                rangeQueryBuilder.filter(new TermQueryBuilder(columnName, getValue(type, getOnlyElement(valuesToInclude))));
             }
             queryBuilder.should(rangeQueryBuilder);
         }
         return queryBuilder;
     }
 
-    private static Object getValue(ConnectorSession session, Type type, Object value)
+    private static Object getValue(Type type, Object value)
     {
         if (type.equals(BOOLEAN) ||
                 type.equals(TINYINT) ||
@@ -159,10 +158,8 @@ public final class ElasticsearchQueryBuilder
             return ((Slice) value).toStringUtf8();
         }
         if (type.equals(TIMESTAMP)) {
-            checkState(session.isLegacyTimestamp(), "New timestamp semantics not yet supported");
-
             return Instant.ofEpochMilli((Long) value)
-                    .atZone(ZoneId.of(session.getTimeZoneKey().getId()))
+                    .atZone(ZoneOffset.UTC)
                     .toLocalDateTime()
                     .format(ISO_DATE_TIME);
         }

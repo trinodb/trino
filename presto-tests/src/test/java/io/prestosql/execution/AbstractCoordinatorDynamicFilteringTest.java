@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.prestosql.SystemSessionProperties.getJoinDistributionType;
 import static io.prestosql.spi.predicate.Domain.singleValue;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
@@ -41,6 +42,7 @@ public abstract class AbstractCoordinatorDynamicFilteringTest
     private static final TestingMetadata.TestingColumnHandle SUPP_KEY_HANDLE = new TestingMetadata.TestingColumnHandle("suppkey", 2, BIGINT);
 
     private final Map<String, TupleDomain<ColumnHandle>> expectedDynamicFilter = new ConcurrentHashMap<>();
+    private final Map<String, Boolean> expectedLazyDynamicFilter = new ConcurrentHashMap<>();
     private final AtomicInteger dynamicFilterCounter = new AtomicInteger();
 
     @Test(timeOut = 30_000)
@@ -58,6 +60,23 @@ public abstract class AbstractCoordinatorDynamicFilteringTest
                 withBroadcastJoin(),
                 "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name = 'abc'",
                 TupleDomain.none());
+    }
+
+    @Test(timeOut = 30_000)
+    public void testJoinWithLargeBuildSide()
+    {
+        assertQueryDynamicFilters(
+                "SELECT * FROM lineitem JOIN tpch.tiny.orders ON lineitem.orderkey = orders.orderkey",
+                TupleDomain.all());
+    }
+
+    @Test(timeOut = 30_000)
+    public void testBroadcastJoinWithLargeBuildSide()
+    {
+        assertQueryDynamicFilters(
+                withBroadcastJoin(),
+                "SELECT * FROM lineitem JOIN tpch.tiny.orders ON lineitem.orderkey = orders.orderkey",
+                TupleDomain.all());
     }
 
     @Test(timeOut = 30_000)
@@ -110,6 +129,11 @@ public abstract class AbstractCoordinatorDynamicFilteringTest
         return expectedDynamicFilter.get(session.getSource().get());
     }
 
+    protected boolean isExpectedDynamicFilterLazy(ConnectorSession session)
+    {
+        return expectedLazyDynamicFilter.get(session.getSource().get());
+    }
+
     private Session withBroadcastJoin()
     {
         return Session.builder(this.getQueryRunner().getDefaultSession())
@@ -129,6 +153,7 @@ public abstract class AbstractCoordinatorDynamicFilteringTest
         // Therefore expected dynamic filter needs to be passed in thread-safe way.
         String dynamicFilterNumber = String.valueOf(dynamicFilterCounter.getAndIncrement());
         expectedDynamicFilter.put(dynamicFilterNumber, expectedTupleDomain);
+        expectedLazyDynamicFilter.put(dynamicFilterNumber, getJoinDistributionType(session) != BROADCAST);
         computeActual(
                 Session.builder(session)
                         .setSource(dynamicFilterNumber)

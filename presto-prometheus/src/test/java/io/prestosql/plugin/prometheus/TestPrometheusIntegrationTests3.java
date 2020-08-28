@@ -24,13 +24,11 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import org.testng.annotations.Test;
 
-import java.time.LocalDateTime;
 import java.util.concurrent.TimeUnit;
 
-import static io.prestosql.plugin.prometheus.PrometheusQueryRunner.createPrometheusClient;
 import static io.prestosql.plugin.prometheus.PrometheusQueryRunner.createPrometheusQueryRunner;
 import static org.testng.Assert.assertEquals;
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 /**
  * Integration tests against Prometheus container
@@ -40,7 +38,6 @@ public class TestPrometheusIntegrationTests3
         extends AbstractTestQueryFramework
 {
     private PrometheusServer server;
-    private PrometheusClient client;
     private Session session;
     private QueryRunner runner;
 
@@ -49,7 +46,6 @@ public class TestPrometheusIntegrationTests3
             throws Exception
     {
         this.server = new PrometheusServer();
-        this.client = createPrometheusClient(server);
         return createPrometheusQueryRunner(server);
     }
 
@@ -57,8 +53,8 @@ public class TestPrometheusIntegrationTests3
     public void testConfirmMetricAvailableAndCheckUp()
             throws Exception
     {
-        final Integer maxTries = 60;
-        final Integer timeBetweenTriesMillis = 1000;
+        int maxTries = 60;
+        int timeBetweenTriesMillis = 1000;
         runner = createQueryRunner();
         session = runner.getDefaultSession();
         int tries = 0;
@@ -66,8 +62,7 @@ public class TestPrometheusIntegrationTests3
                 .connectTimeout(120, TimeUnit.SECONDS)
                 .readTimeout(120, TimeUnit.SECONDS)
                 .build();
-        String prometheusServer = server.getAddress().toString();
-        HttpUrl.Builder urlBuilder = HttpUrl.parse("http://" + prometheusServer + "/api/v1/query").newBuilder();
+        HttpUrl.Builder urlBuilder = HttpUrl.parse(server.getUri().toString()).newBuilder().encodedPath("/api/v1/query");
         urlBuilder.addQueryParameter("query", "up[1d]");
         String url = urlBuilder.build().toString();
         Request request = new Request.Builder()
@@ -86,7 +81,7 @@ public class TestPrometheusIntegrationTests3
             tries++;
         }
         if (tries == maxTries) {
-            assertTrue(false, "Prometheus container not available for metrics query in " + maxTries * timeBetweenTriesMillis + " milliseconds.");
+            fail("Prometheus container not available for metrics query in " + maxTries * timeBetweenTriesMillis + " milliseconds.");
         }
         // now we're making sure the client is ready
         tries = 0;
@@ -98,10 +93,9 @@ public class TestPrometheusIntegrationTests3
             tries++;
         }
         if (tries == maxTries) {
-            assertTrue(false, "Prometheus container, or client, not available for metrics query in " + maxTries * timeBetweenTriesMillis + " milliseconds.");
+            fail("Prometheus container, or client, not available for metrics query in " + maxTries * timeBetweenTriesMillis + " milliseconds.");
         }
 
-        PrometheusTimeMachine.useFixedClockAt(LocalDateTime.now()); // must set time to now() as other tests may have set it
         MaterializedResult results = runner.execute(session, "SELECT * FROM prometheus.default.up LIMIT 1").toTestTypes();
         assertEquals(results.getRowCount(), 1);
         MaterializedRow row = results.getMaterializedRows().get(0);
@@ -110,7 +104,6 @@ public class TestPrometheusIntegrationTests3
 
     @Test(priority = 2, dependsOnMethods = "testConfirmMetricAvailableAndCheckUp")
     public void testPushDown()
-            throws Exception
     {
         // default interval on the `up` metric that Prometheus records on itself is 15 seconds, so this should only yield one row
         MaterializedResult results = runner.execute(session, "SELECT * FROM prometheus.default.up WHERE timestamp > (NOW() - INTERVAL '15' SECOND)").toTestTypes();

@@ -144,7 +144,7 @@ public class TestTeradataDateFunctions
         assertFunction(
                 projection,
                 TimestampType.TIMESTAMP,
-                sqlTimestampOf(3, year, month, day, hour, minutes, seconds, 0, SESSION));
+                sqlTimestampOf(3, year, month, day, hour, minutes, seconds, 0));
     }
 
     private void assertDate(String projection, int year, int month, int day)

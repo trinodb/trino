@@ -25,6 +25,7 @@ import org.testng.annotations.Test;
 import java.lang.reflect.Method;
 import java.util.Optional;
 
+import static io.prestosql.JdbcDriverCapabilities.hasBrokenParametricTimeSupport;
 import static io.prestosql.JdbcDriverCapabilities.hasBrokenParametricTimestampWithTimeZoneSupport;
 import static io.prestosql.JdbcDriverCapabilities.testedVersion;
 import static io.prestosql.TestingServerUtils.setTestingServer;
@@ -65,6 +66,10 @@ public class TestJdbcResultSetCompatibility
     public void skipBrokenTests(Method method)
     {
         if (hasBrokenParametricTimestampWithTimeZoneSupport() && method.getName().equals("testObjectTypes")) {
+            throw new SkipException("This version reports PARAMETRIC_DATETIME client capability but TIMESTAMP WITH TIME ZONE is not supported");
+        }
+
+        if (hasBrokenParametricTimeSupport() && (method.getName().equals("testTime") || method.getName().equals("testObjectTypes"))) {
             throw new SkipException("This version reports PARAMETRIC_DATETIME client capability but TIMESTAMP WITH TIME ZONE is not supported");
         }
     }

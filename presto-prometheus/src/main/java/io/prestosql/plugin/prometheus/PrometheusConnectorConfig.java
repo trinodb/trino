@@ -26,21 +26,16 @@ import javax.validation.constraints.NotNull;
 
 import java.io.File;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Optional;
 import java.util.concurrent.TimeUnit;
 
 public class PrometheusConnectorConfig
 {
-    private URI prometheusURI = new URI("http://localhost:9090");
-    protected Duration queryChunkSizeDuration = new Duration(1, TimeUnit.DAYS);
+    private URI prometheusURI = URI.create("http://localhost:9090");
+    private Duration queryChunkSizeDuration = new Duration(1, TimeUnit.DAYS);
     private Duration maxQueryRangeDuration = new Duration(21, TimeUnit.DAYS);
     private Duration cacheDuration = new Duration(30, TimeUnit.SECONDS);
     private File bearerTokenFile;
-
-    public PrometheusConnectorConfig()
-            throws URISyntaxException
-    {}
 
     @NotNull
     public URI getPrometheusURI()

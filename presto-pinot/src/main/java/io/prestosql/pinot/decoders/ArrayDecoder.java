@@ -38,24 +38,6 @@ public class ArrayDecoder
         this.elementDecoder = createDecoder(this.type.getElementType());
     }
 
-    /*
-    @Override
-    public void decode(Supplier<List<Serializable>> getter, BlockBuilder output)
-    {
-        List<Serializable> value = getter.get();
-        if (value == null) {
-            output.appendNull();
-        }
-        else {
-            BlockBuilder elementBlockBuilder = type.getElementType().createBlockBuilder(null, 1);
-            for (int i = 0; i < value.size(); i++) {
-                int index = i;
-                elementDecoder.decode(() -> value.get(index).toString(), elementBlockBuilder);
-            }
-            type.writeObject(output, elementBlockBuilder.build());
-        }
-    }
-     */
     @Override
     public void decode(Supplier<Object> getter, BlockBuilder output)
     {

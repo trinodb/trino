@@ -20,6 +20,7 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
@@ -43,6 +44,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.RowType.Field;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.TimeType.createTimeType;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
@@ -164,6 +166,10 @@ public final class TypeCoercion
             }
             if (fromTypeBaseName.equals(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)) {
                 Type commonSuperType = createTimestampWithTimeZoneType(Math.max(((TimestampWithTimeZoneType) fromType).getPrecision(), ((TimestampWithTimeZoneType) toType).getPrecision()));
+                return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
+            }
+            if (fromTypeBaseName.equals(StandardTypes.TIME)) {
+                Type commonSuperType = createTimeType(Math.max(((TimeType) fromType).getPrecision(), ((TimeType) toType).getPrecision()));
                 return TypeCompatibility.compatible(commonSuperType, commonSuperType.equals(toType));
             }
 

@@ -40,14 +40,16 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.prestosql.pinot.PinotErrorCode.PINOT_DECODE_ERROR;
+import static io.prestosql.pinot.PinotErrorCode.PINOT_EXCEPTION;
 import static io.prestosql.pinot.PinotErrorCode.PINOT_UNSUPPORTED_COLUMN_TYPE;
-import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
+import static java.lang.Float.floatToIntBits;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -57,11 +59,13 @@ public class PinotSegmentPageSource
     private static final Logger LOG = Logger.get(PinotSegmentPageSource.class);
 
     private final List<PinotColumnHandle> columnHandles;
-    private final PinotConfig pinotConfig;
     private final PinotSplit split;
     private final PinotQueryClient pinotQueryClient;
     private final ConnectorSession session;
     private final String query;
+    private final int limitForSegmentQueries;
+    private final AtomicLong currentRowCount = new AtomicLong();
+    private final int estimatedNonNumericColumnSize;
 
     private List<Type> columnTypes;
     // dataTableList stores the dataTable returned from each server. Each dataTable is constructed to a Page, and then destroyed to save memory.
@@ -75,13 +79,15 @@ public class PinotSegmentPageSource
 
     public PinotSegmentPageSource(
             ConnectorSession session,
-            PinotConfig pinotConfig,
+            int estimatedNonNumericColumnSize,
+            int limitForSegmentQueries,
             PinotQueryClient pinotQueryClient,
             PinotSplit split,
             List<PinotColumnHandle> columnHandles,
             String query)
     {
-        this.pinotConfig = requireNonNull(pinotConfig, "pinotConfig is null");
+        this.limitForSegmentQueries = limitForSegmentQueries;
+        this.estimatedNonNumericColumnSize = estimatedNonNumericColumnSize;
         this.split = requireNonNull(split, "split is null");
         this.pinotQueryClient = requireNonNull(pinotQueryClient, "pinotQueryClient is null");
         this.columnHandles = requireNonNull(columnHandles, "columnHandles is null");
@@ -180,6 +186,7 @@ public class PinotSegmentPageSource
                     .forEach(dataTable ->
                     {
                         checkExceptions(dataTable, split, query);
+                        checkTooManyRows(dataTable);
                         // Store each dataTable which will later be constructed into Pages.
                         // Also update estimatedMemoryUsage, mostly represented by the size of all dataTables, using numberOfRows and fieldTypes combined as an estimate
                         int estimatedTableSizeInBytes = IntStream.rangeClosed(0, dataTable.getDataSchema().size() - 1)
@@ -191,12 +198,19 @@ public class PinotSegmentPageSource
 
             this.columnTypes = columnHandles
                     .stream()
-                    .map(this::getTypeForBlock)
+                    .map(columnHandle -> columnHandle.getDataType())
                     .collect(Collectors.toList());
             isPinotDataFetched = true;
         }
         finally {
             readTimeNanos += System.nanoTime() - startTimeNanos;
+        }
+    }
+
+    private void checkTooManyRows(DataTable dataTable)
+    {
+        if (currentRowCount.addAndGet(dataTable.getNumberOfRows()) > limitForSegmentQueries) {
+            throw new PinotException(PINOT_EXCEPTION, Optional.of(query), format("Segment query returned '%s' rows per split, maximum allowed is '%s' rows.", currentRowCount.get(), limitForSegmentQueries));
         }
     }
 
@@ -320,14 +334,17 @@ public class PinotSegmentPageSource
         // Note columnType in the dataTable could be different from the original columnType in the columnHandle.
         // e.g. when original column type is int/long and aggregation value is requested, the returned dataType from Pinot would be double.
         // So need to cast it back to the original columnType.
-        if (dataType.equals(ColumnDataType.DOUBLE)) {
-            return (long) currentDataTable.getDataTable().getDouble(rowIndex, columnIndex);
-        }
-        if (dataType.equals(ColumnDataType.INT)) {
-            return currentDataTable.getDataTable().getInt(rowIndex, columnIndex);
-        }
-        else {
-            return currentDataTable.getDataTable().getLong(rowIndex, columnIndex);
+        switch (dataType) {
+            case DOUBLE:
+                return (long) currentDataTable.getDataTable().getDouble(rowIndex, columnIndex);
+            case INT:
+                return currentDataTable.getDataTable().getInt(rowIndex, columnIndex);
+            case FLOAT:
+                return floatToIntBits(currentDataTable.getDataTable().getFloat(rowIndex, columnIndex));
+            case LONG:
+                return currentDataTable.getDataTable().getLong(rowIndex, columnIndex);
+            default:
+                throw new PinotException(PINOT_DECODE_ERROR, Optional.empty(), format("Unexpected pinot type: '%s'", dataType));
         }
     }
 
@@ -366,8 +383,8 @@ public class PinotSegmentPageSource
             case FLOAT_ARRAY:
                 float[] floatArray = currentDataTable.getDataTable().getFloatArray(rowIndex, columnIndex);
                 blockBuilder = elementType.createBlockBuilder(null, floatArray.length);
-                for (double element : floatArray) {
-                    elementType.writeDouble(blockBuilder, element);
+                for (float element : floatArray) {
+                    blockBuilder.writeInt(floatToIntBits(element));
                 }
                 break;
             case DOUBLE_ARRAY:
@@ -444,15 +461,7 @@ public class PinotSegmentPageSource
                     return Integer.BYTES;
             }
         }
-        return pinotConfig.getEstimatedSizeInBytesForNonNumericColumn();
-    }
-
-    Type getTypeForBlock(PinotColumnHandle pinotColumnHandle)
-    {
-        if (pinotColumnHandle.getDataType().equals(INTEGER)) {
-            return BIGINT;
-        }
-        return pinotColumnHandle.getDataType();
+        return estimatedNonNumericColumnSize;
     }
 
     private static class PinotDataTableWithSize

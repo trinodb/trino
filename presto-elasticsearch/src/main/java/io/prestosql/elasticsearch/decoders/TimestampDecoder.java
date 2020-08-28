@@ -15,13 +15,13 @@ package io.prestosql.elasticsearch.decoders;
 
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.connector.ConnectorSession;
 import org.elasticsearch.common.document.DocumentField;
 import org.elasticsearch.search.SearchHit;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.util.function.Supplier;
 
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -36,12 +36,10 @@ public class TimestampDecoder
 {
     private static final ZoneId ZULU = ZoneId.of("Z");
     private final String path;
-    private final ZoneId zoneId;
 
-    public TimestampDecoder(ConnectorSession session, String path)
+    public TimestampDecoder(String path)
     {
         this.path = requireNonNull(path, "path is null");
-        this.zoneId = ZoneId.of(session.getTimeZoneKey().getId());
     }
 
     @Override
@@ -79,7 +77,7 @@ public class TimestampDecoder
                         value.getClass().getSimpleName()));
             }
 
-            long epochMillis = timestamp.atZone(zoneId)
+            long epochMillis = timestamp.atOffset(ZoneOffset.UTC)
                     .toInstant()
                     .toEpochMilli();
 

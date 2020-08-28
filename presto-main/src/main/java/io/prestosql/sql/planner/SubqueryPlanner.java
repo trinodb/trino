@@ -71,6 +71,7 @@ class SubqueryPlanner
     private final Metadata metadata;
     private final TypeCoercion typeCoercion;
     private final Session session;
+    private final Map<NodeRef<Node>, RelationPlan> recursiveSubqueries;
 
     SubqueryPlanner(
             Analysis analysis,
@@ -80,7 +81,8 @@ class SubqueryPlanner
             Metadata metadata,
             TypeCoercion typeCoercion,
             Optional<TranslationMap> outerContext,
-            Session session)
+            Session session,
+            Map<NodeRef<Node>, RelationPlan> recursiveSubqueries)
     {
         requireNonNull(analysis, "analysis is null");
         requireNonNull(symbolAllocator, "symbolAllocator is null");
@@ -90,6 +92,7 @@ class SubqueryPlanner
         requireNonNull(typeCoercion, "typeCoercion is null");
         requireNonNull(outerContext, "outerContext is null");
         requireNonNull(session, "session is null");
+        requireNonNull(recursiveSubqueries, "recursiveSubqueries is null");
 
         this.analysis = analysis;
         this.symbolAllocator = symbolAllocator;
@@ -98,6 +101,7 @@ class SubqueryPlanner
         this.metadata = metadata;
         this.typeCoercion = typeCoercion;
         this.session = session;
+        this.recursiveSubqueries = recursiveSubqueries;
     }
 
     public PlanBuilder handleSubqueries(PlanBuilder builder, Collection<Expression> expressions, Node node)
@@ -284,7 +288,7 @@ class SubqueryPlanner
 
     private RelationPlan planSubquery(Expression subquery, TranslationMap outerContext)
     {
-        return new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, Optional.of(outerContext), session)
+        return new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, Optional.of(outerContext), session, recursiveSubqueries)
                 .process(subquery, null);
     }
 

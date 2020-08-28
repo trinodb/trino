@@ -65,6 +65,8 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.Chars.padSpaces;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.Decimals.readBigDecimal;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
+import static io.prestosql.spi.type.Timestamps.roundDiv;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
@@ -163,8 +165,8 @@ public class MongoPageSink
             return new Date(TimeUnit.DAYS.toMillis(days));
         }
         if (type.equals(TimeType.TIME)) {
-            long millisUtc = type.getLong(block, position);
-            return new Date(millisUtc);
+            long picos = type.getLong(block, position);
+            return new Date(roundDiv(picos, PICOSECONDS_PER_MILLISECOND));
         }
         if (type.equals(TimestampType.TIMESTAMP)) {
             long millisUtc = type.getLong(block, position);

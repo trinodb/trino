@@ -43,9 +43,11 @@ import java.util.concurrent.TimeUnit;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.plugin.iceberg.TypeConverter.TIME_MICROS;
 import static io.prestosql.spi.predicate.Marker.Bound.ABOVE;
 import static io.prestosql.spi.predicate.Marker.Bound.BELOW;
 import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -179,6 +181,10 @@ public final class ExpressionConverter
         // TODO: Remove this conversion once we move to next iceberg version
         if (type instanceof DateType) {
             return toIntExact(((Long) marker.getValue()));
+        }
+
+        if (type.equals(TIME_MICROS)) {
+            return ((long) marker.getValue()) / PICOSECONDS_PER_MICROSECOND;
         }
 
         if (type instanceof VarcharType) {

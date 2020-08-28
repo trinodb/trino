@@ -24,6 +24,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.SortOrder;
@@ -58,6 +59,7 @@ import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.SyntheticAddress.decodePosition;
 import static io.prestosql.operator.SyntheticAddress.decodeSliceIndex;
 import static io.prestosql.operator.SyntheticAddress.encodeSyntheticAddress;
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
 import static java.util.Objects.requireNonNull;
 
 /**
@@ -218,6 +220,11 @@ public class PagesIndex
 
         for (int position = 0; position < page.getPositionCount(); position++) {
             long sliceAddress = encodeSyntheticAddress(pageIndex, position);
+
+            // this uses a long[] internally, so cap size to a nice round number for safety
+            if (valueAddresses.size() >= 2_000_000_000) {
+                throw new PrestoException(GENERIC_INSUFFICIENT_RESOURCES, "Size of pages index cannot exceed 2 billion entries");
+            }
             valueAddresses.add(sliceAddress);
         }
         estimatedSize = calculateEstimatedSize();

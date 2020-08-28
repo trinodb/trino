@@ -13,7 +13,6 @@
  */
 package io.prestosql.pinot;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import io.prestosql.pinot.client.PinotClient;
 import io.prestosql.pinot.client.PinotQueryClient;
 import io.prestosql.pinot.query.DynamicTable;
@@ -38,21 +37,22 @@ import static java.util.Objects.requireNonNull;
 public class PinotPageSourceProvider
         implements ConnectorPageSourceProvider
 {
-    private final PinotConfig pinotConfig;
     private final PinotQueryClient pinotQueryClient;
     private final PinotClient clusterInfoFetcher;
-    private final ObjectMapper objectMapper;
+    private final int limitForSegmentQueries;
+    private final int estimatedNonNumericColumnSize;
 
     @Inject
     public PinotPageSourceProvider(
             PinotConfig pinotConfig,
             PinotClient clusterInfoFetcher,
-            ObjectMapper objectMapper)
+            PinotQueryClient pinotQueryClient)
     {
-        this.pinotConfig = requireNonNull(pinotConfig, "pinotConfig is null");
-        this.pinotQueryClient = new PinotQueryClient(pinotConfig);
+        requireNonNull(pinotConfig, "pinotConfig is null");
+        this.pinotQueryClient = requireNonNull(pinotQueryClient, "pinotQueryClient is null");
         this.clusterInfoFetcher = requireNonNull(clusterInfoFetcher, "cluster info fetcher is null");
-        this.objectMapper = requireNonNull(objectMapper, "object mapper is null");
+        this.limitForSegmentQueries = pinotConfig.getMaxRowsPerSplitForSegmentQueries();
+        estimatedNonNumericColumnSize = pinotConfig.getEstimatedSizeInBytesForNonNumericColumn();
     }
 
     @Override
@@ -72,13 +72,14 @@ public class PinotPageSourceProvider
             handles.add((PinotColumnHandle) handle);
         }
         PinotTableHandle pinotTableHandle = (PinotTableHandle) tableHandle;
-        String query = generatePql(pinotTableHandle, handles, pinotSplit.getSuffix(), pinotSplit.getTimePredicate());
+        String query = generatePql(pinotTableHandle, handles, pinotSplit.getSuffix(), pinotSplit.getTimePredicate(), limitForSegmentQueries);
 
         switch (pinotSplit.getSplitType()) {
             case SEGMENT:
                 return new PinotSegmentPageSource(
                         session,
-                        this.pinotConfig,
+                        estimatedNonNumericColumnSize,
+                        limitForSegmentQueries,
                         this.pinotQueryClient,
                         pinotSplit,
                         handles,

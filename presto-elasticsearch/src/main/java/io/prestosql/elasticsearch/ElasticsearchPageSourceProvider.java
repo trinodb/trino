@@ -62,12 +62,11 @@ public class ElasticsearchPageSourceProvider
         }
 
         if (columns.isEmpty()) {
-            return new CountQueryPageSource(client, session, elasticsearchTable, elasticsearchSplit);
+            return new CountQueryPageSource(client, elasticsearchTable, elasticsearchSplit);
         }
 
         return new ScanQueryPageSource(
                 client,
-                session,
                 elasticsearchTable,
                 elasticsearchSplit,
                 columns.stream()

@@ -39,28 +39,20 @@ public final class JoinUtils
 
     public static List<Page> channelsToPages(List<List<Block>> channels)
     {
-        ImmutableList.Builder<Page> pagesBuilder = ImmutableList.builder();
-        if (!channels.isEmpty()) {
-            int pagesCount = channels.get(0).size();
-            for (int pageIndex = 0; pageIndex < pagesCount; ++pageIndex) {
-                Block[] blocks = new Block[channels.size()];
-                for (int channelIndex = 0; channelIndex < channels.size(); ++channelIndex) {
-                    blocks[channelIndex] = channels.get(channelIndex).get(pageIndex);
-                }
-                pagesBuilder.add(new Page(blocks));
+        if (channels.isEmpty()) {
+            return ImmutableList.of();
+        }
+
+        int pagesCount = channels.get(0).size();
+        ImmutableList.Builder<Page> pagesBuilder = ImmutableList.builderWithExpectedSize(pagesCount);
+        for (int pageIndex = 0; pageIndex < pagesCount; ++pageIndex) {
+            Block[] blocks = new Block[channels.size()];
+            for (int channelIndex = 0; channelIndex < blocks.length; ++channelIndex) {
+                blocks[channelIndex] = channels.get(channelIndex).get(pageIndex);
             }
+            pagesBuilder.add(new Page(blocks));
         }
         return pagesBuilder.build();
-    }
-
-    public static boolean isBuildSideRepartitioned(JoinNode joinNode)
-    {
-        return PlanNodeSearcher.searchFrom(joinNode.getRight())
-                .recurseOnlyWhen(
-                        MorePredicates.<PlanNode>isInstanceOfAny(ProjectNode.class)
-                                .or(JoinUtils::isLocalRepartitionExchange))
-                .where(JoinUtils::isRemoteRepartitionedExchange)
-                .matches();
     }
 
     public static boolean isBuildSideReplicated(JoinNode joinNode)
@@ -73,24 +65,14 @@ public final class JoinUtils
                 .matches();
     }
 
-    private static boolean isRemoteRepartitionedExchange(PlanNode node)
-    {
-        return isRemoteExchangeOfType(node, REPARTITION);
-    }
-
     private static boolean isRemoteReplicatedExchange(PlanNode node)
-    {
-        return isRemoteExchangeOfType(node, REPLICATE);
-    }
-
-    private static boolean isRemoteExchangeOfType(PlanNode node, ExchangeNode.Type exchangeType)
     {
         if (!(node instanceof ExchangeNode)) {
             return false;
         }
 
         ExchangeNode exchangeNode = (ExchangeNode) node;
-        return exchangeNode.getScope() == REMOTE && exchangeNode.getType() == exchangeType;
+        return exchangeNode.getScope() == REMOTE && exchangeNode.getType() == REPLICATE;
     }
 
     private static boolean isLocalRepartitionExchange(PlanNode node)

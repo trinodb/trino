@@ -171,7 +171,10 @@ public class TestHiveIntegrationSmokeTest
             throws Exception
     {
         return HiveQueryRunner.builder()
-                .setHiveProperties(ImmutableMap.of("hive.allow-register-partition-procedure", "true"))
+                .setHiveProperties(ImmutableMap.of(
+                        "hive.allow-register-partition-procedure", "true",
+                        // Reduce writer sort buffer size to ensure SortingFileWriter gets used
+                        "hive.writer-sort-buffer-size", "1MB"))
                 .setInitialTables(ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION))
                 .build();
     }
@@ -1594,8 +1597,8 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testCreateTableWithUnsupportedType()
     {
-        assertQueryFails("CREATE TABLE test_create_table_with_unsupported_type(x time)", "Unsupported Hive type: time");
-        assertQueryFails("CREATE TABLE test_create_table_with_unsupported_type AS SELECT TIME '00:00:00' x", "Unsupported Hive type: time");
+        assertQueryFails("CREATE TABLE test_create_table_with_unsupported_type(x time)", "\\QUnsupported Hive type: time(3)\\E");
+        assertQueryFails("CREATE TABLE test_create_table_with_unsupported_type AS SELECT TIME '00:00:00' x", "\\QUnsupported Hive type: time(0)\\E");
     }
 
     @Test
@@ -4121,6 +4124,7 @@ public class TestHiveIntegrationSmokeTest
     {
         assertUpdate("CREATE TABLE test_parquet_timestamp_predicate_pushdown (t TIMESTAMP) WITH (format = 'PARQUET')");
         assertUpdate("INSERT INTO test_parquet_timestamp_predicate_pushdown VALUES (TIMESTAMP '2012-10-31 01:00')", 1);
+        assertQuery("SELECT * FROM test_parquet_timestamp_predicate_pushdown", "VALUES (TIMESTAMP '2012-10-31 01:00')");
 
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
         ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(
@@ -6854,6 +6858,33 @@ public class TestHiveIntegrationSmokeTest
                     metadata.finishInsert(transactionSession, insertTableHandle, ImmutableList.of(), ImmutableList.of());
                     return hiveInsertTableHandle;
                 });
+    }
+
+    @Test
+    public void testSortedWritingTempStaging()
+    {
+        String tableName = "test_sorted_writing";
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE %s " +
+                        "WITH (" +
+                        "   bucket_count = 7," +
+                        "   bucketed_by = ARRAY['shipmode']," +
+                        "   sorted_by = ARRAY['shipmode']" +
+                        ") AS " +
+                        "SELECT * FROM tpch.tiny.lineitem",
+                tableName);
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "sorted_writing_enabled", "true")
+                .setCatalogSessionProperty("hive", "temporary_staging_directory_enabled", "true")
+                .setCatalogSessionProperty("hive", "temporary_staging_directory_path", "/tmp/custom/temporary-${USER}")
+                .build();
+
+        assertUpdate(session, createTableSql, 60175L);
+        MaterializedResult expected = computeActual("SELECT * FROM tpch.tiny.lineitem");
+        MaterializedResult actual = computeActual("SELECT * FROM " + tableName);
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertUpdate("DROP TABLE " + tableName);
     }
 
     @Test

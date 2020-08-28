@@ -23,6 +23,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.RecordCursor;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeUtils;
@@ -30,7 +31,8 @@ import io.prestosql.spi.type.VarcharType;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.ZoneId;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
@@ -39,15 +41,17 @@ import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static io.prestosql.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static java.util.Objects.requireNonNull;
 
 //import static io.prestosql.spi.type.StandardTypes.VARCHAR;
 
@@ -117,11 +121,11 @@ public class PrometheusRecordCursor
         int columnIndex = fieldToColumnIndex[field];
         switch (columnIndex) {
             case 0:
-                return fields.labels;
+                return fields.getLabels();
             case 1:
-                return fields.timestamp;
+                return fields.getTimestamp();
             case 2:
-                return fields.value;
+                return fields.getValue();
         }
         return null;
     }
@@ -136,8 +140,11 @@ public class PrometheusRecordCursor
     public long getLong(int field)
     {
         Type type = getType(field);
-        if (type.equals(TIMESTAMP)) {
-            return ((Timestamp) getFieldValue(field)).toInstant().toEpochMilli();
+        if (type.equals(TIMESTAMP_COLUMN_TYPE)) {
+            Instant dateTime = (Instant) requireNonNull(getFieldValue(field));
+            // render with the fixed offset of the Presto server
+            int offsetMinutes = dateTime.atZone(ZoneId.systemDefault()).getOffset().getTotalSeconds() / 60;
+            return packDateTimeWithZone(dateTime.toEpochMilli(), offsetMinutes);
         }
         else {
             throw new PrestoException(NOT_SUPPORTED, "Unsupported type " + getType(field));
@@ -148,14 +155,14 @@ public class PrometheusRecordCursor
     public double getDouble(int field)
     {
         checkFieldType(field, DOUBLE);
-        return (double) getFieldValue(field);
+        return (double) requireNonNull(getFieldValue(field));
     }
 
     @Override
     public Slice getSlice(int field)
     {
         checkFieldType(field, createUnboundedVarcharType());
-        return Slices.utf8Slice((String) getFieldValue(field));
+        return Slices.utf8Slice((String) requireNonNull(getFieldValue(field)));
     }
 
     @Override
@@ -193,7 +200,7 @@ public class PrometheusRecordCursor
                 .collect(Collectors.toList());
     }
 
-    private Map<String, String> metricHeaderToMap(Map<String, String> mapToConvert)
+    private static Map<String, String> metricHeaderToMap(Map<String, String> mapToConvert)
     {
         return ImmutableMap.<String, String>builder().putAll(mapToConvert).build();
     }
@@ -221,30 +228,32 @@ public class PrometheusRecordCursor
 
     static Map<Object, Object> getMapFromBlock(Type type, Block block)
     {
+        MapType mapType = (MapType) type;
+        Type keyType = mapType.getKeyType();
+        Type valueType = mapType.getValueType();
         Map<Object, Object> map = new HashMap<>(block.getPositionCount() / 2);
-        Type keyType = Types.getKeyType(type);
-        Type valueType = Types.getValueType(type);
         for (int i = 0; i < block.getPositionCount(); i += 2) {
             map.put(readObject(keyType, block, i), readObject(valueType, block, i + 1));
         }
         return map;
     }
 
-    static void writeObject(BlockBuilder builder, Type type, Object obj)
+    private static void writeObject(BlockBuilder builder, Type type, Object obj)
     {
-        if (Types.isArrayType(type)) {
-            BlockBuilder arrayBldr = builder.beginBlockEntry();
-            Type elementType = Types.getElementType(type);
+        if (type instanceof ArrayType) {
+            Type elementType = ((ArrayType) type).getElementType();
+            BlockBuilder arrayBuilder = builder.beginBlockEntry();
             for (Object item : (List<?>) obj) {
-                writeObject(arrayBldr, elementType, item);
+                writeObject(arrayBuilder, elementType, item);
             }
             builder.closeEntry();
         }
-        else if (Types.isMapType(type)) {
+        else if (type instanceof MapType) {
+            MapType mapType = (MapType) type;
             BlockBuilder mapBlockBuilder = builder.beginBlockEntry();
             for (Map.Entry<?, ?> entry : ((Map<?, ?>) obj).entrySet()) {
-                writeObject(mapBlockBuilder, Types.getKeyType(type), entry.getKey());
-                writeObject(mapBlockBuilder, Types.getValueType(type), entry.getValue());
+                writeObject(mapBlockBuilder, mapType.getKeyType(), entry.getKey());
+                writeObject(mapBlockBuilder, mapType.getValueType(), entry.getValue());
             }
             builder.closeEntry();
         }
@@ -261,18 +270,18 @@ public class PrometheusRecordCursor
         }
     }
 
-    static Object readObject(Type type, Block block, int position)
+    private static Object readObject(Type type, Block block, int position)
     {
-        if (Types.isArrayType(type)) {
-            Type elementType = Types.getElementType(type);
+        if (type instanceof ArrayType) {
+            Type elementType = ((ArrayType) type).getElementType();
             return getArrayFromBlock(elementType, block.getObject(position, Block.class));
         }
-        else if (Types.isMapType(type)) {
+        else if (type instanceof MapType) {
             return getMapFromBlock(type, block.getObject(position, Block.class));
         }
         else {
             if (type.getJavaType() == Slice.class) {
-                Slice slice = (Slice) TypeUtils.readNativeValue(type, block, position);
+                Slice slice = (Slice) requireNonNull(TypeUtils.readNativeValue(type, block, position));
                 return (type instanceof VarcharType) ? slice.toStringUtf8() : slice.getBytes();
             }
 
@@ -280,7 +289,7 @@ public class PrometheusRecordCursor
         }
     }
 
-    static List<Object> getArrayFromBlock(Type elementType, Block block)
+    private static List<Object> getArrayFromBlock(Type elementType, Block block)
     {
         ImmutableList.Builder<Object> arrayBuilder = ImmutableList.builder();
         for (int i = 0; i < block.getPositionCount(); ++i) {
@@ -290,7 +299,5 @@ public class PrometheusRecordCursor
     }
 
     @Override
-    public void close()
-    {
-    }
+    public void close() {}
 }

@@ -48,7 +48,6 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.stream.Collectors.toSet;
-import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
@@ -63,7 +62,6 @@ public class TestShardOrganizationManager
     private static final Table temporalTableInfo = new Table(1L, Optional.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.of(1), true);
 
     private static final List<Type> types = ImmutableList.of(BIGINT, VARCHAR, DATE, TIMESTAMP);
-    private static final TemporalFunction TEMPORAL_FUNCTION = new TemporalFunction(UTC);
 
     @BeforeMethod
     public void setup()
@@ -137,7 +135,7 @@ public class TestShardOrganizationManager
                 shardWithSortRange(1, ShardRange.of(new Tuple(types, 7L, "hello", day, timestamp), new Tuple(types, 10L, "hello", day, timestamp))),
                 shardWithSortRange(1, ShardRange.of(new Tuple(types, 6L, "hello", day, timestamp), new Tuple(types, 9L, "hello", day, timestamp))),
                 shardWithSortRange(1, ShardRange.of(new Tuple(types, 1L, "hello", day, timestamp), new Tuple(types, 5L, "hello", day, timestamp))));
-        Set<OrganizationSet> actual = createOrganizationSets(TEMPORAL_FUNCTION, tableInfo, shards);
+        Set<OrganizationSet> actual = createOrganizationSets(tableInfo, shards);
 
         assertEquals(actual.size(), 1);
         // Shards 0, 1 and 2 are overlapping, so we should get an organization set with these shards
@@ -161,7 +159,7 @@ public class TestShardOrganizationManager
                 shardWithTemporalRange(1, ShardRange.of(new Tuple(types, 6L), new Tuple(types, 9L)), ShardRange.of(new Tuple(temporalType, day1), new Tuple(temporalType, day2))),
                 shardWithTemporalRange(1, ShardRange.of(new Tuple(types, 4L), new Tuple(types, 8L)), ShardRange.of(new Tuple(temporalType, day4), new Tuple(temporalType, day5))));
 
-        Set<OrganizationSet> organizationSets = createOrganizationSets(TEMPORAL_FUNCTION, temporalTableInfo, shards);
+        Set<OrganizationSet> organizationSets = createOrganizationSets(temporalTableInfo, shards);
         Set<Set<UUID>> actual = organizationSets.stream()
                 .map(OrganizationSet::getShards)
                 .collect(toSet());
@@ -201,7 +199,6 @@ public class TestShardOrganizationManager
                 "node1",
                 createShardManager(dbi),
                 createShardOrganizer(),
-                TEMPORAL_FUNCTION,
                 true,
                 new Duration(intervalMillis, MILLISECONDS),
                 new Duration(5, MINUTES));

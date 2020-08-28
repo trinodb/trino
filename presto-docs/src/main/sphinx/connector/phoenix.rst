@@ -2,8 +2,8 @@
 Phoenix Connector
 =================
 
-The Phoenix connector allows querying data stored in 
-`Apache HBase <https://hbase.apache.org/>`_ using 
+The Phoenix connector allows querying data stored in
+`Apache HBase <https://hbase.apache.org/>`_ using
 `Apache Phoenix <https://phoenix.apache.org/>`_.
 
 Compatibility
@@ -156,7 +156,10 @@ Property Name               Default Value    Description
 
 ``compression``             ``NONE``         Compression algorithm to use.  Valid values are ``NONE`` (default), ``SNAPPY``, ``LZO``, ``LZ4``, or ``GZ``.
 
+``data_block_encoding``     ``FAST_DIFF``    Block encoding algorithm to use. Valid values are: ``NONE``, ``PREFIX``, ``DIFF``, ``FAST_DIFF`` (default), or ``ROW_INDEX_V1``.
+
 ``ttl``                     ``FOREVER``      Time To Live for each cell.
-``bloomfilter``             ``ROW``          Bloomfilter to use. Valid values are ``NONE``, ``ROW`` (default), or ``ROWCOL``.
+
+``bloomfilter``             ``NONE``         Bloomfilter to use. Valid values are ``NONE`` (default), ``ROW``, or ``ROWCOL``.
 =========================== ================ ==============================================================================================================
 

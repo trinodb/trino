@@ -25,7 +25,6 @@ import com.google.common.collect.Multimaps;
 import com.google.common.collect.Ordering;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
-import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.MaterializedResult;
@@ -86,7 +85,7 @@ import static org.testng.Assert.assertTrue;
 public abstract class AbstractTestEngineOnlyQueries
         extends AbstractTestQueryFramework
 {
-    private static final DateTimeFormatter ZONED_DATE_TIME_FORMAT = DateTimeFormatter.ofPattern(SqlTimestampWithTimeZone.JSON_FORMAT);
+    private static final DateTimeFormatter ZONED_DATE_TIME_FORMAT = DateTimeFormatter.ofPattern("uuuu-MM-dd HH:mm:ss[.SSS] VV");
 
     @Test
     public void testTimeLiterals()
@@ -1076,13 +1075,14 @@ public abstract class AbstractTestEngineOnlyQueries
     {
         Session session = Session.builder(getSession())
                 .setSystemProperty("omit_datetime_type_precision", "true")
-                .addPreparedStatement("my_query", "SELECT localtimestamp a, current_timestamp b")
+                .addPreparedStatement("my_query", "SELECT localtimestamp a, current_timestamp b, localtime c")
                 .build();
 
         MaterializedResult actual = computeActual(session, "DESCRIBE OUTPUT my_query");
         MaterializedResult expected = resultBuilder(session, VARCHAR, VARCHAR, VARCHAR, VARCHAR, VARCHAR, BIGINT, BOOLEAN)
                 .row("a", "", "", "", "timestamp", 8, true)
                 .row("b", "", "", "", "timestamp with time zone", 8, true)
+                .row("c", "", "", "", "time", 8, true)
                 .build();
         assertEqualsIgnoreOrder(actual, expected);
 
@@ -2371,9 +2371,7 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testWithRecursive()
     {
-        assertQueryFails(
-                "WITH RECURSIVE a AS (SELECT 123) SELECT * FROM a",
-                "line 1:1: Recursive WITH queries are not supported");
+        assertQuery("WITH RECURSIVE a(x) AS (SELECT 123) SELECT * FROM a");
     }
 
     @Test

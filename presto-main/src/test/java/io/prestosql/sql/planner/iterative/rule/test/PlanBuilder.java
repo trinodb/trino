@@ -557,6 +557,7 @@ public class PlanBuilder
                 semiJoinOutput,
                 sourceHashSymbol,
                 filteringSourceHashSymbol,
+                Optional.empty(),
                 Optional.empty());
     }
 
@@ -570,6 +571,29 @@ public class PlanBuilder
             Optional<Symbol> filteringSourceHashSymbol,
             Optional<SemiJoinNode.DistributionType> distributionType)
     {
+        return semiJoin(
+                source,
+                filteringSource,
+                sourceJoinSymbol,
+                filteringSourceJoinSymbol,
+                semiJoinOutput,
+                sourceHashSymbol,
+                filteringSourceHashSymbol,
+                distributionType,
+                Optional.empty());
+    }
+
+    public SemiJoinNode semiJoin(
+            PlanNode source,
+            PlanNode filteringSource,
+            Symbol sourceJoinSymbol,
+            Symbol filteringSourceJoinSymbol,
+            Symbol semiJoinOutput,
+            Optional<Symbol> sourceHashSymbol,
+            Optional<Symbol> filteringSourceHashSymbol,
+            Optional<SemiJoinNode.DistributionType> distributionType,
+            Optional<DynamicFilterId> dynamicFilterId)
+    {
         return new SemiJoinNode(
                 idAllocator.getNextId(),
                 source,
@@ -579,7 +603,8 @@ public class PlanBuilder
                 semiJoinOutput,
                 sourceHashSymbol,
                 filteringSourceHashSymbol,
-                distributionType);
+                distributionType,
+                dynamicFilterId);
     }
 
     public IndexSourceNode indexSource(

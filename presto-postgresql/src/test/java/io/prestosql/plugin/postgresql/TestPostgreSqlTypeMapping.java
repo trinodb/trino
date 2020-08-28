@@ -73,6 +73,7 @@ import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHA
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.IGNORE;
 import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_ARRAY;
 import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.AS_JSON;
+import static io.prestosql.plugin.postgresql.PostgreSqlConfig.ArrayMapping.DISABLED;
 import static io.prestosql.plugin.postgresql.PostgreSqlQueryRunner.createPostgreSqlQueryRunner;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
@@ -360,6 +361,7 @@ public class TestPostgreSqlTypeMapping
     public void testDecimalExceedingPrecisionMaxConvertedToVarchar()
     {
         testUnsupportedDataTypeConvertedToVarchar(
+                getSession(),
                 "decimal(50,0)",
                 "12345678901234567890123456789012345678901234567890",
                 "'12345678901234567890123456789012345678901234567890'");
@@ -607,8 +609,24 @@ public class TestPostgreSqlTypeMapping
     }
 
     @Test
+    public void testArrayDisabled()
+    {
+        Session session = Session.builder(getQueryRunner().getDefaultSession())
+                .setCatalogSessionProperty("postgresql", PostgreSqlSessionProperties.ARRAY_MAPPING, DISABLED.name())
+                .build();
+
+        testUnsupportedDataTypeAsIgnored(session, "bigint[]", "ARRAY[42]");
+        testUnsupportedDataTypeConvertedToVarchar(session, "bigint[]", "ARRAY[42]", "'{42}'");
+
+        testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY['binary'::bytea]");
+        testUnsupportedDataTypeConvertedToVarchar(session, "bytea[]", "ARRAY['binary'::bytea]", "'{\"\\\\x62696e617279\"}'");
+    }
+
+    @Test
     public void testArray()
     {
+        Session session = sessionWithArrayAsArray();
+
         // basic types
         DataTypeTest.create(true)
                 .addRoundTrip(arrayDataType(booleanDataType()), asList(true, false))
@@ -617,31 +635,37 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(arrayDataType(smallintDataType()), asList((short) 32_456))
                 .addRoundTrip(arrayDataType(doubleDataType()), asList(123.45d))
                 .addRoundTrip(arrayDataType(realDataType()), asList(123.45f))
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_basic"));
+                .execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_array_basic"));
 
         arrayDateTest(TestPostgreSqlTypeMapping::arrayDataType)
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_date"));
+                .execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_array_date"));
         arrayDateTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), postgresCreateAndInsert("tpch.test_array_date"));
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_array_date"));
 
         arrayDecimalTest(TestPostgreSqlTypeMapping::arrayDataType)
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_decimal"));
+                .execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_array_decimal"));
         arrayDecimalTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), postgresCreateAndInsert("tpch.test_array_decimal"));
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_array_decimal"));
 
         arrayVarcharDataTypeTest(TestPostgreSqlTypeMapping::arrayDataType)
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_varchar"));
+                .execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_array_varchar"));
         arrayVarcharDataTypeTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), postgresCreateAndInsert("tpch.test_array_varchar"));
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_array_varchar"));
+
+        testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY['binary value'::bytea]");
+        testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY[ARRAY['binary value'::bytea]]");
+        testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY[ARRAY[ARRAY['binary value'::bytea]]]");
+        testUnsupportedDataTypeAsIgnored(session, "_bytea", "ARRAY['binary value'::bytea]");
+        testUnsupportedDataTypeConvertedToVarchar(session, "bytea[]", "ARRAY['binary value'::bytea]", "'{\"\\\\x62696e6172792076616c7565\"}'");
 
         arrayUnicodeDataTypeTest(TestPostgreSqlTypeMapping::arrayDataType, DataType::charDataType)
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_parameterized_char_unicode"));
+                .execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_array_parameterized_char_unicode"));
         arrayUnicodeDataTypeTest(TestPostgreSqlTypeMapping::postgresArrayDataType, DataType::charDataType)
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), postgresCreateAndInsert("tpch.test_array_parameterized_char_unicode"));
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_array_parameterized_char_unicode"));
         arrayVarcharUnicodeDataTypeTest(TestPostgreSqlTypeMapping::arrayDataType)
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_parameterized_varchar_unicode"));
+                .execute(getQueryRunner(), session, prestoCreateAsSelect(session, "test_array_parameterized_varchar_unicode"));
         arrayVarcharUnicodeDataTypeTest(TestPostgreSqlTypeMapping::postgresArrayDataType)
-                .execute(getQueryRunner(), sessionWithArrayAsArray(), postgresCreateAndInsert("tpch.test_array_parameterized_varchar_unicode"));
+                .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_array_parameterized_varchar_unicode"));
     }
 
     @Test
@@ -816,6 +840,12 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(arrayAsJsonDataType("_text"), "[]")
                 .execute(getQueryRunner(), session, postgresCreateAndInsert("tpch.test_varchar_array_as_json"));
 
+        testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY['binary value'::bytea]");
+        testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY[ARRAY['binary value'::bytea]]");
+        testUnsupportedDataTypeAsIgnored(session, "bytea[]", "ARRAY[ARRAY[ARRAY['binary value'::bytea]]]");
+        testUnsupportedDataTypeAsIgnored(session, "_bytea", "ARRAY['binary value'::bytea]");
+        testUnsupportedDataTypeConvertedToVarchar(session, "bytea[]", "ARRAY['binary value'::bytea]", "'{\"\\\\x62696e6172792076616c7565\"}'");
+
         DataTypeTest.create()
                 .addRoundTrip(arrayAsJsonDataType("date[]"), null)
                 .addRoundTrip(arrayAsJsonDataType("date[]"), "[\"2019-01-02\"]")
@@ -937,7 +967,7 @@ public class TestPostgreSqlTypeMapping
     }
 
     @Test(dataProvider = "testTimestampDataProvider")
-    public void testTime(boolean legacyTimestamp, boolean insertWithPresto, ZoneId sessionZone)
+    public void testTime(boolean insertWithPresto, ZoneId sessionZone)
     {
         LocalTime timeGapInJvmZone = LocalTime.of(0, 12, 34, 567_000_000);
         checkIsGap(jvmZone, timeGapInJvmZone.atDate(EPOCH_DAY));
@@ -955,12 +985,12 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(timeDataType(), LocalTime.of(15, 12, 34, 567_000_000))
                 .addRoundTrip(timeDataType(), LocalTime.of(23, 59, 59, 999_000_000));
 
-        addTimeTestIfSupported(tests, legacyTimestamp, sessionZone, epoch.toLocalTime()); // epoch is also a gap in JVM zone
-        addTimeTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInJvmZone);
+        // epoch is also a gap in JVM zone
+        tests.addRoundTrip(timeDataType(), epoch.toLocalTime());
+        tests.addRoundTrip(timeDataType(), timeGapInJvmZone);
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                .setSystemProperty("legacy_timestamp", Boolean.toString(legacyTimestamp))
                 .build();
 
         if (insertWithPresto) {
@@ -971,18 +1001,8 @@ public class TestPostgreSqlTypeMapping
         }
     }
 
-    private void addTimeTestIfSupported(DataTypeTest tests, boolean legacyTimestamp, ZoneId sessionZone, LocalTime time)
-    {
-        if (legacyTimestamp && isGap(sessionZone, time.atDate(EPOCH_DAY))) {
-            // in legacy timestamp semantics we cannot represent this time
-            return;
-        }
-
-        tests.addRoundTrip(timeDataType(), time);
-    }
-
     @Test(dataProvider = "testTimestampDataProvider")
-    public void testTimestamp(boolean legacyTimestamp, boolean insertWithPresto, ZoneId sessionZone)
+    public void testTimestamp(boolean insertWithPresto, ZoneId sessionZone)
     {
         // using two non-JVM zones so that we don't need to worry what Postgres system zone is
         DataTypeTest tests = DataTypeTest.create(true)
@@ -991,15 +1011,14 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(timestampDataType(), timeDoubledInJvmZone)
                 .addRoundTrip(timestampDataType(), timeDoubledInVilnius);
 
-        addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, epoch); // epoch also is a gap in JVM zone
-        addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInJvmZone1);
-        addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInJvmZone2);
-        addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInVilnius);
-        addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInKathmandu);
+        addTimestampTestIfSupported(tests, epoch); // epoch also is a gap in JVM zone
+        addTimestampTestIfSupported(tests, timeGapInJvmZone1);
+        addTimestampTestIfSupported(tests, timeGapInJvmZone2);
+        addTimestampTestIfSupported(tests, timeGapInVilnius);
+        addTimestampTestIfSupported(tests, timeGapInKathmandu);
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                .setSystemProperty("legacy_timestamp", Boolean.toString(legacyTimestamp))
                 .build();
 
         if (insertWithPresto) {
@@ -1010,18 +1029,13 @@ public class TestPostgreSqlTypeMapping
         }
     }
 
-    private void addTimestampTestIfSupported(DataTypeTest tests, boolean legacyTimestamp, ZoneId sessionZone, LocalDateTime dateTime)
+    private void addTimestampTestIfSupported(DataTypeTest tests, LocalDateTime dateTime)
     {
-        if (legacyTimestamp && isGap(sessionZone, dateTime)) {
-            // in legacy timestamp semantics we cannot represent this dateTime
-            return;
-        }
-
         tests.addRoundTrip(timestampDataType(), dateTime);
     }
 
     @Test(dataProvider = "testTimestampDataProvider")
-    public void testArrayTimestamp(boolean legacyTimestamp, boolean insertWithPresto, ZoneId sessionZone)
+    public void testArrayTimestamp(boolean insertWithPresto, ZoneId sessionZone)
     {
         DataType<List<LocalDateTime>> dataType;
         DataSetup dataSetup;
@@ -1039,27 +1053,21 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(dataType, asList(timeDoubledInJvmZone))
                 .addRoundTrip(dataType, asList(timeDoubledInVilnius));
 
-        addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, epoch);
-        addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, timeGapInJvmZone1);
-        addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, timeGapInJvmZone2);
-        addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, timeGapInVilnius);
-        addArrayTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, dataType, timeGapInKathmandu);
+        addArrayTimestampTestIfSupported(tests, dataType, epoch);
+        addArrayTimestampTestIfSupported(tests, dataType, timeGapInJvmZone1);
+        addArrayTimestampTestIfSupported(tests, dataType, timeGapInJvmZone2);
+        addArrayTimestampTestIfSupported(tests, dataType, timeGapInVilnius);
+        addArrayTimestampTestIfSupported(tests, dataType, timeGapInKathmandu);
 
         Session session = Session.builder(sessionWithArrayAsArray())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                .setSystemProperty("legacy_timestamp", Boolean.toString(legacyTimestamp))
                 .build();
 
         tests.execute(getQueryRunner(), session, dataSetup);
     }
 
-    private void addArrayTimestampTestIfSupported(DataTypeTest tests, boolean legacyTimestamp, ZoneId sessionZone, DataType<List<LocalDateTime>> dataType, LocalDateTime dateTime)
+    private void addArrayTimestampTestIfSupported(DataTypeTest tests, DataType<List<LocalDateTime>> dataType, LocalDateTime dateTime)
     {
-        if (legacyTimestamp && isGap(sessionZone, dateTime)) {
-            // in legacy timestamp semantics we cannot represent this dateTime
-            return;
-        }
-
         tests.addRoundTrip(dataType, asList(dateTime));
     }
 
@@ -1067,31 +1075,21 @@ public class TestPostgreSqlTypeMapping
     public Object[][] testTimestampDataProvider()
     {
         return new Object[][] {
-                {true, true, ZoneOffset.UTC},
-                {false, true, ZoneOffset.UTC},
-                {true, false, ZoneOffset.UTC},
-                {false, false, ZoneOffset.UTC},
+                {true, UTC},
+                {false, UTC},
 
-                {true, true, jvmZone},
-                {false, true, jvmZone},
-                {true, false, jvmZone},
-                {false, false, jvmZone},
+                {true, jvmZone},
+                {false, jvmZone},
 
                 // using two non-JVM zones so that we don't need to worry what Postgres system zone is
-                {true, true, vilnius},
-                {false, true, vilnius},
-                {true, false, vilnius},
-                {false, false, vilnius},
+                {true, vilnius},
+                {false, vilnius},
 
-                {true, true, kathmandu},
-                {false, true, kathmandu},
-                {true, false, kathmandu},
-                {false, false, kathmandu},
+                {true, kathmandu},
+                {false, kathmandu},
 
-                {true, true, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
-                {false, true, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
-                {true, false, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
-                {false, false, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+                {true, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+                {false, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
         };
     }
 
@@ -1305,6 +1303,11 @@ public class TestPostgreSqlTypeMapping
 
     private void testUnsupportedDataTypeAsIgnored(String dataTypeName, String databaseValue)
     {
+        testUnsupportedDataTypeAsIgnored(getSession(), dataTypeName, databaseValue);
+    }
+
+    private void testUnsupportedDataTypeAsIgnored(Session session, String dataTypeName, String databaseValue)
+    {
         JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
         try (TestTable table = new TestTable(
                 jdbcSqlExecutor,
@@ -1313,17 +1316,18 @@ public class TestPostgreSqlTypeMapping
                 ImmutableList.of(
                         "'1', NULL",
                         "'2', " + databaseValue))) {
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES 1, 2");
+            assertQuery(session, "SELECT * FROM " + table.getName(), "VALUES 1, 2");
             assertQuery(
+                    session,
                     "DESC " + table.getName(),
                     "VALUES ('key', 'varchar(5)','', '')"); // no 'unsupported_column'
 
-            assertUpdate(format("INSERT INTO %s VALUES '3'", table.getName()), 1);
-            assertQuery("SELECT * FROM " + table.getName(), "VALUES '1', '2', '3'");
+            assertUpdate(session, format("INSERT INTO %s VALUES '3'", table.getName()), 1);
+            assertQuery(session, "SELECT * FROM " + table.getName(), "VALUES '1', '2', '3'");
         }
     }
 
-    private void testUnsupportedDataTypeConvertedToVarchar(String dataTypeName, String databaseValue, String prestoValue)
+    private void testUnsupportedDataTypeConvertedToVarchar(Session session, String dataTypeName, String databaseValue, String prestoValue)
     {
         JdbcSqlExecutor jdbcSqlExecutor = new JdbcSqlExecutor(postgreSqlServer.getJdbcUrl());
         try (TestTable table = new TestTable(
@@ -1333,7 +1337,9 @@ public class TestPostgreSqlTypeMapping
                 ImmutableList.of(
                         "1, NULL",
                         "2, " + databaseValue))) {
-            Session convertToVarchar = withUnsupportedType(CONVERT_TO_VARCHAR);
+            Session convertToVarchar = Session.builder(getSession())
+                    .setCatalogSessionProperty("postgresql", UNSUPPORTED_TYPE_HANDLING, CONVERT_TO_VARCHAR.name())
+                    .build();
             assertQuery(
                     convertToVarchar,
                     "SELECT * FROM " + table.getName(),
@@ -1355,7 +1361,7 @@ public class TestPostgreSqlTypeMapping
             assertQueryFails(
                     convertToVarchar,
                     format("INSERT INTO %s (key, unsupported_column) VALUES (4, %s)", table.getName(), prestoValue),
-                    "Insert query has mismatched column types: Table: \\[varchar\\(5\\), varchar\\], Query: \\[integer, varchar\\(50\\)\\]");
+                    "Insert query has mismatched column types: Table: \\[varchar\\(5\\), varchar\\], Query: \\[integer, varchar\\(\\d+\\)\\]");
             assertUpdate(
                     convertToVarchar,
                     format("INSERT INTO %s (key) VALUES '5'", table.getName()),
@@ -1365,13 +1371,6 @@ public class TestPostgreSqlTypeMapping
                     "SELECT * FROM " + table.getName(),
                     format("VALUES ('1', NULL), ('2', %s), ('5', NULL)", prestoValue));
         }
-    }
-
-    private Session withUnsupportedType(UnsupportedTypeHandling unsupportedTypeHandling)
-    {
-        return Session.builder(getSession())
-                .setCatalogSessionProperty("postgresql", UNSUPPORTED_TYPE_HANDLING, unsupportedTypeHandling.name())
-                .build();
     }
 
     public static DataType<ZonedDateTime> prestoTimestampWithTimeZoneDataType()

@@ -15,6 +15,9 @@ package io.prestosql.plugin.phoenix;
 
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.session.PropertyMetadata;
+import org.apache.hadoop.hbase.io.compress.Compression;
+import org.apache.hadoop.hbase.io.encoding.DataBlockEncoding;
+import org.apache.hadoop.hbase.regionserver.BloomType;
 import org.apache.hadoop.util.StringUtils;
 
 import javax.inject.Inject;
@@ -26,6 +29,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
+import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 import static java.util.Objects.requireNonNull;
@@ -48,6 +52,7 @@ public final class PhoenixTableProperties
     public static final String MIN_VERSIONS = "min_versions";
     public static final String COMPRESSION = "compression";
     public static final String TTL = "ttl";
+    public static final String DATA_BLOCK_ENCODING = "data_block_encoding";
 
     private final List<PropertyMetadata<?>> tableProperties;
 
@@ -85,9 +90,10 @@ public final class PhoenixTableProperties
                         "The column family name to use by default.",
                         null,
                         false),
-                stringProperty(
+                enumProperty(
                         BLOOMFILTER,
                         "NONE, ROW or ROWCOL to enable blooms per column family.",
+                        BloomType.class,
                         null,
                         false),
                 integerProperty(
@@ -100,14 +106,21 @@ public final class PhoenixTableProperties
                         "The minimum number of row versions to store, configured per column family via HColumnDescriptor.",
                         null,
                         false),
-                stringProperty(
+                enumProperty(
                         COMPRESSION,
                         "Compression algorithm to use for HBase blocks. Options are: SNAPPY, GZIP, LZ, and others.",
+                        Compression.Algorithm.class,
                         null,
                         false),
                 integerProperty(
                         TTL,
                         "Number of seconds for cell TTL.  HBase will automatically delete rows once the expiration time is reached.",
+                        null,
+                        false),
+                enumProperty(
+                        DATA_BLOCK_ENCODING,
+                        "The block encoding algorithm to use for Cells in HBase blocks. Options are: NONE, PREFIX, DIFF, FAST_DIFF, ROW_INDEX_V1, and others.",
+                        DataBlockEncoding.class,
                         null,
                         false));
     }
@@ -122,11 +135,7 @@ public final class PhoenixTableProperties
         requireNonNull(tableProperties);
 
         Integer value = (Integer) tableProperties.get(SALT_BUCKETS);
-        if (value == null) {
-            return Optional.empty();
-        }
-
-        return Optional.of(value);
+        return Optional.ofNullable(value);
     }
 
     public static Optional<String> getSplitOn(Map<String, Object> tableProperties)
@@ -134,11 +143,7 @@ public final class PhoenixTableProperties
         requireNonNull(tableProperties);
 
         String value = (String) tableProperties.get(SPLIT_ON);
-        if (value == null) {
-            return Optional.empty();
-        }
-
-        return Optional.of(value);
+        return Optional.ofNullable(value);
     }
 
     public static Optional<List<String>> getRowkeys(Map<String, Object> tableProperties)
@@ -160,10 +165,7 @@ public final class PhoenixTableProperties
         requireNonNull(tableProperties);
 
         Boolean value = (Boolean) tableProperties.get(DISABLE_WAL);
-        if (value == null) {
-            return Optional.empty();
-        }
-        return Optional.of(value);
+        return Optional.ofNullable(value);
     }
 
     public static Optional<Boolean> getImmutableRows(Map<String, Object> tableProperties)
@@ -171,10 +173,7 @@ public final class PhoenixTableProperties
         requireNonNull(tableProperties);
 
         Boolean value = (Boolean) tableProperties.get(IMMUTABLE_ROWS);
-        if (value == null) {
-            return Optional.empty();
-        }
-        return Optional.of(value);
+        return Optional.ofNullable(value);
     }
 
     public static Optional<String> getDefaultColumnFamily(Map<String, Object> tableProperties)
@@ -182,21 +181,15 @@ public final class PhoenixTableProperties
         requireNonNull(tableProperties);
 
         String value = (String) tableProperties.get(DEFAULT_COLUMN_FAMILY);
-        if (value == null) {
-            return Optional.empty();
-        }
-        return Optional.of(value);
+        return Optional.ofNullable(value);
     }
 
-    public static Optional<String> getBloomfilter(Map<String, Object> tableProperties)
+    public static Optional<BloomType> getBloomfilter(Map<String, Object> tableProperties)
     {
         requireNonNull(tableProperties);
 
-        String value = (String) tableProperties.get(BLOOMFILTER);
-        if (value == null) {
-            return Optional.empty();
-        }
-        return Optional.of(value);
+        BloomType value = (BloomType) tableProperties.get(BLOOMFILTER);
+        return Optional.ofNullable(value);
     }
 
     public static Optional<Integer> getVersions(Map<String, Object> tableProperties)
@@ -204,10 +197,7 @@ public final class PhoenixTableProperties
         requireNonNull(tableProperties);
 
         Integer value = (Integer) tableProperties.get(VERSIONS);
-        if (value == null) {
-            return Optional.empty();
-        }
-        return Optional.of(value);
+        return Optional.ofNullable(value);
     }
 
     public static Optional<Integer> getMinVersions(Map<String, Object> tableProperties)
@@ -215,21 +205,23 @@ public final class PhoenixTableProperties
         requireNonNull(tableProperties);
 
         Integer value = (Integer) tableProperties.get(MIN_VERSIONS);
-        if (value == null) {
-            return Optional.empty();
-        }
-        return Optional.of(value);
+        return Optional.ofNullable(value);
     }
 
-    public static Optional<String> getCompression(Map<String, Object> tableProperties)
+    public static Optional<Compression.Algorithm> getCompression(Map<String, Object> tableProperties)
     {
         requireNonNull(tableProperties);
 
-        String value = (String) tableProperties.get(COMPRESSION);
-        if (value == null) {
-            return Optional.empty();
-        }
-        return Optional.of(value);
+        Compression.Algorithm value = (Compression.Algorithm) tableProperties.get(COMPRESSION);
+        return Optional.ofNullable(value);
+    }
+
+    public static Optional<DataBlockEncoding> getDataBlockEncoding(Map<String, Object> tableProperties)
+    {
+        requireNonNull(tableProperties);
+
+        DataBlockEncoding value = (DataBlockEncoding) tableProperties.get(DATA_BLOCK_ENCODING);
+        return Optional.ofNullable(value);
     }
 
     public static Optional<Integer> getTimeToLive(Map<String, Object> tableProperties)

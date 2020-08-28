@@ -116,7 +116,7 @@ final class JoinMatcher
             return NO_MATCH;
         }
 
-        if (dynamicFilter.isPresent() && !dynamicFilter.get().match(metadata, joinNode, symbolAliases).isMatch()) {
+        if (dynamicFilter.isPresent() && !dynamicFilter.get().match(joinNode, symbolAliases).isMatch()) {
             return NO_MATCH;
         }
 

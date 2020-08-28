@@ -27,8 +27,10 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
+import io.prestosql.spi.type.SqlTime;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
+import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
@@ -38,6 +40,7 @@ import javax.annotation.Nullable;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
+import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -49,13 +52,14 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.base.Verify.verifyNotNull;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.spi.StandardErrorCode.SERIALIZATION_ERROR;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableList;
+import static java.util.Collections.unmodifiableMap;
 import static java.util.Objects.requireNonNull;
+import static java.util.stream.Collectors.toList;
 
 public class QueryResultRows
         extends AbstractIterator<List<Object>>
@@ -201,6 +205,10 @@ public class QueryResultRows
             if (type instanceof TimestampWithTimeZoneType) {
                 return ((SqlTimestampWithTimeZone) value).roundTo(3);
             }
+
+            if (type instanceof TimeType) {
+                return ((SqlTime) value).roundTo(3);
+            }
         }
 
         if (type instanceof ArrayType) {
@@ -210,41 +218,32 @@ public class QueryResultRows
                 return value;
             }
 
-            return ((List<Object>) value).stream()
+            return unmodifiableList(((List<Object>) value).stream()
                     .map(element -> getLegacyValue(element, elementType))
-                    .collect(toImmutableList());
+                    .collect(toList()));
         }
 
         if (type instanceof MapType) {
             Type keyType = ((MapType) type).getKeyType();
             Type valueType = ((MapType) type).getValueType();
 
-            return ((Map<Object, Object>) value).entrySet().stream()
-                    .collect(toImmutableMap(entry -> getLegacyValue(entry.getKey(), keyType), entry -> getLegacyValue(entry.getValue(), valueType)));
+            Map<Object, Object> result = new HashMap<>();
+            ((Map<Object, Object>) value).forEach((key, val) -> result.put(getLegacyValue(key, keyType), getLegacyValue(val, valueType)));
+            return unmodifiableMap(result);
         }
 
         if (type instanceof RowType) {
             List<RowType.Field> fields = ((RowType) type).getFields();
+            List<Object> values = (List<Object>) value;
+            List<Type> types = fields.stream()
+                    .map(RowType.Field::getType)
+                    .collect(toImmutableList());
 
-            if (value instanceof Map) {
-                Map<String, Object> values = (Map<String, Object>) value;
-
-                return fields.stream()
-                        .collect(toImmutableMap(field -> field.getName().orElseThrow(), field -> getLegacyValue(values.get(field.getName().orElseThrow()), field.getType())));
+            List<Object> result = new ArrayList<>(values.size());
+            for (int i = 0; i < values.size(); i++) {
+                result.add(i, getLegacyValue(values.get(i), types.get(i)));
             }
-
-            if (value instanceof List) {
-                List<Object> values = (List<Object>) value;
-                List<Type> types = fields.stream()
-                        .map(RowType.Field::getType)
-                        .collect(toImmutableList());
-
-                ImmutableList.Builder<Object> result = ImmutableList.builder();
-                for (int i = 0; i < values.size(); i++) {
-                    result.add(getLegacyValue(values.get(i), types.get(i)));
-                }
-                return result.build();
-            }
+            return result;
         }
 
         return value;

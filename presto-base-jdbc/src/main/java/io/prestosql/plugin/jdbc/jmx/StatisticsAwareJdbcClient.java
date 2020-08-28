@@ -108,6 +108,12 @@ public final class StatisticsAwareJdbcClient
     }
 
     @Override
+    public List<ColumnMapping> getColumnMappings(ConnectorSession session, List<JdbcTypeHandle> typeHandles)
+    {
+        return stats.getGetColumnMappings().wrap(() -> delegate.getColumnMappings(session, typeHandles));
+    }
+
+    @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         return stats.getToWriteMapping().wrap(() -> delegate().toWriteMapping(session, type));

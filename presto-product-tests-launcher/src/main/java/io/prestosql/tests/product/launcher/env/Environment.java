@@ -14,13 +14,14 @@
 package io.prestosql.tests.product.launcher.env;
 
 import com.github.dockerjava.api.model.Bind;
+import com.github.dockerjava.api.model.HostConfig;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import io.prestosql.tests.product.launcher.testcontainers.PrintingLogConsumer;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.lifecycle.Startables;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
@@ -32,12 +33,13 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkState;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static org.testcontainers.shaded.com.google.common.base.Preconditions.checkState;
 
 public final class Environment
 {
@@ -127,11 +129,32 @@ public final class Environment
             return this;
         }
 
+        public Builder containerDependsOnRest(String name)
+        {
+            checkState(containers.containsKey(name), "Container with name %s does not exist", name);
+            DockerContainer container = containers.get(name);
+
+            containers.entrySet()
+                    .stream()
+                    .filter(entry -> !entry.getKey().equals(name))
+                    .map(entry -> entry.getValue())
+                    .forEach(dependant -> container.dependsOn(dependant));
+
+            return this;
+        }
+
         public Builder configureContainer(String name, Consumer<DockerContainer> configurer)
         {
             requireNonNull(name, "name is null");
             checkState(containers.containsKey(name), "Container with name %s is not registered", name);
             requireNonNull(configurer, "configurer is null").accept(containers.get(name));
+            return this;
+        }
+
+        public Builder configureContainers(BiConsumer<String, DockerContainer> configurer)
+        {
+            requireNonNull(configurer, "configurer is null");
+            containers.forEach(configurer);
             return this;
         }
 
@@ -162,10 +185,11 @@ public final class Environment
                         .withLogConsumer(new PrintingLogConsumer(out, format("%-20s| ", name)))
                         .withCreateContainerCmdModifier(createContainerCmd -> {
                             Map<String, Bind> binds = new HashMap<>();
-                            for (Bind bind : firstNonNull(createContainerCmd.getBinds(), new Bind[0])) {
+                            HostConfig hostConfig = createContainerCmd.getHostConfig();
+                            for (Bind bind : firstNonNull(hostConfig.getBinds(), new Bind[0])) {
                                 binds.put(bind.getVolume().getPath(), bind); // last bind wins
                             }
-                            createContainerCmd.withBinds(binds.values().toArray(new Bind[0]));
+                            hostConfig.setBinds(binds.values().toArray(new Bind[0]));
                         });
             });
 

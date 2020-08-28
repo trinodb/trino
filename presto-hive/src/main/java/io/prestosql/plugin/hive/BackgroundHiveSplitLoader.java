@@ -516,8 +516,9 @@ public class BackgroundHiveSplitLoader
                     // Fail here to be on the safe side. This seems to be the same as what Hive does
                     throw new PrestoException(
                             HIVE_INVALID_BUCKET_FILES,
-                            format("Hive table '%s' is corrupt. Found sub-directory in bucket directory for partition: %s",
+                            format("Hive table '%s' is corrupt. Found sub-directory '%s' in bucket directory for partition: %s",
                                     table.getSchemaTableName(),
+                                    e.getNestedDirectoryPath(),
                                     splitFactory.getPartitionName()));
                 }
                 lastResult = hiveSplitSource.addToQueue(getBucketedSplits(files, splitFactory, tableBucketInfo.get(), bucketConversion, splittable, acidInfoBuilder.build()));

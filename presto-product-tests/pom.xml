@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>340-SNAPSHOT</version>
+        <version>341-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-product-tests</artifactId>
@@ -30,13 +30,7 @@
 
         <dependency>
             <groupId>io.prestosql</groupId>
-            <artifactId>presto-main</artifactId>
-            <exclusions>
-                <exclusion>
-                    <groupId>io.netty</groupId>
-                    <artifactId>netty</artifactId>
-                </exclusion>
-            </exclusions>
+            <artifactId>presto-testng-services</artifactId>
         </dependency>
 
         <dependency>

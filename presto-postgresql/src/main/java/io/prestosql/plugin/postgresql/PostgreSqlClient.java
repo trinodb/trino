@@ -93,7 +93,6 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.LocalDateTime;
-import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -117,9 +116,8 @@ import static io.prestosql.plugin.jdbc.DecimalSessionSessionProperties.getDecima
 import static io.prestosql.plugin.jdbc.DecimalSessionSessionProperties.getDecimalRoundingMode;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.decimalColumnMapping;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoLegacyTimestamp;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.fromPrestoTimestamp;
-import static io.prestosql.plugin.jdbc.StandardColumnMappings.timeColumnMapping;
+import static io.prestosql.plugin.jdbc.StandardColumnMappings.timeColumnMappingWithTruncation;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.timeWriteFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.timestampReadFunction;
 import static io.prestosql.plugin.jdbc.StandardColumnMappings.tinyintWriteFunction;
@@ -290,7 +288,11 @@ public class PostgreSqlClient
                     }
                     if (columnMapping.isEmpty()) {
                         UnsupportedTypeHandling unsupportedTypeHandling = getUnsupportedTypeHandling(session);
-                        verify(unsupportedTypeHandling == IGNORE, "Unsupported type handling is set to %s, but toPrestoType() returned empty", unsupportedTypeHandling);
+                        verify(
+                                unsupportedTypeHandling == IGNORE,
+                                "Unsupported type handling is set to %s, but toPrestoType() returned empty for %s",
+                                unsupportedTypeHandling,
+                                typeHandle);
                     }
                 }
                 if (columns.isEmpty()) {
@@ -360,13 +362,15 @@ public class PostgreSqlClient
             return Optional.of(typedVarcharColumnMapping(jdbcTypeName));
         }
         if (typeHandle.getJdbcType() == Types.TIME) {
-            return Optional.of(timeColumnMapping(session));
+            // When inserting a time such as 12:34:56.999, Postgres returns 12:34:56.999999999. If we use rounding semantics, the time turns into 00:00:00.000 when
+            // reading it back into a time(3). Hence, truncate instead
+            return Optional.of(timeColumnMappingWithTruncation());
         }
         if (typeHandle.getJdbcType() == Types.TIMESTAMP) {
             return Optional.of(ColumnMapping.longMapping(
                     TIMESTAMP,
-                    timestampReadFunction(session),
-                    timestampWriteFunction(session)));
+                    timestampReadFunction(),
+                    timestampWriteFunction()));
         }
         if (typeHandle.getJdbcType() == Types.NUMERIC && getDecimalRounding(session) == ALLOW_OVERFLOW) {
             if (typeHandle.getColumnSize() == 131089) {
@@ -381,46 +385,56 @@ public class PostgreSqlClient
             }
         }
         if (typeHandle.getJdbcType() == Types.ARRAY) {
-            ArrayMapping arrayMapping = getArrayMapping(session);
-            if (arrayMapping == DISABLED) {
-                return Optional.empty();
+            Optional<ColumnMapping> columnMapping = arrayToPrestoType(session, connection, typeHandle);
+            if (columnMapping.isPresent()) {
+                return columnMapping;
             }
-            // resolve and map base array element type
-            JdbcTypeHandle baseElementTypeHandle = getArrayElementTypeHandle(connection, typeHandle);
-            String baseElementTypeName = baseElementTypeHandle.getJdbcTypeName()
-                    .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Element type name is missing: " + baseElementTypeHandle));
-            if (baseElementTypeHandle.getJdbcType() == Types.VARBINARY) {
-                // PostgreSQL jdbc driver doesn't currently support array of varbinary (bytea[])
-                // https://github.com/pgjdbc/pgjdbc/pull/1184
-                return Optional.empty();
-            }
-            Optional<ColumnMapping> baseElementMapping = toPrestoType(session, connection, baseElementTypeHandle);
-
-            if (arrayMapping == AS_ARRAY) {
-                if (typeHandle.getArrayDimensions().isEmpty()) {
-                    return Optional.empty();
-                }
-                return baseElementMapping
-                        .map(elementMapping -> {
-                            ArrayType prestoArrayType = new ArrayType(elementMapping.getType());
-                            ColumnMapping arrayColumnMapping = arrayColumnMapping(session, prestoArrayType, elementMapping, baseElementTypeName);
-
-                            int arrayDimensions = typeHandle.getArrayDimensions().get();
-                            for (int i = 1; i < arrayDimensions; i++) {
-                                prestoArrayType = new ArrayType(prestoArrayType);
-                                arrayColumnMapping = arrayColumnMapping(session, prestoArrayType, arrayColumnMapping, baseElementTypeName);
-                            }
-                            return arrayColumnMapping;
-                        });
-            }
-            if (arrayMapping == AS_JSON) {
-                return baseElementMapping
-                        .map(elementMapping -> arrayAsJsonColumnMapping(session, elementMapping));
-            }
-            throw new IllegalStateException("Unsupported array mapping type: " + arrayMapping);
         }
         // TODO support PostgreSQL's TIME WITH TIME ZONE explicitly, otherwise predicate pushdown for these types may be incorrect
         return super.toPrestoType(session, connection, typeHandle);
+    }
+
+    private Optional<ColumnMapping> arrayToPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
+    {
+        checkArgument(typeHandle.getJdbcType() == Types.ARRAY, "Not array type");
+
+        ArrayMapping arrayMapping = getArrayMapping(session);
+        if (arrayMapping == DISABLED) {
+            return Optional.empty();
+        }
+        // resolve and map base array element type
+        JdbcTypeHandle baseElementTypeHandle = getArrayElementTypeHandle(connection, typeHandle);
+        String baseElementTypeName = baseElementTypeHandle.getJdbcTypeName()
+                .orElseThrow(() -> new PrestoException(JDBC_ERROR, "Element type name is missing: " + baseElementTypeHandle));
+        if (baseElementTypeHandle.getJdbcType() == Types.BINARY) {
+            // PostgreSQL jdbc driver doesn't currently support array of varbinary (bytea[])
+            // https://github.com/pgjdbc/pgjdbc/pull/1184
+            return Optional.empty();
+        }
+        Optional<ColumnMapping> baseElementMapping = toPrestoType(session, connection, baseElementTypeHandle);
+
+        if (arrayMapping == AS_ARRAY) {
+            if (typeHandle.getArrayDimensions().isEmpty()) {
+                return Optional.empty();
+            }
+            return baseElementMapping
+                    .map(elementMapping -> {
+                        ArrayType prestoArrayType = new ArrayType(elementMapping.getType());
+                        ColumnMapping arrayColumnMapping = arrayColumnMapping(session, prestoArrayType, elementMapping, baseElementTypeName);
+
+                        int arrayDimensions = typeHandle.getArrayDimensions().get();
+                        for (int i = 1; i < arrayDimensions; i++) {
+                            prestoArrayType = new ArrayType(prestoArrayType);
+                            arrayColumnMapping = arrayColumnMapping(session, prestoArrayType, arrayColumnMapping, baseElementTypeName);
+                        }
+                        return arrayColumnMapping;
+                    });
+        }
+        if (arrayMapping == AS_JSON) {
+            return baseElementMapping
+                    .map(elementMapping -> arrayAsJsonColumnMapping(session, elementMapping));
+        }
+        throw new IllegalStateException("Unsupported array mapping type: " + arrayMapping);
     }
 
     @Override
@@ -430,10 +444,10 @@ public class PostgreSqlClient
             return WriteMapping.sliceMapping("bytea", varbinaryWriteFunction());
         }
         if (TIME.equals(type)) {
-            return WriteMapping.longMapping("time", timeWriteFunction(session));
+            return WriteMapping.longMapping("time", timeWriteFunction());
         }
         if (TIMESTAMP.equals(type)) {
-            return WriteMapping.longMapping("timestamp", timestampWriteFunction(session));
+            return WriteMapping.longMapping("timestamp", timestampWriteFunction());
         }
         if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
             return WriteMapping.longMapping("timestamptz", timestampWithTimeZoneWriteFunction());
@@ -482,14 +496,10 @@ public class PostgreSqlClient
     // When writing with setObject() using LocalDateTime, driver converts the value to string representing date-time in JVM zone,
     // therefore cannot represent local date-time which is a "gap" in this zone.
     // TODO replace this method with StandardColumnMappings#timestampWriteFunction when https://github.com/pgjdbc/pgjdbc/issues/1390 is done
-    private static LongWriteFunction timestampWriteFunction(ConnectorSession session)
+    private static LongWriteFunction timestampWriteFunction()
     {
-        ZoneId sessionZone = ZoneId.of(session.getTimeZoneKey().getId());
-        boolean legacyTimestamp = session.isLegacyTimestamp();
         return (statement, index, value) -> {
-            LocalDateTime localDateTime = legacyTimestamp
-                    ? fromPrestoLegacyTimestamp(value, sessionZone)
-                    : fromPrestoTimestamp(value);
+            LocalDateTime localDateTime = fromPrestoTimestamp(value);
             statement.setObject(index, toPgTimestamp(localDateTime));
         };
     }

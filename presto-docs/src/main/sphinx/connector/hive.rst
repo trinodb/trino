@@ -262,6 +262,20 @@ Property Name                                      Description                  
 
 ``hive.file-status-cache-expire-time``             How long a cached directory listing should be considered     ``1m``
                                                    valid.
+
+``hive.temporary-staging-directory-enabled``       Controls whether the temporary staging directory configured  ``true``
+                                                   at ``hive.temporary-staging-directory-path`` should be
+                                                   used for write operations. Temporary staging directory is
+                                                   never used for writes to non-sorted tables on S3,
+                                                   encrypted HDFS or external location. Writes to sorted tables
+                                                   will utilize this path for staging temporary files
+                                                   during sorting operation. When disabled, the target storage
+                                                   will be used for staging while writing sorted tables which
+                                                   can be inefficient when writing to object stores like S3.
+
+``hive.temporary-staging-directory-path``          Controls the location of temporary staging directory that    ``/tmp/${USER}``
+                                                   is used for write operations. The ``${USER}`` placeholder
+                                                   can be used to use a different location for each user.
 ================================================== ============================================================ ============
 
 Metastore Configuration Properties
@@ -289,6 +303,8 @@ Property Name                                      Description                  
                                         subsequent accesses to see fresh data.
 
 ``hive.metastore-refresh-max-threads``  Maximum threads used to refresh cached metastore data.        100
+
+``hive.metastore-timeout``              Timeout for Hive metastore requests.                         ``10s``
 ======================================= ============================================================ ============
 
 Thrift Metastore Configuration Properties
@@ -592,6 +608,9 @@ Procedures
 
   Registers existing location as a new partition in the metastore for the specified table.
 
+  When the ``location`` argument is omitted, the partition location is
+  constructed using ``partition_columns`` and ``partition_values``.
+
   Due to security reasons, the procedure is enabled only when ``hive.allow-register-partition-procedure``
   is set to ``true``.
 
@@ -738,11 +757,25 @@ Hive 3 Related Limitations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * For security reasons, the ``sys`` system catalog is not accessible.
+
 * Hive's ``timestamp with local zone`` data type is not supported.
   It is possible to read from a table with a column of this type, but the column
   data is not accessible. Writing to such a table is not supported.
+
 * Due to Hive issues `HIVE-21002 <https://issues.apache.org/jira/browse/HIVE-21002>`_
   and `HIVE-22167 <https://issues.apache.org/jira/browse/HIVE-22167>`_, Presto does
   not correctly read ``timestamp`` values from Parquet, RCBinary, or Avro
   file formats created by Hive 3.1 or later. When reading from these file formats,
   Presto returns different results than Hive.
+
+* :doc:`/sql/create-table-as` can be used to create transactional tables in ORC format like this::
+
+      CREATE TABLE <name>
+      WITH (
+          format='ORC',
+          transactional=true,
+      )
+      AS <query>
+
+  Presto does not support gathering table statistics for Hive transactional tables.
+  You need to use Hive to gather table statistics with ``ANALYZE TABLE COMPUTE STATISTICS`` after table creation.

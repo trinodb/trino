@@ -15,6 +15,7 @@ package io.prestosql.plugin.oracle;
 
 import io.airlift.configuration.Config;
 import io.airlift.configuration.ConfigDescription;
+import io.airlift.units.Duration;
 
 import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.Max;
@@ -24,6 +25,8 @@ import javax.validation.constraints.NotNull;
 import java.math.RoundingMode;
 import java.util.Optional;
 
+import static java.util.concurrent.TimeUnit.MINUTES;
+
 public class OracleConfig
 {
     private boolean synonymsEnabled;
@@ -32,6 +35,7 @@ public class OracleConfig
     private boolean connectionPoolEnabled = true;
     private int connectionPoolMinSize = 1;
     private int connectionPoolMaxSize = 30;
+    private Duration inactiveConnectionTimeout = new Duration(20, MINUTES);
 
     @NotNull
     public boolean isSynonymsEnabled()
@@ -108,6 +112,20 @@ public class OracleConfig
     public OracleConfig setConnectionPoolMaxSize(int connectionPoolMaxSize)
     {
         this.connectionPoolMaxSize = connectionPoolMaxSize;
+        return this;
+    }
+
+    @NotNull
+    public Duration getInactiveConnectionTimeout()
+    {
+        return inactiveConnectionTimeout;
+    }
+
+    @Config("oracle.connection-pool.inactive-timeout")
+    @ConfigDescription("How long a connection in the pool can remain idle before it is closed")
+    public OracleConfig setInactiveConnectionTimeout(Duration inactiveConnectionTimeout)
+    {
+        this.inactiveConnectionTimeout = inactiveConnectionTimeout;
         return this;
     }
 

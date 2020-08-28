@@ -20,14 +20,26 @@ import static java.util.Objects.requireNonNull;
 public final class Extensions
 {
     private final Module additionalEnvironments;
+    private final Module additionalSuites;
 
     public Extensions(Module additionalEnvironments)
     {
+        this(additionalEnvironments, binder -> {});
+    }
+
+    public Extensions(Module additionalEnvironments, Module additionalSuites)
+    {
         this.additionalEnvironments = requireNonNull(additionalEnvironments, "additionalEnvironments is null");
+        this.additionalSuites = requireNonNull(additionalSuites, "additionalSuites is null");
     }
 
     public Module getAdditionalEnvironments()
     {
         return additionalEnvironments;
+    }
+
+    public Module getAdditionalSuites()
+    {
+        return additionalSuites;
     }
 }

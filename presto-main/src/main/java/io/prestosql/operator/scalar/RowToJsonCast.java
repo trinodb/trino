@@ -24,7 +24,6 @@ import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.metadata.TypeVariableConstraint;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
@@ -52,7 +51,7 @@ public class RowToJsonCast
         extends SqlOperator
 {
     public static final RowToJsonCast ROW_TO_JSON = new RowToJsonCast();
-    private static final MethodHandle METHOD_HANDLE = methodHandle(RowToJsonCast.class, "toJson", List.class, ConnectorSession.class, Block.class);
+    private static final MethodHandle METHOD_HANDLE = methodHandle(RowToJsonCast.class, "toJson", List.class, Block.class);
 
     private RowToJsonCast()
     {
@@ -87,14 +86,14 @@ public class RowToJsonCast
     }
 
     @UsedByGeneratedCode
-    public static Slice toJson(List<JsonGeneratorWriter> fieldWriters, ConnectorSession session, Block block)
+    public static Slice toJson(List<JsonGeneratorWriter> fieldWriters, Block block)
     {
         try {
             SliceOutput output = new DynamicSliceOutput(40);
             try (JsonGenerator jsonGenerator = createJsonGenerator(JSON_FACTORY, output)) {
                 jsonGenerator.writeStartArray();
                 for (int i = 0; i < block.getPositionCount(); i++) {
-                    fieldWriters.get(i).writeJsonValue(jsonGenerator, block, i, session);
+                    fieldWriters.get(i).writeJsonValue(jsonGenerator, block, i);
                 }
                 jsonGenerator.writeEndArray();
             }

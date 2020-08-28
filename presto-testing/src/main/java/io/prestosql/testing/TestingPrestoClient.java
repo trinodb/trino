@@ -25,8 +25,7 @@ import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.SqlTimestamp;
-import io.prestosql.spi.type.SqlTimestampWithTimeZone;
+import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
@@ -42,6 +41,7 @@ import java.time.OffsetTime;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -64,7 +64,6 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
@@ -75,6 +74,7 @@ import static io.prestosql.type.IpAddressType.IPADDRESS;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.UuidType.UUID;
 import static io.prestosql.util.MoreLists.mappedCopy;
+import static java.time.temporal.ChronoField.NANO_OF_SECOND;
 import static java.util.stream.Collectors.toList;
 
 public class TestingPrestoClient
@@ -83,7 +83,17 @@ public class TestingPrestoClient
     private static final DateTimeFormatter timeWithUtcZoneFormat = DateTimeFormatter.ofPattern("HH:mm:ss.SSS 'UTC'"); // UTC zone would be printed as "Z" in "XXX" format
     private static final DateTimeFormatter timeWithZoneOffsetFormat = DateTimeFormatter.ofPattern("HH:mm:ss.SSS XXX");
 
-    private static final DateTimeFormatter timestampWithTimeZoneFormat = DateTimeFormatter.ofPattern(SqlTimestampWithTimeZone.JSON_FORMAT);
+    private static final DateTimeFormatter timestampFormat = new DateTimeFormatterBuilder()
+            .appendPattern("uuuu-MM-dd HH:mm:ss")
+            .optionalStart()
+            .appendFraction(NANO_OF_SECOND, 0, 9, true)
+            .optionalEnd()
+            .toFormatter();
+
+    private static final DateTimeFormatter timestampWithTimeZoneFormat = new DateTimeFormatterBuilder()
+            .append(timestampFormat)
+            .appendPattern(" VV")
+            .toFormatter();
 
     public TestingPrestoClient(TestingPrestoServer prestoServer, Session defaultSession)
     {
@@ -212,7 +222,7 @@ public class TestingPrestoClient
         else if (DATE.equals(type)) {
             return DateTimeFormatter.ISO_LOCAL_DATE.parse(((String) value), LocalDate::from);
         }
-        else if (TIME.equals(type)) {
+        else if (type instanceof TimeType) {
             return DateTimeFormatter.ISO_LOCAL_TIME.parse(((String) value), LocalTime::from);
         }
         else if (TIME_WITH_TIME_ZONE.equals(type)) {
@@ -225,7 +235,7 @@ public class TestingPrestoClient
             }
         }
         else if (type instanceof TimestampType) {
-            return SqlTimestamp.JSON_FORMATTER.parse((String) value, LocalDateTime::from);
+            return timestampFormat.parse((String) value, LocalDateTime::from);
         }
         else if (type instanceof TimestampWithTimeZoneType) {
             return timestampWithTimeZoneFormat.parse((String) value, ZonedDateTime::from);

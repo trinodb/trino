@@ -67,6 +67,7 @@ public class TestPhoenixIntegrationSmokeTest
                         "   comment varchar(79)\n" +
                         ")\n" +
                         "WITH (\n" +
+                        "   data_block_encoding = 'FAST_DIFF',\n" +
                         "   rowkeys = 'ROWKEY',\n" +
                         "   salt_buckets = 10\n" +
                         ")");
@@ -140,6 +141,7 @@ public class TestPhoenixIntegrationSmokeTest
                            "   d varchar(10)\n" +
                            ")\n" +
                            "WITH (\n" +
+                           "   data_block_encoding = 'FAST_DIFF',\n" +
                            "   rowkeys = 'A,B,C',\n" +
                            "   salt_buckets = 10\n" +
                            ")");
@@ -176,6 +178,16 @@ public class TestPhoenixIntegrationSmokeTest
         executeInPhoenix("CREATE TABLE tpch.\"TestCaseInsensitive\" (\"pK\" bigint primary key, \"Val1\" double)");
         assertUpdate("INSERT INTO testcaseinsensitive VALUES (1, 1.1)", 1);
         assertQuery("SELECT Val1 FROM testcaseinsensitive where Val1 < 1.2", "SELECT 1.1");
+    }
+
+    @Test
+    public void testMissingColumnsOnInsert()
+            throws Exception
+    {
+        executeInPhoenix("CREATE TABLE tpch.test_col_insert(pk VARCHAR NOT NULL PRIMARY KEY, col1 VARCHAR, col2 VARCHAR)");
+        assertUpdate("INSERT INTO test_col_insert(pk, col1) VALUES('1', 'val1')", 1);
+        assertUpdate("INSERT INTO test_col_insert(pk, col2) VALUES('1', 'val2')", 1);
+        assertQuery("SELECT * FROM test_col_insert", "SELECT 1, 'val1', 'val2'");
     }
 
     private void executeInPhoenix(String sql)

@@ -25,8 +25,8 @@ import org.joda.time.chrono.ISOChronology;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.type.DateTimeOperators.modulo24Hour;
-import static io.prestosql.type.Timestamps.round;
-import static io.prestosql.type.Timestamps.scaleEpochMicrosToMillis;
+import static io.prestosql.type.DateTimes.round;
+import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
 import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 
 @ScalarOperator(CAST)
@@ -40,11 +40,6 @@ public final class TimestampToTimeWithTimezoneCast
     {
         if (precision > 3) {
             value = scaleEpochMicrosToMillis(round(value, 3));
-        }
-
-        if (session.isLegacyTimestamp()) {
-            int timeMillis = modulo24Hour(getChronology(session.getTimeZoneKey()), value);
-            return packDateTimeWithZone(timeMillis, session.getTimeZoneKey());
         }
 
         ISOChronology localChronology = getChronology(session.getTimeZoneKey());

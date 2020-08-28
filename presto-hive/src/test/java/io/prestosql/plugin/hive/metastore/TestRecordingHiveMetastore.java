@@ -16,18 +16,29 @@ package io.prestosql.plugin.hive.metastore;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import io.airlift.json.JsonCodec;
+import io.airlift.json.JsonCodecFactory;
+import io.airlift.json.ObjectMapperProvider;
+import io.airlift.slice.Slices;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.hive.HiveBasicStatistics;
 import io.prestosql.plugin.hive.HiveBucketProperty;
 import io.prestosql.plugin.hive.HiveConfig;
+import io.prestosql.plugin.hive.HiveModule;
 import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo.HivePrivilege;
 import io.prestosql.plugin.hive.metastore.SortingColumn.Order;
+import io.prestosql.plugin.hive.util.HiveBlockEncodingSerde;
+import io.prestosql.spi.block.Block;
+import io.prestosql.spi.block.TestingBlockJsonSerde;
+import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.PrestoPrincipal;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
+import io.prestosql.spi.type.TestingTypeManager;
 import io.prestosql.spi.type.Type;
 import org.testng.annotations.Test;
 
@@ -45,6 +56,7 @@ import static io.prestosql.plugin.hive.util.HiveBucketing.BucketingVersion.BUCKE
 import static io.prestosql.spi.security.PrincipalType.USER;
 import static io.prestosql.spi.statistics.ColumnStatisticType.MAX_VALUE;
 import static io.prestosql.spi.statistics.ColumnStatisticType.MIN_VALUE;
+import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static org.testng.Assert.assertEquals;
@@ -103,6 +115,11 @@ public class TestRecordingHiveMetastore
     private static final HivePrivilegeInfo PRIVILEGE_INFO = new HivePrivilegeInfo(HivePrivilege.SELECT, true, new HivePrincipal(USER, "grantor"), new HivePrincipal(USER, "grantee"));
     private static final RoleGrant ROLE_GRANT = new RoleGrant(new PrestoPrincipal(USER, "grantee"), "role", true);
     private static final HiveIdentity HIVE_CONTEXT = new HiveIdentity(SESSION);
+    private static final List<String> PARTITION_COLUMN_NAMES = ImmutableList.of(TABLE_COLUMN.getName());
+    private static final Domain PARTITION_COLUMN_EQUAL_DOMAIN = Domain.singleValue(createUnboundedVarcharType(), Slices.utf8Slice("value1"));
+    private static final TupleDomain<String> TUPLE_DOMAIN = TupleDomain.withColumnDomains(ImmutableMap.<String, Domain>builder()
+                .put(TABLE_COLUMN.getName(), PARTITION_COLUMN_EQUAL_DOMAIN)
+                .build());
 
     @Test
     public void testRecordingHiveMetastore()
@@ -111,8 +128,8 @@ public class TestRecordingHiveMetastore
         HiveConfig recordingHiveConfig = new HiveConfig()
                 .setRecordingPath(File.createTempFile("recording_test", "json").getAbsolutePath())
                 .setRecordingDuration(new Duration(10, TimeUnit.MINUTES));
-
-        RecordingHiveMetastore recordingHiveMetastore = new RecordingHiveMetastore(new TestingHiveMetastore(), recordingHiveConfig);
+        JsonCodec<RecordingHiveMetastore.Recording> jsonCodec = createJsonCodec();
+        RecordingHiveMetastore recordingHiveMetastore = new RecordingHiveMetastore(new TestingHiveMetastore(), recordingHiveConfig, jsonCodec);
         validateMetadata(recordingHiveMetastore);
         recordingHiveMetastore.dropDatabase(HIVE_CONTEXT, "other_database");
         recordingHiveMetastore.writeRecording();
@@ -120,9 +137,22 @@ public class TestRecordingHiveMetastore
         HiveConfig replayingHiveConfig = recordingHiveConfig
                 .setReplay(true);
 
-        recordingHiveMetastore = new RecordingHiveMetastore(new UnimplementedHiveMetastore(), replayingHiveConfig);
+        recordingHiveMetastore = new RecordingHiveMetastore(new UnimplementedHiveMetastore(), replayingHiveConfig, createJsonCodec());
         recordingHiveMetastore.loadRecording();
         validateMetadata(recordingHiveMetastore);
+    }
+
+    private JsonCodec<RecordingHiveMetastore.Recording> createJsonCodec()
+    {
+        ObjectMapperProvider objectMapperProvider = new ObjectMapperProvider();
+        HiveModule.TypeDeserializer typeDeserializer = new HiveModule.TypeDeserializer(new TestingTypeManager());
+        objectMapperProvider.setJsonDeserializers(
+                ImmutableMap.of(
+                        Block.class, new TestingBlockJsonSerde.Deserializer(new HiveBlockEncodingSerde()),
+                        Type.class, typeDeserializer));
+        objectMapperProvider.setJsonSerializers(ImmutableMap.of(Block.class, new TestingBlockJsonSerde.Serializer(new HiveBlockEncodingSerde())));
+        JsonCodec<RecordingHiveMetastore.Recording> jsonCodec = new JsonCodecFactory(objectMapperProvider).jsonCodec(RecordingHiveMetastore.Recording.class);
+        return jsonCodec;
     }
 
     private void validateMetadata(HiveMetastore hiveMetastore)
@@ -137,8 +167,8 @@ public class TestRecordingHiveMetastore
         assertEquals(hiveMetastore.getTablesWithParameter("database", "param", "value3"), ImmutableList.of("table"));
         assertEquals(hiveMetastore.getAllViews("database"), ImmutableList.of());
         assertEquals(hiveMetastore.getPartition(HIVE_CONTEXT, TABLE, ImmutableList.of("value")), Optional.of(PARTITION));
-        assertEquals(hiveMetastore.getPartitionNames(HIVE_CONTEXT, "database", "table"), Optional.of(ImmutableList.of("value")));
-        assertEquals(hiveMetastore.getPartitionNamesByParts(HIVE_CONTEXT, "database", "table", ImmutableList.of("value")), Optional.of(ImmutableList.of("value")));
+        assertEquals(hiveMetastore.getPartitionNamesByFilter(HIVE_CONTEXT, "database", "table", PARTITION_COLUMN_NAMES, TupleDomain.all()), Optional.of(ImmutableList.of("value")));
+        assertEquals(hiveMetastore.getPartitionNamesByFilter(HIVE_CONTEXT, "database", "table", PARTITION_COLUMN_NAMES, TUPLE_DOMAIN), Optional.of(ImmutableList.of("value")));
         assertEquals(hiveMetastore.getPartitionsByNames(HIVE_CONTEXT, TABLE, ImmutableList.of("value")), ImmutableMap.of("value", Optional.of(PARTITION)));
         assertEquals(hiveMetastore.listTablePrivileges("database", "table", "owner", Optional.of(new HivePrincipal(USER, "user"))), ImmutableSet.of(PRIVILEGE_INFO));
         assertEquals(hiveMetastore.listRoles(), ImmutableSet.of("role"));
@@ -249,19 +279,10 @@ public class TestRecordingHiveMetastore
         }
 
         @Override
-        public Optional<List<String>> getPartitionNames(HiveIdentity identity, String databaseName, String tableName)
+        public Optional<List<String>> getPartitionNamesByFilter(HiveIdentity identity, String databaseName, String tableName, List<String> columnNames, TupleDomain<String> partitionKeysFilter)
         {
-            if (databaseName.equals("database") && tableName.equals("table")) {
-                return Optional.of(ImmutableList.of("value"));
-            }
-
-            return Optional.empty();
-        }
-
-        @Override
-        public Optional<List<String>> getPartitionNamesByParts(HiveIdentity identity, String databaseName, String tableName, List<String> parts)
-        {
-            if (databaseName.equals("database") && tableName.equals("table") && parts.equals(ImmutableList.of("value"))) {
+            Domain filterDomain = partitionKeysFilter.getDomains().get().get(TABLE_COLUMN.getName());
+            if (databaseName.equals("database") && tableName.equals("table") && (filterDomain == null || filterDomain.equals(PARTITION_COLUMN_EQUAL_DOMAIN))) {
                 return Optional.of(ImmutableList.of("value"));
             }
 

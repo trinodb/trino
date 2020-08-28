@@ -28,9 +28,8 @@ import org.joda.time.format.DateTimeFormat;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.type.Timestamps.round;
-import static io.prestosql.type.Timestamps.scaleEpochMicrosToMillis;
-import static io.prestosql.util.DateTimeZoneIndex.getChronology;
+import static io.prestosql.type.DateTimes.round;
+import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
 
 @Description("Formats the given time by the given format")
 @ScalarFunction("format_datetime")
@@ -47,17 +46,11 @@ public class FormatDateTime
             timestamp = scaleEpochMicrosToMillis(round(timestamp, 3));
         }
 
-        ISOChronology chronology;
-        if (session.isLegacyTimestamp()) {
-            chronology = getChronology(session.getTimeZoneKey());
+        if (datetimeFormatSpecifiesZone(formatString)) {
+            // Timezone is unknown for TIMESTAMP w/o TZ so it cannot be printed out.
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "format_datetime for TIMESTAMP type, cannot use 'Z' nor 'z' in format, as this type does not contain TZ information");
         }
-        else {
-            if (datetimeFormatSpecifiesZone(formatString)) {
-                // Timezone is unknown for TIMESTAMP w/o TZ so it cannot be printed out.
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "format_datetime for TIMESTAMP type, cannot use 'Z' nor 'z' in format, as this type does not contain TZ information");
-            }
-            chronology = ISOChronology.getInstanceUTC();
-        }
+        ISOChronology chronology = ISOChronology.getInstanceUTC();
 
         try {
             return utf8Slice(DateTimeFormat.forPattern(formatString.toStringUtf8())

@@ -417,12 +417,22 @@ public final class PlanMatchPattern
 
     public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, PlanMatchPattern source, PlanMatchPattern filtering)
     {
-        return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, Optional.empty(), source, filtering);
+        return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, Optional.empty(), Optional.empty(), source, filtering);
     }
 
     public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, Optional<SemiJoinNode.DistributionType> distributionType, PlanMatchPattern source, PlanMatchPattern filtering)
     {
-        return node(SemiJoinNode.class, source, filtering).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias, distributionType));
+        return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, distributionType, Optional.empty(), source, filtering);
+    }
+
+    public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, boolean hasDynamicFilter, PlanMatchPattern source, PlanMatchPattern filtering)
+    {
+        return semiJoin(sourceSymbolAlias, filteringSymbolAlias, outputAlias, Optional.empty(), Optional.of(hasDynamicFilter), source, filtering);
+    }
+
+    public static PlanMatchPattern semiJoin(String sourceSymbolAlias, String filteringSymbolAlias, String outputAlias, Optional<SemiJoinNode.DistributionType> distributionType, Optional<Boolean> hasDynamicFilter, PlanMatchPattern source, PlanMatchPattern filtering)
+    {
+        return node(SemiJoinNode.class, source, filtering).with(new SemiJoinMatcher(sourceSymbolAlias, filteringSymbolAlias, outputAlias, distributionType, hasDynamicFilter));
     }
 
     public static PlanMatchPattern join(JoinNode.Type joinType, List<ExpectedValueProvider<JoinNode.EquiJoinClause>> expectedEquiCriteria, PlanMatchPattern left, PlanMatchPattern right)
@@ -465,13 +475,11 @@ public final class PlanMatchPattern
             Map<String, String> expectedDynamicFilter,
             Optional<String> expectedStaticFilter,
             PlanMatchPattern leftSource,
-            PlanMatchPattern right,
-            Metadata metadata)
+            PlanMatchPattern right)
     {
         Map<SymbolAlias, SymbolAlias> expectedDynamicFilterAliases = expectedDynamicFilter.entrySet().stream()
                 .collect(toImmutableMap(entry -> new SymbolAlias(entry.getKey()), entry -> new SymbolAlias(entry.getValue())));
         DynamicFilterMatcher dynamicFilterMatcher = new DynamicFilterMatcher(
-                metadata,
                 expectedDynamicFilterAliases,
                 expectedStaticFilter.map(predicate -> rewriteIdentifiersToSymbolReferences(new SqlParser().createExpression(predicate, new ParsingOptions()))));
         JoinMatcher joinMatcher = new JoinMatcher(

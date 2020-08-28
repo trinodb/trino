@@ -25,7 +25,7 @@ import io.prestosql.spi.type.StandardTypes;
 import static io.prestosql.operator.scalar.DateTimeFunctions.getTimestampField;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.updateMillisUtc;
-import static io.prestosql.type.Timestamps.round;
+import static io.prestosql.type.DateTimes.round;
 import static io.prestosql.util.DateTimeZoneIndex.unpackChronology;
 import static java.lang.Math.toIntExact;
 
