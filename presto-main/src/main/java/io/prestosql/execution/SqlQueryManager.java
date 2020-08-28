@@ -320,9 +320,12 @@ public class SqlQueryManager
     private void enforceScanLimits()
     {
         for (QueryExecution query : queryTracker.getAllQueries()) {
-            Optional<DataSize> limitOpt = getQueryMaxScanPhysicalBytes(query.getSession())
+            Optional<DataSize> limitOpt = getQueryMaxScanPhysicalBytes(query.getSession());
+            if (maxQueryScanPhysicalBytes.isPresent()) {
+                limitOpt = limitOpt
                     .flatMap(sessionLimit -> maxQueryScanPhysicalBytes.map(serverLimit -> Ordering.natural().min(serverLimit, sessionLimit)))
                     .or(() -> maxQueryScanPhysicalBytes);
+            }
 
             limitOpt.ifPresent(limit -> {
                 DataSize scan = query.getBasicQueryInfo().getQueryStats().getPhysicalInputDataSize();
