@@ -14,6 +14,7 @@
 package io.prestosql.plugin.phoenix;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.plugin.jdbc.TablePropertiesProvider;
 import io.prestosql.spi.session.PropertyMetadata;
 import org.apache.hadoop.hbase.io.compress.Compression;
 import org.apache.hadoop.hbase.io.encoding.DataBlockEncoding;
@@ -40,6 +41,7 @@ import static java.util.Objects.requireNonNull;
  * <pre>CREATE TABLE foo (a VARCHAR with (primary_key = true), b INT) WITH (SALT_BUCKETS=10, VERSIONS=5, COMPRESSION='lz');</pre>
  */
 public final class PhoenixTableProperties
+        implements TablePropertiesProvider
 {
     public static final String ROWKEYS = "rowkeys";
     public static final String SALT_BUCKETS = "salt_buckets";
@@ -125,6 +127,7 @@ public final class PhoenixTableProperties
                         false));
     }
 
+    @Override
     public List<PropertyMetadata<?>> getTableProperties()
     {
         return tableProperties;
