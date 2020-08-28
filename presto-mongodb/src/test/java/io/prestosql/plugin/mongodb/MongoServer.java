@@ -15,6 +15,7 @@ package io.prestosql.plugin.mongodb;
 
 import com.google.common.net.HostAndPort;
 import org.testcontainers.containers.MongoDBContainer;
+import org.testcontainers.containers.wait.strategy.Wait;
 
 import java.io.Closeable;
 
@@ -27,9 +28,12 @@ public class MongoServer
 
     public MongoServer()
     {
-        this.dockerContainer = new MongoDBContainer("mongo:3.4.0")
+        this.dockerContainer = new MongoDBContainer("mongo:4.4.0")
                 .withEnv("MONGO_INITDB_DATABASE", "tpch")
                 .withCommand("--bind_ip 0.0.0.0");
+
+        // Overriding what is defined in the constructor -- the log message is different
+        this.dockerContainer.waitingFor(Wait.forLogMessage(".*Waiting for connections.*", 1));
         this.dockerContainer.start();
     }
 

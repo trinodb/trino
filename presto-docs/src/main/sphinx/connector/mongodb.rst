@@ -6,7 +6,7 @@ The ``mongodb`` connector allows the use of `MongoDB <https://www.mongodb.com/>`
 
 .. note::
 
-    MongoDB 2.6+ is supported, although it is highly recommend to use 3.0 or later.
+    MongoDB 2.6+ is supported, although it is highly recommend to use 4.0 or later.
 
 Configuration
 -------------
