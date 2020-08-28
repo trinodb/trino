@@ -66,8 +66,7 @@ public final class EnvironmentUp
         runCommand(
                 ImmutableList.<Module>builder()
                         .add(new LauncherModule())
-                        .add(new EnvironmentModule(additionalEnvironments))
-                        .add(environmentOptions.toModule())
+                        .add(new EnvironmentModule(environmentOptions, additionalEnvironments))
                         .add(environmentUpOptions.toModule())
                         .build(),
                 EnvironmentUp.Execution.class);

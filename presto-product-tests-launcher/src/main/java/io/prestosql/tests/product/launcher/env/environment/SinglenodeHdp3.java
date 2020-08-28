@@ -16,7 +16,7 @@ package io.prestosql.tests.product.launcher.env.environment;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
+import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Standard;
@@ -38,11 +38,11 @@ public class SinglenodeHdp3
     private final String hadoopImagesVersion;
 
     @Inject
-    protected SinglenodeHdp3(DockerFiles dockerFiles, Standard standard, Hadoop hadoop, EnvironmentOptions environmentOptions)
+    protected SinglenodeHdp3(DockerFiles dockerFiles, Standard standard, Hadoop hadoop, EnvironmentConfig environmentConfig)
     {
         super(ImmutableList.of(standard, hadoop));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
-        this.hadoopImagesVersion = requireNonNull(environmentOptions.hadoopImagesVersion, "environmentOptions.hadoopImagesVersion is null");
+        this.hadoopImagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopImagesVersion();
     }
 
     @Override

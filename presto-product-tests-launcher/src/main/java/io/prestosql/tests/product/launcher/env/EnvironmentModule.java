@@ -14,7 +14,10 @@
 package io.prestosql.tests.product.launcher.env;
 
 import com.google.inject.Binder;
+import com.google.inject.Inject;
 import com.google.inject.Module;
+import com.google.inject.Provides;
+import com.google.inject.Singleton;
 import com.google.inject.multibindings.MapBinder;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Kafka;
@@ -32,16 +35,19 @@ public final class EnvironmentModule
 {
     public static final String BASE_PACKAGE = "io.prestosql.tests.product.launcher.env.environment";
     public static final String BASE_CONFIG_PACKAGE = "io.prestosql.tests.product.launcher.env.configs";
+    private final EnvironmentOptions environmentOptions;
     private final Module additionalEnvironments;
 
-    public EnvironmentModule(Module additionalEnvironments)
+    public EnvironmentModule(EnvironmentOptions environmentOptions, Module additionalEnvironments)
     {
+        this.environmentOptions = requireNonNull(environmentOptions, "environmentOptions is null");
         this.additionalEnvironments = requireNonNull(additionalEnvironments, "additionalEnvironments is null");
     }
 
     @Override
     public void configure(Binder binder)
     {
+        binder.bind(EnvironmentOptions.class).toInstance(environmentOptions);
         binder.bind(PortBinder.class);
         binder.bind(EnvironmentFactory.class);
         binder.bind(EnvironmentConfigFactory.class);
@@ -59,5 +65,13 @@ public final class EnvironmentModule
         Environments.findConfigsByBasePackage(BASE_CONFIG_PACKAGE).forEach(clazz -> environmentConfigs.addBinding(nameForConfigClass(clazz)).to(clazz));
 
         binder.install(additionalEnvironments);
+    }
+
+    @Inject
+    @Provides
+    @Singleton
+    public EnvironmentConfig provideEnvironmentConfig(EnvironmentOptions options, EnvironmentConfigFactory factory)
+    {
+        return factory.getConfig(options.config);
     }
 }
