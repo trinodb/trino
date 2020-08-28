@@ -14,6 +14,7 @@
 package io.prestosql.tests.product.launcher.suite.suites;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.EnvironmentDefaults;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHdfsImpersonationCrossRealm;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeLdapBindDn;
@@ -24,7 +25,6 @@ import io.prestosql.tests.product.launcher.env.environment.SinglenodeSqlserver;
 import io.prestosql.tests.product.launcher.env.environment.TwoKerberosHives;
 import io.prestosql.tests.product.launcher.env.environment.TwoMixedHives;
 import io.prestosql.tests.product.launcher.suite.Suite;
-import io.prestosql.tests.product.launcher.suite.SuiteConfig;
 import io.prestosql.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
@@ -36,7 +36,7 @@ public class Suite7NonGeneric
         extends Suite
 {
     @Override
-    public List<SuiteTestRun> getTestRuns(SuiteConfig config)
+    public List<SuiteTestRun> getTestRuns(EnvironmentConfig config)
     {
         verify(config.getHadoopBaseImage().equals(EnvironmentDefaults.HADOOP_BASE_IMAGE), "The suite should be run with default HADOOP_BASE_IMAGE. Leave HADOOP_BASE_IMAGE unset.");
 

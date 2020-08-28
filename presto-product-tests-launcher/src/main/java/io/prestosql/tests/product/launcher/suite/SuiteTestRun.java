@@ -18,6 +18,7 @@ import com.google.common.base.Splitter;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Iterables;
+import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.EnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.Environments;
 
@@ -88,7 +89,7 @@ public class SuiteTestRun
                 .build();
     }
 
-    public List<String> getTemptoRunArguments(SuiteConfig suiteConfig)
+    public List<String> getTemptoRunArguments(EnvironmentConfig environmentConfig)
     {
         ImmutableList.Builder<String> arguments = ImmutableList.builder();
         Joiner joiner = Joiner.on(",");
@@ -97,7 +98,7 @@ public class SuiteTestRun
             arguments.add(TEMPTO_GROUP_ARG, joiner.join(groups));
         }
 
-        Iterable<String> excludedGroups = Iterables.concat(getExcludedGroups(), suiteConfig.getExcludedGroups());
+        Iterable<String> excludedGroups = Iterables.concat(getExcludedGroups(), environmentConfig.getExcludedGroups());
         if (!Iterables.isEmpty(excludedGroups)) {
             arguments.add(TEMPTO_EXCLUDE_GROUP_ARG, joiner.join(excludedGroups));
         }
@@ -106,7 +107,7 @@ public class SuiteTestRun
             arguments.add(TEMPTO_TEST_ARG, joiner.join(tests));
         }
 
-        Iterable<String> excludedTests = Iterables.concat(getExcludedTests(), suiteConfig.getExcludedTests());
+        Iterable<String> excludedTests = Iterables.concat(getExcludedTests(), environmentConfig.getExcludedTests());
         if (!Iterables.isEmpty(excludedTests)) {
             arguments.add(TEMPTO_EXCLUDE_TEST_ARG, joiner.join(excludedTests));
         }

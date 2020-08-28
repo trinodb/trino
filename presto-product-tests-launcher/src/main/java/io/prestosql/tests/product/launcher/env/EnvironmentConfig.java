@@ -11,18 +11,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.tests.product.launcher.suite;
+package io.prestosql.tests.product.launcher.env;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.tests.product.launcher.env.EnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.EnvironmentExtender;
 
 import java.util.List;
 import java.util.Optional;
 
-import static io.prestosql.tests.product.launcher.suite.Suites.nameForConfigClass;
+import static io.prestosql.tests.product.launcher.env.Environments.nameForConfigClass;
 
-public interface SuiteConfig
+public interface EnvironmentConfig
 {
     String getImagesVersion();
 

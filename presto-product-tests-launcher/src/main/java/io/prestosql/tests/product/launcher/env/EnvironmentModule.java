@@ -24,12 +24,14 @@ import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
 
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static io.prestosql.tests.product.launcher.env.Environments.nameForConfigClass;
 import static java.util.Objects.requireNonNull;
 
 public final class EnvironmentModule
         implements Module
 {
     public static final String BASE_PACKAGE = "io.prestosql.tests.product.launcher.env.environment";
+    public static final String BASE_CONFIG_PACKAGE = "io.prestosql.tests.product.launcher.env.configs";
     private final Module additionalEnvironments;
 
     public EnvironmentModule(Module additionalEnvironments)
@@ -42,6 +44,7 @@ public final class EnvironmentModule
     {
         binder.bind(PortBinder.class);
         binder.bind(EnvironmentFactory.class);
+        binder.bind(EnvironmentConfigFactory.class);
         binder.bind(Standard.class);
         binder.bind(Hadoop.class);
         binder.bind(Kerberos.class);
@@ -51,6 +54,9 @@ public final class EnvironmentModule
         MapBinder<String, EnvironmentProvider> environments = newMapBinder(binder, String.class, EnvironmentProvider.class);
 
         Environments.findByBasePackage(BASE_PACKAGE).forEach(clazz -> environments.addBinding(Environments.nameForClass(clazz)).to(clazz));
+
+        MapBinder<String, EnvironmentConfig> environmentConfigs = newMapBinder(binder, String.class, EnvironmentConfig.class);
+        Environments.findConfigsByBasePackage(BASE_CONFIG_PACKAGE).forEach(clazz -> environmentConfigs.addBinding(nameForConfigClass(clazz)).to(clazz));
 
         binder.install(additionalEnvironments);
     }

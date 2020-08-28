@@ -14,12 +14,12 @@
 package io.prestosql.tests.product.launcher.suite.suites;
 
 import com.google.common.collect.ImmutableList;
+import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.environment.Singlenode;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeHdfsImpersonation;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHdfsImpersonation;
 import io.prestosql.tests.product.launcher.env.environment.SinglenodeKerberosHdfsNoImpersonation;
 import io.prestosql.tests.product.launcher.suite.Suite;
-import io.prestosql.tests.product.launcher.suite.SuiteConfig;
 import io.prestosql.tests.product.launcher.suite.SuiteTestRun;
 
 import java.util.List;
@@ -30,7 +30,7 @@ public class Suite2
         extends Suite
 {
     @Override
-    public List<SuiteTestRun> getTestRuns(SuiteConfig config)
+    public List<SuiteTestRun> getTestRuns(EnvironmentConfig config)
     {
         return ImmutableList.of(
                 /**
