@@ -46,7 +46,7 @@ public interface EnvironmentConfig
         return nameForConfigClass(getClass());
     }
 
-    default Optional<EnvironmentExtender> extendEnvironment(Class<? extends EnvironmentProvider> environment)
+    default Optional<EnvironmentExtender> extendEnvironment(String environmentName)
     {
         return Optional.empty();
     }

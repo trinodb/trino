@@ -14,8 +14,6 @@
 package io.prestosql.tests.product.launcher.cli;
 
 import com.google.common.collect.ImmutableList;
-import com.google.inject.Guice;
-import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.airline.Command;
 import io.airlift.airline.Option;
@@ -43,7 +41,6 @@ import java.util.Optional;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static io.airlift.units.Duration.nanosSince;
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
-import static io.prestosql.tests.product.launcher.env.EnvironmentOptions.applySuiteConfig;
 import static java.lang.String.format;
 import static java.lang.System.exit;
 import static java.util.Objects.requireNonNull;
@@ -72,34 +69,20 @@ public class SuiteRun
     @Override
     public void run()
     {
-        Module environmentModule = new EnvironmentModule(additionalEnvironments);
-        EnvironmentConfig config = getEnvironmentConfig(environmentModule, suiteRunOptions.config);
-
         runCommand(
                 ImmutableList.<Module>builder()
                         .add(new LauncherModule())
                         .add(new SuiteModule(additionalSuites))
-                        .add(environmentModule)
+                        .add(new EnvironmentModule(environmentOptions, additionalEnvironments))
                         .add(suiteRunOptions.toModule())
-                        .add(applySuiteConfig(environmentOptions, config).toModule())
                         .build(),
                 SuiteRun.Execution.class);
-    }
-
-    private static EnvironmentConfig getEnvironmentConfig(Module environmentModule, String configName)
-    {
-        Injector injector = Guice.createInjector(environmentModule);
-        EnvironmentConfigFactory instance = injector.getInstance(EnvironmentConfigFactory.class);
-        return instance.getConfig(configName);
     }
 
     public static class SuiteRunOptions
     {
         @Option(name = "--suite", title = "suite", description = "the name of the suite to run", required = true)
         public String suite;
-
-        @Option(name = "--config", title = "config", description = "the name of the environment config to use")
-        public String config = "config-default";
 
         @Option(name = "--test-jar", title = "test jar", description = "path to test jar")
         public File testJar = new File("presto-product-tests/target/presto-product-tests-${project.version}-executable.jar");
@@ -143,7 +126,7 @@ public class SuiteRun
             String suiteName = requireNonNull(suiteRunOptions.suite, "suiteRunOptions.suite is null");
 
             Suite suite = suiteFactory.getSuite(suiteName);
-            EnvironmentConfig environmentConfig = configFactory.getConfig(suiteRunOptions.config);
+            EnvironmentConfig environmentConfig = configFactory.getConfig(environmentOptions.config);
             List<SuiteTestRun> suiteTestRuns = suite.getTestRuns(environmentConfig);
 
             log.info("Starting suite '%s' with config '%s' and test runs: ", suiteName, environmentConfig.getConfigName());
@@ -192,7 +175,7 @@ public class SuiteRun
             try {
                 TestRun.TestRunOptions testRunOptions = createTestRunOptions(suiteName, suiteTestRun, environmentConfig);
                 log.info("Execute this test run using:\npresto-product-tests-launcher/bin/run-launcher test run %s", OptionsPrinter.format(environmentOptions, testRunOptions));
-                new TestRun.Execution(environmentFactory, pathResolver, environmentOptions, testRunOptions, environmentConfig.extendEnvironment(suiteTestRun.getEnvironment())).run();
+                new TestRun.Execution(environmentFactory, pathResolver, environmentOptions, environmentConfig, testRunOptions).run();
             }
             catch (Exception e) {
                 t = e;

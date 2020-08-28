@@ -14,8 +14,6 @@
 package io.prestosql.tests.product.launcher.cli;
 
 import com.google.common.collect.ImmutableList;
-import com.google.inject.Guice;
-import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.airline.Command;
 import io.airlift.airline.Option;
@@ -40,7 +38,6 @@ import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
-import static io.prestosql.tests.product.launcher.env.EnvironmentOptions.applySuiteConfig;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -54,6 +51,9 @@ public class SuiteDescribe
     @Inject
     public SuiteDescribeOptions options = new SuiteDescribeOptions();
 
+    @Inject
+    public EnvironmentOptions environmentOptions = new EnvironmentOptions();
+
     public SuiteDescribe(Extensions extensions)
     {
         this.additionalSuites = requireNonNull(extensions, "extensions is null").getAdditionalSuites();
@@ -63,34 +63,20 @@ public class SuiteDescribe
     @Override
     public void run()
     {
-        Module environmentModule = new EnvironmentModule(additionalEnvironments);
-        EnvironmentConfig config = getEnvironmentConfig(environmentModule, options.config);
-
         runCommand(
                 ImmutableList.<Module>builder()
                         .add(new LauncherModule())
                         .add(new SuiteModule(additionalSuites))
-                        .add(new EnvironmentModule(additionalEnvironments))
+                        .add(new EnvironmentModule(environmentOptions, additionalEnvironments))
                         .add(options.toModule())
-                        .add(applySuiteConfig(new EnvironmentOptions(), config).toModule())
                         .build(),
                 SuiteDescribe.Execution.class);
-    }
-
-    private static EnvironmentConfig getEnvironmentConfig(Module environmentModule, String configName)
-    {
-        Injector injector = Guice.createInjector(environmentModule);
-        EnvironmentConfigFactory instance = injector.getInstance(EnvironmentConfigFactory.class);
-        return instance.getConfig(configName);
     }
 
     public static class SuiteDescribeOptions
     {
         @Option(name = "--suite", title = "suite", description = "the name of the suite to run", required = true)
         public String suite;
-
-        @Option(name = "--config", title = "config", description = "the name of the environment config to use")
-        public String config = "config-default";
 
         public Module toModule()
         {
@@ -118,7 +104,7 @@ public class SuiteDescribe
                 EnvironmentOptions environmentOptions)
         {
             this.suiteName = requireNonNull(describeOptions.suite, "describeOptions.suite is null");
-            this.config = requireNonNull(describeOptions.config, "describeOptions.config is null");
+            this.config = requireNonNull(environmentOptions.config, "environmentOptions.config is null");
             this.suiteFactory = requireNonNull(suiteFactory, "suiteFactory is null");
             this.configFactory = requireNonNull(configFactory, "configFactory is null");
             this.pathResolver = requireNonNull(pathResolver, "pathResolver is null");

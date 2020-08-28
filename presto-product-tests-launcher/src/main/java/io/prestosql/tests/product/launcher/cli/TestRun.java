@@ -26,11 +26,11 @@ import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
 import io.prestosql.tests.product.launcher.PathResolver;
 import io.prestosql.tests.product.launcher.env.Environment;
+import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.EnvironmentFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
 import io.prestosql.tests.product.launcher.env.Environments;
-import io.prestosql.tests.product.launcher.env.common.EnvironmentExtender;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
 import org.testcontainers.containers.BindMode;
@@ -47,7 +47,6 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -83,8 +82,7 @@ public final class TestRun
         runCommand(
                 ImmutableList.<Module>builder()
                         .add(new LauncherModule())
-                        .add(new EnvironmentModule(additionalEnvironments))
-                        .add(environmentOptions.toModule())
+                        .add(new EnvironmentModule(environmentOptions, additionalEnvironments))
                         .add(testRunOptions.toModule())
                         .build(),
                 TestRun.Execution.class);
@@ -127,28 +125,20 @@ public final class TestRun
         private final String environment;
         private final int startupRetries;
         private final Path reportsDirBase;
-        private final String temptoEnvironmentConfigurationFile;
-        private final Optional<EnvironmentExtender> environmentExtender;
+        private final EnvironmentConfig environmentConfig;
 
-        @Inject
-        public Execution(EnvironmentFactory environmentFactory, PathResolver pathResolver, EnvironmentOptions environmentOptions, TestRunOptions testRunOptions)
-        {
-            this(environmentFactory, pathResolver, environmentOptions, testRunOptions, Optional.empty());
-        }
-
-        protected Execution(EnvironmentFactory environmentFactory, PathResolver pathResolver, EnvironmentOptions environmentOptions, TestRunOptions testRunOptions, Optional<EnvironmentExtender> environmentExtender)
+        protected Execution(EnvironmentFactory environmentFactory, PathResolver pathResolver, EnvironmentOptions environmentOptions, EnvironmentConfig environmentConfig, TestRunOptions testRunOptions)
         {
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             this.pathResolver = requireNonNull(pathResolver, "pathResolver is null");
             requireNonNull(environmentOptions, "environmentOptions is null");
             this.debug = environmentOptions.debug;
-            this.temptoEnvironmentConfigurationFile = environmentOptions.temptoEnvironmentConfigFile;
             this.testJar = requireNonNull(testRunOptions.testJar, "testOptions.testJar is null");
             this.testArguments = ImmutableList.copyOf(requireNonNull(testRunOptions.testArguments, "testOptions.testArguments is null"));
             this.environment = requireNonNull(testRunOptions.environment, "testRunOptions.environment is null");
             this.startupRetries = testRunOptions.startupRetries;
             this.reportsDirBase = Paths.get(requireNonNull(testRunOptions.reportsDir, "testRunOptions.reportsDirBase is empty"));
-            this.environmentExtender = requireNonNull(environmentExtender, "environmentExtender is null");
+            this.environmentConfig = requireNonNull(environmentConfig, "environmentConfig is null");
         }
 
         @Override
@@ -228,7 +218,7 @@ public final class TestRun
                                                 .add("tempto-configuration.yaml") // this comes from classpath
                                                 .add("/docker/presto-product-tests/conf/tempto/tempto-configuration-for-docker-default.yaml")
                                                 .add(CONTAINER_TEMPTO_PROFILE_CONFIG)
-                                                .add(temptoEnvironmentConfigurationFile)
+                                                .add(environmentConfig.getTemptoEnvironmentConfigFile())
                                                 .add(container.getEnvMap().getOrDefault("TEMPTO_CONFIG_FILES", "/dev/null"))
                                                 .build()))
                                 .addAll(testArguments)
@@ -238,7 +228,7 @@ public final class TestRun
                         .waitingFor(new LogMessageWaitStrategy().withRegEx(".*\\[TestNG] Running.*"));
             });
 
-            environmentExtender.ifPresent(extender -> extender.extendEnvironment(environment));
+            environmentConfig.extendEnvironment(this.environment).ifPresent(extender -> extender.extendEnvironment(environment));
 
             return environment.build();
         }

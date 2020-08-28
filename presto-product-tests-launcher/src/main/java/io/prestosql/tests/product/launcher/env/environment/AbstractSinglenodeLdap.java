@@ -16,7 +16,7 @@ package io.prestosql.tests.product.launcher.env.environment;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
+import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.EnvironmentExtender;
 import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
@@ -42,12 +42,12 @@ public abstract class AbstractSinglenodeLdap
 
     private static final int LDAP_PORT = 636;
 
-    protected AbstractSinglenodeLdap(List<EnvironmentExtender> bases, DockerFiles dockerFiles, PortBinder portBinder, EnvironmentOptions environmentOptions)
+    protected AbstractSinglenodeLdap(List<EnvironmentExtender> bases, DockerFiles dockerFiles, PortBinder portBinder, EnvironmentConfig environmentConfig)
     {
         super(bases);
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
-        this.imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
+        this.imagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getImagesVersion();
     }
 
     @Override
