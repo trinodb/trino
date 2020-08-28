@@ -86,7 +86,7 @@ SCRIPT_DIR="${BASH_SOURCE%/*}"
 INTEGRATION_TESTS_ROOT="${SCRIPT_DIR}/.."
 PROJECT_ROOT="${INTEGRATION_TESTS_ROOT}/.."
 DOCKER_COMPOSE_LOCATION="${INTEGRATION_TESTS_ROOT}/conf/docker-compose.yml"
-source "${BASH_SOURCE%/*}/../../presto-product-tests/conf/product-tests-defaults.sh"
+source "${PROJECT_ROOT}/presto-product-tests/conf/product-tests-defaults.sh"
 
 # check docker and docker compose installation
 docker-compose version
@@ -141,4 +141,55 @@ function get_hive_major_version() {
         return 1
     fi
     echo "${version}"
+}
+
+# $1 = base URI for table names
+function create_test_tables() {
+    local table_name table_path
+    local base_path="${1:?create_test_tables requires an argument}"
+    base_path="${base_path%/}" # remove trailing slash
+
+    table_name="presto_test_external_fs"
+    table_path="$base_path/$table_name/"
+    exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
+    exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /docker/files/test_table.csv{,.gz,.bz2,.lz4} "${table_path}"
+    exec_in_hadoop_master_container /usr/bin/hive -e "CREATE EXTERNAL TABLE $table_name(t_bigint bigint) LOCATION '${table_path}'"
+
+    table_name="presto_test_external_fs_with_header"
+    table_path="$base_path/$table_name/"
+    exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
+    exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /docker/files/test_table_with_header.csv{,.gz,.bz2,.lz4} "${table_path}"
+    exec_in_hadoop_master_container /usr/bin/hive -e "
+        CREATE EXTERNAL TABLE $table_name(t_bigint bigint)
+        STORED AS TEXTFILE
+        LOCATION '${table_path}'
+        TBLPROPERTIES ('skip.header.line.count'='1')"
+
+    table_name="presto_test_external_fs_with_header_and_footer"
+    table_path="$base_path/$table_name/"
+    exec_in_hadoop_master_container hadoop fs -mkdir -p "${table_path}"
+    exec_in_hadoop_master_container hadoop fs -copyFromLocal -f /docker/files/test_table_with_header_and_footer.csv{,.gz,.bz2,.lz4} "${table_path}"
+    exec_in_hadoop_master_container /usr/bin/hive -e "
+        CREATE EXTERNAL TABLE $table_name(t_bigint bigint)
+        STORED AS TEXTFILE
+        LOCATION '${table_path}'
+        TBLPROPERTIES ('skip.header.line.count'='2', 'skip.footer.line.count'='2')"
+}
+
+# $1 = basename of core-site.xml template
+# other arguments are names of variables to substitute in the file
+function deploy_core_site_xml() {
+    local template="${1:?deploy_core_site_xml expects at least one argument}"
+    shift
+    local args=()
+    local name value
+    for name; do
+        shift
+        value="${!name//\\/\\\\}" # escape \ as \\
+        value="${value//|/\\|}" # escape | as \|
+        args+=(-e "s|%$name%|$value|g")
+    done
+    exec_in_hadoop_master_container bash -c \
+        'sed "${@:2}" "/docker/files/$1" > /etc/hadoop/conf/core-site.xml' \
+        bash "$template" "${args[@]}"
 }

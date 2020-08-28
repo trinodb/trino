@@ -35,22 +35,22 @@
 
     <property>
         <name>fs.s3.awsAccessKeyId</name>
-        <value>%AWS_ACCESS_KEY%</value>
+        <value>%AWS_ACCESS_KEY_ID%</value>
     </property>
 
     <property>
         <name>fs.s3.awsSecretAccessKey</name>
-        <value>%AWS_SECRET_KEY%</value>
+        <value>%AWS_SECRET_ACCESS_KEY%</value>
     </property>
 
     <property>
         <name>fs.s3a.access.key</name>
-        <value>%AWS_ACCESS_KEY%</value>
+        <value>%AWS_ACCESS_KEY_ID%</value>
     </property>
 
     <property>
         <name>fs.s3a.secret.key</name>
-        <value>%AWS_SECRET_KEY%</value>
+        <value>%AWS_SECRET_ACCESS_KEY%</value>
     </property>
 
     <property>
