@@ -396,6 +396,20 @@ public final class UnscaledDecimal128Arithmetic
         return result;
     }
 
+    public static Slice multiply(Slice left, long right)
+    {
+        Slice result = unscaledDecimal();
+        multiply(left, right, result);
+        return result;
+    }
+
+    public static Slice multiply(long left, long right)
+    {
+        Slice result = unscaledDecimal();
+        multiply(left, right, result);
+        return result;
+    }
+
     public static void multiply(Slice left, Slice right, Slice result)
     {
         checkArgument(result.length() == NUMBER_OF_LONGS * Long.BYTES);
@@ -476,6 +490,108 @@ public final class UnscaledDecimal128Arithmetic
             if ((accumulator >>> 32) != 0) {
                 throwOverflowException();
             }
+        }
+
+        pack(result, (int) z0, (int) z1, (int) z2, (int) z3, leftNegative != rightNegative);
+    }
+
+    public static void multiply(Slice left, long right, Slice result)
+    {
+        checkArgument(result.length() == NUMBER_OF_LONGS * Long.BYTES);
+
+        long l0 = toUnsignedLong(getInt(left, 0));
+        long l1 = toUnsignedLong(getInt(left, 1));
+        long l2 = toUnsignedLong(getInt(left, 2));
+        int l3raw = getRawInt(left, 3);
+        boolean leftNegative = isNegative(l3raw);
+        long l3 = toUnsignedLong(unpackUnsignedInt(l3raw));
+
+        boolean rightNegative = right < 0;
+        right = abs(right);
+        long r0 = right & LOW_32_BITS;
+        long r1 = right >>> 32;
+
+        // the combinations below definitely result in an overflow
+        if (r1 != 0 && l3 != 0) {
+            throwOverflowException();
+        }
+
+        long z0 = 0;
+        long z1 = 0;
+        long z2 = 0;
+        long z3 = 0;
+
+        if (r0 != 0) {
+            long accumulator = r0 * l0;
+            z0 = accumulator & LOW_32_BITS;
+            accumulator = (accumulator >>> 32) + l1 * r0;
+
+            z1 = accumulator & LOW_32_BITS;
+            accumulator = (accumulator >>> 32) + l2 * r0;
+
+            z2 = accumulator & LOW_32_BITS;
+            accumulator = (accumulator >>> 32) + l3 * r0;
+
+            z3 = accumulator & LOW_32_BITS;
+
+            if ((accumulator >>> 32) != 0) {
+                throwOverflowException();
+            }
+        }
+
+        if (r1 != 0) {
+            long accumulator = l0 * r1 + z1;
+            z1 = accumulator & LOW_32_BITS;
+            accumulator = (accumulator >>> 32) + l1 * r1 + z2;
+
+            z2 = accumulator & LOW_32_BITS;
+            accumulator = (accumulator >>> 32) + l2 * r1 + z3;
+
+            z3 = accumulator & LOW_32_BITS;
+
+            if ((accumulator >>> 32) != 0) {
+                throwOverflowException();
+            }
+        }
+
+        pack(result, (int) z0, (int) z1, (int) z2, (int) z3, leftNegative != rightNegative);
+    }
+
+    public static void multiply(long left, long right, Slice result)
+    {
+        checkArgument(result.length() == NUMBER_OF_LONGS * Long.BYTES);
+        boolean rightNegative = right < 0;
+        boolean leftNegative = left < 0;
+        left = abs(left);
+        right = abs(right);
+
+        long l0 = left & LOW_32_BITS;
+        long l1 = left >>> 32;
+
+        long r0 = right & LOW_32_BITS;
+        long r1 = right >>> 32;
+
+        long z0 = 0;
+        long z1 = 0;
+        long z2 = 0;
+        long z3 = 0;
+
+        if (l0 != 0) {
+            long accumulator = r0 * l0;
+            z0 = accumulator & LOW_32_BITS;
+            accumulator = (accumulator >>> 32) + r1 * l0;
+
+            z1 = accumulator & LOW_32_BITS;
+            z2 = accumulator >> 32;
+        }
+
+        if (l1 != 0) {
+            long accumulator = r0 * l1 + z1;
+            z1 = accumulator & LOW_32_BITS;
+            accumulator = (accumulator >>> 32) + r1 * l1 + z2;
+
+            z2 = accumulator & LOW_32_BITS;
+            z3 = accumulator >>> 32;
         }
 
         pack(result, (int) z0, (int) z1, (int) z2, (int) z3, leftNegative != rightNegative);

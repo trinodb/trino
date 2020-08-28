@@ -22,7 +22,6 @@ import java.math.BigInteger;
 import java.util.Collections;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
-import static io.airlift.slice.Slices.wrappedIntArray;
 import static io.airlift.slice.Slices.wrappedLongArray;
 import static io.prestosql.spi.type.Decimals.MAX_DECIMAL_UNSCALED_VALUE;
 import static io.prestosql.spi.type.Decimals.MIN_DECIMAL_UNSCALED_VALUE;
@@ -156,16 +155,21 @@ public class TestUnscaledDecimal128Arithmetic
     @Test
     public void testMultiply()
     {
-        assertEquals(multiply(unscaledDecimal(0), MAX_DECIMAL), unscaledDecimal(0));
-        assertEquals(multiply(unscaledDecimal(1), MAX_DECIMAL), MAX_DECIMAL);
-        assertEquals(multiply(unscaledDecimal(1), MIN_DECIMAL), MIN_DECIMAL);
-        assertEquals(multiply(unscaledDecimal(-1), MAX_DECIMAL), MIN_DECIMAL);
-        assertEquals(multiply(unscaledDecimal(-1), MIN_DECIMAL), MAX_DECIMAL);
-        assertEquals(multiply(wrappedIntArray(0xFFFFFFFF, 0xFFFFFFFF, 0, 0), wrappedIntArray(0xFFFFFFFF, 0x00FFFFFF, 0, 0)), wrappedLongArray(0xff00000000000001L, 0xfffffffffffffeL));
-        assertEquals(multiply(wrappedLongArray(0xFFFFFF0096BFB800L, 0), wrappedLongArray(0x39003539D9A51600L, 0)), wrappedLongArray(0x1CDBB17E11D00000L, 0x39003500FB00AB76L));
-        assertEquals(multiply(unscaledDecimal(Integer.MAX_VALUE), unscaledDecimal(Integer.MIN_VALUE)), unscaledDecimal((long) Integer.MAX_VALUE * Integer.MIN_VALUE));
-        assertEquals(multiply(unscaledDecimal("99999999999999"), unscaledDecimal("-1000000000000000000000000")), unscaledDecimal("-99999999999999000000000000000000000000"));
-        assertEquals(multiply(unscaledDecimal("12380837221737387489365741632769922889"), unscaledDecimal("3")), unscaledDecimal("37142511665212162468097224898309768667"));
+        assertMultiply(0, 0, 0);
+        assertMultiply(1, 0, 0);
+        assertMultiply(1, 1, 1);
+        assertMultiply(1, -1, -1);
+        assertMultiply(-1, -1, 1);
+        assertMultiply(MAX_DECIMAL_UNSCALED_VALUE, 0, 0);
+        assertMultiply(MAX_DECIMAL_UNSCALED_VALUE, 1, MAX_DECIMAL_UNSCALED_VALUE);
+        assertMultiply(MIN_DECIMAL_UNSCALED_VALUE, 1, MIN_DECIMAL_UNSCALED_VALUE);
+        assertMultiply(MAX_DECIMAL_UNSCALED_VALUE, -1, MIN_DECIMAL_UNSCALED_VALUE);
+        assertMultiply(MIN_DECIMAL_UNSCALED_VALUE, -1, MAX_DECIMAL_UNSCALED_VALUE);
+        assertMultiply(new BigInteger("FFFFFFFFFFFFFFFF", 16), new BigInteger("FFFFFFFFFFFFFF", 16), new BigInteger("fffffffffffffeff00000000000001", 16));
+        assertMultiply(new BigInteger("FFFFFF0096BFB800", 16), new BigInteger("39003539D9A51600", 16), new BigInteger("39003500FB00AB761CDBB17E11D00000", 16));
+        assertMultiply(Integer.MAX_VALUE, Integer.MIN_VALUE, (long) Integer.MAX_VALUE * Integer.MIN_VALUE);
+        assertMultiply(new BigInteger("99999999999999"), new BigInteger("-1000000000000000000000000"), new BigInteger("-99999999999999000000000000000000000000"));
+        assertMultiply(new BigInteger("12380837221737387489365741632769922889"), 3, new BigInteger("37142511665212162468097224898309768667"));
     }
 
     @Test
@@ -758,5 +762,44 @@ public class TestUnscaledDecimal128Arithmetic
             ints[i] = slice.getInt(i * Integer.SIZE / Byte.SIZE);
         }
         return ints;
+    }
+
+    private static boolean isShort(BigInteger value)
+    {
+        return value.abs().shiftRight(63).equals(BigInteger.ZERO);
+    }
+
+    private static void assertMultiply(BigInteger a, long b, BigInteger result)
+    {
+        assertMultiply(a, BigInteger.valueOf(b), result);
+    }
+
+    private static void assertMultiply(BigInteger a, long b, long result)
+    {
+        assertMultiply(a, BigInteger.valueOf(b), BigInteger.valueOf(result));
+    }
+
+    private static void assertMultiply(long a, long b, BigInteger result)
+    {
+        assertMultiply(BigInteger.valueOf(a), b, result);
+    }
+
+    private static void assertMultiply(long a, long b, long result)
+    {
+        assertMultiply(a, b, BigInteger.valueOf(result));
+    }
+
+    private static void assertMultiply(BigInteger a, BigInteger b, BigInteger result)
+    {
+        assertEquals(unscaledDecimal(result), multiply(unscaledDecimal(a), unscaledDecimal(b)));
+        if (isShort(a) && isShort(b)) {
+            assertEquals(unscaledDecimal(result), multiply(a.longValue(), b.longValue()));
+        }
+        if (isShort(a) && !isShort(b)) {
+            assertEquals(unscaledDecimal(result), multiply(unscaledDecimal(b), a.longValue()));
+        }
+        if (!isShort(a) && isShort(b)) {
+            assertEquals(unscaledDecimal(result), multiply(unscaledDecimal(a), b.longValue()));
+        }
     }
 }
