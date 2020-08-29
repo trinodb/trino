@@ -116,7 +116,9 @@ public class TestFeaturesConfig
                 .setDynamicFilteringRefreshInterval(new Duration(200, MILLISECONDS))
                 .setIgnoreDownstreamPreferences(false)
                 .setOmitDateTimeTypePrecision(false)
-                .setIterativeRuleBasedColumnPruning(true));
+                .setIterativeRuleBasedColumnPruning(true)
+                .setOptimizeNullsInJoin(true)
+                .setOptimizeNullsInJoinThreshold(0.5));
     }
 
     @Test
@@ -194,6 +196,8 @@ public class TestFeaturesConfig
                 .put("optimizer.ignore-downstream-preferences", "true")
                 .put("deprecated.omit-datetime-type-precision", "true")
                 .put("optimizer.iterative-rule-based-column-pruning", "false")
+                .put("optimizer.optimize-nulls-in-join", "false")
+                .put("optimizer.optimize-nulls-in-join-threshold", "0.2")
                 .build();
 
         FeaturesConfig expected = new FeaturesConfig()
@@ -267,7 +271,9 @@ public class TestFeaturesConfig
                 .setDynamicFilteringRefreshInterval(new Duration(300, MILLISECONDS))
                 .setIgnoreDownstreamPreferences(true)
                 .setOmitDateTimeTypePrecision(true)
-                .setIterativeRuleBasedColumnPruning(false);
+                .setIterativeRuleBasedColumnPruning(false)
+                .setOptimizeNullsInJoin(false)
+                .setOptimizeNullsInJoinThreshold(0.2);
         assertFullMapping(properties, expected);
     }
 }

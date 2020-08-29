@@ -132,6 +132,8 @@ public class FeaturesConfig
     private boolean predicatePushdownUseTableProperties = true;
     private boolean ignoreDownstreamPreferences;
     private boolean iterativeRuleBasedColumnPruning = true;
+    private boolean optimizeNullsInJoin = true;
+    private double optimizeNullsInJoinThreshold = 0.5;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
     private boolean enableDynamicFiltering = true;
@@ -1075,6 +1077,30 @@ public class FeaturesConfig
     public FeaturesConfig setIterativeRuleBasedColumnPruning(boolean iterativeRuleBasedColumnPruning)
     {
         this.iterativeRuleBasedColumnPruning = iterativeRuleBasedColumnPruning;
+        return this;
+    }
+
+    public boolean isOptimizeNullsInJoin()
+    {
+        return optimizeNullsInJoin;
+    }
+
+    @Config("optimizer.optimize-nulls-in-join")
+    public FeaturesConfig setOptimizeNullsInJoin(boolean optimizeNullsInJoin)
+    {
+        this.optimizeNullsInJoin = optimizeNullsInJoin;
+        return this;
+    }
+
+    public double getOptimizeNullsInJoinThreshold()
+    {
+        return optimizeNullsInJoinThreshold;
+    }
+
+    @Config("optimizer.optimize-nulls-in-join-threshold")
+    public FeaturesConfig setOptimizeNullsInJoinThreshold(double optimizeNullsInJoinThreshold)
+    {
+        this.optimizeNullsInJoinThreshold = optimizeNullsInJoinThreshold;
         return this;
     }
 }

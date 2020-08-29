@@ -32,6 +32,7 @@ import io.prestosql.sql.SqlPath;
 
 import java.util.Optional;
 
+import static io.prestosql.SystemSessionProperties.OPTIMIZED_NULLS_IN_JOIN;
 import static io.prestosql.connector.CatalogName.createInformationSchemaCatalogName;
 import static io.prestosql.connector.CatalogName.createSystemTablesCatalogName;
 import static java.util.Locale.ENGLISH;
@@ -69,7 +70,8 @@ public final class TestingSession
                 .setTimeZoneKey(DEFAULT_TIME_ZONE_KEY)
                 .setLocale(ENGLISH)
                 .setRemoteUserAddress("address")
-                .setUserAgent("agent");
+                .setUserAgent("agent")
+                .setSystemProperty(OPTIMIZED_NULLS_IN_JOIN, "false");
     }
 
     public static Catalog createBogusTestingCatalog(String catalogName)
