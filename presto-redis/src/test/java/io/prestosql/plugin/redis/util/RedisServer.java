@@ -29,7 +29,7 @@ public class RedisServer
 
     public RedisServer()
     {
-        container = new GenericContainer<>("redis:2.8.9")
+        container = new GenericContainer<>("redis:6.0.6")
                 .withExposedPorts(PORT);
         container.start();
 

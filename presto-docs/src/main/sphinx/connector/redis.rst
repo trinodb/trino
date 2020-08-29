@@ -11,7 +11,7 @@ broken down into cells by using table definition files.
 Only Redis string and hash value types are supported; sets and zsets cannot be
 queried from Presto.
 
-The connector requires Redis 2.8.0 or later.
+The connector requires Redis 2.8.0 or later.  It has been tested against 6.0.6.
 
 Configuration
 -------------
