@@ -62,7 +62,7 @@ public final class SinglenodeSqlserver
     @SuppressWarnings("resource")
     private DockerContainer createSqlServer()
     {
-        DockerContainer container = new DockerContainer("microsoft/mssql-server-linux:2017-CU13")
+        DockerContainer container = new DockerContainer("mcr.microsoft.com/mssql/server:2019-CU6-ubuntu-16.04")
                 .withEnv("ACCEPT_EULA", "Y")
                 .withEnv("SA_PASSWORD", "SQLServerPass1")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())

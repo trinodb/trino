@@ -7,6 +7,8 @@ external `Microsoft SQL Server <https://www.microsoft.com/sql-server/>`_ databas
 different systems like SQL Server and Hive, or between two different
 SQL Server instances.
 
+SQL Server 2017+ is supported. This connector is tested against 2019-CU6.
+
 Configuration
 -------------
 

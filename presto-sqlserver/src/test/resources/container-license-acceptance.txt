@@ -1,1 +1,1 @@
-microsoft/mssql-server-linux:2017-CU13
+mcr.microsoft.com/mssql/server:2019-CU6-ubuntu-16.04

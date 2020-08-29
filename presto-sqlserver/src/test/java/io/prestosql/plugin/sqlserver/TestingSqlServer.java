@@ -23,7 +23,7 @@ public final class TestingSqlServer
 {
     public TestingSqlServer()
     {
-        super("microsoft/mssql-server-linux:2017-CU13");
+        super("mcr.microsoft.com/mssql/server:2019-CU6-ubuntu-16.04");
     }
 
     public void execute(String sql)
