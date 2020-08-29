@@ -35,7 +35,7 @@ public class TestingPostgreSqlServer
 
     public TestingPostgreSqlServer()
     {
-        dockerContainer = new PostgreSQLContainer("postgres:10.3")
+        dockerContainer = new PostgreSQLContainer("postgres:12.4")
                 .withDatabaseName(DATABASE)
                 .withUsername(USER)
                 .withPassword(PASSWORD);
