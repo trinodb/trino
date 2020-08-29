@@ -574,7 +574,7 @@ public final class HiveWriteUtils
             // user-unique location, such as /user/hive/warehouse/xxx. In this case, it's not possible to
             // set owner/group as the table location's parent. In other words, setOwner operation is complement
             // for well-built warehouse.
-            log.warn(e, "Unable to set owner of %s, it is probably due to nonstandard warehouse location", path);
+            log.warn(e, "Unable to set owner of %s as %s, it is probably due to nonstandard warehouse location", path, targetPath);
         }
     }
 

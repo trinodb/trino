@@ -69,6 +69,7 @@ public class TestImpersonation
     {
         String tableName = "check_hdfs_impersonation_enabled";
         checkTableOwner(tableName, aliceJdbcUser, aliceExecutor);
+        checkTableGroup(tableName, aliceExecutor);
     }
 
     private static String getTableLocation(QueryExecutor executor, String tableName)
@@ -94,5 +95,20 @@ public class TestImpersonation
         String owner = hdfsClient.getOwner(tableLocation);
         assertEquals(owner, expectedOwner);
         executor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+    }
+
+    private void checkTableGroup(String tableName, QueryExecutor executor)
+    {
+        executor.executeQuery(format("DROP TABLE IF EXISTS %s", tableName));
+        executor.executeQuery(format("CREATE TABLE %s AS SELECT 'abc' c", tableName));
+        String tableLocation = getTableLocation(executor, tableName);
+        String warehouseLocation = tableLocation.substring(0, tableLocation.lastIndexOf("/"));
+
+        // user group info of warehouseLocation(/user/hive/warehouse) is alice:supergroup
+        // tableLocation is /user/hive/warehouse/check_hdfs_impersonation_enabled. When create table,
+        // user alice doesn't have permission to setOwner, so the user group info should be alice:supergroup still
+        String warehouseLocationGroup = hdfsClient.getGroup(warehouseLocation);
+        String tableLocationGroup = hdfsClient.getGroup(warehouseLocation);
+        assertEquals(tableLocationGroup, warehouseLocationGroup);
     }
 }
