@@ -114,6 +114,27 @@ public class TestLazyCoordinatorDynamicFiltering
         // for broadcast joins lazy dynamic filters are non blocking
     }
 
+    @Test(enabled = false)
+    @Override
+    public void testBroadcastSemiJoinWithSelectiveBuildSide()
+    {
+        // for broadcast semi-joins lazy dynamic filters are non blocking
+    }
+
+    @Test(enabled = false)
+    @Override
+    public void testBroadcastSemiJoinWithEmptyBuildSide()
+    {
+        // for broadcast semi-joins lazy dynamic filters are non blocking
+    }
+
+    @Test(enabled = false)
+    @Override
+    public void testBroadcastSemiJoinWithLargeBuildSide()
+    {
+        // for broadcast semi-joins lazy dynamic filters are non blocking
+    }
+
     private class TestPlugin
             implements Plugin
     {
