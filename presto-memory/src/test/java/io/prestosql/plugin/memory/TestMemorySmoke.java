@@ -162,6 +162,70 @@ public class TestMemorySmoke
                 ImmutableSet.of(1, ORDERS_COUNT, PART_COUNT));
     }
 
+    @Test
+    public void testSemiJoinDynamicFilteringNone()
+    {
+        // Probe-side is not scanned at all, due to dynamic filtering:
+        assertDynamicFiltering(
+                "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM orders WHERE orders.totalprice < 0)",
+                withBroadcastJoin(),
+                0,
+                ImmutableSet.of(0, ORDERS_COUNT));
+    }
+
+    @Test
+    public void testSemiJoinLargeBuildSideNoDynamicFiltering()
+    {
+        // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
+        assertDynamicFiltering(
+                "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM orders)",
+                withBroadcastJoin(),
+                toIntExact(LINEITEM_COUNT),
+                ImmutableSet.of(LINEITEM_COUNT, ORDERS_COUNT));
+    }
+
+    @Test
+    public void testPartitionedSemiJoinNoDynamicFiltering()
+    {
+        // Probe-side is fully scanned, because local dynamic filtering does not work for partitioned joins:
+        assertDynamicFiltering(
+                "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM orders WHERE orders.totalprice < 0)",
+                withPartitionedJoin(),
+                0,
+                ImmutableSet.of(LINEITEM_COUNT, ORDERS_COUNT));
+    }
+
+    @Test
+    public void testSemiJoinDynamicFilteringSingleValue()
+    {
+        // Join lineitem with a single row of orders
+        assertDynamicFiltering(
+                "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM orders WHERE orders.comment = 'nstructions sleep furiously among ')",
+                withBroadcastJoin(),
+                6,
+                ImmutableSet.of(6, ORDERS_COUNT));
+
+        // Join lineitem with a single row of part
+        assertDynamicFiltering(
+                "SELECT l.comment FROM lineitem l WHERE l.partkey IN (SELECT p.partkey FROM part p WHERE p.comment = 'onic deposits')",
+                withBroadcastJoin(),
+                39,
+                ImmutableSet.of(39, PART_COUNT));
+    }
+
+    @Test
+    public void testSemiJoinDynamicFilteringBlockProbeSide()
+    {
+        // Wait for both build sides to finish before starting the scan of 'lineitem' table (should be very selective given the dynamic filters).
+        assertDynamicFiltering(
+                "SELECT t.comment FROM " +
+                        "(SELECT * FROM lineitem l WHERE l.orderkey IN (SELECT o.orderkey FROM orders o WHERE o.comment = 'nstructions sleep furiously among ')) t " +
+                        "WHERE t.partkey IN (SELECT p.partkey FROM part p WHERE p.comment = 'onic deposits')",
+                withBroadcastJoinNonReordering(),
+                1,
+                ImmutableSet.of(1, ORDERS_COUNT, PART_COUNT));
+    }
+
     private void assertDynamicFiltering(String selectQuery, Session session, int expectedRowCount, Set<Integer> expectedOperatorRowsRead)
     {
         DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();

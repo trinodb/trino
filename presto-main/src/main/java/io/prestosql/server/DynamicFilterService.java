@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multimap;
 import com.google.common.util.concurrent.ListenableFuture;
 import com.google.common.util.concurrent.SettableFuture;
@@ -42,6 +43,7 @@ import io.prestosql.sql.planner.optimizations.PlanNodeSearcher;
 import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.JoinNode;
 import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.SemiJoinNode;
 
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -70,10 +72,12 @@ import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
+import static io.prestosql.operator.JoinUtils.isBuildSideReplicated;
 import static io.prestosql.spi.connector.DynamicFilter.EMPTY;
 import static io.prestosql.spi.predicate.Domain.union;
 import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
 import static io.prestosql.sql.planner.ExpressionExtractor.extractExpressions;
+import static io.prestosql.util.MorePredicates.isInstanceOfAny;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -324,20 +328,31 @@ public class DynamicFilterService
     private static Set<DynamicFilterId> getReplicatedDynamicFilters(PlanNode planNode)
     {
         return PlanNodeSearcher.searchFrom(planNode)
-                .where(JoinNode.class::isInstance)
-                .<JoinNode>findAll().stream()
-                .filter(JoinUtils::isBuildSideReplicated)
-                .flatMap(node -> node.getDynamicFilters().keySet().stream())
+                .where(isInstanceOfAny(JoinNode.class, SemiJoinNode.class))
+                .findAll().stream()
+                .filter((JoinUtils::isBuildSideReplicated))
+                .flatMap(node -> getDynamicFiltersProducedInPlanNode(node).stream())
                 .collect(toImmutableSet());
     }
 
     private static Set<DynamicFilterId> getProducedDynamicFilters(PlanNode planNode)
     {
         return PlanNodeSearcher.searchFrom(planNode)
-                .where(JoinNode.class::isInstance)
-                .<JoinNode>findAll().stream()
-                .flatMap(node -> node.getDynamicFilters().keySet().stream())
+                .where(isInstanceOfAny(JoinNode.class, SemiJoinNode.class))
+                .findAll().stream()
+                .flatMap(node -> getDynamicFiltersProducedInPlanNode(node).stream())
                 .collect(toImmutableSet());
+    }
+
+    private static Set<DynamicFilterId> getDynamicFiltersProducedInPlanNode(PlanNode planNode)
+    {
+        if (planNode instanceof JoinNode) {
+            return ((JoinNode) planNode).getDynamicFilters().keySet();
+        }
+        if (planNode instanceof SemiJoinNode) {
+            return ((SemiJoinNode) planNode).getDynamicFilterId().map(ImmutableSet::of).orElse(ImmutableSet.of());
+        }
+        throw new IllegalStateException("getDynamicFiltersProducedInPlanNode called with neither JoinNode nor SemiJoinNode");
     }
 
     private static Set<DynamicFilterId> getConsumedDynamicFilters(PlanNode planNode)
