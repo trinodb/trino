@@ -20,6 +20,7 @@ import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
 
 import javax.annotation.concurrent.NotThreadSafe;
 
@@ -35,7 +36,7 @@ public class StreamingIndexedData
         implements IndexedData
 {
     private final List<Type> outputTypes;
-    private final List<Type> indexKeyTypes;
+    private final List<BlockPositionEqual> indexKeyEqualOperators;
     private final Page indexKeyTuple;
     private final PageBuffer pageBuffer;
     private final Driver driver;
@@ -43,13 +44,13 @@ public class StreamingIndexedData
     private boolean started;
     private Page currentPage;
 
-    public StreamingIndexedData(List<Type> outputTypes, List<Type> indexKeyTypes, Page indexKeyTuple, PageBuffer pageBuffer, Driver driver)
+    public StreamingIndexedData(List<Type> outputTypes, List<BlockPositionEqual> indexKeyEqualOperators, Page indexKeyTuple, PageBuffer pageBuffer, Driver driver)
     {
         this.outputTypes = ImmutableList.copyOf(requireNonNull(outputTypes, "outputTypes is null"));
-        this.indexKeyTypes = ImmutableList.copyOf(requireNonNull(indexKeyTypes, "indexKeyTypes is null"));
+        this.indexKeyEqualOperators = ImmutableList.copyOf(requireNonNull(indexKeyEqualOperators, "indexKeyEqualOperators is null"));
         this.indexKeyTuple = requireNonNull(indexKeyTuple, "indexKeyTuple is null");
         checkArgument(indexKeyTuple.getPositionCount() == 1, "indexKeyTuple Page should only have one position");
-        checkArgument(indexKeyTypes.size() == indexKeyTuple.getChannelCount(), "indexKeyTypes doesn't match indexKeyTuple columns");
+        checkArgument(indexKeyEqualOperators.size() == indexKeyTuple.getChannelCount(), "indexKeyEqualOperators doesn't match indexKeyTuple columns");
         this.pageBuffer = requireNonNull(pageBuffer, "pageBuffer is null");
         this.driver = requireNonNull(driver, "driver is null");
     }
@@ -57,7 +58,7 @@ public class StreamingIndexedData
     @Override
     public long getJoinPosition(int position, Page page)
     {
-        checkArgument(page.getChannelCount() == indexKeyTypes.size(), "Number of blocks does not match the number of key columns");
+        checkArgument(page.getChannelCount() == indexKeyEqualOperators.size(), "Number of blocks does not match the number of key columns");
         if (started || !matchesExpectedKey(position, page)) {
             return IndexedData.UNLOADED_INDEX_KEY;
         }
@@ -71,8 +72,8 @@ public class StreamingIndexedData
     // TODO: use the code generator here
     private boolean matchesExpectedKey(int position, Page page)
     {
-        for (int i = 0; i < indexKeyTypes.size(); i++) {
-            if (!indexKeyTypes.get(i).equalTo(page.getBlock(i), position, indexKeyTuple.getBlock(i), 0)) {
+        for (int i = 0; i < indexKeyEqualOperators.size(); i++) {
+            if (!indexKeyEqualOperators.get(i).equal(page.getBlock(i), position, indexKeyTuple.getBlock(i), 0)) {
                 return false;
             }
         }
