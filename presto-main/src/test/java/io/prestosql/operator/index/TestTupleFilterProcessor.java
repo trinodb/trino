@@ -19,8 +19,10 @@ import io.prestosql.operator.DriverYieldSignal;
 import io.prestosql.operator.project.PageProcessor;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.gen.PageFunctionCompiler;
 import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.type.BlockTypeOperators;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -62,7 +64,8 @@ public class TestTupleFilterProcessor
                 new int[] {0, 1, 2},
                 new int[] {1, 0, 3},
                 outputTypes,
-                new PageFunctionCompiler(createTestMetadataManager(), 0));
+                new PageFunctionCompiler(createTestMetadataManager(), 0),
+                new BlockTypeOperators(new TypeOperators()));
         PageProcessor tupleFilterProcessor = filterFactory.createPageProcessor(tuplePage, OptionalInt.of(MAX_BATCH_SIZE)).get();
         Page actualPage = getOnlyElement(
                 tupleFilterProcessor.process(
