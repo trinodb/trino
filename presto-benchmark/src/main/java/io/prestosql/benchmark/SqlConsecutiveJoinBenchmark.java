@@ -16,7 +16,9 @@ package io.prestosql.benchmark;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.testing.LocalQueryRunner;
 
+import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
+import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 
 public class SqlConsecutiveJoinBenchmark
         extends AbstractSqlBenchmark
@@ -44,7 +46,7 @@ public class SqlConsecutiveJoinBenchmark
 
     public static void main(String[] args)
     {
-        try (LocalQueryRunner queryRunner = createLocalQueryRunner(ImmutableMap.of("reorder_joins", "false"))) {
+        try (LocalQueryRunner queryRunner = createLocalQueryRunner(ImmutableMap.of(JOIN_REORDERING_STRATEGY, NONE.toString()))) {
             new SqlConsecutiveJoinBenchmark(queryRunner).runBenchmark(new SimpleLineBenchmarkResultWriter(System.out));
         }
     }
