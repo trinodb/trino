@@ -37,7 +37,6 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
 import static io.prestosql.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
 import static io.prestosql.operator.OperatorAssertion.assertOperatorEquals;
@@ -66,8 +65,9 @@ public class TestDistinctLimitOperator
         driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
-        joinCompiler = new JoinCompiler(createTestMetadataManager());
-        blockTypeOperators = new BlockTypeOperators(new TypeOperators());
+        TypeOperators typeOperators = new TypeOperators();
+        blockTypeOperators = new BlockTypeOperators(typeOperators);
+        joinCompiler = new JoinCompiler(typeOperators);
     }
 
     @AfterMethod(alwaysRun = true)

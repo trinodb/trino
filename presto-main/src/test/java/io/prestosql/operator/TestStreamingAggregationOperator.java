@@ -18,6 +18,7 @@ import io.prestosql.RowPagesBuilder;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.spi.Page;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -78,7 +79,7 @@ public class TestStreamingAggregationOperator
                 AggregationNode.Step.SINGLE,
                 ImmutableList.of(COUNT.bind(ImmutableList.of(0), Optional.empty()),
                         LONG_SUM.bind(ImmutableList.of(2), Optional.empty())),
-                new JoinCompiler(createTestMetadataManager()));
+                new JoinCompiler(new TypeOperators()));
     }
 
     @AfterMethod(alwaysRun = true)
