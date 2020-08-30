@@ -36,6 +36,7 @@ import io.prestosql.operator.aggregation.BitwiseOrAggregation;
 import io.prestosql.operator.aggregation.BooleanAndAggregation;
 import io.prestosql.operator.aggregation.BooleanOrAggregation;
 import io.prestosql.operator.aggregation.CentralMomentsAggregation;
+import io.prestosql.operator.aggregation.ChecksumAggregationFunction;
 import io.prestosql.operator.aggregation.CountAggregation;
 import io.prestosql.operator.aggregation.CountIfAggregation;
 import io.prestosql.operator.aggregation.DefaultApproximateCountDistinctAggregation;
@@ -273,7 +274,6 @@ import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.Signature.isOperatorName;
 import static io.prestosql.metadata.Signature.unmangleOperator;
 import static io.prestosql.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
-import static io.prestosql.operator.aggregation.ChecksumAggregationFunction.CHECKSUM_AGGREGATION;
 import static io.prestosql.operator.aggregation.CountColumn.COUNT_COLUMN;
 import static io.prestosql.operator.aggregation.DecimalAverageAggregation.DECIMAL_AVERAGE_AGGREGATION;
 import static io.prestosql.operator.aggregation.DecimalSumAggregation.DECIMAL_SUM_AGGREGATION;
@@ -587,7 +587,7 @@ public class FunctionRegistry
                 .functions(DECIMAL_TO_SMALLINT_SATURATED_FLOOR_CAST, SMALLINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .functions(DECIMAL_TO_TINYINT_SATURATED_FLOOR_CAST, TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .function(new Histogram(featuresConfig.getHistogramGroupImplementation(), blockTypeOperators))
-                .function(CHECKSUM_AGGREGATION)
+                .function(new ChecksumAggregationFunction(blockTypeOperators))
                 .function(ARBITRARY_AGGREGATION)
                 .functions(GREATEST, LEAST)
                 .functions(MAX_BY, MIN_BY, MAX_BY_N_AGGREGATION, MIN_BY_N_AGGREGATION)
