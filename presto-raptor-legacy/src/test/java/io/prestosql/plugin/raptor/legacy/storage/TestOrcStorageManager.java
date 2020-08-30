@@ -42,6 +42,7 @@ import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlVarbinary;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.TestingNodeManager;
 import io.prestosql.type.InternalTypeManager;
@@ -616,7 +617,7 @@ public class TestOrcStorageManager
                 new BackupManager(backupStore, storageService, 1),
                 recoveryManager,
                 shardRecorder,
-                new InternalTypeManager(createTestMetadataManager()),
+                new InternalTypeManager(createTestMetadataManager(), new TypeOperators()),
                 CONNECTOR_ID,
                 DELETION_THREADS,
                 SHARD_RECOVERY_TIMEOUT,

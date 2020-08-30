@@ -29,6 +29,7 @@ import io.prestosql.plugin.raptor.legacy.metadata.ShardManager;
 import io.prestosql.plugin.raptor.legacy.storage.BucketBalancer.BucketAssignment;
 import io.prestosql.plugin.raptor.legacy.storage.BucketBalancer.ClusterState;
 import io.prestosql.spi.Node;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.testing.TestingNodeManager;
 import io.prestosql.type.InternalTypeManager;
 import org.skife.jdbi.v2.DBI;
@@ -70,7 +71,7 @@ public class TestBucketBalancer
     public void setup()
     {
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
-        dbi.registerMapper(new Distribution.Mapper(new InternalTypeManager(createTestMetadataManager())));
+        dbi.registerMapper(new Distribution.Mapper(new InternalTypeManager(createTestMetadataManager(), new TypeOperators())));
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
 

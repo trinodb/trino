@@ -48,5 +48,11 @@ public interface TypeManager
         return getType(new TypeSignature(baseTypeName, typeParameters));
     }
 
+    /**
+     * Gets the cache for type operators.
+     */
+    TypeOperators getTypeOperators();
+
+    @Deprecated
     MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes, InvocationConvention invocationConvention);
 }

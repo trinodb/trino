@@ -20,6 +20,9 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeOperators;
+import io.prestosql.type.InternalTypeManager;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -30,18 +33,20 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.plugin.prometheus.MetadataUtil.METRIC_CODEC;
 import static io.prestosql.plugin.prometheus.MetadataUtil.varcharMapType;
 import static io.prestosql.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static io.prestosql.plugin.prometheus.PrometheusRecordCursor.getBlockFromMap;
 import static io.prestosql.plugin.prometheus.PrometheusRecordCursor.getMapFromBlock;
-import static io.prestosql.plugin.prometheus.TestPrometheusTable.TYPE_MANAGER;
 import static java.time.Instant.ofEpochMilli;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 
 public class TestPrometheusRecordSet
 {
+    private static final TypeManager TYPE_MANAGER = new InternalTypeManager(createTestMetadataManager(), new TypeOperators());
+
     private PrometheusHttpServer prometheusHttpServer;
     private URI dataUri;
 

@@ -20,6 +20,7 @@ import io.prestosql.spi.type.RowFieldName;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.type.InternalTypeManager;
 
 import java.util.List;
@@ -46,7 +47,7 @@ public class TestHiveReaderProjectionsUtil
             new NamedTypeSignature(Optional.of(new RowFieldName("f_row_0")), ROWTYPE_OF_PRIMITIVES.getTypeSignature()),
             new NamedTypeSignature(Optional.of(new RowFieldName("f_bigint_0")), BIGINT.getTypeSignature())));
 
-    public static final TypeManager TYPE_MANAGER = new InternalTypeManager(createTestMetadataManager());
+    public static final TypeManager TYPE_MANAGER = new InternalTypeManager(createTestMetadataManager(), new TypeOperators());
 
     public static Map<String, HiveColumnHandle> createTestFullColumns(List<String> names, Map<String, Type> types)
     {

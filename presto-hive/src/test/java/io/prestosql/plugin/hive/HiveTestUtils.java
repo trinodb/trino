@@ -51,6 +51,7 @@ import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.spi.type.TypeSignatureParameter;
 import io.prestosql.testing.TestingConnectorSession;
 import io.prestosql.type.InternalTypeManager;
@@ -79,7 +80,7 @@ public final class HiveTestUtils
     public static final ConnectorSession SESSION = getHiveSession(new HiveConfig());
 
     private static final Metadata METADATA = createTestMetadataManager();
-    public static final TypeManager TYPE_MANAGER = new InternalTypeManager(METADATA);
+    public static final TypeManager TYPE_MANAGER = new InternalTypeManager(METADATA, new TypeOperators());
 
     public static final HdfsEnvironment HDFS_ENVIRONMENT = createTestHdfsEnvironment();
 
