@@ -22,9 +22,11 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.type.BlockTypeOperators;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.DataProvider;
@@ -62,6 +64,7 @@ public class TestRowNumberOperator
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
     private JoinCompiler joinCompiler = new JoinCompiler(createTestMetadataManager());
+    private BlockTypeOperators blockTypeOperators = new BlockTypeOperators(new TypeOperators());
 
     @BeforeClass
     public void setUp()
@@ -125,7 +128,8 @@ public class TestRowNumberOperator
                 Optional.empty(),
                 Optional.empty(),
                 10,
-                joinCompiler);
+                joinCompiler,
+                blockTypeOperators);
 
         MaterializedResult expectedResult = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
                 .row(0.3, 1L)
@@ -164,7 +168,8 @@ public class TestRowNumberOperator
                 Optional.empty(),
                 Optional.empty(),
                 1,
-                joinCompiler);
+                joinCompiler,
+                blockTypeOperators);
 
         // get result with yield; pick a relatively small buffer for partitionRowCount's memory usage
         GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((RowNumberOperator) operator).getCapacity(), 1_400_000);
@@ -212,7 +217,8 @@ public class TestRowNumberOperator
                 Optional.of(10),
                 rowPagesBuilder.getHashChannel(),
                 10,
-                joinCompiler);
+                joinCompiler,
+                blockTypeOperators);
 
         MaterializedResult expectedPartition1 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
                 .row(0.3, 1L)
@@ -278,7 +284,8 @@ public class TestRowNumberOperator
                 Optional.of(3),
                 Optional.empty(),
                 10,
-                joinCompiler);
+                joinCompiler,
+                blockTypeOperators);
 
         MaterializedResult expectedPartition1 = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT)
                 .row(0.3, 1L)
@@ -347,7 +354,8 @@ public class TestRowNumberOperator
                 Optional.of(3),
                 Optional.empty(),
                 10,
-                joinCompiler);
+                joinCompiler,
+                blockTypeOperators);
 
         MaterializedResult expectedRows = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
                 .row(0.3, 1L)

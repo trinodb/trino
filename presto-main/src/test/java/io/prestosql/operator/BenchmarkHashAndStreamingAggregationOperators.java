@@ -21,12 +21,14 @@ import io.prestosql.operator.HashAggregationOperator.HashAggregationOperatorFact
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.spiller.SpillerFactory;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.testing.TestingTaskContext;
+import io.prestosql.type.BlockTypeOperators;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -176,6 +178,7 @@ public class BenchmarkHashAndStreamingAggregationOperators
                     succinctBytes(Integer.MAX_VALUE),
                     spillerFactory,
                     joinCompiler,
+                    new BlockTypeOperators(new TypeOperators()),
                     false);
         }
 

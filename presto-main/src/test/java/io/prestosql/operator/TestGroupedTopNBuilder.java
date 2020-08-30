@@ -19,7 +19,9 @@ import io.prestosql.RowPagesBuilder;
 import io.prestosql.array.ObjectBigArray;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.gen.JoinCompiler;
+import io.prestosql.type.BlockTypeOperators;
 import it.unimi.dsi.fastutil.ints.IntArrayFIFOQueue;
 import it.unimi.dsi.fastutil.objects.ObjectHeapPriorityQueue;
 import org.openjdk.jol.info.ClassLayout;
@@ -426,6 +428,7 @@ public class TestGroupedTopNBuilder
                 1,
                 false,
                 new JoinCompiler(createTestMetadataManager()),
+                new BlockTypeOperators(new TypeOperators()),
                 updateMemory);
     }
 

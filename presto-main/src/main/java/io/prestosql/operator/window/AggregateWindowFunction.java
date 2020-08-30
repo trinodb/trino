@@ -54,6 +54,7 @@ public class AggregateWindowFunction
                 null,
                 false,
                 null,
+                null,
                 lambdaProviders,
                 null);
 
