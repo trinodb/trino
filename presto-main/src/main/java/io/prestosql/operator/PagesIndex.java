@@ -29,11 +29,13 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.sql.gen.JoinCompiler.LookupSourceSupplierFactory;
 import io.prestosql.sql.gen.JoinFilterFunctionCompiler.JoinFilterFunctionFactory;
 import io.prestosql.sql.gen.OrderingCompiler;
+import io.prestosql.type.BlockTypeOperators;
 import it.unimi.dsi.fastutil.Swapper;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.longs.LongArrayList;
@@ -80,7 +82,7 @@ public class PagesIndex
 
     private final OrderingCompiler orderingCompiler;
     private final JoinCompiler joinCompiler;
-    private final Metadata metadata;
+    private final BlockTypeOperators blockTypeOperators;
 
     private final List<Type> types;
     private final LongArrayList valueAddresses;
@@ -97,14 +99,14 @@ public class PagesIndex
     private PagesIndex(
             OrderingCompiler orderingCompiler,
             JoinCompiler joinCompiler,
-            Metadata metadata,
+            BlockTypeOperators blockTypeOperators,
             List<Type> types,
             int expectedPositions,
             boolean eagerCompact)
     {
         this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
-        this.metadata = requireNonNull(metadata, "metadata is null");
+        this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
         this.valueAddresses = new LongArrayList(expectedPositions);
         this.eagerCompact = eagerCompact;
@@ -131,6 +133,7 @@ public class PagesIndex
         private static final OrderingCompiler ORDERING_COMPILER = new OrderingCompiler();
         private static final Metadata METADATA = createTestMetadataManager();
         private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(METADATA);
+        private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(new TypeOperators());
         private final boolean eagerCompact;
 
         public TestingFactory(boolean eagerCompact)
@@ -141,7 +144,7 @@ public class PagesIndex
         @Override
         public PagesIndex newPagesIndex(List<Type> types, int expectedPositions)
         {
-            return new PagesIndex(ORDERING_COMPILER, JOIN_COMPILER, METADATA, types, expectedPositions, eagerCompact);
+            return new PagesIndex(ORDERING_COMPILER, JOIN_COMPILER, TYPE_OPERATOR_FACTORY, types, expectedPositions, eagerCompact);
         }
     }
 
@@ -151,21 +154,21 @@ public class PagesIndex
         private final OrderingCompiler orderingCompiler;
         private final JoinCompiler joinCompiler;
         private final boolean eagerCompact;
-        private final Metadata metadata;
+        private final BlockTypeOperators blockTypeOperators;
 
         @Inject
-        public DefaultFactory(OrderingCompiler orderingCompiler, JoinCompiler joinCompiler, FeaturesConfig featuresConfig, Metadata metadata)
+        public DefaultFactory(OrderingCompiler orderingCompiler, JoinCompiler joinCompiler, FeaturesConfig featuresConfig, BlockTypeOperators blockTypeOperators)
         {
             this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
             this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
             this.eagerCompact = requireNonNull(featuresConfig, "featuresConfig is null").isPagesIndexEagerCompactionEnabled();
-            this.metadata = requireNonNull(metadata, "metadata is null");
+            this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
         }
 
         @Override
         public PagesIndex newPagesIndex(List<Type> types, int expectedPositions)
         {
-            return new PagesIndex(orderingCompiler, joinCompiler, metadata, types, expectedPositions, eagerCompact);
+            return new PagesIndex(orderingCompiler, joinCompiler, blockTypeOperators, types, expectedPositions, eagerCompact);
         }
     }
 
@@ -449,7 +452,7 @@ public class PagesIndex
                 joinChannels,
                 hashChannel,
                 Optional.empty(),
-                metadata);
+                blockTypeOperators);
     }
 
     public LookupSourceSupplier createLookupSourceSupplier(
@@ -512,7 +515,7 @@ public class PagesIndex
                 joinChannels,
                 hashChannel,
                 sortChannel,
-                metadata);
+                blockTypeOperators);
 
         return new JoinHashSupplier(
                 session,
