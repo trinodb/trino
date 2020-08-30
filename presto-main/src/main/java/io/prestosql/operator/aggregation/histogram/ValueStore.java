@@ -20,6 +20,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
 import org.openjdk.jol.info.ClassLayout;
 
 import static com.google.common.base.Preconditions.checkState;
@@ -28,6 +29,7 @@ import static io.prestosql.operator.aggregation.histogram.HashUtil.computeBucket
 import static io.prestosql.operator.aggregation.histogram.HashUtil.nextBucketId;
 import static io.prestosql.operator.aggregation.histogram.HashUtil.nextProbeLinear;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INSUFFICIENT_RESOURCES;
+import static java.util.Objects.requireNonNull;
 
 /**
  * helper class for {@link GroupedTypedHistogram}
@@ -42,6 +44,8 @@ public class ValueStore
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedTypedHistogram.class).instanceSize();
     private static final float MAX_FILL_RATIO = 0.5f;
     private static final int EMPTY_BUCKET = -1;
+    private final Type type;
+    private final BlockPositionEqual equalOperator;
     private final BlockBuilder values;
     private int rehashCount;
 
@@ -52,8 +56,10 @@ public class ValueStore
     private int maxFill;
 
     @VisibleForTesting
-    public ValueStore(int expectedSize, BlockBuilder values)
+    public ValueStore(Type type, BlockPositionEqual equalOperator, int expectedSize, BlockBuilder values)
     {
+        this.type = requireNonNull(type, "type is null");
+        this.equalOperator = requireNonNull(equalOperator, "equalOperator is null");
         bucketCount = computeBucketCount(expectedSize, MAX_FILL_RATIO);
         mask = bucketCount - 1;
         maxFill = calculateMaxFill(bucketCount, MAX_FILL_RATIO);
@@ -68,7 +74,7 @@ public class ValueStore
      * This will add an item if not already in the system. It returns a pointer that is unique for multiple instances of the value. If item present,
      * returns the pointer into the system
      */
-    public int addAndGetPosition(Type type, Block block, int position, long valueHash)
+    public int addAndGetPosition(Block block, int position, long valueHash)
     {
         if (values.getPositionCount() >= maxFill) {
             rehash();
@@ -92,7 +98,7 @@ public class ValueStore
 
                 return valuePointer;
             }
-            else if (type.equalTo(block, position, values, valuePointer)) {
+            else if (equalOperator.equal(block, position, values, valuePointer)) {
                 // value at position
                 return valuePointer;
             }
