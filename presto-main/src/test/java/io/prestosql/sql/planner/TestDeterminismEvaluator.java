@@ -23,12 +23,14 @@ import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.Identifier;
 import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.sql.tree.StringLiteral;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
+import static io.prestosql.type.UuidType.UUID;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
@@ -43,6 +45,13 @@ public class TestDeterminismEvaluator
         assertFalse(DeterminismEvaluator.isDeterministic(function("random"), metadata));
         assertFalse(DeterminismEvaluator.isDeterministic(function("shuffle", ImmutableList.of(new ArrayType(VARCHAR)), ImmutableList.of(new NullLiteral())), metadata));
         assertFalse(DeterminismEvaluator.isDeterministic(function("uuid"), metadata));
+        assertTrue(DeterminismEvaluator.isDeterministic(function("uuid_nil"), metadata));
+        assertTrue(DeterminismEvaluator.isDeterministic(function("uuid_ns_dns"), metadata));
+        assertTrue(DeterminismEvaluator.isDeterministic(function("uuid_ns_url"), metadata));
+        assertTrue(DeterminismEvaluator.isDeterministic(function("uuid_ns_oid"), metadata));
+        assertTrue(DeterminismEvaluator.isDeterministic(function("uuid_ns_x500"), metadata));
+        assertTrue(DeterminismEvaluator.isDeterministic(function("uuid_v3", ImmutableList.of(UUID, VARCHAR), ImmutableList.of(input("symbol"), new StringLiteral("presto"))), metadata));
+        assertTrue(DeterminismEvaluator.isDeterministic(function("uuid_v5", ImmutableList.of(UUID, VARCHAR), ImmutableList.of(input("symbol"), new StringLiteral("presto"))), metadata));
         assertTrue(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(input("symbol"))), metadata));
         assertFalse(DeterminismEvaluator.isDeterministic(function("abs", ImmutableList.of(DOUBLE), ImmutableList.of(function("rand"))), metadata));
         assertTrue(DeterminismEvaluator.isDeterministic(

@@ -18,6 +18,8 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import org.testng.annotations.Test;
 
+import java.util.UUID;
+
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
@@ -131,5 +133,59 @@ public class TestUuidOperators
         UUID.writeSlice(blockBuilder, castFromVarcharToUuid(utf8Slice(uuidString)));
         Block block = blockBuilder.build();
         return UUID.hash(block, 0);
+    }
+
+    @Test
+    public void testUuid_nil()
+    {
+        assertFunction("UUID_NIL()", UUID, "00000000-0000-0000-0000-000000000000");
+    }
+
+    @Test
+    public void testUuid_ns_dns()
+    {
+        assertFunction("UUID_NS_DNS()", UUID, "6ba7b810-9dad-11d1-80b4-00c04fd430c8");
+    }
+
+    @Test
+    public void testUuid_ns_url()
+    {
+        assertFunction("UUID_NS_URL()", UUID, "6ba7b811-9dad-11d1-80b4-00c04fd430c8");
+    }
+
+    @Test
+    public void testUuid_ns_oid()
+    {
+        assertFunction("UUID_NS_OID()", UUID, "6ba7b812-9dad-11d1-80b4-00c04fd430c8");
+    }
+
+    @Test
+    public void testUuid_ns_x500()
+    {
+        assertFunction("UUID_NS_X500()", UUID, "6ba7b814-9dad-11d1-80b4-00c04fd430c8");
+    }
+
+    @Test
+    public void testUuid_v3()
+    {
+        assertFunction("UUID_V3(uuid_ns_dns(),'presto')", UUID, "8efeec8c-1d77-3a5a-b1bb-22e702970750");
+        assertFunction("UUID_V3(uuid_ns_url(),'presto')", UUID, "f6c28578-3dcd-35b1-8f2a-8e0f96ed5f8e");
+        assertFunction("UUID_V3(uuid_ns_oid(),'presto')", UUID, "eacef17c-d8de-3572-9f0d-2a1d690c5f91");
+        assertFunction("UUID_V3(uuid_ns_x500(),'presto')", UUID, "4780824d-7b12-3bd6-81d3-7522dbdb5e64");
+        assertFunction("UUID_V3(uuid_ns_dns(),'1')", UUID, "afd0b036-625a-3aa8-b639-9dc8c8fff0ff");
+        assertFunction("UUID_V3(uuid_ns_url(),'A')", UUID, "960f8dd3-5e9d-3131-8863-342136e8ba2f");
+        assertFunction("UUID_V3(uuid_ns_oid(),'')", UUID, "596b79dc-00dd-3991-a72f-d3696c38c64f");
+    }
+
+    @Test
+    public void testUuid_v5()
+    {
+        assertFunction("UUID_V5(uuid_ns_dns(),'presto')", UUID, "85564ce8-4e26-5c3e-8e74-7513d079234b");
+        assertFunction("UUID_V5(uuid_ns_url(),'presto')", UUID, "7086ed1d-3281-5a5b-9c45-af1d892d46bc");
+        assertFunction("UUID_V5(uuid_ns_oid(),'presto')", UUID, "c5d36fda-4c92-58b9-be71-af90ac45b631");
+        assertFunction("UUID_V5(uuid_ns_x500(),'presto')", UUID, "ddbffa49-375f-5810-aa87-5bdcb1d0e370");
+        assertFunction("UUID_V5(uuid_ns_dns(),'1')", UUID, "b04965e6-a9bb-591f-8f8a-1adcb2c8dc39");
+        assertFunction("UUID_V5(uuid_ns_url(),'A')", UUID, "e4a949f3-70ea-501d-afab-a776e00be584");
+        assertFunction("UUID_V5(uuid_ns_oid(),'')", UUID, "0a68eb57-c88a-5f34-9e9d-27f85e68af4f");
     }
 }
