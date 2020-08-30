@@ -13,26 +13,41 @@
  */
 package io.prestosql.spi.block;
 
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
 
+import java.util.Optional;
+
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static java.lang.String.format;
 
 public class DuplicateMapKeyException
-        extends Exception
+        extends PrestoException
 {
     private final Block block;
     private final int position;
+    private final boolean hasDetailedMessage;
 
     public DuplicateMapKeyException(Block block, int position)
     {
-        super("Duplicate map keys are not allowed");
-        this.block = block;
-        this.position = position;
+        this(block, position, Optional.empty());
     }
 
-    public String getDetailedMessage(Type keyType, ConnectorSession session)
+    private DuplicateMapKeyException(Block block, int position, Optional<String> detailedMessage)
     {
-        return format("Duplicate map keys (%s) are not allowed", keyType.getObjectValue(session, block, position));
+        super(INVALID_FUNCTION_ARGUMENT, detailedMessage.orElse("Duplicate map keys are not allowed"));
+        this.block = block;
+        this.position = position;
+        this.hasDetailedMessage = detailedMessage.isPresent();
+    }
+
+    public DuplicateMapKeyException withDetailedMessage(Type keyType, ConnectorSession session)
+    {
+        if (hasDetailedMessage) {
+            return this;
+        }
+        String detailedMessage = format("Duplicate map keys (%s) are not allowed", keyType.getObjectValue(session, block, position));
+        return new DuplicateMapKeyException(block, position, Optional.of(detailedMessage));
     }
 }
