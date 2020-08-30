@@ -13,8 +13,6 @@
  */
 package io.prestosql.operator.scalar;
 
-import io.prestosql.spi.function.OperatorType;
-
 public final class Least
         extends AbstractGreatestLeast
 {
@@ -22,6 +20,6 @@ public final class Least
 
     public Least()
     {
-        super("least", OperatorType.LESS_THAN, "Get the smallest of the given values");
+        super(true, "Get the smallest of the given values");
     }
 }
