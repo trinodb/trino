@@ -110,8 +110,9 @@ public class TestHashAggregationOperator
 
     private ExecutorService executor;
     private ScheduledExecutorService scheduledExecutor;
-    private JoinCompiler joinCompiler = new JoinCompiler(createTestMetadataManager());
-    private BlockTypeOperators blockTypeOperators = new BlockTypeOperators(new TypeOperators());
+    private final TypeOperators typeOperators = new TypeOperators();
+    private final BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
+    private final JoinCompiler joinCompiler = new JoinCompiler(typeOperators);
     private DummySpillerFactory spillerFactory;
 
     @BeforeMethod

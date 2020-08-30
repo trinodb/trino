@@ -54,7 +54,6 @@ import java.util.Optional;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.TimeUnit;
 
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.UpdateMemory.NOOP;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -73,7 +72,8 @@ public class BenchmarkGroupByHash
     private static final String GROUP_COUNT_STRING = "3000000";
     private static final int GROUP_COUNT = Integer.parseInt(GROUP_COUNT_STRING);
     private static final int EXPECTED_SIZE = 10_000;
-    private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(new TypeOperators());
+    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
+    private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(TYPE_OPERATORS);
 
     @Benchmark
     @OperationsPerInvocation(POSITIONS)
@@ -389,7 +389,7 @@ public class BenchmarkGroupByHash
 
     private static JoinCompiler getJoinCompiler()
     {
-        return new JoinCompiler(createTestMetadataManager());
+        return new JoinCompiler(TYPE_OPERATORS);
     }
 
     public static void main(String[] args)

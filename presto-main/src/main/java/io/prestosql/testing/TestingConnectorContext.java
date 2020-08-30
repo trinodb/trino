@@ -47,7 +47,7 @@ public final class TestingConnectorContext
     {
         Metadata metadata = createTestMetadataManager();
         TypeOperators typeOperators = new TypeOperators();
-        pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(metadata), new BlockTypeOperators(typeOperators));
+        pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(typeOperators), new BlockTypeOperators(typeOperators));
         typeManager = new InternalTypeManager(metadata, typeOperators);
     }
 

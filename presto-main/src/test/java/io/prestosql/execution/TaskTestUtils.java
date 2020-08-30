@@ -144,7 +144,7 @@ public final class TaskTestUtils
                     throw new UnsupportedOperationException();
                 },
                 new PagesIndex.TestingFactory(false),
-                new JoinCompiler(metadata),
+                new JoinCompiler(typeOperators),
                 new LookupJoinOperators(),
                 new OrderingCompiler(),
                 new DynamicFilterConfig(),
