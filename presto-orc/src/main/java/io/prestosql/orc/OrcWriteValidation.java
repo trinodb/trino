@@ -47,7 +47,6 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.ColumnarMap;
 import io.prestosql.spi.block.ColumnarRow;
-import io.prestosql.spi.type.AbstractLongType;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
@@ -55,7 +54,6 @@ import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.LongTimestampWithTimeZone;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
-import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import org.openjdk.jol.info.ClassLayout;
@@ -464,9 +462,7 @@ public class OrcWriteValidation
 
     public static class WriteChecksumBuilder
     {
-        private static final long NULL_HASH_CODE = 0x6e3efbd56c16a0cbL;
-
-        private final List<Type> types;
+        private final List<ValidationHash> validationHashes;
         private long totalRowCount;
         private final List<XxHash64> columnHashes;
         private final XxHash64 stripeHash = new XxHash64();
@@ -476,7 +472,9 @@ public class OrcWriteValidation
 
         private WriteChecksumBuilder(List<Type> types)
         {
-            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+            this.validationHashes = requireNonNull(types, "types is null").stream()
+                    .map(ValidationHash::createValidationHash)
+                    .collect(toImmutableList());
 
             ImmutableList.Builder<XxHash64> columnHashes = ImmutableList.builder();
             for (Type ignored : types) {
@@ -503,69 +501,16 @@ public class OrcWriteValidation
             checkArgument(page.getChannelCount() == columnHashes.size(), "invalid page");
 
             for (int channel = 0; channel < columnHashes.size(); channel++) {
-                Type type = types.get(channel);
+                ValidationHash validationHash = validationHashes.get(channel);
                 Block block = page.getBlock(channel);
                 XxHash64 xxHash64 = columnHashes.get(channel);
                 for (int position = 0; position < block.getPositionCount(); position++) {
-                    long hash = hashPositionSkipNullMapKeys(type, block, position);
+                    long hash = validationHash.hash(block, position);
                     longSlice.setLong(0, hash);
                     xxHash64.update(longBuffer);
                 }
             }
             totalRowCount += page.getPositionCount();
-        }
-
-        private static long hashPositionSkipNullMapKeys(Type type, Block block, int position)
-        {
-            if (block.isNull(position)) {
-                return NULL_HASH_CODE;
-            }
-
-            if (type instanceof MapType) {
-                Type keyType = type.getTypeParameters().get(0);
-                Type valueType = type.getTypeParameters().get(1);
-                Block mapBlock = (Block) type.getObject(block, position);
-                long hash = 0;
-                for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
-                    if (!mapBlock.isNull(i)) {
-                        hash += hashPositionSkipNullMapKeys(keyType, mapBlock, i);
-                        hash += hashPositionSkipNullMapKeys(valueType, mapBlock, i + 1);
-                    }
-                }
-                return hash;
-            }
-
-            if (type instanceof ArrayType) {
-                Type elementType = type.getTypeParameters().get(0);
-                Block array = (Block) type.getObject(block, position);
-                long hash = 0;
-                for (int i = 0; i < array.getPositionCount(); i++) {
-                    hash = 31 * hash + hashPositionSkipNullMapKeys(elementType, array, i);
-                }
-                return hash;
-            }
-
-            if (type instanceof RowType) {
-                Block row = (Block) type.getObject(block, position);
-                long hash = 0;
-                for (int i = 0; i < row.getPositionCount(); i++) {
-                    Type elementType = type.getTypeParameters().get(i);
-                    hash = 31 * hash + hashPositionSkipNullMapKeys(elementType, row, i);
-                }
-                return hash;
-            }
-
-            if (type instanceof TimestampType) {
-                // A flaw in ORC encoding makes it impossible to represent timestamp
-                // between 1969-12-31 23:59:59.000, exclusive, and 1970-01-01 00:00:00.000, exclusive.
-                // Therefore, such data won't round trip. The data read back is expected to be 1 second later than the original value.
-                long mills = floorDiv(TIMESTAMP_MILLIS.getLong(block, position), MICROSECONDS_PER_MILLISECOND);
-                if (mills > -1000 && mills < 0) {
-                    return AbstractLongType.hash(mills + 1000);
-                }
-            }
-
-            return type.hash(block, position);
         }
 
         public WriteChecksum build()
