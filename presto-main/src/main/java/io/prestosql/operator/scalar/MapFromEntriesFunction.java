@@ -20,7 +20,9 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.Convention;
 import io.prestosql.spi.function.Description;
+import io.prestosql.spi.function.OperatorDependency;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
@@ -28,8 +30,16 @@ import io.prestosql.spi.function.TypeParameter;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
+import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
 
+import static io.prestosql.operator.aggregation.TypedSet.createEqualityTypedSet;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static java.lang.String.format;
 
 @ScalarFunction("map_from_entries")
@@ -50,6 +60,14 @@ public final class MapFromEntriesFunction
     @SqlType("map(K,V)")
     @SqlNullable
     public Block mapFromEntries(
+            @OperatorDependency(
+                    operator = EQUAL,
+                    argumentTypes = {"K", "K"},
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = NULLABLE_RETURN)) BlockPositionEqual keyEqual,
+            @OperatorDependency(
+                    operator = HASH_CODE,
+                    argumentTypes = "K",
+                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL)) BlockPositionHashCode keyHashCode,
             @TypeParameter("map(K,V)") MapType mapType,
             ConnectorSession session,
             @SqlType("array(row(K,V))") Block block)
@@ -66,7 +84,7 @@ public final class MapFromEntriesFunction
 
         BlockBuilder mapBlockBuilder = pageBuilder.getBlockBuilder(0);
         BlockBuilder resultBuilder = mapBlockBuilder.beginBlockEntry();
-        TypedSet uniqueKeys = new TypedSet(keyType, entryCount, "map_from_entries");
+        TypedSet uniqueKeys = createEqualityTypedSet(keyType, keyEqual, keyHashCode, entryCount, "map_from_entries");
 
         for (int i = 0; i < entryCount; i++) {
             if (block.isNull(i)) {

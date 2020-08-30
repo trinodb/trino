@@ -751,7 +751,8 @@ public class LocalQueryRunner
                 new LookupJoinOperators(),
                 new OrderingCompiler(),
                 new DynamicFilterConfig(),
-                typeOperators);
+                typeOperators,
+                blockTypeOperators);
 
         // plan query
         StageExecutionDescriptor stageExecutionDescriptor = subplan.getFragment().getStageExecutionDescriptor();

@@ -99,7 +99,7 @@ public interface ImplementationDependency
     {
         private Factory() {}
 
-        public static ImplementationDependency createDependency(Annotation annotation, Set<String> literalParameters)
+        public static ImplementationDependency createDependency(Annotation annotation, Set<String> literalParameters, Class<?> type)
         {
             if (annotation instanceof TypeParameter) {
                 return new TypeImplementationDependency(((TypeParameter) annotation).value());
@@ -115,7 +115,8 @@ public interface ImplementationDependency
                         Arrays.stream(functionDependency.argumentTypes())
                                 .map(signature -> parseTypeSignature(signature, literalParameters))
                                 .collect(toImmutableList()),
-                        toInvocationConvention(functionDependency.convention()));
+                        toInvocationConvention(functionDependency.convention()),
+                        type);
             }
             if (annotation instanceof OperatorDependency) {
                 OperatorDependency operatorDependency = (OperatorDependency) annotation;
@@ -126,14 +127,16 @@ public interface ImplementationDependency
                         Arrays.stream(operatorDependency.argumentTypes())
                                 .map(signature -> parseTypeSignature(signature, literalParameters))
                                 .collect(toImmutableList()),
-                        toInvocationConvention(operatorDependency.convention()));
+                        toInvocationConvention(operatorDependency.convention()),
+                        type);
             }
             if (annotation instanceof CastDependency) {
                 CastDependency castDependency = (CastDependency) annotation;
                 return new CastImplementationDependency(
                         parseTypeSignature(castDependency.fromType(), literalParameters),
                         parseTypeSignature(castDependency.toType(), literalParameters),
-                        toInvocationConvention(castDependency.convention()));
+                        toInvocationConvention(castDependency.convention()),
+                        type);
             }
 
             throw new IllegalArgumentException("Unsupported annotation " + annotation.getClass().getSimpleName());

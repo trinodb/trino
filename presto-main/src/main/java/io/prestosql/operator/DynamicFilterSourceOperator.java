@@ -26,15 +26,16 @@ import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.type.BlockTypeOperators;
 
 import javax.annotation.Nullable;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.operator.aggregation.TypedSet.createEqualityTypedSet;
 import static io.prestosql.spi.predicate.Range.range;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.RealType.REAL;
@@ -78,6 +79,7 @@ public class DynamicFilterSourceOperator
         private final int maxDisinctValues;
         private final DataSize maxFilterSize;
         private final int minMaxCollectionLimit;
+        private final BlockTypeOperators blockTypeOperators;
 
         private boolean closed;
 
@@ -88,7 +90,8 @@ public class DynamicFilterSourceOperator
                 List<Channel> channels,
                 int maxDisinctValues,
                 DataSize maxFilterSize,
-                int minMaxCollectionLimit)
+                int minMaxCollectionLimit,
+                BlockTypeOperators blockTypeOperators)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -101,6 +104,7 @@ public class DynamicFilterSourceOperator
             this.maxDisinctValues = maxDisinctValues;
             this.maxFilterSize = maxFilterSize;
             this.minMaxCollectionLimit = minMaxCollectionLimit;
+            this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
         }
 
         @Override
@@ -114,7 +118,8 @@ public class DynamicFilterSourceOperator
                     planNodeId,
                     maxDisinctValues,
                     maxFilterSize,
-                    minMaxCollectionLimit);
+                    minMaxCollectionLimit,
+                    blockTypeOperators);
         }
 
         @Override
@@ -160,7 +165,8 @@ public class DynamicFilterSourceOperator
             PlanNodeId planNodeId,
             int maxDistinctValues,
             DataSize maxFilterSize,
-            int minMaxCollectionLimit)
+            int minMaxCollectionLimit,
+            BlockTypeOperators blockTypeOperators)
     {
         this.context = requireNonNull(context, "context is null");
         this.maxDistinctValues = maxDistinctValues;
@@ -179,13 +185,14 @@ public class DynamicFilterSourceOperator
                 minMaxChannelsBuilder.add(channelIndex);
             }
             this.blockBuilders[channelIndex] = type.createBlockBuilder(null, EXPECTED_BLOCK_BUILDER_SIZE);
-            this.valueSets[channelIndex] = new TypedSet(
+            this.valueSets[channelIndex] = createEqualityTypedSet(
                     type,
-                    Optional.empty(),
+                    blockTypeOperators.getEqualOperator(type),
+                    blockTypeOperators.getHashCodeOperator(type),
                     blockBuilders[channelIndex],
                     EXPECTED_BLOCK_BUILDER_SIZE,
                     String.format("DynamicFilterSourceOperator_%s_%d", planNodeId, channelIndex),
-                    Optional.empty() /* maxBlockMemory */);
+                    true);
         }
 
         this.minMaxCollectionLimit = minMaxCollectionLimit;

@@ -119,10 +119,13 @@ import io.prestosql.operator.scalar.JsonFunctions;
 import io.prestosql.operator.scalar.JsonOperators;
 import io.prestosql.operator.scalar.LuhnCheckFunction;
 import io.prestosql.operator.scalar.MapCardinalityFunction;
+import io.prestosql.operator.scalar.MapConcatFunction;
 import io.prestosql.operator.scalar.MapEntriesFunction;
 import io.prestosql.operator.scalar.MapFromEntriesFunction;
 import io.prestosql.operator.scalar.MapKeys;
 import io.prestosql.operator.scalar.MapSubscriptOperator;
+import io.prestosql.operator.scalar.MapToMapCast;
+import io.prestosql.operator.scalar.MapTransformKeysFunction;
 import io.prestosql.operator.scalar.MapValues;
 import io.prestosql.operator.scalar.MathFunctions;
 import io.prestosql.operator.scalar.MultimapFromEntriesFunction;
@@ -312,13 +315,10 @@ import static io.prestosql.operator.scalar.JsonToArrayCast.JSON_TO_ARRAY;
 import static io.prestosql.operator.scalar.JsonToMapCast.JSON_TO_MAP;
 import static io.prestosql.operator.scalar.JsonToRowCast.JSON_TO_ROW;
 import static io.prestosql.operator.scalar.Least.LEAST;
-import static io.prestosql.operator.scalar.MapConcatFunction.MAP_CONCAT_FUNCTION;
 import static io.prestosql.operator.scalar.MapConstructor.MAP_CONSTRUCTOR;
 import static io.prestosql.operator.scalar.MapElementAtFunction.MAP_ELEMENT_AT;
 import static io.prestosql.operator.scalar.MapFilterFunction.MAP_FILTER_FUNCTION;
 import static io.prestosql.operator.scalar.MapToJsonCast.MAP_TO_JSON;
-import static io.prestosql.operator.scalar.MapToMapCast.MAP_TO_MAP_CAST;
-import static io.prestosql.operator.scalar.MapTransformKeysFunction.MAP_TRANSFORM_KEYS_FUNCTION;
 import static io.prestosql.operator.scalar.MapTransformValuesFunction.MAP_TRANSFORM_VALUES_FUNCTION;
 import static io.prestosql.operator.scalar.MapZipWithFunction.MAP_ZIP_WITH_FUNCTION;
 import static io.prestosql.operator.scalar.MathFunctions.DECIMAL_MOD_FUNCTION;
@@ -564,8 +564,8 @@ public class FunctionRegistry
                 .functions(ARRAY_TO_ARRAY_CAST)
                 .functions(ARRAY_TO_ELEMENT_CONCAT_FUNCTION, ELEMENT_TO_ARRAY_CONCAT_FUNCTION)
                 .function(MAP_ELEMENT_AT)
-                .function(MAP_CONCAT_FUNCTION)
-                .function(MAP_TO_MAP_CAST)
+                .function(new MapConcatFunction(blockTypeOperators))
+                .function(new MapToMapCast(blockTypeOperators))
                 .function(ARRAY_FLATTEN_FUNCTION)
                 .function(ARRAY_CONCAT_FUNCTION)
                 .functions(ARRAY_CONSTRUCTOR, ARRAY_SUBSCRIPT, ARRAY_TO_JSON, JSON_TO_ARRAY, JSON_STRING_TO_ARRAY)
@@ -574,7 +574,7 @@ public class FunctionRegistry
                 .functions(MAP_CONSTRUCTOR, MAP_TO_JSON, JSON_TO_MAP, JSON_STRING_TO_MAP)
                 .functions(MAP_AGG, MAP_UNION)
                 .function(REDUCE_AGG)
-                .function(new MultimapAggregationFunction(featuresConfig.getMultimapAggGroupImplementation()))
+                .function(new MultimapAggregationFunction(featuresConfig.getMultimapAggGroupImplementation(), blockTypeOperators))
                 .functions(DECIMAL_TO_VARCHAR_CAST, DECIMAL_TO_INTEGER_CAST, DECIMAL_TO_BIGINT_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_REAL_CAST, DECIMAL_TO_BOOLEAN_CAST, DECIMAL_TO_TINYINT_CAST, DECIMAL_TO_SMALLINT_CAST)
                 .functions(VARCHAR_TO_DECIMAL_CAST, INTEGER_TO_DECIMAL_CAST, BIGINT_TO_DECIMAL_CAST, DOUBLE_TO_DECIMAL_CAST, REAL_TO_DECIMAL_CAST, BOOLEAN_TO_DECIMAL_CAST, TINYINT_TO_DECIMAL_CAST, SMALLINT_TO_DECIMAL_CAST)
                 .functions(JSON_TO_DECIMAL_CAST, DECIMAL_TO_JSON_CAST)
@@ -602,7 +602,7 @@ public class FunctionRegistry
                 .function(DECIMAL_SUM_AGGREGATION)
                 .function(DECIMAL_MOD_FUNCTION)
                 .functions(ARRAY_TRANSFORM_FUNCTION, ARRAY_REDUCE_FUNCTION)
-                .functions(MAP_FILTER_FUNCTION, MAP_TRANSFORM_KEYS_FUNCTION, MAP_TRANSFORM_VALUES_FUNCTION)
+                .functions(MAP_FILTER_FUNCTION, new MapTransformKeysFunction(blockTypeOperators), MAP_TRANSFORM_VALUES_FUNCTION)
                 .function(FORMAT_FUNCTION)
                 .function(TRY_CAST)
                 .function(new LiteralFunction(blockEncodingSerdeSupplier))
