@@ -68,6 +68,7 @@ public class StatefulSleepingSum
     {
         int args = 4;
         return new ScalarFunctionImplementation(
+                functionBinding,
                 FAIL_ON_NULL,
                 nCopies(args, NEVER_NULL),
                 methodHandle(StatefulSleepingSum.class, "statefulSleepingSum", State.class, double.class, long.class, long.class, long.class),

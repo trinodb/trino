@@ -68,6 +68,7 @@ public final class InvokeFunction
     {
         Type returnType = functionBinding.getTypeVariable("T");
         return new ScalarFunctionImplementation(
+                functionBinding,
                 NULLABLE_RETURN,
                 ImmutableList.of(FUNCTION),
                 ImmutableList.of(InvokeLambda.class),

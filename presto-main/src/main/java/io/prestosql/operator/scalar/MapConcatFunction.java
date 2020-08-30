@@ -90,6 +90,7 @@ public final class MapConcatFunction
                 USER_STATE_FACTORY.bindTo(mapType));
 
         return new ScalarFunctionImplementation(
+                functionBinding,
                 FAIL_ON_NULL,
                 nCopies(functionBinding.getArity(), NEVER_NULL),
                 methodHandleAndConstructor.getMethodHandle(),

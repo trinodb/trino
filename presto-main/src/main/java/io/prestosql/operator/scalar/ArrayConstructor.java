@@ -114,6 +114,7 @@ public final class ArrayConstructor
             throw new RuntimeException(e);
         }
         return new ScalarFunctionImplementation(
+                functionBinding,
                 FAIL_ON_NULL,
                 nCopies(stackTypes.size(), BOXED_NULLABLE),
                 methodHandle);

@@ -87,6 +87,7 @@ public class TryCastFunction
 
         boolean nullableArgument = functionDependencies.getCastMetadata(fromType, toType).getArgumentDefinitions().get(0).isNullable();
         return new ScalarFunctionImplementation(
+                functionBinding,
                 NULLABLE_RETURN,
                 ImmutableList.of(nullableArgument ? BOXED_NULLABLE : NEVER_NULL),
                 tryCastHandle);

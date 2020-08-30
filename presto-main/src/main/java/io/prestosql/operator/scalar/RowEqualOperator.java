@@ -69,6 +69,7 @@ public class RowEqualOperator
     {
         RowType type = (RowType) functionBinding.getTypeVariable("T");
         return new ScalarFunctionImplementation(
+                functionBinding,
                 NULLABLE_RETURN,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 METHOD_HANDLE

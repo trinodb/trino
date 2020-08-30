@@ -152,6 +152,7 @@ public final class FormatFunction
                 .collect(toImmutableList());
 
         return new ScalarFunctionImplementation(
+                functionBinding,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 METHOD_HANDLE.bindTo(converters));

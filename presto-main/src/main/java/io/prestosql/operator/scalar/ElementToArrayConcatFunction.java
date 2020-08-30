@@ -88,6 +88,7 @@ public class ElementToArrayConcatFunction
         methodHandle = methodHandle.bindTo(type);
 
         return new ScalarFunctionImplementation(
+                functionBinding,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 methodHandle);

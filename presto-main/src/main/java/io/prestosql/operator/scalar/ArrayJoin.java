@@ -175,6 +175,7 @@ public final class ArrayJoin
         Type type = functionBinding.getTypeVariable("T");
         if (type instanceof UnknownType) {
             return new ScalarFunctionImplementation(
+                    functionBinding,
                     FAIL_ON_NULL,
                     argumentConventions,
                     methodHandle.bindTo(null),
@@ -192,6 +193,7 @@ public final class ArrayJoin
 
                 MethodHandle target = MethodHandles.insertArguments(methodHandle, 0, cast);
                 return new ScalarFunctionImplementation(
+                        functionBinding,
                         FAIL_ON_NULL,
                         argumentConventions,
                         target,

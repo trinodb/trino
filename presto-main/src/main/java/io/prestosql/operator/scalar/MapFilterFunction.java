@@ -105,6 +105,7 @@ public final class MapFilterFunction
     {
         MapType mapType = (MapType) functionBinding.getBoundSignature().getReturnType();
         return new ScalarFunctionImplementation(
+                functionBinding,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, FUNCTION),
                 ImmutableList.of(BinaryFunctionInterface.class),

@@ -363,6 +363,7 @@ public class TestFunctionRegistry
                     protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
                     {
                         return new ScalarFunctionImplementation(
+                                functionBinding,
                                 FAIL_ON_NULL,
                                 nCopies(functionBinding.getArity(), NEVER_NULL),
                                 MethodHandles.identity(Void.class));

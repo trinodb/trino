@@ -81,6 +81,7 @@ public final class ArrayReduceFunction
         Type outputType = functionBinding.getTypeVariable("R");
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(inputType);
         return new ScalarFunctionImplementation(
+                functionBinding,
                 NULLABLE_RETURN,
                 ImmutableList.of(NEVER_NULL, BOXED_NULLABLE, FUNCTION, FUNCTION),
                 ImmutableList.of(BinaryFunctionInterface.class, UnaryFunctionInterface.class),
