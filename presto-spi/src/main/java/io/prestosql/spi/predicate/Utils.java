@@ -16,6 +16,7 @@ package io.prestosql.spi.predicate;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
@@ -24,6 +25,11 @@ import static java.lang.String.format;
 public final class Utils
 {
     private Utils() {}
+
+    // Tuple domain accesses equal and hash code operators from static contexts which
+    // are too numerous to inject a type operator cache. Instead, we uses a static cache
+    // just for this use case.
+    static final TypeOperators TUPLE_DOMAIN_TYPE_OPERATORS = new TypeOperators();
 
     public static Block nativeValueToBlock(Type type, Object object)
     {
@@ -38,5 +44,16 @@ public final class Utils
     static Object blockToNativeValue(Type type, Block block)
     {
         return readNativeValue(type, block, 0);
+    }
+
+    static RuntimeException handleThrowable(Throwable throwable)
+    {
+        if (throwable instanceof Error) {
+            throw (Error) throwable;
+        }
+        if (throwable instanceof RuntimeException) {
+            throw (RuntimeException) throwable;
+        }
+        return new RuntimeException(throwable);
     }
 }
