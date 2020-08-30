@@ -37,6 +37,8 @@ public class TestingTypeManager
 {
     private static final List<Type> TYPES = ImmutableList.of(BOOLEAN, BIGINT, DOUBLE, INTEGER, VARCHAR, VARBINARY, TIMESTAMP_MILLIS, TIMESTAMP_WITH_TIME_ZONE, DATE, ID, HYPER_LOG_LOG);
 
+    private final TypeOperators typeOperators = new TypeOperators();
+
     @Override
     public Type getType(TypeSignature signature)
     {
@@ -63,6 +65,12 @@ public class TestingTypeManager
             }
         }
         throw new IllegalArgumentException("Type not found: " + id);
+    }
+
+    @Override
+    public TypeOperators getTypeOperators()
+    {
+        return typeOperators;
     }
 
     @Override

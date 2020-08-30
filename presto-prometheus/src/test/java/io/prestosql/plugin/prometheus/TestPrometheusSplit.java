@@ -28,6 +28,7 @@ import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.type.InternalTypeManager;
 import org.apache.http.NameValuePair;
 import org.testng.annotations.BeforeClass;
@@ -70,7 +71,7 @@ public class TestPrometheusSplit
     private PrometheusHttpServer prometheusHttpServer;
     private final PrometheusSplit split = new PrometheusSplit(URI.create("http://127.0.0.1/test.file"));
     private static final Metadata METADATA = createTestMetadataManager();
-    private static final TypeManager TYPE_MANAGER = new InternalTypeManager(METADATA);
+    private static final TypeManager TYPE_MANAGER = new InternalTypeManager(METADATA, new TypeOperators());
     private static final int NUMBER_MORE_THAN_EXPECTED_NUMBER_SPLITS = 100;
 
     @BeforeClass

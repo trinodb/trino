@@ -115,6 +115,7 @@ import io.prestosql.spi.PageSorter;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 import io.prestosql.spi.session.PropertyMetadata;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.spiller.FileSingleStreamSpillerFactory;
 import io.prestosql.spiller.GenericPartitioningSpillerFactory;
 import io.prestosql.spiller.GenericSpillerFactory;
@@ -231,6 +232,7 @@ public class LocalQueryRunner
     private final SqlParser sqlParser;
     private final PlanFragmenter planFragmenter;
     private final InMemoryNodeManager nodeManager;
+    private final TypeOperators typeOperators;
     private final MetadataManager metadata;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
@@ -294,6 +296,7 @@ public class LocalQueryRunner
         this.finalizerService = new FinalizerService();
         finalizerService.start();
 
+        this.typeOperators = new TypeOperators();
         this.sqlParser = new SqlParser();
         this.nodeManager = new InMemoryNodeManager();
         PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
@@ -317,7 +320,8 @@ public class LocalQueryRunner
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
-                transactionManager);
+                transactionManager,
+                typeOperators);
         this.splitManager = new SplitManager(new QueryManagerConfig(), metadata);
         this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig());
         this.joinCompiler = new JoinCompiler(metadata);
@@ -351,7 +355,8 @@ public class LocalQueryRunner
                 pageSorter,
                 pageIndexerFactory,
                 transactionManager,
-                eventListenerManager);
+                eventListenerManager,
+                typeOperators);
 
         GlobalSystemConnectorFactory globalSystemConnectorFactory = new GlobalSystemConnectorFactory(ImmutableSet.of(
                 new NodeSystemTable(nodeManager),
@@ -471,6 +476,11 @@ public class LocalQueryRunner
     public Metadata getMetadata()
     {
         return metadata;
+    }
+
+    public TypeOperators getTypeOperators()
+    {
+        return typeOperators;
     }
 
     @Override

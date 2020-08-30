@@ -17,6 +17,7 @@ import io.prestosql.spi.type.NamedTypeSignature;
 import io.prestosql.spi.type.RowFieldName;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.spi.type.TypeParameter;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
@@ -37,7 +38,7 @@ public class TestRowParametricType
     @Test
     public void testTypeSignatureRoundTrip()
     {
-        TypeManager typeManager = new InternalTypeManager(createTestMetadataManager());
+        TypeManager typeManager = new InternalTypeManager(createTestMetadataManager(), new TypeOperators());
         TypeSignature typeSignature = new TypeSignature(
                 ROW,
                 TypeSignatureParameter.namedTypeParameter(new NamedTypeSignature(Optional.of(new RowFieldName("col1")), BIGINT.getTypeSignature())),

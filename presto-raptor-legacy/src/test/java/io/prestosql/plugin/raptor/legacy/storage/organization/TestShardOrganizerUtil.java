@@ -29,6 +29,7 @@ import io.prestosql.plugin.raptor.legacy.metadata.TableColumn;
 import io.prestosql.spi.connector.ConnectorMetadata;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.type.InternalTypeManager;
 import org.skife.jdbi.v2.DBI;
 import org.skife.jdbi.v2.Handle;
@@ -80,7 +81,7 @@ public class TestShardOrganizerUtil
     public void setup()
     {
         dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
-        dbi.registerMapper(new TableColumn.Mapper(new InternalTypeManager(createTestMetadataManager())));
+        dbi.registerMapper(new TableColumn.Mapper(new InternalTypeManager(createTestMetadataManager(), new TypeOperators())));
         dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
         dataDir = Files.createTempDir();

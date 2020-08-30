@@ -42,6 +42,7 @@ import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.TestingConnectorSession;
 import io.prestosql.testing.TestingNodeManager;
@@ -85,7 +86,7 @@ public class TestRaptorConnector
     @BeforeMethod
     public void setup()
     {
-        TypeManager typeManager = new InternalTypeManager(createTestMetadataManager());
+        TypeManager typeManager = new InternalTypeManager(createTestMetadataManager(), new TypeOperators());
         DBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
         dbi.registerMapper(new TableColumn.Mapper(typeManager));
         dummyHandle = dbi.open();

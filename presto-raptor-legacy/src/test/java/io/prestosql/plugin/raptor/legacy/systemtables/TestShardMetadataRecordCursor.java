@@ -32,6 +32,7 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.type.InternalTypeManager;
 import org.joda.time.DateTime;
@@ -78,7 +79,7 @@ public class TestShardMetadataRecordCursor
     public void setup()
     {
         this.dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
-        this.dbi.registerMapper(new TableColumn.Mapper(new InternalTypeManager(createTestMetadataManager())));
+        this.dbi.registerMapper(new TableColumn.Mapper(new InternalTypeManager(createTestMetadataManager(), new TypeOperators())));
         this.dummyHandle = dbi.open();
         createTablesWithRetry(dbi);
         this.metadata = new RaptorMetadata(dbi, createShardManager(dbi));
