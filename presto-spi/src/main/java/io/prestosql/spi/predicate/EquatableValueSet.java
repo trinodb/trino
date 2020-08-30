@@ -19,6 +19,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
 
+import java.lang.invoke.MethodHandle;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
@@ -32,6 +33,12 @@ import java.util.stream.Collector;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
+import static io.prestosql.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
+import static io.prestosql.spi.predicate.Utils.handleThrowable;
 import static java.lang.String.format;
 import static java.util.Collections.unmodifiableCollection;
 import static java.util.Collections.unmodifiableSet;
@@ -376,6 +383,8 @@ public class EquatableValueSet
     {
         private final Type type;
         private final Block block;
+        private final MethodHandle equalOperator;
+        private final MethodHandle hashCodeOperator;
 
         @JsonCreator
         public ValueEntry(
@@ -388,6 +397,8 @@ public class EquatableValueSet
             if (block.getPositionCount() != 1) {
                 throw new IllegalArgumentException("Block should only have one position");
             }
+            this.equalOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION));
+            this.hashCodeOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
         }
 
         public static ValueEntry create(Type type, Object value)
@@ -415,7 +426,12 @@ public class EquatableValueSet
         @Override
         public int hashCode()
         {
-            return (int) type.hash(block, 0);
+            try {
+                return (int) (long) hashCodeOperator.invokeExact(block, 0);
+            }
+            catch (Throwable throwable) {
+                throw handleThrowable(throwable);
+            }
         }
 
         @Override
@@ -428,8 +444,18 @@ public class EquatableValueSet
                 return false;
             }
             ValueEntry other = (ValueEntry) obj;
-            return Objects.equals(this.type, other.type)
-                    && type.equalTo(this.block, 0, other.block, 0);
+            if (!Objects.equals(this.type, other.type)) {
+                return false;
+            }
+
+            Boolean result;
+            try {
+                result = (Boolean) equalOperator.invokeExact(this.block, 0, other.block, 0);
+            }
+            catch (Throwable throwable) {
+                throw handleThrowable(throwable);
+            }
+            return Boolean.TRUE.equals(result);
         }
     }
 

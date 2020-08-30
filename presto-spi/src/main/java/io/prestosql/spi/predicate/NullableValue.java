@@ -18,8 +18,16 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodType;
 import java.util.Objects;
 
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
+import static io.prestosql.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
+import static io.prestosql.spi.predicate.Utils.handleThrowable;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -28,6 +36,8 @@ public final class NullableValue
 {
     private final Type type;
     private final Object value;
+    private final MethodHandle equalOperator;
+    private final MethodHandle hashCodeOperator;
 
     public NullableValue(Type type, Object value)
     {
@@ -38,6 +48,17 @@ public final class NullableValue
 
         this.type = type;
         this.value = value;
+
+        if (type.isComparable()) {
+            this.equalOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL))
+                    .asType(MethodType.methodType(Boolean.class, Object.class, Object.class));
+            this.hashCodeOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL))
+                    .asType(MethodType.methodType(long.class, Object.class));
+        }
+        else {
+            this.equalOperator = null;
+            this.hashCodeOperator = null;
+        }
     }
 
     public static NullableValue of(Type type, Object value)
@@ -90,11 +111,21 @@ public final class NullableValue
     @Override
     public int hashCode()
     {
-        int hash = Objects.hash(type);
+        long hash = Objects.hash(type);
         if (value != null) {
-            hash = hash * 31 + (int) type.hash(Utils.nativeValueToBlock(type, value), 0);
+            hash = hash * 31 + valueHash();
         }
-        return hash;
+        return (int) hash;
+    }
+
+    private long valueHash()
+    {
+        try {
+            return (long) hashCodeOperator.invokeExact(value);
+        }
+        catch (Throwable throwable) {
+            throw handleThrowable(throwable);
+        }
     }
 
     @Override
@@ -109,7 +140,17 @@ public final class NullableValue
         NullableValue other = (NullableValue) obj;
         return Objects.equals(this.type, other.type)
                 && (this.value == null) == (other.value == null)
-                && (this.value == null || type.equalTo(Utils.nativeValueToBlock(type, value), 0, Utils.nativeValueToBlock(other.type, other.value), 0));
+                && (this.value == null || valueEquals(other.value));
+    }
+
+    private boolean valueEquals(Object otherValue)
+    {
+        try {
+            return ((Boolean) equalOperator.invokeExact(value, otherValue)) == Boolean.TRUE;
+        }
+        catch (Throwable throwable) {
+            throw handleThrowable(throwable);
+        }
     }
 
     @Override
