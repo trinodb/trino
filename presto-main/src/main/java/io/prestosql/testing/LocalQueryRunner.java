@@ -175,6 +175,7 @@ import io.prestosql.testing.PageConsumerOperator.PageConsumerOutputFactory;
 import io.prestosql.transaction.InMemoryTransactionManager;
 import io.prestosql.transaction.TransactionManager;
 import io.prestosql.transaction.TransactionManagerConfig;
+import io.prestosql.type.BlockTypeOperators;
 import io.prestosql.util.FinalizerService;
 import org.intellij.lang.annotations.Language;
 import org.weakref.jmx.MBeanExporter;
@@ -233,6 +234,7 @@ public class LocalQueryRunner
     private final PlanFragmenter planFragmenter;
     private final InMemoryNodeManager nodeManager;
     private final TypeOperators typeOperators;
+    private final BlockTypeOperators blockTypeOperators;
     private final MetadataManager metadata;
     private final StatsCalculator statsCalculator;
     private final CostCalculator costCalculator;
@@ -297,6 +299,7 @@ public class LocalQueryRunner
         finalizerService.start();
 
         this.typeOperators = new TypeOperators();
+        this.blockTypeOperators = new BlockTypeOperators(typeOperators);
         this.sqlParser = new SqlParser();
         this.nodeManager = new InMemoryNodeManager();
         PageSorter pageSorter = new PagesIndexPageSorter(new PagesIndex.TestingFactory(false));
@@ -321,7 +324,8 @@ public class LocalQueryRunner
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
                 transactionManager,
-                typeOperators);
+                typeOperators,
+                blockTypeOperators);
         this.splitManager = new SplitManager(new QueryManagerConfig(), metadata);
         this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig());
         this.joinCompiler = new JoinCompiler(metadata);
@@ -481,6 +485,11 @@ public class LocalQueryRunner
     public TypeOperators getTypeOperators()
     {
         return typeOperators;
+    }
+
+    public BlockTypeOperators getBlockTypeOperators()
+    {
+        return blockTypeOperators;
     }
 
     @Override
