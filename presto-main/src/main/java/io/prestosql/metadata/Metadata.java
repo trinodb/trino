@@ -485,7 +485,7 @@ public interface Metadata
 
     Collection<ParametricType> getParametricTypes();
 
-    void verifyComparableOrderableContract();
+    void verifyTypes();
 
     //
     // Functions

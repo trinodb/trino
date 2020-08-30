@@ -14,10 +14,7 @@
 package io.prestosql.spi.type;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.function.InvocationConvention;
-import io.prestosql.spi.function.OperatorType;
 
-import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -71,11 +68,5 @@ public class TestingTypeManager
     public TypeOperators getTypeOperators()
     {
         return typeOperators;
-    }
-
-    @Override
-    public MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes, InvocationConvention invocationConvention)
-    {
-        throw new UnsupportedOperationException();
     }
 }

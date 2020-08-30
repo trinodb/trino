@@ -15,7 +15,6 @@ package io.prestosql.type;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.airlift.slice.XxHash64;
 import io.prestosql.annotation.UsedByGeneratedCode;
 import io.prestosql.metadata.PolymorphicScalarFunctionBuilder;
 import io.prestosql.metadata.PolymorphicScalarFunctionBuilder.SpecializeContext;
@@ -23,13 +22,11 @@ import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SignatureBuilder;
 import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.function.IsNull;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.UnscaledDecimal128Arithmetic;
 
@@ -41,13 +38,10 @@ import static io.prestosql.spi.StandardErrorCode.DIVISION_BY_ZERO;
 import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.prestosql.spi.function.OperatorType.ADD;
 import static io.prestosql.spi.function.OperatorType.DIVIDE;
-import static io.prestosql.spi.function.OperatorType.HASH_CODE;
-import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.function.OperatorType.MODULUS;
 import static io.prestosql.spi.function.OperatorType.MULTIPLY;
 import static io.prestosql.spi.function.OperatorType.NEGATION;
 import static io.prestosql.spi.function.OperatorType.SUBTRACT;
-import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.Decimals.encodeUnscaledValue;
 import static io.prestosql.spi.type.Decimals.longTenToNth;
 import static io.prestosql.spi.type.TypeSignatureParameter.typeVariable;
@@ -621,60 +615,6 @@ public final class DecimalOperators
         {
             BigInteger argBigInteger = Decimals.decodeUnscaledValue(arg);
             return encodeUnscaledValue(argBigInteger.negate());
-        }
-    }
-
-    @ScalarOperator(HASH_CODE)
-    public static final class HashCode
-    {
-        @LiteralParameters({"p", "s"})
-        @SqlType(StandardTypes.BIGINT)
-        public static long hashCode(@SqlType("decimal(p, s)") long value)
-        {
-            return value;
-        }
-
-        @LiteralParameters({"p", "s"})
-        @SqlType(StandardTypes.BIGINT)
-        public static long hashCode(@SqlType("decimal(p, s)") Slice value)
-        {
-            return UnscaledDecimal128Arithmetic.hash(value);
-        }
-    }
-
-    @ScalarOperator(INDETERMINATE)
-    public static final class Indeterminate
-    {
-        @LiteralParameters({"p", "s"})
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean indeterminate(@SqlType("decimal(p, s)") long value, @IsNull boolean isNull)
-        {
-            return isNull;
-        }
-
-        @LiteralParameters({"p", "s"})
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean indeterminate(@SqlType("decimal(p, s)") Slice value, @IsNull boolean isNull)
-        {
-            return isNull;
-        }
-    }
-
-    @ScalarOperator(XX_HASH_64)
-    public static final class XxHash64Operator
-    {
-        @LiteralParameters({"p", "s"})
-        @SqlType(StandardTypes.BIGINT)
-        public static long xxHash64(@SqlType("decimal(p, s)") long value)
-        {
-            return XxHash64.hash(value);
-        }
-
-        @LiteralParameters({"p", "s"})
-        @SqlType(StandardTypes.BIGINT)
-        public static long xxHash64(@SqlType("decimal(p, s)") Slice value)
-        {
-            return XxHash64.hash(value);
         }
     }
 }

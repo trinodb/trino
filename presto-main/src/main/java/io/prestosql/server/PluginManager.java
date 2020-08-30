@@ -143,7 +143,7 @@ public class PluginManager
             loadPlugin(plugin);
         }
 
-        metadataManager.verifyComparableOrderableContract();
+        metadataManager.verifyTypes();
 
         pluginsLoaded.set(true);
     }
@@ -173,7 +173,7 @@ public class PluginManager
     public void installPlugin(Plugin plugin, Supplier<ClassLoader> duplicatePluginClassLoaderFactory)
     {
         installPluginInternal(plugin, duplicatePluginClassLoaderFactory);
-        metadataManager.verifyComparableOrderableContract();
+        metadataManager.verifyTypes();
     }
 
     private void installPluginInternal(Plugin plugin, Supplier<ClassLoader> duplicatePluginClassLoaderFactory)

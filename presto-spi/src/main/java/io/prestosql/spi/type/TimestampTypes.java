@@ -13,30 +13,11 @@
  */
 package io.prestosql.spi.type;
 
-import io.airlift.slice.XxHash64;
 import io.prestosql.spi.block.BlockBuilder;
-
-import static java.lang.Long.rotateLeft;
 
 public final class TimestampTypes
 {
     private TimestampTypes() {}
-
-    public static long hashShortTimestamp(long value)
-    {
-        // xxhash64 mix
-        return rotateLeft(value * 0xC2B2AE3D27D4EB4FL, 31) * 0x9E3779B185EBCA87L;
-    }
-
-    public static long hashLongTimestamp(LongTimestamp value)
-    {
-        return hashLongTimestamp(value.getEpochMicros(), value.getPicosOfMicro());
-    }
-
-    static long hashLongTimestamp(long epochMicros, long fraction)
-    {
-        return XxHash64.hash(epochMicros) ^ XxHash64.hash(fraction);
-    }
 
     public static void writeLongTimestamp(BlockBuilder blockBuilder, LongTimestamp timestamp)
     {

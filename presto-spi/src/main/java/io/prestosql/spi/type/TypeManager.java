@@ -13,10 +13,6 @@
  */
 package io.prestosql.spi.type;
 
-import io.prestosql.spi.function.InvocationConvention;
-import io.prestosql.spi.function.OperatorType;
-
-import java.lang.invoke.MethodHandle;
 import java.util.List;
 
 public interface TypeManager
@@ -52,7 +48,4 @@ public interface TypeManager
      * Gets the cache for type operators.
      */
     TypeOperators getTypeOperators();
-
-    @Deprecated
-    MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes, InvocationConvention invocationConvention);
 }

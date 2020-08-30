@@ -591,7 +591,7 @@ public abstract class AbstractMockMetadata
     }
 
     @Override
-    public void verifyComparableOrderableContract()
+    public void verifyTypes()
     {
         throw new UnsupportedOperationException();
     }

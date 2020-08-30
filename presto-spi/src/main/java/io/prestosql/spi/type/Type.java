@@ -65,9 +65,9 @@ public interface Type
     boolean isOrderable();
 
     /**
-     * Gets the type specific operators for this type.
+     * Gets the declared type specific operators for this type.
      */
-    default TypeOperatorDeclaration getTypeOperators(TypeOperators typeOperators)
+    default TypeOperatorDeclaration getTypeOperatorDeclaration(TypeOperators typeOperators)
     {
         return NO_TYPE_OPERATOR_DECLARATION;
     }
