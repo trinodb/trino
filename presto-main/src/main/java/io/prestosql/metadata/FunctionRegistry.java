@@ -110,13 +110,10 @@ import io.prestosql.operator.scalar.FailureFunction;
 import io.prestosql.operator.scalar.GenericComparisonOperator;
 import io.prestosql.operator.scalar.GenericDistinctFromOperator;
 import io.prestosql.operator.scalar.GenericEqualOperator;
-import io.prestosql.operator.scalar.GenericGreaterThanOperator;
-import io.prestosql.operator.scalar.GenericGreaterThanOrEqualOperator;
 import io.prestosql.operator.scalar.GenericHashCodeOperator;
 import io.prestosql.operator.scalar.GenericIndeterminateOperator;
 import io.prestosql.operator.scalar.GenericLessThanOperator;
 import io.prestosql.operator.scalar.GenericLessThanOrEqualOperator;
-import io.prestosql.operator.scalar.GenericNotEqualOperator;
 import io.prestosql.operator.scalar.GenericXxHash64Operator;
 import io.prestosql.operator.scalar.HmacFunctions;
 import io.prestosql.operator.scalar.HyperLogLogFunctions;
@@ -588,7 +585,6 @@ public class FunctionRegistry
                 .function(TRY_CAST)
                 .function(new LiteralFunction(blockEncodingSerdeSupplier))
                 .function(new GenericEqualOperator(typeOperators))
-                .function(new GenericNotEqualOperator(typeOperators))
                 .function(new GenericHashCodeOperator(typeOperators))
                 .function(new GenericXxHash64Operator(typeOperators))
                 .function(new GenericDistinctFromOperator(typeOperators))
@@ -596,8 +592,6 @@ public class FunctionRegistry
                 .function(new GenericComparisonOperator(typeOperators))
                 .function(new GenericLessThanOperator(typeOperators))
                 .function(new GenericLessThanOrEqualOperator(typeOperators))
-                .function(new GenericGreaterThanOperator(typeOperators))
-                .function(new GenericGreaterThanOrEqualOperator(typeOperators))
                 .aggregate(MergeSetDigestAggregation.class)
                 .aggregate(BuildSetDigestAggregation.class)
                 .scalars(SetDigestFunctions.class)
@@ -743,28 +737,22 @@ public class FunctionRegistry
         for (SqlFunction function : functions) {
             String name = function.getFunctionMetadata().getSignature().getName();
             if (isOperatorName(name) && !(function instanceof GenericEqualOperator) &&
-                    !(function instanceof GenericNotEqualOperator) &&
                     !(function instanceof GenericHashCodeOperator) &&
                     !(function instanceof GenericXxHash64Operator) &&
                     !(function instanceof GenericDistinctFromOperator) &&
                     !(function instanceof GenericIndeterminateOperator) &&
                     !(function instanceof GenericComparisonOperator) &&
                     !(function instanceof GenericLessThanOperator) &&
-                    !(function instanceof GenericLessThanOrEqualOperator) &&
-                    !(function instanceof GenericGreaterThanOperator) &&
-                    !(function instanceof GenericGreaterThanOrEqualOperator)) {
+                    !(function instanceof GenericLessThanOrEqualOperator)) {
                 OperatorType operatorType = unmangleOperator(name);
                 checkArgument(operatorType != OperatorType.EQUAL &&
-                                operatorType != OperatorType.NOT_EQUAL &&
                                 operatorType != OperatorType.HASH_CODE &&
                                 operatorType != OperatorType.XX_HASH_64 &&
                                 operatorType != OperatorType.IS_DISTINCT_FROM &&
                                 operatorType != OperatorType.INDETERMINATE &&
                                 operatorType != OperatorType.COMPARISON &&
                                 operatorType != OperatorType.LESS_THAN &&
-                                operatorType != OperatorType.LESS_THAN_OR_EQUAL &&
-                                operatorType != OperatorType.GREATER_THAN &&
-                                operatorType != OperatorType.GREATER_THAN_OR_EQUAL,
+                                operatorType != OperatorType.LESS_THAN_OR_EQUAL,
                         "Can not register %s function: %s", operatorType, function.getFunctionMetadata().getSignature());
             }
 
