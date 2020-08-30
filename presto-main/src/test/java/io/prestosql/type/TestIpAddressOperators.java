@@ -150,11 +150,13 @@ public class TestIpAddressOperators
         assertOperator(HASH_CODE, "IPADDRESS '::2222'", BIGINT, hashFromType("::2222"));
     }
 
-    private static long hashFromType(String address)
+    private long hashFromType(String address)
     {
         BlockBuilder blockBuilder = IPADDRESS.createBlockBuilder(null, 1);
         IPADDRESS.writeSlice(blockBuilder, Slices.wrappedBuffer(InetAddresses.forString(address).getAddress()));
         Block block = blockBuilder.build();
-        return IPADDRESS.hash(block, 0);
+        return functionAssertions.getBlockTypeOperators()
+                .getHashCodeOperator(IPADDRESS)
+                .hashCode(block, 0);
     }
 }

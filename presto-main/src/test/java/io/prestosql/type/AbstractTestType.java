@@ -25,6 +25,11 @@ import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
+import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
+import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
+import io.prestosql.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
+import io.prestosql.type.BlockTypeOperators.BlockPositionXxHash64;
 import org.testng.annotations.Test;
 
 import java.util.List;
@@ -42,14 +47,17 @@ import static io.prestosql.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static io.prestosql.spi.block.SortOrder.ASC_NULLS_LAST;
 import static io.prestosql.spi.block.SortOrder.DESC_NULLS_FIRST;
 import static io.prestosql.spi.block.SortOrder.DESC_NULLS_LAST;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
-import static io.prestosql.type.TypeUtils.hashPosition;
-import static io.prestosql.type.TypeUtils.positionEqualsPosition;
 import static io.prestosql.util.StructuralTestUtil.arrayBlockOf;
 import static io.prestosql.util.StructuralTestUtil.mapBlockOf;
 import static java.util.Collections.unmodifiableSortedMap;
 import static java.util.Objects.requireNonNull;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -60,6 +68,12 @@ public abstract class AbstractTestType
     private final Class<?> objectValueType;
     private final Block testBlock;
     private final Type type;
+    private final TypeOperators typeOperators;
+    protected final BlockTypeOperators blockTypeOperators;
+    private final BlockPositionEqual equalOperator;
+    private final BlockPositionHashCode hashCodeOperator;
+    private final BlockPositionXxHash64 xxHash64Operator;
+    private final BlockPositionIsDistinctFrom distinctFromOperator;
     private final SortedMap<Integer, Object> expectedStackValues;
     private final SortedMap<Integer, Object> expectedObjectValues;
     private final Block testBlockWithNulls;
@@ -72,6 +86,20 @@ public abstract class AbstractTestType
     protected AbstractTestType(Type type, Class<?> objectValueType, Block testBlock, Block expectedValues)
     {
         this.type = requireNonNull(type, "type is null");
+        typeOperators = new TypeOperators();
+        blockTypeOperators = new BlockTypeOperators(typeOperators);
+        if (type.isComparable()) {
+            equalOperator = blockTypeOperators.getEqualOperator(type);
+            hashCodeOperator = blockTypeOperators.getHashCodeOperator(type);
+            xxHash64Operator = blockTypeOperators.getXxHash64Operator(type);
+            distinctFromOperator = blockTypeOperators.getDistinctFromOperator(type);
+        }
+        else {
+            equalOperator = null;
+            hashCodeOperator = null;
+            xxHash64Operator = null;
+            distinctFromOperator = null;
+        }
         this.objectValueType = requireNonNull(objectValueType, "objectValueType is null");
         this.testBlock = requireNonNull(testBlock, "testBlock is null");
 
@@ -126,7 +154,7 @@ public abstract class AbstractTestType
     {
         long hash = 0;
         if (type.isComparable()) {
-            hash = hashPosition(type, block, position);
+            hash = hashCodeOperator.hashCodeNullSafe(block, position);
         }
         assertPositionValue(block, position, expectedStackValue, hash, expectedObjectValue);
         assertPositionValue(block.getSingleValueBlock(position), 0, expectedStackValue, hash, expectedObjectValue);
@@ -141,29 +169,43 @@ public abstract class AbstractTestType
 
     private void assertPositionValue(Block block, int position, Object expectedStackValue, long expectedHash, Object expectedObjectValue)
     {
+        assertEquals(block.isNull(position), expectedStackValue == null);
+
         Object objectValue = type.getObjectValue(SESSION, block, position);
         assertEquals(objectValue, expectedObjectValue);
         if (objectValue != null) {
             assertInstanceOf(objectValue, objectValueType);
         }
 
+        Block expectedBlock = createBlock(type, expectedStackValue);
         if (type.isComparable()) {
-            assertEquals(hashPosition(type, block, position), expectedHash);
+            assertTrue(equalOperator.equalNullSafe(block, position, block, position));
+            assertTrue(equalOperator.equalNullSafe(block, position, expectedBlock, 0));
+            assertTrue(equalOperator.equalNullSafe(expectedBlock, 0, block, position));
+            assertEquals(hashCodeOperator.hashCodeNullSafe(block, position), expectedHash);
+            assertFalse(distinctFromOperator.isDistinctFrom(block, position, block, position));
+            assertFalse(distinctFromOperator.isDistinctFrom(block, position, expectedBlock, 0));
+            assertFalse(distinctFromOperator.isDistinctFrom(expectedBlock, 0, block, position));
         }
         else {
             try {
-                type.hash(block, position);
+                typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
                 fail("Expected UnsupportedOperationException");
             }
             catch (UnsupportedOperationException expected) {
             }
-        }
-
-        Block expectedBlock = createBlock(type, expectedStackValue);
-        if (type.isComparable()) {
-            assertTrue(positionEqualsPosition(type, block, position, block, position));
-            assertTrue(positionEqualsPosition(type, block, position, expectedBlock, 0));
-            assertTrue(positionEqualsPosition(type, expectedBlock, 0, block, position));
+            try {
+                typeOperators.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION));
+                fail("Expected UnsupportedOperationException");
+            }
+            catch (UnsupportedOperationException expected) {
+            }
+            try {
+                typeOperators.getDistinctFromOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+                fail("Expected UnsupportedOperationException");
+            }
+            catch (UnsupportedOperationException expected) {
+            }
         }
 
         assertEquals(block.isNull(position), expectedStackValue == null);
@@ -358,29 +400,56 @@ public abstract class AbstractTestType
         catch (RuntimeException expected) {
         }
 
-        try {
-            type.hash(block, -1);
-            fail("expected RuntimeException");
-        }
-        catch (RuntimeException expected) {
-        }
-        try {
-            type.hash(block, block.getPositionCount());
-            fail("expected RuntimeException");
-        }
-        catch (RuntimeException expected) {
-        }
-
-        if (type.isComparable() && !(type instanceof UnknownType)) {
-            Block other = toBlock(getNonNullValue());
+        if (type.isComparable()) {
             try {
-                type.equalTo(block, -1, other, 0);
+                hashCodeOperator.hashCode(block, -1);
                 fail("expected RuntimeException");
             }
             catch (RuntimeException expected) {
             }
             try {
-                type.equalTo(block, block.getPositionCount(), other, 0);
+                hashCodeOperator.hashCode(block, block.getPositionCount());
+                fail("expected RuntimeException");
+            }
+            catch (RuntimeException expected) {
+            }
+            try {
+                xxHash64Operator.xxHash64(block, -1);
+                fail("expected RuntimeException");
+            }
+            catch (RuntimeException expected) {
+            }
+            try {
+                xxHash64Operator.xxHash64(block, block.getPositionCount());
+                fail("expected RuntimeException");
+            }
+            catch (RuntimeException expected) {
+            }
+        }
+
+        if (type.isComparable() && !(type instanceof UnknownType)) {
+            Block other = toBlock(getNonNullValue());
+            try {
+                equalOperator.equal(block, -1, other, 0);
+                fail("expected RuntimeException");
+            }
+            catch (RuntimeException expected) {
+            }
+            try {
+                equalOperator.equal(block, block.getPositionCount(), other, 0);
+                fail("expected RuntimeException");
+            }
+            catch (RuntimeException expected) {
+            }
+
+            try {
+                distinctFromOperator.isDistinctFrom(block, -1, other, 0);
+                fail("expected RuntimeException");
+            }
+            catch (RuntimeException expected) {
+            }
+            try {
+                distinctFromOperator.isDistinctFrom(block, block.getPositionCount(), other, 0);
                 fail("expected RuntimeException");
             }
             catch (RuntimeException expected) {
