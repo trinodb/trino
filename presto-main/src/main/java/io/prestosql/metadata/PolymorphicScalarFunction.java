@@ -18,8 +18,9 @@ import com.google.common.primitives.Primitives;
 import io.prestosql.metadata.PolymorphicScalarFunctionBuilder.MethodAndNativeContainerTypes;
 import io.prestosql.metadata.PolymorphicScalarFunctionBuilder.MethodsGroup;
 import io.prestosql.metadata.PolymorphicScalarFunctionBuilder.SpecializeContext;
+import io.prestosql.operator.scalar.ChoicesScalarFunctionImplementation;
+import io.prestosql.operator.scalar.ChoicesScalarFunctionImplementation.ScalarImplementationChoice;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
 import io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention;
 import io.prestosql.spi.type.Type;
@@ -55,7 +56,7 @@ class PolymorphicScalarFunction
             implementationChoices.add(getScalarFunctionImplementationChoice(functionBinding, choice));
         }
 
-        return new ScalarFunctionImplementation(functionBinding, implementationChoices.build());
+        return new ChoicesScalarFunctionImplementation(functionBinding, implementationChoices.build());
     }
 
     private ScalarImplementationChoice getScalarFunctionImplementationChoice(

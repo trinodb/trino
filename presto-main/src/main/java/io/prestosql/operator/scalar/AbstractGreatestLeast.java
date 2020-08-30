@@ -116,7 +116,7 @@ public abstract class AbstractGreatestLeast
         Class<?> clazz = generate(javaTypes, type, compareMethod);
         MethodHandle methodHandle = methodHandle(clazz, getFunctionMetadata().getSignature().getName(), javaTypes.toArray(new Class<?>[javaTypes.size()]));
 
-        return new ScalarFunctionImplementation(
+        return new ChoicesScalarFunctionImplementation(
                 functionBinding,
                 FAIL_ON_NULL,
                 nCopies(javaTypes.size(), NEVER_NULL),

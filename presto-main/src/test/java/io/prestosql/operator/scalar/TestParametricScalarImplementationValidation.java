@@ -40,7 +40,7 @@ public class TestParametricScalarImplementationValidation
     {
         // Without cached instance factory
         MethodHandle validFunctionMethodHandle = methodHandle(TestParametricScalarImplementationValidation.class, "validConnectorSessionParameterPosition", ConnectorSession.class, long.class, long.class);
-        ScalarFunctionImplementation validFunction = new ScalarFunctionImplementation(
+        ChoicesScalarFunctionImplementation validFunction = new ChoicesScalarFunctionImplementation(
                 new FunctionBinding(new FunctionId("test"), new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)), ImmutableMap.of(), ImmutableMap.of()),
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
@@ -48,7 +48,7 @@ public class TestParametricScalarImplementationValidation
         assertEquals(validFunction.getChoices().get(0).getMethodHandle(), validFunctionMethodHandle);
 
         try {
-            new ScalarFunctionImplementation(
+            new ChoicesScalarFunctionImplementation(
                     new FunctionBinding(new FunctionId("test"), new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)), ImmutableMap.of(), ImmutableMap.of()),
                     FAIL_ON_NULL,
                     ImmutableList.of(NEVER_NULL, NEVER_NULL),
@@ -61,7 +61,7 @@ public class TestParametricScalarImplementationValidation
 
         // With cached instance factory
         MethodHandle validFunctionWithInstanceFactoryMethodHandle = methodHandle(TestParametricScalarImplementationValidation.class, "validConnectorSessionParameterPosition", Object.class, ConnectorSession.class, long.class, long.class);
-        ScalarFunctionImplementation validFunctionWithInstanceFactory = new ScalarFunctionImplementation(
+        ChoicesScalarFunctionImplementation validFunctionWithInstanceFactory = new ChoicesScalarFunctionImplementation(
                 new FunctionBinding(new FunctionId("test"), new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)), ImmutableMap.of(), ImmutableMap.of()),
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
@@ -70,7 +70,7 @@ public class TestParametricScalarImplementationValidation
         assertEquals(validFunctionWithInstanceFactory.getChoices().get(0).getMethodHandle(), validFunctionWithInstanceFactoryMethodHandle);
 
         try {
-            new ScalarFunctionImplementation(
+            new ChoicesScalarFunctionImplementation(
                     new FunctionBinding(new FunctionId("test"), new BoundSignature("test", BIGINT, ImmutableList.of(BIGINT, BIGINT)), ImmutableMap.of(), ImmutableMap.of()),
                     FAIL_ON_NULL,
                     ImmutableList.of(NEVER_NULL, NEVER_NULL),

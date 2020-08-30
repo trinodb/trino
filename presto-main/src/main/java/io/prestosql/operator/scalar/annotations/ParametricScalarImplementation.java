@@ -27,8 +27,9 @@ import io.prestosql.metadata.Signature;
 import io.prestosql.operator.ParametricImplementation;
 import io.prestosql.operator.annotations.FunctionsParserHelper;
 import io.prestosql.operator.annotations.ImplementationDependency;
+import io.prestosql.operator.scalar.ChoicesScalarFunctionImplementation;
+import io.prestosql.operator.scalar.ChoicesScalarFunctionImplementation.ScalarImplementationChoice;
 import io.prestosql.operator.scalar.ScalarFunctionImplementation;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.BlockIndex;
@@ -204,7 +205,7 @@ public class ParametricScalarImplementation
                     boundMethodHandle.asType(javaMethodType(choice, boundSignature)),
                     boundConstructor));
         }
-        return Optional.of(new ScalarFunctionImplementation(functionBinding, implementationChoices));
+        return Optional.of(new ChoicesScalarFunctionImplementation(functionBinding, implementationChoices));
     }
 
     @Override

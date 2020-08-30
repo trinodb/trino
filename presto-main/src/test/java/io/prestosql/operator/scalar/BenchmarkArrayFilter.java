@@ -229,7 +229,7 @@ public class BenchmarkArrayFilter
         protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
         {
             Type type = functionBinding.getTypeVariable("T");
-            return new ScalarFunctionImplementation(
+            return new ChoicesScalarFunctionImplementation(
                     functionBinding,
                     FAIL_ON_NULL,
                     ImmutableList.of(NEVER_NULL, NEVER_NULL),

@@ -100,7 +100,7 @@ public final class ConcatFunction
         Class<?> clazz = generateConcat(getFunctionMetadata().getSignature().getReturnType(), arity);
         MethodHandle methodHandle = methodHandle(clazz, "concat", nCopies(arity, Slice.class).toArray(new Class<?>[arity]));
 
-        return new ScalarFunctionImplementation(
+        return new ChoicesScalarFunctionImplementation(
                 functionBinding,
                 FAIL_ON_NULL,
                 nCopies(arity, NEVER_NULL),
