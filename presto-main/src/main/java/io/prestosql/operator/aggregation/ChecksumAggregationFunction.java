@@ -30,7 +30,7 @@ import io.prestosql.spi.function.AccumulatorStateSerializer;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.type.BlockTypeOperators;
-import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
+import io.prestosql.type.BlockTypeOperators.BlockPositionXxHash64;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -55,7 +55,7 @@ public class ChecksumAggregationFunction
     public static final long PRIME64 = 0x9E3779B185EBCA87L;
     private static final String NAME = "checksum";
     private static final MethodHandle OUTPUT_FUNCTION = methodHandle(ChecksumAggregationFunction.class, "output", NullableLongState.class, BlockBuilder.class);
-    private static final MethodHandle INPUT_FUNCTION = methodHandle(ChecksumAggregationFunction.class, "input", BlockPositionHashCode.class, NullableLongState.class, Block.class, int.class);
+    private static final MethodHandle INPUT_FUNCTION = methodHandle(ChecksumAggregationFunction.class, "input", BlockPositionXxHash64.class, NullableLongState.class, Block.class, int.class);
     private static final MethodHandle COMBINE_FUNCTION = methodHandle(ChecksumAggregationFunction.class, "combine", NullableLongState.class, NullableLongState.class);
 
     private final BlockTypeOperators blockTypeOperators;
@@ -92,11 +92,11 @@ public class ChecksumAggregationFunction
     public InternalAggregationFunction specialize(FunctionBinding functionBinding)
     {
         Type valueType = functionBinding.getTypeVariable("T");
-        BlockPositionHashCode hashCodeOperator = blockTypeOperators.getHashCodeOperator(valueType);
-        return generateAggregation(valueType, hashCodeOperator);
+        BlockPositionXxHash64 xxHash64Operator = blockTypeOperators.getXxHash64Operator(valueType);
+        return generateAggregation(valueType, xxHash64Operator);
     }
 
-    private static InternalAggregationFunction generateAggregation(Type type, BlockPositionHashCode hashCodeOperator)
+    private static InternalAggregationFunction generateAggregation(Type type, BlockPositionXxHash64 xxHash64Operator)
     {
         DynamicClassLoader classLoader = new DynamicClassLoader(ChecksumAggregationFunction.class.getClassLoader());
 
@@ -104,7 +104,7 @@ public class ChecksumAggregationFunction
         AggregationMetadata metadata = new AggregationMetadata(
                 generateAggregationName(NAME, type.getTypeSignature(), ImmutableList.of(type.getTypeSignature())),
                 createInputParameterMetadata(type),
-                INPUT_FUNCTION.bindTo(hashCodeOperator),
+                INPUT_FUNCTION.bindTo(xxHash64Operator),
                 Optional.empty(),
                 COMBINE_FUNCTION,
                 OUTPUT_FUNCTION,
@@ -123,14 +123,14 @@ public class ChecksumAggregationFunction
         return ImmutableList.of(new ParameterMetadata(STATE), new ParameterMetadata(NULLABLE_BLOCK_INPUT_CHANNEL, type), new ParameterMetadata(BLOCK_INDEX));
     }
 
-    public static void input(BlockPositionHashCode hashCodeOperator, NullableLongState state, Block block, int position)
+    public static void input(BlockPositionXxHash64 xxHash64Operator, NullableLongState state, Block block, int position)
     {
         state.setNull(false);
         if (block.isNull(position)) {
             state.setLong(state.getLong() + PRIME64);
         }
         else {
-            state.setLong(state.getLong() + hashCodeOperator.hashCode(block, position) * PRIME64);
+            state.setLong(state.getLong() + xxHash64Operator.xxHash64(block, position) * PRIME64);
         }
     }
 
