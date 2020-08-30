@@ -106,6 +106,7 @@ import io.prestosql.sql.planner.ConnectorExpressions;
 import io.prestosql.sql.planner.PartitioningHandle;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.transaction.TransactionManager;
+import io.prestosql.type.BlockTypeOperators;
 import io.prestosql.type.FunctionType;
 import io.prestosql.type.InternalTypeManager;
 
@@ -206,10 +207,11 @@ public final class MetadataManager
             ColumnPropertyManager columnPropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
             TransactionManager transactionManager,
-            TypeOperators typeOperators)
+            TypeOperators typeOperators,
+            BlockTypeOperators blockTypeOperators)
     {
         typeRegistry = new TypeRegistry(featuresConfig);
-        functions = new FunctionRegistry(this::getBlockEncodingSerde, featuresConfig, typeOperators);
+        functions = new FunctionRegistry(this::getBlockEncodingSerde, featuresConfig, typeOperators, blockTypeOperators);
         functionResolver = new FunctionResolver(this);
 
         this.procedures = new ProcedureRegistry(this);
@@ -274,7 +276,8 @@ public final class MetadataManager
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
                 transactionManager,
-                typeOperators);
+                typeOperators,
+                new BlockTypeOperators(typeOperators));
     }
 
     @Override

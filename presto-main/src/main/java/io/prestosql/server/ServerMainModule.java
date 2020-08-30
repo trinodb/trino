@@ -132,6 +132,7 @@ import io.prestosql.sql.planner.RuleStatsRecorder;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.transaction.TransactionManagerConfig;
+import io.prestosql.type.BlockTypeOperators;
 import io.prestosql.type.TypeDeserializer;
 import io.prestosql.type.TypeSignatureDeserializer;
 import io.prestosql.type.TypeSignatureKeyDeserializer;
@@ -354,6 +355,7 @@ public class ServerMainModule
         binder.bind(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(Metadata.class).to(MetadataManager.class).in(Scopes.SINGLETON);
         binder.bind(TypeOperators.class).in(Scopes.SINGLETON);
+        binder.bind(BlockTypeOperators.class).in(Scopes.SINGLETON);
 
         // type
         binder.bind(TypeAnalyzer.class).in(Scopes.SINGLETON);

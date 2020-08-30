@@ -72,6 +72,7 @@ import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.SymbolReference;
 import io.prestosql.testing.LocalQueryRunner;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.type.BlockTypeOperators;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
@@ -237,6 +238,11 @@ public final class FunctionAssertions
     public TypeOperators getTypeOperators()
     {
         return runner.getTypeOperators();
+    }
+
+    public BlockTypeOperators getBlockTypeOperators()
+    {
+        return runner.getBlockTypeOperators();
     }
 
     public void installPlugin(Plugin plugin)
