@@ -66,6 +66,7 @@ public class Re2JCastToRegexpFunction
     protected ScalarFunctionImplementation specialize(FunctionBinding functionBinding)
     {
         return new ScalarFunctionImplementation(
+                functionBinding,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),
                 insertArguments(METHOD_HANDLE, 0, dfaStatesLimit, dfaRetries, padSpaces, functionBinding.getLongVariable("x")));

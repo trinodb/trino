@@ -13,48 +13,67 @@
  */
 package io.prestosql.operator.scalar;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionInvoker;
+import io.prestosql.metadata.ScalarFunctionAdapter;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention;
 
 import java.lang.invoke.MethodHandle;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.metadata.ScalarFunctionAdapter.NullAdaptationPolicy.UNSUPPORTED;
+import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
+import static java.lang.String.format;
+import static java.util.Comparator.comparingInt;
 import static java.util.Objects.requireNonNull;
 
 public final class ScalarFunctionImplementation
 {
+    private final ScalarFunctionAdapter functionAdapter = new ScalarFunctionAdapter(UNSUPPORTED);
+
+    private final FunctionBinding functionBinding;
     private final List<ScalarImplementationChoice> choices;
 
     public ScalarFunctionImplementation(
+            FunctionBinding functionBinding,
             InvocationReturnConvention returnConvention,
             List<InvocationArgumentConvention> argumentConventions,
             MethodHandle methodHandle)
     {
-        this(returnConvention, argumentConventions, ImmutableList.of(), methodHandle, Optional.empty());
+        this(functionBinding, returnConvention, argumentConventions, ImmutableList.of(), methodHandle, Optional.empty());
     }
 
     public ScalarFunctionImplementation(
+            FunctionBinding functionBinding,
             InvocationReturnConvention returnConvention,
             List<InvocationArgumentConvention> argumentConventions,
             MethodHandle methodHandle,
             Optional<MethodHandle> instanceFactory)
     {
-        this(returnConvention, argumentConventions, ImmutableList.of(), methodHandle, instanceFactory);
+        this(functionBinding, returnConvention, argumentConventions, ImmutableList.of(), methodHandle, instanceFactory);
     }
 
     public ScalarFunctionImplementation(
+            FunctionBinding functionBinding,
             InvocationReturnConvention returnConvention,
             List<InvocationArgumentConvention> argumentConventions,
             List<Class<?>> lambdaInterfaces,
             MethodHandle methodHandle,
             Optional<MethodHandle> instanceFactory)
     {
-        this(ImmutableList.of(new ScalarImplementationChoice(returnConvention, argumentConventions, lambdaInterfaces, methodHandle, instanceFactory)));
+        this(functionBinding, ImmutableList.of(new ScalarImplementationChoice(returnConvention, argumentConventions, lambdaInterfaces, methodHandle, instanceFactory)));
     }
 
     /**
@@ -64,17 +83,46 @@ public final class ScalarFunctionImplementation
      * The first choice is the default choice, which is the one used for legacy access methods.
      * The default choice must be usable under any context. (e.g. it must not use BLOCK_POSITION convention.)
      *
+     * @param functionBinding
      * @param choices the list of choices, ordered from generic to specific
      */
-    public ScalarFunctionImplementation(List<ScalarImplementationChoice> choices)
+    public ScalarFunctionImplementation(FunctionBinding functionBinding, List<ScalarImplementationChoice> choices)
     {
+        this.functionBinding = functionBinding;
         checkArgument(!choices.isEmpty(), "choices is an empty list");
         this.choices = ImmutableList.copyOf(choices);
     }
 
+    @VisibleForTesting
     public List<ScalarImplementationChoice> getChoices()
     {
         return choices;
+    }
+
+    public FunctionInvoker getScalarFunctionInvoker(InvocationConvention invocationConvention)
+    {
+        List<ScalarImplementationChoice> choices = new ArrayList<>();
+        for (ScalarImplementationChoice choice : this.choices) {
+            InvocationConvention callingConvention = choice.getInvocationConvention();
+            if (functionAdapter.canAdapt(callingConvention, invocationConvention)) {
+                choices.add(choice);
+            }
+        }
+        if (choices.isEmpty()) {
+            throw new PrestoException(FUNCTION_NOT_FOUND,
+                    format("Function implementation for (%s) cannot be adapted to convention (%s)", functionBinding.getBoundSignature(), invocationConvention));
+        }
+
+        ScalarImplementationChoice bestChoice = Collections.max(choices, comparingInt(ScalarImplementationChoice::getScore));
+        MethodHandle methodHandle = functionAdapter.adapt(
+                bestChoice.getMethodHandle(),
+                functionBinding.getBoundSignature().getArgumentTypes(),
+                bestChoice.getInvocationConvention(),
+                invocationConvention);
+        return new FunctionInvoker(
+                methodHandle,
+                bestChoice.getInstanceFactory(),
+                bestChoice.getLambdaInterfaces());
     }
 
     public static class ScalarImplementationChoice
@@ -83,6 +131,7 @@ public final class ScalarFunctionImplementation
         private final Optional<MethodHandle> instanceFactory;
         private final InvocationConvention invocationConvention;
         private final List<Class<?>> lambdaInterfaces;
+        private final int score;
 
         public ScalarImplementationChoice(
                 InvocationReturnConvention returnConvention,
@@ -120,6 +169,8 @@ public final class ScalarFunctionImplementation
                     hasSession,
                     instanceFactory.isPresent());
             checkArgument(lambdaInterfaces.size() <= argumentConventions.size());
+
+            score = computeScore(invocationConvention);
         }
 
         public MethodHandle getMethodHandle()
@@ -140,6 +191,25 @@ public final class ScalarFunctionImplementation
         public InvocationConvention getInvocationConvention()
         {
             return invocationConvention;
+        }
+
+        public int getScore()
+        {
+            return score;
+        }
+
+        private static int computeScore(InvocationConvention callingConvention)
+        {
+            int score = 0;
+            for (InvocationArgumentConvention argument : callingConvention.getArgumentConventions()) {
+                if (argument == NULL_FLAG) {
+                    score += 1;
+                }
+                else if (argument == BLOCK_POSITION) {
+                    score += 1000;
+                }
+            }
+            return score;
         }
     }
 }

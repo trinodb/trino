@@ -96,6 +96,7 @@ public class RowIndeterminateOperator
         Class<?> indeterminateOperatorClass = generateIndeterminate(type, functionDependencies);
         MethodHandle indeterminateMethod = methodHandle(indeterminateOperatorClass, "indeterminate", type.getJavaType(), boolean.class);
         return new ScalarFunctionImplementation(
+                functionBinding,
                 FAIL_ON_NULL,
                 ImmutableList.of(NULL_FLAG),
                 indeterminateMethod);

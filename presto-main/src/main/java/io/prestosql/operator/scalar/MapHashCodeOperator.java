@@ -74,6 +74,7 @@ public class MapHashCodeOperator
 
         MethodHandle method = METHOD_HANDLE.bindTo(keyHashCodeFunction).bindTo(valueHashCodeFunction).bindTo(keyType).bindTo(valueType);
         return new ScalarFunctionImplementation(
+                functionBinding,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),
                 method);

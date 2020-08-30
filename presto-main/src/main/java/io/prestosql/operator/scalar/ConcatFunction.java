@@ -101,6 +101,7 @@ public final class ConcatFunction
         MethodHandle methodHandle = methodHandle(clazz, "concat", nCopies(arity, Slice.class).toArray(new Class<?>[arity]));
 
         return new ScalarFunctionImplementation(
+                functionBinding,
                 FAIL_ON_NULL,
                 nCopies(arity, NEVER_NULL),
                 methodHandle);

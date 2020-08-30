@@ -95,6 +95,7 @@ public class LiteralFunction
                 type.getJavaType());
 
         return new ScalarFunctionImplementation(
+                functionBinding,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),
                 methodHandle);

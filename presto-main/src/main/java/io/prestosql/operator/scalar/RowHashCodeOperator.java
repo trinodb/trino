@@ -52,6 +52,7 @@ public class RowHashCodeOperator
     {
         Type type = functionBinding.getTypeVariable("T");
         return new ScalarFunctionImplementation(
+                functionBinding,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),
                 METHOD_HANDLE.bindTo(type));

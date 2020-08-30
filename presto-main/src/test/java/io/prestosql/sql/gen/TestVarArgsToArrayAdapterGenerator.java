@@ -102,6 +102,7 @@ public class TestVarArgsToArrayAdapterGenerator
                     METHOD_HANDLE,
                     USER_STATE_FACTORY);
             return new ScalarFunctionImplementation(
+                    functionBinding,
                     InvocationReturnConvention.FAIL_ON_NULL,
                     nCopies(functionBinding.getArity(), NEVER_NULL),
                     methodHandleAndConstructor.getMethodHandle(),
