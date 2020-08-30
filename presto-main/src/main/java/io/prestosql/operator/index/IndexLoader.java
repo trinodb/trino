@@ -33,6 +33,8 @@ import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.type.BlockTypeOperators;
+import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
 
 import javax.annotation.concurrent.GuardedBy;
 import javax.annotation.concurrent.NotThreadSafe;
@@ -49,6 +51,7 @@ import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
@@ -68,6 +71,7 @@ public class IndexLoader
     private final List<Integer> keyOutputChannels;
     private final OptionalInt keyOutputHashChannel;
     private final List<Type> keyTypes;
+    private final List<BlockPositionEqual> keyEqualOperators;
     private final PagesIndex.Factory pagesIndexFactory;
     private final JoinCompiler joinCompiler;
 
@@ -90,7 +94,8 @@ public class IndexLoader
             DataSize maxIndexMemorySize,
             IndexJoinLookupStats stats,
             PagesIndex.Factory pagesIndexFactory,
-            JoinCompiler joinCompiler)
+            JoinCompiler joinCompiler,
+            BlockTypeOperators blockTypeOperators)
     {
         requireNonNull(lookupSourceInputChannels, "lookupSourceInputChannels is null");
         checkArgument(!lookupSourceInputChannels.isEmpty(), "lookupSourceInputChannels must not be empty");
@@ -116,11 +121,12 @@ public class IndexLoader
         this.pagesIndexFactory = pagesIndexFactory;
         this.joinCompiler = joinCompiler;
 
-        ImmutableList.Builder<Type> keyTypeBuilder = ImmutableList.builder();
-        for (int keyOutputChannel : keyOutputChannels) {
-            keyTypeBuilder.add(outputTypes.get(keyOutputChannel));
-        }
-        this.keyTypes = keyTypeBuilder.build();
+        this.keyTypes = keyOutputChannels.stream()
+                .map(outputTypes::get)
+                .collect(toImmutableList());
+        this.keyEqualOperators = keyTypes.stream()
+                .map(blockTypeOperators::getEqualOperator)
+                .collect(toImmutableList());
 
         // start with an empty source
         this.indexSnapshotReference = new AtomicReference<>(new IndexSnapshot(new EmptyLookupSource(outputTypes.size()), new EmptyLookupSource(keyOutputChannels.size())));
@@ -240,7 +246,7 @@ public class IndexLoader
         ScheduledSplit split = new ScheduledSplit(0, planNodeId, new Split(INDEX_CONNECTOR_ID, new IndexSplit(pageRecordSet), Lifespan.taskWide()));
         driver.updateSource(new TaskSource(planNodeId, ImmutableSet.of(split), true));
 
-        return new StreamingIndexedData(outputTypes, keyTypes, indexKeyTuple, pageBuffer, driver);
+        return new StreamingIndexedData(outputTypes, keyEqualOperators, indexKeyTuple, pageBuffer, driver);
     }
 
     private synchronized void initializeStateIfNecessary()
