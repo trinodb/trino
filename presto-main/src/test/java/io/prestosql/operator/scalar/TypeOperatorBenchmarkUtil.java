@@ -13,26 +13,21 @@
  */
 package io.prestosql.operator.scalar;
 
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.InvocationConvention;
-import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Base64;
-import java.util.Optional;
 import java.util.Random;
 
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -44,6 +39,7 @@ final class TypeOperatorBenchmarkUtil
 {
     private TypeOperatorBenchmarkUtil() {}
 
+    private static final TypeOperators TYPE_OPERATORS = new TypeOperators();
     private static final MethodHandle EQUAL_BLOCK;
     private static final MethodHandle HASH_CODE_BLOCK;
 
@@ -75,19 +71,13 @@ final class TypeOperatorBenchmarkUtil
 
     public static MethodHandle getEqualBlockMethod(Type type)
     {
-        Metadata metadata = createTestMetadataManager();
-        ResolvedFunction resolvedFunction = metadata.resolveOperator(OperatorType.EQUAL, ImmutableList.of(type, type));
-        InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(BLOCK_POSITION, BLOCK_POSITION), NULLABLE_RETURN, false, false);
-        MethodHandle equalOperator = metadata.getScalarFunctionInvoker(resolvedFunction, Optional.of(invocationConvention)).getMethodHandle();
+        MethodHandle equalOperator = TYPE_OPERATORS.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION));
         return EQUAL_BLOCK.bindTo(equalOperator);
     }
 
     public static MethodHandle getHashCodeBlockMethod(Type type)
     {
-        Metadata metadata = createTestMetadataManager();
-        ResolvedFunction resolvedFunction = metadata.resolveOperator(OperatorType.HASH_CODE, ImmutableList.of(type));
-        InvocationConvention invocationConvention = new InvocationConvention(ImmutableList.of(BLOCK_POSITION), FAIL_ON_NULL, false, false);
-        MethodHandle hashCodeOperator = metadata.getScalarFunctionInvoker(resolvedFunction, Optional.of(invocationConvention)).getMethodHandle();
+        MethodHandle hashCodeOperator = TYPE_OPERATORS.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
         return HASH_CODE_BLOCK.bindTo(hashCodeOperator);
     }
 

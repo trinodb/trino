@@ -1173,10 +1173,7 @@ public class ExpressionAnalyzer
                 semanticException(TYPE_MISMATCH, node, "Cannot check if %s is BETWEEN %s and %s", valueType, minType, maxType);
             }
 
-            try {
-                metadata.resolveOperator(OperatorType.LESS_THAN_OR_EQUAL, List.of(commonType.get(), commonType.get()));
-            }
-            catch (OperatorNotFoundException e) {
+            if (!commonType.get().isOrderable()) {
                 semanticException(TYPE_MISMATCH, node, "Cannot check if %s is BETWEEN %s and %s", valueType, minType, maxType);
             }
 

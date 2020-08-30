@@ -33,6 +33,7 @@ import io.prestosql.metadata.Split;
 import io.prestosql.operator.LookupJoinOperators;
 import io.prestosql.operator.PagesIndex;
 import io.prestosql.operator.index.IndexJoinLookupStats;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.spiller.GenericSpillerFactory;
 import io.prestosql.split.PageSinkManager;
 import io.prestosql.split.PageSourceManager;
@@ -109,6 +110,7 @@ public final class TaskTestUtils
         // we don't start the finalizer so nothing will be collected, which is ok for a test
         FinalizerService finalizerService = new FinalizerService();
 
+        TypeOperators typeOperators = new TypeOperators();
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(
                 new InMemoryNodeManager(),
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
@@ -143,7 +145,8 @@ public final class TaskTestUtils
                 new JoinCompiler(metadata),
                 new LookupJoinOperators(),
                 new OrderingCompiler(),
-                new DynamicFilterConfig());
+                new DynamicFilterConfig(),
+                typeOperators);
     }
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<TaskSource> taskSources, OutputBuffers outputBuffers)
