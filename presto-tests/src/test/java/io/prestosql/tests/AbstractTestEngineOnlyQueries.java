@@ -1251,12 +1251,12 @@ public abstract class AbstractTestEngineOnlyQueries
         assertQueryFails("SELECT 8 / 'x'", "\\Qline 1:10: Cannot apply operator: integer / varchar(1)\\E");
         assertQueryFails("SELECT 8 % 'x'", "\\Qline 1:10: Cannot apply operator: integer % varchar(1)\\E");
         assertQueryFails("SELECT 8 = 'x'", "\\Qline 1:10: Cannot apply operator: integer = varchar(1)\\E");
-        assertQueryFails("SELECT 8 <> 'x'", "\\Qline 1:10: Cannot apply operator: integer <> varchar(1)\\E");
-        assertQueryFails("SELECT 8 != 'x'", "\\Qline 1:10: Cannot apply operator: integer <> varchar(1)\\E");
+        assertQueryFails("SELECT 8 <> 'x'", "\\Qline 1:10: Cannot apply operator: integer = varchar(1)\\E");
+        assertQueryFails("SELECT 8 != 'x'", "\\Qline 1:10: Cannot apply operator: integer = varchar(1)\\E");
         assertQueryFails("SELECT 8 < 'x'", "\\Qline 1:10: Cannot apply operator: integer < varchar(1)\\E");
         assertQueryFails("SELECT 8 <= 'x'", "\\Qline 1:10: Cannot apply operator: integer <= varchar(1)\\E");
-        assertQueryFails("SELECT 8 > 'x'", "\\Qline 1:10: Cannot apply operator: integer > varchar(1)\\E");
-        assertQueryFails("SELECT 8 >= 'x'", "\\Qline 1:10: Cannot apply operator: integer >= varchar(1)\\E");
+        assertQueryFails("SELECT 8 > 'x'", "\\Qline 1:10: Cannot apply operator: integer < varchar(1)\\E");
+        assertQueryFails("SELECT 8 >= 'x'", "\\Qline 1:10: Cannot apply operator: integer <= varchar(1)\\E");
         assertQueryFails("SELECT -'x'", "\\Qline 1:8: Cannot negate varchar(1)\\E");
         assertQueryFails("SELECT ARRAY[42]['x']", "\\Qline 1:8: Cannot use varchar(1) for subscript of array(integer)\\E");
         assertQueryFails("SELECT 'a' BETWEEN 3 AND 'z'", "\\Qline 1:12: Cannot check if varchar(1) is BETWEEN integer and varchar(1)\\E");

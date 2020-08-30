@@ -530,7 +530,26 @@ public class ExpressionAnalyzer
         @Override
         protected Type visitComparisonExpression(ComparisonExpression node, StackableAstVisitorContext<Context> context)
         {
-            OperatorType operatorType = OperatorType.valueOf(node.getOperator().name());
+            OperatorType operatorType;
+            switch (node.getOperator()) {
+                case EQUAL:
+                case NOT_EQUAL:
+                    operatorType = OperatorType.EQUAL;
+                    break;
+                case LESS_THAN:
+                case GREATER_THAN:
+                    operatorType = OperatorType.LESS_THAN;
+                    break;
+                case LESS_THAN_OR_EQUAL:
+                case GREATER_THAN_OR_EQUAL:
+                    operatorType = OperatorType.LESS_THAN_OR_EQUAL;
+                    break;
+                case IS_DISTINCT_FROM:
+                    operatorType = OperatorType.IS_DISTINCT_FROM;
+                    break;
+                default:
+                    throw new UnsupportedOperationException("Unsupported comparison operator: " + node.getOperator());
+            }
             return getOperator(context, node, operatorType, node.getLeft(), node.getRight());
         }
 
