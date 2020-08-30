@@ -20,7 +20,7 @@ import io.prestosql.operator.project.SelectedPositions;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.type.Type;
+import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
 
 import java.util.List;
 
@@ -35,21 +35,21 @@ public class TuplePageFilter
 {
     private final Page tuplePage;
     private final InputChannels inputChannels;
-    private final List<Type> types;
+    private final List<BlockPositionEqual> equalOperators;
     private boolean[] selectedPositions = new boolean[0];
 
-    public TuplePageFilter(Page tuplePage, List<Type> types, List<Integer> inputChannels)
+    public TuplePageFilter(Page tuplePage, List<BlockPositionEqual> equalOperators, List<Integer> inputChannels)
     {
         requireNonNull(tuplePage, "tuplePage is null");
-        requireNonNull(types, "types is null");
+        requireNonNull(equalOperators, "equalOperators is null");
         requireNonNull(inputChannels, "inputChannels is null");
 
         checkArgument(tuplePage.getPositionCount() == 1, "tuplePage should only have one position");
         checkArgument(tuplePage.getChannelCount() == inputChannels.size(), "tuplePage and inputChannels have different number of channels");
-        checkArgument(types.size() == inputChannels.size(), "types and inputChannels have different number of channels");
+        checkArgument(equalOperators.size() == inputChannels.size(), "equalOperators and inputChannels have different number of channels");
 
         this.tuplePage = tuplePage;
-        this.types = ImmutableList.copyOf(types);
+        this.equalOperators = ImmutableList.copyOf(equalOperators);
         this.inputChannels = new InputChannels(inputChannels);
     }
 
@@ -82,10 +82,10 @@ public class TuplePageFilter
     private boolean matches(Page page, int position)
     {
         for (int channel = 0; channel < inputChannels.size(); channel++) {
-            Type type = types.get(channel);
+            BlockPositionEqual equalOperator = equalOperators.get(channel);
             Block outputBlock = page.getBlock(channel);
             Block singleTupleBlock = tuplePage.getBlock(channel);
-            if (!type.equalTo(singleTupleBlock, 0, outputBlock, position)) {
+            if (!equalOperator.equal(singleTupleBlock, 0, outputBlock, position)) {
                 return false;
             }
         }
