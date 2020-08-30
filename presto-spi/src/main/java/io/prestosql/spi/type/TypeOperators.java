@@ -163,13 +163,17 @@ public class TypeOperators
 
         private Collection<OperatorMethodHandle> getOperatorMethodHandles(OperatorConvention operatorConvention)
         {
-            TypeOperatorDeclaration typeOperatorDeclaration = operatorConvention.getType().getTypeOperators(TypeOperators.this);
+            TypeOperatorDeclaration typeOperatorDeclaration = operatorConvention.getType().getTypeOperatorDeclaration(TypeOperators.this);
             requireNonNull(typeOperatorDeclaration, "typeOperators is null for " + operatorConvention.getType());
             switch (operatorConvention.getOperatorType()) {
                 case EQUAL:
                     return typeOperatorDeclaration.getEqualOperators();
                 case HASH_CODE:
-                    return typeOperatorDeclaration.getHashCodeOperators();
+                    Collection<OperatorMethodHandle> hashCodeOperators = typeOperatorDeclaration.getHashCodeOperators();
+                    if (hashCodeOperators.isEmpty()) {
+                        return typeOperatorDeclaration.getXxHash64Operators();
+                    }
+                    return hashCodeOperators;
                 case XX_HASH_64:
                     return typeOperatorDeclaration.getXxHash64Operators();
                 case IS_DISTINCT_FROM:

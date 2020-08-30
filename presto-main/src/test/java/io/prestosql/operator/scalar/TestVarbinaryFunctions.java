@@ -13,10 +13,6 @@
  */
 package io.prestosql.operator.scalar;
 
-import io.airlift.slice.Slice;
-import io.airlift.slice.Slices;
-import io.prestosql.spi.block.Block;
-import io.prestosql.type.VarbinaryOperators;
 import org.testng.annotations.Test;
 
 import java.util.Base64;
@@ -35,7 +31,6 @@ import static io.prestosql.testing.SqlVarbinaryTestingUtil.sqlVarbinary;
 import static io.prestosql.testing.SqlVarbinaryTestingUtil.sqlVarbinaryFromHex;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
-import static org.testng.Assert.assertEquals;
 
 public class TestVarbinaryFunctions
         extends AbstractTestFunctions
@@ -347,19 +342,6 @@ public class TestVarbinaryFunctions
         assertFunction("spooky_hash_v2_32(CAST('hello' AS VARBINARY))", VARBINARY, sqlVarbinaryFromHex("D382E6CA"));
         assertFunction("spooky_hash_v2_64(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryFromHex("232706FC6BF50919"));
         assertFunction("spooky_hash_v2_64(CAST('hello' AS VARBINARY))", VARBINARY, sqlVarbinaryFromHex("3768826AD382E6CA"));
-    }
-
-    @Test
-    public void testHashCode()
-    {
-        Slice data = Slices.wrappedBuffer(ALL_BYTES);
-
-        Block block = VARBINARY.createBlockBuilder(null, 1, ALL_BYTES.length)
-                .writeBytes(data, 0, data.length())
-                .closeEntry()
-                .build();
-
-        assertEquals(VarbinaryOperators.hashCode(data), VARBINARY.hash(block, 0));
     }
 
     @Test

@@ -22,10 +22,9 @@ import io.prestosql.array.LongBigArray;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.type.AbstractLongType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
-import io.prestosql.type.BigintOperators;
-import io.prestosql.type.VarcharOperators;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -210,7 +209,7 @@ public class BenchmarkGroupByHash
                 BIGINT.writeLong(pageBuilder.getBlockBuilder(numChannel), rand);
             }
             if (hashEnabled) {
-                BIGINT.writeLong(pageBuilder.getBlockBuilder(channelCount), BigintOperators.hashCode(rand));
+                BIGINT.writeLong(pageBuilder.getBlockBuilder(channelCount), AbstractLongType.hash((long) rand));
             }
             if (pageBuilder.isFull()) {
                 pages.add(pageBuilder.build());
@@ -238,7 +237,7 @@ public class BenchmarkGroupByHash
                 VARCHAR.writeSlice(pageBuilder.getBlockBuilder(channel), value);
             }
             if (hashEnabled) {
-                BIGINT.writeLong(pageBuilder.getBlockBuilder(channelCount), VarcharOperators.hashCode(value));
+                BIGINT.writeLong(pageBuilder.getBlockBuilder(channelCount), XxHash64.hash(value));
             }
             if (pageBuilder.isFull()) {
                 pages.add(pageBuilder.build());

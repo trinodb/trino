@@ -25,21 +25,6 @@ public final class TimeWithTimezoneTypes
 {
     private TimeWithTimezoneTypes() {}
 
-    public static long hashLongTimeWithTimeZone(LongTimeWithTimeZone value)
-    {
-        return hashLongTimeWithTimeZone(value.getPicoSeconds(), value.getOffsetMinutes());
-    }
-
-    public static long hashShortTimeWithTimeZone(long packedTime)
-    {
-        return AbstractLongType.hash(normalize(packedTime));
-    }
-
-    static long hashLongTimeWithTimeZone(long picos, int offsetMinutes)
-    {
-        return AbstractLongType.hash(normalizePicos(picos, offsetMinutes));
-    }
-
     /**
      * Normalize to offset +00:00. The calculation is done modulo 24h
      */
@@ -61,7 +46,7 @@ public final class TimeWithTimezoneTypes
      *
      * @return the time in nanoseconds
      */
-    private static long normalize(long packedTime)
+    static long normalizePackedTime(long packedTime)
     {
         return normalizeNanos(unpackTimeNanos(packedTime), unpackOffsetMinutes(packedTime));
     }
