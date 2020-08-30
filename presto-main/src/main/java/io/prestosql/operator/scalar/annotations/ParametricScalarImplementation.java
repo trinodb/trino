@@ -240,6 +240,7 @@ public class ParametricScalarImplementation
         }
 
         List<InvocationArgumentConvention> argumentConventions = choice.getArgumentConventions();
+        int lambdaArgumentIndex = 0;
         for (int i = 0; i < argumentConventions.size(); i++) {
             InvocationArgumentConvention argumentConvention = argumentConventions.get(i);
             Type signatureType = signature.getArgumentTypes().get(i);
@@ -259,7 +260,8 @@ public class ParametricScalarImplementation
                     methodHandleParameterTypes.add(int.class);
                     break;
                 case FUNCTION:
-                    methodHandleParameterTypes.add(choice.getLambdaInterfaces().get(i).orElseThrow(() -> new IllegalArgumentException("Argument is not a function")));
+                    methodHandleParameterTypes.add(choice.getLambdaInterfaces().get(lambdaArgumentIndex));
+                    lambdaArgumentIndex++;
                     break;
                 default:
                     throw new UnsupportedOperationException("unknown argument convention: " + argumentConvention);
@@ -338,7 +340,7 @@ public class ParametricScalarImplementation
     {
         private final InvocationReturnConvention returnConvention;
         private final List<InvocationArgumentConvention> argumentConventions;
-        private final List<Optional<Class<?>>> lambdaInterfaces;
+        private final List<Class<?>> lambdaInterfaces;
         private final MethodHandle methodHandle;
         private final Optional<MethodHandle> constructor;
         private final List<ImplementationDependency> dependencies;
@@ -350,7 +352,7 @@ public class ParametricScalarImplementation
                 InvocationReturnConvention returnConvention,
                 boolean hasConnectorSession,
                 List<InvocationArgumentConvention> argumentConventions,
-                List<Optional<Class<?>>> lambdaInterfaces,
+                List<Class<?>> lambdaInterfaces,
                 MethodHandle methodHandle,
                 Optional<MethodHandle> constructor,
                 List<ImplementationDependency> dependencies,
@@ -397,7 +399,7 @@ public class ParametricScalarImplementation
             return argumentConventions;
         }
 
-        public List<Optional<Class<?>>> getLambdaInterfaces()
+        public List<Class<?>> getLambdaInterfaces()
         {
             return lambdaInterfaces;
         }
@@ -479,7 +481,7 @@ public class ParametricScalarImplementation
     {
         private final String functionName;
         private final List<InvocationArgumentConvention> argumentConventions = new ArrayList<>();
-        private final List<Optional<Class<?>>> lambdaInterfaces = new ArrayList<>();
+        private final List<Class<?>> lambdaInterfaces = new ArrayList<>();
         private final TypeSignature returnType;
         private final List<TypeSignature> argumentTypes = new ArrayList<>();
         private final List<Optional<Class<?>>> argumentNativeContainerTypes = new ArrayList<>();
@@ -595,7 +597,7 @@ public class ParametricScalarImplementation
                         // function type
                         checkCondition(parameterType.isAnnotationPresent(FunctionalInterface.class), FUNCTION_IMPLEMENTATION_ERROR, "argument %s is marked as lambda but the function interface class is not annotated: %s", parameterIndex, methodHandle);
                         argumentConventions.add(FUNCTION);
-                        lambdaInterfaces.add(Optional.of(parameterType));
+                        lambdaInterfaces.add(parameterType);
                         argumentNativeContainerTypes.add(Optional.empty());
                         parameterIndex++;
                     }
@@ -652,7 +654,6 @@ public class ParametricScalarImplementation
                         }
 
                         argumentConventions.add(argumentConvention);
-                        lambdaInterfaces.add(Optional.empty());
                         parameterIndex++;
                         if (argumentConvention == NULL_FLAG || argumentConvention == BLOCK_POSITION) {
                             parameterIndex++;

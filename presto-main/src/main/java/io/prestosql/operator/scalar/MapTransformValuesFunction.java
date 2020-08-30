@@ -117,7 +117,7 @@ public final class MapTransformValuesFunction
         return new ScalarFunctionImplementation(
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, FUNCTION),
-                ImmutableList.of(Optional.empty(), Optional.of(BinaryFunctionInterface.class)),
+                ImmutableList.of(BinaryFunctionInterface.class),
                 generateTransform(keyType, valueType, transformedValueType, resultMapType),
                 Optional.of(STATE_FACTORY.bindTo(resultMapType)));
     }

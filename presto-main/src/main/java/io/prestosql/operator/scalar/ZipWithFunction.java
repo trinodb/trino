@@ -85,7 +85,7 @@ public final class ZipWithFunction
         return new ScalarFunctionImplementation(
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL, FUNCTION),
-                ImmutableList.of(Optional.empty(), Optional.empty(), Optional.of(BinaryFunctionInterface.class)),
+                ImmutableList.of(BinaryFunctionInterface.class),
                 METHOD_HANDLE.bindTo(leftElementType).bindTo(rightElementType).bindTo(outputArrayType),
                 Optional.of(STATE_FACTORY.bindTo(outputArrayType)));
     }
