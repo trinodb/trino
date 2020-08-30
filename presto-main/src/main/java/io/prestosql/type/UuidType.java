@@ -36,6 +36,7 @@ import java.util.UUID;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.prestosql.spi.block.Int128ArrayBlock.INT128_BYTES;
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
@@ -113,11 +114,7 @@ public class UuidType
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        int compare = Long.compare(leftBlock.getLong(leftPosition, 0), rightBlock.getLong(rightPosition, 0));
-        if (compare != 0) {
-            return compare;
-        }
-        return Long.compare(leftBlock.getLong(leftPosition, SIZE_OF_LONG), rightBlock.getLong(rightPosition, SIZE_OF_LONG));
+        return (int) comparisonOperator(leftBlock, leftPosition, rightBlock, rightPosition);
     }
 
     @Override
@@ -209,5 +206,34 @@ public class UuidType
     private static long xxHash64(long low, long high)
     {
         return XxHash64.hash(low) ^ XxHash64.hash(high);
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(Slice left, Slice right)
+    {
+        return compareLittleEndian(
+                left.getLong(0),
+                left.getLong(SIZE_OF_LONG),
+                right.getLong(0),
+                right.getLong(SIZE_OF_LONG));
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    {
+        return compareLittleEndian(
+                leftBlock.getLong(leftPosition, 0),
+                leftBlock.getLong(leftPosition, SIZE_OF_LONG),
+                rightBlock.getLong(rightPosition, 0),
+                rightBlock.getLong(rightPosition, SIZE_OF_LONG));
+    }
+
+    private static int compareLittleEndian(long leftLow64le, long leftHigh64le, long rightLow64le, long rightHigh64le)
+    {
+        int compare = Long.compareUnsigned(reverseBytes(leftLow64le), reverseBytes(rightLow64le));
+        if (compare != 0) {
+            return compare;
+        }
+        return Long.compareUnsigned(reverseBytes(leftHigh64le), reverseBytes(rightHigh64le));
     }
 }

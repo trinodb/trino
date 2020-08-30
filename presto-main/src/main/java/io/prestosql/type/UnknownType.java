@@ -27,6 +27,7 @@ import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.spi.type.TypeSignature;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
@@ -150,6 +151,12 @@ public final class UnknownType
 
     @ScalarOperator(XX_HASH_64)
     private static long xxHash64Operator(boolean value)
+    {
+        throw new AssertionError("value of unknown type should all be NULL");
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(boolean left, boolean right)
     {
         throw new AssertionError("value of unknown type should all be NULL");
     }

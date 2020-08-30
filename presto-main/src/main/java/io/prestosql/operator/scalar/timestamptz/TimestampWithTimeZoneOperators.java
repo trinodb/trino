@@ -24,10 +24,6 @@ import org.joda.time.DateTimeField;
 import org.joda.time.chrono.ISOChronology;
 
 import static io.prestosql.spi.function.OperatorType.ADD;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.SUBTRACT;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -39,80 +35,6 @@ import static io.prestosql.type.DateTimes.roundToNearest;
 public final class TimestampWithTimeZoneOperators
 {
     private TimestampWithTimeZoneOperators() {}
-
-    @ScalarOperator(LESS_THAN)
-    public static final class LessThan
-    {
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean lessThan(@SqlType("timestamp(p) with time zone") long left, @SqlType("timestamp(p) with time zone") long right)
-        {
-            return unpackMillisUtc(left) < unpackMillisUtc(right);
-        }
-
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean lessThan(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone left, @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone right)
-        {
-            return (left.getEpochMillis() < right.getEpochMillis()) ||
-                    ((left.getEpochMillis() == right.getEpochMillis()) && (left.getPicosOfMilli() < right.getPicosOfMilli()));
-        }
-    }
-
-    @ScalarOperator(LESS_THAN_OR_EQUAL)
-    public static final class LessThanOrEqual
-    {
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean lessThanOrEqual(@SqlType("timestamp(p) with time zone") long left, @SqlType("timestamp(p) with time zone") long right)
-        {
-            return unpackMillisUtc(left) <= unpackMillisUtc(right);
-        }
-
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean lessThanOrEqual(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone left, @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone right)
-        {
-            return left.getEpochMillis() < right.getEpochMillis() ||
-                    left.getEpochMillis() == right.getEpochMillis() && left.getPicosOfMilli() <= right.getPicosOfMilli();
-        }
-    }
-
-    @ScalarOperator(GREATER_THAN)
-    public static final class GreaterThan
-    {
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean greaterThan(@SqlType("timestamp(p) with time zone") long left, @SqlType("timestamp(p) with time zone") long right)
-        {
-            return !LessThanOrEqual.lessThanOrEqual(left, right);
-        }
-
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean greaterThan(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone left, @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone right)
-        {
-            return !LessThanOrEqual.lessThanOrEqual(left, right);
-        }
-    }
-
-    @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    public static final class GreaterThanOrEqual
-    {
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean greaterThanOrEqual(@SqlType("timestamp(p) with time zone") long left, @SqlType("timestamp(p) with time zone") long right)
-        {
-            return !LessThan.lessThan(left, right);
-        }
-
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean greaterThanOrEqual(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone left, @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone right)
-        {
-            return !LessThan.lessThan(left, right);
-        }
-    }
 
     @ScalarOperator(ADD)
     public static final class TimestampPlusIntervalDayToSecond

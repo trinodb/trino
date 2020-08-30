@@ -27,10 +27,6 @@ import org.bson.types.ObjectId;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static java.lang.Math.toIntExact;
@@ -74,38 +70,5 @@ public final class ObjectIdFunctions
             hexString = hexString.substring(0, toIntExact(x));
         }
         return utf8Slice(hexString);
-    }
-
-    @ScalarOperator(GREATER_THAN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean greaterThan(@SqlType("ObjectId") Slice left, @SqlType("ObjectId") Slice right)
-    {
-        return compareTo(left, right) > 0;
-    }
-
-    @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean greaterThanOrEqual(@SqlType("ObjectId") Slice left, @SqlType("ObjectId") Slice right)
-    {
-        return compareTo(left, right) >= 0;
-    }
-
-    @ScalarOperator(LESS_THAN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean lessThan(@SqlType("ObjectId") Slice left, @SqlType("ObjectId") Slice right)
-    {
-        return compareTo(left, right) < 0;
-    }
-
-    @ScalarOperator(LESS_THAN_OR_EQUAL)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean lessThanOrEqual(@SqlType("ObjectId") Slice left, @SqlType("ObjectId") Slice right)
-    {
-        return compareTo(left, right) <= 0;
-    }
-
-    private static int compareTo(Slice left, Slice right)
-    {
-        return new ObjectId(left.getBytes()).compareTo(new ObjectId(right.getBytes()));
     }
 }

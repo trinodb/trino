@@ -20,8 +20,11 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.ScalarOperator;
 
 import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.String.format;
@@ -111,5 +114,23 @@ public final class TimeType
     public static long xxHash64Operator(long value)
     {
         return XxHash64.hash(value);
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(long left, long right)
+    {
+        return Long.compare(left, right);
+    }
+
+    @ScalarOperator(LESS_THAN)
+    public static boolean lessThan(long left, long right)
+    {
+        return left < right;
+    }
+
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
+    public static boolean lessThanOrEqual(long left, long right)
+    {
+        return left <= right;
     }
 }

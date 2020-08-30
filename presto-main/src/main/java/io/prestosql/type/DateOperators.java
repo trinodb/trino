@@ -25,44 +25,12 @@ import static io.airlift.slice.SliceUtf8.trim;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.util.DateTimeUtils.parseDate;
 import static io.prestosql.util.DateTimeUtils.printDate;
 
 public final class DateOperators
 {
     private DateOperators() {}
-
-    @ScalarOperator(LESS_THAN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean lessThan(@SqlType(StandardTypes.DATE) long left, @SqlType(StandardTypes.DATE) long right)
-    {
-        return left < right;
-    }
-
-    @ScalarOperator(LESS_THAN_OR_EQUAL)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean lessThanOrEqual(@SqlType(StandardTypes.DATE) long left, @SqlType(StandardTypes.DATE) long right)
-    {
-        return left <= right;
-    }
-
-    @ScalarOperator(GREATER_THAN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean greaterThan(@SqlType(StandardTypes.DATE) long left, @SqlType(StandardTypes.DATE) long right)
-    {
-        return left > right;
-    }
-
-    @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean greaterThanOrEqual(@SqlType(StandardTypes.DATE) long left, @SqlType(StandardTypes.DATE) long right)
-    {
-        return left >= right;
-    }
 
     @ScalarOperator(CAST)
     @LiteralParameters("x")

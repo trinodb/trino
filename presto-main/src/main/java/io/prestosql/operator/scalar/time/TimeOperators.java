@@ -26,10 +26,6 @@ import io.prestosql.type.Constraint;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.ADD;
 import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.SUBTRACT;
 import static io.prestosql.spi.type.TimeType.MAX_PRECISION;
 import static io.prestosql.type.DateTimes.MINUTES_PER_HOUR;
@@ -60,38 +56,6 @@ public final class TimeOperators
         interval = rescaleWithRounding(interval, MAX_PRECISION, 3);
 
         return interval;
-    }
-
-    @ScalarOperator(LESS_THAN)
-    @LiteralParameters("p")
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean lessThan(@SqlType("time(p)") long left, @SqlType("time(p)") long right)
-    {
-        return left < right;
-    }
-
-    @ScalarOperator(LESS_THAN_OR_EQUAL)
-    @LiteralParameters("p")
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean lessThanOrEqual(@SqlType("time(p)") long left, @SqlType("time(p)") long right)
-    {
-        return left <= right;
-    }
-
-    @ScalarOperator(GREATER_THAN)
-    @LiteralParameters("p")
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean greaterThan(@SqlType("time(p)") long left, @SqlType("time(p)") long right)
-    {
-        return left > right;
-    }
-
-    @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    @LiteralParameters("p")
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean greaterThanOrEqual(@SqlType("time(p)") long left, @SqlType("time(p)") long right)
-    {
-        return left >= right;
     }
 
     @ScalarOperator(CAST)

@@ -118,6 +118,7 @@ public class TestIpAddressOperators
     @Test
     public void testOrderOperators()
     {
+        assertFunction("IPADDRESS '::2222' BETWEEN IPADDRESS '::' AND IPADDRESS '::1234'", BOOLEAN, false);
         assertFunction("IPADDRESS '2001:0db8:0000:0000:0000:ff00:0042:8329' > IPADDRESS '1.2.3.4'", BOOLEAN, true);
         assertFunction("IPADDRESS '1.2.3.4' > IPADDRESS '2001:0db8:0000:0000:0000:ff00:0042:8329'", BOOLEAN, false);
 
