@@ -226,6 +226,7 @@ import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.type.BigintOperators;
+import io.prestosql.type.BlockTypeOperators;
 import io.prestosql.type.BooleanOperators;
 import io.prestosql.type.CharOperators;
 import io.prestosql.type.DateOperators;
@@ -380,7 +381,11 @@ public class FunctionRegistry
     private final Cache<FunctionBinding, WindowFunctionSupplier> specializedWindowCache;
     private volatile FunctionMap functions = new FunctionMap();
 
-    public FunctionRegistry(Supplier<BlockEncodingSerde> blockEncodingSerdeSupplier, FeaturesConfig featuresConfig, TypeOperators typeOperators)
+    public FunctionRegistry(
+            Supplier<BlockEncodingSerde> blockEncodingSerdeSupplier,
+            FeaturesConfig featuresConfig,
+            TypeOperators typeOperators,
+            BlockTypeOperators blockTypeOperators)
     {
         // We have observed repeated compilation of MethodHandle that leads to full GCs.
         // We notice that flushing the following caches mitigate the problem.
