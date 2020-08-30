@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
-import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
 public final class ScalarFunctionImplementation
@@ -36,7 +35,7 @@ public final class ScalarFunctionImplementation
             List<InvocationArgumentConvention> argumentConventions,
             MethodHandle methodHandle)
     {
-        this(returnConvention, argumentConventions, nCopies(argumentConventions.size(), Optional.empty()), methodHandle, Optional.empty());
+        this(returnConvention, argumentConventions, ImmutableList.of(), methodHandle, Optional.empty());
     }
 
     public ScalarFunctionImplementation(
@@ -45,13 +44,13 @@ public final class ScalarFunctionImplementation
             MethodHandle methodHandle,
             Optional<MethodHandle> instanceFactory)
     {
-        this(returnConvention, argumentConventions, nCopies(argumentConventions.size(), Optional.empty()), methodHandle, instanceFactory);
+        this(returnConvention, argumentConventions, ImmutableList.of(), methodHandle, instanceFactory);
     }
 
     public ScalarFunctionImplementation(
             InvocationReturnConvention returnConvention,
             List<InvocationArgumentConvention> argumentConventions,
-            List<Optional<Class<?>>> lambdaInterfaces,
+            List<Class<?>> lambdaInterfaces,
             MethodHandle methodHandle,
             Optional<MethodHandle> instanceFactory)
     {
@@ -83,12 +82,12 @@ public final class ScalarFunctionImplementation
         private final MethodHandle methodHandle;
         private final Optional<MethodHandle> instanceFactory;
         private final InvocationConvention invocationConvention;
-        private final List<Optional<Class<?>>> lambdaInterfaces;
+        private final List<Class<?>> lambdaInterfaces;
 
         public ScalarImplementationChoice(
                 InvocationReturnConvention returnConvention,
                 List<InvocationArgumentConvention> argumentConventions,
-                List<Optional<Class<?>>> lambdaInterfaces,
+                List<Class<?>> lambdaInterfaces,
                 MethodHandle methodHandle,
                 Optional<MethodHandle> instanceFactory)
         {
@@ -120,7 +119,7 @@ public final class ScalarFunctionImplementation
                     returnConvention,
                     hasSession,
                     instanceFactory.isPresent());
-            checkArgument(lambdaInterfaces.size() == argumentConventions.size());
+            checkArgument(lambdaInterfaces.size() <= argumentConventions.size());
         }
 
         public MethodHandle getMethodHandle()
@@ -133,7 +132,7 @@ public final class ScalarFunctionImplementation
             return instanceFactory;
         }
 
-        public List<Optional<Class<?>>> getLambdaInterfaces()
+        public List<Class<?>> getLambdaInterfaces()
         {
             return lambdaInterfaces;
         }

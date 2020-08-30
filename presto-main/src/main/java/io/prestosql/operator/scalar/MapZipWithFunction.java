@@ -85,7 +85,7 @@ public final class MapZipWithFunction
         return new ScalarFunctionImplementation(
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL, FUNCTION),
-                ImmutableList.of(Optional.empty(), Optional.empty(), Optional.of(MapZipWithLambda.class)),
+                ImmutableList.of(MapZipWithLambda.class),
                 METHOD_HANDLE.bindTo(keyType).bindTo(inputValueType1).bindTo(inputValueType2).bindTo(outputMapType),
                 Optional.of(STATE_FACTORY.bindTo(outputMapType)));
     }

@@ -90,13 +90,13 @@ public class RowDistinctFromOperator
                         new ScalarImplementationChoice(
                                 FAIL_ON_NULL,
                                 ImmutableList.of(NULL_FLAG, NULL_FLAG),
-                                ImmutableList.of(Optional.empty(), Optional.empty()),
+                                ImmutableList.of(),
                                 METHOD_HANDLE_NULL_FLAG.bindTo(type).bindTo(argumentMethods.build()),
                                 Optional.empty()),
                         new ScalarImplementationChoice(
                                 FAIL_ON_NULL,
                                 ImmutableList.of(BLOCK_POSITION, BLOCK_POSITION),
-                                ImmutableList.of(Optional.empty(), Optional.empty()),
+                                ImmutableList.of(),
                                 METHOD_HANDLE_BLOCK_POSITION.bindTo(type).bindTo(argumentMethods.build()),
                                 Optional.empty())));
     }

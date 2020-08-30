@@ -83,11 +83,7 @@ public final class ArrayReduceFunction
         return new ScalarFunctionImplementation(
                 NULLABLE_RETURN,
                 ImmutableList.of(NEVER_NULL, BOXED_NULLABLE, FUNCTION, FUNCTION),
-                ImmutableList.of(
-                        Optional.empty(),
-                        Optional.empty(),
-                        Optional.of(BinaryFunctionInterface.class),
-                        Optional.of(UnaryFunctionInterface.class)),
+                ImmutableList.of(BinaryFunctionInterface.class, UnaryFunctionInterface.class),
                 methodHandle.asType(
                         methodHandle.type()
                                 .changeParameterType(1, Primitives.wrap(intermediateType.getJavaType()))

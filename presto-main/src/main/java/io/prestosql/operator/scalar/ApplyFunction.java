@@ -76,7 +76,7 @@ public final class ApplyFunction
         return new ScalarFunctionImplementation(
                 NULLABLE_RETURN,
                 ImmutableList.of(BOXED_NULLABLE, FUNCTION),
-                ImmutableList.of(Optional.empty(), Optional.of(UnaryFunctionInterface.class)),
+                ImmutableList.of(UnaryFunctionInterface.class),
                 METHOD_HANDLE.asType(
                         METHOD_HANDLE.type()
                                 .changeReturnType(Primitives.wrap(returnType.getJavaType()))
