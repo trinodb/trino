@@ -87,12 +87,6 @@ class LongTimeWithTimeZoneType
     }
 
     @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        return equalOperator(leftBlock, leftPosition, rightBlock, rightPosition);
-    }
-
-    @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
         long leftPicos = getPicos(leftBlock, leftPosition);
@@ -102,12 +96,6 @@ class LongTimeWithTimeZoneType
         int rightOffsetMinutes = getOffsetMinutes(rightBlock, leftPosition);
 
         return Long.compare(normalizePicos(leftPicos, leftOffsetMinutes), normalizePicos(rightPicos, rightOffsetMinutes));
-    }
-
-    @Override
-    public long hash(Block block, int position)
-    {
-        return hashCodeOperator(block, position);
     }
 
     @Override

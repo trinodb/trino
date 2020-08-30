@@ -301,24 +301,6 @@ public class RowType
     }
 
     @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        Block leftRow = leftBlock.getObject(leftPosition, Block.class);
-        Block rightRow = rightBlock.getObject(rightPosition, Block.class);
-
-        for (int i = 0; i < leftRow.getPositionCount(); i++) {
-            checkElementNotNull(leftRow.isNull(i));
-            checkElementNotNull(rightRow.isNull(i));
-            Type fieldType = fields.get(i).getType();
-            if (!fieldType.equalTo(leftRow, i, rightRow, i)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
         Block leftRow = leftBlock.getObject(leftPosition, Block.class);
@@ -338,18 +320,6 @@ public class RowType
         }
 
         return 0;
-    }
-
-    @Override
-    public long hash(Block block, int position)
-    {
-        Block arrayBlock = block.getObject(position, Block.class);
-        long result = 1;
-        for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-            Type elementType = fields.get(i).getType();
-            result = 31 * result + TypeUtils.hashPosition(elementType, arrayBlock, i);
-        }
-        return result;
     }
 
     private synchronized void generateTypeOperators(TypeOperators typeOperators)

@@ -13,7 +13,6 @@
  */
 package io.prestosql.spi.type;
 
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.BlockBuilderStatus;
@@ -33,7 +32,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
@@ -43,7 +41,6 @@ import static io.prestosql.spi.function.InvocationConvention.InvocationReturnCon
 import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
 import static io.prestosql.spi.type.TypeOperatorDeclaration.NO_TYPE_OPERATOR_DECLARATION;
 import static io.prestosql.spi.type.TypeUtils.NULL_HASH_CODE;
-import static io.prestosql.spi.type.TypeUtils.checkElementNotNull;
 import static java.lang.String.format;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Arrays.asList;
@@ -82,16 +79,12 @@ public class MapType
 
     private final Type keyType;
     private final Type valueType;
-    private static final String MAP_NULL_ELEMENT_MSG = "MAP comparison not supported for null value elements";
     private static final int EXPECTED_BYTES_PER_ENTRY = 32;
 
     private final MethodHandle keyNativeHashCode;
     private final MethodHandle keyBlockHashCode;
     private final MethodHandle keyBlockNativeEqual;
     private final MethodHandle keyBlockEqual;
-
-    private final MethodHandle equalOperator;
-    private final MethodHandle hashCodeOperator;
 
     // this field is used in double checked locking
     @SuppressWarnings("FieldAccessedSynchronizedAndUnsynchronized")
@@ -117,9 +110,6 @@ public class MapType
         keyNativeHashCode = typeOperators.getHashCodeOperator(keyType, HASH_CODE_CONVENTION)
                 .asType(methodType(long.class, keyType.getJavaType().isPrimitive() ? keyType.getJavaType() : Object.class));
         keyBlockHashCode = typeOperators.getHashCodeOperator(keyType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
-
-        equalOperator = getEqualOperatorMethodHandle(typeOperators, keyType, valueType).getMethodHandle();
-        hashCodeOperator = getHashCodeOperatorMethodHandle(typeOperators, keyType, valueType).getMethodHandle();
     }
 
     @Override
@@ -217,35 +207,6 @@ public class MapType
     public boolean isComparable()
     {
         return valueType.isComparable();
-    }
-
-    @Override
-    public long hash(Block block, int position)
-    {
-        Block mapBlock = block.getObject(position, Block.class);
-        try {
-            return (long) hashCodeOperator.invokeExact(mapBlock);
-        }
-        catch (Throwable throwable) {
-            throw handleThrowable(throwable);
-        }
-    }
-
-    @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        Block leftMapBlock = leftBlock.getObject(leftPosition, Block.class);
-        Block rightMapBlock = rightBlock.getObject(rightPosition, Block.class);
-
-        Boolean result;
-        try {
-            result = (Boolean) equalOperator.invokeExact(leftMapBlock, rightMapBlock);
-        }
-        catch (Throwable throwable) {
-            throw handleThrowable(throwable);
-        }
-        checkElementNotNull(result == null, MAP_NULL_ELEMENT_MSG);
-        return result;
     }
 
     @Override
@@ -460,16 +421,5 @@ public class MapType
             }
         }
         return false;
-    }
-
-    private static RuntimeException handleThrowable(Throwable throwable)
-    {
-        if (throwable instanceof Error) {
-            throw (Error) throwable;
-        }
-        if (throwable instanceof PrestoException) {
-            throw (PrestoException) throwable;
-        }
-        throw new PrestoException(GENERIC_INTERNAL_ERROR, throwable);
     }
 }

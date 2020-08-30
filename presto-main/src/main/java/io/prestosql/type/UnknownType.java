@@ -101,23 +101,6 @@ public final class UnknownType
     }
 
     @Override
-    public long hash(Block block, int position)
-    {
-        // Check that the position is valid
-        checkArgument(block.isNull(position), "Expected NULL value for UnknownType");
-        return 0;
-    }
-
-    @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        // Check that the position is valid
-        checkArgument(leftBlock.isNull(leftPosition), "Expected NULL value for UnknownType");
-        checkArgument(rightBlock.isNull(rightPosition), "Expected NULL value for UnknownType");
-        return true;
-    }
-
-    @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
         // Check that the position is valid

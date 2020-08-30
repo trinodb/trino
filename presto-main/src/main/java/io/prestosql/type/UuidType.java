@@ -111,12 +111,6 @@ public class UuidType
     }
 
     @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        return equalOperator(leftBlock, leftPosition, rightBlock, rightPosition);
-    }
-
-    @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
         int compare = Long.compare(leftBlock.getLong(leftPosition, 0), rightBlock.getLong(rightPosition, 0));
@@ -124,12 +118,6 @@ public class UuidType
             return compare;
         }
         return Long.compare(leftBlock.getLong(leftPosition, SIZE_OF_LONG), rightBlock.getLong(rightPosition, SIZE_OF_LONG));
-    }
-
-    @Override
-    public long hash(Block block, int position)
-    {
-        return xxHash64Operator(block, position);
     }
 
     @Override

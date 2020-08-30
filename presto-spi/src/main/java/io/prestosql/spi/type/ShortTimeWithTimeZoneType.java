@@ -94,20 +94,6 @@ class ShortTimeWithTimeZoneType
     }
 
     @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        return equalOperator(
-                leftBlock.getLong(leftPosition, 0),
-                rightBlock.getLong(rightPosition, 0));
-    }
-
-    @Override
-    public long hash(Block block, int position)
-    {
-        return hashCodeOperator(block.getLong(position, 0));
-    }
-
-    @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
         long left = leftBlock.getLong(leftPosition, 0);
