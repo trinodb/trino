@@ -11,15 +11,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.metadata;
+package io.prestosql.spi.function;
 
-import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.ErrorCodeSupplier;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.StandardErrorCode;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention;
 import io.prestosql.spi.type.Type;
@@ -30,11 +28,6 @@ import java.util.List;
 import java.util.Objects;
 import java.util.stream.IntStream;
 
-import static com.google.common.base.Preconditions.checkArgument;
-import static io.prestosql.metadata.ScalarFunctionAdapter.NullAdaptationPolicy.RETURN_NULL_ON_NULL;
-import static io.prestosql.metadata.ScalarFunctionAdapter.NullAdaptationPolicy.THROW_ON_NULL;
-import static io.prestosql.metadata.ScalarFunctionAdapter.NullAdaptationPolicy.UNDEFINED_VALUE_FOR_NULL;
-import static io.prestosql.metadata.ScalarFunctionAdapter.NullAdaptationPolicy.UNSUPPORTED;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
@@ -42,6 +35,10 @@ import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentC
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.prestosql.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.THROW_ON_NULL;
+import static io.prestosql.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.UNDEFINED_VALUE_FOR_NULL;
+import static io.prestosql.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.UNSUPPORTED;
 import static java.lang.invoke.MethodHandles.collectArguments;
 import static java.lang.invoke.MethodHandles.constant;
 import static java.lang.invoke.MethodHandles.dropArguments;
@@ -76,7 +73,9 @@ public final class ScalarFunctionAdapter
     {
         requireNonNull(actualConvention, "actualConvention is null");
         requireNonNull(expectedConvention, "expectedConvention is null");
-        checkArgument(expectedConvention.getArgumentConventions().size() == expectedConvention.getArgumentConventions().size());
+        if (actualConvention.getArgumentConventions().size() != expectedConvention.getArgumentConventions().size()) {
+            throw new IllegalArgumentException("Actual and expected conventions have different number of arguments");
+        }
 
         if (actualConvention.supportsSession() && !expectedConvention.supportsSession()) {
             return false;
@@ -191,10 +190,16 @@ public final class ScalarFunctionAdapter
         requireNonNull(methodHandle, "methodHandle is null");
         requireNonNull(actualConvention, "actualConvention is null");
         requireNonNull(expectedConvention, "expectedConvention is null");
-        checkArgument(actualConvention.getArgumentConventions().size() == expectedConvention.getArgumentConventions().size());
+        if (expectedConvention.getArgumentConventions().size() != expectedConvention.getArgumentConventions().size()) {
+            throw new IllegalArgumentException("Actual and expected conventions have different number of arguments");
+        }
 
-        checkArgument(!actualConvention.supportsSession() || expectedConvention.supportsSession(), "Session method can not be adapted to no session");
-        checkArgument(!actualConvention.supportsInstanceFactor() || expectedConvention.supportsInstanceFactor(), "Instance method can not be adapted to no instance");
+        if (actualConvention.supportsSession() && !expectedConvention.supportsSession()) {
+            throw new IllegalArgumentException("Session method can not be adapted to no session");
+        }
+        if (!(expectedConvention.supportsInstanceFactor() || !actualConvention.supportsInstanceFactor())) {
+            throw new IllegalArgumentException("Instance method can not be adapted to no instance");
+        }
 
         // adapt return first, since return-null-on-null parameter convention must know if the return type is nullable
         methodHandle = adaptReturn(methodHandle, actualConvention.getReturnConvention(), expectedConvention.getReturnConvention());
@@ -241,7 +246,7 @@ public final class ScalarFunctionAdapter
         if (expectedReturnConvention == NULLABLE_RETURN) {
             if (actualReturnConvention == FAIL_ON_NULL) {
                 // box return
-                return explicitCastArguments(methodHandle, methodHandle.type().changeReturnType(Primitives.wrap(returnType)));
+                return explicitCastArguments(methodHandle, methodHandle.type().changeReturnType(wrap(returnType)));
             }
         }
 
@@ -253,13 +258,13 @@ public final class ScalarFunctionAdapter
 
                 if (nullAdaptationPolicy == UNDEFINED_VALUE_FOR_NULL) {
                     // currently, we just perform unboxing, which converts nulls to Java primitive default value
-                    methodHandle = explicitCastArguments(methodHandle, methodHandle.type().changeReturnType(Primitives.unwrap(returnType)));
+                    methodHandle = explicitCastArguments(methodHandle, methodHandle.type().changeReturnType(unwrap(returnType)));
                     return methodHandle;
                 }
 
                 if (nullAdaptationPolicy == THROW_ON_NULL) {
                     MethodHandle adapter = identity(returnType);
-                    adapter = explicitCastArguments(adapter, adapter.type().changeReturnType(Primitives.unwrap(returnType)));
+                    adapter = explicitCastArguments(adapter, adapter.type().changeReturnType(unwrap(returnType)));
                     adapter = guardWithTest(
                             isNullArgument(adapter.type(), 0),
                             throwPrestoNullArgumentException(adapter.type()),
@@ -294,8 +299,8 @@ public final class ScalarFunctionAdapter
         if (expectedArgumentConvention == NEVER_NULL) {
             if (actualArgumentConvention == BOXED_NULLABLE) {
                 // if actual argument is boxed primitive, change method handle to accept a primitive and then box to actual method
-                if (Primitives.isWrapperType(methodHandle.type().parameterType(parameterIndex))) {
-                    MethodType targetType = methodHandle.type().changeParameterType(parameterIndex, Primitives.unwrap(methodHandle.type().parameterType(parameterIndex)));
+                if (isWrapperType(methodHandle.type().parameterType(parameterIndex))) {
+                    MethodType targetType = methodHandle.type().changeParameterType(parameterIndex, unwrap(methodHandle.type().parameterType(parameterIndex)));
                     methodHandle = explicitCastArguments(methodHandle, targetType);
                 }
                 return methodHandle;
@@ -317,7 +322,7 @@ public final class ScalarFunctionAdapter
                 }
 
                 // box argument
-                Class<?> boxedType = Primitives.wrap(methodHandle.type().parameterType(parameterIndex));
+                Class<?> boxedType = wrap(methodHandle.type().parameterType(parameterIndex));
                 MethodType targetType = methodHandle.type().changeParameterType(parameterIndex, boxedType);
                 methodHandle = explicitCastArguments(methodHandle, targetType);
 
@@ -354,14 +359,14 @@ public final class ScalarFunctionAdapter
                 // 3. unbox the value (if null the java default is sent)
                 // long, boolean => Long, boolean
                 Class<?> parameterType = methodHandle.type().parameterType(parameterIndex);
-                methodHandle = explicitCastArguments(methodHandle, methodHandle.type().changeParameterType(parameterIndex, Primitives.wrap(parameterType)));
+                methodHandle = explicitCastArguments(methodHandle, methodHandle.type().changeParameterType(parameterIndex, wrap(parameterType)));
 
                 // 2. replace second argument with the result of isNull
                 // long, boolean => Long, Long
                 methodHandle = filterArguments(
                         methodHandle,
                         parameterIndex + 1,
-                        explicitCastArguments(IS_NULL_METHOD, methodType(boolean.class, Primitives.wrap(parameterType))));
+                        explicitCastArguments(IS_NULL_METHOD, methodType(boolean.class, wrap(parameterType))));
 
                 // 1. Duplicate the argument, so we have two copies of the value
                 // Long, Long => Long
@@ -452,7 +457,7 @@ public final class ScalarFunctionAdapter
             }
 
             if (actualArgumentConvention == BOXED_NULLABLE) {
-                getBlockValue = explicitCastArguments(getBlockValue, getBlockValue.type().changeReturnType(Primitives.wrap(getBlockValue.type().returnType())));
+                getBlockValue = explicitCastArguments(getBlockValue, getBlockValue.type().changeReturnType(wrap(getBlockValue.type().returnType())));
                 getBlockValue = guardWithTest(
                         isBlockPositionNull(getBlockValue.type(), 0),
                         returnNull(getBlockValue.type()),
@@ -523,8 +528,8 @@ public final class ScalarFunctionAdapter
         // Start with identity
         MethodHandle handle = identity(argumentType);
         // if argument is a primitive, box it
-        if (Primitives.isWrapperType(argumentType)) {
-            handle = explicitCastArguments(handle, handle.type().changeParameterType(0, Primitives.unwrap(argumentType)));
+        if (isWrapperType(argumentType)) {
+            handle = explicitCastArguments(handle, handle.type().changeParameterType(0, unwrap(argumentType)));
         }
         // Add boolean null flag
         handle = dropArguments(handle, 1, boolean.class);
@@ -581,10 +586,10 @@ public final class ScalarFunctionAdapter
     private static MethodHandle returnNull(MethodType methodType)
     {
         // Start with a constant null value of the expected return type: f():R
-        MethodHandle returnNull = constant(Primitives.wrap(methodType.returnType()), null);
+        MethodHandle returnNull = constant(wrap(methodType.returnType()), null);
 
         // Add extra argument to match expected method type: f(a, b, c, ..., n):R
-        returnNull = permuteArguments(returnNull, methodType.changeReturnType(Primitives.wrap(methodType.returnType())));
+        returnNull = permuteArguments(returnNull, methodType.changeReturnType(wrap(methodType.returnType())));
 
         // Convert return to a primitive is necessary: f(a, b, c, ..., n):r
         returnNull = explicitCastArguments(returnNull, methodType);
@@ -607,6 +612,21 @@ public final class ScalarFunctionAdapter
         catch (ReflectiveOperationException e) {
             throw new AssertionError(e);
         }
+    }
+
+    private static boolean isWrapperType(Class<?> type)
+    {
+        return type != unwrap(type);
+    }
+
+    private static Class<?> wrap(Class<?> type)
+    {
+        return methodType(type).wrap().returnType();
+    }
+
+    private static Class<?> unwrap(Class<?> type)
+    {
+        return methodType(type).unwrap().returnType();
     }
 
     public enum NullAdaptationPolicy
