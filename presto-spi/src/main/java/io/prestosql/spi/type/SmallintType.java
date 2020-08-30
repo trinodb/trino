@@ -108,20 +108,6 @@ public final class SmallintType
     }
 
     @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        int leftValue = leftBlock.getShort(leftPosition, 0);
-        int rightValue = rightBlock.getShort(rightPosition, 0);
-        return leftValue == rightValue;
-    }
-
-    @Override
-    public long hash(Block block, int position)
-    {
-        return AbstractLongType.hash(block.getShort(position, 0));
-    }
-
-    @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
         // WARNING: the correctness of InCodeGenerator is dependent on the implementation of this

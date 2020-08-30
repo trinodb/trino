@@ -165,19 +165,6 @@ public interface Type
     void appendTo(Block block, int position, BlockBuilder blockBuilder);
 
     /**
-     * Are the values in the specified blocks at the specified positions equal?
-     * <p>
-     * This method assumes input is not null.
-     */
-    boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition);
-
-    /**
-     * Calculates the hash code of the value at the specified position in the
-     * specified block.
-     */
-    long hash(Block block, int position);
-
-    /**
      * Compare the values in the specified block at the specified positions.
      *
      * @return 0 if the values are equal, negative if left is less than right, and positive, otherwise.

@@ -41,7 +41,6 @@ import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
 import static io.prestosql.spi.type.StandardTypes.ARRAY;
 import static io.prestosql.spi.type.TypeUtils.NULL_HASH_CODE;
 import static io.prestosql.spi.type.TypeUtils.checkElementNotNull;
-import static io.prestosql.spi.type.TypeUtils.hashPosition;
 import static java.util.Collections.emptyList;
 import static java.util.Collections.singletonList;
 import static java.util.Objects.requireNonNull;
@@ -169,38 +168,6 @@ public class ArrayType
     public boolean isOrderable()
     {
         return elementType.isOrderable();
-    }
-
-    @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        Block leftArray = leftBlock.getObject(leftPosition, Block.class);
-        Block rightArray = rightBlock.getObject(rightPosition, Block.class);
-
-        if (leftArray.getPositionCount() != rightArray.getPositionCount()) {
-            return false;
-        }
-
-        for (int i = 0; i < leftArray.getPositionCount(); i++) {
-            checkElementNotNull(leftArray.isNull(i), ARRAY_NULL_ELEMENT_MSG);
-            checkElementNotNull(rightArray.isNull(i), ARRAY_NULL_ELEMENT_MSG);
-            if (!elementType.equalTo(leftArray, i, rightArray, i)) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
-    @Override
-    public long hash(Block block, int position)
-    {
-        Block array = getObject(block, position);
-        long hash = 0;
-        for (int i = 0; i < array.getPositionCount(); i++) {
-            hash = 31 * hash + hashPosition(elementType, array, i);
-        }
-        return hash;
     }
 
     @Override
