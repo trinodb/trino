@@ -16,7 +16,6 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.block.SortOrder;
 import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.assertions.TopNRowNumberSymbolMatcher;
@@ -31,7 +30,7 @@ import org.testng.annotations.Test;
 
 import java.util.Optional;
 
-import static io.prestosql.spi.block.SortOrder.ASC_NULLS_FIRST;
+import static io.prestosql.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.expression;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
@@ -48,7 +47,7 @@ public class TestPushPredicateThroughProjectIntoWindow
     @Test
     public void testRowNumberSymbolPruned()
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata()))
+        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
@@ -69,7 +68,7 @@ public class TestPushPredicateThroughProjectIntoWindow
     @Test
     public void testNoUpperBoundForRowNumberSymbol()
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata()))
+        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
@@ -90,7 +89,7 @@ public class TestPushPredicateThroughProjectIntoWindow
     @Test
     public void testNonPositiveUpperBoundForRowNumberSymbol()
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata()))
+        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
@@ -111,7 +110,7 @@ public class TestPushPredicateThroughProjectIntoWindow
     @Test
     public void testPredicateNotSatisfied()
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata()))
+        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
@@ -135,7 +134,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                                                 .specification(
                                                         ImmutableList.of(),
                                                         ImmutableList.of("a"),
-                                                        ImmutableMap.of("a", SortOrder.ASC_NULLS_FIRST))
+                                                        ImmutableMap.of("a", ASC_NULLS_FIRST))
                                                 .maxRowCountPerPartition(4)
                                                 .partial(false),
                                         values(ImmutableList.of("a")))
@@ -145,7 +144,7 @@ public class TestPushPredicateThroughProjectIntoWindow
     @Test
     public void testPredicateSatisfied()
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata()))
+        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
@@ -167,7 +166,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                                         .specification(
                                                 ImmutableList.of(),
                                                 ImmutableList.of("a"),
-                                                ImmutableMap.of("a", SortOrder.ASC_NULLS_FIRST))
+                                                ImmutableMap.of("a", ASC_NULLS_FIRST))
                                         .maxRowCountPerPartition(4)
                                         .partial(false),
                                 values(ImmutableList.of("a")))
@@ -177,7 +176,7 @@ public class TestPushPredicateThroughProjectIntoWindow
     @Test
     public void testPredicatePartiallySatisfied()
     {
-        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata()))
+        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
@@ -201,13 +200,13 @@ public class TestPushPredicateThroughProjectIntoWindow
                                                 .specification(
                                                         ImmutableList.of(),
                                                         ImmutableList.of("a"),
-                                                        ImmutableMap.of("a", SortOrder.ASC_NULLS_FIRST))
+                                                        ImmutableMap.of("a", ASC_NULLS_FIRST))
                                                 .maxRowCountPerPartition(4)
                                                 .partial(false),
                                         values(ImmutableList.of("a")))
                                         .withAlias("row_number", new TopNRowNumberSymbolMatcher()))));
 
-        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata()))
+        tester().assertThat(new PushPredicateThroughProjectIntoWindow(tester().getMetadata(), tester().getQueryRunner().getTypeOperators()))
                 .on(p -> {
                     Symbol a = p.symbol("a");
                     Symbol rowNumber = p.symbol("row_number");
@@ -231,7 +230,7 @@ public class TestPushPredicateThroughProjectIntoWindow
                                                 .specification(
                                                         ImmutableList.of(),
                                                         ImmutableList.of("a"),
-                                                        ImmutableMap.of("a", SortOrder.ASC_NULLS_FIRST))
+                                                        ImmutableMap.of("a", ASC_NULLS_FIRST))
                                                 .maxRowCountPerPartition(4)
                                                 .partial(false),
                                         values(ImmutableList.of("a")))

@@ -29,7 +29,7 @@ import java.util.OptionalLong;
 import java.util.Set;
 import java.util.UUID;
 
-import static io.prestosql.spi.block.SortOrder.ASC_NULLS_FIRST;
+import static io.prestosql.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;

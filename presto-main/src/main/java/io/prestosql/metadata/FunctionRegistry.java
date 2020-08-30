@@ -55,9 +55,11 @@ import io.prestosql.operator.aggregation.LongSumAggregation;
 import io.prestosql.operator.aggregation.MapAggregationFunction;
 import io.prestosql.operator.aggregation.MapUnionAggregation;
 import io.prestosql.operator.aggregation.MaxDataSizeForStats;
+import io.prestosql.operator.aggregation.MaxNAggregationFunction;
 import io.prestosql.operator.aggregation.MergeHyperLogLogAggregation;
 import io.prestosql.operator.aggregation.MergeQuantileDigestFunction;
 import io.prestosql.operator.aggregation.MergeTDigestAggregation;
+import io.prestosql.operator.aggregation.MinNAggregationFunction;
 import io.prestosql.operator.aggregation.RealCorrelationAggregation;
 import io.prestosql.operator.aggregation.RealCovarianceAggregation;
 import io.prestosql.operator.aggregation.RealGeometricMeanAggregations;
@@ -70,6 +72,8 @@ import io.prestosql.operator.aggregation.VarcharApproximateMostFrequent;
 import io.prestosql.operator.aggregation.VarianceAggregation;
 import io.prestosql.operator.aggregation.arrayagg.ArrayAggregationFunction;
 import io.prestosql.operator.aggregation.histogram.Histogram;
+import io.prestosql.operator.aggregation.minmaxby.MaxByNAggregationFunction;
+import io.prestosql.operator.aggregation.minmaxby.MinByNAggregationFunction;
 import io.prestosql.operator.aggregation.multimapagg.MultimapAggregationFunction;
 import io.prestosql.operator.scalar.ArrayAllMatchFunction;
 import io.prestosql.operator.scalar.ArrayAnyMatchFunction;
@@ -276,18 +280,14 @@ import static io.prestosql.operator.aggregation.CountColumn.COUNT_COLUMN;
 import static io.prestosql.operator.aggregation.DecimalAverageAggregation.DECIMAL_AVERAGE_AGGREGATION;
 import static io.prestosql.operator.aggregation.DecimalSumAggregation.DECIMAL_SUM_AGGREGATION;
 import static io.prestosql.operator.aggregation.MaxAggregationFunction.MAX_AGGREGATION;
-import static io.prestosql.operator.aggregation.MaxNAggregationFunction.MAX_N_AGGREGATION;
 import static io.prestosql.operator.aggregation.MinAggregationFunction.MIN_AGGREGATION;
-import static io.prestosql.operator.aggregation.MinNAggregationFunction.MIN_N_AGGREGATION;
 import static io.prestosql.operator.aggregation.QuantileDigestAggregationFunction.QDIGEST_AGG;
 import static io.prestosql.operator.aggregation.QuantileDigestAggregationFunction.QDIGEST_AGG_WITH_WEIGHT;
 import static io.prestosql.operator.aggregation.QuantileDigestAggregationFunction.QDIGEST_AGG_WITH_WEIGHT_AND_ERROR;
 import static io.prestosql.operator.aggregation.RealAverageAggregation.REAL_AVERAGE_AGGREGATION;
 import static io.prestosql.operator.aggregation.ReduceAggregationFunction.REDUCE_AGG;
 import static io.prestosql.operator.aggregation.minmaxby.MaxByAggregationFunction.MAX_BY;
-import static io.prestosql.operator.aggregation.minmaxby.MaxByNAggregationFunction.MAX_BY_N_AGGREGATION;
 import static io.prestosql.operator.aggregation.minmaxby.MinByAggregationFunction.MIN_BY;
-import static io.prestosql.operator.aggregation.minmaxby.MinByNAggregationFunction.MIN_BY_N_AGGREGATION;
 import static io.prestosql.operator.scalar.ArrayConcatFunction.ARRAY_CONCAT_FUNCTION;
 import static io.prestosql.operator.scalar.ArrayConstructor.ARRAY_CONSTRUCTOR;
 import static io.prestosql.operator.scalar.ArrayFlattenFunction.ARRAY_FLATTEN_FUNCTION;
@@ -571,8 +571,8 @@ public class FunctionRegistry
                 .function(new ChecksumAggregationFunction(blockTypeOperators))
                 .function(ARBITRARY_AGGREGATION)
                 .functions(GREATEST, LEAST)
-                .functions(MAX_BY, MIN_BY, MAX_BY_N_AGGREGATION, MIN_BY_N_AGGREGATION)
-                .functions(MAX_AGGREGATION, MIN_AGGREGATION, MAX_N_AGGREGATION, MIN_N_AGGREGATION)
+                .functions(MAX_BY, MIN_BY, new MaxByNAggregationFunction(blockTypeOperators), new MinByNAggregationFunction(blockTypeOperators))
+                .functions(MAX_AGGREGATION, MIN_AGGREGATION, new MaxNAggregationFunction(blockTypeOperators), new MinNAggregationFunction(blockTypeOperators))
                 .function(COUNT_COLUMN)
                 .functions(ROW_TO_JSON, JSON_TO_ROW, JSON_STRING_TO_ROW, ROW_TO_ROW_CAST)
                 .functions(VARCHAR_CONCAT, VARBINARY_CONCAT)

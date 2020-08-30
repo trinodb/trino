@@ -18,7 +18,7 @@ import com.google.common.base.Suppliers;
 import io.airlift.bytecode.DynamicClassLoader;
 import io.prestosql.Session;
 import io.prestosql.operator.PagesIndex;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.type.BlockTypeOperators;

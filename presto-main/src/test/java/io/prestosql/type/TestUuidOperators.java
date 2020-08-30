@@ -130,9 +130,11 @@ public class TestUuidOperators
         assertEquals(uuidCompare("12151fd2-7586-11e9-8f9e-2a86e4085a58", "dfa7eaf8-6a26-5749-8d36-336025df74e8"), -1);
     }
 
-    private static int uuidCompare(String uuidLeft, String uuidRight)
+    private int uuidCompare(String uuidLeft, String uuidRight)
     {
-        return UUID.compareTo(uuidBlock(uuidLeft), 0, uuidBlock(uuidRight), 0);
+        return (int) functionAssertions.getBlockTypeOperators()
+                .getComparisonOperator(UUID)
+                .compare(uuidBlock(uuidLeft), 0, uuidBlock(uuidRight), 0);
     }
 
     @Test

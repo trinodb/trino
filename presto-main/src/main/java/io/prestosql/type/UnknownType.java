@@ -102,15 +102,6 @@ public final class UnknownType
     }
 
     @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        // Check that the position is valid
-        checkArgument(leftBlock.isNull(leftPosition), "Expected NULL value for UnknownType");
-        checkArgument(rightBlock.isNull(rightPosition), "Expected NULL value for UnknownType");
-        return 0;
-    }
-
-    @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
         // call is null in case position is out of bounds

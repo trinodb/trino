@@ -16,6 +16,7 @@ package io.prestosql.sql.planner.sanity;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.analyzer.ExpressionTreeUtils;
 import io.prestosql.sql.planner.ExpressionExtractor;
 import io.prestosql.sql.planner.TypeAnalyzer;
@@ -29,7 +30,14 @@ public final class NoIdentifierLeftChecker
         implements PlanSanityChecker.Checker
 {
     @Override
-    public void validate(PlanNode plan, Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, WarningCollector warningCollector)
+    public void validate(
+            PlanNode plan,
+            Session session,
+            Metadata metadata,
+            TypeOperators typeOperators,
+            TypeAnalyzer typeAnalyzer,
+            TypeProvider types,
+            WarningCollector warningCollector)
     {
         List<Identifier> identifiers = ExpressionTreeUtils.extractExpressions(ExpressionExtractor.extractExpressions(plan), Identifier.class);
         if (!identifiers.isEmpty()) {

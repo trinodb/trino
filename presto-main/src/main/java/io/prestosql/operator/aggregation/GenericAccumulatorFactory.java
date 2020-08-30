@@ -25,7 +25,7 @@ import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDes
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.function.WindowIndex;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;

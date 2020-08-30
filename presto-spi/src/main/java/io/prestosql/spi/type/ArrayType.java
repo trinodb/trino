@@ -184,35 +184,6 @@ public class ArrayType
     }
 
     @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        if (!elementType.isOrderable()) {
-            throw new UnsupportedOperationException(getTypeSignature() + " type is not orderable");
-        }
-
-        Block leftArray = leftBlock.getObject(leftPosition, Block.class);
-        Block rightArray = rightBlock.getObject(rightPosition, Block.class);
-
-        int len = Math.min(leftArray.getPositionCount(), rightArray.getPositionCount());
-        int index = 0;
-        while (index < len) {
-            checkElementNotNull(leftArray.isNull(index), ARRAY_NULL_ELEMENT_MSG);
-            checkElementNotNull(rightArray.isNull(index), ARRAY_NULL_ELEMENT_MSG);
-            int comparison = elementType.compareTo(leftArray, index, rightArray, index);
-            if (comparison != 0) {
-                return comparison;
-            }
-            index++;
-        }
-
-        if (index == len) {
-            return leftArray.getPositionCount() - rightArray.getPositionCount();
-        }
-
-        return 0;
-    }
-
-    @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
         if (block.isNull(position)) {

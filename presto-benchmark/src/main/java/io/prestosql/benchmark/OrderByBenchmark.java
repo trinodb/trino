@@ -27,7 +27,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static io.prestosql.benchmark.BenchmarkQueryRunner.createLocalQueryRunner;
-import static io.prestosql.spi.block.SortOrder.ASC_NULLS_LAST;
+import static io.prestosql.spi.connector.SortOrder.ASC_NULLS_LAST;
 
 public class OrderByBenchmark
         extends AbstractSimpleOperatorBenchmark
@@ -58,7 +58,7 @@ public class OrderByBenchmark
                 new PagesIndex.TestingFactory(false),
                 false,
                 Optional.empty(),
-                new OrderingCompiler());
+                new OrderingCompiler(localQueryRunner.getTypeOperators()));
 
         return ImmutableList.of(tableScanOperator, limitOperator, orderByOperator);
     }

@@ -90,12 +90,6 @@ class LongTimeWithTimeZoneType
     }
 
     @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        return (int) comparisonOperator(leftBlock, leftPosition, rightBlock, rightPosition);
-    }
-
-    @Override
     public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
         if (block.isNull(position)) {

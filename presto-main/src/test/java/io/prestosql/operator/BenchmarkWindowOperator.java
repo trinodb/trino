@@ -19,7 +19,7 @@ import io.airlift.units.DataSize;
 import io.prestosql.RowPagesBuilder;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.type.Type;
 import io.prestosql.testing.TestingTaskContext;
 import org.openjdk.jmh.annotations.Benchmark;

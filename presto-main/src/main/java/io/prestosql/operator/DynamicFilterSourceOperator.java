@@ -27,6 +27,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.type.BlockTypeOperators;
+import io.prestosql.type.BlockTypeOperators.BlockPositionComparison;
 
 import javax.annotation.Nullable;
 
@@ -145,6 +146,7 @@ public class DynamicFilterSourceOperator
 
     private final List<Channel> channels;
     private final List<Integer> minMaxChannels;
+    private final List<BlockPositionComparison> minMaxComparisons;
 
     // May be dropped if the predicate becomes too large.
     @Nullable
@@ -178,11 +180,13 @@ public class DynamicFilterSourceOperator
         this.blockBuilders = new BlockBuilder[channels.size()];
         this.valueSets = new TypedSet[channels.size()];
         ImmutableList.Builder<Integer> minMaxChannelsBuilder = ImmutableList.builder();
+        ImmutableList.Builder<BlockPositionComparison> minMaxComparisonsBuilder = ImmutableList.builder();
         for (int channelIndex = 0; channelIndex < channels.size(); ++channelIndex) {
             Type type = channels.get(channelIndex).type;
             // Skipping DOUBLE and REAL in collectMinMaxValues to avoid dealing with NaN values
             if (minMaxCollectionLimit > 0 && type.isOrderable() && type != DOUBLE && type != REAL) {
                 minMaxChannelsBuilder.add(channelIndex);
+                minMaxComparisonsBuilder.add(blockTypeOperators.getComparisonOperator(type));
             }
             this.blockBuilders[channelIndex] = type.createBlockBuilder(null, EXPECTED_BLOCK_BUILDER_SIZE);
             this.valueSets[channelIndex] = createEqualityTypedSet(
@@ -201,6 +205,7 @@ public class DynamicFilterSourceOperator
             this.minValues = new Block[channels.size()];
             this.maxValues = new Block[channels.size()];
         }
+        this.minMaxComparisons = minMaxComparisonsBuilder.build();
     }
 
     @Override
@@ -231,9 +236,11 @@ public class DynamicFilterSourceOperator
                 return;
             }
             // the predicate became too large, record only min and max values for each orderable channel
-            for (Integer channelIndex : minMaxChannels) {
+            for (int i = 0; i < minMaxChannels.size(); i++) {
+                Integer channelIndex = minMaxChannels.get(i);
+                BlockPositionComparison comparison = minMaxComparisons.get(i);
                 Block block = page.getBlock(channels.get(channelIndex).index);
-                updateMinMaxValues(block, channelIndex);
+                updateMinMaxValues(block, channelIndex, comparison);
             }
             return;
         }
@@ -270,9 +277,11 @@ public class DynamicFilterSourceOperator
             }
             else {
                 // convert to min/max per column for orderable types
-                for (Integer channelIndex : minMaxChannels) {
+                for (int i = 0; i < minMaxChannels.size(); i++) {
+                    Integer channelIndex = minMaxChannels.get(i);
+                    BlockPositionComparison comparison = minMaxComparisons.get(i);
                     Block block = blockBuilders[channelIndex].build();
-                    updateMinMaxValues(block, channelIndex);
+                    updateMinMaxValues(block, channelIndex, comparison);
                 }
             }
         }
@@ -290,10 +299,9 @@ public class DynamicFilterSourceOperator
         maxValues = null;
     }
 
-    private void updateMinMaxValues(Block block, int channelIndex)
+    private void updateMinMaxValues(Block block, int channelIndex, BlockPositionComparison comparison)
     {
         checkState(minValues != null && maxValues != null);
-        Type type = channels.get(channelIndex).type;
         int minValuePosition = -1;
         int maxValuePosition = -1;
 
@@ -307,10 +315,10 @@ public class DynamicFilterSourceOperator
                 maxValuePosition = position;
                 continue;
             }
-            if (type.compareTo(block, position, block, minValuePosition) < 0) {
+            if (comparison.compare(block, position, block, minValuePosition) < 0) {
                 minValuePosition = position;
             }
-            else if (type.compareTo(block, position, block, maxValuePosition) > 0) {
+            else if (comparison.compare(block, position, block, maxValuePosition) > 0) {
                 maxValuePosition = position;
             }
         }
@@ -329,10 +337,10 @@ public class DynamicFilterSourceOperator
         Block currentMin = minValues[channelIndex];
         Block currentMax = maxValues[channelIndex];
 
-        if (type.compareTo(block, minValuePosition, currentMin, 0) < 0) {
+        if (comparison.compare(block, minValuePosition, currentMin, 0) < 0) {
             minValues[channelIndex] = block.getSingleValueBlock(minValuePosition);
         }
-        if (type.compareTo(block, maxValuePosition, currentMax, 0) > 0) {
+        if (comparison.compare(block, maxValuePosition, currentMax, 0) > 0) {
             maxValues[channelIndex] = block.getSingleValueBlock(maxValuePosition);
         }
     }

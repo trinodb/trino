@@ -16,8 +16,9 @@ package io.prestosql.plugin.hive.util;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import org.testng.annotations.Test;
 
 import java.util.ArrayList;
@@ -77,7 +78,7 @@ public class TestMergingPageIterator
         List<Iterator<Page>> pages = pageLists.stream()
                 .map(List::iterator)
                 .collect(toList());
-        Iterator<Page> iterator = new MergingPageIterator(pages, types, sortIndexes, sortOrders);
+        Iterator<Page> iterator = new MergingPageIterator(pages, types, sortIndexes, sortOrders, new TypeOperators());
 
         List<Long> values = new ArrayList<>();
         while (iterator.hasNext()) {

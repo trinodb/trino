@@ -39,7 +39,7 @@ import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
 import static io.prestosql.operator.PageAssertions.assertPageEquals;
 import static io.prestosql.operator.UpdateMemory.NOOP;
-import static io.prestosql.spi.block.SortOrder.ASC_NULLS_LAST;
+import static io.prestosql.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static org.testng.Assert.assertEquals;
@@ -53,6 +53,7 @@ public class TestGroupedTopNBuilder
     private static final long INT_FIFO_QUEUE_SIZE = ClassLayout.parseClass(IntArrayFIFOQueue.class).instanceSize();
     private static final long OBJECT_OVERHEAD = ClassLayout.parseClass(Object.class).instanceSize();
     private static final long PAGE_REFERENCE_INSTANCE_SIZE = ClassLayout.parseClass(TestPageReference.class).instanceSize();
+    private static final TypeOperators TYPE_OPERATORS_CACHE = new TypeOperators();
 
     @DataProvider
     public static Object[][] produceRowNumbers()
@@ -109,7 +110,7 @@ public class TestGroupedTopNBuilder
         GroupByHash groupByHash = createGroupByHash(ImmutableList.of(types.get(0)), ImmutableList.of(0), NOOP);
         GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNBuilder(
                 types,
-                new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST)),
+                new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), TYPE_OPERATORS_CACHE),
                 2,
                 produceRowNumbers,
                 groupByHash);
@@ -181,7 +182,7 @@ public class TestGroupedTopNBuilder
 
         GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNBuilder(
                 types,
-                new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST)),
+                new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), TYPE_OPERATORS_CACHE),
                 5,
                 produceRowNumbers,
                 new NoChannelGroupByHash());
@@ -241,7 +242,7 @@ public class TestGroupedTopNBuilder
         GroupByHash groupByHash = createGroupByHash(ImmutableList.of(types.get(0)), ImmutableList.of(0), unblock::get);
         GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNBuilder(
                 types,
-                new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST)),
+                new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), TYPE_OPERATORS_CACHE),
                 5,
                 false,
                 groupByHash);
@@ -291,7 +292,7 @@ public class TestGroupedTopNBuilder
 
         GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNBuilder(
                 types,
-                new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST)),
+                new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), TYPE_OPERATORS_CACHE),
                 1,
                 false,
                 createGroupByHash(ImmutableList.of(types.get(0)), ImmutableList.of(0), NOOP));
@@ -385,7 +386,7 @@ public class TestGroupedTopNBuilder
         GroupByHash groupByHash = createGroupByHash(ImmutableList.of(types.get(0)), ImmutableList.of(0), NOOP);
         GroupedTopNBuilder groupedTopNBuilder = new GroupedTopNBuilder(
                 types,
-                new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST)),
+                new SimplePageWithPositionComparator(types, ImmutableList.of(1), ImmutableList.of(ASC_NULLS_LAST), TYPE_OPERATORS_CACHE),
                 pageCount * rowCount,
                 false,
                 groupByHash);

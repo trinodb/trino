@@ -111,16 +111,6 @@ public final class SmallintType
     }
 
     @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        // WARNING: the correctness of InCodeGenerator is dependent on the implementation of this
-        // function being the equivalence of internal long representation.
-        short leftValue = leftBlock.getShort(leftPosition, 0);
-        short rightValue = rightBlock.getShort(rightPosition, 0);
-        return Short.compare(leftValue, rightValue);
-    }
-
-    @Override
     public Optional<Range> getRange()
     {
         return Optional.of(new Range((long) Short.MIN_VALUE, (long) Short.MAX_VALUE));

@@ -18,6 +18,7 @@ import com.google.common.collect.Multimap;
 import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.TypeProvider;
 import io.prestosql.sql.planner.plan.PlanNode;
@@ -61,19 +62,37 @@ public final class PlanSanityChecker
                 .build();
     }
 
-    public void validateFinalPlan(PlanNode planNode, Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, WarningCollector warningCollector)
+    public void validateFinalPlan(PlanNode planNode,
+            Session session,
+            Metadata metadata,
+            TypeOperators typeOperators,
+            TypeAnalyzer typeAnalyzer,
+            TypeProvider types,
+            WarningCollector warningCollector)
     {
-        checkers.get(Stage.FINAL).forEach(checker -> checker.validate(planNode, session, metadata, typeAnalyzer, types, warningCollector));
+        checkers.get(Stage.FINAL).forEach(checker -> checker.validate(planNode, session, metadata, typeOperators, typeAnalyzer, types, warningCollector));
     }
 
-    public void validateIntermediatePlan(PlanNode planNode, Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, WarningCollector warningCollector)
+    public void validateIntermediatePlan(PlanNode planNode,
+            Session session,
+            Metadata metadata,
+            TypeOperators typeOperators,
+            TypeAnalyzer typeAnalyzer,
+            TypeProvider types,
+            WarningCollector warningCollector)
     {
-        checkers.get(Stage.INTERMEDIATE).forEach(checker -> checker.validate(planNode, session, metadata, typeAnalyzer, types, warningCollector));
+        checkers.get(Stage.INTERMEDIATE).forEach(checker -> checker.validate(planNode, session, metadata, typeOperators, typeAnalyzer, types, warningCollector));
     }
 
     public interface Checker
     {
-        void validate(PlanNode planNode, Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, WarningCollector warningCollector);
+        void validate(PlanNode planNode,
+                Session session,
+                Metadata metadata,
+                TypeOperators typeOperators,
+                TypeAnalyzer typeAnalyzer,
+                TypeProvider types,
+                WarningCollector warningCollector);
     }
 
     private enum Stage

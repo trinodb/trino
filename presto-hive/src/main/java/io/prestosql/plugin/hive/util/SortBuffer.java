@@ -20,7 +20,7 @@ import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.PageSorter;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.type.Type;
 import org.openjdk.jol.info.ClassLayout;
 

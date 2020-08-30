@@ -31,6 +31,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.OperatorStats;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType;
 import io.prestosql.sql.analyzer.QueryExplainer;
@@ -369,8 +370,10 @@ public abstract class AbstractTestQueryFramework
         boolean forceSingleNode = queryRunner.getNodeCount() == 1;
         TaskCountEstimator taskCountEstimator = new TaskCountEstimator(queryRunner::getNodeCount);
         CostCalculator costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);
+        TypeOperators typeOperators = new TypeOperators();
         List<PlanOptimizer> optimizers = new PlanOptimizers(
                 metadata,
+                typeOperators,
                 new TypeAnalyzer(sqlParser, metadata),
                 new TaskManagerConfig(),
                 forceSingleNode,
@@ -387,6 +390,7 @@ public abstract class AbstractTestQueryFramework
                 optimizers,
                 new PlanFragmenter(metadata, queryRunner.getNodePartitioningManager(), new QueryManagerConfig()),
                 metadata,
+                typeOperators,
                 queryRunner.getAccessControl(),
                 sqlParser,
                 queryRunner.getStatsCalculator(),
