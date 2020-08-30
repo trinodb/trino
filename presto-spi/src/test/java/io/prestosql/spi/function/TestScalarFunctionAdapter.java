@@ -11,21 +11,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.metadata;
+package io.prestosql.spi.function;
 
 import com.google.common.base.Defaults;
 import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Primitives;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.prestosql.annotation.UsedByGeneratedCode;
-import io.prestosql.metadata.ScalarFunctionAdapter.NullAdaptationPolicy;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention;
 import io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention;
+import io.prestosql.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.LongTimestamp;
@@ -44,17 +42,17 @@ import java.util.stream.IntStream;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
-import static io.prestosql.block.BlockAssertions.assertBlockEquals;
-import static io.prestosql.metadata.ScalarFunctionAdapter.NullAdaptationPolicy.RETURN_NULL_ON_NULL;
-import static io.prestosql.metadata.ScalarFunctionAdapter.NullAdaptationPolicy.THROW_ON_NULL;
-import static io.prestosql.metadata.ScalarFunctionAdapter.NullAdaptationPolicy.UNDEFINED_VALUE_FOR_NULL;
-import static io.prestosql.metadata.ScalarFunctionAdapter.NullAdaptationPolicy.UNSUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.block.TestingSession.SESSION;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NULL_FLAG;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.RETURN_NULL_ON_NULL;
+import static io.prestosql.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.THROW_ON_NULL;
+import static io.prestosql.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.UNDEFINED_VALUE_FOR_NULL;
+import static io.prestosql.spi.function.ScalarFunctionAdapter.NullAdaptationPolicy.UNSUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.CharType.createCharType;
@@ -62,11 +60,11 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.lang.invoke.MethodHandles.lookup;
 import static java.lang.invoke.MethodType.methodType;
 import static java.util.Collections.nCopies;
 import static org.assertj.core.api.Fail.fail;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
@@ -442,7 +440,6 @@ public class TestScalarFunctionAdapter
         private Object objectCharValue;
         private Object objectTimestampValue;
 
-        @UsedByGeneratedCode
         public boolean neverNull(boolean booleanValue, long longValue, double doubleValue, Slice sliceValue, Block blockValue)
         {
             checkState(!invoked, "Already invoked");
@@ -457,7 +454,6 @@ public class TestScalarFunctionAdapter
             return true;
         }
 
-        @UsedByGeneratedCode
         public boolean neverNullObjects(Slice sliceValue, Block blockValue, Object objectCharValue, Object objectTimestampValue)
         {
             checkState(!invoked, "Already invoked");
@@ -471,7 +467,6 @@ public class TestScalarFunctionAdapter
             return true;
         }
 
-        @UsedByGeneratedCode
         public boolean boxedNull(Boolean booleanValue, Long longValue, Double doubleValue, Slice sliceValue, Block blockValue)
         {
             checkState(!invoked, "Already invoked");
@@ -486,7 +481,6 @@ public class TestScalarFunctionAdapter
             return true;
         }
 
-        @UsedByGeneratedCode
         public boolean boxedNullObjects(Slice sliceValue, Block blockValue, Object objectCharValue, Object objectTimestampValue)
         {
             checkState(!invoked, "Already invoked");
@@ -500,7 +494,6 @@ public class TestScalarFunctionAdapter
             return true;
         }
 
-        @UsedByGeneratedCode
         public boolean nullFlag(
                 boolean booleanValue, boolean booleanNull,
                 long longValue, boolean longNull,
@@ -554,7 +547,6 @@ public class TestScalarFunctionAdapter
             return true;
         }
 
-        @UsedByGeneratedCode
         public boolean nullFlagObjects(
                 Slice sliceValue, boolean sliceNull,
                 Block blockValue, boolean blockNull,
@@ -697,6 +689,13 @@ public class TestScalarFunctionAdapter
             }
             else {
                 assertEquals(actual, expected);
+            }
+        }
+
+        private static void assertBlockEquals(Type type, Block actual, Block expected)
+        {
+            for (int position = 0; position < actual.getPositionCount(); position++) {
+                assertEquals(type.getObjectValue(SESSION, actual, position), type.getObjectValue(SESSION, expected, position));
             }
         }
     }
