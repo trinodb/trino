@@ -348,7 +348,7 @@ public abstract class AbstractTestEngineOnlyQueries
     @Test
     public void testChecksum()
     {
-        assertQuery("SELECT to_hex(checksum(0))", "SELECT '0000000000000000'");
+        assertQuery("SELECT to_hex(checksum(0))", "SELECT '9D2D16796C5091EA'");
     }
 
     @Test
