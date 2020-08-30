@@ -63,7 +63,7 @@ public final class SinglenodePostgresql
     @SuppressWarnings("resource")
     private DockerContainer createPostgreSql()
     {
-        DockerContainer container = new DockerContainer("postgres:10.3")
+        DockerContainer container = new DockerContainer("postgres:12.4")
                 .withEnv("POSTGRES_PASSWORD", "test")
                 .withEnv("POSTGRES_USER", "test")
                 .withEnv("POSTGRES_DB", "test")
