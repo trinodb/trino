@@ -48,6 +48,7 @@ public class MapBlockBuilder
     private final MapHashTables hashTables;
 
     private boolean currentEntryOpened;
+    private boolean strict;
 
     public MapBlockBuilder(MapType mapType, BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
@@ -81,6 +82,12 @@ public class MapBlockBuilder
         int[] hashTable = new int[mapIsNull.length * HASH_MULTIPLIER];
         Arrays.fill(hashTable, -1);
         this.hashTables = new MapHashTables(mapType, Optional.of(hashTable));
+    }
+
+    public MapBlockBuilder strict()
+    {
+        this.strict = true;
+        return this;
     }
 
     @Override
@@ -166,7 +173,7 @@ public class MapBlockBuilder
             throw new IllegalStateException("Expected current entry to be closed but was opened");
         }
         currentEntryOpened = true;
-        return new SingleMapBlockWriter(keyBlockBuilder.getPositionCount() * 2, keyBlockBuilder, valueBlockBuilder);
+        return new SingleMapBlockWriter(keyBlockBuilder.getPositionCount() * 2, keyBlockBuilder, valueBlockBuilder, this::strict);
     }
 
     @Override
@@ -183,7 +190,12 @@ public class MapBlockBuilder
         int previousAggregatedEntryCount = offsets[positionCount - 1];
         int aggregatedEntryCount = offsets[positionCount];
         int entryCount = aggregatedEntryCount - previousAggregatedEntryCount;
-        hashTables.buildHashTable(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
+        if (strict) {
+            hashTables.buildHashTableStrict(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
+        }
+        else {
+            hashTables.buildHashTable(keyBlockBuilder, previousAggregatedEntryCount, entryCount);
+        }
         return this;
     }
 
@@ -193,7 +205,9 @@ public class MapBlockBuilder
      * When duplicate keys are discovered, the block is guaranteed to be in
      * a consistent state before {@link DuplicateMapKeyException} is thrown.
      * In other words, one can continue to use this BlockBuilder.
+     * @deprecated use strict method instead
      */
+    @Deprecated
     public void closeEntryStrict()
             throws DuplicateMapKeyException
     {

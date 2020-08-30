@@ -29,17 +29,25 @@ public class SingleMapBlockWriter
     private final int offset;
     private final BlockBuilder keyBlockBuilder;
     private final BlockBuilder valueBlockBuilder;
+    private final Runnable setStrict;
     private final long initialBlockBuilderSize;
     private int positionsWritten;
 
     private boolean writeToValueNext;
 
-    SingleMapBlockWriter(int start, BlockBuilder keyBlockBuilder, BlockBuilder valueBlockBuilder)
+    SingleMapBlockWriter(int start, BlockBuilder keyBlockBuilder, BlockBuilder valueBlockBuilder, Runnable setStrict)
     {
         this.offset = start;
         this.keyBlockBuilder = keyBlockBuilder;
         this.valueBlockBuilder = valueBlockBuilder;
+        this.setStrict = setStrict;
         this.initialBlockBuilderSize = keyBlockBuilder.getSizeInBytes() + valueBlockBuilder.getSizeInBytes();
+    }
+
+    public SingleMapBlockWriter strict()
+    {
+        setStrict.run();
+        return this;
     }
 
     @Override

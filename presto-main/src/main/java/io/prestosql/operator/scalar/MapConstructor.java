@@ -141,6 +141,7 @@ public final class MapConstructor
         }
 
         MapBlockBuilder mapBlockBuilder = (MapBlockBuilder) pageBuilder.getBlockBuilder(0);
+        mapBlockBuilder.strict();
         BlockBuilder blockBuilder = mapBlockBuilder.beginBlockEntry();
         for (int i = 0; i < keyBlock.getPositionCount(); i++) {
             if (keyBlock.isNull(i)) {
@@ -163,10 +164,10 @@ public final class MapConstructor
             mapType.getValueType().appendTo(valueBlock, i, blockBuilder);
         }
         try {
-            mapBlockBuilder.closeEntryStrict();
+            mapBlockBuilder.closeEntry();
         }
         catch (DuplicateMapKeyException e) {
-            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e.getDetailedMessage(mapType.getKeyType(), session), e);
+            throw e.withDetailedMessage(mapType.getKeyType(), session);
         }
         finally {
             pageBuilder.declarePosition();
