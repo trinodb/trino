@@ -29,6 +29,7 @@ import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.block.ArrayBlockEncoding;
+import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockEncoding;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.block.ByteArrayBlockEncoding;
@@ -110,6 +111,8 @@ import io.prestosql.type.InternalTypeManager;
 import javax.annotation.concurrent.GuardedBy;
 import javax.inject.Inject;
 
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -133,11 +136,13 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static com.google.common.primitives.Primitives.wrap;
 import static io.prestosql.metadata.FunctionId.toFunctionId;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static io.prestosql.metadata.Signature.mangleOperatorName;
 import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
+import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_ERROR;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_IMPLEMENTATION_MISSING;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.INVALID_VIEW;
@@ -1773,7 +1778,100 @@ public final class MetadataManager
     {
         InvocationConvention expectedConvention = invocationConvention.orElseGet(() -> getDefaultCallingConvention(resolvedFunction));
         FunctionDependencies functionDependencies = new FunctionDependencies(this, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
-        return functions.getScalarFunctionInvoker(toFunctionBinding(resolvedFunction), functionDependencies, expectedConvention);
+        FunctionInvoker functionInvoker = functions.getScalarFunctionInvoker(toFunctionBinding(resolvedFunction), functionDependencies, expectedConvention);
+        verifyMethodHandleSignature(resolvedFunction.getSignature(), functionInvoker, expectedConvention);
+        return functionInvoker;
+    }
+
+    private static void verifyMethodHandleSignature(BoundSignature boundSignature, FunctionInvoker functionInvoker, InvocationConvention convention)
+    {
+        MethodHandle methodHandle = functionInvoker.getMethodHandle();
+        MethodType methodType = methodHandle.type();
+
+        checkArgument(convention.getArgumentConventions().size() == boundSignature.getArgumentTypes().size(),
+                "Expected %s arguments, but got %s", boundSignature.getArgumentTypes().size(), convention.getArgumentConventions().size());
+
+        int expectedParameterCount = convention.getArgumentConventions().stream()
+                .mapToInt(InvocationArgumentConvention::getParameterCount)
+                .sum();
+        expectedParameterCount += methodType.parameterList().stream().filter(ConnectorSession.class::equals).count();
+        if (functionInvoker.getInstanceFactory().isPresent()) {
+            expectedParameterCount++;
+        }
+        checkArgument(expectedParameterCount == methodType.parameterCount(),
+                "Expected %s method parameters, but got %s", expectedParameterCount, methodType.parameterCount());
+
+        int parameterIndex = 0;
+        if (functionInvoker.getInstanceFactory().isPresent()) {
+            verifyFunctionSignature(convention.supportsInstanceFactor(), "Method requires instance factory, but calling convention does not support an instance factory");
+            MethodHandle factoryMethod = functionInvoker.getInstanceFactory().orElseThrow();
+            verifyFunctionSignature(methodType.parameterType(parameterIndex).equals(factoryMethod.type().returnType()), "Invalid return type");
+            parameterIndex++;
+        }
+
+        int lambdaArgumentIndex = 0;
+        for (int argumentIndex = 0; argumentIndex < boundSignature.getArgumentTypes().size(); argumentIndex++) {
+            // skip session parameters
+            while (methodType.parameterType(parameterIndex).equals(ConnectorSession.class)) {
+                verifyFunctionSignature(convention.supportsSession(), "Method requires session, but calling convention does not support session");
+                parameterIndex++;
+            }
+
+            Class<?> parameterType = methodType.parameterType(parameterIndex);
+            Type argumentType = boundSignature.getArgumentTypes().get(argumentIndex);
+            InvocationArgumentConvention argumentConvention = convention.getArgumentConvention(argumentIndex);
+
+            switch (argumentConvention) {
+                case NEVER_NULL:
+                    verifyFunctionSignature(parameterType.isAssignableFrom(argumentType.getJavaType()),
+                            "Expected argument type to be %s, but is %s", argumentType, parameterType);
+                    break;
+                case NULL_FLAG:
+                    verifyFunctionSignature(parameterType.isAssignableFrom(argumentType.getJavaType()),
+                            "Expected argument type to be %s, but is %s", argumentType.getJavaType(), parameterType);
+                    verifyFunctionSignature(methodType.parameterType(parameterIndex + 1).equals(boolean.class),
+                            "Expected null flag parameter to be followed by a boolean parameter");
+                    break;
+                case BOXED_NULLABLE:
+                    verifyFunctionSignature(parameterType.isAssignableFrom(wrap(argumentType.getJavaType())),
+                            "Expected argument type to be %s, but is %s", wrap(argumentType.getJavaType()), parameterType);
+                    break;
+                case BLOCK_POSITION:
+                    verifyFunctionSignature(parameterType.equals(Block.class) && methodType.parameterType(parameterIndex + 1).equals(int.class),
+                            "Expected BLOCK_POSITION argument have parameters Block and int");
+                    break;
+                case FUNCTION:
+                    Class<?> lambdaInterface = functionInvoker.getLambdaInterfaces().get(lambdaArgumentIndex);
+                    verifyFunctionSignature(parameterType.equals(lambdaInterface),
+                            "Expected function interface to be %s, but is %s", lambdaInterface, parameterType);
+                    lambdaArgumentIndex++;
+                    break;
+                default:
+                    throw new UnsupportedOperationException("Unknown argument convention: " + argumentConvention);
+            }
+            parameterIndex += argumentConvention.getParameterCount();
+        }
+
+        Type returnType = boundSignature.getReturnType();
+        switch (convention.getReturnConvention()) {
+            case FAIL_ON_NULL:
+                verifyFunctionSignature(methodType.returnType().isAssignableFrom(returnType.getJavaType()),
+                        "Expected return type to be %s, but is %s", returnType.getJavaType(), methodType.returnType());
+                break;
+            case NULLABLE_RETURN:
+                verifyFunctionSignature(methodType.returnType().isAssignableFrom(wrap(returnType.getJavaType())),
+                        "Expected return type to be %s, but is %s", returnType.getJavaType(), wrap(methodType.returnType()));
+                break;
+            default:
+                throw new UnsupportedOperationException("Unknown return convention: " + convention.getReturnConvention());
+        }
+    }
+
+    private static void verifyFunctionSignature(boolean check, String message, Object... args)
+    {
+        if (!check) {
+            throw new PrestoException(FUNCTION_IMPLEMENTATION_ERROR, format(message, args));
+        }
     }
 
     /**
