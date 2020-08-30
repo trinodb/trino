@@ -93,17 +93,6 @@ class LongTimestampType
     }
 
     @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        long leftEpochMicros = getEpochMicros(leftBlock, leftPosition);
-        int leftFraction = getFraction(leftBlock, leftPosition);
-        long rightEpochMicros = getEpochMicros(rightBlock, rightPosition);
-        int rightFraction = getFraction(rightBlock, rightPosition);
-
-        return comparison(leftEpochMicros, leftFraction, rightEpochMicros, rightFraction);
-    }
-
-    @Override
     public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
         if (block.isNull(position)) {

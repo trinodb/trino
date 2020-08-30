@@ -96,16 +96,6 @@ class LongTimestampWithTimeZoneType
     }
 
     @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        long leftEpochMillis = getEpochMillis(leftBlock, leftPosition);
-        int leftFraction = getFraction(leftBlock, leftPosition);
-        long rightEpochMillis = getEpochMillis(rightBlock, rightPosition);
-        int rightFraction = getFraction(rightBlock, rightPosition);
-        return comparison(leftEpochMillis, leftFraction, rightEpochMillis, rightFraction);
-    }
-
-    @Override
     public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
         if (block.isNull(position)) {

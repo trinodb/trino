@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.tpch.LineItem;
 import io.prestosql.tpch.LineItemGenerator;
 import org.openjdk.jmh.annotations.Benchmark;
@@ -38,8 +39,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
-import static io.prestosql.spi.block.SortOrder.ASC_NULLS_FIRST;
-import static io.prestosql.spi.block.SortOrder.DESC_NULLS_LAST;
+import static io.prestosql.spi.connector.SortOrder.ASC_NULLS_FIRST;
+import static io.prestosql.spi.connector.SortOrder.DESC_NULLS_LAST;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -63,7 +64,8 @@ public class BenchmarkGroupedTopNBuilder
         private final PageWithPositionComparator comparator = new SimplePageWithPositionComparator(
                 types,
                 ImmutableList.of(0, 2),
-                ImmutableList.of(DESC_NULLS_LAST, ASC_NULLS_FIRST));
+                ImmutableList.of(DESC_NULLS_LAST, ASC_NULLS_FIRST),
+                new TypeOperators());
 
         @Param({"1", "100", "10000", "1000000"})
         private String topN = "1";

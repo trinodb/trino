@@ -66,16 +66,6 @@ public final class RealType
     }
 
     @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        // WARNING: the correctness of InCodeGenerator is dependent on the implementation of this
-        // function being the equivalence of internal long representation.
-        float leftValue = intBitsToFloat(leftBlock.getInt(leftPosition, 0));
-        float rightValue = intBitsToFloat(rightBlock.getInt(rightPosition, 0));
-        return Float.compare(leftValue, rightValue);
-    }
-
-    @Override
     public void writeLong(BlockBuilder blockBuilder, long value)
     {
         int floatValue;

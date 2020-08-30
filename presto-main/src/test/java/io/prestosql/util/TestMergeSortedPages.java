@@ -20,8 +20,9 @@ import io.prestosql.operator.PageWithPositionComparator;
 import io.prestosql.operator.SimplePageWithPositionComparator;
 import io.prestosql.operator.WorkProcessor;
 import io.prestosql.spi.Page;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.testing.MaterializedResult;
 import org.testng.annotations.Test;
 
@@ -32,9 +33,9 @@ import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.operator.OperatorAssertion.toMaterializedResult;
-import static io.prestosql.spi.block.SortOrder.ASC_NULLS_FIRST;
-import static io.prestosql.spi.block.SortOrder.DESC_NULLS_FIRST;
-import static io.prestosql.spi.block.SortOrder.DESC_NULLS_LAST;
+import static io.prestosql.spi.connector.SortOrder.ASC_NULLS_FIRST;
+import static io.prestosql.spi.connector.SortOrder.DESC_NULLS_FIRST;
+import static io.prestosql.spi.connector.SortOrder.DESC_NULLS_LAST;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
@@ -46,6 +47,8 @@ import static org.testng.Assert.assertTrue;
 
 public class TestMergeSortedPages
 {
+    private static final TypeOperators TYPE_OPERATORS_CACHE = new TypeOperators();
+
     @Test
     public void testSingleStream()
     {
@@ -322,7 +325,7 @@ public class TestMergeSortedPages
                 ImmutableList.of(WorkProcessor.fromIterable(rowPagesBuilder(types)
                         .row(1)
                         .build())),
-                new SimplePageWithPositionComparator(types, ImmutableList.of(0), ImmutableList.of(DESC_NULLS_LAST)),
+                new SimplePageWithPositionComparator(types, ImmutableList.of(0), ImmutableList.of(DESC_NULLS_LAST), TYPE_OPERATORS_CACHE),
                 ImmutableList.of(0),
                 types,
                 (pageBuilder, pageWithPosition) -> pageBuilder.isFull(),
@@ -357,7 +360,7 @@ public class TestMergeSortedPages
         List<Type> types = ImmutableList.of(INTEGER);
         WorkProcessor<Page> mergedPages = MergeSortedPages.mergeSortedPages(
                 ImmutableList.of(WorkProcessor.fromIterable(rowPagesBuilder(types).build())),
-                new SimplePageWithPositionComparator(types, ImmutableList.of(0), ImmutableList.of(DESC_NULLS_LAST)),
+                new SimplePageWithPositionComparator(types, ImmutableList.of(0), ImmutableList.of(DESC_NULLS_LAST), TYPE_OPERATORS_CACHE),
                 ImmutableList.of(0),
                 types,
                 (pageBuilder, pageWithPosition) -> pageBuilder.isFull(),
@@ -380,7 +383,7 @@ public class TestMergeSortedPages
         List<WorkProcessor<Page>> pageProducers = sortedPages.stream()
                 .map(WorkProcessor::fromIterable)
                 .collect(toImmutableList());
-        PageWithPositionComparator comparator = new SimplePageWithPositionComparator(types, sortChannels, sortOrder);
+        PageWithPositionComparator comparator = new SimplePageWithPositionComparator(types, sortChannels, sortOrder, TYPE_OPERATORS_CACHE);
 
         AggregatedMemoryContext memoryContext = newSimpleAggregatedMemoryContext().newAggregatedMemoryContext();
         WorkProcessor<Page> mergedPages = MergeSortedPages.mergeSortedPages(

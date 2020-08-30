@@ -23,6 +23,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableProperties;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.LocalProperty;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.planner.Partitioning.ArgumentBinding;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.TypeAnalyzer;
@@ -97,20 +98,40 @@ public final class StreamPropertyDerivations
 {
     private StreamPropertyDerivations() {}
 
-    public static StreamProperties derivePropertiesRecursively(PlanNode node, Metadata metadata, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
+    public static StreamProperties derivePropertiesRecursively(
+            PlanNode node,
+            Metadata metadata,
+            TypeOperators typeOperators,
+            Session session,
+            TypeProvider types,
+            TypeAnalyzer typeAnalyzer)
     {
         List<StreamProperties> inputProperties = node.getSources().stream()
-                .map(source -> derivePropertiesRecursively(source, metadata, session, types, typeAnalyzer))
+                .map(source -> derivePropertiesRecursively(source, metadata, typeOperators, session, types, typeAnalyzer))
                 .collect(toImmutableList());
-        return StreamPropertyDerivations.deriveProperties(node, inputProperties, metadata, session, types, typeAnalyzer);
+        return deriveProperties(node, inputProperties, metadata, typeOperators, session, types, typeAnalyzer);
     }
 
-    public static StreamProperties deriveProperties(PlanNode node, StreamProperties inputProperties, Metadata metadata, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
+    public static StreamProperties deriveProperties(
+            PlanNode node,
+            StreamProperties inputProperties,
+            Metadata metadata,
+            TypeOperators typeOperators,
+            Session session,
+            TypeProvider types,
+            TypeAnalyzer typeAnalyzer)
     {
-        return deriveProperties(node, ImmutableList.of(inputProperties), metadata, session, types, typeAnalyzer);
+        return deriveProperties(node, ImmutableList.of(inputProperties), metadata, typeOperators, session, types, typeAnalyzer);
     }
 
-    public static StreamProperties deriveProperties(PlanNode node, List<StreamProperties> inputProperties, Metadata metadata, Session session, TypeProvider types, TypeAnalyzer typeAnalyzer)
+    public static StreamProperties deriveProperties(
+            PlanNode node,
+            List<StreamProperties> inputProperties,
+            Metadata metadata,
+            TypeOperators typeOperators,
+            Session session,
+            TypeProvider types,
+            TypeAnalyzer typeAnalyzer)
     {
         requireNonNull(node, "node is null");
         requireNonNull(inputProperties, "inputProperties is null");
@@ -128,6 +149,7 @@ public final class StreamPropertyDerivations
                         .map(properties -> properties.otherActualProperties)
                         .collect(toImmutableList()),
                 metadata,
+                typeOperators,
                 session,
                 types,
                 typeAnalyzer);

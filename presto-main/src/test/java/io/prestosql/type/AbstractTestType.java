@@ -43,11 +43,12 @@ import static io.airlift.testing.Assertions.assertInstanceOf;
 import static io.prestosql.block.BlockSerdeUtil.writeBlock;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.OperatorAssertion.toRow;
-import static io.prestosql.spi.block.SortOrder.ASC_NULLS_FIRST;
-import static io.prestosql.spi.block.SortOrder.ASC_NULLS_LAST;
-import static io.prestosql.spi.block.SortOrder.DESC_NULLS_FIRST;
-import static io.prestosql.spi.block.SortOrder.DESC_NULLS_LAST;
+import static io.prestosql.spi.connector.SortOrder.ASC_NULLS_FIRST;
+import static io.prestosql.spi.connector.SortOrder.ASC_NULLS_LAST;
+import static io.prestosql.spi.connector.SortOrder.DESC_NULLS_FIRST;
+import static io.prestosql.spi.connector.SortOrder.DESC_NULLS_LAST;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
@@ -211,14 +212,14 @@ public abstract class AbstractTestType
         assertEquals(block.isNull(position), expectedStackValue == null);
 
         if (type.isOrderable()) {
-            assertTrue(ASC_NULLS_FIRST.compareBlockValue(type, block, position, expectedBlock, 0) == 0);
-            assertTrue(ASC_NULLS_LAST.compareBlockValue(type, block, position, expectedBlock, 0) == 0);
-            assertTrue(DESC_NULLS_FIRST.compareBlockValue(type, block, position, expectedBlock, 0) == 0);
-            assertTrue(DESC_NULLS_LAST.compareBlockValue(type, block, position, expectedBlock, 0) == 0);
+            assertTrue(blockTypeOperators.generateBlockPositionOrdering(type, ASC_NULLS_FIRST).order(block, position, expectedBlock, 0) == 0);
+            assertTrue(blockTypeOperators.generateBlockPositionOrdering(type, ASC_NULLS_LAST).order(block, position, expectedBlock, 0) == 0);
+            assertTrue(blockTypeOperators.generateBlockPositionOrdering(type, DESC_NULLS_FIRST).order(block, position, expectedBlock, 0) == 0);
+            assertTrue(blockTypeOperators.generateBlockPositionOrdering(type, DESC_NULLS_LAST).order(block, position, expectedBlock, 0) == 0);
         }
         else {
             try {
-                type.compareTo(block, position, expectedBlock, 0);
+                typeOperators.getComparisonOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
                 fail("Expected UnsupportedOperationException");
             }
             catch (UnsupportedOperationException expected) {
@@ -230,20 +231,20 @@ public abstract class AbstractTestType
         if (block.isNull(position)) {
             if (type.isOrderable() && !(type instanceof UnknownType)) {
                 Block nonNullValue = toBlock(getNonNullValue());
-                assertTrue(ASC_NULLS_FIRST.compareBlockValue(type, block, position, nonNullValue, 0) < 0);
-                assertTrue(ASC_NULLS_LAST.compareBlockValue(type, block, position, nonNullValue, 0) > 0);
-                assertTrue(DESC_NULLS_FIRST.compareBlockValue(type, block, position, nonNullValue, 0) < 0);
-                assertTrue(DESC_NULLS_LAST.compareBlockValue(type, block, position, nonNullValue, 0) > 0);
+                assertTrue(blockTypeOperators.generateBlockPositionOrdering(type, ASC_NULLS_FIRST).order(block, position, nonNullValue, 0) < 0);
+                assertTrue(blockTypeOperators.generateBlockPositionOrdering(type, ASC_NULLS_LAST).order(block, position, nonNullValue, 0) > 0);
+                assertTrue(blockTypeOperators.generateBlockPositionOrdering(type, DESC_NULLS_FIRST).order(block, position, nonNullValue, 0) < 0);
+                assertTrue(blockTypeOperators.generateBlockPositionOrdering(type, DESC_NULLS_LAST).order(block, position, nonNullValue, 0) > 0);
             }
             return;
         }
 
         if (type.isOrderable() && expectedStackValue != Boolean.TRUE) {
             Block greaterValue = toBlock(getGreaterValue(expectedStackValue));
-            assertTrue(ASC_NULLS_FIRST.compareBlockValue(type, block, position, greaterValue, 0) < 0);
-            assertTrue(ASC_NULLS_LAST.compareBlockValue(type, block, position, greaterValue, 0) < 0);
-            assertTrue(DESC_NULLS_FIRST.compareBlockValue(type, block, position, greaterValue, 0) > 0);
-            assertTrue(DESC_NULLS_LAST.compareBlockValue(type, block, position, greaterValue, 0) > 0);
+            assertTrue(blockTypeOperators.generateBlockPositionOrdering(type, ASC_NULLS_FIRST).order(block, position, greaterValue, 0) < 0);
+            assertTrue(blockTypeOperators.generateBlockPositionOrdering(type, ASC_NULLS_LAST).order(block, position, greaterValue, 0) < 0);
+            assertTrue(blockTypeOperators.generateBlockPositionOrdering(type, DESC_NULLS_FIRST).order(block, position, greaterValue, 0) > 0);
+            assertTrue(blockTypeOperators.generateBlockPositionOrdering(type, DESC_NULLS_LAST).order(block, position, greaterValue, 0) > 0);
         }
 
         if (type.getJavaType() == boolean.class) {
@@ -459,13 +460,13 @@ public abstract class AbstractTestType
         if (type.isOrderable() && !(type instanceof UnknownType)) {
             Block other = toBlock(getNonNullValue());
             try {
-                ASC_NULLS_FIRST.compareBlockValue(type, block, -1, other, 0);
+                blockTypeOperators.generateBlockPositionOrdering(type, ASC_NULLS_FIRST).order(block, -1, other, 0);
                 fail("expected RuntimeException");
             }
             catch (RuntimeException expected) {
             }
             try {
-                ASC_NULLS_FIRST.compareBlockValue(type, block, block.getPositionCount(), other, 0);
+                blockTypeOperators.generateBlockPositionOrdering(type, ASC_NULLS_FIRST).order(block, block.getPositionCount(), other, 0);
                 fail("expected RuntimeException");
             }
             catch (RuntimeException expected) {

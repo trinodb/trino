@@ -25,7 +25,7 @@ import io.prestosql.server.ExpressionSerialization.ExpressionDeserializer;
 import io.prestosql.server.ExpressionSerialization.ExpressionSerializer;
 import io.prestosql.server.SliceSerialization.SliceDeserializer;
 import io.prestosql.server.SliceSerialization.SliceSerializer;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.parser.SqlParser;

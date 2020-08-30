@@ -19,6 +19,7 @@ import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
 import io.prestosql.type.BlockTypeOperators;
+import io.prestosql.type.BlockTypeOperators.BlockPositionComparison;
 import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
 import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
 import io.prestosql.type.BlockTypeOperators.BlockPositionIsDistinctFrom;
@@ -38,6 +39,7 @@ public class SimplePagesHashStrategy
 {
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(SimplePagesHashStrategy.class).instanceSize();
     private final List<Type> types;
+    private final List<BlockPositionComparison> comparisonOperators;
     private final List<Integer> outputChannels;
     private final List<List<Block>> channels;
     private final List<Integer> hashChannels;
@@ -57,6 +59,9 @@ public class SimplePagesHashStrategy
             BlockTypeOperators blockTypeOperators)
     {
         this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+        this.comparisonOperators = types.stream()
+                .map(blockTypeOperators::getComparisonOperator)
+                .collect(toImmutableList());
         this.outputChannels = ImmutableList.copyOf(requireNonNull(outputChannels, "outputChannels is null"));
         this.channels = ImmutableList.copyOf(requireNonNull(channels, "channels is null"));
 
@@ -238,7 +243,7 @@ public class SimplePagesHashStrategy
         Block leftBlock = channels.get(channel).get(leftBlockIndex);
         Block rightBlock = channels.get(channel).get(rightBlockIndex);
 
-        return types.get(channel).compareTo(leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
+        return (int) comparisonOperators.get(channel).compare(leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
     }
 
     @Override

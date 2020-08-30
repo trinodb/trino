@@ -25,8 +25,9 @@ import io.prestosql.execution.buffer.PagesSerdeFactory;
 import io.prestosql.execution.buffer.TestingPagesSerdeFactory;
 import io.prestosql.metadata.Split;
 import io.prestosql.spi.Page;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.split.RemoteSplit;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.gen.OrderingCompiler;
@@ -49,8 +50,8 @@ import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.operator.OperatorAssertion.assertOperatorIsBlocked;
 import static io.prestosql.operator.OperatorAssertion.assertOperatorIsUnblocked;
 import static io.prestosql.operator.PageAssertions.assertPageEquals;
-import static io.prestosql.spi.block.SortOrder.ASC_NULLS_FIRST;
-import static io.prestosql.spi.block.SortOrder.DESC_NULLS_FIRST;
+import static io.prestosql.spi.connector.SortOrder.ASC_NULLS_FIRST;
+import static io.prestosql.spi.connector.SortOrder.DESC_NULLS_FIRST;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.testing.TestingTaskContext.createTaskContext;
@@ -85,7 +86,7 @@ public class TestMergeOperator
         taskBuffers = CacheBuilder.newBuilder().build(CacheLoader.from(TestingTaskBuffer::new));
         httpClient = new TestingHttpClient(new TestingExchangeHttpClientHandler(taskBuffers), executor);
         exchangeClientFactory = new ExchangeClientFactory(new NodeInfo("test"), new FeaturesConfig(), new ExchangeClientConfig(), httpClient, executor);
-        orderingCompiler = new OrderingCompiler();
+        orderingCompiler = new OrderingCompiler(new TypeOperators());
     }
 
     @AfterMethod(alwaysRun = true)

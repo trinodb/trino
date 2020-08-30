@@ -28,6 +28,7 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.planner.DomainTranslator.ExtractionResult;
 import io.prestosql.sql.tree.BetweenPredicate;
 import io.prestosql.sql.tree.Cast;
@@ -163,6 +164,7 @@ public class TestDomainTranslator
     private static final long COLOR_VALUE_2 = 2;
 
     private Metadata metadata;
+    private TypeOperators typeOperators;
     private LiteralEncoder literalEncoder;
     private DomainTranslator domainTranslator;
 
@@ -170,6 +172,7 @@ public class TestDomainTranslator
     public void setup()
     {
         metadata = createTestMetadataManager();
+        typeOperators = new TypeOperators();
         literalEncoder = new LiteralEncoder(metadata);
         domainTranslator = new DomainTranslator(metadata);
     }
@@ -1673,7 +1676,7 @@ public class TestDomainTranslator
         return transaction(new TestingTransactionManager(), new AllowAllAccessControl())
                 .singleStatement()
                 .execute(TEST_SESSION, transactionSession -> {
-                    return DomainTranslator.fromPredicate(metadata, transactionSession, originalPredicate, TYPES);
+                    return DomainTranslator.fromPredicate(metadata, typeOperators, transactionSession, originalPredicate, TYPES);
                 });
     }
 

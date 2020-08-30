@@ -22,6 +22,7 @@ import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.plugin.tpch.TpchColumnHandle;
 import io.prestosql.plugin.tpch.TpchTableHandle;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.parser.SqlParser;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
@@ -68,6 +69,7 @@ public class TestRemoveUnsupportedDynamicFilters
         extends BasePlanTest
 {
     private Metadata metadata;
+    private TypeOperators typeOperators = new TypeOperators();
     private PlanBuilder builder;
     private Symbol lineitemOrderKeySymbol;
     private TableScanNode lineitemTableScanNode;
@@ -442,7 +444,13 @@ public class TestRemoveUnsupportedDynamicFilters
             // metadata.getCatalogHandle() registers the catalog for the transaction
             session.getCatalog().ifPresent(catalog -> metadata.getCatalogHandle(session, catalog));
             PlanNode rewrittenPlan = new RemoveUnsupportedDynamicFilters(metadata).optimize(root, session, TypeProvider.empty(), new SymbolAllocator(), new PlanNodeIdAllocator(), WarningCollector.NOOP);
-            new DynamicFiltersChecker().validate(rewrittenPlan, session, metadata, new TypeAnalyzer(new SqlParser(), metadata), TypeProvider.empty(), WarningCollector.NOOP);
+            new DynamicFiltersChecker().validate(rewrittenPlan,
+                    session,
+                    metadata,
+                    typeOperators,
+                    new TypeAnalyzer(new SqlParser(), metadata),
+                    TypeProvider.empty(),
+                    WarningCollector.NOOP);
             return rewrittenPlan;
         });
     }

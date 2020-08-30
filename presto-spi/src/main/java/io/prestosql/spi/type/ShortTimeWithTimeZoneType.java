@@ -96,15 +96,6 @@ class ShortTimeWithTimeZoneType
     }
 
     @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        long left = leftBlock.getLong(leftPosition, 0);
-        long right = rightBlock.getLong(rightPosition, 0);
-
-        return (int) comparisonOperator(left, right);
-    }
-
-    @Override
     public final BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
         int maxBlockSizeInBytes;

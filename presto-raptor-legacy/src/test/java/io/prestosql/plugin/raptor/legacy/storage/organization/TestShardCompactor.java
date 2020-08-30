@@ -27,10 +27,11 @@ import io.prestosql.plugin.raptor.legacy.storage.StoragePageSink;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.connector.ConnectorPageSource;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import org.skife.jdbi.v2.DBI;
@@ -54,7 +55,7 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.airlift.concurrent.MoreFutures.getFutureValue;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.plugin.raptor.legacy.storage.TestOrcStorageManager.createOrcStorageManager;
-import static io.prestosql.spi.block.SortOrder.ASC_NULLS_FIRST;
+import static io.prestosql.spi.connector.SortOrder.ASC_NULLS_FIRST;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -91,7 +92,7 @@ public class TestShardCompactor
         IDBI dbi = new DBI("jdbc:h2:mem:test" + System.nanoTime() + ThreadLocalRandom.current().nextLong());
         dummyHandle = dbi.open();
         storageManager = createOrcStorageManager(dbi, temporary, MAX_SHARD_ROWS);
-        compactor = new ShardCompactor(storageManager, READER_OPTIONS);
+        compactor = new ShardCompactor(storageManager, READER_OPTIONS, new TypeOperators());
     }
 
     @AfterMethod(alwaysRun = true)

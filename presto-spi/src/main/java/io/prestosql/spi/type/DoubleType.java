@@ -84,14 +84,6 @@ public final class DoubleType
     }
 
     @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        double leftValue = longBitsToDouble(leftBlock.getLong(leftPosition, 0));
-        double rightValue = longBitsToDouble(rightBlock.getLong(rightPosition, 0));
-        return Double.compare(leftValue, rightValue);
-    }
-
-    @Override
     public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
         if (block.isNull(position)) {

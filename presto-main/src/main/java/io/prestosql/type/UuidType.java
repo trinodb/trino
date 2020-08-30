@@ -112,12 +112,6 @@ public class UuidType
     }
 
     @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        return (int) comparisonOperator(leftBlock, leftPosition, rightBlock, rightPosition);
-    }
-
-    @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
         if (block.isNull(position)) {

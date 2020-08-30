@@ -17,7 +17,7 @@ import com.google.common.annotations.VisibleForTesting;
 import io.prestosql.Session;
 import io.prestosql.operator.PagesIndex;
 import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDescriptor;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.type.BlockTypeOperators;

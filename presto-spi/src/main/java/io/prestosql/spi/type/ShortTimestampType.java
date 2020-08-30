@@ -88,14 +88,6 @@ class ShortTimestampType
     }
 
     @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        long leftValue = getLong(leftBlock, leftPosition);
-        long rightValue = getLong(rightBlock, rightPosition);
-        return Long.compare(leftValue, rightValue);
-    }
-
-    @Override
     public final BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
         int maxBlockSizeInBytes;

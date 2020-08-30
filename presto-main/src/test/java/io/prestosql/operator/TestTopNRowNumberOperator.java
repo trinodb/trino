@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.primitives.Ints;
 import io.prestosql.RowPagesBuilder;
 import io.prestosql.spi.Page;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.gen.JoinCompiler;
@@ -124,6 +124,7 @@ public class TestTopNRowNumberOperator
                 Optional.empty(),
                 10,
                 joinCompiler,
+                typeOperators,
                 blockTypeOperators);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
@@ -173,6 +174,7 @@ public class TestTopNRowNumberOperator
                 Optional.empty(),
                 10,
                 joinCompiler,
+                typeOperators,
                 blockTypeOperators);
 
         MaterializedResult expected;
@@ -214,6 +216,7 @@ public class TestTopNRowNumberOperator
                 Optional.empty(),
                 10,
                 joinCompiler,
+                typeOperators,
                 blockTypeOperators);
 
         // get result with yield; pick a relatively small buffer for heaps

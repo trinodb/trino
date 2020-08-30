@@ -729,7 +729,7 @@ public class JoinCompiler
                 .retInt();
     }
 
-    private static void generateCompareSortChannelPositionsMethod(
+    private void generateCompareSortChannelPositionsMethod(
             ClassDefinition classDefinition,
             CallSiteBinder callSiteBinder,
             List<Type> types,
@@ -759,7 +759,6 @@ public class JoinCompiler
         Variable thisVariable = compareMethod.getThis();
 
         int index = sortChannel.get();
-        BytecodeExpression type = constantType(callSiteBinder, types.get(index));
 
         BytecodeExpression leftBlock = thisVariable
                 .getField(channelFields.get(index))
@@ -771,7 +770,15 @@ public class JoinCompiler
                 .invoke("get", Object.class, rightBlockIndex)
                 .cast(Block.class);
 
-        BytecodeNode comparison = type.invoke("compareTo", int.class, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition).ret();
+        MethodHandle comparisonOperator = typeOperators.getComparisonOperator(types.get(index), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+        BytecodeNode comparison = invokeDynamic(
+                BOOTSTRAP_METHOD,
+                ImmutableList.of(callSiteBinder.bind(comparisonOperator).getBindingId()),
+                "comparison",
+                long.class,
+                leftBlock, leftBlockPosition, rightBlock, rightBlockPosition)
+                .cast(int.class)
+                .ret();
 
         compareMethod
                 .getBody()

@@ -14,6 +14,7 @@
 package io.prestosql.type;
 
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeOperators;
@@ -23,6 +24,7 @@ import javax.inject.Inject;
 
 import java.lang.invoke.MethodHandle;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.function.Supplier;
@@ -42,6 +44,7 @@ public final class BlockTypeOperators
     private static final InvocationConvention XX_HASH_64_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION);
     private static final InvocationConvention IS_DISTINCT_FROM_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
     private static final InvocationConvention COMPARISON_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
+    private static final InvocationConvention ORDERING_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
     private static final InvocationConvention LESS_THAN_CONVENTION = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
 
     private final ConcurrentMap<GeneratedBlockOperatorKey<?>, GeneratedBlockOperator<?>> generatedBlockOperatorCache = new ConcurrentHashMap<>();
@@ -157,6 +160,16 @@ public final class BlockTypeOperators
         }
     }
 
+    public BlockPositionOrdering generateBlockPositionOrdering(Type type, SortOrder sortOrder)
+    {
+        return getBlockOperator(type, BlockPositionOrdering.class, () -> typeOperators.getOrderingOperator(type, sortOrder, ORDERING_CONVENTION), Optional.of(sortOrder));
+    }
+
+    public interface BlockPositionOrdering
+    {
+        int order(Block left, int leftPosition, Block right, int rightPosition);
+    }
+
     public BlockPositionLessThan generateBlockPositionLessThan(Type type)
     {
         return getBlockOperator(type, BlockPositionLessThan.class, () -> typeOperators.getLessThanOperator(type, LESS_THAN_CONVENTION));
@@ -169,9 +182,14 @@ public final class BlockTypeOperators
 
     private <T> T getBlockOperator(Type type, Class<T> operatorInterface, Supplier<MethodHandle> methodHandleSupplier)
     {
+        return getBlockOperator(type, operatorInterface, methodHandleSupplier, Optional.empty());
+    }
+
+    private <T> T getBlockOperator(Type type, Class<T> operatorInterface, Supplier<MethodHandle> methodHandleSupplier, Optional<Object> additionalKey)
+    {
         @SuppressWarnings("unchecked")
         GeneratedBlockOperator<T> generatedBlockOperator = (GeneratedBlockOperator<T>) generatedBlockOperatorCache.computeIfAbsent(
-                new GeneratedBlockOperatorKey<>(type, operatorInterface),
+                new GeneratedBlockOperatorKey<>(type, operatorInterface, additionalKey),
                 key -> new GeneratedBlockOperator<>(key.getType(), key.getOperatorInterface(), methodHandleSupplier.get()));
         return generatedBlockOperator.get();
     }
@@ -180,11 +198,13 @@ public final class BlockTypeOperators
     {
         private final Type type;
         private final Class<T> operatorInterface;
+        private final Optional<Object> additionalKey;
 
-        public GeneratedBlockOperatorKey(Type type, Class<T> operatorInterface)
+        public GeneratedBlockOperatorKey(Type type, Class<T> operatorInterface, Optional<Object> additionalKey)
         {
             this.type = requireNonNull(type, "type is null");
             this.operatorInterface = requireNonNull(operatorInterface, "operatorInterface is null");
+            this.additionalKey = requireNonNull(additionalKey, "additionalKey is null");
         }
 
         public Type getType()
@@ -208,13 +228,14 @@ public final class BlockTypeOperators
             }
             GeneratedBlockOperatorKey<?> that = (GeneratedBlockOperatorKey<?>) o;
             return type.equals(that.type) &&
-                    operatorInterface.equals(that.operatorInterface);
+                    operatorInterface.equals(that.operatorInterface) &&
+                    additionalKey.equals(that.additionalKey);
         }
 
         @Override
         public int hashCode()
         {
-            return Objects.hash(type, operatorInterface);
+            return Objects.hash(type, operatorInterface, additionalKey);
         }
     }
 
