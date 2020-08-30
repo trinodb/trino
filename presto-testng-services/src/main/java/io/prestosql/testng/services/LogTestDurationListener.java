@@ -37,8 +37,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.getStackTraceAsString;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.units.Duration.nanosSince;
+import static io.prestosql.testng.services.Listeners.reportListenerFailure;
 import static java.lang.String.format;
 import static java.lang.management.ManagementFactory.getThreadMXBean;
 import static java.util.stream.Collectors.joining;
@@ -78,10 +80,15 @@ public class LogTestDurationListener
             return;
         }
 
-        resetHangMonitor();
-        finished.set(false);
-        if (monitorHangTask == null) {
-            monitorHangTask = scheduledExecutorService.scheduleWithFixedDelay(this::checkForTestHang, 5, 5, TimeUnit.SECONDS);
+        try {
+            resetHangMonitor();
+            finished.set(false);
+            if (monitorHangTask == null) {
+                monitorHangTask = scheduledExecutorService.scheduleWithFixedDelay(this::checkForTestHang, 5, 5, TimeUnit.SECONDS);
+            }
+        }
+        catch (RuntimeException | Error e) {
+            reportListenerFailure(LogTestDurationListener.class, "onExecutionStart: \n%s", getStackTraceAsString(e));
         }
     }
 
@@ -92,10 +99,15 @@ public class LogTestDurationListener
             return;
         }
 
-        resetHangMonitor();
-        finished.set(true);
-        // do not stop hang task so notification of hung test JVM will fire
-        // Note: since the monitor uses daemon threads it will not prevent JVM shutdown
+        try {
+            resetHangMonitor();
+            finished.set(true);
+            // do not stop hang task so notification of hung test JVM will fire
+            // Note: since the monitor uses daemon threads it will not prevent JVM shutdown
+        }
+        catch (RuntimeException | Error e) {
+            reportListenerFailure(LogTestDurationListener.class, "onExecutionFinish: \n%s", getStackTraceAsString(e));
+        }
     }
 
     private void checkForTestHang()
@@ -149,7 +161,12 @@ public class LogTestDurationListener
             return;
         }
 
-        beginTest(getName(testClass));
+        try {
+            beginTest(getName(testClass));
+        }
+        catch (RuntimeException | Error e) {
+            reportListenerFailure(LogTestDurationListener.class, "onBeforeClass: \n%s", getStackTraceAsString(e));
+        }
     }
 
     @Override
@@ -159,10 +176,15 @@ public class LogTestDurationListener
             return;
         }
 
-        String name = getName(testClass);
-        Duration duration = endTest(name);
-        if (duration.compareTo(CLASS_LOGGING_THRESHOLD) > 0) {
-            LOG.warn("Tests from %s took %s", name, duration);
+        try {
+            String name = getName(testClass);
+            Duration duration = endTest(name);
+            if (duration.compareTo(CLASS_LOGGING_THRESHOLD) > 0) {
+                LOG.warn("Tests from %s took %s", name, duration);
+            }
+        }
+        catch (RuntimeException | Error e) {
+            reportListenerFailure(LogTestDurationListener.class, "onAfterClass: \n%s", getStackTraceAsString(e));
         }
     }
 
@@ -173,7 +195,12 @@ public class LogTestDurationListener
             return;
         }
 
-        beginTest(getName(method));
+        try {
+            beginTest(getName(method));
+        }
+        catch (RuntimeException | Error e) {
+            reportListenerFailure(LogTestDurationListener.class, "beforeInvocation: \n%s", getStackTraceAsString(e));
+        }
     }
 
     @Override
@@ -183,10 +210,15 @@ public class LogTestDurationListener
             return;
         }
 
-        String name = getName(method);
-        Duration duration = endTest(name);
-        if (duration.compareTo(SINGLE_TEST_LOGGING_THRESHOLD) > 0) {
-            LOG.info("Test %s took %s", name, duration);
+        try {
+            String name = getName(method);
+            Duration duration = endTest(name);
+            if (duration.compareTo(SINGLE_TEST_LOGGING_THRESHOLD) > 0) {
+                LOG.info("Test %s took %s", name, duration);
+            }
+        }
+        catch (RuntimeException | Error e) {
+            reportListenerFailure(LogTestDurationListener.class, "afterInvocation: \n%s", getStackTraceAsString(e));
         }
     }
 
