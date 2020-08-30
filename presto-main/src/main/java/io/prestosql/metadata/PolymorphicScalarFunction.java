@@ -55,7 +55,7 @@ class PolymorphicScalarFunction
             implementationChoices.add(getScalarFunctionImplementationChoice(functionBinding, choice));
         }
 
-        return new ScalarFunctionImplementation(implementationChoices.build());
+        return new ScalarFunctionImplementation(functionBinding, implementationChoices.build());
     }
 
     private ScalarImplementationChoice getScalarFunctionImplementationChoice(

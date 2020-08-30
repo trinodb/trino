@@ -87,6 +87,7 @@ public final class ArrayConcatFunction
                 USER_STATE_FACTORY.bindTo(elementType));
 
         return new ScalarFunctionImplementation(
+                functionBinding,
                 FAIL_ON_NULL,
                 nCopies(functionBinding.getArity(), NEVER_NULL),
                 methodHandleAndConstructor.getMethodHandle(),

@@ -1820,7 +1820,6 @@ public final class MetadataManager
             Class<?> parameterType = methodType.parameterType(parameterIndex);
             Type argumentType = boundSignature.getArgumentTypes().get(argumentIndex);
             InvocationArgumentConvention argumentConvention = convention.getArgumentConvention(argumentIndex);
-
             switch (argumentConvention) {
                 case NEVER_NULL:
                     verifyFunctionSignature(parameterType.isAssignableFrom(argumentType.getJavaType()),

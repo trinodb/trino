@@ -66,6 +66,7 @@ public class ArrayFlattenFunction
                 .bindTo(functionBinding.getTypeVariable("E"))
                 .bindTo(functionBinding.getBoundSignature().getReturnType());
         return new ScalarFunctionImplementation(
+                functionBinding,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),
                 methodHandle);

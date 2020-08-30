@@ -117,6 +117,7 @@ public abstract class AbstractGreatestLeast
         MethodHandle methodHandle = methodHandle(clazz, getFunctionMetadata().getSignature().getName(), javaTypes.toArray(new Class<?>[javaTypes.size()]));
 
         return new ScalarFunctionImplementation(
+                functionBinding,
                 FAIL_ON_NULL,
                 nCopies(javaTypes.size(), NEVER_NULL),
                 methodHandle);

@@ -51,6 +51,7 @@ public final class RowLessThanOperator
     {
         Type type = functionBinding.getTypeVariable("T");
         return new ScalarFunctionImplementation(
+                functionBinding,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),
                 METHOD_HANDLE.bindTo(type).bindTo(getMethodHandles((RowType) type, functionDependencies, LESS_THAN)));

@@ -83,6 +83,7 @@ public final class ZipWithFunction
         Type outputElementType = functionBinding.getTypeVariable("R");
         ArrayType outputArrayType = new ArrayType(outputElementType);
         return new ScalarFunctionImplementation(
+                functionBinding,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL, FUNCTION),
                 ImmutableList.of(BinaryFunctionInterface.class),

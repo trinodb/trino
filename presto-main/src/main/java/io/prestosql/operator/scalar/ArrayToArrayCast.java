@@ -94,6 +94,7 @@ public class ArrayToArrayCast
         Class<?> castOperatorClass = generateArrayCast(fromType, toType, castMetadata, castInvokerProvider);
         MethodHandle methodHandle = methodHandle(castOperatorClass, "castArray", ConnectorSession.class, Block.class);
         return new ScalarFunctionImplementation(
+                functionBinding,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),
                 methodHandle);

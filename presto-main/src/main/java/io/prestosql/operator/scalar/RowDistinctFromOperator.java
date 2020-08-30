@@ -86,6 +86,7 @@ public class RowDistinctFromOperator
             argumentMethods.add(functionInvoker.getMethodHandle());
         }
         return new ScalarFunctionImplementation(
+                functionBinding,
                 ImmutableList.of(
                         new ScalarImplementationChoice(
                                 FAIL_ON_NULL,

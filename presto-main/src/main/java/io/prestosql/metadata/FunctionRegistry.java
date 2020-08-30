@@ -913,8 +913,7 @@ public class FunctionRegistry
             throwIfInstanceOf(e.getCause(), PrestoException.class);
             throw new RuntimeException(e.getCause());
         }
-        FunctionInvokerProvider functionInvokerProvider = new FunctionInvokerProvider();
-        return functionInvokerProvider.createFunctionInvoker(scalarFunctionImplementation, functionBinding.getBoundSignature(), invocationConvention);
+        return scalarFunctionImplementation.getScalarFunctionInvoker(invocationConvention);
     }
 
     private ScalarFunctionImplementation specializeScalarFunction(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
