@@ -42,8 +42,6 @@ import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
-import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static java.lang.Math.min;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -81,7 +79,6 @@ public final class SystemSessionProperties
     public static final String SPATIAL_PARTITIONING_TABLE_NAME = "spatial_partitioning_table_name";
     public static final String COLOCATED_JOIN = "colocated_join";
     public static final String CONCURRENT_LIFESPANS_PER_NODE = "concurrent_lifespans_per_task";
-    public static final String REORDER_JOINS = "reorder_joins";
     public static final String JOIN_REORDERING_STRATEGY = "join_reordering_strategy";
     public static final String MAX_REORDERED_JOINS = "max_reordered_joins";
     public static final String INITIAL_SPLITS_PER_NODE = "initial_splits_per_node";
@@ -312,11 +309,6 @@ public final class SystemSessionProperties
                         PLAN_WITH_TABLE_NODE_PARTITIONING,
                         "Experimental: Adapt plan to pre-partitioned tables",
                         true,
-                        false),
-                booleanProperty(
-                        REORDER_JOINS,
-                        "(DEPRECATED) Reorder joins to remove unnecessary cross joins. If this is set, join_reordering_strategy will be ignored",
-                        null,
                         false),
                 enumProperty(
                         JOIN_REORDERING_STRATEGY,
@@ -732,13 +724,6 @@ public final class SystemSessionProperties
 
     public static JoinReorderingStrategy getJoinReorderingStrategy(Session session)
     {
-        Boolean reorderJoins = session.getSystemProperty(REORDER_JOINS, Boolean.class);
-        if (reorderJoins != null) {
-            if (!reorderJoins) {
-                return NONE;
-            }
-            return ELIMINATE_CROSS_JOINS;
-        }
         return session.getSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.class);
     }
 
