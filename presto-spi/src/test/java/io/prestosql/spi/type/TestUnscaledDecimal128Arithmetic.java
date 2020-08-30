@@ -32,7 +32,6 @@ import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.add;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.addWithOverflow;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.compare;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.divide;
-import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.hash;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.isNegative;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.multiply;
 import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.multiply256;
@@ -51,7 +50,6 @@ import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimal
 import static java.lang.String.format;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
@@ -417,13 +415,6 @@ public class TestUnscaledDecimal128Arithmetic
         assertEquals(isNegative(MIN_DECIMAL), true);
         assertEquals(isNegative(MAX_DECIMAL), false);
         assertEquals(isNegative(unscaledDecimal(0)), false);
-    }
-
-    @Test
-    public void testHash()
-    {
-        assertEquals(hash(unscaledDecimal(0)), hash(negate(unscaledDecimal(0))));
-        assertNotEquals(hash(unscaledDecimal(0)), unscaledDecimal(1));
     }
 
     @Test

@@ -19,13 +19,8 @@ import com.fasterxml.jackson.core.JsonParser;
 import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.airlift.slice.SliceOutput;
-import io.airlift.slice.XxHash64;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.BlockIndex;
-import io.prestosql.spi.function.BlockPosition;
-import io.prestosql.spi.function.IsNull;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlNullable;
@@ -38,12 +33,6 @@ import static com.fasterxml.jackson.core.JsonFactory.Feature.CANONICALIZE_FIELD_
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.function.OperatorType.EQUAL;
-import static io.prestosql.spi.function.OperatorType.HASH_CODE;
-import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
-import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
-import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
-import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.StandardTypes.BIGINT;
 import static io.prestosql.spi.type.StandardTypes.BOOLEAN;
 import static io.prestosql.spi.type.StandardTypes.DATE;
@@ -344,80 +333,6 @@ public final class JsonOperators
         }
         catch (IOException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, format("Cannot cast '%s' to %s", value, JSON));
-        }
-    }
-
-    @ScalarOperator(HASH_CODE)
-    @SqlType(BIGINT)
-    public static long hashCode(@SqlType(JSON) Slice value)
-    {
-        return value.hashCode();
-    }
-
-    @ScalarOperator(XX_HASH_64)
-    @SqlType(BIGINT)
-    public static long xxHash64(@SqlType(JSON) Slice value)
-    {
-        return XxHash64.hash(value);
-    }
-
-    @ScalarOperator(INDETERMINATE)
-    @SqlType(BOOLEAN)
-    public static boolean indeterminate(@SqlType(JSON) Slice value, @IsNull boolean isNull)
-    {
-        return isNull;
-    }
-
-    @ScalarOperator(EQUAL)
-    @SqlType(BOOLEAN)
-    @SqlNullable
-    public static Boolean equals(@SqlType(JSON) Slice leftJson, @SqlType(JSON) Slice rightJson)
-    {
-        return leftJson.equals(rightJson);
-    }
-
-    @ScalarOperator(NOT_EQUAL)
-    @SqlType(BOOLEAN)
-    @SqlNullable
-    public static Boolean notEqual(@SqlType(JSON) Slice leftJson, @SqlType(JSON) Slice rightJson)
-    {
-        return !leftJson.equals(rightJson);
-    }
-
-    @ScalarOperator(IS_DISTINCT_FROM)
-    public static final class JsonDistinctFromOperator
-    {
-        @SqlType(BOOLEAN)
-        public static boolean isDistinctFrom(@SqlType(JSON) Slice leftJson, @IsNull boolean leftNull, @SqlType(JSON) Slice rightJson, @IsNull boolean rightNull)
-        {
-            if (leftNull != rightNull) {
-                return true;
-            }
-            if (leftNull) {
-                return false;
-            }
-            return notEqual(leftJson, rightJson);
-        }
-
-        @SqlType(BOOLEAN)
-        public static boolean isDistinctFrom(
-                @BlockPosition @SqlType(value = JSON, nativeContainerType = Slice.class) Block left,
-                @BlockIndex int leftPosition,
-                @BlockPosition @SqlType(value = JSON, nativeContainerType = Slice.class) Block right,
-                @BlockIndex int rightPosition)
-        {
-            if (left.isNull(leftPosition) != right.isNull(rightPosition)) {
-                return true;
-            }
-            if (left.isNull(leftPosition)) {
-                return false;
-            }
-            int leftLength = left.getSliceLength(leftPosition);
-            int rightLength = right.getSliceLength(rightPosition);
-            if (leftLength != rightLength) {
-                return true;
-            }
-            return !left.equals(leftPosition, 0, right, rightPosition, 0, leftLength);
         }
     }
 }

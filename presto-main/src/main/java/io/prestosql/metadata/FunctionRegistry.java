@@ -73,17 +73,13 @@ import io.prestosql.operator.scalar.ArrayAnyMatchFunction;
 import io.prestosql.operator.scalar.ArrayCardinalityFunction;
 import io.prestosql.operator.scalar.ArrayCombinationsFunction;
 import io.prestosql.operator.scalar.ArrayContains;
-import io.prestosql.operator.scalar.ArrayDistinctFromOperator;
 import io.prestosql.operator.scalar.ArrayDistinctFunction;
 import io.prestosql.operator.scalar.ArrayElementAtFunction;
-import io.prestosql.operator.scalar.ArrayEqualOperator;
 import io.prestosql.operator.scalar.ArrayExceptFunction;
 import io.prestosql.operator.scalar.ArrayFilterFunction;
 import io.prestosql.operator.scalar.ArrayFunctions;
 import io.prestosql.operator.scalar.ArrayGreaterThanOperator;
 import io.prestosql.operator.scalar.ArrayGreaterThanOrEqualOperator;
-import io.prestosql.operator.scalar.ArrayHashCodeOperator;
-import io.prestosql.operator.scalar.ArrayIndeterminateOperator;
 import io.prestosql.operator.scalar.ArrayIntersectFunction;
 import io.prestosql.operator.scalar.ArrayLessThanOperator;
 import io.prestosql.operator.scalar.ArrayLessThanOrEqualOperator;
@@ -91,7 +87,6 @@ import io.prestosql.operator.scalar.ArrayMaxFunction;
 import io.prestosql.operator.scalar.ArrayMinFunction;
 import io.prestosql.operator.scalar.ArrayNgramsFunction;
 import io.prestosql.operator.scalar.ArrayNoneMatchFunction;
-import io.prestosql.operator.scalar.ArrayNotEqualOperator;
 import io.prestosql.operator.scalar.ArrayPositionFunction;
 import io.prestosql.operator.scalar.ArrayRemoveFunction;
 import io.prestosql.operator.scalar.ArrayReverseFunction;
@@ -109,6 +104,12 @@ import io.prestosql.operator.scalar.DataSizeFunctions;
 import io.prestosql.operator.scalar.DateTimeFunctions;
 import io.prestosql.operator.scalar.EmptyMapConstructor;
 import io.prestosql.operator.scalar.FailureFunction;
+import io.prestosql.operator.scalar.GenericDistinctFromOperator;
+import io.prestosql.operator.scalar.GenericEqualOperator;
+import io.prestosql.operator.scalar.GenericHashCodeOperator;
+import io.prestosql.operator.scalar.GenericIndeterminateOperator;
+import io.prestosql.operator.scalar.GenericNotEqualOperator;
+import io.prestosql.operator.scalar.GenericXxHash64Operator;
 import io.prestosql.operator.scalar.HmacFunctions;
 import io.prestosql.operator.scalar.HyperLogLogFunctions;
 import io.prestosql.operator.scalar.JoniRegexpCasts;
@@ -118,13 +119,9 @@ import io.prestosql.operator.scalar.JsonFunctions;
 import io.prestosql.operator.scalar.JsonOperators;
 import io.prestosql.operator.scalar.LuhnCheckFunction;
 import io.prestosql.operator.scalar.MapCardinalityFunction;
-import io.prestosql.operator.scalar.MapDistinctFromOperator;
 import io.prestosql.operator.scalar.MapEntriesFunction;
-import io.prestosql.operator.scalar.MapEqualOperator;
 import io.prestosql.operator.scalar.MapFromEntriesFunction;
-import io.prestosql.operator.scalar.MapIndeterminateOperator;
 import io.prestosql.operator.scalar.MapKeys;
-import io.prestosql.operator.scalar.MapNotEqualOperator;
 import io.prestosql.operator.scalar.MapSubscriptOperator;
 import io.prestosql.operator.scalar.MapValues;
 import io.prestosql.operator.scalar.MathFunctions;
@@ -176,7 +173,6 @@ import io.prestosql.operator.scalar.timestamp.LocalTimestamp;
 import io.prestosql.operator.scalar.timestamp.SequenceIntervalDayToSecond;
 import io.prestosql.operator.scalar.timestamp.SequenceIntervalYearToMonth;
 import io.prestosql.operator.scalar.timestamp.TimeWithTimezoneToTimestampCast;
-import io.prestosql.operator.scalar.timestamp.TimestampDistinctFromOperator;
 import io.prestosql.operator.scalar.timestamp.TimestampOperators;
 import io.prestosql.operator.scalar.timestamp.TimestampToDateCast;
 import io.prestosql.operator.scalar.timestamp.TimestampToJsonCast;
@@ -193,7 +189,6 @@ import io.prestosql.operator.scalar.timestamptz.AtTimeZone;
 import io.prestosql.operator.scalar.timestamptz.AtTimeZoneWithOffset;
 import io.prestosql.operator.scalar.timestamptz.CurrentTimestamp;
 import io.prestosql.operator.scalar.timestamptz.DateToTimestampWithTimeZoneCast;
-import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneDistinctFromOperator;
 import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneOperators;
 import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToDateCast;
 import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToTimeCast;
@@ -203,7 +198,6 @@ import io.prestosql.operator.scalar.timestamptz.TimestampWithTimeZoneToVarcharCa
 import io.prestosql.operator.scalar.timestamptz.TimestampWithTimezoneToTimestampCast;
 import io.prestosql.operator.scalar.timestamptz.VarcharToTimestampWithTimeZoneCast;
 import io.prestosql.operator.scalar.timetz.CurrentTime;
-import io.prestosql.operator.scalar.timetz.TimeWithTimeZoneDistinctFromOperator;
 import io.prestosql.operator.scalar.timetz.TimeWithTimeZoneOperators;
 import io.prestosql.operator.scalar.timetz.TimeWithTimeZoneToTimeCast;
 import io.prestosql.operator.scalar.timetz.TimeWithTimeZoneToTimeWithTimeZoneCast;
@@ -226,13 +220,14 @@ import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.BlockEncodingSerde;
 import io.prestosql.spi.function.InvocationConvention;
+import io.prestosql.spi.function.OperatorType;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.DynamicFilters;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.type.BigintOperators;
 import io.prestosql.type.BooleanOperators;
 import io.prestosql.type.CharOperators;
-import io.prestosql.type.ColorOperators;
 import io.prestosql.type.DateOperators;
 import io.prestosql.type.DateTimeOperators;
 import io.prestosql.type.DecimalOperators;
@@ -269,6 +264,8 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
+import static io.prestosql.metadata.Signature.isOperatorName;
+import static io.prestosql.metadata.Signature.unmangleOperator;
 import static io.prestosql.operator.aggregation.ArbitraryAggregationFunction.ARBITRARY_AGGREGATION;
 import static io.prestosql.operator.aggregation.ChecksumAggregationFunction.CHECKSUM_AGGREGATION;
 import static io.prestosql.operator.aggregation.CountColumn.COUNT_COLUMN;
@@ -318,7 +315,6 @@ import static io.prestosql.operator.scalar.MapConcatFunction.MAP_CONCAT_FUNCTION
 import static io.prestosql.operator.scalar.MapConstructor.MAP_CONSTRUCTOR;
 import static io.prestosql.operator.scalar.MapElementAtFunction.MAP_ELEMENT_AT;
 import static io.prestosql.operator.scalar.MapFilterFunction.MAP_FILTER_FUNCTION;
-import static io.prestosql.operator.scalar.MapHashCodeOperator.MAP_HASH_CODE;
 import static io.prestosql.operator.scalar.MapToJsonCast.MAP_TO_JSON;
 import static io.prestosql.operator.scalar.MapToMapCast.MAP_TO_MAP_CAST;
 import static io.prestosql.operator.scalar.MapTransformKeysFunction.MAP_TRANSFORM_KEYS_FUNCTION;
@@ -327,15 +323,10 @@ import static io.prestosql.operator.scalar.MapZipWithFunction.MAP_ZIP_WITH_FUNCT
 import static io.prestosql.operator.scalar.MathFunctions.DECIMAL_MOD_FUNCTION;
 import static io.prestosql.operator.scalar.Re2JCastToRegexpFunction.castCharToRe2JRegexp;
 import static io.prestosql.operator.scalar.Re2JCastToRegexpFunction.castVarcharToRe2JRegexp;
-import static io.prestosql.operator.scalar.RowDistinctFromOperator.ROW_DISTINCT_FROM;
-import static io.prestosql.operator.scalar.RowEqualOperator.ROW_EQUAL;
 import static io.prestosql.operator.scalar.RowGreaterThanOperator.ROW_GREATER_THAN;
 import static io.prestosql.operator.scalar.RowGreaterThanOrEqualOperator.ROW_GREATER_THAN_OR_EQUAL;
-import static io.prestosql.operator.scalar.RowHashCodeOperator.ROW_HASH_CODE;
-import static io.prestosql.operator.scalar.RowIndeterminateOperator.ROW_INDETERMINATE;
 import static io.prestosql.operator.scalar.RowLessThanOperator.ROW_LESS_THAN;
 import static io.prestosql.operator.scalar.RowLessThanOrEqualOperator.ROW_LESS_THAN_OR_EQUAL;
-import static io.prestosql.operator.scalar.RowNotEqualOperator.ROW_NOT_EQUAL;
 import static io.prestosql.operator.scalar.RowToJsonCast.ROW_TO_JSON;
 import static io.prestosql.operator.scalar.RowToRowCast.ROW_TO_ROW_CAST;
 import static io.prestosql.operator.scalar.TryCastFunction.TRY_CAST;
@@ -360,13 +351,10 @@ import static io.prestosql.type.DecimalCasts.REAL_TO_DECIMAL_CAST;
 import static io.prestosql.type.DecimalCasts.SMALLINT_TO_DECIMAL_CAST;
 import static io.prestosql.type.DecimalCasts.TINYINT_TO_DECIMAL_CAST;
 import static io.prestosql.type.DecimalCasts.VARCHAR_TO_DECIMAL_CAST;
-import static io.prestosql.type.DecimalInequalityOperators.DECIMAL_DISTINCT_FROM_OPERATOR;
-import static io.prestosql.type.DecimalInequalityOperators.DECIMAL_EQUAL_OPERATOR;
 import static io.prestosql.type.DecimalInequalityOperators.DECIMAL_GREATER_THAN_OPERATOR;
 import static io.prestosql.type.DecimalInequalityOperators.DECIMAL_GREATER_THAN_OR_EQUAL_OPERATOR;
 import static io.prestosql.type.DecimalInequalityOperators.DECIMAL_LESS_THAN_OPERATOR;
 import static io.prestosql.type.DecimalInequalityOperators.DECIMAL_LESS_THAN_OR_EQUAL_OPERATOR;
-import static io.prestosql.type.DecimalInequalityOperators.DECIMAL_NOT_EQUAL_OPERATOR;
 import static io.prestosql.type.DecimalOperators.DECIMAL_ADD_OPERATOR;
 import static io.prestosql.type.DecimalOperators.DECIMAL_DIVIDE_OPERATOR;
 import static io.prestosql.type.DecimalOperators.DECIMAL_MODULUS_OPERATOR;
@@ -392,7 +380,7 @@ public class FunctionRegistry
     private final Cache<FunctionBinding, WindowFunctionSupplier> specializedWindowCache;
     private volatile FunctionMap functions = new FunctionMap();
 
-    public FunctionRegistry(Supplier<BlockEncodingSerde> blockEncodingSerdeSupplier, FeaturesConfig featuresConfig)
+    public FunctionRegistry(Supplier<BlockEncodingSerde> blockEncodingSerdeSupplier, FeaturesConfig featuresConfig, TypeOperators typeOperators)
     {
         // We have observed repeated compilation of MethodHandle that leads to full GCs.
         // We notice that flushing the following caches mitigate the problem.
@@ -493,45 +481,28 @@ public class FunctionRegistry
                 .scalar(DateTimeFunctions.FromUnixtimeNanosDecimal.class)
                 .scalars(JsonFunctions.class)
                 .scalars(ColorFunctions.class)
-                .scalars(ColorOperators.class)
-                .scalar(ColorOperators.ColorDistinctFromOperator.class)
                 .scalars(HyperLogLogFunctions.class)
                 .scalars(QuantileDigestFunctions.class)
                 .scalars(TDigestFunctions.class)
                 .scalars(UnknownOperators.class)
-                .scalar(UnknownOperators.UnknownDistinctFromOperator.class)
                 .scalars(BooleanOperators.class)
-                .scalar(BooleanOperators.BooleanDistinctFromOperator.class)
                 .scalars(BigintOperators.class)
-                .scalar(BigintOperators.BigintDistinctFromOperator.class)
                 .scalars(IntegerOperators.class)
-                .scalar(IntegerOperators.IntegerDistinctFromOperator.class)
                 .scalars(SmallintOperators.class)
-                .scalar(SmallintOperators.SmallintDistinctFromOperator.class)
                 .scalars(TinyintOperators.class)
-                .scalar(TinyintOperators.TinyintDistinctFromOperator.class)
                 .scalars(DoubleOperators.class)
-                .scalar(DoubleOperators.DoubleDistinctFromOperator.class)
                 .scalars(RealOperators.class)
-                .scalar(RealOperators.RealDistinctFromOperator.class)
                 .scalars(VarcharOperators.class)
-                .scalar(VarcharOperators.VarcharDistinctFromOperator.class)
                 .scalars(VarbinaryOperators.class)
-                .scalar(VarbinaryOperators.VarbinaryDistinctFromOperator.class)
                 .scalars(DateOperators.class)
-                .scalar(DateOperators.DateDistinctFromOperator.class)
                 .scalars(IntervalDayTimeOperators.class)
-                .scalar(IntervalDayTimeOperators.IntervalDayTimeDistinctFromOperator.class)
                 .scalars(IntervalYearMonthOperators.class)
-                .scalar(IntervalYearMonthOperators.IntervalYearMonthDistinctFromOperator.class)
                 .scalars(DateTimeOperators.class)
                 .scalars(HyperLogLogOperators.class)
                 .scalars(QuantileDigestOperators.class)
                 .scalars(TDigestOperators.class)
                 .scalars(IpAddressOperators.class)
-                .scalar(IpAddressOperators.IpAddressDistinctFromOperator.class)
                 .scalars(UuidOperators.class)
-                .scalar(UuidOperators.UuidDistinctFromOperator.class)
                 .scalars(LikeFunctions.class)
                 .scalars(ArrayFunctions.class)
                 .scalars(HmacFunctions.class)
@@ -542,17 +513,12 @@ public class FunctionRegistry
                 .scalar(ArrayPositionFunction.class)
                 .scalars(CombineHashFunction.class)
                 .scalars(JsonOperators.class)
-                .scalar(JsonOperators.JsonDistinctFromOperator.class)
                 .scalars(FailureFunction.class)
                 .scalars(JoniRegexpCasts.class)
                 .scalars(CharacterStringCasts.class)
                 .scalars(CharOperators.class)
                 .scalars(LuhnCheckFunction.class)
-                .scalar(CharOperators.CharDistinctFromOperator.class)
                 .scalar(DecimalOperators.Negation.class)
-                .scalar(DecimalOperators.HashCode.class)
-                .scalar(DecimalOperators.Indeterminate.class)
-                .scalar(DecimalOperators.XxHash64Operator.class)
                 .functions(IDENTITY_CAST, CAST_FROM_UNKNOWN)
                 .scalar(ArrayLessThanOperator.class)
                 .scalar(ArrayLessThanOrEqualOperator.class)
@@ -567,32 +533,23 @@ public class FunctionRegistry
                 .scalar(ArrayMinFunction.class)
                 .scalar(ArrayMaxFunction.class)
                 .scalar(ArrayDistinctFunction.class)
-                .scalar(ArrayNotEqualOperator.class)
-                .scalar(ArrayEqualOperator.class)
-                .scalar(ArrayHashCodeOperator.class)
                 .scalar(ArrayIntersectFunction.class)
                 .scalar(ArraysOverlapFunction.class)
-                .scalar(ArrayDistinctFromOperator.class)
                 .scalar(ArrayUnionFunction.class)
                 .scalar(ArrayExceptFunction.class)
                 .scalar(ArraySliceFunction.class)
-                .scalar(ArrayIndeterminateOperator.class)
                 .scalar(ArrayCombinationsFunction.class)
                 .scalar(ArrayNgramsFunction.class)
                 .scalar(ArrayAllMatchFunction.class)
                 .scalar(ArrayAnyMatchFunction.class)
                 .scalar(ArrayNoneMatchFunction.class)
-                .scalar(MapDistinctFromOperator.class)
-                .scalar(MapEqualOperator.class)
                 .scalar(MapEntriesFunction.class)
                 .scalar(MapFromEntriesFunction.class)
                 .scalar(MultimapFromEntriesFunction.class)
-                .scalar(MapNotEqualOperator.class)
                 .scalar(MapKeys.class)
                 .scalar(MapValues.class)
                 .scalar(MapCardinalityFunction.class)
                 .scalar(EmptyMapConstructor.class)
-                .scalar(MapIndeterminateOperator.class)
                 .scalar(TypeOfFunction.class)
                 .scalar(TryFunction.class)
                 .scalar(DynamicFilters.Function.class)
@@ -601,7 +558,6 @@ public class FunctionRegistry
                 .functions(ARRAY_JOIN, ARRAY_JOIN_WITH_NULL_REPLACEMENT)
                 .functions(ARRAY_TO_ARRAY_CAST)
                 .functions(ARRAY_TO_ELEMENT_CONCAT_FUNCTION, ELEMENT_TO_ARRAY_CONCAT_FUNCTION)
-                .function(MAP_HASH_CODE)
                 .function(MAP_ELEMENT_AT)
                 .function(MAP_CONCAT_FUNCTION)
                 .function(MAP_TO_MAP_CAST)
@@ -618,7 +574,6 @@ public class FunctionRegistry
                 .functions(VARCHAR_TO_DECIMAL_CAST, INTEGER_TO_DECIMAL_CAST, BIGINT_TO_DECIMAL_CAST, DOUBLE_TO_DECIMAL_CAST, REAL_TO_DECIMAL_CAST, BOOLEAN_TO_DECIMAL_CAST, TINYINT_TO_DECIMAL_CAST, SMALLINT_TO_DECIMAL_CAST)
                 .functions(JSON_TO_DECIMAL_CAST, DECIMAL_TO_JSON_CAST)
                 .functions(DECIMAL_ADD_OPERATOR, DECIMAL_SUBTRACT_OPERATOR, DECIMAL_MULTIPLY_OPERATOR, DECIMAL_DIVIDE_OPERATOR, DECIMAL_MODULUS_OPERATOR)
-                .functions(DECIMAL_EQUAL_OPERATOR, DECIMAL_NOT_EQUAL_OPERATOR)
                 .functions(DECIMAL_LESS_THAN_OPERATOR, DECIMAL_LESS_THAN_OR_EQUAL_OPERATOR)
                 .functions(DECIMAL_GREATER_THAN_OPERATOR, DECIMAL_GREATER_THAN_OR_EQUAL_OPERATOR)
                 .function(DECIMAL_TO_DECIMAL_SATURATED_FLOOR_CAST)
@@ -626,7 +581,6 @@ public class FunctionRegistry
                 .functions(DECIMAL_TO_INTEGER_SATURATED_FLOOR_CAST, INTEGER_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .functions(DECIMAL_TO_SMALLINT_SATURATED_FLOOR_CAST, SMALLINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
                 .functions(DECIMAL_TO_TINYINT_SATURATED_FLOOR_CAST, TINYINT_TO_DECIMAL_SATURATED_FLOOR_CAST)
-                .function(DECIMAL_DISTINCT_FROM_OPERATOR)
                 .function(new Histogram(featuresConfig.getHistogramGroupImplementation()))
                 .function(CHECKSUM_AGGREGATION)
                 .function(ARBITRARY_AGGREGATION)
@@ -634,7 +588,7 @@ public class FunctionRegistry
                 .functions(MAX_BY, MIN_BY, MAX_BY_N_AGGREGATION, MIN_BY_N_AGGREGATION)
                 .functions(MAX_AGGREGATION, MIN_AGGREGATION, MAX_N_AGGREGATION, MIN_N_AGGREGATION)
                 .function(COUNT_COLUMN)
-                .functions(ROW_HASH_CODE, ROW_TO_JSON, JSON_TO_ROW, JSON_STRING_TO_ROW, ROW_DISTINCT_FROM, ROW_EQUAL, ROW_GREATER_THAN, ROW_GREATER_THAN_OR_EQUAL, ROW_LESS_THAN, ROW_LESS_THAN_OR_EQUAL, ROW_NOT_EQUAL, ROW_TO_ROW_CAST, ROW_INDETERMINATE)
+                .functions(ROW_TO_JSON, JSON_TO_ROW, JSON_STRING_TO_ROW, ROW_GREATER_THAN, ROW_GREATER_THAN_OR_EQUAL, ROW_LESS_THAN, ROW_LESS_THAN_OR_EQUAL, ROW_TO_ROW_CAST)
                 .functions(VARCHAR_CONCAT, VARBINARY_CONCAT)
                 .function(DECIMAL_TO_DECIMAL_CAST)
                 .function(castVarcharToRe2JRegexp(featuresConfig.getRe2JDfaStatesLimit(), featuresConfig.getRe2JDfaRetries()))
@@ -647,6 +601,12 @@ public class FunctionRegistry
                 .function(FORMAT_FUNCTION)
                 .function(TRY_CAST)
                 .function(new LiteralFunction(blockEncodingSerdeSupplier))
+                .function(new GenericEqualOperator(typeOperators))
+                .function(new GenericNotEqualOperator(typeOperators))
+                .function(new GenericHashCodeOperator(typeOperators))
+                .function(new GenericXxHash64Operator(typeOperators))
+                .function(new GenericDistinctFromOperator(typeOperators))
+                .function(new GenericIndeterminateOperator(typeOperators))
                 .aggregate(MergeSetDigestAggregation.class)
                 .aggregate(BuildSetDigestAggregation.class)
                 .scalars(SetDigestFunctions.class)
@@ -657,16 +617,10 @@ public class FunctionRegistry
 
         // timestamp operators and functions
         builder
-                .scalar(TimestampOperators.Equal.class)
-                .scalar(TimestampOperators.NotEqual.class)
                 .scalar(TimestampOperators.LessThan.class)
                 .scalar(TimestampOperators.LessThanOrEqual.class)
                 .scalar(TimestampOperators.GreaterThan.class)
                 .scalar(TimestampOperators.GreaterThanOrEqual.class)
-                .scalar(TimestampDistinctFromOperator.class)
-                .scalar(TimestampOperators.HashCode.class)
-                .scalar(TimestampOperators.Indeterminate.class)
-                .scalar(TimestampOperators.XxHash64Operator.class)
                 .scalar(TimestampOperators.TimestampPlusIntervalDayToSecond.class)
                 .scalar(TimestampOperators.IntervalDayToSecondPlusTimestamp.class)
                 .scalar(TimestampOperators.TimestampPlusIntervalYearToMonth.class)
@@ -714,16 +668,10 @@ public class FunctionRegistry
 
         // timestamp with timezone operators and functions
         builder
-                .scalar(TimestampWithTimeZoneOperators.Equal.class)
-                .scalar(TimestampWithTimeZoneOperators.NotEqual.class)
                 .scalar(TimestampWithTimeZoneOperators.LessThan.class)
                 .scalar(TimestampWithTimeZoneOperators.LessThanOrEqual.class)
                 .scalar(TimestampWithTimeZoneOperators.GreaterThan.class)
                 .scalar(TimestampWithTimeZoneOperators.GreaterThanOrEqual.class)
-                .scalar(TimestampWithTimeZoneOperators.HashCode.class)
-                .scalar(TimestampWithTimeZoneOperators.Indeterminate.class)
-                .scalar(TimestampWithTimeZoneOperators.XxHash64Operator.class)
-                .scalar(TimestampWithTimeZoneDistinctFromOperator.class)
                 .scalar(TimestampWithTimeZoneOperators.TimestampPlusIntervalDayToSecond.class)
                 .scalar(TimestampWithTimeZoneOperators.IntervalDayToSecondPlusTimestamp.class)
                 .scalar(TimestampWithTimeZoneOperators.TimestampMinusIntervalDayToSecond.class)
@@ -770,21 +718,14 @@ public class FunctionRegistry
         builder.scalar(LocalTimeFunction.class)
                 .scalars(TimeOperators.class)
                 .scalars(TimeFunctions.class)
-                .scalar(TimeToTimeWithTimeZoneCast.class)
-                .scalar(TimeOperators.TimeDistinctFromOperator.class);
+                .scalar(TimeToTimeWithTimeZoneCast.class);
 
         // time with timezone operators and functions
         builder
-                .scalar(TimeWithTimeZoneOperators.Equal.class)
-                .scalar(TimeWithTimeZoneOperators.NotEqual.class)
                 .scalar(TimeWithTimeZoneOperators.LessThan.class)
                 .scalar(TimeWithTimeZoneOperators.LessThanOrEqual.class)
                 .scalar(TimeWithTimeZoneOperators.GreaterThan.class)
                 .scalar(TimeWithTimeZoneOperators.GreaterThanOrEqual.class)
-                .scalar(TimeWithTimeZoneOperators.HashCode.class)
-                .scalar(TimeWithTimeZoneOperators.Indeterminate.class)
-                .scalar(TimeWithTimeZoneOperators.XxHash64Operator.class)
-                .scalar(TimeWithTimeZoneDistinctFromOperator.class)
                 .scalar(TimeWithTimeZoneOperators.TimePlusIntervalDayToSecond.class)
                 .scalar(TimeWithTimeZoneOperators.IntervalDayToSecondPlusTime.class)
                 .scalar(TimeWithTimeZoneOperators.TimeMinusIntervalDayToSecond.class)
@@ -821,6 +762,23 @@ public class FunctionRegistry
     public final synchronized void addFunctions(List<? extends SqlFunction> functions)
     {
         for (SqlFunction function : functions) {
+            String name = function.getFunctionMetadata().getSignature().getName();
+            if (isOperatorName(name) && !(function instanceof GenericEqualOperator) &&
+                    !(function instanceof GenericNotEqualOperator) &&
+                    !(function instanceof GenericHashCodeOperator) &&
+                    !(function instanceof GenericXxHash64Operator) &&
+                    !(function instanceof GenericDistinctFromOperator) &&
+                    !(function instanceof GenericIndeterminateOperator)) {
+                OperatorType operatorType = unmangleOperator(name);
+                checkArgument(operatorType != OperatorType.EQUAL &&
+                                operatorType != OperatorType.NOT_EQUAL &&
+                                operatorType != OperatorType.HASH_CODE &&
+                                operatorType != OperatorType.XX_HASH_64 &&
+                                operatorType != OperatorType.IS_DISTINCT_FROM &&
+                                operatorType != OperatorType.INDETERMINATE,
+                        "Can not register %s function: %s", operatorType, function.getFunctionMetadata().getSignature());
+            }
+
             FunctionMetadata functionMetadata = function.getFunctionMetadata();
             checkArgument(!functionMetadata.getSignature().getName().contains("|"), "Function name cannot contain '|' character: %s", functionMetadata.getSignature());
             for (FunctionMetadata existingFunction : this.functions.list()) {

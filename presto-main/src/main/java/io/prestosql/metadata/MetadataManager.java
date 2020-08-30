@@ -117,6 +117,7 @@ import java.lang.invoke.MethodType;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -151,10 +152,12 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.SCHEMA_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.SYNTAX_ERROR;
 import static io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BOXED_NULLABLE;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.FUNCTION;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
@@ -163,9 +166,7 @@ import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
-import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
-import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -208,7 +209,7 @@ public final class MetadataManager
             TypeOperators typeOperators)
     {
         typeRegistry = new TypeRegistry(featuresConfig);
-        functions = new FunctionRegistry(this::getBlockEncodingSerde, featuresConfig);
+        functions = new FunctionRegistry(this::getBlockEncodingSerde, featuresConfig, typeOperators);
         functionResolver = new FunctionResolver(this);
 
         this.procedures = new ProcedureRegistry(this);
@@ -237,7 +238,7 @@ public final class MetadataManager
         addBlockEncoding(new RunLengthBlockEncoding());
         addBlockEncoding(new LazyBlockEncoding());
 
-        verifyComparableOrderableContract();
+        verifyTypes();
 
         functionDecoder = new ResolvedFunctionDecoder(this::getType);
     }
@@ -298,7 +299,7 @@ public final class MetadataManager
             functions.get(functionId);
             return true;
         }
-        catch (IllegalStateException e) {
+        catch (IllegalArgumentException e) {
             return false;
         }
     }
@@ -1543,25 +1544,30 @@ public final class MetadataManager
     }
 
     @Override
-    public void verifyComparableOrderableContract()
+    public void verifyTypes()
     {
+        Set<Type> missingOperatorDeclaration = new HashSet<>();
         Multimap<Type, OperatorType> missingOperators = HashMultimap.create();
         for (Type type : typeRegistry.getTypes()) {
+            if (type.getTypeOperatorDeclaration(typeOperators) == null) {
+                missingOperatorDeclaration.add(type);
+                continue;
+            }
             if (type.isComparable()) {
-                for (OperatorType operator : ImmutableList.of(HASH_CODE, XX_HASH_64)) {
-                    if (!canResolveOperator(operator, BIGINT, ImmutableList.of(type))) {
-                        missingOperators.put(type, operator);
-                    }
+                if (!hasEqualMethod(type)) {
+                    missingOperators.put(type, EQUAL);
                 }
-                for (OperatorType operator : ImmutableList.of(INDETERMINATE)) {
-                    if (!canResolveOperator(operator, BOOLEAN, ImmutableList.of(type))) {
-                        missingOperators.put(type, operator);
-                    }
+                if (!hasHashCodeMethod(type)) {
+                    missingOperators.put(type, HASH_CODE);
                 }
-                for (OperatorType operator : ImmutableList.of(EQUAL, NOT_EQUAL, IS_DISTINCT_FROM)) {
-                    if (!canResolveOperator(operator, BOOLEAN, ImmutableList.of(type, type))) {
-                        missingOperators.put(type, operator);
-                    }
+                if (!hasXxHash64Method(type)) {
+                    missingOperators.put(type, XX_HASH_64);
+                }
+                if (!hasDistinctFromMethod(type)) {
+                    missingOperators.put(type, IS_DISTINCT_FROM);
+                }
+                if (!hasIndeterminateMethod(type)) {
+                    missingOperators.put(type, INDETERMINATE);
                 }
             }
             if (type.isOrderable()) {
@@ -1575,10 +1581,68 @@ public final class MetadataManager
         // TODO: verify the parametric types too
         if (!missingOperators.isEmpty()) {
             List<String> messages = new ArrayList<>();
+            for (Type type : missingOperatorDeclaration) {
+                messages.add(format("%s types operators is null", type));
+            }
             for (Type type : missingOperators.keySet()) {
                 messages.add(format("%s missing for %s", missingOperators.get(type), type));
             }
             throw new IllegalStateException(Joiner.on(", ").join(messages));
+        }
+    }
+
+    private boolean hasEqualMethod(Type type)
+    {
+        try {
+            typeOperators.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, NEVER_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private boolean hasHashCodeMethod(Type type)
+    {
+        try {
+            typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private boolean hasXxHash64Method(Type type)
+    {
+        try {
+            typeOperators.getXxHash64Operator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private boolean hasDistinctFromMethod(Type type)
+    {
+        try {
+            typeOperators.getDistinctFromOperator(type, simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE, BOXED_NULLABLE));
+            return true;
+        }
+        catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private boolean hasIndeterminateMethod(Type type)
+    {
+        try {
+            typeOperators.getIndeterminateOperator(type, simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE));
+            return true;
+        }
+        catch (RuntimeException e) {
+            return false;
         }
     }
 

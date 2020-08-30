@@ -57,6 +57,7 @@ import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.split.PageSourceProvider;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.gen.ExpressionCompiler;
@@ -231,6 +232,11 @@ public final class FunctionAssertions
     public Metadata getMetadata()
     {
         return metadata;
+    }
+
+    public TypeOperators getTypeOperators()
+    {
+        return runner.getTypeOperators();
     }
 
     public void installPlugin(Plugin plugin)

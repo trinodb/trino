@@ -16,7 +16,12 @@ package io.prestosql.type;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
 import org.testng.annotations.Test;
 
+import java.lang.invoke.MethodHandle;
+
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -303,24 +308,40 @@ public class TestRealOperators
 
     @Test
     public void testNanHash()
+            throws Throwable
     {
         int[] nanRepresentations = {floatToIntBits(Float.NaN), 0xffc00000, 0x7fc00000, 0x7fc01234, 0xffc01234};
         for (int nanRepresentation : nanRepresentations) {
             assertTrue(isNaN(intBitsToFloat(nanRepresentation)));
-            assertEquals(RealOperators.hashCode(nanRepresentation), RealOperators.hashCode(nanRepresentations[0]));
-            assertEquals(RealOperators.xxHash64(nanRepresentation), RealOperators.xxHash64(nanRepresentations[0]));
+            assertEquals(executeHashOperator(nanRepresentation), executeHashOperator(nanRepresentations[0]));
+            assertEquals(executeXxHas64hOperator(nanRepresentation), executeXxHas64hOperator(nanRepresentations[0]));
         }
     }
 
     @Test
     public void testZeroHash()
+            throws Throwable
     {
         int[] zeroes = {floatToIntBits(0.0f), floatToIntBits(-0.0f)};
         for (int zero : zeroes) {
             //noinspection SimplifiedTestNGAssertion
             assertTrue(intBitsToFloat(zero) == 0f);
-            assertEquals(RealOperators.hashCode(zero), RealOperators.hashCode(zeroes[0]));
-            assertEquals(RealOperators.xxHash64(zero), RealOperators.xxHash64(zeroes[0]));
+            assertEquals(executeHashOperator(zero), executeHashOperator(zeroes[0]));
+            assertEquals(executeXxHas64hOperator(zero), executeXxHas64hOperator(zeroes[0]));
         }
+    }
+
+    private long executeHashOperator(long value)
+            throws Throwable
+    {
+        MethodHandle hashCodeOperator = functionAssertions.getTypeOperators().getHashCodeOperator(REAL, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
+        return (long) hashCodeOperator.invokeExact((long) intBitsToFloat((int) value));
+    }
+
+    private long executeXxHas64hOperator(long value)
+            throws Throwable
+    {
+        MethodHandle xxHash64Operator = functionAssertions.getTypeOperators().getXxHash64Operator(REAL, simpleConvention(FAIL_ON_NULL, NEVER_NULL));
+        return (long) xxHash64Operator.invokeExact((long) intBitsToFloat((int) value));
     }
 }

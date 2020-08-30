@@ -15,7 +15,6 @@ package io.prestosql.spi.type;
 
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
-import io.airlift.slice.XxHash64;
 
 import java.math.BigInteger;
 import java.nio.ByteOrder;
@@ -713,16 +712,6 @@ public final class UnscaledDecimal128Arithmetic
     public static boolean isZero(Slice decimal)
     {
         return getLong(decimal, 0) == 0 && getLong(decimal, 1) == 0;
-    }
-
-    public static long hash(Slice decimal)
-    {
-        return hash(getRawLong(decimal, 0), getRawLong(decimal, 1));
-    }
-
-    public static long hash(long rawLow, long rawHigh)
-    {
-        return XxHash64.hash(rawLow) ^ XxHash64.hash(unpackUnsignedLong(rawHigh));
     }
 
     public static String toUnscaledString(Slice decimal)
