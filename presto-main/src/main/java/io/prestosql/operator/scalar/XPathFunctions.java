@@ -79,40 +79,6 @@ public final class XPathFunctions
             }
         }
         return builder.build();
-
-        /*
-        //String all = String.join(",", initList.replaceAll(",","><"););
-        String delim = ",";
-        StringBuilder sb = new StringBuilder();
-        int i = 0;
-        while (i < initList.size() - 1) {
-            sb.append(initList.get(i));
-            sb.append(delim);
-            i++;
-        }
-        sb.append(initList.get(i));
-        String all = sb.toString();
-        */
-        /*
-        int limit = initList.size() + 1;
-        int numChars = 0;
-        for (String element : initList) {
-            numChars = numChars + element.length();
-        }
-
-        BlockBuilder parts = VARCHAR.createBlockBuilder(null, 1, numChars);
-        // If limit is one, the last and only element is the complete string
-        if (limit == 1) {
-            VARCHAR.writeSlice(parts, utf8Slice(initList.get(0)));
-            return parts.build();
-        }
-
-        for (String element : initList) {
-            VARCHAR.writeSlice(parts, utf8Slice(element));
-        }
-
-        return parts.build();
-        */
     }
 
     private static List<String> eval(String xml, String path) {
