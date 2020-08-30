@@ -293,3 +293,15 @@ Property Name                                    Description
 ``elasticsearch.aws.secret-key``                 AWS secret key to use to connect to the Elasticsearch domain.
 ================================================ ==================================================================
 
+X-Pack/Basic Authentication
+---------------------------
+
+To enable basic authentication using X-Pack, the ``elasticsearch.security`` option needs to be set to ``PASSWORD``.
+Additionally the following options need to be configured appropriately:
+
+================================================ ==================================================================
+Property Name                                    Description
+================================================ ==================================================================
+``elasticsearch.auth.user``                      Elasticsearch Username for basic authentication.
+``elasticsearch.auth.password``                  Elasticsearch password for basic authentication.
+================================================ ==================================================================
