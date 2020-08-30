@@ -36,7 +36,6 @@ import io.prestosql.spi.function.AccumulatorState;
 import io.prestosql.spi.function.AccumulatorStateFactory;
 import io.prestosql.spi.function.AccumulatorStateSerializer;
 import io.prestosql.spi.function.InvocationConvention;
-import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 
@@ -57,10 +56,10 @@ import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentC
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN;
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
 import static io.prestosql.util.Failures.internalError;
 import static io.prestosql.util.Reflection.methodHandle;
+import static java.lang.invoke.MethodHandles.filterReturnValue;
 
 public abstract class AbstractMinMaxAggregationFunction
         extends SqlAggregationFunction
@@ -80,7 +79,10 @@ public abstract class AbstractMinMaxAggregationFunction
     private static final MethodHandle BOOLEAN_COMBINE_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "combine", MethodHandle.class, NullableBooleanState.class, NullableBooleanState.class);
     private static final MethodHandle BLOCK_POSITION_COMBINE_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "combine", MethodHandle.class, BlockPositionState.class, BlockPositionState.class);
 
-    private final OperatorType operatorType;
+    private static final MethodHandle MIN_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "min", long.class);
+    private static final MethodHandle MAX_FUNCTION = methodHandle(AbstractMinMaxAggregationFunction.class, "max", long.class);
+
+    private final MethodHandle comparisonResultAdapter;
 
     protected AbstractMinMaxAggregationFunction(String name, boolean min, String description)
     {
@@ -101,14 +103,14 @@ public abstract class AbstractMinMaxAggregationFunction
                         AGGREGATE),
                 true,
                 false);
-        this.operatorType = min ? LESS_THAN : GREATER_THAN;
+        this.comparisonResultAdapter = min ? MIN_FUNCTION : MAX_FUNCTION;
     }
 
     @Override
     public FunctionDependencyDeclaration getFunctionDependencies()
     {
         return FunctionDependencyDeclaration.builder()
-                .addOperatorSignature(operatorType, ImmutableList.of(new TypeSignature("E"), new TypeSignature("E")))
+                .addOperatorSignature(COMPARISON, ImmutableList.of(new TypeSignature("E"), new TypeSignature("E")))
                 .build();
     }
 
@@ -140,7 +142,8 @@ public abstract class AbstractMinMaxAggregationFunction
         else {
             invocationConvention = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
         }
-        MethodHandle compareMethodHandle = functionDependencies.getOperatorInvoker(operatorType, ImmutableList.of(type, type), Optional.of(invocationConvention)).getMethodHandle();
+        MethodHandle compareMethodHandle = functionDependencies.getOperatorInvoker(COMPARISON, ImmutableList.of(type, type), Optional.of(invocationConvention)).getMethodHandle();
+        compareMethodHandle = filterReturnValue(compareMethodHandle, comparisonResultAdapter);
         return generateAggregation(type, compareMethodHandle);
     }
 
@@ -337,5 +340,17 @@ public abstract class AbstractMinMaxAggregationFunction
         catch (Throwable t) {
             throw internalError(t);
         }
+    }
+
+    @UsedByGeneratedCode
+    public static boolean min(long comparisonResult)
+    {
+        return comparisonResult < 0;
+    }
+
+    @UsedByGeneratedCode
+    public static boolean max(long comparisonResult)
+    {
+        return comparisonResult > 0;
     }
 }
