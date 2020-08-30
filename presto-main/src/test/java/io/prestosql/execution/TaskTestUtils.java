@@ -55,6 +55,7 @@ import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.testing.TestingMetadata.TestingColumnHandle;
 import io.prestosql.testing.TestingSplit;
+import io.prestosql.type.BlockTypeOperators;
 import io.prestosql.util.FinalizerService;
 
 import java.util.List;
@@ -146,7 +147,8 @@ public final class TaskTestUtils
                 new LookupJoinOperators(),
                 new OrderingCompiler(),
                 new DynamicFilterConfig(),
-                typeOperators);
+                typeOperators,
+                new BlockTypeOperators(typeOperators));
     }
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<TaskSource> taskSources, OutputBuffers outputBuffers)

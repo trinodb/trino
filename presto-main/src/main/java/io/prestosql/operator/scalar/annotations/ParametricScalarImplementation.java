@@ -576,7 +576,7 @@ public class ParametricScalarImplementation
 
                     // check if only declared typeParameters and literalParameters are used
                     validateImplementationDependencyAnnotation(method, implementationDependency.get(), typeParameterNames, literalParameters);
-                    dependencies.add(createDependency(implementationDependency.get(), literalParameters));
+                    dependencies.add(createDependency(implementationDependency.get(), literalParameters, parameterType));
 
                     parameterIndex++;
                 }
@@ -697,7 +697,7 @@ public class ParametricScalarImplementation
                 if (annotation instanceof TypeParameter) {
                     checkTypeParameters(parseTypeSignature(((TypeParameter) annotation).value(), ImmutableSet.of()), typeParameterNames, method);
                 }
-                constructorDependencies.add(createDependency(annotation, literalParameters));
+                constructorDependencies.add(createDependency(annotation, literalParameters, constructor.getParameterTypes()[i]));
             }
             MethodHandle result = constructorMethodHandle(FUNCTION_IMPLEMENTATION_ERROR, constructor);
             // Change type of return value to Object to make sure callers won't have classloader issues

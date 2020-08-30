@@ -198,6 +198,7 @@ import io.prestosql.sql.tree.LambdaArgumentDeclaration;
 import io.prestosql.sql.tree.LambdaExpression;
 import io.prestosql.sql.tree.NodeRef;
 import io.prestosql.sql.tree.SymbolReference;
+import io.prestosql.type.BlockTypeOperators;
 import io.prestosql.type.FunctionType;
 
 import javax.inject.Inject;
@@ -324,6 +325,7 @@ public class LocalExecutionPlanner
     private final OrderingCompiler orderingCompiler;
     private final DynamicFilterConfig dynamicFilterConfig;
     private final TypeOperators typeOperators;
+    private final BlockTypeOperators blockTypeOperators;
 
     @Inject
     public LocalExecutionPlanner(
@@ -348,7 +350,8 @@ public class LocalExecutionPlanner
             LookupJoinOperators lookupJoinOperators,
             OrderingCompiler orderingCompiler,
             DynamicFilterConfig dynamicFilterConfig,
-            TypeOperators typeOperators)
+            TypeOperators typeOperators,
+            BlockTypeOperators blockTypeOperators)
     {
         this.explainAnalyzeContext = requireNonNull(explainAnalyzeContext, "explainAnalyzeContext is null");
         this.pageSourceProvider = requireNonNull(pageSourceProvider, "pageSourceProvider is null");
@@ -375,6 +378,7 @@ public class LocalExecutionPlanner
         this.orderingCompiler = requireNonNull(orderingCompiler, "orderingCompiler is null");
         this.dynamicFilterConfig = requireNonNull(dynamicFilterConfig, "dynamicFilterConfig is null");
         this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
+        this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 
     public LocalExecutionPlan plan(
@@ -2172,7 +2176,8 @@ public class LocalExecutionPlanner
                     filterBuildChannels,
                     getDynamicFilteringMaxDistinctValuesPerDriver(context.getSession(), isReplicatedJoin),
                     getDynamicFilteringMaxSizePerDriver(context.getSession(), isReplicatedJoin),
-                    getDynamicFilteringRangeRowLimitPerDriver(context.getSession(), isReplicatedJoin));
+                    getDynamicFilteringRangeRowLimitPerDriver(context.getSession(), isReplicatedJoin),
+                    blockTypeOperators);
         }
 
         private Optional<LocalDynamicFilterConsumer> createDynamicFilter(
@@ -2316,7 +2321,8 @@ public class LocalExecutionPlanner
                         ImmutableList.of(new DynamicFilterSourceOperator.Channel(filterId, buildSource.getTypes().get(buildChannel), buildChannel)),
                         getDynamicFilteringMaxDistinctValuesPerDriver(context.getSession(), isReplicatedJoin),
                         getDynamicFilteringMaxSizePerDriver(context.getSession(), isReplicatedJoin),
-                        getDynamicFilteringRangeRowLimitPerDriver(context.getSession(), isReplicatedJoin)));
+                        getDynamicFilteringRangeRowLimitPerDriver(context.getSession(), isReplicatedJoin),
+                        blockTypeOperators));
             }
 
             Optional<Integer> buildHashChannel = node.getFilteringSourceHashSymbol().map(channelGetter(buildSource));
