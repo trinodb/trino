@@ -27,8 +27,8 @@ import io.prestosql.metadata.SqlScalarFunction;
 import io.prestosql.operator.annotations.ImplementationDependency;
 import io.prestosql.operator.annotations.LiteralImplementationDependency;
 import io.prestosql.operator.annotations.TypeImplementationDependency;
+import io.prestosql.operator.scalar.ChoicesScalarFunctionImplementation;
 import io.prestosql.operator.scalar.ParametricScalar;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation;
 import io.prestosql.operator.scalar.annotations.ParametricScalarImplementation.ParametricScalarImplementationChoice;
 import io.prestosql.operator.scalar.annotations.ScalarFromAnnotationsParser;
 import io.prestosql.spi.block.Block;
@@ -103,7 +103,9 @@ public class TestAnnotationEngineForScalars
                 new BoundSignature(expectedSignature.getName(), DOUBLE, ImmutableList.of(DOUBLE)),
                 ImmutableMap.of(),
                 ImmutableMap.of());
-        ScalarFunctionImplementation specialized = scalar.specialize(functionBinding, new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of()));
+        ChoicesScalarFunctionImplementation specialized = (ChoicesScalarFunctionImplementation) scalar.specialize(
+                functionBinding,
+                new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of()));
         assertFalse(specialized.getChoices().get(0).getInstanceFactory().isPresent());
     }
 
@@ -192,7 +194,9 @@ public class TestAnnotationEngineForScalars
                 new BoundSignature(expectedSignature.getName(), DOUBLE, ImmutableList.of(DOUBLE, DOUBLE)),
                 ImmutableMap.of(),
                 ImmutableMap.of());
-        ScalarFunctionImplementation specialized = scalar.specialize(functionBinding, new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of()));
+        ChoicesScalarFunctionImplementation specialized = (ChoicesScalarFunctionImplementation) scalar.specialize(
+                functionBinding,
+                new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of()));
         assertFalse(specialized.getChoices().get(0).getInstanceFactory().isPresent());
     }
 
@@ -234,7 +238,9 @@ public class TestAnnotationEngineForScalars
                 new BoundSignature(expectedSignature.getName(), DOUBLE, ImmutableList.of(DOUBLE, DOUBLE)),
                 ImmutableMap.of(),
                 ImmutableMap.of());
-        ScalarFunctionImplementation specialized = scalar.specialize(functionBinding, new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of()));
+        ChoicesScalarFunctionImplementation specialized = (ChoicesScalarFunctionImplementation) scalar.specialize(
+                functionBinding,
+                new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of()));
         assertFalse(specialized.getChoices().get(0).getInstanceFactory().isPresent());
     }
 

@@ -20,7 +20,7 @@ import io.prestosql.metadata.FunctionDependencyDeclaration;
 import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.prestosql.metadata.FunctionInvoker;
 import io.prestosql.metadata.SqlOperator;
-import io.prestosql.operator.scalar.ScalarFunctionImplementation.ScalarImplementationChoice;
+import io.prestosql.operator.scalar.ChoicesScalarFunctionImplementation.ScalarImplementationChoice;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.Type;
@@ -85,7 +85,7 @@ public class RowDistinctFromOperator
                             false)));
             argumentMethods.add(functionInvoker.getMethodHandle());
         }
-        return new ScalarFunctionImplementation(
+        return new ChoicesScalarFunctionImplementation(
                 functionBinding,
                 ImmutableList.of(
                         new ScalarImplementationChoice(

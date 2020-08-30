@@ -76,7 +76,7 @@ public class JsonToMapCast
 
         BlockBuilderAppender mapAppender = createBlockBuilderAppender(mapType);
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(mapType).bindTo(mapAppender);
-        return new ScalarFunctionImplementation(
+        return new ChoicesScalarFunctionImplementation(
                 functionBinding,
                 NULLABLE_RETURN,
                 ImmutableList.of(NEVER_NULL),
