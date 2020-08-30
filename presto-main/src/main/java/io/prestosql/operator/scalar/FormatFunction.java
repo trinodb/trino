@@ -151,7 +151,7 @@ public final class FormatFunction
                 (type, index) -> converter(functionDependencies, type, toIntExact(index)))
                 .collect(toImmutableList());
 
-        return new ScalarFunctionImplementation(
+        return new ChoicesScalarFunctionImplementation(
                 functionBinding,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL),

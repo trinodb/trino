@@ -89,7 +89,7 @@ public final class MapConcatFunction
                 METHOD_HANDLE.bindTo(mapType),
                 USER_STATE_FACTORY.bindTo(mapType));
 
-        return new ScalarFunctionImplementation(
+        return new ChoicesScalarFunctionImplementation(
                 functionBinding,
                 FAIL_ON_NULL,
                 nCopies(functionBinding.getArity(), NEVER_NULL),

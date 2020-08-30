@@ -73,7 +73,7 @@ public final class ApplyFunction
     {
         Type argumentType = functionBinding.getTypeVariable("T");
         Type returnType = functionBinding.getTypeVariable("U");
-        return new ScalarFunctionImplementation(
+        return new ChoicesScalarFunctionImplementation(
                 functionBinding,
                 NULLABLE_RETURN,
                 ImmutableList.of(BOXED_NULLABLE, FUNCTION),

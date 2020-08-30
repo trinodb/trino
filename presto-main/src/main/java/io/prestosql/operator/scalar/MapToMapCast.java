@@ -108,7 +108,7 @@ public final class MapToMapCast
         MethodHandle keyProcessor = buildProcessor(functionDependencies, fromKeyType, toKeyType, true);
         MethodHandle valueProcessor = buildProcessor(functionDependencies, fromValueType, toValueType, false);
         MethodHandle target = MethodHandles.insertArguments(METHOD_HANDLE, 0, keyProcessor, valueProcessor, toMapType);
-        return new ScalarFunctionImplementation(functionBinding, NULLABLE_RETURN, ImmutableList.of(NEVER_NULL), target);
+        return new ChoicesScalarFunctionImplementation(functionBinding, NULLABLE_RETURN, ImmutableList.of(NEVER_NULL), target);
     }
 
     /**

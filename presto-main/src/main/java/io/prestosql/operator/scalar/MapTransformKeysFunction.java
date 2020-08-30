@@ -116,7 +116,7 @@ public final class MapTransformKeysFunction
         Type transformedKeyType = functionBinding.getTypeVariable("K2");
         Type valueType = functionBinding.getTypeVariable("V");
         MapType resultMapType = (MapType) functionBinding.getBoundSignature().getReturnType();
-        return new ScalarFunctionImplementation(
+        return new ChoicesScalarFunctionImplementation(
                 functionBinding,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, FUNCTION),

@@ -82,7 +82,7 @@ public final class MapZipWithFunction
         Type inputValueType1 = functionBinding.getTypeVariable("V1");
         Type inputValueType2 = functionBinding.getTypeVariable("V2");
         Type outputMapType = functionBinding.getBoundSignature().getReturnType();
-        return new ScalarFunctionImplementation(
+        return new ChoicesScalarFunctionImplementation(
                 functionBinding,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL, FUNCTION),

@@ -82,7 +82,7 @@ public final class ZipWithFunction
         Type rightElementType = functionBinding.getTypeVariable("U");
         Type outputElementType = functionBinding.getTypeVariable("R");
         ArrayType outputArrayType = new ArrayType(outputElementType);
-        return new ScalarFunctionImplementation(
+        return new ChoicesScalarFunctionImplementation(
                 functionBinding,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, NEVER_NULL, FUNCTION),

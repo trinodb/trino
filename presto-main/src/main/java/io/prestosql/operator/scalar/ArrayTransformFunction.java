@@ -101,7 +101,7 @@ public final class ArrayTransformFunction
         Type inputType = functionBinding.getTypeVariable("T");
         Type outputType = functionBinding.getTypeVariable("U");
         Class<?> generatedClass = generateTransform(inputType, outputType);
-        return new ScalarFunctionImplementation(
+        return new ChoicesScalarFunctionImplementation(
                 functionBinding,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, FUNCTION),

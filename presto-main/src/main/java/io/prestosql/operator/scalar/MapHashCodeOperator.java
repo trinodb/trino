@@ -73,7 +73,7 @@ public class MapHashCodeOperator
         MethodHandle valueHashCodeFunction = functionDependencies.getOperatorInvoker(HASH_CODE, ImmutableList.of(valueType), Optional.empty()).getMethodHandle();
 
         MethodHandle method = METHOD_HANDLE.bindTo(keyHashCodeFunction).bindTo(valueHashCodeFunction).bindTo(keyType).bindTo(valueType);
-        return new ScalarFunctionImplementation(
+        return new ChoicesScalarFunctionImplementation(
                 functionBinding,
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL),

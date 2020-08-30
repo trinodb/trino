@@ -75,7 +75,7 @@ public class JsonToRowCast
 
         BlockBuilderAppender fieldAppender = createBlockBuilderAppender(rowType);
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(rowType).bindTo(fieldAppender);
-        return new ScalarFunctionImplementation(
+        return new ChoicesScalarFunctionImplementation(
                 functionBinding,
                 NULLABLE_RETURN,
                 ImmutableList.of(NEVER_NULL),

@@ -80,7 +80,7 @@ public final class ArrayReduceFunction
         Type intermediateType = functionBinding.getTypeVariable("S");
         Type outputType = functionBinding.getTypeVariable("R");
         MethodHandle methodHandle = METHOD_HANDLE.bindTo(inputType);
-        return new ScalarFunctionImplementation(
+        return new ChoicesScalarFunctionImplementation(
                 functionBinding,
                 NULLABLE_RETURN,
                 ImmutableList.of(NEVER_NULL, BOXED_NULLABLE, FUNCTION, FUNCTION),
