@@ -26,7 +26,7 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.gen.JoinCompiler.PagesHashStrategyFactory;
 import io.prestosql.type.BlockTypeOperators;
-import io.prestosql.type.TypeUtils;
+import io.prestosql.type.TypeTestUtils;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -79,7 +79,7 @@ public class TestJoinCompiler
         if (hashEnabled) {
             ImmutableList.Builder<Block> hashChannelBuilder = ImmutableList.builder();
             for (Block block : channel) {
-                hashChannelBuilder.add(TypeUtils.getHashBlock(joinTypes, block));
+                hashChannelBuilder.add(TypeTestUtils.getHashBlock(joinTypes, block));
             }
             hashChannel = OptionalInt.of(1);
             channels = ImmutableList.of(channel, hashChannelBuilder.build());
@@ -181,7 +181,7 @@ public class TestJoinCompiler
         if (hashEnabled) {
             ImmutableList.Builder<Block> hashChannelBuilder = ImmutableList.builder();
             for (int i = 0; i < 3; i++) {
-                hashChannelBuilder.add(TypeUtils.getHashBlock(joinTypes, varcharChannel.get(i), longChannel.get(i), doubleChannel.get(i), booleanChannel.get(i)));
+                hashChannelBuilder.add(TypeTestUtils.getHashBlock(joinTypes, varcharChannel.get(i), longChannel.get(i), doubleChannel.get(i), booleanChannel.get(i)));
             }
             hashChannel = OptionalInt.of(6);
             precomputedHash = hashChannelBuilder.build();

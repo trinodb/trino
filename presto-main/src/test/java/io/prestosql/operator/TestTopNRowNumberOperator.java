@@ -19,9 +19,11 @@ import io.prestosql.RowPagesBuilder;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.type.BlockTypeOperators;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -56,6 +58,7 @@ public class TestTopNRowNumberOperator
     private ScheduledExecutorService scheduledExecutor;
     private DriverContext driverContext;
     private JoinCompiler joinCompiler;
+    private BlockTypeOperators blockTypeOperators = new BlockTypeOperators(new TypeOperators());
 
     @BeforeMethod
     public void setUp()
@@ -120,7 +123,8 @@ public class TestTopNRowNumberOperator
                 false,
                 Optional.empty(),
                 10,
-                joinCompiler);
+                joinCompiler,
+                blockTypeOperators);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), DOUBLE, BIGINT, BIGINT)
                 .row(0.3, 1L, 1L)
@@ -168,7 +172,8 @@ public class TestTopNRowNumberOperator
                 partial,
                 Optional.empty(),
                 10,
-                joinCompiler);
+                joinCompiler,
+                blockTypeOperators);
 
         MaterializedResult expected;
         if (partial) {
@@ -208,7 +213,8 @@ public class TestTopNRowNumberOperator
                 false,
                 Optional.empty(),
                 10,
-                joinCompiler);
+                joinCompiler,
+                blockTypeOperators);
 
         // get result with yield; pick a relatively small buffer for heaps
         GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(

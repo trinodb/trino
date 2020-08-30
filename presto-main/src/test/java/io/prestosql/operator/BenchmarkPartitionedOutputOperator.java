@@ -27,8 +27,10 @@ import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.TestingTaskContext;
+import io.prestosql.type.BlockTypeOperators;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -114,7 +116,8 @@ public class BenchmarkPartitionedOutputOperator
 
         private PartitionedOutputOperator createPartitionedOutputOperator()
         {
-            PartitionFunction partitionFunction = new LocalPartitionGenerator(new InterpretedHashGenerator(ImmutableList.of(BIGINT), new int[] {0}), PARTITION_COUNT);
+            BlockTypeOperators blockTypeOperators = new BlockTypeOperators(new TypeOperators());
+            PartitionFunction partitionFunction = new LocalPartitionGenerator(new InterpretedHashGenerator(ImmutableList.of(BIGINT), new int[] {0}, blockTypeOperators), PARTITION_COUNT);
             PagesSerdeFactory serdeFactory = new PagesSerdeFactory(createTestMetadataManager().getBlockEncodingSerde(), false);
             OutputBuffers buffers = createInitialEmptyOutputBuffers(PARTITIONED);
             for (int partition = 0; partition < PARTITION_COUNT; partition++) {

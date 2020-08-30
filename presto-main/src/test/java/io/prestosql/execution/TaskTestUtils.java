@@ -112,11 +112,12 @@ public final class TaskTestUtils
         FinalizerService finalizerService = new FinalizerService();
 
         TypeOperators typeOperators = new TypeOperators();
+        BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
         NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(
                 new InMemoryNodeManager(),
                 new NodeSchedulerConfig().setIncludeCoordinator(true),
                 new NodeTaskMap(finalizerService)));
-        NodePartitioningManager nodePartitioningManager = new NodePartitioningManager(nodeScheduler);
+        NodePartitioningManager nodePartitioningManager = new NodePartitioningManager(nodeScheduler, blockTypeOperators);
 
         PageFunctionCompiler pageFunctionCompiler = new PageFunctionCompiler(metadata, 0);
         return new LocalExecutionPlanner(
@@ -148,7 +149,7 @@ public final class TaskTestUtils
                 new OrderingCompiler(),
                 new DynamicFilterConfig(),
                 typeOperators,
-                new BlockTypeOperators(typeOperators));
+                blockTypeOperators);
     }
 
     public static TaskInfo updateTask(SqlTask sqlTask, List<TaskSource> taskSources, OutputBuffers outputBuffers)

@@ -314,7 +314,7 @@ public class LocalQueryRunner
                 yieldExecutor,
                 catalogManager,
                 notificationExecutor);
-        this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler);
+        this.nodePartitioningManager = new NodePartitioningManager(nodeScheduler, blockTypeOperators);
 
         this.metadata = new MetadataManager(
                 featuresConfig,
@@ -329,7 +329,7 @@ public class LocalQueryRunner
         this.splitManager = new SplitManager(new QueryManagerConfig(), metadata);
         this.planFragmenter = new PlanFragmenter(this.metadata, this.nodePartitioningManager, new QueryManagerConfig());
         this.joinCompiler = new JoinCompiler(metadata);
-        PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler);
+        PageIndexerFactory pageIndexerFactory = new GroupByHashPageIndexerFactory(joinCompiler, blockTypeOperators);
         this.statsCalculator = createNewStatsCalculator(metadata, new TypeAnalyzer(sqlParser, metadata));
         this.taskCountEstimator = new TaskCountEstimator(() -> nodeCountForStats);
         this.costCalculator = new CostCalculatorUsingExchanges(taskCountEstimator);

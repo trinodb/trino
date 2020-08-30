@@ -19,9 +19,11 @@ import io.prestosql.RowPagesBuilder;
 import io.prestosql.operator.MarkDistinctOperator.MarkDistinctOperatorFactory;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.type.BlockTypeOperators;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -55,6 +57,7 @@ public class TestMarkDistinctOperator
     private ScheduledExecutorService scheduledExecutor;
     private DriverContext driverContext;
     private JoinCompiler joinCompiler = new JoinCompiler(createTestMetadataManager());
+    private BlockTypeOperators blockTypeOperators = new BlockTypeOperators(new TypeOperators());
 
     @BeforeMethod
     public void setUp()
@@ -94,7 +97,7 @@ public class TestMarkDistinctOperator
                 .addSequencePage(100, 0)
                 .build();
 
-        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, new PlanNodeId("test"), rowPagesBuilder.getTypes(), ImmutableList.of(0), rowPagesBuilder.getHashChannel(), joinCompiler);
+        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, new PlanNodeId("test"), rowPagesBuilder.getTypes(), ImmutableList.of(0), rowPagesBuilder.getHashChannel(), joinCompiler, blockTypeOperators);
 
         MaterializedResult.Builder expected = resultBuilder(driverContext.getSession(), BIGINT, BOOLEAN);
         for (long i = 0; i < 100; i++) {
@@ -110,7 +113,7 @@ public class TestMarkDistinctOperator
     {
         List<Page> input = createPagesWithDistinctHashKeys(type, 6_000, 600);
 
-        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, new PlanNodeId("test"), ImmutableList.of(type), ImmutableList.of(0), Optional.of(1), joinCompiler);
+        OperatorFactory operatorFactory = new MarkDistinctOperatorFactory(0, new PlanNodeId("test"), ImmutableList.of(type), ImmutableList.of(0), Optional.of(1), joinCompiler, blockTypeOperators);
 
         // get result with yield; pick a relatively small buffer for partitionRowCount's memory usage
         GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((MarkDistinctOperator) operator).getCapacity(), 1_400_000);
