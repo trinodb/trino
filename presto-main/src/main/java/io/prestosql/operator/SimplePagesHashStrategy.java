@@ -178,21 +178,6 @@ public class SimplePagesHashStrategy
     }
 
     @Override
-    public boolean positionEqualsRow(int leftBlockIndex, int leftPosition, int rightPosition, Page page, int[] rightHashChannels)
-    {
-        for (int i = 0; i < hashChannels.size(); i++) {
-            int hashChannel = hashChannels.get(i);
-            Type type = types.get(hashChannel);
-            Block leftBlock = channels.get(hashChannel).get(leftBlockIndex);
-            Block rightBlock = page.getBlock(rightHashChannels[i]);
-            if (!TypeUtils.positionEqualsPosition(type, leftBlock, leftPosition, rightBlock, rightPosition)) {
-                return false;
-            }
-        }
-        return true;
-    }
-
-    @Override
     public boolean positionNotDistinctFromRow(int leftBlockIndex, int leftPosition, int rightPosition, Page page, int[] rightChannels)
     {
         for (int i = 0; i < hashChannels.size(); i++) {
