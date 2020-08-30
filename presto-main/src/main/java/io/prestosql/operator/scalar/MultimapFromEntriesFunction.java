@@ -19,7 +19,9 @@ import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.Convention;
 import io.prestosql.spi.function.Description;
+import io.prestosql.spi.function.OperatorDependency;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
@@ -28,11 +30,19 @@ import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
+import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
 import it.unimi.dsi.fastutil.ints.IntArrayList;
 import it.unimi.dsi.fastutil.ints.IntList;
 
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.operator.aggregation.TypedSet.createEqualityTypedSet;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 
 @ScalarFunction("multimap_from_entries")
 @Description("Construct a multimap from an array of entries")
@@ -58,6 +68,14 @@ public final class MultimapFromEntriesFunction
     @SqlNullable
     public Block multimapFromEntries(
             @TypeParameter("map(K,array(V))") MapType mapType,
+            @OperatorDependency(
+                    operator = EQUAL,
+                    argumentTypes = {"K", "K"},
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = NULLABLE_RETURN)) BlockPositionEqual keyEqual,
+            @OperatorDependency(
+                    operator = HASH_CODE,
+                    argumentTypes = "K",
+                    convention = @Convention(arguments = BLOCK_POSITION, result = FAIL_ON_NULL)) BlockPositionHashCode keyHashCode,
             @SqlType("array(row(K,V))") Block block)
     {
         Type keyType = mapType.getKeyType();
@@ -72,7 +90,7 @@ public final class MultimapFromEntriesFunction
         if (entryCount > entryIndicesList.length) {
             initializeEntryIndicesList(entryCount);
         }
-        TypedSet keySet = new TypedSet(keyType, entryCount, NAME);
+        TypedSet keySet = createEqualityTypedSet(keyType, keyEqual, keyHashCode, entryCount, NAME);
 
         for (int i = 0; i < entryCount; i++) {
             if (block.isNull(i)) {

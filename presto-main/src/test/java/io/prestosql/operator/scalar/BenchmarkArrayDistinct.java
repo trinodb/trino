@@ -26,11 +26,15 @@ import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.gen.ExpressionCompiler;
 import io.prestosql.sql.gen.PageFunctionCompiler;
 import io.prestosql.sql.relational.CallExpression;
 import io.prestosql.sql.relational.RowExpression;
 import io.prestosql.sql.tree.QualifiedName;
+import io.prestosql.type.BlockTypeOperators;
+import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
+import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
 import org.openjdk.jmh.annotations.Benchmark;
 import org.openjdk.jmh.annotations.BenchmarkMode;
 import org.openjdk.jmh.annotations.Fork;
@@ -57,6 +61,7 @@ import static com.google.common.base.Verify.verify;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.metadata.FunctionExtractor.extractFunctions;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
+import static io.prestosql.operator.aggregation.TypedSet.createEqualityTypedSet;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.sql.relational.Expressions.field;
@@ -75,6 +80,9 @@ public class BenchmarkArrayDistinct
     private static final int ARRAY_SIZE = 2;
     private static final int NUM_TYPES = 1;
     private static final List<Type> TYPES = ImmutableList.of(VARCHAR);
+    private static final BlockTypeOperators BLOCK_TYPE_OPERATORS = new BlockTypeOperators(new TypeOperators());
+    private static final BlockPositionEqual EQUAL_OPERATOR = BLOCK_TYPE_OPERATORS.getEqualOperator(VARCHAR);
+    private static final BlockPositionHashCode HASH_CODE_OPERATOR = BLOCK_TYPE_OPERATORS.getHashCodeOperator(VARCHAR);
 
     static {
         verify(NUM_TYPES == TYPES.size());
@@ -179,7 +187,7 @@ public class BenchmarkArrayDistinct
             return array;
         }
 
-        TypedSet typedSet = new TypedSet(VARCHAR, array.getPositionCount(), "old_array_distinct");
+        TypedSet typedSet = createEqualityTypedSet(VARCHAR, EQUAL_OPERATOR, HASH_CODE_OPERATOR, array.getPositionCount(), "old_array_distinct");
         BlockBuilder distinctElementBlockBuilder = VARCHAR.createBlockBuilder(null, array.getPositionCount());
         for (int i = 0; i < array.getPositionCount(); i++) {
             if (!typedSet.contains(array, i)) {

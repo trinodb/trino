@@ -17,11 +17,13 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
+import io.prestosql.type.BlockTypeOperators;
 import org.testng.annotations.Test;
 
 import java.util.HashSet;
 import java.util.List;
-import java.util.Optional;
 import java.util.Set;
 
 import static io.airlift.slice.Slices.utf8Slice;
@@ -40,6 +42,7 @@ import static org.testng.Assert.fail;
 
 public class TestTypedSet
 {
+    private static final BlockTypeOperators BLOCK_TYPE_OPERATORS = new BlockTypeOperators(new TypeOperators());
     private static final String FUNCTION_NAME = "typed_set_test";
 
     @Test
@@ -48,7 +51,7 @@ public class TestTypedSet
         for (int i = -2; i <= -1; i++) {
             try {
                 //noinspection ResultOfObjectAllocationIgnored
-                new TypedSet(BIGINT, i, FUNCTION_NAME);
+                createEqualityTypedSet(BIGINT, i);
                 fail("Should throw exception if expectedSize < 0");
             }
             catch (IllegalArgumentException e) {
@@ -58,7 +61,7 @@ public class TestTypedSet
 
         try {
             //noinspection ResultOfObjectAllocationIgnored
-            new TypedSet(null, 1, FUNCTION_NAME);
+            TypedSet.createEqualityTypedSet(null, null, null, 1, FUNCTION_NAME);
             fail("Should throw exception if type is null");
         }
         catch (NullPointerException | IllegalArgumentException e) {
@@ -72,7 +75,7 @@ public class TestTypedSet
         int elementCount = 100;
         // Set initialTypedSetEntryCount to a small number to trigger rehash()
         int initialTypedSetEntryCount = 10;
-        TypedSet typedSet = new TypedSet(BIGINT, initialTypedSetEntryCount, FUNCTION_NAME);
+        TypedSet typedSet = createEqualityTypedSet(BIGINT, initialTypedSetEntryCount);
         BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(elementCount);
         for (int i = 0; i < elementCount; i++) {
             BIGINT.writeLong(blockBuilder, i);
@@ -92,7 +95,7 @@ public class TestTypedSet
         int elementCount = 100;
         // Set initialTypedSetEntryCount to a small number to trigger rehash()
         int initialTypedSetEntryCount = 10;
-        TypedSet typedSet = new TypedSet(BIGINT, initialTypedSetEntryCount, FUNCTION_NAME);
+        TypedSet typedSet = createEqualityTypedSet(BIGINT, initialTypedSetEntryCount);
         BlockBuilder blockBuilder = BIGINT.createFixedSizeBlockBuilder(elementCount);
         for (int i = 0; i < elementCount; i++) {
             if (i % 10 == 0) {
@@ -130,7 +133,7 @@ public class TestTypedSet
         int initialTypedSetEntryCount = 10;
 
         BlockBuilder emptyBlockBuilder = BIGINT.createFixedSizeBlockBuilder(elementCount);
-        TypedSet typedSet = new TypedSet(BIGINT, Optional.empty(), emptyBlockBuilder, initialTypedSetEntryCount, FUNCTION_NAME);
+        TypedSet typedSet = createDistinctTypedSet(BIGINT, initialTypedSetEntryCount, emptyBlockBuilder);
         BlockBuilder externalBlockBuilder = BIGINT.createFixedSizeBlockBuilder(elementCount);
         for (int i = 0; i < elementCount; i++) {
             if (i % 10 == 0) {
@@ -168,7 +171,7 @@ public class TestTypedSet
         // The secondBlockBuilder should already have elementCount rows.
         BlockBuilder secondBlockBuilder = pageBuilder.getBlockBuilder(0);
 
-        TypedSet typedSet = new TypedSet(BIGINT, Optional.empty(), secondBlockBuilder, initialTypedSetEntryCount, FUNCTION_NAME);
+        TypedSet typedSet = createDistinctTypedSet(BIGINT, initialTypedSetEntryCount, secondBlockBuilder);
         BlockBuilder externalBlockBuilder = BIGINT.createFixedSizeBlockBuilder(elementCount);
         for (int i = 0; i < elementCount; i++) {
             if (i % 10 == 0) {
@@ -192,11 +195,11 @@ public class TestTypedSet
     @Test
     public void testGetElementPositionRandom()
     {
-        TypedSet set = new TypedSet(VARCHAR, 1, FUNCTION_NAME);
+        TypedSet set = createEqualityTypedSet(VARCHAR, 1);
         testGetElementPositionRandomFor(set);
 
         BlockBuilder emptyBlockBuilder = VARCHAR.createBlockBuilder(null, 3);
-        TypedSet setWithPassedInBuilder = new TypedSet(VARCHAR, Optional.empty(), emptyBlockBuilder, 1, FUNCTION_NAME);
+        TypedSet setWithPassedInBuilder = createDistinctTypedSet(VARCHAR, 1, emptyBlockBuilder);
         testGetElementPositionRandomFor(setWithPassedInBuilder);
     }
 
@@ -230,7 +233,7 @@ public class TestTypedSet
     public void testMemoryExceeded()
     {
         assertPrestoExceptionThrownBy(() -> {
-            TypedSet typedSet = new TypedSet(BIGINT, 10, FUNCTION_NAME);
+            TypedSet typedSet = createEqualityTypedSet(BIGINT, 10);
             for (int i = 0; i <= TypedSet.MAX_FUNCTION_MEMORY.toBytes() + 1; i++) {
                 Block block = createLongsBlock(nCopies(1, (long) i));
                 typedSet.add(block, 0);
@@ -268,12 +271,33 @@ public class TestTypedSet
 
     private static void testBigint(Block longBlock, int expectedSetSize)
     {
-        TypedSet typedSet = new TypedSet(BIGINT, expectedSetSize, FUNCTION_NAME);
+        TypedSet typedSet = createEqualityTypedSet(BIGINT, expectedSetSize);
         testBigintFor(typedSet, longBlock);
 
         BlockBuilder emptyBlockBuilder = BIGINT.createBlockBuilder(null, expectedSetSize);
-        TypedSet typedSetWithPassedInBuilder = new TypedSet(BIGINT, Optional.empty(), emptyBlockBuilder, expectedSetSize, FUNCTION_NAME);
+        TypedSet typedSetWithPassedInBuilder = createDistinctTypedSet(BIGINT, expectedSetSize, emptyBlockBuilder);
         testBigintFor(typedSetWithPassedInBuilder, longBlock);
+    }
+
+    private static TypedSet createEqualityTypedSet(Type type, int expectedSize)
+    {
+        return TypedSet.createEqualityTypedSet(
+                type,
+                BLOCK_TYPE_OPERATORS.getEqualOperator(type),
+                BLOCK_TYPE_OPERATORS.getHashCodeOperator(type),
+                expectedSize,
+                FUNCTION_NAME);
+    }
+
+    private static TypedSet createDistinctTypedSet(Type type, int expectedSize, BlockBuilder blockBuilder)
+    {
+        return TypedSet.createDistinctTypedSet(
+                type,
+                BLOCK_TYPE_OPERATORS.getDistinctFromOperator(type),
+                BLOCK_TYPE_OPERATORS.getHashCodeOperator(type),
+                blockBuilder,
+                expectedSize,
+                FUNCTION_NAME);
     }
 
     private static void testBigintFor(TypedSet typedSet, Block longBlock)

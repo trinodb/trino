@@ -19,6 +19,7 @@ import io.prestosql.metadata.FunctionInvoker;
 import io.prestosql.spi.function.InvocationConvention;
 
 import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandleProxies;
 import java.util.Optional;
 
 import static java.util.Objects.requireNonNull;
@@ -27,10 +28,12 @@ public abstract class ScalarImplementationDependency
         implements ImplementationDependency
 {
     private final Optional<InvocationConvention> invocationConvention;
+    private final Class<?> type;
 
-    protected ScalarImplementationDependency(Optional<InvocationConvention> invocationConvention)
+    protected ScalarImplementationDependency(Optional<InvocationConvention> invocationConvention, Class<?> type)
     {
         this.invocationConvention = requireNonNull(invocationConvention, "invocationConvention is null");
+        this.type = requireNonNull(type, "type is null");
         if (invocationConvention.map(InvocationConvention::supportsInstanceFactor).orElse(false)) {
             throw new IllegalArgumentException(getClass().getSimpleName() + " does not support instance functions");
         }
@@ -39,9 +42,13 @@ public abstract class ScalarImplementationDependency
     protected abstract FunctionInvoker getInvoker(FunctionBinding functionBinding, FunctionDependencies functionDependencies, Optional<InvocationConvention> invocationConvention);
 
     @Override
-    public MethodHandle resolve(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
+    public Object resolve(FunctionBinding functionBinding, FunctionDependencies functionDependencies)
     {
-        return getInvoker(functionBinding, functionDependencies, invocationConvention).getMethodHandle();
+        MethodHandle methodHandle = getInvoker(functionBinding, functionDependencies, invocationConvention).getMethodHandle();
+        if (type == MethodHandle.class) {
+            return methodHandle;
+        }
+        return MethodHandleProxies.asInterfaceInstance(type, methodHandle);
     }
 
     @Override
