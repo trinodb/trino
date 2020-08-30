@@ -38,9 +38,11 @@ import java.net.UnknownHostException;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.prestosql.spi.block.Int128ArrayBlock.INT128_BYTES;
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
+import static java.lang.Long.reverseBytes;
 import static java.lang.invoke.MethodHandles.lookup;
 
 public class IpAddressType
@@ -211,5 +213,34 @@ public class IpAddressType
     private static long xxHash64(long low, long high)
     {
         return XxHash64.hash(low) ^ XxHash64.hash(high);
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(Slice left, Slice right)
+    {
+        return compareBigEndian(
+                left.getLong(0),
+                left.getLong(SIZE_OF_LONG),
+                right.getLong(0),
+                right.getLong(SIZE_OF_LONG));
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    {
+        return compareBigEndian(
+                leftBlock.getLong(leftPosition, 0),
+                leftBlock.getLong(leftPosition, SIZE_OF_LONG),
+                rightBlock.getLong(rightPosition, 0),
+                rightBlock.getLong(rightPosition, SIZE_OF_LONG));
+    }
+
+    private static int compareBigEndian(long leftLow64le, long leftHigh64le, long rightLow64le, long rightHigh64le)
+    {
+        int value = Long.compareUnsigned(reverseBytes(leftLow64le), reverseBytes(rightLow64le));
+        if (value != 0) {
+            return value;
+        }
+        return Long.compareUnsigned(reverseBytes(leftHigh64le), reverseBytes(rightHigh64le));
     }
 }

@@ -28,6 +28,7 @@ import io.prestosql.spi.function.ScalarOperator;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.prestosql.spi.block.Int128ArrayBlock.INT128_BYTES;
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.Decimals.decodeUnscaledValue;
@@ -185,5 +186,21 @@ final class LongDecimalType
     private static long xxHash64(long low, long high)
     {
         return XxHash64.hash(low) ^ XxHash64.hash(high);
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(Slice left, Slice right)
+    {
+        return compare(left, right);
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    {
+        long leftLow = leftBlock.getLong(leftPosition, 0);
+        long leftHigh = leftBlock.getLong(leftPosition, SIZE_OF_LONG);
+        long rightLow = rightBlock.getLong(rightPosition, 0);
+        long rightHigh = rightBlock.getLong(rightPosition, SIZE_OF_LONG);
+        return compare(leftLow, leftHigh, rightLow, rightHigh);
     }
 }

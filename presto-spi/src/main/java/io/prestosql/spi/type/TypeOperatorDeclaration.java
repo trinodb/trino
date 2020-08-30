@@ -56,24 +56,38 @@ public final class TypeOperatorDeclaration
     private final Collection<OperatorMethodHandle> xxHash64Operators;
     private final Collection<OperatorMethodHandle> distinctFromOperators;
     private final Collection<OperatorMethodHandle> indeterminateOperators;
+    private final Collection<OperatorMethodHandle> comparisonOperators;
+    private final Collection<OperatorMethodHandle> lessThanOperators;
+    private final Collection<OperatorMethodHandle> lessThanOrEqualOperators;
 
     private TypeOperatorDeclaration(
             Collection<OperatorMethodHandle> equalOperators,
             Collection<OperatorMethodHandle> hashCodeOperators,
             Collection<OperatorMethodHandle> xxHash64Operators,
             Collection<OperatorMethodHandle> distinctFromOperators,
-            Collection<OperatorMethodHandle> indeterminateOperators)
+            Collection<OperatorMethodHandle> indeterminateOperators,
+            Collection<OperatorMethodHandle> comparisonOperators,
+            Collection<OperatorMethodHandle> lessThanOperators,
+            Collection<OperatorMethodHandle> lessThanOrEqualOperators)
     {
         this.equalOperators = List.copyOf(requireNonNull(equalOperators, "equalOperators is null"));
         this.hashCodeOperators = List.copyOf(requireNonNull(hashCodeOperators, "hashCodeOperators is null"));
         this.xxHash64Operators = List.copyOf(requireNonNull(xxHash64Operators, "xxHash64Operators is null"));
         this.distinctFromOperators = List.copyOf(requireNonNull(distinctFromOperators, "distinctFromOperators is null"));
         this.indeterminateOperators = List.copyOf(requireNonNull(indeterminateOperators, "indeterminateOperators is null"));
+        this.comparisonOperators = List.copyOf(requireNonNull(comparisonOperators, "comparisonOperators is null"));
+        this.lessThanOperators = List.copyOf(requireNonNull(lessThanOperators, "lessThanOperators is null"));
+        this.lessThanOrEqualOperators = List.copyOf(requireNonNull(lessThanOrEqualOperators, "lessThanOrEqualOperators is null"));
     }
 
     public boolean isComparable()
     {
         return !equalOperators.isEmpty();
+    }
+
+    public boolean isOrderable()
+    {
+        return !comparisonOperators.isEmpty();
     }
 
     public Collection<OperatorMethodHandle> getEqualOperators()
@@ -101,6 +115,21 @@ public final class TypeOperatorDeclaration
         return indeterminateOperators;
     }
 
+    public Collection<OperatorMethodHandle> getComparisonOperators()
+    {
+        return comparisonOperators;
+    }
+
+    public Collection<OperatorMethodHandle> getLessThanOperators()
+    {
+        return lessThanOperators;
+    }
+
+    public Collection<OperatorMethodHandle> getLessThanOrEqualOperators()
+    {
+        return lessThanOrEqualOperators;
+    }
+
     public static Builder builder(Class<?> typeJavaType)
     {
         return new Builder(typeJavaType);
@@ -122,6 +151,9 @@ public final class TypeOperatorDeclaration
         private final Collection<OperatorMethodHandle> xxHash64Operators = new ArrayList<>();
         private final Collection<OperatorMethodHandle> distinctFromOperators = new ArrayList<>();
         private final Collection<OperatorMethodHandle> indeterminateOperators = new ArrayList<>();
+        private final Collection<OperatorMethodHandle> comparisonOperators = new ArrayList<>();
+        private final Collection<OperatorMethodHandle> lessThanOperators = new ArrayList<>();
+        private final Collection<OperatorMethodHandle> lessThanOrEqualOperators = new ArrayList<>();
 
         public Builder(Class<?> typeJavaType)
         {
@@ -209,6 +241,54 @@ public final class TypeOperatorDeclaration
             return this;
         }
 
+        public Builder addComparisonOperator(OperatorMethodHandle comparisonOperator)
+        {
+            verifyMethodHandleSignature(2, long.class, comparisonOperator);
+            this.comparisonOperators.add(comparisonOperator);
+            return this;
+        }
+
+        public Builder addComparisonOperators(Collection<OperatorMethodHandle> comparisonOperators)
+        {
+            for (OperatorMethodHandle comparisonOperator : comparisonOperators) {
+                verifyMethodHandleSignature(2, long.class, comparisonOperator);
+            }
+            this.comparisonOperators.addAll(comparisonOperators);
+            return this;
+        }
+
+        public Builder addLessThanOrEqualOperator(OperatorMethodHandle lessThanOrEqualOperator)
+        {
+            verifyMethodHandleSignature(2, boolean.class, lessThanOrEqualOperator);
+            this.lessThanOrEqualOperators.add(lessThanOrEqualOperator);
+            return this;
+        }
+
+        public Builder addLessThanOrEqualOperators(Collection<OperatorMethodHandle> lessThanOrEqualOperators)
+        {
+            for (OperatorMethodHandle lessThanOrEqualOperator : lessThanOrEqualOperators) {
+                verifyMethodHandleSignature(2, boolean.class, lessThanOrEqualOperator);
+            }
+            this.lessThanOrEqualOperators.addAll(lessThanOrEqualOperators);
+            return this;
+        }
+
+        public Builder addLessThanOperator(OperatorMethodHandle lessThanOperator)
+        {
+            verifyMethodHandleSignature(2, boolean.class, lessThanOperator);
+            this.lessThanOperators.add(lessThanOperator);
+            return this;
+        }
+
+        public Builder addLessThanOperators(Collection<OperatorMethodHandle> lessThanOperators)
+        {
+            for (OperatorMethodHandle lessThanOperator : lessThanOperators) {
+                verifyMethodHandleSignature(2, boolean.class, lessThanOperator);
+            }
+            this.lessThanOperators.addAll(lessThanOperators);
+            return this;
+        }
+
         public Builder addOperators(Class<?> operatorsClass, Lookup lookup)
         {
             boolean addedOperator = false;
@@ -242,6 +322,15 @@ public final class TypeOperatorDeclaration
                         break;
                     case INDETERMINATE:
                         addIndeterminateOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, boolean.class), methodHandle));
+                        break;
+                    case COMPARISON:
+                        addComparisonOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, long.class), methodHandle));
+                        break;
+                    case LESS_THAN:
+                        addLessThanOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, boolean.class), methodHandle));
+                        break;
+                    case LESS_THAN_OR_EQUAL:
+                        addLessThanOrEqualOperator(new OperatorMethodHandle(parseInvocationConvention(operatorType, typeJavaType, method, boolean.class), methodHandle));
                         break;
                     default:
                         throw new IllegalArgumentException(operatorType + " operator is not supported: " + method);
@@ -426,13 +515,24 @@ public final class TypeOperatorDeclaration
                     throw new IllegalStateException("xxHash64 operators must be supplied when equal operators are supplied");
                 }
             }
+            if (comparisonOperators.isEmpty()) {
+                if (!lessThanOperators.isEmpty()) {
+                    throw new IllegalStateException("Less-than-operators can not be supplied when comparison operators are not supplied");
+                }
+                if (!lessThanOrEqualOperators.isEmpty()) {
+                    throw new IllegalStateException("Less-than-or-equals operators can not be supplied when comparison operators are not supplied");
+                }
+            }
 
             return new TypeOperatorDeclaration(
                     equalOperators,
                     hashCodeOperators,
                     xxHash64Operators,
                     distinctFromOperators,
-                    indeterminateOperators);
+                    indeterminateOperators,
+                    comparisonOperators,
+                    lessThanOperators,
+                    lessThanOrEqualOperators);
         }
     }
 }

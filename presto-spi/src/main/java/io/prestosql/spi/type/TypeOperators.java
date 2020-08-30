@@ -17,6 +17,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention;
+import io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention;
 import io.prestosql.spi.function.OperatorMethodHandle;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.function.ScalarFunctionAdapter;
@@ -41,7 +42,10 @@ import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentC
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static java.lang.invoke.MethodHandles.dropArguments;
 import static java.lang.invoke.MethodHandles.filterReturnValue;
 import static java.lang.invoke.MethodHandles.guardWithTest;
@@ -93,6 +97,30 @@ public class TypeOperators
             throw new UnsupportedOperationException(type + " is not comparable");
         }
         return getOperatorAdaptor(type, callingConvention, OperatorType.INDETERMINATE).get();
+    }
+
+    public MethodHandle getComparisonOperator(Type type, InvocationConvention callingConvention)
+    {
+        if (!type.isOrderable()) {
+            throw new UnsupportedOperationException(type + " is not orderable");
+        }
+        return getOperatorAdaptor(type, callingConvention, COMPARISON).get();
+    }
+
+    public MethodHandle getLessThanOperator(Type type, InvocationConvention callingConvention)
+    {
+        if (!type.isOrderable()) {
+            throw new UnsupportedOperationException(type + " is not orderable");
+        }
+        return getOperatorAdaptor(type, callingConvention, LESS_THAN).get();
+    }
+
+    public MethodHandle getLessThanOrEqualOperator(Type type, InvocationConvention callingConvention)
+    {
+        if (!type.isOrderable()) {
+            throw new UnsupportedOperationException(type + " is not orderable");
+        }
+        return getOperatorAdaptor(type, callingConvention, LESS_THAN_OR_EQUAL).get();
     }
 
     private OperatorAdaptor getOperatorAdaptor(Type type, InvocationConvention callingConvention, OperatorType operatorType)
@@ -188,6 +216,20 @@ public class TypeOperators
                         return List.of(defaultIndeterminateOperator(operatorConvention.getType().getJavaType()));
                     }
                     return indeterminateOperators;
+                case COMPARISON:
+                    return typeOperatorDeclaration.getComparisonOperators();
+                case LESS_THAN:
+                    Collection<OperatorMethodHandle> lessThanOperators = typeOperatorDeclaration.getLessThanOperators();
+                    if (lessThanOperators.isEmpty()) {
+                        return List.of(generateLessThanOperator(operatorConvention, false));
+                    }
+                    return lessThanOperators;
+                case LESS_THAN_OR_EQUAL:
+                    Collection<OperatorMethodHandle> lessThanOrEqualOperators = typeOperatorDeclaration.getLessThanOrEqualOperators();
+                    if (lessThanOrEqualOperators.isEmpty()) {
+                        return List.of(generateLessThanOperator(operatorConvention, true));
+                    }
+                    return lessThanOrEqualOperators;
             }
             throw new IllegalArgumentException("Unsupported operator type: " + operatorConvention.getOperatorType());
         }
@@ -205,11 +247,32 @@ public class TypeOperators
             return adaptNeverNullEqualToDistinctFrom(equalMethodHandle);
         }
 
+        private OperatorMethodHandle generateLessThanOperator(OperatorConvention operatorConvention, boolean orEqual)
+        {
+            InvocationConvention comparisonCallingConvention;
+            if (operatorConvention.getCallingConvention().getArgumentConventions().equals(List.of(BLOCK_POSITION, BLOCK_POSITION))) {
+                comparisonCallingConvention = simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION);
+            }
+            else {
+                comparisonCallingConvention = simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL);
+            }
+
+            OperatorConvention comparisonOperator = new OperatorConvention(operatorConvention.getType(), COMPARISON, comparisonCallingConvention);
+            MethodHandle comparisonMethod = adaptOperator(comparisonOperator);
+            if (orEqual) {
+                return adaptComparisonToLessThanOrEqual(new OperatorMethodHandle(comparisonCallingConvention, comparisonMethod));
+            }
+            return adaptComparisonToLessThan(new OperatorMethodHandle(comparisonCallingConvention, comparisonMethod));
+        }
+
         private List<Type> getOperatorArgumentTypes(OperatorConvention operatorConvention)
         {
             switch (operatorConvention.getOperatorType()) {
                 case EQUAL:
                 case IS_DISTINCT_FROM:
+                case COMPARISON:
+                case LESS_THAN:
+                case LESS_THAN_OR_EQUAL:
                     return List.of(operatorConvention.getType(), operatorConvention.getType());
                 case HASH_CODE:
                 case XX_HASH_64:
@@ -298,6 +361,8 @@ public class TypeOperators
     private static final MethodHandle LOGICAL_OR;
     private static final MethodHandle LOGICAL_XOR;
     private static final MethodHandle NOT_EQUAL;
+    private static final MethodHandle IS_COMPARISON_LESS_THAN;
+    private static final MethodHandle IS_COMPARISON_LESS_THAN_OR_EQUAL;
 
     static {
         try {
@@ -309,6 +374,8 @@ public class TypeOperators
             LOGICAL_OR = lookup.findStatic(Boolean.class, "logicalOr", MethodType.methodType(boolean.class, boolean.class, boolean.class));
             LOGICAL_XOR = lookup.findStatic(Boolean.class, "logicalXor", MethodType.methodType(boolean.class, boolean.class, boolean.class));
             NOT_EQUAL = lookup.findStatic(TypeOperators.class, "notEqual", MethodType.methodType(boolean.class, Boolean.class));
+            IS_COMPARISON_LESS_THAN = lookup.findStatic(TypeOperators.class, "isComparisonLessThan", MethodType.methodType(boolean.class, long.class));
+            IS_COMPARISON_LESS_THAN_OR_EQUAL = lookup.findStatic(TypeOperators.class, "isComparisonLessThanOrEqual", MethodType.methodType(boolean.class, long.class));
         }
         catch (NoSuchMethodException | IllegalAccessException e) {
             throw new RuntimeException(e);
@@ -373,5 +440,33 @@ public class TypeOperators
     private static boolean notEqual(Boolean equal)
     {
         return !requireNonNull(equal, "equal returned null");
+    }
+
+    private static OperatorMethodHandle adaptComparisonToLessThan(OperatorMethodHandle invoker)
+    {
+        InvocationReturnConvention returnConvention = invoker.getCallingConvention().getReturnConvention();
+        if (returnConvention != FAIL_ON_NULL) {
+            throw new IllegalArgumentException("Return convention must be " + FAIL_ON_NULL + ", but is " + returnConvention);
+        }
+        return new OperatorMethodHandle(invoker.getCallingConvention(), filterReturnValue(invoker.getMethodHandle(), IS_COMPARISON_LESS_THAN));
+    }
+
+    private static boolean isComparisonLessThan(long comparisonResult)
+    {
+        return comparisonResult < 0;
+    }
+
+    private static OperatorMethodHandle adaptComparisonToLessThanOrEqual(OperatorMethodHandle invoker)
+    {
+        InvocationReturnConvention returnConvention = invoker.getCallingConvention().getReturnConvention();
+        if (returnConvention != FAIL_ON_NULL) {
+            throw new IllegalArgumentException("Return convention must be " + FAIL_ON_NULL + ", but is " + returnConvention);
+        }
+        return new OperatorMethodHandle(invoker.getCallingConvention(), filterReturnValue(invoker.getMethodHandle(), IS_COMPARISON_LESS_THAN_OR_EQUAL));
+    }
+
+    private static boolean isComparisonLessThanOrEqual(long comparisonResult)
+    {
+        return comparisonResult <= 0;
     }
 }

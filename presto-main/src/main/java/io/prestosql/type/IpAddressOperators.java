@@ -29,43 +29,11 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static java.lang.System.arraycopy;
 
 public final class IpAddressOperators
 {
     private IpAddressOperators() {}
-
-    @ScalarOperator(LESS_THAN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean lessThan(@SqlType(StandardTypes.IPADDRESS) Slice left, @SqlType(StandardTypes.IPADDRESS) Slice right)
-    {
-        return left.compareTo(right) < 0;
-    }
-
-    @ScalarOperator(LESS_THAN_OR_EQUAL)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean lessThanOrEqual(@SqlType(StandardTypes.IPADDRESS) Slice left, @SqlType(StandardTypes.IPADDRESS) Slice right)
-    {
-        return left.compareTo(right) <= 0;
-    }
-
-    @ScalarOperator(GREATER_THAN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean greaterThan(@SqlType(StandardTypes.IPADDRESS) Slice left, @SqlType(StandardTypes.IPADDRESS) Slice right)
-    {
-        return left.compareTo(right) > 0;
-    }
-
-    @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean greaterThanOrEqual(@SqlType(StandardTypes.IPADDRESS) Slice left, @SqlType(StandardTypes.IPADDRESS) Slice right)
-    {
-        return left.compareTo(right) >= 0;
-    }
 
     @LiteralParameters("x")
     @ScalarOperator(CAST)

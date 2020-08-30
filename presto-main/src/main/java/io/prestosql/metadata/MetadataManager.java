@@ -140,7 +140,6 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.primitives.Primitives.wrap;
-import static io.prestosql.metadata.FunctionId.toFunctionId;
 import static io.prestosql.metadata.FunctionKind.AGGREGATE;
 import static io.prestosql.metadata.QualifiedObjectName.convertFromSchemaTableName;
 import static io.prestosql.metadata.Signature.mangleOperatorName;
@@ -159,16 +158,14 @@ import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentC
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
 import static io.prestosql.transaction.InMemoryTransactionManager.createTestTransactionManager;
@@ -290,21 +287,6 @@ public final class MetadataManager
     public boolean catalogExists(Session session, String catalogName)
     {
         return getOptionalCatalogMetadata(session, catalogName).isPresent();
-    }
-
-    private boolean canResolveOperator(OperatorType operatorType, Type returnType, List<? extends Type> argumentTypes)
-    {
-        FunctionId functionId = toFunctionId(new Signature(
-                mangleOperatorName(operatorType),
-                returnType.getTypeSignature(),
-                argumentTypes.stream().map(Type::getTypeSignature).collect(toImmutableList())));
-        try {
-            functions.get(functionId);
-            return true;
-        }
-        catch (IllegalArgumentException e) {
-            return false;
-        }
     }
 
     @Override
@@ -1574,10 +1556,14 @@ public final class MetadataManager
                 }
             }
             if (type.isOrderable()) {
-                for (OperatorType operator : ImmutableList.of(LESS_THAN, LESS_THAN_OR_EQUAL, GREATER_THAN, GREATER_THAN_OR_EQUAL)) {
-                    if (!canResolveOperator(operator, BOOLEAN, ImmutableList.of(type, type))) {
-                        missingOperators.put(type, operator);
-                    }
+                if (!hasComparisonMethod(type)) {
+                    missingOperators.put(type, COMPARISON);
+                }
+                if (!hasLessThanMethod(type)) {
+                    missingOperators.put(type, LESS_THAN);
+                }
+                if (!hasLessThanOrEqualMethod(type)) {
+                    missingOperators.put(type, LESS_THAN_OR_EQUAL);
                 }
             }
         }
@@ -1645,6 +1631,39 @@ public final class MetadataManager
             return true;
         }
         catch (RuntimeException e) {
+            return false;
+        }
+    }
+
+    private boolean hasComparisonMethod(Type type)
+    {
+        try {
+            typeOperators.getComparisonOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (UnsupportedOperationException e) {
+            return false;
+        }
+    }
+
+    private boolean hasLessThanMethod(Type type)
+    {
+        try {
+            typeOperators.getLessThanOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (UnsupportedOperationException e) {
+            return false;
+        }
+    }
+
+    private boolean hasLessThanOrEqualMethod(Type type)
+    {
+        try {
+            typeOperators.getLessThanOrEqualOperator(type, simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            return true;
+        }
+        catch (UnsupportedOperationException e) {
             return false;
         }
     }

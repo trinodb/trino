@@ -25,7 +25,10 @@ import io.prestosql.spi.function.BlockPosition;
 import io.prestosql.spi.function.ScalarOperator;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.String.format;
@@ -97,11 +100,7 @@ class LongTimestampType
         long rightEpochMicros = getEpochMicros(rightBlock, rightPosition);
         int rightFraction = getFraction(rightBlock, rightPosition);
 
-        int value = Long.compare(leftEpochMicros, rightEpochMicros);
-        if (value != 0) {
-            return value;
-        }
-        return Integer.compare(leftFraction, rightFraction);
+        return comparison(leftEpochMicros, leftFraction, rightEpochMicros, rightFraction);
     }
 
     @Override
@@ -202,5 +201,74 @@ class LongTimestampType
     private static long xxHash64(long epochMicros, int fraction)
     {
         return XxHash64.hash(epochMicros) ^ XxHash64.hash(fraction);
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(LongTimestamp left, LongTimestamp right)
+    {
+        return comparison(left.getEpochMicros(), left.getPicosOfMicro(), right.getEpochMicros(), right.getPicosOfMicro());
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    {
+        return comparison(
+                getEpochMicros(leftBlock, leftPosition),
+                getFraction(leftBlock, leftPosition),
+                getEpochMicros(rightBlock, rightPosition),
+                getFraction(rightBlock, rightPosition));
+    }
+
+    private static int comparison(long leftEpochMicros, int leftPicosOfMicro, long rightEpochMicros, int rightPicosOfMicro)
+    {
+        int value = Long.compare(leftEpochMicros, rightEpochMicros);
+        if (value != 0) {
+            return value;
+        }
+        return Integer.compare(leftPicosOfMicro, rightPicosOfMicro);
+    }
+
+    @ScalarOperator(LESS_THAN)
+    private static boolean lessThanOperator(LongTimestamp left, LongTimestamp right)
+    {
+        return lessThan(left.getEpochMicros(), left.getPicosOfMicro(), right.getEpochMicros(), right.getPicosOfMicro());
+    }
+
+    @ScalarOperator(LESS_THAN)
+    private static boolean lessThanOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    {
+        return lessThan(
+                getEpochMicros(leftBlock, leftPosition),
+                getFraction(leftBlock, leftPosition),
+                getEpochMicros(rightBlock, rightPosition),
+                getFraction(rightBlock, rightPosition));
+    }
+
+    private static boolean lessThan(long leftEpochMicros, int leftPicosOfMicro, long rightEpochMicros, int rightPicosOfMicro)
+    {
+        return (leftEpochMicros < rightEpochMicros) ||
+                ((leftEpochMicros == rightEpochMicros) && (leftPicosOfMicro < rightPicosOfMicro));
+    }
+
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
+    private static boolean lessThanOrEqualOperator(LongTimestamp left, LongTimestamp right)
+    {
+        return lessThanOrEqual(left.getEpochMicros(), left.getPicosOfMicro(), right.getEpochMicros(), right.getPicosOfMicro());
+    }
+
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
+    private static boolean lessThanOrEqualOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    {
+        return lessThanOrEqual(
+                getEpochMicros(leftBlock, leftPosition),
+                getFraction(leftBlock, leftPosition),
+                getEpochMicros(rightBlock, rightPosition),
+                getFraction(rightBlock, rightPosition));
+    }
+
+    private static boolean lessThanOrEqual(long leftEpochMicros, int leftPicosOfMicro, long rightEpochMicros, int rightPicosOfMicro)
+    {
+        return (leftEpochMicros < rightEpochMicros) ||
+                ((leftEpochMicros == rightEpochMicros) && (leftPicosOfMicro <= rightPicosOfMicro));
     }
 }

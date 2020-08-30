@@ -14,6 +14,7 @@
 package io.prestosql.operator.scalar;
 
 import io.prestosql.spi.block.Block;
+import io.prestosql.spi.function.Convention;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.OperatorDependency;
 import io.prestosql.spi.function.ScalarFunction;
@@ -23,14 +24,16 @@ import io.prestosql.spi.function.TypeParameter;
 import io.prestosql.spi.type.AbstractType;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
+import io.prestosql.type.BlockTypeOperators.BlockPositionComparison;
 import it.unimi.dsi.fastutil.ints.AbstractIntComparator;
 import it.unimi.dsi.fastutil.ints.IntArrays;
 import it.unimi.dsi.fastutil.ints.IntComparator;
 
-import java.lang.invoke.MethodHandle;
 import java.util.Arrays;
 
-import static io.prestosql.spi.function.OperatorType.LESS_THAN;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 
@@ -47,7 +50,7 @@ public final class ArraysOverlapFunction
     @TypeParameter("E")
     public ArraysOverlapFunction(@TypeParameter("E") Type elementType) {}
 
-    private static IntComparator intBlockCompare(Type type, Block block)
+    private static IntComparator intBlockCompare(BlockPositionComparison comparisonOperator, Block block)
     {
         return new AbstractIntComparator()
         {
@@ -63,7 +66,7 @@ public final class ArraysOverlapFunction
                 if (block.isNull(right)) {
                     return -1;
                 }
-                return type.compareTo(block, left, block, right);
+                return (int) comparisonOperator.compare(block, left, block, right);
             }
         };
     }
@@ -71,7 +74,10 @@ public final class ArraysOverlapFunction
     @SqlNullable
     @SqlType(StandardTypes.BOOLEAN)
     public Boolean arraysOverlapInt(
-            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"integer", "integer"}) MethodHandle lessThanFunction,
+            @OperatorDependency(
+                    operator = COMPARISON,
+                    argumentTypes = {"integer", "integer"},
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockPositionComparison comparisonOperator,
             @SqlType("array(integer)") Block leftArray,
             @SqlType("array(integer)") Block rightArray)
     {
@@ -81,7 +87,10 @@ public final class ArraysOverlapFunction
     @SqlNullable
     @SqlType(StandardTypes.BOOLEAN)
     public Boolean arraysOverlapBigInt(
-            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"bigint", "bigint"}) MethodHandle lessThanFunction,
+            @OperatorDependency(
+                    operator = COMPARISON,
+                    argumentTypes = {"bigint", "bigint"},
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockPositionComparison comparisonOperator,
             @SqlType("array(bigint)") Block leftArray,
             @SqlType("array(bigint)") Block rightArray)
     {
@@ -92,10 +101,14 @@ public final class ArraysOverlapFunction
     @TypeParameter("E")
     @SqlType(StandardTypes.BOOLEAN)
     public Boolean arraysOverlap(
-            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"E", "E"}) MethodHandle lessThanFunction,
+            @OperatorDependency(
+                    operator = COMPARISON,
+                    argumentTypes = {"E", "E"},
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockPositionComparison comparisonOperator,
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block leftArray,
             @SqlType("array(E)") Block rightArray)
+            throws Throwable
     {
         int leftPositionCount = leftArray.getPositionCount();
         int rightPositionCount = rightArray.getPositionCount();
@@ -118,8 +131,8 @@ public final class ArraysOverlapFunction
         for (int i = 0; i < rightPositionCount; i++) {
             rightPositions[i] = i;
         }
-        IntArrays.quickSort(leftPositions, 0, leftPositionCount, intBlockCompare(type, leftArray));
-        IntArrays.quickSort(rightPositions, 0, rightPositionCount, intBlockCompare(type, rightArray));
+        IntArrays.quickSort(leftPositions, 0, leftPositionCount, intBlockCompare(comparisonOperator, leftArray));
+        IntArrays.quickSort(rightPositions, 0, rightPositionCount, intBlockCompare(comparisonOperator, rightArray));
 
         int leftCurrentPosition = 0;
         int rightCurrentPosition = 0;
@@ -128,7 +141,7 @@ public final class ArraysOverlapFunction
                 // Nulls are in the end of the array. Non-null elements do not overlap.
                 return null;
             }
-            int compareValue = type.compareTo(leftArray, leftPositions[leftCurrentPosition], rightArray, rightPositions[rightCurrentPosition]);
+            long compareValue = comparisonOperator.compare(leftArray, leftPositions[leftCurrentPosition], rightArray, rightPositions[rightCurrentPosition]);
             if (compareValue > 0) {
                 rightCurrentPosition++;
             }

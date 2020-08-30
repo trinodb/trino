@@ -22,47 +22,11 @@ import io.prestosql.spi.type.StandardTypes;
 
 import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.CAST;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static java.lang.String.format;
 
 public final class VarcharOperators
 {
     private VarcharOperators() {}
-
-    @LiteralParameters("x")
-    @ScalarOperator(LESS_THAN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean lessThan(@SqlType("varchar(x)") Slice left, @SqlType("varchar(x)") Slice right)
-    {
-        return left.compareTo(right) < 0;
-    }
-
-    @LiteralParameters("x")
-    @ScalarOperator(LESS_THAN_OR_EQUAL)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean lessThanOrEqual(@SqlType("varchar(x)") Slice left, @SqlType("varchar(x)") Slice right)
-    {
-        return left.compareTo(right) <= 0;
-    }
-
-    @LiteralParameters("x")
-    @ScalarOperator(GREATER_THAN)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean greaterThan(@SqlType("varchar(x)") Slice left, @SqlType("varchar(x)") Slice right)
-    {
-        return left.compareTo(right) > 0;
-    }
-
-    @LiteralParameters("x")
-    @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    @SqlType(StandardTypes.BOOLEAN)
-    public static boolean greaterThanOrEqual(@SqlType("varchar(x)") Slice left, @SqlType("varchar(x)") Slice right)
-    {
-        return left.compareTo(right) >= 0;
-    }
 
     @LiteralParameters("x")
     @ScalarOperator(CAST)

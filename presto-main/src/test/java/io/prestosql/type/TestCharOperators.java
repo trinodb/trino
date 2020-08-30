@@ -61,6 +61,7 @@ public class TestCharOperators
     @Test
     public void testLessThan()
     {
+        assertFunction("cast('\0' as char(1)) < cast(' ' as char(1))", BOOLEAN, true);
         assertFunction("cast('bar' as char(5)) < cast('foo' as char(3))", BOOLEAN, true);
         assertFunction("cast('foo' as char(5)) < cast('bar' as char(3))", BOOLEAN, false);
         assertFunction("cast('bar' as char(3)) < cast('foo' as char(5))", BOOLEAN, true);

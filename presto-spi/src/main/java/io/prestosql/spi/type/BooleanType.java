@@ -22,7 +22,10 @@ import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.ScalarOperator;
 
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.invoke.MethodHandles.lookup;
@@ -157,5 +160,23 @@ public final class BooleanType
     private static long xxHash64Operator(boolean value)
     {
         return value ? TRUE_XX_HASH : FALSE_XX_HASH;
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(boolean left, boolean right)
+    {
+        return Boolean.compare(left, right);
+    }
+
+    @ScalarOperator(LESS_THAN)
+    private static boolean lessThanOperator(boolean left, boolean right)
+    {
+        return !left && right;
+    }
+
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
+    private static boolean lessThanOrEqualOperator(boolean left, boolean right)
+    {
+        return !left || right;
     }
 }

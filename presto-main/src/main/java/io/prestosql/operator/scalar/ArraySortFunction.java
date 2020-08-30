@@ -18,17 +18,20 @@ import com.google.common.primitives.Ints;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
+import io.prestosql.spi.function.Convention;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.OperatorDependency;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.function.TypeParameter;
 import io.prestosql.spi.type.Type;
+import io.prestosql.type.BlockTypeOperators.BlockPositionComparison;
 
-import java.lang.invoke.MethodHandle;
 import java.util.List;
 
-import static io.prestosql.spi.function.OperatorType.LESS_THAN;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
 
 @ScalarFunction("array_sort")
 @Description("Sorts the given array in ascending order according to the natural ordering of its elements.")
@@ -47,7 +50,10 @@ public final class ArraySortFunction
     @TypeParameter("E")
     @SqlType("array(E)")
     public Block sort(
-            @OperatorDependency(operator = LESS_THAN, argumentTypes = {"E", "E"}) MethodHandle lessThanFunction,
+            @OperatorDependency(
+                    operator = COMPARISON,
+                    argumentTypes = {"E", "E"},
+                    convention = @Convention(arguments = {BLOCK_POSITION, BLOCK_POSITION}, result = FAIL_ON_NULL)) BlockPositionComparison comparisonOperator,
             @TypeParameter("E") Type type,
             @SqlType("array(E)") Block block)
     {
@@ -72,8 +78,7 @@ public final class ArraySortFunction
                 return -1;
             }
 
-            //TODO: This could be quite slow, it should use parametric equals
-            return type.compareTo(block, p1, block, p2);
+            return (int) comparisonOperator.compare(block, p1, block, p2);
         });
 
         if (pageBuilder.isFull()) {
