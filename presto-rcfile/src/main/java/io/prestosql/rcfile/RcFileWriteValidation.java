@@ -20,9 +20,6 @@ import io.airlift.slice.Slices;
 import io.airlift.slice.XxHash64;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.type.ArrayType;
-import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 
 import java.util.HashMap;
@@ -31,6 +28,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -114,10 +112,7 @@ public class RcFileWriteValidation
 
     public static class WriteChecksumBuilder
     {
-        // This value is a large arbitrary prime
-        private static final long NULL_HASH_CODE = 0x6e3efbd56c16a0cbL;
-
-        private final List<Type> types;
+        private final List<ValidationHash> validationHashes;
         private long totalRowCount;
         private final List<XxHash64> columnHashes;
         private final XxHash64 rowGroupHash = new XxHash64();
@@ -127,7 +122,9 @@ public class RcFileWriteValidation
 
         private WriteChecksumBuilder(List<Type> types)
         {
-            this.types = ImmutableList.copyOf(requireNonNull(types, "types is null"));
+            this.validationHashes = requireNonNull(types, "types is null").stream()
+                    .map(ValidationHash::createValidationHash)
+                    .collect(toImmutableList());
 
             ImmutableList.Builder<XxHash64> columnHashes = ImmutableList.builder();
             for (Type ignored : types) {
@@ -167,58 +164,15 @@ public class RcFileWriteValidation
 
             totalRowCount += page.getPositionCount();
             for (int channel = 0; channel < columnHashes.size(); channel++) {
-                Type type = types.get(channel);
+                ValidationHash validationHash = validationHashes.get(channel);
                 Block block = page.getBlock(channel);
                 XxHash64 xxHash64 = columnHashes.get(channel);
                 for (int position = 0; position < block.getPositionCount(); position++) {
-                    long hash = hashPositionSkipNullMapKeys(type, block, position);
+                    long hash = validationHash.hash(block, position);
                     longSlice.setLong(0, hash);
                     xxHash64.update(longBuffer);
                 }
             }
-        }
-
-        private static long hashPositionSkipNullMapKeys(Type type, Block block, int position)
-        {
-            if (block.isNull(position)) {
-                return NULL_HASH_CODE;
-            }
-
-            if (type instanceof MapType) {
-                Type keyType = type.getTypeParameters().get(0);
-                Type valueType = type.getTypeParameters().get(1);
-                Block mapBlock = (Block) type.getObject(block, position);
-                long hash = 0;
-                for (int i = 0; i < mapBlock.getPositionCount(); i += 2) {
-                    if (!mapBlock.isNull(i)) {
-                        hash += hashPositionSkipNullMapKeys(keyType, mapBlock, i);
-                        hash += hashPositionSkipNullMapKeys(valueType, mapBlock, i + 1);
-                    }
-                }
-                return hash;
-            }
-
-            if (type instanceof ArrayType) {
-                Type elementType = type.getTypeParameters().get(0);
-                Block array = (Block) type.getObject(block, position);
-                long hash = 0;
-                for (int i = 0; i < array.getPositionCount(); i++) {
-                    hash = 31 * hash + hashPositionSkipNullMapKeys(elementType, array, i);
-                }
-                return hash;
-            }
-
-            if (type instanceof RowType) {
-                Block row = (Block) type.getObject(block, position);
-                long hash = 0;
-                for (int i = 0; i < row.getPositionCount(); i++) {
-                    Type elementType = type.getTypeParameters().get(i);
-                    hash = 31 * hash + hashPositionSkipNullMapKeys(elementType, row, i);
-                }
-                return hash;
-            }
-
-            return type.hash(block, position);
         }
 
         public WriteChecksum build()
