@@ -26,6 +26,8 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.PageFunctionCompiler;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.sql.relational.Expressions;
+import io.prestosql.type.BlockTypeOperators;
+import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
 
 import java.util.List;
 import java.util.Optional;
@@ -44,7 +46,7 @@ public class DynamicTupleFilterFactory
 
     private final int[] tupleFilterChannels;
     private final List<Integer> outputFilterChannels;
-    private final List<Type> filterTypes;
+    private final List<BlockPositionEqual> filterEqualOperators;
 
     private final List<Type> outputTypes;
     private final List<Supplier<PageProjection>> outputProjections;
@@ -55,7 +57,8 @@ public class DynamicTupleFilterFactory
             int[] tupleFilterChannels,
             int[] outputFilterChannels,
             List<Type> outputTypes,
-            PageFunctionCompiler pageFunctionCompiler)
+            PageFunctionCompiler pageFunctionCompiler,
+            BlockTypeOperators blockTypeOperators)
     {
         requireNonNull(planNodeId, "planNodeId is null");
         requireNonNull(tupleFilterChannels, "tupleFilterChannels is null");
@@ -65,14 +68,16 @@ public class DynamicTupleFilterFactory
         requireNonNull(outputTypes, "outputTypes is null");
         checkArgument(outputTypes.size() >= outputFilterChannels.length, "Must have at least as many output channels as those used for filtering");
         requireNonNull(pageFunctionCompiler, "pageFunctionCompiler is null");
+        requireNonNull(blockTypeOperators, "blockTypeOperators is null");
 
         this.filterOperatorId = filterOperatorId;
         this.planNodeId = planNodeId;
 
         this.tupleFilterChannels = tupleFilterChannels.clone();
         this.outputFilterChannels = ImmutableList.copyOf(Ints.asList(outputFilterChannels));
-        this.filterTypes = IntStream.of(outputFilterChannels)
+        this.filterEqualOperators = IntStream.of(outputFilterChannels)
                 .mapToObj(outputTypes::get)
+                .map(blockTypeOperators::getEqualOperator)
                 .collect(toImmutableList());
 
         this.outputTypes = ImmutableList.copyOf(outputTypes);
@@ -90,7 +95,7 @@ public class DynamicTupleFilterFactory
     @VisibleForTesting
     public Supplier<PageProcessor> createPageProcessor(Page filterTuple, OptionalInt initialBatchSize)
     {
-        TuplePageFilter filter = new TuplePageFilter(filterTuple, filterTypes, outputFilterChannels);
+        TuplePageFilter filter = new TuplePageFilter(filterTuple, filterEqualOperators, outputFilterChannels);
         return () -> new PageProcessor(
                 Optional.of(filter),
                 outputProjections.stream()

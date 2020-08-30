@@ -1631,7 +1631,8 @@ public class LocalExecutionPlanner
                         nonLookupInputChannels,
                         nonLookupOutputChannels,
                         indexSource.getTypes(),
-                        pageFunctionCompiler));
+                        pageFunctionCompiler,
+                        blockTypeOperators));
             }
 
             IndexBuildDriverFactoryProvider indexBuildDriverFactoryProvider = new IndexBuildDriverFactoryProvider(
