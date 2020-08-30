@@ -302,6 +302,6 @@ Additionally the following options need to be configured appropriately:
 ================================================ ==================================================================
 Property Name                                    Description
 ================================================ ==================================================================
-``elasticsearch.auth.user``                      Elasticsearch Username for basic authentication.
+``elasticsearch.auth.user``                      Elasticsearch username for basic authentication.
 ``elasticsearch.auth.password``                  Elasticsearch password for basic authentication.
 ================================================ ==================================================================
