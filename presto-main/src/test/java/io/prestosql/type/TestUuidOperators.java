@@ -149,9 +149,11 @@ public class TestUuidOperators
         assertOperator(HASH_CODE, "UUID '12151fd2-7586-11e9-8f9e-2a86e4085a59'", BIGINT, hashFromType("12151fd2-7586-11e9-8f9e-2a86e4085a59"));
     }
 
-    private static long hashFromType(String uuidString)
+    private long hashFromType(String uuidString)
     {
-        return UUID.hash(uuidBlock(uuidString), 0);
+        return functionAssertions.getBlockTypeOperators()
+                .getHashCodeOperator(UUID)
+                .hashCode(uuidBlock(uuidString), 0);
     }
 
     private static Block uuidBlock(String uuidString)

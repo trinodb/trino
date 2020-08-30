@@ -40,6 +40,7 @@ import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
+import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
@@ -1019,9 +1020,12 @@ public class TestMapOperators
             appendToBlockBuilder(valueType, elements.get(i + 1), singleMapWriter);
         }
         mapArrayBuilder.closeEntry();
-        long hashResult = mapType.hash(mapArrayBuilder.build(), 0);
 
+        long hashResult = functionAssertions.getBlockTypeOperators().getHashCodeOperator(mapType).hashCode(mapArrayBuilder.build(), 0);
         assertOperator(HASH_CODE, inputString, BIGINT, hashResult);
+
+        long xxHash64Result = functionAssertions.getBlockTypeOperators().getXxHash64Operator(mapType).xxHash64(mapArrayBuilder.build(), 0);
+        assertOperator(XX_HASH_64, inputString, BIGINT, xxHash64Result);
     }
 
     private static Type entryType(Type keyType, Type valueType)

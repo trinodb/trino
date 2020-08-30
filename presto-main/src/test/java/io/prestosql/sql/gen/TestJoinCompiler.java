@@ -25,6 +25,8 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.gen.JoinCompiler.PagesHashStrategyFactory;
 import io.prestosql.type.BlockTypeOperators;
+import io.prestosql.type.BlockTypeOperators.BlockPositionEqual;
+import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
 import io.prestosql.type.TypeTestUtils;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.DataProvider;
@@ -40,8 +42,6 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
-import static io.prestosql.type.TypeUtils.hashPosition;
-import static io.prestosql.type.TypeUtils.positionEqualsPosition;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -87,6 +87,10 @@ public class TestJoinCompiler
         // verify channel count
         assertEquals(hashStrategy.getChannelCount(), 1);
 
+        BlockTypeOperators blockTypeOperators = new BlockTypeOperators();
+        BlockPositionEqual equalOperator = blockTypeOperators.getEqualOperator(VARCHAR);
+        BlockPositionHashCode hashCodeOperator = blockTypeOperators.getHashCodeOperator(VARCHAR);
+
         // verify hashStrategy is consistent with equals and hash code from block
         for (int leftBlockIndex = 0; leftBlockIndex < channel.size(); leftBlockIndex++) {
             Block leftBlock = channel.get(leftBlockIndex);
@@ -95,7 +99,7 @@ public class TestJoinCompiler
 
             for (int leftBlockPosition = 0; leftBlockPosition < leftBlock.getPositionCount(); leftBlockPosition++) {
                 // hash code of position must match block hash
-                assertEquals(hashStrategy.hashPosition(leftBlockIndex, leftBlockPosition), hashPosition(VARCHAR, leftBlock, leftBlockPosition));
+                assertEquals(hashStrategy.hashPosition(leftBlockIndex, leftBlockPosition), hashCodeOperator.hashCodeNullSafe(leftBlock, leftBlockPosition));
 
                 // position must be equal to itself
                 assertTrue(hashStrategy.positionEqualsPositionIgnoreNulls(leftBlockIndex, leftBlockPosition, leftBlockIndex, leftBlockPosition));
@@ -104,7 +108,7 @@ public class TestJoinCompiler
                 for (int rightBlockIndex = 0; rightBlockIndex < channel.size(); rightBlockIndex++) {
                     Block rightBlock = channel.get(rightBlockIndex);
                     for (int rightBlockPosition = 0; rightBlockPosition < rightBlock.getPositionCount(); rightBlockPosition++) {
-                        boolean expected = positionEqualsPosition(VARCHAR, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
+                        boolean expected = equalOperator.equalNullSafe(leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
                         assertEquals(hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightBlockPosition, new Page(rightBlock)), expected);
                         assertEquals(hashStrategy.rowEqualsRow(leftBlockPosition, new Page(leftBlock), rightBlockPosition, new Page(rightBlock)), expected);
                         assertEquals(hashStrategy.positionEqualsRowIgnoreNulls(leftBlockIndex, leftBlockPosition, rightBlockPosition, new Page(rightBlock)), expected);
@@ -117,7 +121,7 @@ public class TestJoinCompiler
                 for (int rightBlockIndex = 0; rightBlockIndex < channel.size(); rightBlockIndex++) {
                     Block rightBlock = channel.get(rightBlockIndex);
                     for (int rightBlockPosition = 0; rightBlockPosition < rightBlock.getPositionCount(); rightBlockPosition++) {
-                        boolean expected = positionEqualsPosition(VARCHAR, leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
+                        boolean expected = equalOperator.equalNullSafe(leftBlock, leftBlockPosition, rightBlock, rightBlockPosition);
                         assertEquals(hashStrategy.positionEqualsRow(leftBlockIndex, leftBlockPosition, rightBlockPosition, new Page(rightBlock)), expected);
                         assertEquals(hashStrategy.rowEqualsRow(leftBlockPosition, new Page(leftBlock), rightBlockPosition, new Page(rightBlock)), expected);
                         assertEquals(hashStrategy.positionEqualsRowIgnoreNulls(leftBlockIndex, leftBlockPosition, rightBlockPosition, new Page(rightBlock)), expected);

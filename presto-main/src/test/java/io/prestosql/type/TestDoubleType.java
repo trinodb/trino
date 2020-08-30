@@ -16,6 +16,8 @@ package io.prestosql.type;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.LongArrayBlockBuilder;
+import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
+import io.prestosql.type.BlockTypeOperators.BlockPositionXxHash64;
 import org.testng.annotations.Test;
 
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -64,8 +66,14 @@ public class TestDoubleType
         blockBuilder.writeLong(-0x000fffffffffffffL);
         blockBuilder.writeLong(0x7ff8000000000000L);
 
-        assertEquals(DOUBLE.hash(blockBuilder, 0), DOUBLE.hash(blockBuilder, 1));
-        assertEquals(DOUBLE.hash(blockBuilder, 0), DOUBLE.hash(blockBuilder, 2));
-        assertEquals(DOUBLE.hash(blockBuilder, 0), DOUBLE.hash(blockBuilder, 3));
+        BlockPositionHashCode hashCodeOperator = blockTypeOperators.getHashCodeOperator(DOUBLE);
+        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 1));
+        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 2));
+        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 3));
+
+        BlockPositionXxHash64 xxHash64Operator = blockTypeOperators.getXxHash64Operator(DOUBLE);
+        assertEquals(xxHash64Operator.xxHash64(blockBuilder, 0), xxHash64Operator.xxHash64(blockBuilder, 1));
+        assertEquals(xxHash64Operator.xxHash64(blockBuilder, 0), xxHash64Operator.xxHash64(blockBuilder, 2));
+        assertEquals(xxHash64Operator.xxHash64(blockBuilder, 0), xxHash64Operator.xxHash64(blockBuilder, 3));
     }
 }
