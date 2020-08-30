@@ -63,24 +63,6 @@ public final class RealType
     }
 
     @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        float leftValue = intBitsToFloat(leftBlock.getInt(leftPosition, 0));
-        float rightValue = intBitsToFloat(rightBlock.getInt(rightPosition, 0));
-
-        // direct equality is correct here
-        // noinspection FloatingPointEquality
-        return leftValue == rightValue;
-    }
-
-    @Override
-    public long hash(Block block, int position)
-    {
-        // convert to canonical NaN if necessary
-        return AbstractLongType.hash(floatToIntBits(intBitsToFloat(block.getInt(position, 0))));
-    }
-
-    @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
         // WARNING: the correctness of InCodeGenerator is dependent on the implementation of this

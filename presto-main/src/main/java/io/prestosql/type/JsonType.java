@@ -61,18 +61,6 @@ public class JsonType
     }
 
     @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        return equalOperator(leftBlock, leftPosition, rightBlock, rightPosition);
-    }
-
-    @Override
-    public long hash(Block block, int position)
-    {
-        return xxHash64Operator(block, position);
-    }
-
-    @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
         if (block.isNull(position)) {

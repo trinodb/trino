@@ -81,24 +81,6 @@ public final class DoubleType
     }
 
     @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        double leftValue = longBitsToDouble(leftBlock.getLong(leftPosition, 0));
-        double rightValue = longBitsToDouble(rightBlock.getLong(rightPosition, 0));
-
-        // direct equality is correct here
-        // noinspection FloatingPointEquality
-        return leftValue == rightValue;
-    }
-
-    @Override
-    public long hash(Block block, int position)
-    {
-        // convert to canonical NaN if necessary
-        return AbstractLongType.hash(doubleToLongBits(longBitsToDouble(block.getLong(position, 0))));
-    }
-
-    @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
         double leftValue = longBitsToDouble(leftBlock.getLong(leftPosition, 0));

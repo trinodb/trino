@@ -108,12 +108,6 @@ public class IpAddressType
     }
 
     @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        return equalOperator(leftBlock, leftPosition, rightBlock, rightPosition);
-    }
-
-    @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
         // compare high order bits
@@ -123,12 +117,6 @@ public class IpAddressType
         }
         // compare low order bits
         return Long.compare(leftBlock.getLong(leftPosition, 0), rightBlock.getLong(rightPosition, 0));
-    }
-
-    @Override
-    public long hash(Block block, int position)
-    {
-        return xxHash64Operator(block, position);
     }
 
     @Override

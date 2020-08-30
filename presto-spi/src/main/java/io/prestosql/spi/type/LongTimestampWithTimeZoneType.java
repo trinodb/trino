@@ -93,12 +93,6 @@ class LongTimestampWithTimeZoneType
     }
 
     @Override
-    public boolean equalTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        return equalOperator(leftBlock, leftPosition, rightBlock, rightPosition);
-    }
-
-    @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
         long leftEpochMillis = getEpochMillis(leftBlock, leftPosition);
@@ -111,12 +105,6 @@ class LongTimestampWithTimeZoneType
             return value;
         }
         return Integer.compare(leftFraction, rightFraction);
-    }
-
-    @Override
-    public long hash(Block block, int position)
-    {
-        return xxHash64Operator(block, position);
     }
 
     @Override
