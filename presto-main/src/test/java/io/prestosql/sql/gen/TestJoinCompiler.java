@@ -23,7 +23,9 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.gen.JoinCompiler.PagesHashStrategyFactory;
+import io.prestosql.type.BlockTypeOperators;
 import io.prestosql.type.TypeUtils;
 import org.openjdk.jol.info.ClassLayout;
 import org.testng.annotations.DataProvider;
@@ -48,6 +50,7 @@ import static org.testng.Assert.assertTrue;
 public class TestJoinCompiler
 {
     private static final Metadata metadata = createTestMetadataManager();
+    private static final BlockTypeOperators blockTypeOperators = new BlockTypeOperators(new TypeOperators());
     private static final JoinCompiler joinCompiler = new JoinCompiler(metadata);
 
     @DataProvider(name = "hashEnabledValues")
@@ -191,7 +194,7 @@ public class TestJoinCompiler
         PagesHashStrategyFactory pagesHashStrategyFactory = joinCompiler.compilePagesHashStrategyFactory(types, joinChannels, Optional.of(outputChannels));
         PagesHashStrategy hashStrategy = pagesHashStrategyFactory.createPagesHashStrategy(channels, hashChannel);
         // todo add tests for filter function
-        PagesHashStrategy expectedHashStrategy = new SimplePagesHashStrategy(types, outputChannels, channels, joinChannels, hashChannel, Optional.empty(), metadata);
+        PagesHashStrategy expectedHashStrategy = new SimplePagesHashStrategy(types, outputChannels, channels, joinChannels, hashChannel, Optional.empty(), blockTypeOperators);
 
         // verify channel count
         assertEquals(hashStrategy.getChannelCount(), outputChannels.size());
