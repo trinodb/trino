@@ -19,7 +19,7 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.type.TypeUtils;
+import io.prestosql.type.TypeTestUtils;
 
 import java.util.List;
 import java.util.Optional;
@@ -124,7 +124,7 @@ public class RowPagesBuilder
     {
         ImmutableList.Builder<Page> resultPages = ImmutableList.builder();
         for (Page page : pages) {
-            resultPages.add(TypeUtils.getHashPage(page, types, hashChannels.get()));
+            resultPages.add(TypeTestUtils.getHashPage(page, types, hashChannels.get()));
         }
         return resultPages.build();
     }

@@ -26,6 +26,7 @@ import io.prestosql.spi.block.DictionaryBlock;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
+import io.prestosql.type.BlockTypeOperators;
 import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import org.openjdk.jol.info.ClassLayout;
 
@@ -96,6 +97,7 @@ public class MultiChannelGroupByHash
             int expectedSize,
             boolean processDictionary,
             JoinCompiler joinCompiler,
+            BlockTypeOperators blockTypeOperators,
             UpdateMemory updateMemory)
     {
         this.hashTypes = ImmutableList.copyOf(requireNonNull(hashTypes, "hashTypes is null"));
@@ -109,7 +111,7 @@ public class MultiChannelGroupByHash
         this.types = inputHashChannel.isPresent() ? ImmutableList.copyOf(Iterables.concat(hashTypes, ImmutableList.of(BIGINT))) : this.hashTypes;
         this.channels = hashChannels.clone();
 
-        this.hashGenerator = inputHashChannel.isPresent() ? new PrecomputedHashGenerator(inputHashChannel.get()) : new InterpretedHashGenerator(this.hashTypes, hashChannels);
+        this.hashGenerator = inputHashChannel.isPresent() ? new PrecomputedHashGenerator(inputHashChannel.get()) : new InterpretedHashGenerator(this.hashTypes, hashChannels, blockTypeOperators);
         this.processDictionary = processDictionary;
 
         // For each hashed channel, create an appendable list to hold the blocks (builders).  As we

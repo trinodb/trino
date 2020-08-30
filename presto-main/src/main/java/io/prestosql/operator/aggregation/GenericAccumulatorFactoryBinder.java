@@ -20,6 +20,7 @@ import io.prestosql.operator.aggregation.AggregationMetadata.AccumulatorStateDes
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
+import io.prestosql.type.BlockTypeOperators;
 
 import java.lang.reflect.Constructor;
 import java.util.List;
@@ -73,6 +74,7 @@ public class GenericAccumulatorFactoryBinder
             PagesIndex.Factory pagesIndexFactory,
             boolean distinct,
             JoinCompiler joinCompiler,
+            BlockTypeOperators blockTypeOperators,
             List<LambdaProvider> lambdaProviders,
             Session session)
     {
@@ -89,6 +91,7 @@ public class GenericAccumulatorFactoryBinder
                 orderings,
                 pagesIndexFactory,
                 joinCompiler,
+                blockTypeOperators,
                 session,
                 distinct);
     }

@@ -18,6 +18,7 @@ import io.prestosql.spi.PageIndexer;
 import io.prestosql.spi.PageIndexerFactory;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
+import io.prestosql.type.BlockTypeOperators;
 
 import javax.inject.Inject;
 
@@ -29,11 +30,13 @@ public class GroupByHashPageIndexerFactory
         implements PageIndexerFactory
 {
     private final JoinCompiler joinCompiler;
+    private final BlockTypeOperators blockTypeOperators;
 
     @Inject
-    public GroupByHashPageIndexerFactory(JoinCompiler joinCompiler)
+    public GroupByHashPageIndexerFactory(JoinCompiler joinCompiler, BlockTypeOperators blockTypeOperators)
     {
         this.joinCompiler = requireNonNull(joinCompiler, "joinCompiler is null");
+        this.blockTypeOperators = requireNonNull(blockTypeOperators, "blockTypeOperators is null");
     }
 
     @Override
@@ -42,7 +45,7 @@ public class GroupByHashPageIndexerFactory
         if (types.isEmpty()) {
             return new NoHashPageIndexer();
         }
-        return new GroupByHashPageIndexer(types, joinCompiler);
+        return new GroupByHashPageIndexer(types, joinCompiler, blockTypeOperators);
     }
 
     private static class NoHashPageIndexer

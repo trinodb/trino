@@ -26,6 +26,7 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.type.BlockTypeOperators;
 
 import java.io.Closeable;
 import java.util.List;
@@ -49,6 +50,7 @@ public class MergingHashAggregationBuilder
     private final long memoryLimitForMerge;
     private final int overwriteIntermediateChannelOffset;
     private final JoinCompiler joinCompiler;
+    private final BlockTypeOperators blockTypeOperators;
 
     public MergingHashAggregationBuilder(
             List<AccumulatorFactory> accumulatorFactories,
@@ -61,7 +63,8 @@ public class MergingHashAggregationBuilder
             AggregatedMemoryContext aggregatedMemoryContext,
             long memoryLimitForMerge,
             int overwriteIntermediateChannelOffset,
-            JoinCompiler joinCompiler)
+            JoinCompiler joinCompiler,
+            BlockTypeOperators blockTypeOperators)
     {
         ImmutableList.Builder<Integer> groupByPartialChannels = ImmutableList.builder();
         for (int i = 0; i < groupByTypes.size(); i++) {
@@ -80,6 +83,7 @@ public class MergingHashAggregationBuilder
         this.memoryLimitForMerge = memoryLimitForMerge;
         this.overwriteIntermediateChannelOffset = overwriteIntermediateChannelOffset;
         this.joinCompiler = joinCompiler;
+        this.blockTypeOperators = blockTypeOperators;
 
         rebuildHashAggregationBuilder();
     }
@@ -150,6 +154,7 @@ public class MergingHashAggregationBuilder
                 Optional.of(DataSize.succinctBytes(0)),
                 Optional.of(overwriteIntermediateChannelOffset),
                 joinCompiler,
+                blockTypeOperators,
                 // TODO: merging should also yield on memory reservations
                 () -> true);
     }

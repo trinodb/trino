@@ -28,6 +28,7 @@ import io.prestosql.spi.connector.ConnectorContext;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.gen.JoinCompiler;
+import io.prestosql.type.BlockTypeOperators;
 import io.prestosql.type.InternalTypeManager;
 import io.prestosql.version.EmbedVersion;
 
@@ -46,7 +47,7 @@ public final class TestingConnectorContext
     {
         Metadata metadata = createTestMetadataManager();
         TypeOperators typeOperators = new TypeOperators();
-        pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(metadata));
+        pageIndexerFactory = new GroupByHashPageIndexerFactory(new JoinCompiler(metadata), new BlockTypeOperators(typeOperators));
         typeManager = new InternalTypeManager(metadata, typeOperators);
     }
 

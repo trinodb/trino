@@ -30,6 +30,7 @@ import io.prestosql.spiller.Spiller;
 import io.prestosql.spiller.SpillerFactory;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.sql.planner.plan.AggregationNode;
+import io.prestosql.type.BlockTypeOperators;
 
 import java.io.IOException;
 import java.util.List;
@@ -64,6 +65,7 @@ public class SpillableHashAggregationBuilder
     private Optional<MergeHashSort> mergeHashSort = Optional.empty();
     private ListenableFuture<?> spillInProgress = immediateFuture(null);
     private final JoinCompiler joinCompiler;
+    private final BlockTypeOperators blockTypeOperators;
 
     // todo get rid of that and only use revocable memory
     private long emptyHashAggregationBuilderSize;
@@ -83,7 +85,8 @@ public class SpillableHashAggregationBuilder
             DataSize memoryLimitForMerge,
             DataSize memoryLimitForMergeWithMemory,
             SpillerFactory spillerFactory,
-            JoinCompiler joinCompiler)
+            JoinCompiler joinCompiler,
+            BlockTypeOperators blockTypeOperators)
     {
         this.accumulatorFactories = accumulatorFactories;
         this.step = step;
@@ -98,6 +101,7 @@ public class SpillableHashAggregationBuilder
         this.memoryLimitForMergeWithMemory = memoryLimitForMergeWithMemory.toBytes();
         this.spillerFactory = spillerFactory;
         this.joinCompiler = joinCompiler;
+        this.blockTypeOperators = blockTypeOperators;
 
         rebuildHashAggregationBuilder();
     }
@@ -266,7 +270,7 @@ public class SpillableHashAggregationBuilder
         checkState(spiller.isPresent());
 
         hashAggregationBuilder.setOutputPartial();
-        mergeHashSort = Optional.of(new MergeHashSort(operatorContext.newAggregateSystemMemoryContext()));
+        mergeHashSort = Optional.of(new MergeHashSort(operatorContext.newAggregateSystemMemoryContext(), blockTypeOperators));
 
         WorkProcessor<Page> mergedSpilledPages = mergeHashSort.get().merge(
                 groupByTypes,
@@ -286,7 +290,7 @@ public class SpillableHashAggregationBuilder
     {
         checkState(spiller.isPresent());
 
-        mergeHashSort = Optional.of(new MergeHashSort(operatorContext.newAggregateSystemMemoryContext()));
+        mergeHashSort = Optional.of(new MergeHashSort(operatorContext.newAggregateSystemMemoryContext(), blockTypeOperators));
 
         WorkProcessor<Page> mergedSpilledPages = mergeHashSort.get().merge(
                 groupByTypes,
@@ -312,7 +316,8 @@ public class SpillableHashAggregationBuilder
                 operatorContext.aggregateSystemMemoryContext(),
                 memoryLimitForMerge,
                 hashAggregationBuilder.getKeyChannels(),
-                joinCompiler));
+                joinCompiler,
+                blockTypeOperators));
 
         return merger.get().buildResult();
     }
@@ -335,6 +340,7 @@ public class SpillableHashAggregationBuilder
                 operatorContext,
                 Optional.of(DataSize.succinctBytes(0)),
                 joinCompiler,
+                blockTypeOperators,
                 () -> {
                     updateMemory();
                     // TODO: Support GroupByHash yielding in spillable hash aggregation (https://github.com/prestosql/presto/issues/460)

@@ -14,14 +14,9 @@
 package io.prestosql.type;
 
 import com.google.common.base.Joiner;
-import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
-import io.prestosql.operator.HashGenerator;
-import io.prestosql.operator.InterpretedHashGenerator;
-import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.FixedWidthType;
@@ -38,11 +33,9 @@ import io.prestosql.spi.type.VarcharType;
 import java.lang.invoke.MethodHandle;
 import java.util.List;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Throwables.throwIfUnchecked;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.StandardTypes.ARRAY;
 import static io.prestosql.spi.type.StandardTypes.MAP;
 import static io.prestosql.spi.type.StandardTypes.ROW;
@@ -119,47 +112,6 @@ public final class TypeUtils
             return leftIsNull && rightIsNull;
         }
         return type.equalTo(leftBlock, leftPosition, rightBlock, rightPosition);
-    }
-
-    public static long getHashPosition(List<? extends Type> hashTypes, Block[] hashBlocks, int position)
-    {
-        int[] hashChannels = new int[hashBlocks.length];
-        for (int i = 0; i < hashBlocks.length; i++) {
-            hashChannels[i] = i;
-        }
-        HashGenerator hashGenerator = new InterpretedHashGenerator(ImmutableList.copyOf(hashTypes), hashChannels);
-        Page page = new Page(hashBlocks);
-        return hashGenerator.hashPosition(position, page);
-    }
-
-    public static Block getHashBlock(List<? extends Type> hashTypes, Block... hashBlocks)
-    {
-        checkArgument(hashTypes.size() == hashBlocks.length);
-        int[] hashChannels = new int[hashBlocks.length];
-        for (int i = 0; i < hashBlocks.length; i++) {
-            hashChannels[i] = i;
-        }
-        HashGenerator hashGenerator = new InterpretedHashGenerator(ImmutableList.copyOf(hashTypes), hashChannels);
-        int positionCount = hashBlocks[0].getPositionCount();
-        BlockBuilder builder = BIGINT.createFixedSizeBlockBuilder(positionCount);
-        Page page = new Page(hashBlocks);
-        for (int i = 0; i < positionCount; i++) {
-            BIGINT.writeLong(builder, hashGenerator.hashPosition(i, page));
-        }
-        return builder.build();
-    }
-
-    public static Page getHashPage(Page page, List<? extends Type> types, List<Integer> hashChannels)
-    {
-        ImmutableList.Builder<Type> hashTypes = ImmutableList.builder();
-        Block[] hashBlocks = new Block[hashChannels.size()];
-        int hashBlockIndex = 0;
-
-        for (int channel : hashChannels) {
-            hashTypes.add(types.get(channel));
-            hashBlocks[hashBlockIndex++] = page.getBlock(channel);
-        }
-        return page.appendColumn(getHashBlock(hashTypes.build(), hashBlocks));
     }
 
     public static void checkElementNotNull(boolean isNull, String errorMsg)

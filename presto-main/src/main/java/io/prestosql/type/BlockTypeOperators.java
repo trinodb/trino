@@ -45,6 +45,11 @@ public final class BlockTypeOperators
     private final ConcurrentMap<GeneratedBlockOperatorKey<?>, GeneratedBlockOperator<?>> generatedBlockOperatorCache = new ConcurrentHashMap<>();
     private final TypeOperators typeOperators;
 
+    public BlockTypeOperators()
+    {
+        this(new TypeOperators());
+    }
+
     @Inject
     public BlockTypeOperators(TypeOperators typeOperators)
     {

@@ -18,9 +18,11 @@ import com.google.common.primitives.Ints;
 import io.prestosql.RowPagesBuilder;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.MaterializedResult;
+import io.prestosql.type.BlockTypeOperators;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
@@ -54,6 +56,7 @@ public class TestDistinctLimitOperator
     private ScheduledExecutorService scheduledExecutor;
     private DriverContext driverContext;
     private JoinCompiler joinCompiler;
+    private BlockTypeOperators blockTypeOperators;
 
     @BeforeMethod
     public void setUp()
@@ -64,6 +67,7 @@ public class TestDistinctLimitOperator
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
         joinCompiler = new JoinCompiler(createTestMetadataManager());
+        blockTypeOperators = new BlockTypeOperators(new TypeOperators());
     }
 
     @AfterMethod(alwaysRun = true)
@@ -94,7 +98,7 @@ public class TestDistinctLimitOperator
                 .addSequencePage(5, 2)
                 .build();
 
-        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, new PlanNodeId("test"), rowPagesBuilder.getTypes(), Ints.asList(0), 5, rowPagesBuilder.getHashChannel(), joinCompiler);
+        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, new PlanNodeId("test"), rowPagesBuilder.getTypes(), Ints.asList(0), 5, rowPagesBuilder.getHashChannel(), joinCompiler, blockTypeOperators);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(1L)
@@ -116,7 +120,7 @@ public class TestDistinctLimitOperator
                 .addSequencePage(3, 2)
                 .build();
 
-        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, new PlanNodeId("test"), rowPagesBuilder.getTypes(), Ints.asList(0), 3, rowPagesBuilder.getHashChannel(), joinCompiler);
+        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, new PlanNodeId("test"), rowPagesBuilder.getTypes(), Ints.asList(0), 3, rowPagesBuilder.getHashChannel(), joinCompiler, blockTypeOperators);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(1L)
@@ -136,7 +140,7 @@ public class TestDistinctLimitOperator
                 .addSequencePage(3, 2)
                 .build();
 
-        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, new PlanNodeId("test"), rowPagesBuilder.getTypes(), Ints.asList(0), 5, rowPagesBuilder.getHashChannel(), joinCompiler);
+        OperatorFactory operatorFactory = new DistinctLimitOperator.DistinctLimitOperatorFactory(0, new PlanNodeId("test"), rowPagesBuilder.getTypes(), Ints.asList(0), 5, rowPagesBuilder.getHashChannel(), joinCompiler, blockTypeOperators);
 
         MaterializedResult expected = resultBuilder(driverContext.getSession(), BIGINT)
                 .row(1L)
@@ -160,7 +164,8 @@ public class TestDistinctLimitOperator
                 ImmutableList.of(0),
                 Integer.MAX_VALUE,
                 Optional.of(1),
-                joinCompiler);
+                joinCompiler,
+                blockTypeOperators);
 
         GroupByHashYieldAssertion.GroupByHashYieldResult result = finishOperatorWithYieldingGroupByHash(input, type, operatorFactory, operator -> ((DistinctLimitOperator) operator).getCapacity(), 1_400_000);
         assertGreaterThan(result.getYieldCount(), 5);
