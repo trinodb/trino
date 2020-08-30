@@ -21,14 +21,14 @@ import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 import static io.prestosql.tpch.TpchTable.REGION;
 
-public class TestMySqlIntegrationSmokeTest
+public class TestGlobalTransactionMySqlIntegrationSmokeTest
         extends BaseMySqlIntegrationSmokeTest
 {
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
     {
-        mysqlServer = new TestingMySqlServer(false);
+        mysqlServer = new TestingMySqlServer(true);
         return createMySqlQueryRunner(mysqlServer, CUSTOMER, NATION, ORDERS, REGION);
     }
 }

@@ -27,13 +27,21 @@ public class TestingMySqlServer
 {
     public TestingMySqlServer()
     {
-        this("mysql:8.0.12");
+        this(false);
     }
 
-    public TestingMySqlServer(String dockerImageName)
+    public TestingMySqlServer(boolean globalTransactionEnable)
+    {
+        this("mysql:8.0.12", globalTransactionEnable);
+    }
+
+    public TestingMySqlServer(String dockerImageName, boolean globalTransactionEnable)
     {
         super(dockerImageName);
         withDatabaseName("tpch");
+        if (globalTransactionEnable) {
+            withCommand("--gtid-mode=ON", "--enforce-gtid-consistency=ON");
+        }
         start();
         execute(format("GRANT ALL PRIVILEGES ON *.* TO '%s'", getUsername()), "root", getPassword());
     }
