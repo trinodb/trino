@@ -20,7 +20,6 @@ import io.airlift.slice.Slice;
 import io.airlift.units.DataSize;
 import io.prestosql.Session;
 import io.prestosql.geospatial.Rectangle;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.operator.SpatialIndexBuilderOperator.SpatialPredicate;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
@@ -58,7 +57,6 @@ import java.util.stream.Stream;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.airlift.slice.SizeOf.sizeOf;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.SyntheticAddress.decodePosition;
 import static io.prestosql.operator.SyntheticAddress.decodeSliceIndex;
 import static io.prestosql.operator.SyntheticAddress.encodeSyntheticAddress;
@@ -130,10 +128,10 @@ public class PagesIndex
     public static class TestingFactory
             implements Factory
     {
+        public static final TypeOperators TYPE_OPERATORS = new TypeOperators();
         private static final OrderingCompiler ORDERING_COMPILER = new OrderingCompiler();
-        private static final Metadata METADATA = createTestMetadataManager();
-        private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(METADATA);
-        private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(new TypeOperators());
+        private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(TYPE_OPERATORS);
+        private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(TYPE_OPERATORS);
         private final boolean eagerCompact;
 
         public TestingFactory(boolean eagerCompact)

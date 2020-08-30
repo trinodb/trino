@@ -37,7 +37,6 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import static io.airlift.slice.SizeOf.sizeOf;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.PageAssertions.assertPageEquals;
 import static io.prestosql.operator.UpdateMemory.NOOP;
 import static io.prestosql.spi.block.SortOrder.ASC_NULLS_LAST;
@@ -421,14 +420,15 @@ public class TestGroupedTopNBuilder
 
     private static GroupByHash createGroupByHash(List<Type> partitionTypes, List<Integer> partitionChannels, UpdateMemory updateMemory)
     {
+        TypeOperators typeOperators = new TypeOperators();
         return GroupByHash.createGroupByHash(
                 partitionTypes,
                 Ints.toArray(partitionChannels),
                 Optional.empty(),
                 1,
                 false,
-                new JoinCompiler(createTestMetadataManager()),
-                new BlockTypeOperators(new TypeOperators()),
+                new JoinCompiler(typeOperators),
+                new BlockTypeOperators(typeOperators),
                 updateMemory);
     }
 

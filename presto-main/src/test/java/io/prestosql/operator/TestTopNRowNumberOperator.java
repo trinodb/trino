@@ -38,7 +38,6 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.airlift.testing.Assertions.assertGreaterThan;
 import static io.prestosql.RowPagesBuilder.rowPagesBuilder;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.operator.GroupByHashYieldAssertion.createPagesWithDistinctHashKeys;
 import static io.prestosql.operator.GroupByHashYieldAssertion.finishOperatorWithYieldingGroupByHash;
 import static io.prestosql.operator.OperatorAssertion.assertOperatorEquals;
@@ -58,7 +57,8 @@ public class TestTopNRowNumberOperator
     private ScheduledExecutorService scheduledExecutor;
     private DriverContext driverContext;
     private JoinCompiler joinCompiler;
-    private BlockTypeOperators blockTypeOperators = new BlockTypeOperators(new TypeOperators());
+    private TypeOperators typeOperators = new TypeOperators();
+    private BlockTypeOperators blockTypeOperators = new BlockTypeOperators(typeOperators);
 
     @BeforeMethod
     public void setUp()
@@ -68,7 +68,7 @@ public class TestTopNRowNumberOperator
         driverContext = createTaskContext(executor, scheduledExecutor, TEST_SESSION)
                 .addPipelineContext(0, true, true, false)
                 .addDriverContext();
-        joinCompiler = new JoinCompiler(createTestMetadataManager());
+        joinCompiler = new JoinCompiler(typeOperators);
     }
 
     @AfterMethod(alwaysRun = true)
