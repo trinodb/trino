@@ -104,7 +104,7 @@ public final class ArrayTransformFunction
         return new ScalarFunctionImplementation(
                 FAIL_ON_NULL,
                 ImmutableList.of(NEVER_NULL, FUNCTION),
-                ImmutableList.of(Optional.empty(), Optional.of(UnaryFunctionInterface.class)),
+                ImmutableList.of(UnaryFunctionInterface.class),
                 methodHandle(generatedClass, "transform", PageBuilder.class, Block.class, UnaryFunctionInterface.class),
                 Optional.of(methodHandle(generatedClass, "createPageBuilder")));
     }

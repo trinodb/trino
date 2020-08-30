@@ -33,7 +33,6 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Collections.emptyList;
-import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
 
 class PolymorphicScalarFunction
@@ -88,7 +87,7 @@ class PolymorphicScalarFunction
         return new ScalarImplementationChoice(
                 choice.getReturnConvention(),
                 choice.getArgumentConventions(),
-                nCopies(choice.getArgumentConventions().size(), Optional.empty()),
+                ImmutableList.of(),
                 methodHandle,
                 Optional.empty());
     }
