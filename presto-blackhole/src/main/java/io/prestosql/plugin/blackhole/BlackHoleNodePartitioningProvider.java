@@ -23,22 +23,31 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 
+import java.lang.invoke.MethodHandle;
 import java.util.List;
 import java.util.function.ToIntFunction;
 
+import static com.google.common.base.Throwables.throwIfUnchecked;
+import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.connector.ConnectorBucketNodeMap.createBucketNodeMap;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
 import static java.util.Objects.requireNonNull;
 
 public class BlackHoleNodePartitioningProvider
         implements ConnectorNodePartitioningProvider
 {
     private final NodeManager nodeManager;
+    private final TypeOperators typeOperators;
 
-    public BlackHoleNodePartitioningProvider(NodeManager nodeManager)
+    public BlackHoleNodePartitioningProvider(NodeManager nodeManager, TypeOperators typeOperators)
     {
         this.nodeManager = requireNonNull(nodeManager, "nodeManager is null");
+        this.typeOperators = typeOperators;
     }
 
     @Override
@@ -66,11 +75,20 @@ public class BlackHoleNodePartitioningProvider
             ConnectorPartitioningHandle partitioningHandle,
             List<Type> partitionChannelTypes, int bucketCount)
     {
+        List<MethodHandle> hashCodeInvokers = partitionChannelTypes.stream()
+                .map(type -> typeOperators.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION)))
+                .collect(toImmutableList());
+
         return (page, position) -> {
             long hash = 13;
             for (int i = 0; i < partitionChannelTypes.size(); i++) {
-                Type type = partitionChannelTypes.get(i);
-                hash = 31 * hash + type.hash(page.getBlock(i), position);
+                try {
+                    hash = 31 * hash + (long) hashCodeInvokers.get(i).invokeExact(page.getBlock(i), 0);
+                }
+                catch (Throwable throwable) {
+                    throwIfUnchecked(throwable);
+                    throw new RuntimeException(throwable);
+                }
             }
 
             // clear the sign bit
