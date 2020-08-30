@@ -23,12 +23,14 @@ import io.prestosql.spi.block.PageBuilderStatus;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.ScalarOperator;
 
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackOffsetMinutes;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackTimeNanos;
-import static io.prestosql.spi.type.TimeWithTimezoneTypes.normalizeNanos;
 import static io.prestosql.spi.type.TimeWithTimezoneTypes.normalizePackedTime;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.prestosql.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
@@ -99,7 +101,7 @@ class ShortTimeWithTimeZoneType
         long left = leftBlock.getLong(leftPosition, 0);
         long right = rightBlock.getLong(rightPosition, 0);
 
-        return Long.compare(normalizeNanos(unpackTimeNanos(left), unpackOffsetMinutes(left)), normalizeNanos(unpackTimeNanos(right), unpackOffsetMinutes(right)));
+        return (int) comparisonOperator(left, right);
     }
 
     @Override
@@ -156,5 +158,23 @@ class ShortTimeWithTimeZoneType
     private static long xxHash64Operator(long packedTime)
     {
         return XxHash64.hash(normalizePackedTime(packedTime));
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(long left, long right)
+    {
+        return Long.compare(normalizePackedTime(left), normalizePackedTime(right));
+    }
+
+    @ScalarOperator(LESS_THAN)
+    private static boolean lessThanOperator(long left, long right)
+    {
+        return normalizePackedTime(left) < normalizePackedTime(right);
+    }
+
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
+    private static boolean lessThanOrEqualOperator(long left, long right)
+    {
+        return normalizePackedTime(left) <= normalizePackedTime(right);
     }
 }

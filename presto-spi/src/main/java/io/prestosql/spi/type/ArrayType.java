@@ -52,11 +52,13 @@ public class ArrayType
     private static final InvocationConvention HASH_CODE_CONVENTION = simpleConvention(FAIL_ON_NULL, NEVER_NULL);
     private static final InvocationConvention DISTINCT_FROM_CONVENTION = simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE, BOXED_NULLABLE);
     private static final InvocationConvention INDETERMINATE_CONVENTION = simpleConvention(FAIL_ON_NULL, NULL_FLAG);
+    private static final InvocationConvention COMPARISON_CONVENTION = simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL);
 
     private static final MethodHandle EQUAL;
     private static final MethodHandle HASH_CODE;
     private static final MethodHandle DISTINCT_FROM;
     private static final MethodHandle INDETERMINATE;
+    private static final MethodHandle COMPARISON;
 
     static {
         try {
@@ -65,13 +67,14 @@ public class ArrayType
             HASH_CODE = lookup.findStatic(ArrayType.class, "hashOperator", MethodType.methodType(long.class, MethodHandle.class, Block.class));
             DISTINCT_FROM = lookup.findStatic(ArrayType.class, "distinctFromOperator", MethodType.methodType(boolean.class, MethodHandle.class, Block.class, Block.class));
             INDETERMINATE = lookup.findStatic(ArrayType.class, "indeterminateOperator", MethodType.methodType(boolean.class, MethodHandle.class, Block.class, boolean.class));
+            COMPARISON = lookup.findStatic(ArrayType.class, "comparisonOperator", MethodType.methodType(long.class, MethodHandle.class, Block.class, Block.class));
         }
         catch (NoSuchMethodException | IllegalAccessException e) {
             throw new RuntimeException(e);
         }
     }
 
-    public static final String ARRAY_NULL_ELEMENT_MSG = "ARRAY comparison not supported for arrays with null elements";
+    private static final String ARRAY_NULL_ELEMENT_MSG = "ARRAY comparison not supported for arrays with null elements";
 
     private final Type elementType;
 
@@ -105,6 +108,7 @@ public class ArrayType
                 .addXxHash64Operators(getXxHash64OperatorMethodHandles(typeOperators, elementType))
                 .addDistinctFromOperators(getDistinctFromOperatorInvokers(typeOperators, elementType))
                 .addIndeterminateOperators(getIndeterminateOperatorInvokers(typeOperators, elementType))
+                .addComparisonOperators(getComparisonOperatorInvokers(typeOperators, elementType))
                 .build();
     }
 
@@ -151,6 +155,15 @@ public class ArrayType
         }
         MethodHandle elementIndeterminateOperator = typeOperators.getIndeterminateOperator(elementType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
         return singletonList(new OperatorMethodHandle(INDETERMINATE_CONVENTION, INDETERMINATE.bindTo(elementIndeterminateOperator)));
+    }
+
+    private static List<OperatorMethodHandle> getComparisonOperatorInvokers(TypeOperators typeOperators, Type elementType)
+    {
+        if (!elementType.isOrderable()) {
+            return emptyList();
+        }
+        MethodHandle elementComparisonOperator = typeOperators.getComparisonOperator(elementType, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+        return singletonList(new OperatorMethodHandle(COMPARISON_CONVENTION, COMPARISON.bindTo(elementComparisonOperator)));
     }
 
     public Type getElementType()
@@ -369,5 +382,22 @@ public class ArrayType
             }
         }
         return false;
+    }
+
+    private static long comparisonOperator(MethodHandle comparisonOperator, Block leftArray, Block rightArray)
+            throws Throwable
+    {
+        int len = Math.min(leftArray.getPositionCount(), rightArray.getPositionCount());
+        for (int position = 0; position < len; position++) {
+            checkElementNotNull(leftArray.isNull(position), ARRAY_NULL_ELEMENT_MSG);
+            checkElementNotNull(rightArray.isNull(position), ARRAY_NULL_ELEMENT_MSG);
+
+            long result = (long) comparisonOperator.invokeExact(leftArray, position, rightArray, position);
+            if (result != 0) {
+                return result;
+            }
+        }
+
+        return Integer.compare(leftArray.getPositionCount(), rightArray.getPositionCount());
     }
 }

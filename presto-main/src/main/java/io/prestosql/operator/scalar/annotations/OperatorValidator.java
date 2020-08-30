@@ -42,6 +42,7 @@ public final class OperatorValidator
                 break;
             case EQUAL:
             case NOT_EQUAL:
+            case COMPARISON:
             case LESS_THAN:
             case LESS_THAN_OR_EQUAL:
             case GREATER_THAN:

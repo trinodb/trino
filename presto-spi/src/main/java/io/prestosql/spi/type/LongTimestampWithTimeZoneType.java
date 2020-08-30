@@ -25,7 +25,10 @@ import io.prestosql.spi.function.BlockPosition;
 import io.prestosql.spi.function.ScalarOperator;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
@@ -99,12 +102,7 @@ class LongTimestampWithTimeZoneType
         int leftFraction = getFraction(leftBlock, leftPosition);
         long rightEpochMillis = getEpochMillis(rightBlock, rightPosition);
         int rightFraction = getFraction(rightBlock, rightPosition);
-
-        int value = Long.compare(leftEpochMillis, rightEpochMillis);
-        if (value != 0) {
-            return value;
-        }
-        return Integer.compare(leftFraction, rightFraction);
+        return comparison(leftEpochMillis, leftFraction, rightEpochMillis, rightFraction);
     }
 
     @Override
@@ -210,5 +208,74 @@ class LongTimestampWithTimeZoneType
     private static long xxHash64(long epochMillis, int fraction)
     {
         return XxHash64.hash(epochMillis) ^ XxHash64.hash(fraction);
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(LongTimestampWithTimeZone left, LongTimestampWithTimeZone right)
+    {
+        return comparison(left.getEpochMillis(), left.getPicosOfMilli(), right.getEpochMillis(), right.getPicosOfMilli());
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    {
+        return comparison(
+                getEpochMillis(leftBlock, leftPosition),
+                getFraction(leftBlock, leftPosition),
+                getEpochMillis(rightBlock, rightPosition),
+                getFraction(rightBlock, rightPosition));
+    }
+
+    private static int comparison(long leftEpochMillis, int leftPicosOfMilli, long rightEpochMillis, int rightPicosOfMilli)
+    {
+        int value = Long.compare(leftEpochMillis, rightEpochMillis);
+        if (value != 0) {
+            return value;
+        }
+        return Integer.compare(leftPicosOfMilli, rightPicosOfMilli);
+    }
+
+    @ScalarOperator(LESS_THAN)
+    private static boolean lessThanOperator(LongTimestampWithTimeZone left, LongTimestampWithTimeZone right)
+    {
+        return lessThan(left.getEpochMillis(), left.getPicosOfMilli(), right.getEpochMillis(), right.getPicosOfMilli());
+    }
+
+    @ScalarOperator(LESS_THAN)
+    private static boolean lessThanOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    {
+        return lessThan(
+                getEpochMillis(leftBlock, leftPosition),
+                getFraction(leftBlock, leftPosition),
+                getEpochMillis(rightBlock, rightPosition),
+                getFraction(rightBlock, rightPosition));
+    }
+
+    private static boolean lessThan(long leftEpochMillis, int leftPicosOfMilli, long rightEpochMillis, int rightPicosOfMilli)
+    {
+        return (leftEpochMillis < rightEpochMillis) ||
+                ((leftEpochMillis == rightEpochMillis) && (leftPicosOfMilli < rightPicosOfMilli));
+    }
+
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
+    private static boolean lessThanOrEqualOperator(LongTimestampWithTimeZone left, LongTimestampWithTimeZone right)
+    {
+        return lessThanOrEqual(left.getEpochMillis(), left.getPicosOfMilli(), right.getEpochMillis(), right.getPicosOfMilli());
+    }
+
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
+    private static boolean lessThanOrEqualOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    {
+        return lessThanOrEqual(
+                getEpochMillis(leftBlock, leftPosition),
+                getFraction(leftBlock, leftPosition),
+                getEpochMillis(rightBlock, rightPosition),
+                getFraction(rightBlock, rightPosition));
+    }
+
+    private static boolean lessThanOrEqual(long leftEpochMillis, int leftPicosOfMilli, long rightEpochMillis, int rightPicosOfMilli)
+    {
+        return (leftEpochMillis < rightEpochMillis) ||
+                ((leftEpochMillis == rightEpochMillis) && (leftPicosOfMilli <= rightPicosOfMilli));
     }
 }

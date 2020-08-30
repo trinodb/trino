@@ -25,9 +25,12 @@ import io.prestosql.spi.function.ScalarOperator;
 
 import java.util.Optional;
 
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
 import static java.lang.Double.doubleToLongBits;
@@ -194,5 +197,23 @@ public final class DoubleType
             return false;
         }
         return left != right;
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(double left, double right)
+    {
+        return Double.compare(left, right);
+    }
+
+    @ScalarOperator(LESS_THAN)
+    private static boolean lessThanOperator(double left, double right)
+    {
+        return left < right;
+    }
+
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
+    private static boolean lessThanOrEqualOperator(double left, double right)
+    {
+        return left <= right;
     }
 }

@@ -28,6 +28,7 @@ import io.prestosql.spi.function.ScalarOperator;
 import java.util.Objects;
 
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.Chars.compareChars;
@@ -202,5 +203,11 @@ public final class CharType
     private static long xxHash64Operator(@BlockPosition Block block, @BlockIndex int position)
     {
         return block.hash(position, 0, block.getSliceLength(position));
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(Slice left, Slice right)
+    {
+        return compareChars(left, right);
     }
 }

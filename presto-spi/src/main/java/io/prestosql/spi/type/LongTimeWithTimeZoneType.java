@@ -25,8 +25,11 @@ import io.prestosql.spi.function.BlockPosition;
 import io.prestosql.spi.function.ScalarOperator;
 
 import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
+import static io.prestosql.spi.function.OperatorType.COMPARISON;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.spi.type.TimeWithTimezoneTypes.normalizePicos;
 import static io.prestosql.spi.type.TypeOperatorDeclaration.extractOperatorDeclaration;
@@ -89,13 +92,7 @@ class LongTimeWithTimeZoneType
     @Override
     public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
     {
-        long leftPicos = getPicos(leftBlock, leftPosition);
-        int leftOffsetMinutes = getOffsetMinutes(leftBlock, leftPosition);
-
-        long rightPicos = getPicos(rightBlock, rightPosition);
-        int rightOffsetMinutes = getOffsetMinutes(rightBlock, leftPosition);
-
-        return Long.compare(normalizePicos(leftPicos, leftOffsetMinutes), normalizePicos(rightPicos, rightOffsetMinutes));
+        return (int) comparisonOperator(leftBlock, leftPosition, rightBlock, rightPosition);
     }
 
     @Override
@@ -203,5 +200,80 @@ class LongTimeWithTimeZoneType
     private static long xxHash64(long picos, int offsetMinutes)
     {
         return XxHash64.hash(normalizePicos(picos, offsetMinutes));
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(LongTimeWithTimeZone left, LongTimeWithTimeZone right)
+    {
+        return comparison(
+                left.getPicoSeconds(),
+                left.getOffsetMinutes(),
+                right.getPicoSeconds(),
+                right.getOffsetMinutes());
+    }
+
+    @ScalarOperator(COMPARISON)
+    private static long comparisonOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    {
+        return comparison(
+                getPicos(leftBlock, leftPosition),
+                getOffsetMinutes(leftBlock, leftPosition),
+                getPicos(rightBlock, rightPosition),
+                getOffsetMinutes(rightBlock, rightPosition));
+    }
+
+    private static long comparison(long leftPicos, int leftOffsetMinutes, long rightPicos, int rightOffsetMinutes)
+    {
+        return Long.compare(normalizePicos(leftPicos, leftOffsetMinutes), normalizePicos(rightPicos, rightOffsetMinutes));
+    }
+
+    @ScalarOperator(LESS_THAN)
+    private static boolean lessThanOperator(LongTimeWithTimeZone left, LongTimeWithTimeZone right)
+    {
+        return lessThan(
+                left.getPicoSeconds(),
+                left.getOffsetMinutes(),
+                right.getPicoSeconds(),
+                right.getOffsetMinutes());
+    }
+
+    @ScalarOperator(LESS_THAN)
+    private static boolean lessThanOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    {
+        return lessThan(
+                getPicos(leftBlock, leftPosition),
+                getOffsetMinutes(leftBlock, leftPosition),
+                getPicos(rightBlock, rightPosition),
+                getOffsetMinutes(rightBlock, rightPosition));
+    }
+
+    private static boolean lessThan(long leftPicos, int leftOffsetMinutes, long rightPicos, int rightOffsetMinutes)
+    {
+        return normalizePicos(leftPicos, leftOffsetMinutes) < normalizePicos(rightPicos, rightOffsetMinutes);
+    }
+
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
+    private static boolean lessThanOrEqualOperator(LongTimeWithTimeZone left, LongTimeWithTimeZone right)
+    {
+        return lessThanOrEqual(
+                left.getPicoSeconds(),
+                left.getOffsetMinutes(),
+                right.getPicoSeconds(),
+                right.getOffsetMinutes());
+    }
+
+    @ScalarOperator(LESS_THAN_OR_EQUAL)
+    private static boolean lessThanOrEqualOperator(@BlockPosition Block leftBlock, @BlockIndex int leftPosition, @BlockPosition Block rightBlock, @BlockIndex int rightPosition)
+    {
+        return lessThanOrEqual(
+                getPicos(leftBlock, leftPosition),
+                getOffsetMinutes(leftBlock, leftPosition),
+                getPicos(rightBlock, rightPosition),
+                getOffsetMinutes(rightBlock, rightPosition));
+    }
+
+    private static boolean lessThanOrEqual(long leftPicos, int leftOffsetMinutes, long rightPicos, int rightOffsetMinutes)
+    {
+        return normalizePicos(leftPicos, leftOffsetMinutes) <= normalizePicos(rightPicos, rightOffsetMinutes);
     }
 }

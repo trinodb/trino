@@ -24,10 +24,6 @@ import org.joda.time.DateTimeField;
 import org.joda.time.chrono.ISOChronology;
 
 import static io.prestosql.spi.function.OperatorType.ADD;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN_OR_EQUAL;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN;
-import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.SUBTRACT;
 import static io.prestosql.spi.type.TimestampType.MAX_SHORT_PRECISION;
 import static io.prestosql.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
@@ -42,80 +38,6 @@ import static java.lang.Math.multiplyExact;
 public final class TimestampOperators
 {
     private TimestampOperators() {}
-
-    @ScalarOperator(LESS_THAN)
-    public static final class LessThan
-    {
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean lessThan(@SqlType("timestamp(p)") long left, @SqlType("timestamp(p)") long right)
-        {
-            return left < right;
-        }
-
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean lessThan(@SqlType("timestamp(p)") LongTimestamp left, @SqlType("timestamp(p)") LongTimestamp right)
-        {
-            return (left.getEpochMicros() < right.getEpochMicros()) ||
-                    ((left.getEpochMicros() == right.getEpochMicros()) && (left.getPicosOfMicro() < right.getPicosOfMicro()));
-        }
-    }
-
-    @ScalarOperator(LESS_THAN_OR_EQUAL)
-    public static final class LessThanOrEqual
-    {
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean lessThanOrEqual(@SqlType("timestamp(p)") long left, @SqlType("timestamp(p)") long right)
-        {
-            return left <= right;
-        }
-
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean lessThanOrEqual(@SqlType("timestamp(p)") LongTimestamp left, @SqlType("timestamp(p)") LongTimestamp right)
-        {
-            return left.getEpochMicros() < right.getEpochMicros() ||
-                    left.getEpochMicros() == right.getEpochMicros() && left.getPicosOfMicro() <= right.getPicosOfMicro();
-        }
-    }
-
-    @ScalarOperator(GREATER_THAN)
-    public static final class GreaterThan
-    {
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean greaterThan(@SqlType("timestamp(p)") long left, @SqlType("timestamp(p)") long right)
-        {
-            return left > right;
-        }
-
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean greaterThan(@SqlType("timestamp(p)") LongTimestamp left, @SqlType("timestamp(p)") LongTimestamp right)
-        {
-            return !LessThanOrEqual.lessThanOrEqual(left, right);
-        }
-    }
-
-    @ScalarOperator(GREATER_THAN_OR_EQUAL)
-    public static final class GreaterThanOrEqual
-    {
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean greaterThanOrEqual(@SqlType("timestamp(p)") long left, @SqlType("timestamp(p)") long right)
-        {
-            return left >= right;
-        }
-
-        @LiteralParameters("p")
-        @SqlType(StandardTypes.BOOLEAN)
-        public static boolean greaterThanOrEqual(@SqlType("timestamp(p)") LongTimestamp left, @SqlType("timestamp(p)") LongTimestamp right)
-        {
-            return !LessThan.lessThan(left, right);
-        }
-    }
 
     @ScalarOperator(ADD)
     public static final class TimestampPlusIntervalDayToSecond

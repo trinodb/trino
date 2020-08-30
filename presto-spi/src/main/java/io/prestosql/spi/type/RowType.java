@@ -65,6 +65,7 @@ public class RowType
     private static final InvocationConvention HASH_CODE_CONVENTION = simpleConvention(FAIL_ON_NULL, NEVER_NULL);
     private static final InvocationConvention DISTINCT_FROM_CONVENTION = simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE, BOXED_NULLABLE);
     private static final InvocationConvention INDETERMINATE_CONVENTION = simpleConvention(FAIL_ON_NULL, BOXED_NULLABLE);
+    private static final InvocationConvention COMPARISON_CONVENTION = simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL);
 
     private static final MethodHandle EQUAL;
     private static final MethodHandle CHAIN_EQUAL;
@@ -75,6 +76,8 @@ public class RowType
     private static final MethodHandle CHAIN_DISTINCT_FROM;
     private static final MethodHandle INDETERMINATE;
     private static final MethodHandle CHAIN_INDETERMINATE;
+    private static final MethodHandle COMPARISON;
+    private static final MethodHandle CHAIN_COMPARISON;
     private static final int MEGAMORPHIC_FIELD_COUNT = 64;
 
     // this field is used in double checked locking
@@ -93,6 +96,8 @@ public class RowType
             CHAIN_DISTINCT_FROM = lookup.findStatic(RowType.class, "chainDistinctFrom", methodType(boolean.class, boolean.class, int.class, MethodHandle.class, Block.class, Block.class));
             INDETERMINATE = lookup.findStatic(RowType.class, "megamorphicIndeterminateOperator", methodType(boolean.class, List.class, Block.class));
             CHAIN_INDETERMINATE = lookup.findStatic(RowType.class, "chainIndeterminate", methodType(boolean.class, boolean.class, int.class, MethodHandle.class, Block.class));
+            COMPARISON = lookup.findStatic(RowType.class, "megamorphicComparisonOperator", methodType(long.class, List.class, Block.class, Block.class));
+            CHAIN_COMPARISON = lookup.findStatic(RowType.class, "chainComparison", methodType(long.class, long.class, int.class, MethodHandle.class, Block.class, Block.class));
         }
         catch (NoSuchMethodException | IllegalAccessException e) {
             throw new RuntimeException(e);
@@ -333,6 +338,7 @@ public class RowType
                 .addXxHash64Operators(getXxHash64OperatorMethodHandles(typeOperators, fields))
                 .addDistinctFromOperators(getDistinctFromOperatorInvokers(typeOperators, fields))
                 .addIndeterminateOperators(getIndeterminateOperatorInvokers(typeOperators, fields))
+                .addComparisonOperators(getComparisonOperatorInvokers(typeOperators, fields))
                .build();
     }
 
@@ -630,6 +636,72 @@ public class RowType
             return true;
         }
         return (boolean) currentFieldIndeterminateOperator.invokeExact(row, currentFieldIndex);
+    }
+
+    private static List<OperatorMethodHandle> getComparisonOperatorInvokers(TypeOperators typeOperators, List<Field> fields)
+    {
+        boolean orderable = fields.stream().allMatch(field -> field.getType().isOrderable());
+        if (!orderable) {
+            return emptyList();
+        }
+
+        // for large rows, use a generic loop with a megamorphic call site
+        if (fields.size() > MEGAMORPHIC_FIELD_COUNT) {
+            List<MethodHandle> comparisonOperators = fields.stream()
+                    .map(field -> typeOperators.getComparisonOperator(field.getType(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION)))
+                    .collect(toUnmodifiableList());
+            return singletonList(new OperatorMethodHandle(COMPARISON_CONVENTION, COMPARISON.bindTo(comparisonOperators)));
+        }
+
+        // (Block, Block):Boolean
+        MethodHandle comparison = dropArguments(constant(long.class, 0), 0, Block.class, Block.class);
+        for (int fieldId = 0; fieldId < fields.size(); fieldId++) {
+            Field field = fields.get(fieldId);
+            // (Block, Block, int, MethodHandle, Block, Block):Boolean
+            comparison = collectArguments(
+                    CHAIN_COMPARISON,
+                    0,
+                    comparison);
+
+            // field comparison
+            MethodHandle fieldComparisonOperator = typeOperators.getComparisonOperator(field.getType(), simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
+
+            // (Block, Block, Block, Block):Boolean
+            comparison = insertArguments(comparison, 2, fieldId, fieldComparisonOperator);
+
+            // (Block, Block):Boolean
+            comparison = permuteArguments(comparison, methodType(long.class, Block.class, Block.class), 0, 1, 0, 1);
+        }
+        return singletonList(new OperatorMethodHandle(COMPARISON_CONVENTION, comparison));
+    }
+
+    private static long megamorphicComparisonOperator(List<MethodHandle> comparisonOperators, Block leftRow, Block rightRow)
+            throws Throwable
+    {
+        for (int fieldIndex = 0; fieldIndex < comparisonOperators.size(); fieldIndex++) {
+            checkElementNotNull(leftRow.isNull(fieldIndex));
+            checkElementNotNull(rightRow.isNull(fieldIndex));
+
+            MethodHandle comparisonOperator = comparisonOperators.get(fieldIndex);
+            long result = (long) comparisonOperator.invoke(leftRow, fieldIndex, rightRow, fieldIndex);
+            if (result == 0) {
+                return result;
+            }
+        }
+        return 0;
+    }
+
+    private static long chainComparison(long previousFieldsResult, int fieldIndex, MethodHandle nextFieldComparison, Block rightRow, Block leftRow)
+            throws Throwable
+    {
+        if (previousFieldsResult != 0) {
+            return previousFieldsResult;
+        }
+
+        checkElementNotNull(leftRow.isNull(fieldIndex));
+        checkElementNotNull(rightRow.isNull(fieldIndex));
+
+        return (long) nextFieldComparison.invokeExact(rightRow, fieldIndex, leftRow, fieldIndex);
     }
 
     private static void checkElementNotNull(boolean isNull)

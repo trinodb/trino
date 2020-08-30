@@ -23,6 +23,7 @@ public enum OperatorType
     NEGATION("-", 1),
     EQUAL("=", 2),
     NOT_EQUAL("<>", 2),
+    COMPARISON("COMPARISON", 2),
     LESS_THAN("<", 2),
     LESS_THAN_OR_EQUAL("<=", 2),
     GREATER_THAN(">", 2),
