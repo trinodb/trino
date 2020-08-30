@@ -225,7 +225,6 @@ public class JoinCompiler
         generatePositionEqualsRowMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, true);
         generatePositionEqualsRowMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, false);
         generatePositionNotDistinctFromRowWithPageMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
-        generatePositionEqualsRowWithPageMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields);
         generatePositionEqualsPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, true);
         generatePositionEqualsPositionMethod(classDefinition, callSiteBinder, joinChannelTypes, joinChannelFields, false);
         generateIsPositionNull(classDefinition, joinChannelFields);
@@ -594,45 +593,6 @@ public class JoinCompiler
                 .getBody()
                 .push(true)
                 .retInt();
-    }
-
-    private static void generatePositionEqualsRowWithPageMethod(
-            ClassDefinition classDefinition,
-            CallSiteBinder callSiteBinder,
-            List<Type> joinChannelTypes,
-            List<FieldDefinition> joinChannelFields)
-    {
-        Parameter leftBlockIndex = arg("leftBlockIndex", int.class);
-        Parameter leftBlockPosition = arg("leftBlockPosition", int.class);
-        Parameter rightPosition = arg("rightPosition", int.class);
-        Parameter page = arg("page", Page.class);
-        Parameter rightChannels = arg("rightChannels", int[].class);
-
-        MethodDefinition positionEqualsRowMethod = classDefinition.declareMethod(
-                a(PUBLIC),
-                "positionEqualsRow",
-                type(boolean.class),
-                leftBlockIndex,
-                leftBlockPosition,
-                rightPosition,
-                page,
-                rightChannels);
-
-        Variable thisVariable = positionEqualsRowMethod.getThis();
-        BytecodeBlock body = positionEqualsRowMethod.getBody();
-        for (int index = 0; index < joinChannelTypes.size(); index++) {
-            BytecodeExpression type = constantType(callSiteBinder, joinChannelTypes.get(index));
-            BytecodeExpression leftBlock = thisVariable
-                    .getField(joinChannelFields.get(index))
-                    .invoke("get", Object.class, leftBlockIndex)
-                    .cast(Block.class);
-
-            BytecodeExpression rightBlock = page.invoke("getBlock", Block.class, rightChannels.getElement(index));
-            body.append(new IfStatement()
-                    .condition(typeEquals(type, leftBlock, leftBlockPosition, rightBlock, rightPosition))
-                    .ifFalse(constantFalse().ret()));
-        }
-        body.append(constantTrue().ret());
     }
 
     private void generatePositionNotDistinctFromRowWithPageMethod(

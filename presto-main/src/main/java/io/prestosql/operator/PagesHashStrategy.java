@@ -70,13 +70,6 @@ public interface PagesHashStrategy
     boolean positionEqualsRowIgnoreNulls(int leftBlockIndex, int leftPosition, int rightPosition, Page rightPage);
 
     /**
-     * Compares the hashed columns in this PagesHashStrategy to the hashed columns in the Page. The
-     * values are compared positionally, so {@code rightChannels} must have the same number of entries as
-     * the hashed columns and each entry is expected to be the same type.
-     */
-    boolean positionEqualsRow(int leftBlockIndex, int leftPosition, int rightPosition, Page page, int[] rightChannels);
-
-    /**
      * Compares the hashed columns in this PagesHashStrategy to the hashed columns in the Page.
      * The values are compared positionally under "not distinct from" semantics.
      * {@code rightChannels} must have the same number of entries as the hashed columns
