@@ -98,6 +98,7 @@ import io.prestosql.spi.type.ParametricType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeNotFoundException;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.analyzer.TypeSignatureProvider;
@@ -179,6 +180,7 @@ public final class MetadataManager
         implements Metadata
 {
     private final FunctionRegistry functions;
+    private final TypeOperators typeOperators;
     private final FunctionResolver functionResolver;
     private final ProcedureRegistry procedures;
     private final SessionPropertyManager sessionPropertyManager;
@@ -202,7 +204,8 @@ public final class MetadataManager
             TablePropertyManager tablePropertyManager,
             ColumnPropertyManager columnPropertyManager,
             AnalyzePropertyManager analyzePropertyManager,
-            TransactionManager transactionManager)
+            TransactionManager transactionManager,
+            TypeOperators typeOperators)
     {
         typeRegistry = new TypeRegistry(featuresConfig);
         functions = new FunctionRegistry(this::getBlockEncodingSerde, featuresConfig);
@@ -215,6 +218,7 @@ public final class MetadataManager
         this.columnPropertyManager = requireNonNull(columnPropertyManager, "columnPropertyManager is null");
         this.analyzePropertyManager = requireNonNull(analyzePropertyManager, "analyzePropertyManager is null");
         this.transactionManager = requireNonNull(transactionManager, "transactionManager is null");
+        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
 
         // add the built-in BlockEncodings
         addBlockEncoding(new VariableWidthBlockEncoding());
@@ -226,8 +230,8 @@ public final class MetadataManager
         addBlockEncoding(new Int128ArrayBlockEncoding());
         addBlockEncoding(new DictionaryBlockEncoding());
         addBlockEncoding(new ArrayBlockEncoding());
-        addBlockEncoding(new MapBlockEncoding(new InternalTypeManager(this)));
-        addBlockEncoding(new SingleMapBlockEncoding(new InternalTypeManager(this)));
+        addBlockEncoding(new MapBlockEncoding(new InternalTypeManager(this, typeOperators)));
+        addBlockEncoding(new SingleMapBlockEncoding(new InternalTypeManager(this, typeOperators)));
         addBlockEncoding(new RowBlockEncoding());
         addBlockEncoding(new SingleRowBlockEncoding());
         addBlockEncoding(new RunLengthBlockEncoding());
@@ -260,6 +264,7 @@ public final class MetadataManager
 
     public static MetadataManager createTestMetadataManager(TransactionManager transactionManager, FeaturesConfig featuresConfig)
     {
+        TypeOperators typeOperators = new TypeOperators();
         return new MetadataManager(
                 featuresConfig,
                 new SessionPropertyManager(),
@@ -267,7 +272,8 @@ public final class MetadataManager
                 new TablePropertyManager(),
                 new ColumnPropertyManager(),
                 new AnalyzePropertyManager(),
-                transactionManager);
+                transactionManager,
+                typeOperators);
     }
 
     @Override
@@ -1499,19 +1505,19 @@ public final class MetadataManager
     @Override
     public Type getType(TypeSignature signature)
     {
-        return typeRegistry.getType(new InternalTypeManager(this), signature);
+        return typeRegistry.getType(new InternalTypeManager(this, typeOperators), signature);
     }
 
     @Override
     public Type fromSqlType(String sqlType)
     {
-        return typeRegistry.fromSqlType(new InternalTypeManager(this), sqlType);
+        return typeRegistry.fromSqlType(new InternalTypeManager(this, typeOperators), sqlType);
     }
 
     @Override
     public Type getType(TypeId id)
     {
-        return typeRegistry.getType(new InternalTypeManager(this), id);
+        return typeRegistry.getType(new InternalTypeManager(this, typeOperators), id);
     }
 
     @Override

@@ -19,6 +19,7 @@ import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeId;
 import io.prestosql.spi.type.TypeManager;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.spi.type.TypeSignature;
 
 import javax.inject.Inject;
@@ -33,11 +34,13 @@ public final class InternalTypeManager
         implements TypeManager
 {
     private final Metadata metadata;
+    private final TypeOperators typeOperators;
 
     @Inject
-    public InternalTypeManager(Metadata metadata)
+    public InternalTypeManager(Metadata metadata, TypeOperators typeOperators)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.typeOperators = requireNonNull(typeOperators, "typeOperatorsCache is null");
     }
 
     @Override
@@ -56,6 +59,12 @@ public final class InternalTypeManager
     public Type getType(TypeId id)
     {
         return metadata.getType(id);
+    }
+
+    @Override
+    public TypeOperators getTypeOperators()
+    {
+        return typeOperators;
     }
 
     @Override

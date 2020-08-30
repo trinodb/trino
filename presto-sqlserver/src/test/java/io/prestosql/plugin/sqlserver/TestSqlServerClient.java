@@ -23,8 +23,6 @@ import io.prestosql.spi.connector.AggregateFunction;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.expression.Variable;
-import io.prestosql.spi.type.TypeManager;
-import io.prestosql.type.InternalTypeManager;
 import org.testng.annotations.Test;
 
 import java.sql.Types;
@@ -32,7 +30,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -43,8 +40,6 @@ import static org.testng.Assert.assertTrue;
 
 public class TestSqlServerClient
 {
-    private static final TypeManager TYPE_MANAGER = new InternalTypeManager(createTestMetadataManager());
-
     private static final JdbcColumnHandle BIGINT_COLUMN =
             JdbcColumnHandle.builder()
                     .setColumnName("c_bigint")

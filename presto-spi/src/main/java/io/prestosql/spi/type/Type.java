@@ -23,6 +23,7 @@ import io.prestosql.spi.connector.ConnectorSession;
 import java.util.List;
 import java.util.Optional;
 
+import static io.prestosql.spi.type.TypeOperatorDeclaration.NO_TYPE_OPERATOR_DECLARATION;
 import static java.util.Objects.requireNonNull;
 
 public interface Type
@@ -62,6 +63,14 @@ public interface Type
      * True if the type supports compareTo.
      */
     boolean isOrderable();
+
+    /**
+     * Gets the type specific operators for this type.
+     */
+    default TypeOperatorDeclaration getTypeOperators(TypeOperators typeOperators)
+    {
+        return NO_TYPE_OPERATOR_DECLARATION;
+    }
 
     /**
      * Gets the Java class type used to represent this value on the stack during
