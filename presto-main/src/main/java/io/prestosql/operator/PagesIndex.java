@@ -26,7 +26,7 @@ import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.analyzer.FeaturesConfig;
@@ -129,7 +129,7 @@ public class PagesIndex
             implements Factory
     {
         public static final TypeOperators TYPE_OPERATORS = new TypeOperators();
-        private static final OrderingCompiler ORDERING_COMPILER = new OrderingCompiler();
+        private static final OrderingCompiler ORDERING_COMPILER = new OrderingCompiler(TYPE_OPERATORS);
         private static final JoinCompiler JOIN_COMPILER = new JoinCompiler(TYPE_OPERATORS);
         private static final BlockTypeOperators TYPE_OPERATOR_FACTORY = new BlockTypeOperators(TYPE_OPERATORS);
         private final boolean eagerCompact;

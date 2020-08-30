@@ -13,17 +13,19 @@
  */
 package io.prestosql.sql.planner.iterative.rule;
 
+import com.google.common.base.Throwables;
 import io.prestosql.Session;
 import io.prestosql.SystemSessionProperties;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.OperatorNotFoundException;
 import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.predicate.Utils;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.InterpretedFunctionInvoker;
 import io.prestosql.sql.planner.ExpressionInterpreter;
 import io.prestosql.sql.planner.LiteralEncoder;
@@ -39,8 +41,12 @@ import io.prestosql.sql.tree.IsNullPredicate;
 import io.prestosql.sql.tree.NullLiteral;
 import io.prestosql.type.TypeCoercion;
 
+import java.lang.invoke.MethodHandle;
 import java.util.Optional;
 
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
@@ -98,23 +104,28 @@ import static java.util.Objects.requireNonNull;
 public class UnwrapCastInComparison
         extends ExpressionRewriteRuleSet
 {
-    public UnwrapCastInComparison(Metadata metadata, TypeAnalyzer typeAnalyzer)
+    public UnwrapCastInComparison(Metadata metadata, TypeOperators typeOperators, TypeAnalyzer typeAnalyzer)
     {
-        super(createRewrite(metadata, typeAnalyzer));
+        super(createRewrite(metadata, typeOperators, typeAnalyzer));
     }
 
-    private static ExpressionRewriter createRewrite(Metadata metadata, TypeAnalyzer typeAnalyzer)
+    private static ExpressionRewriter createRewrite(Metadata metadata, TypeOperators typeOperators, TypeAnalyzer typeAnalyzer)
     {
         requireNonNull(metadata, "metadata is null");
         requireNonNull(typeAnalyzer, "typeAnalyzer is null");
 
-        return (expression, context) -> unwrapCasts(context.getSession(), metadata, typeAnalyzer, context.getSymbolAllocator().getTypes(), expression);
+        return (expression, context) -> unwrapCasts(context.getSession(), metadata, typeOperators, typeAnalyzer, context.getSymbolAllocator().getTypes(), expression);
     }
 
-    public static Expression unwrapCasts(Session session, Metadata metadata, TypeAnalyzer typeAnalyzer, TypeProvider types, Expression expression)
+    public static Expression unwrapCasts(Session session,
+            Metadata metadata,
+            TypeOperators typeOperators,
+            TypeAnalyzer typeAnalyzer,
+            TypeProvider types,
+            Expression expression)
     {
         if (SystemSessionProperties.isUnwrapCasts(session)) {
-            return ExpressionTreeRewriter.rewriteWith(new Visitor(metadata, typeAnalyzer, session, types), expression);
+            return ExpressionTreeRewriter.rewriteWith(new Visitor(metadata, typeOperators, typeAnalyzer, session, types), expression);
         }
 
         return expression;
@@ -124,15 +135,17 @@ public class UnwrapCastInComparison
             extends io.prestosql.sql.tree.ExpressionRewriter<Void>
     {
         private final Metadata metadata;
+        private final TypeOperators typeOperators;
         private final TypeAnalyzer typeAnalyzer;
         private final Session session;
         private final TypeProvider types;
         private final InterpretedFunctionInvoker functionInvoker;
         private final LiteralEncoder literalEncoder;
 
-        public Visitor(Metadata metadata, TypeAnalyzer typeAnalyzer, Session session, TypeProvider types)
+        public Visitor(Metadata metadata, TypeOperators typeOperators, TypeAnalyzer typeAnalyzer, Session session, TypeProvider types)
         {
             this.metadata = requireNonNull(metadata, "metadata is null");
+            this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
             this.session = requireNonNull(session, "session is null");
             this.types = requireNonNull(types, "types is null");
@@ -433,15 +446,20 @@ public class UnwrapCastInComparison
         {
             return type instanceof DoubleType || type instanceof RealType;
         }
-    }
 
-    private static int compare(Type type, Object first, Object second)
-    {
-        return type.compareTo(
-                Utils.nativeValueToBlock(type, first),
-                0,
-                Utils.nativeValueToBlock(type, second),
-                0);
+        private int compare(Type type, Object first, Object second)
+        {
+            requireNonNull(first, "first is null");
+            requireNonNull(second, "second is null");
+            MethodHandle comparisonOperator = typeOperators.getComparisonOperator(type, InvocationConvention.simpleConvention(FAIL_ON_NULL, NEVER_NULL, NEVER_NULL));
+            try {
+                return (int) (long) comparisonOperator.invoke(first, second);
+            }
+            catch (Throwable throwable) {
+                Throwables.throwIfUnchecked(throwable);
+                throw new PrestoException(GENERIC_INTERNAL_ERROR, throwable);
+            }
+        }
     }
 
     private static Expression falseIfNotNull(Expression argument)

@@ -19,8 +19,9 @@ import io.prestosql.operator.WorkProcessor.TransformationState;
 import io.prestosql.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperator;
 import io.prestosql.operator.WorkProcessorOperatorAdapter.AdapterWorkProcessorOperatorFactory;
 import io.prestosql.spi.Page;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import java.util.List;
@@ -42,9 +43,10 @@ public class TopNOperator
             List<? extends Type> types,
             int n,
             List<Integer> sortChannels,
-            List<SortOrder> sortOrders)
+            List<SortOrder> sortOrders,
+            TypeOperators typeOperators)
     {
-        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, types, n, sortChannels, sortOrders));
+        return createAdapterOperatorFactory(new Factory(operatorId, planNodeId, types, n, sortChannels, sortOrders, typeOperators));
     }
 
     private static class Factory
@@ -56,6 +58,7 @@ public class TopNOperator
         private final int n;
         private final List<Integer> sortChannels;
         private final List<SortOrder> sortOrders;
+        private final TypeOperators typeOperators;
         private boolean closed;
 
         private Factory(
@@ -64,7 +67,8 @@ public class TopNOperator
                 List<? extends Type> types,
                 int n,
                 List<Integer> sortChannels,
-                List<SortOrder> sortOrders)
+                List<SortOrder> sortOrders,
+                TypeOperators typeOperators)
         {
             this.operatorId = operatorId;
             this.planNodeId = requireNonNull(planNodeId, "planNodeId is null");
@@ -72,6 +76,7 @@ public class TopNOperator
             this.n = n;
             this.sortChannels = ImmutableList.copyOf(requireNonNull(sortChannels, "sortChannels is null"));
             this.sortOrders = ImmutableList.copyOf(requireNonNull(sortOrders, "sortOrders is null"));
+            this.typeOperators = typeOperators;
         }
 
         @Override
@@ -86,7 +91,8 @@ public class TopNOperator
                     sourceTypes,
                     n,
                     sortChannels,
-                    sortOrders);
+                    sortOrders,
+                    typeOperators);
         }
 
         @Override
@@ -99,7 +105,8 @@ public class TopNOperator
                     sourceTypes,
                     n,
                     sortChannels,
-                    sortOrders);
+                    sortOrders,
+                    typeOperators);
         }
 
         @Override
@@ -129,7 +136,7 @@ public class TopNOperator
         @Override
         public Factory duplicate()
         {
-            return new Factory(operatorId, planNodeId, sourceTypes, n, sortChannels, sortOrders);
+            return new Factory(operatorId, planNodeId, sourceTypes, n, sortChannels, sortOrders, typeOperators);
         }
     }
 
@@ -143,14 +150,16 @@ public class TopNOperator
             List<Type> types,
             int n,
             List<Integer> sortChannels,
-            List<SortOrder> sortOrders)
+            List<SortOrder> sortOrders,
+            TypeOperators typeOperators)
     {
         this.topNProcessor = new TopNProcessor(
                 requireNonNull(memoryTrackingContext, "memoryTrackingContext is null").aggregateUserMemoryContext(),
                 types,
                 n,
                 sortChannels,
-                sortOrders);
+                sortOrders,
+                typeOperators);
 
         if (n == 0) {
             pages = WorkProcessor.of();

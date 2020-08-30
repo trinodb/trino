@@ -749,7 +749,7 @@ public class LocalQueryRunner
                 new PagesIndex.TestingFactory(false),
                 joinCompiler,
                 new LookupJoinOperators(),
-                new OrderingCompiler(),
+                new OrderingCompiler(typeOperators),
                 new DynamicFilterConfig(),
                 typeOperators,
                 blockTypeOperators);
@@ -848,6 +848,7 @@ public class LocalQueryRunner
     {
         return new PlanOptimizers(
                 metadata,
+                typeOperators,
                 new TypeAnalyzer(sqlParser, metadata),
                 taskManagerConfig,
                 forceSingleNode,
@@ -879,6 +880,7 @@ public class LocalQueryRunner
                 optimizers,
                 planFragmenter,
                 metadata,
+                typeOperators,
                 accessControl,
                 sqlParser,
                 statsCalculator,
@@ -886,7 +888,17 @@ public class LocalQueryRunner
                 dataDefinitionTask);
         Analyzer analyzer = new Analyzer(session, metadata, sqlParser, accessControl, Optional.of(queryExplainer), preparedQuery.getParameters(), parameterExtractor(preparedQuery.getStatement(), preparedQuery.getParameters()), warningCollector);
 
-        LogicalPlanner logicalPlanner = new LogicalPlanner(session, optimizers, new PlanSanityChecker(true), idAllocator, metadata, new TypeAnalyzer(sqlParser, metadata), statsCalculator, costCalculator, warningCollector);
+        LogicalPlanner logicalPlanner = new LogicalPlanner(
+                session,
+                optimizers,
+                new PlanSanityChecker(true),
+                idAllocator,
+                metadata,
+                typeOperators,
+                new TypeAnalyzer(sqlParser, metadata),
+                statsCalculator,
+                costCalculator,
+                warningCollector);
 
         Analysis analysis = analyzer.analyze(preparedQuery.getStatement());
         // make LocalQueryRunner always compute plan statistics for test purposes

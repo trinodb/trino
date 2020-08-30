@@ -110,18 +110,6 @@ public class IpAddressType
     }
 
     @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        // compare high order bits
-        int compare = Long.compare(leftBlock.getLong(leftPosition, SIZE_OF_LONG), rightBlock.getLong(rightPosition, SIZE_OF_LONG));
-        if (compare != 0) {
-            return compare;
-        }
-        // compare low order bits
-        return Long.compare(leftBlock.getLong(leftPosition, 0), rightBlock.getLong(rightPosition, 0));
-    }
-
-    @Override
     public Object getObjectValue(ConnectorSession session, Block block, int position)
     {
         if (block.isNull(position)) {

@@ -111,16 +111,6 @@ public final class TinyintType
     }
 
     @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        // WARNING: the correctness of InCodeGenerator is dependent on the implementation of this
-        // function being the equivalence of internal long representation.
-        byte leftValue = leftBlock.getByte(leftPosition, 0);
-        byte rightValue = rightBlock.getByte(rightPosition, 0);
-        return Byte.compare(leftValue, rightValue);
-    }
-
-    @Override
     public Optional<Range> getRange()
     {
         return Optional.of(new Range((long) Byte.MIN_VALUE, (long) Byte.MAX_VALUE));

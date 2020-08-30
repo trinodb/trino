@@ -165,13 +165,6 @@ public interface Type
     void appendTo(Block block, int position, BlockBuilder blockBuilder);
 
     /**
-     * Compare the values in the specified block at the specified positions.
-     *
-     * @return 0 if the values are equal, negative if left is less than right, and positive, otherwise.
-     */
-    int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition);
-
-    /**
      * Return the range of possible values for this type, if available.
      * <p>
      * The type of the values must match {@link #getJavaType}

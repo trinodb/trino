@@ -16,7 +16,7 @@ package io.prestosql.sql.planner.optimizations;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.sql.planner.RuleStatsRecorder;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.assertions.BasePlanTest;
@@ -323,7 +323,12 @@ public class TestReorderWindows
     {
         List<PlanOptimizer> optimizers = ImmutableList.of(
                 new UnaliasSymbolReferences(getQueryRunner().getMetadata()),
-                new PredicatePushDown(getQueryRunner().getMetadata(), new TypeAnalyzer(getQueryRunner().getSqlParser(), getQueryRunner().getMetadata()), false, false),
+                new PredicatePushDown(
+                        getQueryRunner().getMetadata(),
+                        getQueryRunner().getTypeOperators(),
+                        new TypeAnalyzer(getQueryRunner().getSqlParser(), getQueryRunner().getMetadata()),
+                        false,
+                        false),
                 new IterativeOptimizer(
                         new RuleStatsRecorder(),
                         getQueryRunner().getStatsCalculator(),

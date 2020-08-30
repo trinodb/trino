@@ -15,7 +15,7 @@ package io.prestosql.sql.planner.optimizations;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.PartitioningScheme;
 import io.prestosql.sql.planner.Symbol;

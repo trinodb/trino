@@ -16,8 +16,9 @@ package io.prestosql.operator;
 import io.prestosql.memory.context.AggregatedMemoryContext;
 import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.spi.Page;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 
 import javax.annotation.Nullable;
 
@@ -45,7 +46,7 @@ public class TopNProcessor
             List<Type> types,
             int n,
             List<Integer> sortChannels,
-            List<SortOrder> sortOrders)
+            List<SortOrder> sortOrders, TypeOperators typeOperators)
     {
         requireNonNull(aggregatedMemoryContext, "aggregatedMemoryContext is null");
         this.localUserMemoryContext = aggregatedMemoryContext.newLocalMemoryContext(TopNProcessor.class.getSimpleName());
@@ -57,7 +58,7 @@ public class TopNProcessor
         else {
             topNBuilder = new GroupedTopNBuilder(
                     types,
-                    new SimplePageWithPositionComparator(types, sortChannels, sortOrders),
+                    new SimplePageWithPositionComparator(types, sortChannels, sortOrders, typeOperators),
                     n,
                     false,
                     new NoChannelGroupByHash());

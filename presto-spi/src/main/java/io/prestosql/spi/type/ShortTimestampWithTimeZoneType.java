@@ -96,14 +96,6 @@ class ShortTimestampWithTimeZoneType
     }
 
     @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        long leftValue = unpackMillisUtc(leftBlock.getLong(leftPosition, 0));
-        long rightValue = unpackMillisUtc(rightBlock.getLong(rightPosition, 0));
-        return Long.compare(leftValue, rightValue);
-    }
-
-    @Override
     public final BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
         int maxBlockSizeInBytes;

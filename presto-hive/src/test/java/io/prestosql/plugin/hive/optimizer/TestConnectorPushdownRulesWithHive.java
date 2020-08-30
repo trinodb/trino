@@ -41,6 +41,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.planner.iterative.rule.PushPredicateIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.PushProjectionIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
@@ -187,7 +188,7 @@ public class TestConnectorPushdownRulesWithHive
         String tableName = "predicate_test";
         tester().getQueryRunner().execute(format("CREATE TABLE %s (a, b) AS SELECT 5, 6", tableName));
 
-        PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getMetadata(), tester().getTypeAnalyzer());
+        PushPredicateIntoTableScan pushPredicateIntoTableScan = new PushPredicateIntoTableScan(tester().getMetadata(), new TypeOperators(), tester().getTypeAnalyzer());
 
         HiveTableHandle hiveTable = new HiveTableHandle(SCHEMA_NAME, tableName, ImmutableMap.of(), ImmutableList.of(), Optional.empty());
         TableHandle table = new TableHandle(new CatalogName(HIVE_CATALOG_NAME), hiveTable, new HiveTransactionHandle(), Optional.empty());

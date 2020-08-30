@@ -15,7 +15,7 @@
 package io.prestosql.cost;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.spi.block.SortOrder;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.TopNNode;
 import org.testng.annotations.Test;

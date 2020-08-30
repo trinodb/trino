@@ -15,6 +15,7 @@ package io.prestosql.spi.predicate;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
@@ -24,6 +25,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.StringJoiner;
 
+import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
@@ -51,6 +53,7 @@ public final class Marker
     }
 
     private final Type type;
+    private final MethodHandle comparisonOperator;
     private final Optional<Block> valueBlock;
     private final Bound bound;
     private final MethodHandle equalOperator;
@@ -83,6 +86,7 @@ public final class Marker
             throw new IllegalArgumentException("cannot use NaN as range bound");
         }
         this.type = type;
+        this.comparisonOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getComparisonOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION, BLOCK_POSITION));
         this.valueBlock = valueBlock;
         this.bound = bound;
         this.equalOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION));
@@ -188,7 +192,7 @@ public final class Marker
         if (isUpperUnbounded() || isLowerUnbounded() || other.isUpperUnbounded() || other.isLowerUnbounded()) {
             return false;
         }
-        if (type.compareTo(valueBlock.get(), 0, other.valueBlock.get(), 0) != 0) {
+        if (compare(valueBlock.get(), other.valueBlock.get()) != 0) {
             return false;
         }
         return (bound == Bound.EXACTLY && other.bound != Bound.EXACTLY) ||
@@ -247,7 +251,7 @@ public final class Marker
         }
         // INVARIANT: value and o.value are present
 
-        int compare = type.compareTo(valueBlock.get(), 0, o.valueBlock.get(), 0);
+        int compare = compare(valueBlock.get(), o.valueBlock.get());
         if (compare == 0) {
             if (bound == o.bound) {
                 return 0;
@@ -262,6 +266,19 @@ public final class Marker
             return (o.bound == Bound.BELOW) ? 1 : -1;
         }
         return compare;
+    }
+
+    public int compare(Block left, Block right)
+    {
+        try {
+            return (int) (long) comparisonOperator.invokeExact(left, 0, right, 0);
+        }
+        catch (RuntimeException | Error e) {
+            throw e;
+        }
+        catch (Throwable throwable) {
+            throw new PrestoException(GENERIC_INTERNAL_ERROR, throwable);
+        }
     }
 
     public static Marker min(Marker marker1, Marker marker2)

@@ -146,7 +146,7 @@ public final class TaskTestUtils
                 new PagesIndex.TestingFactory(false),
                 new JoinCompiler(typeOperators),
                 new LookupJoinOperators(),
-                new OrderingCompiler(),
+                new OrderingCompiler(typeOperators),
                 new DynamicFilterConfig(),
                 typeOperators,
                 blockTypeOperators);

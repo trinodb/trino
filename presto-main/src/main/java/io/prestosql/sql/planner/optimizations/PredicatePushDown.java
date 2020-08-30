@@ -21,6 +21,7 @@ import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.spi.type.Type;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.planner.DomainTranslator;
 import io.prestosql.sql.planner.EffectivePredicateExtractor;
 import io.prestosql.sql.planner.EqualityInference;
@@ -100,15 +101,22 @@ public class PredicatePushDown
         implements PlanOptimizer
 {
     private final Metadata metadata;
+    private final TypeOperators typeOperators;
     private final LiteralEncoder literalEncoder;
     private final TypeAnalyzer typeAnalyzer;
     private final boolean useTableProperties;
     private final boolean dynamicFiltering;
 
-    public PredicatePushDown(Metadata metadata, TypeAnalyzer typeAnalyzer, boolean useTableProperties, boolean dynamicFiltering)
+    public PredicatePushDown(
+            Metadata metadata,
+            TypeOperators typeOperators,
+            TypeAnalyzer typeAnalyzer,
+            boolean useTableProperties,
+            boolean dynamicFiltering)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
         this.literalEncoder = new LiteralEncoder(metadata);
+        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.useTableProperties = useTableProperties;
         this.dynamicFiltering = dynamicFiltering;
@@ -127,7 +135,7 @@ public class PredicatePushDown
                 metadata,
                 useTableProperties && isPredicatePushdownUseTableProperties(session));
         return SimplePlanRewriter.rewriteWith(
-                new Rewriter(symbolAllocator, idAllocator, metadata, literalEncoder, effectivePredicateExtractor, typeAnalyzer, session, types, dynamicFiltering),
+                new Rewriter(symbolAllocator, idAllocator, metadata, typeOperators, literalEncoder, effectivePredicateExtractor, typeAnalyzer, session, types, dynamicFiltering),
                 plan,
                 TRUE_LITERAL);
     }
@@ -138,6 +146,7 @@ public class PredicatePushDown
         private final SymbolAllocator symbolAllocator;
         private final PlanNodeIdAllocator idAllocator;
         private final Metadata metadata;
+        private final TypeOperators typeOperators;
         private final LiteralEncoder literalEncoder;
         private final EffectivePredicateExtractor effectivePredicateExtractor;
         private final TypeAnalyzer typeAnalyzer;
@@ -150,6 +159,7 @@ public class PredicatePushDown
                 SymbolAllocator symbolAllocator,
                 PlanNodeIdAllocator idAllocator,
                 Metadata metadata,
+                TypeOperators typeOperators,
                 LiteralEncoder literalEncoder,
                 EffectivePredicateExtractor effectivePredicateExtractor,
                 TypeAnalyzer typeAnalyzer,
@@ -160,6 +170,7 @@ public class PredicatePushDown
             this.symbolAllocator = requireNonNull(symbolAllocator, "symbolAllocator is null");
             this.idAllocator = requireNonNull(idAllocator, "idAllocator is null");
             this.metadata = requireNonNull(metadata, "metadata is null");
+            this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
             this.literalEncoder = requireNonNull(literalEncoder, "literalEncoder is null");
             this.effectivePredicateExtractor = requireNonNull(effectivePredicateExtractor, "effectivePredicateExtractor is null");
             this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
@@ -267,7 +278,7 @@ public class PredicatePushDown
             List<Expression> inlinedDeterministicConjuncts = inlineConjuncts.get(true).stream()
                     .map(entry -> inlineSymbols(node.getAssignments().getMap(), entry))
                     .map(conjunct -> canonicalizeExpression(conjunct, typeAnalyzer.getTypes(session, types, conjunct), metadata)) // normalize expressions to a form that unwrapCasts understands
-                    .map(conjunct -> unwrapCasts(session, metadata, typeAnalyzer, types, conjunct))
+                    .map(conjunct -> unwrapCasts(session, metadata, typeOperators, typeAnalyzer, types, conjunct))
                     .collect(Collectors.toList());
 
             PlanNode rewrittenNode = context.defaultRewrite(node, combineConjuncts(metadata, inlinedDeterministicConjuncts));

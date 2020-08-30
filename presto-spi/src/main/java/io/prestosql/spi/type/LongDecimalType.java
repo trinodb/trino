@@ -99,16 +99,6 @@ final class LongDecimalType
     }
 
     @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        long leftLow = leftBlock.getLong(leftPosition, 0);
-        long leftHigh = leftBlock.getLong(leftPosition, SIZE_OF_LONG);
-        long rightLow = rightBlock.getLong(rightPosition, 0);
-        long rightHigh = rightBlock.getLong(rightPosition, SIZE_OF_LONG);
-        return compare(leftLow, leftHigh, rightLow, rightHigh);
-    }
-
-    @Override
     public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
         if (block.isNull(position)) {

@@ -28,6 +28,7 @@ import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.planner.DomainTranslator;
 import io.prestosql.sql.planner.ExpressionInterpreter;
 import io.prestosql.sql.planner.LookupSymbolResolver;
@@ -76,12 +77,14 @@ public class PushPredicateIntoTableScan
             tableScan().capturedAs(TABLE_SCAN)));
 
     private final Metadata metadata;
+    private final TypeOperators typeOperators;
     private final TypeAnalyzer typeAnalyzer;
     private final DomainTranslator domainTranslator;
 
-    public PushPredicateIntoTableScan(Metadata metadata, TypeAnalyzer typeAnalyzer)
+    public PushPredicateIntoTableScan(Metadata metadata, TypeOperators typeOperators, TypeAnalyzer typeAnalyzer)
     {
         this.metadata = requireNonNull(metadata, "metadata is null");
+        this.typeOperators = requireNonNull(typeOperators, "typeOperators is null");
         this.typeAnalyzer = requireNonNull(typeAnalyzer, "typeAnalyzer is null");
         this.domainTranslator = new DomainTranslator(metadata);
     }
@@ -111,6 +114,7 @@ public class PushPredicateIntoTableScan
                 context.getSymbolAllocator().getTypes(),
                 context.getIdAllocator(),
                 metadata,
+                typeOperators,
                 typeAnalyzer,
                 domainTranslator);
 
@@ -150,6 +154,7 @@ public class PushPredicateIntoTableScan
             TypeProvider types,
             PlanNodeIdAllocator idAllocator,
             Metadata metadata,
+            TypeOperators typeOperators,
             TypeAnalyzer typeAnalyzer,
             DomainTranslator domainTranslator)
     {
@@ -159,6 +164,7 @@ public class PushPredicateIntoTableScan
 
         DomainTranslator.ExtractionResult decomposedPredicate = DomainTranslator.fromPredicate(
                 metadata,
+                typeOperators,
                 session,
                 deterministicPredicate,
                 types);

@@ -101,15 +101,6 @@ public final class CharType
     }
 
     @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        Slice leftSlice = leftBlock.getSlice(leftPosition, 0, leftBlock.getSliceLength(leftPosition));
-        Slice rightSlice = rightBlock.getSlice(rightPosition, 0, rightBlock.getSliceLength(rightPosition));
-
-        return compareChars(leftSlice, rightSlice);
-    }
-
-    @Override
     public BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries)
     {
         // If bound on length of char is smaller than EXPECTED_BYTES_PER_ENTRY, use that as expectedBytesPerEntry

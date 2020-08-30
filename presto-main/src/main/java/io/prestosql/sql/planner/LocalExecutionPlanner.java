@@ -121,12 +121,12 @@ import io.prestosql.operator.window.WindowFunctionSupplier;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorIndex;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.RecordSet;
+import io.prestosql.spi.connector.SortOrder;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.type.Type;
@@ -911,6 +911,7 @@ public class LocalExecutionPlanner
                     hashChannel,
                     1000,
                     joinCompiler,
+                    typeOperators,
                     blockTypeOperators);
 
             return new PhysicalOperation(operatorFactory, makeLayout(node), context, source);
@@ -1037,7 +1038,8 @@ public class LocalExecutionPlanner
                     source.getTypes(),
                     (int) node.getCount(),
                     sortChannels,
-                    sortOrders);
+                    sortOrders,
+                    typeOperators);
 
             return new PhysicalOperation(operator, source.getLayout(), context, source);
         }

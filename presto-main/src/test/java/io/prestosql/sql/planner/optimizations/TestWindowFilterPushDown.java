@@ -28,7 +28,7 @@ import org.testng.annotations.Test;
 import java.util.Optional;
 
 import static io.prestosql.SystemSessionProperties.OPTIMIZE_TOP_N_ROW_NUMBER;
-import static io.prestosql.spi.block.SortOrder.ASC_NULLS_LAST;
+import static io.prestosql.spi.connector.SortOrder.ASC_NULLS_LAST;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.any;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyNot;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.anyTree;

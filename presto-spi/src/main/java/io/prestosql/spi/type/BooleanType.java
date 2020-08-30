@@ -108,14 +108,6 @@ public final class BooleanType
     }
 
     @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        boolean leftValue = leftBlock.getByte(leftPosition, 0) != 0;
-        boolean rightValue = rightBlock.getByte(rightPosition, 0) != 0;
-        return Boolean.compare(leftValue, rightValue);
-    }
-
-    @Override
     public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
         if (block.isNull(position)) {

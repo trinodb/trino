@@ -14,7 +14,6 @@
 package io.prestosql.operator.aggregation.state;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.operator.aggregation.BlockComparator;
 import io.prestosql.operator.aggregation.TypedHeap;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
@@ -22,6 +21,7 @@ import io.prestosql.spi.function.AccumulatorStateSerializer;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
+import io.prestosql.type.BlockTypeOperators.BlockPositionComparison;
 
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.lang.Math.toIntExact;
@@ -29,14 +29,14 @@ import static java.lang.Math.toIntExact;
 public class MinMaxNStateSerializer
         implements AccumulatorStateSerializer<MinMaxNState>
 {
-    private final BlockComparator blockComparator;
+    private final BlockPositionComparison blockComparison;
     private final Type elementType;
     private final ArrayType arrayType;
     private final Type serializedType;
 
-    public MinMaxNStateSerializer(BlockComparator blockComparator, Type elementType)
+    public MinMaxNStateSerializer(BlockPositionComparison blockComparison, Type elementType)
     {
-        this.blockComparator = blockComparator;
+        this.blockComparison = blockComparison;
         this.elementType = elementType;
         this.arrayType = new ArrayType(elementType);
         this.serializedType = RowType.anonymous(ImmutableList.of(BIGINT, arrayType));
@@ -72,7 +72,7 @@ public class MinMaxNStateSerializer
         Block currentBlock = (Block) serializedType.getObject(block, index);
         int capacity = toIntExact(BIGINT.getLong(currentBlock, 0));
         Block heapBlock = arrayType.getObject(currentBlock, 1);
-        TypedHeap heap = new TypedHeap(blockComparator, elementType, capacity);
+        TypedHeap heap = new TypedHeap(blockComparison, elementType, capacity);
         heap.addAll(heapBlock);
         state.setTypedHeap(heap);
     }

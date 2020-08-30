@@ -96,14 +96,6 @@ final class ShortDecimalType
     }
 
     @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        long leftValue = leftBlock.getLong(leftPosition, 0);
-        long rightValue = rightBlock.getLong(rightPosition, 0);
-        return Long.compare(leftValue, rightValue);
-    }
-
-    @Override
     public void appendTo(Block block, int position, BlockBuilder blockBuilder)
     {
         if (block.isNull(position)) {

@@ -106,16 +106,6 @@ public abstract class AbstractIntType
     }
 
     @Override
-    public int compareTo(Block leftBlock, int leftPosition, Block rightBlock, int rightPosition)
-    {
-        // WARNING: the correctness of InCodeGenerator is dependent on the implementation of this
-        // function being the equivalence of internal long representation.
-        int leftValue = leftBlock.getInt(leftPosition, 0);
-        int rightValue = rightBlock.getInt(rightPosition, 0);
-        return Integer.compare(leftValue, rightValue);
-    }
-
-    @Override
     public final BlockBuilder createBlockBuilder(BlockBuilderStatus blockBuilderStatus, int expectedEntries, int expectedBytesPerEntry)
     {
         int maxBlockSizeInBytes;

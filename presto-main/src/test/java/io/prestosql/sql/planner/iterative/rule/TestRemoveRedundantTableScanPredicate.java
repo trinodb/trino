@@ -25,6 +25,7 @@ import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
+import io.prestosql.spi.type.TypeOperators;
 import io.prestosql.sql.planner.FunctionCallBuilder;
 import io.prestosql.sql.planner.iterative.rule.test.BaseRuleTest;
 import io.prestosql.sql.tree.ArithmeticBinaryExpression;
@@ -59,7 +60,7 @@ public class TestRemoveRedundantTableScanPredicate
     @BeforeClass
     public void setUpBeforeClass()
     {
-        removeRedundantTableScanPredicate = new RemoveRedundantTableScanPredicate(tester().getMetadata());
+        removeRedundantTableScanPredicate = new RemoveRedundantTableScanPredicate(tester().getMetadata(), new TypeOperators());
         CatalogName catalogName = tester().getCurrentConnectorId();
         TpchTableHandle nation = new TpchTableHandle("nation", 1.0);
         nationTableHandle = new TableHandle(
