@@ -51,6 +51,8 @@ import io.prestosql.operator.aggregation.IntervalDayToSecondSumAggregation;
 import io.prestosql.operator.aggregation.IntervalYearToMonthAverageAggregation;
 import io.prestosql.operator.aggregation.IntervalYearToMonthSumAggregation;
 import io.prestosql.operator.aggregation.LongSumAggregation;
+import io.prestosql.operator.aggregation.MapAggregationFunction;
+import io.prestosql.operator.aggregation.MapUnionAggregation;
 import io.prestosql.operator.aggregation.MaxDataSizeForStats;
 import io.prestosql.operator.aggregation.MergeHyperLogLogAggregation;
 import io.prestosql.operator.aggregation.MergeQuantileDigestFunction;
@@ -275,8 +277,6 @@ import static io.prestosql.operator.aggregation.ChecksumAggregationFunction.CHEC
 import static io.prestosql.operator.aggregation.CountColumn.COUNT_COLUMN;
 import static io.prestosql.operator.aggregation.DecimalAverageAggregation.DECIMAL_AVERAGE_AGGREGATION;
 import static io.prestosql.operator.aggregation.DecimalSumAggregation.DECIMAL_SUM_AGGREGATION;
-import static io.prestosql.operator.aggregation.MapAggregationFunction.MAP_AGG;
-import static io.prestosql.operator.aggregation.MapUnionAggregation.MAP_UNION;
 import static io.prestosql.operator.aggregation.MaxAggregationFunction.MAX_AGGREGATION;
 import static io.prestosql.operator.aggregation.MaxNAggregationFunction.MAX_N_AGGREGATION;
 import static io.prestosql.operator.aggregation.MinAggregationFunction.MIN_AGGREGATION;
@@ -572,7 +572,7 @@ public class FunctionRegistry
                 .function(new ArrayAggregationFunction(featuresConfig.getArrayAggGroupImplementation()))
                 .functions(new MapSubscriptOperator())
                 .functions(MAP_CONSTRUCTOR, MAP_TO_JSON, JSON_TO_MAP, JSON_STRING_TO_MAP)
-                .functions(MAP_AGG, MAP_UNION)
+                .functions(new MapAggregationFunction(blockTypeOperators), new MapUnionAggregation(blockTypeOperators))
                 .function(REDUCE_AGG)
                 .function(new MultimapAggregationFunction(featuresConfig.getMultimapAggGroupImplementation(), blockTypeOperators))
                 .functions(DECIMAL_TO_VARCHAR_CAST, DECIMAL_TO_INTEGER_CAST, DECIMAL_TO_BIGINT_CAST, DECIMAL_TO_DOUBLE_CAST, DECIMAL_TO_REAL_CAST, DECIMAL_TO_BOOLEAN_CAST, DECIMAL_TO_TINYINT_CAST, DECIMAL_TO_SMALLINT_CAST)
