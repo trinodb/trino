@@ -19,11 +19,18 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.type.Type;
 
+import java.lang.invoke.MethodHandle;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.StringJoiner;
 
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.FAIL_ON_NULL;
+import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
+import static io.prestosql.spi.function.InvocationConvention.simpleConvention;
+import static io.prestosql.spi.predicate.Utils.TUPLE_DOMAIN_TYPE_OPERATORS;
 import static io.prestosql.spi.predicate.Utils.blockToNativeValue;
+import static io.prestosql.spi.predicate.Utils.handleThrowable;
 import static io.prestosql.spi.predicate.Utils.nativeValueToBlock;
 import static io.prestosql.spi.type.TypeUtils.isFloatingPointNaN;
 import static java.lang.String.format;
@@ -46,6 +53,8 @@ public final class Marker
     private final Type type;
     private final Optional<Block> valueBlock;
     private final Bound bound;
+    private final MethodHandle equalOperator;
+    private final MethodHandle hashCodeOperator;
 
     /**
      * LOWER UNBOUNDED is specified with an empty value and a ABOVE bound
@@ -76,6 +85,8 @@ public final class Marker
         this.type = type;
         this.valueBlock = valueBlock;
         this.bound = bound;
+        this.equalOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getEqualOperator(type, simpleConvention(NULLABLE_RETURN, BLOCK_POSITION, BLOCK_POSITION));
+        this.hashCodeOperator = TUPLE_DOMAIN_TYPE_OPERATORS.getHashCodeOperator(type, simpleConvention(FAIL_ON_NULL, BLOCK_POSITION));
     }
 
     private static Marker create(Type type, Optional<Object> value, Bound bound)
@@ -266,11 +277,21 @@ public final class Marker
     @Override
     public int hashCode()
     {
-        int hash = Objects.hash(type, bound);
+        long hash = Objects.hash(type, bound);
         if (valueBlock.isPresent()) {
-            hash = hash * 31 + (int) type.hash(valueBlock.get(), 0);
+            hash = hash * 31 + valueHash();
         }
-        return hash;
+        return (int) hash;
+    }
+
+    private long valueHash()
+    {
+        try {
+            return (long) hashCodeOperator.invokeExact(valueBlock.get(), 0);
+        }
+        catch (Throwable throwable) {
+            throw handleThrowable(throwable);
+        }
     }
 
     @Override
@@ -286,7 +307,17 @@ public final class Marker
         return Objects.equals(this.type, other.type)
                 && this.bound == other.bound
                 && ((this.valueBlock.isPresent()) == (other.valueBlock.isPresent()))
-                && (this.valueBlock.isEmpty() || type.equalTo(this.valueBlock.get(), 0, other.valueBlock.get(), 0));
+                && (this.valueBlock.isEmpty() || valueEqual(this.valueBlock.get(), other.valueBlock.get()));
+    }
+
+    private boolean valueEqual(Block leftBlock, Block rightBlock)
+    {
+        try {
+            return Boolean.TRUE.equals((Boolean) equalOperator.invokeExact(leftBlock, 0, rightBlock, 0));
+        }
+        catch (Throwable throwable) {
+            throw handleThrowable(throwable);
+        }
     }
 
     @Override
