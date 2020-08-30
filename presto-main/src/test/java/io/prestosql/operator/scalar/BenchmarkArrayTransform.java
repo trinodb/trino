@@ -58,7 +58,7 @@ import java.util.stream.Collectors;
 import static com.google.common.base.Verify.verify;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypes;
@@ -122,8 +122,8 @@ public class BenchmarkArrayTransform
                                         ImmutableList.of(BIGINT),
                                         ImmutableList.of("x"),
                                         new CallExpression(
-                                                metadata.resolveOperator(GREATER_THAN, ImmutableList.of(BIGINT, BIGINT)),
-                                                ImmutableList.of(new VariableReferenceExpression("x", BIGINT), new ConstantExpression(0L, BIGINT)))))));
+                                                metadata.resolveOperator(LESS_THAN, ImmutableList.of(BIGINT, BIGINT)),
+                                                ImmutableList.of(new ConstantExpression(0L, BIGINT), new VariableReferenceExpression("x", BIGINT)))))));
                 blocks[i] = createChannel(POSITIONS, ARRAY_SIZE, arrayType);
             }
 

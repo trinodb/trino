@@ -57,7 +57,7 @@ import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
+import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
@@ -132,15 +132,15 @@ public class BenchmarkTransformValue
             ResolvedFunction resolvedFunction = metadata.resolveFunction(
                     QualifiedName.of(name),
                     fromTypes(mapType, new FunctionType(ImmutableList.of(elementType), elementType)));
-            ResolvedFunction greaterThan = metadata.resolveOperator(GREATER_THAN, ImmutableList.of(elementType, elementType));
+            ResolvedFunction lessThan = metadata.resolveOperator(LESS_THAN, ImmutableList.of(elementType, elementType));
             projectionsBuilder.add(call(resolvedFunction, ImmutableList.of(
                     field(0, mapType),
                     new LambdaDefinitionExpression(
                             ImmutableList.of(elementType, elementType),
                             ImmutableList.of("x", "y"),
-                            call(greaterThan, ImmutableList.of(
-                                    new VariableReferenceExpression("y", elementType),
-                                    constant(compareValue, elementType)))))));
+                            call(lessThan, ImmutableList.of(
+                                    constant(compareValue, elementType),
+                                    new VariableReferenceExpression("y", elementType)))))));
             Block block = createChannel(POSITIONS, mapType, elementType);
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();

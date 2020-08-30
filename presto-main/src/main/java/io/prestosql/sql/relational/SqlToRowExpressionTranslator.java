@@ -41,6 +41,7 @@ import io.prestosql.sql.tree.Cast;
 import io.prestosql.sql.tree.CharLiteral;
 import io.prestosql.sql.tree.CoalesceExpression;
 import io.prestosql.sql.tree.ComparisonExpression;
+import io.prestosql.sql.tree.ComparisonExpression.Operator;
 import io.prestosql.sql.tree.DecimalLiteral;
 import io.prestosql.sql.tree.DereferenceExpression;
 import io.prestosql.sql.tree.DoubleLiteral;
@@ -306,9 +307,26 @@ public final class SqlToRowExpressionTranslator
         {
             RowExpression left = process(node.getLeft(), context);
             RowExpression right = process(node.getRight(), context);
+            Operator operator = node.getOperator();
 
+            switch (node.getOperator()) {
+                case NOT_EQUAL:
+                    return new CallExpression(
+                            metadata.resolveFunction(QualifiedName.of("not"), fromTypes(BOOLEAN)),
+                            ImmutableList.of(visitComparisonExpression(Operator.EQUAL, left, right)));
+                case GREATER_THAN:
+                    return visitComparisonExpression(Operator.LESS_THAN, right, left);
+                case GREATER_THAN_OR_EQUAL:
+                    return visitComparisonExpression(Operator.LESS_THAN_OR_EQUAL, right, left);
+                default:
+                    return visitComparisonExpression(operator, left, right);
+            }
+        }
+
+        private RowExpression visitComparisonExpression(Operator operator, RowExpression left, RowExpression right)
+        {
             return call(
-                    standardFunctionResolution.comparisonFunction(node.getOperator(), left.getType(), right.getType()),
+                    standardFunctionResolution.comparisonFunction(operator, left.getType(), right.getType()),
                     left,
                     right);
         }

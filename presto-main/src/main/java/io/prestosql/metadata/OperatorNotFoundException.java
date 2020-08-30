@@ -59,11 +59,8 @@ public class OperatorNotFoundException
             case DIVIDE:
             case MODULUS:
             case EQUAL:
-            case NOT_EQUAL:
             case LESS_THAN:
             case LESS_THAN_OR_EQUAL:
-            case GREATER_THAN:
-            case GREATER_THAN_OR_EQUAL:
                 return format("Cannot apply operator: %s %s %s", argumentTypes.get(0), operatorType.getOperator(), argumentTypes.get(1));
             case NEGATION:
                 return format("Cannot negate %s", argumentTypes.get(0));
