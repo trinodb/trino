@@ -16,7 +16,6 @@ package io.prestosql.operator.aggregation.histogram;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.AccumulatorState;
 import io.prestosql.spi.function.AccumulatorStateMetadata;
-import io.prestosql.spi.type.Type;
 
 @AccumulatorStateMetadata(stateFactoryClass = HistogramStateFactory.class, stateSerializerClass = HistogramStateSerializer.class)
 public interface HistogramState
@@ -31,5 +30,5 @@ public interface HistogramState
 
     void addMemoryUsage(long memory);
 
-    void deserialize(Block block, Type type, int expectedSize);
+    void deserialize(Block block, int expectedSize);
 }
