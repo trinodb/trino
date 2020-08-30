@@ -21,17 +21,14 @@ import io.airlift.slice.DynamicSliceOutput;
 import io.airlift.slice.Slice;
 import io.prestosql.operator.scalar.AbstractTestFunctions;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.BooleanType;
-import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.Type;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
@@ -52,7 +49,6 @@ import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
-import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -67,12 +63,9 @@ import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
-import static io.prestosql.type.DateTimes.parseTimestamp;
 import static io.prestosql.type.JsonType.JSON;
 import static io.prestosql.type.UnknownType.UNKNOWN;
-import static io.prestosql.util.StructuralTestUtil.appendToBlockBuilder;
 import static io.prestosql.util.StructuralTestUtil.arrayBlockOf;
-import static io.prestosql.util.StructuralTestUtil.mapBlockOf;
 import static io.prestosql.util.StructuralTestUtil.mapType;
 import static java.lang.Double.NEGATIVE_INFINITY;
 import static java.lang.Double.NaN;
@@ -1869,35 +1862,6 @@ public class TestArrayOperators
         assertFunction("flatten(ARRAY [ARRAY [MAP (ARRAY [1, 2], ARRAY [1, 2])], ARRAY [MAP (ARRAY [3, 4], ARRAY [3, 4])]])", new ArrayType(mapType(INTEGER, INTEGER)), ImmutableList.of(ImmutableMap.of(1, 1, 2, 2), ImmutableMap.of(3, 3, 4, 4)));
         assertFunction("flatten(ARRAY [ARRAY [MAP (ARRAY [1, 2], ARRAY [1, 2])], NULL])", new ArrayType(mapType(INTEGER, INTEGER)), ImmutableList.of(ImmutableMap.of(1, 1, 2, 2)));
         assertFunction("flatten(ARRAY [NULL, ARRAY [MAP (ARRAY [3, 4], ARRAY [3, 4])]])", new ArrayType(mapType(INTEGER, INTEGER)), ImmutableList.of(ImmutableMap.of(3, 3, 4, 4)));
-    }
-
-    @Test
-    public void testArrayHashOperator()
-    {
-        assertArrayHashOperator("ARRAY[1, 2]", INTEGER, ImmutableList.of(1, 2));
-        assertArrayHashOperator("ARRAY[true, false]", BOOLEAN, ImmutableList.of(true, false));
-        assertArrayHashOperator("ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789']",
-                createTimestampType(9),
-                ImmutableList.of(
-                        parseTimestamp(9, "2020-05-10 12:34:56.123456789"),
-                        parseTimestamp(9, "1111-05-10 12:34:56.123456789")));
-
-        // test with ARRAY[ MAP( ARRAY[1], ARRAY[2] ) ]
-        MapType mapType = mapType(INTEGER, INTEGER);
-        assertArrayHashOperator("ARRAY[MAP(ARRAY[1], ARRAY[2])]", mapType, ImmutableList.of(mapBlockOf(INTEGER, INTEGER, ImmutableMap.of(1L, 2L))));
-    }
-
-    private void assertArrayHashOperator(String inputArray, Type elementType, List<Object> elements)
-    {
-        ArrayType arrayType = new ArrayType(elementType);
-        BlockBuilder arrayArrayBuilder = arrayType.createBlockBuilder(null, 1);
-        BlockBuilder arrayBuilder = elementType.createBlockBuilder(null, elements.size());
-        for (Object element : elements) {
-            appendToBlockBuilder(elementType, element, arrayBuilder);
-        }
-        arrayType.writeObject(arrayArrayBuilder, arrayBuilder.build());
-
-        assertOperator(HASH_CODE, inputArray, BIGINT, arrayType.hash(arrayArrayBuilder.build(), 0));
     }
 
     private static SqlDate sqlDate(String dateString)

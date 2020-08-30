@@ -16,6 +16,7 @@ package io.prestosql.type;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.IntArrayBlockBuilder;
+import io.prestosql.type.BlockTypeOperators.BlockPositionHashCode;
 import org.testng.annotations.Test;
 
 import static io.prestosql.spi.type.RealType.REAL;
@@ -67,8 +68,9 @@ public class TestRealType
         blockBuilder.writeInt(-0x400000);
         blockBuilder.writeInt(0x7fc00000);
 
-        assertEquals(REAL.hash(blockBuilder, 0), REAL.hash(blockBuilder, 1));
-        assertEquals(REAL.hash(blockBuilder, 0), REAL.hash(blockBuilder, 2));
-        assertEquals(REAL.hash(blockBuilder, 0), REAL.hash(blockBuilder, 3));
+        BlockPositionHashCode hashCodeOperator = blockTypeOperators.getHashCodeOperator(REAL);
+        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 1));
+        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 2));
+        assertEquals(hashCodeOperator.hashCode(blockBuilder, 0), hashCodeOperator.hashCode(blockBuilder, 3));
     }
 }
