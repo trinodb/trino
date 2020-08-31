@@ -106,8 +106,8 @@ jobs:
             presto-hive-hadoop2/bin/run_hive_tests.sh
       - name: Run Hive S3 Tests
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AwsAccessKey }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AwsSecretKey }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESSKEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRETKEY }}
           S3_BUCKET: "presto-ci-test"
           S3_BUCKET_ENDPOINT: "s3.us-east-2.amazonaws.com"
         run: |
@@ -117,8 +117,8 @@ jobs:
           fi
       - name: Run Hive Glue Tests
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AwsAccessKey }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AwsSecretKey }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESSKEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRETKEY }}
           AWS_REGION: us-east-2
         run: |
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
