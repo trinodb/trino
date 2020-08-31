@@ -1,8 +1,10 @@
 name: ci
 
 on:
-  - push
-  - pull_request
+  push:
+    branches:
+      - master
+  pull_request:
 
 env:
   # An envar that signals to tests we are executing in the CI environment
