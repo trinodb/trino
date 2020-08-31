@@ -14,6 +14,7 @@
 package io.prestosql.plugin.hive.metastore.cache;
 
 import com.google.common.base.Supplier;
+import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -115,6 +116,7 @@ public class CachingHiveMetastore
     private final LoadingCache<HivePrincipal, Set<RoleGrant>> roleGrantsCache;
     private final LoadingCache<String, Set<RoleGrant>> grantedPrincipalsCache;
     private final LoadingCache<String, Optional<String>> configValuesCache;
+    private final List<LoadingCache<?, ?>> caches;
 
     public static HiveMetastore cachingHiveMetastore(HiveMetastore delegate, Executor executor, CachingHiveMetastoreConfig config)
     {
@@ -163,10 +165,14 @@ public class CachingHiveMetastore
 
         class CacheFactory
         {
+            final ImmutableList.Builder<LoadingCache<?, ?>> cachesBuilder = ImmutableList.builder();
+
             <K, V> LoadingCache<K, V> createCache(CacheLoader<K, V> loader)
             {
-                return newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
+                LoadingCache<K, V> cache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
                         .build(asyncReloading(loader, executor));
+                cachesBuilder.add(cache);
+                return cache;
             }
 
             @SuppressWarnings("unchecked")
@@ -223,22 +229,13 @@ public class CachingHiveMetastore
         roleGrantsCache = cacheFactory.createCache(this::loadRoleGrants);
         grantedPrincipalsCache = cacheFactory.createCache(this::loadPrincipals);
         configValuesCache = cacheFactory.createCache(this::loadConfigValue);
+        caches = cacheFactory.cachesBuilder.build();
     }
 
     @Managed
     public void flushCache()
     {
-        databaseNamesCache.invalidateAll();
-        tableNamesCache.invalidateAll();
-        viewNamesCache.invalidateAll();
-        databaseCache.invalidateAll();
-        tableCache.invalidateAll();
-        partitionCache.invalidateAll();
-        partitionFilterCache.invalidateAll();
-        tablePrivilegesCache.invalidateAll();
-        tableStatisticsCache.invalidateAll();
-        partitionStatisticsCache.invalidateAll();
-        rolesCache.invalidateAll();
+        caches.forEach(Cache::invalidateAll);
     }
 
     private static <K, V> V get(LoadingCache<K, V> cache, K key)
