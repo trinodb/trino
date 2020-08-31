@@ -45,7 +45,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.concurrent.MoreFutures.allAsList;
 import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -98,7 +98,7 @@ public class RaptorPageSink
         if (temporalColumnHandle.isPresent() && columnIds.contains(temporalColumnHandle.get().getColumnId())) {
             temporalColumnIndex = OptionalInt.of(columnIds.indexOf(temporalColumnHandle.get().getColumnId()));
             temporalColumnType = Optional.of(columnTypes.get(temporalColumnIndex.getAsInt()));
-            checkArgument(temporalColumnType.get() == DATE || temporalColumnType.get().equals(TIMESTAMP),
+            checkArgument(temporalColumnType.get() == DATE || temporalColumnType.get().equals(TIMESTAMP_MILLIS),
                     "temporalColumnType can only be DATE or TIMESTAMP");
         }
         else {

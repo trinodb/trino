@@ -68,7 +68,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimeOf;
@@ -126,7 +126,7 @@ public class TestJdbcQueryBuilder
                 new JdbcColumnHandle("col_3", JDBC_VARCHAR, VARCHAR),
                 new JdbcColumnHandle("col_4", JDBC_DATE, DATE),
                 new JdbcColumnHandle("col_5", JDBC_TIME, TIME),
-                new JdbcColumnHandle("col_6", JDBC_TIMESTAMP, TIMESTAMP),
+                new JdbcColumnHandle("col_6", JDBC_TIMESTAMP, TIMESTAMP_MILLIS),
                 new JdbcColumnHandle("col_7", JDBC_TINYINT, TINYINT),
                 new JdbcColumnHandle("col_8", JDBC_SMALLINT, SMALLINT),
                 new JdbcColumnHandle("col_9", JDBC_INTEGER, INTEGER),
@@ -366,11 +366,11 @@ public class TestJdbcQueryBuilder
             throws SQLException
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
-                columns.get(6), Domain.create(SortedRangeSet.copyOf(TIMESTAMP,
+                columns.get(6), Domain.create(SortedRangeSet.copyOf(TIMESTAMP_MILLIS,
                         ImmutableList.of(
-                                Range.equal(TIMESTAMP, toPrestoTimestamp(2016, 6, 3, 0, 23, 37)),
-                                Range.equal(TIMESTAMP, toPrestoTimestamp(2016, 10, 19, 16, 23, 37)),
-                                Range.range(TIMESTAMP, toPrestoTimestamp(2016, 6, 7, 8, 23, 37), false, toPrestoTimestamp(2016, 6, 9, 12, 23, 37), true))),
+                                Range.equal(TIMESTAMP_MILLIS, toPrestoTimestamp(2016, 6, 3, 0, 23, 37)),
+                                Range.equal(TIMESTAMP_MILLIS, toPrestoTimestamp(2016, 10, 19, 16, 23, 37)),
+                                Range.range(TIMESTAMP_MILLIS, toPrestoTimestamp(2016, 6, 7, 8, 23, 37), false, toPrestoTimestamp(2016, 6, 9, 12, 23, 37), true))),
                         false)));
 
         Connection connection = database.getConnection();

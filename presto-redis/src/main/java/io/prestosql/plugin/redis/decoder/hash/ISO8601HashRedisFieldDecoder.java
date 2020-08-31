@@ -28,7 +28,7 @@ import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -65,7 +65,7 @@ class ISO8601HashRedisFieldDecoder
             if (type.equals(DATE)) {
                 return MILLISECONDS.toDays(millis);
             }
-            if (type.equals(TIMESTAMP)) {
+            if (type.equals(TIMESTAMP_MILLIS)) {
                 return millis;
             }
             if (type.equals(TIME)) {

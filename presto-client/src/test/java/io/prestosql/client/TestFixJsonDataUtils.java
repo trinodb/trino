@@ -42,7 +42,7 @@ import static io.prestosql.spi.type.StandardTypes.IPADDRESS;
 import static io.prestosql.spi.type.StandardTypes.JSON;
 import static io.prestosql.spi.type.StandardTypes.UUID;
 import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.TypeSignature.arrayType;
@@ -67,7 +67,7 @@ public class TestFixJsonDataUtils
         assertQueryResult(DOUBLE.getTypeSignature(), 100.23456D, 100.23456);
         assertQueryResult(new TypeSignature(INTERVAL_DAY_TO_SECOND), "INTERVAL '2' DAY", "INTERVAL '2' DAY");
         assertQueryResult(new TypeSignature(INTERVAL_YEAR_TO_MONTH), "INTERVAL '3' MONTH", "INTERVAL '3' MONTH");
-        assertQueryResult(TIMESTAMP.getTypeSignature(), "2001-08-22 03:04:05.321", "2001-08-22 03:04:05.321");
+        assertQueryResult(TIMESTAMP_MILLIS.getTypeSignature(), "2001-08-22 03:04:05.321", "2001-08-22 03:04:05.321");
         assertQueryResult(TIMESTAMP_WITH_TIME_ZONE.getTypeSignature(), "2001-08-22 03:04:05.321 America/Los_Angeles", "2001-08-22 03:04:05.321 America/Los_Angeles");
         assertQueryResult(TIME.getTypeSignature(), "01:02:03.456", "01:02:03.456");
         assertQueryResult(TIMESTAMP_WITH_TIME_ZONE.getTypeSignature(), "01:02:03.456 America/Los_Angeles", "01:02:03.456 America/Los_Angeles");

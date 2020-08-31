@@ -39,7 +39,7 @@ import static io.prestosql.spi.type.Chars.padSpaces;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.type.JsonType.JSON;
 import static java.lang.String.format;
@@ -189,7 +189,7 @@ public class DataType<T>
     {
         return dataType(
                 "timestamp",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 DateTimeFormatter.ofPattern("'TIMESTAMP '''yyyy-MM-dd HH:mm:ss.SSS''")::format,
                 identity());
     }

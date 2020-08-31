@@ -49,7 +49,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.plugin.raptor.legacy.storage.organization.ShardOrganizerUtil.getOrganizationEligibleShards;
 import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.onDemandDao;
 import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -213,7 +213,7 @@ public class ShardCompactionManager
 
     private static boolean isValidTemporalColumn(long tableId, Type type)
     {
-        if (!type.equals(DATE) && !type.equals(TIMESTAMP)) {
+        if (!type.equals(DATE) && !type.equals(TIMESTAMP_MILLIS)) {
             log.warn("Temporal column type of table ID %s set incorrectly to %s", tableId, type);
             return false;
         }

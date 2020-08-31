@@ -89,7 +89,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
@@ -499,7 +499,7 @@ public class TestOrcStorageManager
         long maxTimestamp = sqlTimestamp(2002, 4, 13, 6, 7, 8).getMillis();
         long minTimestamp = sqlTimestamp(2001, 3, 15, 9, 10, 11).getMillis();
 
-        List<ColumnStats> stats = columnStats(types(DATE, TIMESTAMP),
+        List<ColumnStats> stats = columnStats(types(DATE, TIMESTAMP_MILLIS),
                 row(minDate, maxTimestamp),
                 row(maxDate, minTimestamp));
         assertColumnStats(stats, 1, minDate, maxDate);

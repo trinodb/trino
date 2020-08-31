@@ -126,7 +126,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
@@ -963,7 +963,7 @@ public final class ThriftMetastoreUtil
         if (type.equals(BOOLEAN)) {
             return ImmutableSet.of(NUMBER_OF_NON_NULL_VALUES, NUMBER_OF_TRUE_VALUES);
         }
-        if (isNumericType(type) || type.equals(DATE) || type.equals(TIMESTAMP)) {
+        if (isNumericType(type) || type.equals(DATE) || type.equals(TIMESTAMP_MILLIS)) {
             // TODO https://github.com/prestosql/presto/issues/37 support non-legacy TIMESTAMP
             return ImmutableSet.of(MIN_VALUE, MAX_VALUE, NUMBER_OF_DISTINCT_VALUES, NUMBER_OF_NON_NULL_VALUES);
         }

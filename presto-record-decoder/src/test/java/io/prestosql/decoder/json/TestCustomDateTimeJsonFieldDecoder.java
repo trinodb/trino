@@ -26,7 +26,7 @@ import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.util.Collections.emptyMap;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -42,8 +42,8 @@ public class TestCustomDateTimeJsonFieldDecoder
     @Test
     public void testDecode()
     {
-        timestampTester.assertDecodedAs("\"02/2018/19 9:20:11\"", TIMESTAMP, 1519032011000L);
-        timestampWithTimeZoneTester.assertDecodedAs("\"02/2018/19 11:20:11 +02:00\"", TIMESTAMP, 1519032011000L);
+        timestampTester.assertDecodedAs("\"02/2018/19 9:20:11\"", TIMESTAMP_MILLIS, 1519032011000L);
+        timestampWithTimeZoneTester.assertDecodedAs("\"02/2018/19 11:20:11 +02:00\"", TIMESTAMP_MILLIS, 1519032011000L);
         timestampTester.assertDecodedAs("\"02/2018/19 9:20:11\"", TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(1519032011000L, UTC_KEY));
         timestampWithTimeZoneTester.assertDecodedAs("\"02/2018/19 11:20:11 +02:00\"", TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(1519032011000L, getTimeZoneKeyForOffset(120))); // TODO: extract TZ from pattern
         timeTester.assertDecodedAs("\"15:13:18\"", TIME, 47_718_000_000_000_000L);
@@ -65,8 +65,8 @@ public class TestCustomDateTimeJsonFieldDecoder
         timeTester.assertDecodedAsNull("null", TIME_WITH_TIME_ZONE);
         timeTester.assertMissingDecodedAsNull(TIME_WITH_TIME_ZONE);
 
-        timestampTester.assertDecodedAsNull("null", TIMESTAMP);
-        timestampTester.assertMissingDecodedAsNull(TIMESTAMP);
+        timestampTester.assertDecodedAsNull("null", TIMESTAMP_MILLIS);
+        timestampTester.assertMissingDecodedAsNull(TIMESTAMP_MILLIS);
 
         timestampTester.assertDecodedAsNull("null", TIMESTAMP_WITH_TIME_ZONE);
         timestampTester.assertMissingDecodedAsNull(TIMESTAMP_WITH_TIME_ZONE);
@@ -75,11 +75,11 @@ public class TestCustomDateTimeJsonFieldDecoder
     @Test
     public void testDecodeInvalid()
     {
-        timestampTester.assertInvalidInput("1", TIMESTAMP, "\\Qcould not parse value '1' as 'timestamp(3)' for column 'some_column'\\E");
-        timestampTester.assertInvalidInput("{}", TIMESTAMP, "\\Qcould not parse non-value node as 'timestamp(3)' for column 'some_column'\\E");
-        timestampTester.assertInvalidInput("\"a\"", TIMESTAMP, "\\Qcould not parse value 'a' as 'timestamp(3)' for column 'some_column'\\E");
-        timestampTester.assertInvalidInput("\"15:13:18\"", TIMESTAMP, "\\Qcould not parse value '15:13:18' as 'timestamp(3)' for column 'some_column'\\E");
-        timestampTester.assertInvalidInput("\"02/2018/11\"", TIMESTAMP, "\\Qcould not parse value '02/2018/11' as 'timestamp(3)' for column 'some_column'\\E");
+        timestampTester.assertInvalidInput("1", TIMESTAMP_MILLIS, "\\Qcould not parse value '1' as 'timestamp(3)' for column 'some_column'\\E");
+        timestampTester.assertInvalidInput("{}", TIMESTAMP_MILLIS, "\\Qcould not parse non-value node as 'timestamp(3)' for column 'some_column'\\E");
+        timestampTester.assertInvalidInput("\"a\"", TIMESTAMP_MILLIS, "\\Qcould not parse value 'a' as 'timestamp(3)' for column 'some_column'\\E");
+        timestampTester.assertInvalidInput("\"15:13:18\"", TIMESTAMP_MILLIS, "\\Qcould not parse value '15:13:18' as 'timestamp(3)' for column 'some_column'\\E");
+        timestampTester.assertInvalidInput("\"02/2018/11\"", TIMESTAMP_MILLIS, "\\Qcould not parse value '02/2018/11' as 'timestamp(3)' for column 'some_column'\\E");
     }
 
     @Test
@@ -88,7 +88,7 @@ public class TestCustomDateTimeJsonFieldDecoder
         DecoderTestColumnHandle columnHandle = new DecoderTestColumnHandle(
                 0,
                 "some_column",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 "mappedField",
                 "custom-date-time",
                 "XXMM/yyyy/dd H:m:sXX",

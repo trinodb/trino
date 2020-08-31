@@ -38,7 +38,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RowType.field;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
@@ -58,10 +58,10 @@ public class TestHiveTypeTranslator
             .put(createVarcharType(3), HiveType.valueOf("varchar(3)"))
             .put(VARCHAR, HiveType.HIVE_STRING)
             .put(DATE, HiveType.HIVE_DATE)
-            .put(TIMESTAMP, HiveType.HIVE_TIMESTAMP)
+            .put(TIMESTAMP_MILLIS, HiveType.HIVE_TIMESTAMP)
             .put(createDecimalType(5, 3), HiveType.valueOf("decimal(5,3)"))
             .put(VARBINARY, HiveType.HIVE_BINARY)
-            .put(new ArrayType(TIMESTAMP), HiveType.valueOf("array<timestamp>"))
+            .put(new ArrayType(TIMESTAMP_MILLIS), HiveType.valueOf("array<timestamp>"))
             .put(TYPE_MANAGER.getType(mapType(BOOLEAN.getTypeSignature(), VARBINARY.getTypeSignature())), HiveType.valueOf("map<boolean,binary>"))
             .put(RowType.from(List.of(field("col0", INTEGER), field("col1", VARBINARY))), HiveType.valueOf("struct<col0:int,col1:binary>"))
             .build();

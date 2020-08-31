@@ -67,7 +67,7 @@ public class TestTypeConversions
     @Test
     public void testConvertDateTimeField()
     {
-        assertSimpleFieldTypeConversion(LegacySQLTypeName.DATETIME, TimestampType.TIMESTAMP);
+        assertSimpleFieldTypeConversion(LegacySQLTypeName.DATETIME, TimestampType.TIMESTAMP_MILLIS);
     }
 
     @Test
@@ -179,7 +179,7 @@ public class TestTypeConversions
     @Test
     public void testConvertDateTimeColumn()
     {
-        assertSimpleColumnTypeConversion(LegacySQLTypeName.DATETIME, TimestampType.TIMESTAMP);
+        assertSimpleColumnTypeConversion(LegacySQLTypeName.DATETIME, TimestampType.TIMESTAMP_MILLIS);
     }
 
     @Test

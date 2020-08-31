@@ -95,7 +95,6 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_NANOS;
@@ -560,7 +559,7 @@ public class OrcWriteValidation
                 // A flaw in ORC encoding makes it impossible to represent timestamp
                 // between 1969-12-31 23:59:59.000, exclusive, and 1970-01-01 00:00:00.000, exclusive.
                 // Therefore, such data won't round trip. The data read back is expected to be 1 second later than the original value.
-                long mills = TIMESTAMP.getLong(block, position);
+                long mills = TIMESTAMP_MILLIS.getLong(block, position);
                 if (mills > -1000 && mills < 0) {
                     return AbstractLongType.hash(mills + 1000);
                 }

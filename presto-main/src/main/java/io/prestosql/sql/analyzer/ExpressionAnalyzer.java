@@ -150,7 +150,7 @@ import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeType.createTimeType;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.createTimeWithTimeZoneType;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
@@ -415,7 +415,7 @@ public class ExpressionAnalyzer
                         type = createTimestampType(node.getPrecision());
                     }
                     else {
-                        type = TIMESTAMP;
+                        type = TIMESTAMP_MILLIS;
                     }
                     break;
                 default:

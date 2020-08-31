@@ -21,7 +21,7 @@ import java.util.List;
 
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -31,7 +31,7 @@ public class TestShardRange
     @Test
     public void testEnclosesIsSymmetric()
     {
-        List<Type> types = ImmutableList.of(BIGINT, VARCHAR, BOOLEAN, TIMESTAMP);
+        List<Type> types = ImmutableList.of(BIGINT, VARCHAR, BOOLEAN, TIMESTAMP_MILLIS);
         ShardRange range = ShardRange.of(new Tuple(types, 2L, "aaa", true, 1L), new Tuple(types, 5L, "ccc", false, 2L));
         assertTrue(range.encloses(range));
     }
@@ -61,7 +61,7 @@ public class TestShardRange
     @Test
     public void testOverlapsIsSymmetric()
     {
-        List<Type> types = ImmutableList.of(BIGINT, VARCHAR, BOOLEAN, TIMESTAMP);
+        List<Type> types = ImmutableList.of(BIGINT, VARCHAR, BOOLEAN, TIMESTAMP_MILLIS);
         ShardRange range = ShardRange.of(new Tuple(types, 2L, "aaa", true, 1L), new Tuple(types, 5L, "ccc", false, 2L));
         assertTrue(range.overlaps(range));
     }

@@ -267,7 +267,7 @@ public class TestQueryResultRows
         List<Column> columns = ImmutableList.of(
                 new Column("_col0", TIMESTAMP, new ClientTypeSignature(TIMESTAMP)),
                 new Column("_col1", TIMESTAMP_WITH_TIME_ZONE, new ClientTypeSignature(TIMESTAMP_WITH_TIME_ZONE)));
-        List<Type> types = ImmutableList.of(TimestampType.TIMESTAMP, TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE);
+        List<Type> types = ImmutableList.of(TimestampType.TIMESTAMP_MILLIS, TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE);
 
         List<Page> pages = rowPagesBuilder(types)
                 .row(null, null)

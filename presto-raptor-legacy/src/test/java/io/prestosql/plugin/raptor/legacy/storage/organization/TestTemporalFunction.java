@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 import java.time.Duration;
 
 import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 
@@ -44,16 +44,16 @@ public class TestTemporalFunction
     @Test
     public void testTimestampBlock()
     {
-        BlockBuilder blockBuilder = TIMESTAMP.createBlockBuilder(null, 4);
+        BlockBuilder blockBuilder = TIMESTAMP_MILLIS.createBlockBuilder(null, 4);
 
         // start and end of UTC day
-        TIMESTAMP.writeLong(blockBuilder, DATE_TIME.getMillis());
-        TIMESTAMP.writeLong(blockBuilder, DATE_TIME.getMillis() + Duration.ofHours(23).toMillis());
+        TIMESTAMP_MILLIS.writeLong(blockBuilder, DATE_TIME.getMillis());
+        TIMESTAMP_MILLIS.writeLong(blockBuilder, DATE_TIME.getMillis() + Duration.ofHours(23).toMillis());
 
         Block block = blockBuilder.build();
 
-        assertEquals(TemporalFunction.getDay(TIMESTAMP, block, 0), 1);
-        assertEquals(TemporalFunction.getDay(TIMESTAMP, block, 1), 1);
+        assertEquals(TemporalFunction.getDay(TIMESTAMP_MILLIS, block, 0), 1);
+        assertEquals(TemporalFunction.getDay(TIMESTAMP_MILLIS, block, 1), 1);
     }
 
     @Test
@@ -89,7 +89,7 @@ public class TestTemporalFunction
     private static ShardRange timeRange(long start, Duration duration)
     {
         return ShardRange.of(
-                new Tuple(TIMESTAMP, start),
-                new Tuple(TIMESTAMP, start + duration.toMillis()));
+                new Tuple(TIMESTAMP_MILLIS, start),
+                new Tuple(TIMESTAMP_MILLIS, start + duration.toMillis()));
     }
 }

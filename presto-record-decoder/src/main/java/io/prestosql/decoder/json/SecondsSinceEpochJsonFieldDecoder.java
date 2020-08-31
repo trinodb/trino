@@ -28,7 +28,7 @@ import static io.prestosql.decoder.json.JsonRowDecoderFactory.throwUnsupportedCo
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.lang.Long.parseLong;
 import static java.lang.Math.multiplyExact;
@@ -43,7 +43,7 @@ import static java.util.Objects.requireNonNull;
 public class SecondsSinceEpochJsonFieldDecoder
         implements JsonFieldDecoder
 {
-    private static final Set<Type> SUPPORTED_TYPES = ImmutableSet.of(TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE);
+    private static final Set<Type> SUPPORTED_TYPES = ImmutableSet.of(TIME, TIME_WITH_TIME_ZONE, TIMESTAMP_MILLIS, TIMESTAMP_WITH_TIME_ZONE);
 
     private final DecoderColumnHandle columnHandle;
 

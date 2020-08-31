@@ -66,7 +66,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -109,7 +109,7 @@ public class ScanQueryPageSource
         // This is convenient for types such as DATE, TIMESTAMP, etc, which have multiple possible
         // representations in JSON, but a single normalized representation as doc_field.
         List<String> documentFields = flattenFields(columns).entrySet().stream()
-                .filter(entry -> entry.getValue().equals(TIMESTAMP))
+                .filter(entry -> entry.getValue().equals(TIMESTAMP_MILLIS))
                 .map(Map.Entry::getKey)
                 .collect(toImmutableList());
 
@@ -279,7 +279,7 @@ public class ScanQueryPageSource
         if (type.equals(VARBINARY)) {
             return new VarbinaryDecoder(path);
         }
-        if (type.equals(TIMESTAMP)) {
+        if (type.equals(TIMESTAMP_MILLIS)) {
             return new TimestampDecoder(path);
         }
         if (type.equals(BOOLEAN)) {

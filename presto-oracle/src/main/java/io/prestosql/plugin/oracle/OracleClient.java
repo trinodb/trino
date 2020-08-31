@@ -94,7 +94,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
@@ -383,7 +383,7 @@ public class OracleClient
     public static ColumnMapping oracleTimestampColumnMapping()
     {
         return ColumnMapping.longMapping(
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 (resultSet, columnIndex) -> {
                     LocalDateTime timestamp = resultSet.getObject(columnIndex, LocalDateTime.class);
                     return timestamp.toInstant(ZoneOffset.UTC).toEpochMilli();
@@ -470,7 +470,7 @@ public class OracleClient
             }
             return WriteMapping.sliceMapping(dataType, longDecimalWriteFunction((DecimalType) type));
         }
-        if (type.equals(TIMESTAMP)) {
+        if (type.equals(TIMESTAMP_MILLIS)) {
             return WriteMapping.longMapping("timestamp(3)", oracleTimestampWriteFunction());
         }
         WriteMapping writeMapping = WRITE_MAPPINGS.get(type);

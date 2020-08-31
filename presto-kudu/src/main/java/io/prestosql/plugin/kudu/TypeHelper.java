@@ -52,7 +52,7 @@ public final class TypeHelper
         if (type instanceof VarcharType) {
             return org.apache.kudu.Type.STRING;
         }
-        if (type.equals(TimestampType.TIMESTAMP)) {
+        if (type.equals(TimestampType.TIMESTAMP_MILLIS)) {
             return org.apache.kudu.Type.UNIXTIME_MICROS;
         }
         if (type == BigintType.BIGINT) {
@@ -102,7 +102,7 @@ public final class TypeHelper
             case STRING:
                 return VarcharType.VARCHAR;
             case UNIXTIME_MICROS:
-                return TimestampType.TIMESTAMP;
+                return TimestampType.TIMESTAMP_MILLIS;
             case INT64:
                 return BigintType.BIGINT;
             case INT32:
@@ -131,7 +131,7 @@ public final class TypeHelper
         if (type instanceof VarcharType) {
             return ((Slice) nativeValue).toStringUtf8();
         }
-        if (type.equals(TimestampType.TIMESTAMP)) {
+        if (type.equals(TimestampType.TIMESTAMP_MILLIS)) {
             return ((Long) nativeValue) * 1000;
         }
         if (type == BigintType.BIGINT) {
@@ -177,7 +177,7 @@ public final class TypeHelper
         if (type instanceof VarcharType) {
             return row.getString(field);
         }
-        if (type.equals(TimestampType.TIMESTAMP)) {
+        if (type.equals(TimestampType.TIMESTAMP_MILLIS)) {
             return row.getLong(field) / 1000;
         }
         if (type == BigintType.BIGINT) {
@@ -212,7 +212,7 @@ public final class TypeHelper
 
     public static long getLong(Type type, RowResult row, int field)
     {
-        if (type.equals(TimestampType.TIMESTAMP)) {
+        if (type.equals(TimestampType.TIMESTAMP_MILLIS)) {
             return row.getLong(field) / 1000;
         }
         if (type == BigintType.BIGINT) {

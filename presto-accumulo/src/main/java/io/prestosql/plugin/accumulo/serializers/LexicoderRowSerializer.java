@@ -46,7 +46,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -85,7 +85,7 @@ public class LexicoderRowSerializer
         LEXICODER_MAP.put(REAL, doubleLexicoder);
         LEXICODER_MAP.put(SMALLINT, longLexicoder);
         LEXICODER_MAP.put(TIME, longLexicoder);
-        LEXICODER_MAP.put(TIMESTAMP, longLexicoder);
+        LEXICODER_MAP.put(TIMESTAMP_MILLIS, longLexicoder);
         LEXICODER_MAP.put(TINYINT, longLexicoder);
         LEXICODER_MAP.put(VARBINARY, new BytesLexicoder());
         LEXICODER_MAP.put(VARCHAR, new StringLexicoder());
@@ -287,13 +287,13 @@ public class LexicoderRowSerializer
     @Override
     public Timestamp getTimestamp(String name)
     {
-        return new Timestamp(decode(TIMESTAMP, getFieldValue(name)));
+        return new Timestamp(decode(TIMESTAMP_MILLIS, getFieldValue(name)));
     }
 
     @Override
     public void setTimestamp(Text text, Timestamp value)
     {
-        text.set(encode(TIMESTAMP, value));
+        text.set(encode(TIMESTAMP_MILLIS, value));
     }
 
     @Override
@@ -353,7 +353,7 @@ public class LexicoderRowSerializer
         else if (type.equals(TIME) && value instanceof Time) {
             toEncode = ((Time) value).getTime();
         }
-        else if (type.equals(TIMESTAMP) && value instanceof Timestamp) {
+        else if (type.equals(TIMESTAMP_MILLIS) && value instanceof Timestamp) {
             toEncode = ((Timestamp) value).getTime();
         }
         else if (type.equals(TINYINT) && value instanceof Byte) {

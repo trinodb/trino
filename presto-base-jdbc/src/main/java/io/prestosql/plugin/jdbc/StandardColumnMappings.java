@@ -55,7 +55,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_DAY;
 import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_DAY;
@@ -352,7 +352,7 @@ public final class StandardColumnMappings
     public static ColumnMapping timestampColumnMappingUsingSqlTimestamp()
     {
         return ColumnMapping.longMapping(
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 (resultSet, columnIndex) -> {
                     Timestamp timestamp = resultSet.getTimestamp(columnIndex);
                     return toPrestoTimestamp(timestamp.toLocalDateTime());
@@ -363,7 +363,7 @@ public final class StandardColumnMappings
     public static ColumnMapping timestampColumnMapping()
     {
         return ColumnMapping.longMapping(
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 timestampReadFunction(),
                 timestampWriteFunction());
     }
