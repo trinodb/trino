@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.hive.metastore.cache;
 
+import com.google.common.base.Supplier;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -160,76 +161,68 @@ public class CachingHiveMetastore
         this.delegate = requireNonNull(delegate, "delegate is null");
         requireNonNull(executor, "executor is null");
 
-        databaseNamesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
-                .build(asyncReloading(CacheLoader.from(this::loadAllDatabases), executor));
+        class CacheFactory
+        {
+            <K, V> LoadingCache<K, V> createCache(CacheLoader<K, V> loader)
+            {
+                return newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
+                        .build(asyncReloading(loader, executor));
+            }
 
-        databaseCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
-                .build(asyncReloading(CacheLoader.from(this::loadDatabase), executor));
+            @SuppressWarnings("unchecked")
+            <K, V> LoadingCache<K, V> createCache(Supplier<V> supplier)
+            {
+                return createCache((CacheLoader<K, V>) CacheLoader.from(supplier));
+            }
 
-        tableNamesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
-                .build(asyncReloading(CacheLoader.from(this::loadAllTables), executor));
+            <K, V> LoadingCache<K, V> createCache(Function<K, V> function)
+            {
+                return createCache(CacheLoader.from(function::apply));
+            }
+        }
 
-        tablesWithParameterCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
-                .build(asyncReloading(CacheLoader.from(this::loadTablesMatchingParameter), executor));
+        CacheFactory cacheFactory = new CacheFactory();
+        databaseNamesCache = cacheFactory.createCache(this::loadAllDatabases);
+        databaseCache = cacheFactory.createCache(this::loadDatabase);
+        tableNamesCache = cacheFactory.createCache(this::loadAllTables);
+        tablesWithParameterCache = cacheFactory.createCache(this::loadTablesMatchingParameter);
+        tableStatisticsCache = cacheFactory.createCache(this::loadTableColumnStatistics);
+        partitionStatisticsCache = cacheFactory.createCache(new CacheLoader<>()
+        {
+            @Override
+            public PartitionStatistics load(WithIdentity<HivePartitionName> key)
+            {
+                return loadPartitionColumnStatistics(key);
+            }
 
-        tableStatisticsCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
-                .build(asyncReloading(CacheLoader.from(this::loadTableColumnStatistics), executor));
+            @Override
+            public Map<WithIdentity<HivePartitionName>, PartitionStatistics> loadAll(Iterable<? extends WithIdentity<HivePartitionName>> keys)
+            {
+                return loadPartitionColumnStatistics(keys);
+            }
+        });
+        tableCache = cacheFactory.createCache(this::loadTable);
+        viewNamesCache = cacheFactory.createCache(this::loadAllViews);
+        partitionFilterCache = cacheFactory.createCache(this::loadPartitionNamesByFilter);
+        partitionCache = cacheFactory.createCache(new CacheLoader<>()
+        {
+            @Override
+            public Optional<Partition> load(WithIdentity<HivePartitionName> partitionName)
+            {
+                return loadPartitionByName(partitionName);
+            }
 
-        partitionStatisticsCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
-                .build(asyncReloading(new CacheLoader<>()
-                {
-                    @Override
-                    public PartitionStatistics load(WithIdentity<HivePartitionName> key)
-                    {
-                        return loadPartitionColumnStatistics(key);
-                    }
-
-                    @Override
-                    public Map<WithIdentity<HivePartitionName>, PartitionStatistics> loadAll(Iterable<? extends WithIdentity<HivePartitionName>> keys)
-                    {
-                        return loadPartitionColumnStatistics(keys);
-                    }
-                }, executor));
-
-        tableCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
-                .build(asyncReloading(CacheLoader.from(this::loadTable), executor));
-
-        viewNamesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
-                .build(asyncReloading(CacheLoader.from(this::loadAllViews), executor));
-
-        partitionFilterCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
-                .build(asyncReloading(CacheLoader.from(this::loadPartitionNamesByFilter), executor));
-
-        partitionCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
-                .build(asyncReloading(new CacheLoader<>()
-                {
-                    @Override
-                    public Optional<Partition> load(WithIdentity<HivePartitionName> partitionName)
-                    {
-                        return loadPartitionByName(partitionName);
-                    }
-
-                    @Override
-                    public Map<WithIdentity<HivePartitionName>, Optional<Partition>> loadAll(Iterable<? extends WithIdentity<HivePartitionName>> partitionNames)
-                    {
-                        return loadPartitionsByNames(partitionNames);
-                    }
-                }, executor));
-
-        tablePrivilegesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
-                .build(asyncReloading(CacheLoader.from(key -> loadTablePrivileges(key.getDatabase(), key.getTable(), key.getOwner(), key.getPrincipal())), executor));
-
-        rolesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
-                .build(asyncReloading(CacheLoader.from(this::loadRoles), executor));
-
-        roleGrantsCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
-                .build(asyncReloading(CacheLoader.from(this::loadRoleGrants), executor));
-
-        grantedPrincipalsCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
-                .build(asyncReloading(CacheLoader.from(this::loadPrincipals), executor));
-
-        configValuesCache = newCacheBuilder(expiresAfterWriteMillis, refreshMills, maximumSize, statsRecording)
-                .build(asyncReloading(CacheLoader.from(this::loadConfigValue), executor));
+            @Override
+            public Map<WithIdentity<HivePartitionName>, Optional<Partition>> loadAll(Iterable<? extends WithIdentity<HivePartitionName>> partitionNames)
+            {
+                return loadPartitionsByNames(partitionNames);
+            }
+        });
+        tablePrivilegesCache = cacheFactory.createCache(CacheLoader.from(key -> loadTablePrivileges(key.getDatabase(), key.getTable(), key.getOwner(), key.getPrincipal())));
+        rolesCache = cacheFactory.createCache(this::loadRoles);
+        roleGrantsCache = cacheFactory.createCache(this::loadRoleGrants);
+        grantedPrincipalsCache = cacheFactory.createCache(this::loadPrincipals);
+        configValuesCache = cacheFactory.createCache(this::loadConfigValue);
     }
 
     @Managed
