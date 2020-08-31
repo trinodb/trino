@@ -149,17 +149,11 @@ public class ThriftSplitManager
                                 .collect(toImmutableList());
                         checkState(nextToken.compareAndSet(currentToken, batch.getNextToken()));
                         checkState(hasMoreData.compareAndSet(true, nextToken.get() != null));
-                        return new ConnectorSplitBatch(splits, isFinished());
+                        return new ConnectorSplitBatch(splits, !hasMoreData.get());
                     }, directExecutor());
             resultFuture = catchingThriftException(resultFuture);
             future.set(resultFuture);
             return toCompletableFuture(resultFuture);
-        }
-
-        @Override
-        public boolean isFinished()
-        {
-            return !hasMoreData.get();
         }
 
         @Override

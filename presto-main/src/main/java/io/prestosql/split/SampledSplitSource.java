@@ -65,12 +65,6 @@ public class SampledSplitSource
     }
 
     @Override
-    public boolean isFinished()
-    {
-        return splitSource.isFinished();
-    }
-
-    @Override
     public Optional<Integer> getMinScheduleSplitBatchSize()
     {
         return splitSource.getMinScheduleSplitBatchSize();

@@ -30,7 +30,6 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorSplit;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 
-import java.io.FileNotFoundException;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
@@ -52,8 +51,6 @@ import static io.airlift.concurrent.MoreFutures.failedFuture;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_EXCEEDED_SPLIT_BUFFERING_LIMIT;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_FILE_NOT_FOUND;
-import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_UNKNOWN_ERROR;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getMaxInitialSplitSize;
 import static io.prestosql.plugin.hive.HiveSessionProperties.getMaxSplitSize;
 import static io.prestosql.plugin.hive.HiveSplitSource.StateKind.CLOSED;
@@ -423,25 +420,6 @@ class HiveSplitSource
     }
 
     @Override
-    public boolean isFinished()
-    {
-        State state = stateReference.get();
-
-        switch (state.getKind()) {
-            case INITIAL:
-                return false;
-            case NO_MORE_SPLITS:
-                return bufferedInternalSplitCount.get() == 0;
-            case FAILED:
-                throw propagatePrestoException(state.getThrowable());
-            case CLOSED:
-                throw new IllegalStateException("HiveSplitSource is already closed");
-            default:
-                throw new UnsupportedOperationException();
-        }
-    }
-
-    @Override
     public void close()
     {
         if (setIf(stateReference, State.closed(), state -> state.getKind() == INITIAL || state.getKind() == NO_MORE_SPLITS)) {
@@ -472,17 +450,6 @@ class HiveSplitSource
                 return true;
             }
         }
-    }
-
-    private static RuntimeException propagatePrestoException(Throwable throwable)
-    {
-        if (throwable instanceof PrestoException) {
-            throw (PrestoException) throwable;
-        }
-        if (throwable instanceof FileNotFoundException) {
-            throw new PrestoException(HIVE_FILE_NOT_FOUND, throwable);
-        }
-        throw new PrestoException(HIVE_UNKNOWN_ERROR, throwable);
     }
 
     interface PerBucket

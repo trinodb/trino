@@ -202,16 +202,15 @@ public abstract class AbstractOperatorBenchmark
     {
         SplitSource splitSource = localQueryRunner.getSplitManager().getSplits(session, handle, UNGROUPED_SCHEDULING, EMPTY);
         List<Split> splits = new ArrayList<>();
-        while (!splitSource.isFinished()) {
-            splits.addAll(getNextBatch(splitSource));
+        while (true) {
+            SplitSource.SplitBatch splitBatch = getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), 1000));
+            splits.addAll(splitBatch.getSplits());
+            if (splitBatch.isLastBatch()) {
+                break;
+            }
         }
         checkArgument(splits.size() == 1, "Expected only one split for a local query, but got %s splits", splits.size());
         return splits.get(0);
-    }
-
-    private static List<Split> getNextBatch(SplitSource splitSource)
-    {
-        return getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, Lifespan.taskWide(), 1000)).getSplits();
     }
 
     protected final OperatorFactory createHashProjectOperator(int operatorId, PlanNodeId planNodeId, List<Type> types)

@@ -145,8 +145,12 @@ public class TestRaptorSplitManager
     {
         ConnectorSplitSource splitSource = getSplits(raptorSplitManager, tableHandle);
         int splitCount = 0;
-        while (!splitSource.isFinished()) {
-            splitCount += getSplits(splitSource, 1000).size();
+        while (true) {
+            ConnectorSplitSource.ConnectorSplitBatch batch = getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, 1000));
+            splitCount += batch.getSplits().size();
+            if (batch.isNoMoreSplits()) {
+                break;
+            }
         }
         assertEquals(splitCount, 4);
     }

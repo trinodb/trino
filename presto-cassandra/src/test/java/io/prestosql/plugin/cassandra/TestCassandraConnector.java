@@ -252,8 +252,12 @@ public class TestCassandraConnector
     private static List<ConnectorSplit> getAllSplits(ConnectorSplitSource splitSource)
     {
         ImmutableList.Builder<ConnectorSplit> splits = ImmutableList.builder();
-        while (!splitSource.isFinished()) {
-            splits.addAll(getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
+        while (true) {
+            ConnectorSplitSource.ConnectorSplitBatch batch = getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, 1000));
+            splits.addAll(batch.getSplits());
+            if (batch.isNoMoreSplits()) {
+                break;
+            }
         }
         return splits.build();
     }

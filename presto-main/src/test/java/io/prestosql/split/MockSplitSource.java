@@ -136,8 +136,7 @@ public class MockSplitSource
     {
     }
 
-    @Override
-    public boolean isFinished()
+    private boolean isFinished()
     {
         return splitsProduced == totalSplits && atSplitDepletion == FINISH;
     }

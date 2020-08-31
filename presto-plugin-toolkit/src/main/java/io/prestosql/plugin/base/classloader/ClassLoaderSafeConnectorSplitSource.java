@@ -54,14 +54,6 @@ public class ClassLoaderSafeConnectorSplitSource
     }
 
     @Override
-    public boolean isFinished()
-    {
-        try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {
-            return delegate.isFinished();
-        }
-    }
-
-    @Override
     public Optional<Integer> getMinScheduleSplitBatchSize()
     {
         try (ThreadContextClassLoader ignored = new ThreadContextClassLoader(classLoader)) {

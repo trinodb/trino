@@ -47,13 +47,7 @@ public class FixedSplitSource
         List<ConnectorSplit> results = splits.subList(offset, offset + size);
         offset += size;
 
-        return completedFuture(new ConnectorSplitBatch(results, isFinished()));
-    }
-
-    @Override
-    public boolean isFinished()
-    {
-        return offset >= splits.size();
+        return completedFuture(new ConnectorSplitBatch(results, offset >= splits.size()));
     }
 
     @Override

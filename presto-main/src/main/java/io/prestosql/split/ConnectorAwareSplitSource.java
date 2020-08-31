@@ -68,12 +68,6 @@ public class ConnectorAwareSplitSource
     }
 
     @Override
-    public boolean isFinished()
-    {
-        return source.isFinished();
-    }
-
-    @Override
     public Optional<Integer> getMinScheduleSplitBatchSize()
     {
         return source.getMinScheduleSplitBatchSize();

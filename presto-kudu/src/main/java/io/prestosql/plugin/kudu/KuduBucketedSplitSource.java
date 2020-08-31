@@ -48,10 +48,4 @@ public class KuduBucketedSplitSource
     public void close()
     {
     }
-
-    @Override
-    public boolean isFinished()
-    {
-        return groupedSplits.isEmpty();
-    }
 }

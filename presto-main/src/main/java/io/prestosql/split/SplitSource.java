@@ -35,8 +35,6 @@ public interface SplitSource
     @Override
     void close();
 
-    boolean isFinished();
-
     class SplitBatch
     {
         private final List<Split> splits;
