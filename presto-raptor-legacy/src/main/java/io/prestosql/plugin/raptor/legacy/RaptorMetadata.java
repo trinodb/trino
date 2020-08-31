@@ -116,7 +116,7 @@ import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.block.SortOrder.ASC_NULLS_FIRST;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.lang.String.format;
 import static java.util.Collections.nCopies;
 import static java.util.Objects.requireNonNull;
@@ -568,7 +568,7 @@ public class RaptorMetadata
 
         if (temporalColumnHandle.isPresent()) {
             RaptorColumnHandle column = temporalColumnHandle.get();
-            if (!column.getColumnType().equals(TIMESTAMP) && !column.getColumnType().equals(DATE)) {
+            if (!column.getColumnType().equals(TIMESTAMP_MILLIS) && !column.getColumnType().equals(DATE)) {
                 throw new PrestoException(NOT_SUPPORTED, "Temporal column must be of type timestamp or date: " + column.getColumnName());
             }
         }

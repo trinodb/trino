@@ -130,7 +130,7 @@ import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.StandardTypes.JSON;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
@@ -353,7 +353,7 @@ public class PostgreSqlClient
         }
         if (typeHandle.getJdbcType() == Types.TIMESTAMP) {
             return Optional.of(ColumnMapping.longMapping(
-                    TIMESTAMP,
+                    TIMESTAMP_MILLIS,
                     timestampReadFunction(),
                     timestampWriteFunction()));
         }
@@ -431,7 +431,7 @@ public class PostgreSqlClient
         if (TIME.equals(type)) {
             return WriteMapping.longMapping("time", timeWriteFunction());
         }
-        if (TIMESTAMP.equals(type)) {
+        if (TIMESTAMP_MILLIS.equals(type)) {
             return WriteMapping.longMapping("timestamp", timestampWriteFunction());
         }
         if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {

@@ -27,7 +27,7 @@ import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
@@ -127,7 +127,7 @@ public class TestDate
     public void testCastToTimestamp()
     {
         assertFunction("cast(DATE '2001-1-22' as timestamp)",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, 2001, 1, 22, 0, 0, 0, 0));
     }
 

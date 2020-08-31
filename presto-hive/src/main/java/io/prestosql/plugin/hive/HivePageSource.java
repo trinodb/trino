@@ -106,7 +106,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
@@ -214,7 +214,7 @@ public class HivePageSource
                 else if (type.equals(DATE)) {
                     prefilledValue = datePartitionKey(columnValue, name);
                 }
-                else if (type.equals(TIMESTAMP)) {
+                else if (type.equals(TIMESTAMP_MILLIS)) {
                     prefilledValue = timestampPartitionKey(columnValue, name);
                 }
                 else if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {

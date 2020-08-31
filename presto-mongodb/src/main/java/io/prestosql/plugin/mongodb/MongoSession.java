@@ -74,7 +74,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.lang.Math.toIntExact;
@@ -565,7 +565,7 @@ public class MongoSession
             typeSignature = DOUBLE.getTypeSignature();
         }
         else if (value instanceof Date) {
-            typeSignature = TIMESTAMP.getTypeSignature();
+            typeSignature = TIMESTAMP_MILLIS.getTypeSignature();
         }
         else if (value instanceof ObjectId) {
             typeSignature = OBJECT_ID.getTypeSignature();

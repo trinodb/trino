@@ -71,7 +71,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -305,7 +305,7 @@ public final class Statistics
         else if (type.equals(DATE)) {
             result.setDateStatistics(new DateStatistics(Optional.empty(), Optional.empty()));
         }
-        else if (type.equals(TIMESTAMP)) {
+        else if (type.equals(TIMESTAMP_MILLIS)) {
             result.setIntegerStatistics(new IntegerStatistics(OptionalLong.empty(), OptionalLong.empty()));
         }
         else if (type instanceof DecimalType) {
@@ -423,7 +423,7 @@ public final class Statistics
         else if (type.equals(DATE)) {
             result.setDateStatistics(new DateStatistics(getDateValue(session, type, min), getDateValue(session, type, max)));
         }
-        else if (type.equals(TIMESTAMP)) {
+        else if (type.equals(TIMESTAMP_MILLIS)) {
             result.setIntegerStatistics(new IntegerStatistics(getTimestampValue(min), getTimestampValue(max)));
         }
         else if (type instanceof DecimalType) {

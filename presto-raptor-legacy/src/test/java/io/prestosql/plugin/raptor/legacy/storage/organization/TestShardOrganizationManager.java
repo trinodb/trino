@@ -43,7 +43,7 @@ import static io.prestosql.plugin.raptor.legacy.storage.organization.TestCompact
 import static io.prestosql.plugin.raptor.legacy.storage.organization.TestShardOrganizer.createShardOrganizer;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
@@ -61,7 +61,7 @@ public class TestShardOrganizationManager
     private static final Table tableInfo = new Table(1L, Optional.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.empty(), true);
     private static final Table temporalTableInfo = new Table(1L, Optional.empty(), Optional.empty(), OptionalInt.empty(), OptionalLong.of(1), true);
 
-    private static final List<Type> types = ImmutableList.of(BIGINT, VARCHAR, DATE, TIMESTAMP);
+    private static final List<Type> types = ImmutableList.of(BIGINT, VARCHAR, DATE, TIMESTAMP_MILLIS);
 
     @BeforeMethod
     public void setup()

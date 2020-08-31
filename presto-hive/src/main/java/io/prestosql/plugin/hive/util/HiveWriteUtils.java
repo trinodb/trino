@@ -47,7 +47,6 @@ import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.SmallintType;
-import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
@@ -114,6 +113,7 @@ import static io.prestosql.plugin.hive.util.HiveUtil.isRowType;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.Chars.padSpaces;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
@@ -231,7 +231,7 @@ public final class HiveWriteUtils
         if (type.equals(DateType.DATE)) {
             return javaDateObjectInspector;
         }
-        if (type.equals(TimestampType.TIMESTAMP)) {
+        if (type.equals(TIMESTAMP_MILLIS)) {
             return javaTimestampObjectInspector;
         }
         if (type instanceof DecimalType) {
@@ -318,7 +318,7 @@ public final class HiveWriteUtils
         if (DateType.DATE.equals(type)) {
             return Date.ofEpochDay(toIntExact(type.getLong(block, position)));
         }
-        if (TimestampType.TIMESTAMP.equals(type)) {
+        if (TIMESTAMP_MILLIS.equals(type)) {
             return Timestamp.ofEpochMilli(type.getLong(block, position));
         }
         if (type instanceof DecimalType) {
@@ -670,7 +670,7 @@ public final class HiveWriteUtils
             return writableDateObjectInspector;
         }
 
-        if (type.equals(TimestampType.TIMESTAMP)) {
+        if (type.equals(TIMESTAMP_MILLIS)) {
             return writableTimestampObjectInspector;
         }
 

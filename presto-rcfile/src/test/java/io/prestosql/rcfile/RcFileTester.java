@@ -142,7 +142,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.StandardTypes.MAP;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -708,7 +708,7 @@ public class RcFileTester
                 long days = ((SqlDate) value).getDays();
                 type.writeLong(blockBuilder, days);
             }
-            else if (TIMESTAMP.equals(type)) {
+            else if (TIMESTAMP_MILLIS.equals(type)) {
                 long millis = ((SqlTimestamp) value).getMillis();
                 type.writeLong(blockBuilder, millis);
             }
@@ -965,7 +965,7 @@ public class RcFileTester
         if (type.equals(DATE)) {
             return javaDateObjectInspector;
         }
-        if (type.equals(TIMESTAMP)) {
+        if (type.equals(TIMESTAMP_MILLIS)) {
             return javaTimestampObjectInspector;
         }
         if (type instanceof DecimalType) {
@@ -1028,7 +1028,7 @@ public class RcFileTester
         if (type.equals(DATE)) {
             return Date.ofEpochDay(((SqlDate) value).getDays());
         }
-        if (type.equals(TIMESTAMP)) {
+        if (type.equals(TIMESTAMP_MILLIS)) {
             long millis = ((SqlTimestamp) value).getMillis();
             if (format == Format.BINARY) {
                 millis = HIVE_STORAGE_TIME_ZONE.convertLocalToUTC(millis, false);

@@ -22,6 +22,7 @@ import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.sql.parser.ParsingOptions;
@@ -68,7 +69,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.sql.ExpressionFormatter.formatExpression;
@@ -99,7 +100,7 @@ public class TestExpressionInterpreter
             .put(new Symbol("bound_boolean"), BOOLEAN)
             .put(new Symbol("bound_date"), DATE)
             .put(new Symbol("bound_time"), TIME)
-            .put(new Symbol("bound_timestamp"), TIMESTAMP)
+            .put(new Symbol("bound_timestamp"), TIMESTAMP_MILLIS)
             .put(new Symbol("bound_pattern"), VARCHAR)
             .put(new Symbol("bound_null_string"), VARCHAR)
             .put(new Symbol("bound_decimal_short"), createDecimalType(5, 2))
@@ -114,7 +115,7 @@ public class TestExpressionInterpreter
             .put(new Symbol("unbound_boolean"), BOOLEAN)
             .put(new Symbol("unbound_date"), DATE)
             .put(new Symbol("unbound_time"), TIME)
-            .put(new Symbol("unbound_timestamp"), TIMESTAMP)
+            .put(new Symbol("unbound_timestamp"), TIMESTAMP_MILLIS)
             .put(new Symbol("unbound_interval"), INTERVAL_DAY_TIME)
             .put(new Symbol("unbound_pattern"), VARCHAR)
             .put(new Symbol("unbound_null_string"), VARCHAR)

@@ -43,7 +43,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -64,7 +64,7 @@ public class TestReadBloomFilter
         testType(BIGINT, ImmutableList.of(1L, 500_000L, 1_000_000L), 500_000L, 777_777L);
 
         testType(DATE, ImmutableList.of(new SqlDate(1), new SqlDate(5_000), new SqlDate(10_000)), 5_000L, 7_777L);
-        testType(TIMESTAMP,
+        testType(TIMESTAMP_MILLIS,
                 ImmutableList.of(SqlTimestamp.fromMillis(3, 1), SqlTimestamp.fromMillis(3, 500_000L), SqlTimestamp.fromMillis(3, 1_000_000L)),
                 500_000L,
                 777_777L);

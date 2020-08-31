@@ -57,7 +57,7 @@ public enum BigQueryType
     BOOLEAN(BooleanType.BOOLEAN, BigQueryType::simpleToStringConverter),
     BYTES(VarbinaryType.VARBINARY, BigQueryType::bytesToStringConverter),
     DATE(DateType.DATE, BigQueryType::dateToStringConverter),
-    DATETIME(TimestampType.TIMESTAMP, BigQueryType::datetimeToStringConverter),
+    DATETIME(TimestampType.TIMESTAMP_MILLIS, BigQueryType::datetimeToStringConverter),
     FLOAT(DoubleType.DOUBLE, BigQueryType::simpleToStringConverter),
     GEOGRAPHY(VarcharType.VARCHAR, BigQueryType::stringToStringConverter),
     INTEGER(BigintType.BIGINT, BigQueryType::simpleToStringConverter),

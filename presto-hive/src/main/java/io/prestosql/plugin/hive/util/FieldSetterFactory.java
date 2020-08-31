@@ -26,7 +26,6 @@ import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.SmallintType;
-import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
@@ -57,6 +56,7 @@ import static io.prestosql.plugin.hive.util.HiveUtil.isArrayType;
 import static io.prestosql.plugin.hive.util.HiveUtil.isMapType;
 import static io.prestosql.plugin.hive.util.HiveUtil.isRowType;
 import static io.prestosql.plugin.hive.util.HiveWriteUtils.getHiveDecimal;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
@@ -116,7 +116,7 @@ public final class FieldSetterFactory
             return new DateFieldSetter(rowInspector, row, field);
         }
 
-        if (type.equals(TimestampType.TIMESTAMP)) {
+        if (type.equals(TIMESTAMP_MILLIS)) {
             return new TimestampFieldSetter(rowInspector, row, field, timeZone);
         }
 
@@ -374,7 +374,7 @@ public final class FieldSetterFactory
         @Override
         public void setField(Block block, int position)
         {
-            long epochMilli = TimestampType.TIMESTAMP.getLong(block, position);
+            long epochMilli = TIMESTAMP_MILLIS.getLong(block, position);
             epochMilli = timeZone.convertLocalToUTC(epochMilli, false);
             value.set(Timestamp.ofEpochMilli(epochMilli));
             rowInspector.setStructFieldData(row, field, value);

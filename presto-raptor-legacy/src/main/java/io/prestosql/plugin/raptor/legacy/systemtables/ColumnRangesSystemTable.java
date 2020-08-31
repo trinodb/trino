@@ -48,7 +48,7 @@ import static io.prestosql.spi.connector.SystemTable.Distribution.SINGLE_COORDIN
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.joining;
@@ -125,7 +125,7 @@ public class ColumnRangesSystemTable
                 for (int i = 0; i < columnTypes.size(); ++i) {
                     BlockBuilder blockBuilder = pageListBuilder.nextBlockBuilder();
                     Type columnType = columnTypes.get(i);
-                    if (columnType.equals(BIGINT) || columnType.equals(DATE) || columnType.equals(TIMESTAMP)) {
+                    if (columnType.equals(BIGINT) || columnType.equals(DATE) || columnType.equals(TIMESTAMP_MILLIS)) {
                         long value = resultSet.getLong(i + 1);
                         if (!resultSet.wasNull()) {
                             columnType.writeLong(blockBuilder, value);
@@ -162,7 +162,7 @@ public class ColumnRangesSystemTable
         // Exclude INTEGER because we don't collect column stats for INTEGER type.
         // Exclude DOUBLE because Java double is not completely compatible with MySQL double
         // Exclude VARCHAR because they can be truncated
-        return type.equals(BOOLEAN) || type.equals(BIGINT) || type.equals(DATE) || type.equals(TIMESTAMP);
+        return type.equals(BOOLEAN) || type.equals(BIGINT) || type.equals(DATE) || type.equals(TIMESTAMP_MILLIS);
     }
 
     private static String getColumnRangesMetadataSqlQuery(RaptorTableHandle raptorTableHandle, List<TableColumn> raptorColumns)

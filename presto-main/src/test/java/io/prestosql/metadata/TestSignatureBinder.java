@@ -41,7 +41,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.spi.type.TypeSignature.functionType;
@@ -1022,7 +1022,7 @@ public class TestSignatureBinder
                         .setTypeVariable("F", INTEGER)
                         .setTypeVariable("T", VARCHAR));
         assertThat(castArray)
-                .boundTo(new ArrayType(INTEGER), new ArrayType(TIMESTAMP))
+                .boundTo(new ArrayType(INTEGER), new ArrayType(TIMESTAMP_MILLIS))
                 .fails();
 
         Signature multiCast = functionSignature()
@@ -1035,7 +1035,7 @@ public class TestSignatureBinder
                 .produces(new BoundVariables()
                         .setTypeVariable("E", TINYINT));
         assertThat(multiCast)
-                .boundTo(new ArrayType(TIMESTAMP))
+                .boundTo(new ArrayType(TIMESTAMP_MILLIS))
                 .fails();
     }
 
@@ -1065,7 +1065,7 @@ public class TestSignatureBinder
                 .produces(new BoundVariables()
                         .setTypeVariable("E", TINYINT));
         assertThat(multiCast)
-                .boundTo(new ArrayType(TIMESTAMP), JSON)
+                .boundTo(new ArrayType(TIMESTAMP_MILLIS), JSON)
                 .fails();
     }
 

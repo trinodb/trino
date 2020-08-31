@@ -23,7 +23,7 @@ import static io.prestosql.spi.type.DateTimeEncoding.packTimeWithTimeZone;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.util.Arrays.asList;
 
@@ -38,8 +38,8 @@ public class TestMillisecondsSinceEpochJsonFieldDecoder
         tester.assertDecodedAs("\"33701000\"", TIME, 33_701_000_000_000_000L);
         tester.assertDecodedAs("33701000", TIME_WITH_TIME_ZONE, packTimeWithTimeZone(33_701_000_000_000L, 0));
         tester.assertDecodedAs("\"33701000\"", TIME_WITH_TIME_ZONE, packTimeWithTimeZone(33_701_000_000_000L, 0));
-        tester.assertDecodedAs("1519032101123", TIMESTAMP, 1519032101123L);
-        tester.assertDecodedAs("\"1519032101123\"", TIMESTAMP, 1519032101123L);
+        tester.assertDecodedAs("1519032101123", TIMESTAMP_MILLIS, 1519032101123L);
+        tester.assertDecodedAs("\"1519032101123\"", TIMESTAMP_MILLIS, 1519032101123L);
         tester.assertDecodedAs("1519032101123", TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(1519032101123L, UTC_KEY));
         tester.assertDecodedAs("\"1519032101123\"", TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(1519032101123L, UTC_KEY));
     }
@@ -47,7 +47,7 @@ public class TestMillisecondsSinceEpochJsonFieldDecoder
     @Test
     public void testDecodeNulls()
     {
-        for (Type type : asList(TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE)) {
+        for (Type type : asList(TIME, TIME_WITH_TIME_ZONE, TIMESTAMP_MILLIS, TIMESTAMP_WITH_TIME_ZONE)) {
             tester.assertDecodedAsNull("null", type);
             tester.assertMissingDecodedAsNull(type);
         }
@@ -56,7 +56,7 @@ public class TestMillisecondsSinceEpochJsonFieldDecoder
     @Test
     public void testDecodeInvalid()
     {
-        for (Type type : asList(TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE)) {
+        for (Type type : asList(TIME, TIME_WITH_TIME_ZONE, TIMESTAMP_MILLIS, TIMESTAMP_WITH_TIME_ZONE)) {
             tester.assertInvalidInput("{}", type, "could not parse non-value node as '.*' for column 'some_column'");
             tester.assertInvalidInput("[]", type, "could not parse non-value node as '.*' for column 'some_column'");
             tester.assertInvalidInput("[10]", type, "could not parse non-value node as '.*' for column 'some_column'");

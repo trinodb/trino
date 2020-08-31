@@ -30,7 +30,7 @@ import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -60,36 +60,36 @@ public class TestTimestamp
     {
         assertFunction(
                 "cast('2001-1-22 03:04:05.321 +07:09' as timestamp)",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, LocalDateTime.of(2001, 1, 22, 3, 4, 5, 321_000_000)));
         assertFunction(
                 "cast('2001-1-22 03:04:05 +07:09' as timestamp)",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, LocalDateTime.of(2001, 1, 22, 3, 4, 5)));
         assertFunction(
                 "cast('2001-1-22 03:04 +07:09' as timestamp)",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, LocalDateTime.of(2001, 1, 22, 3, 4, 0)));
         assertFunction(
                 "cast('2001-1-22 +07:09' as timestamp)",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, LocalDateTime.of(2001, 1, 22, 0, 0, 0)));
 
         assertFunction(
                 "cast('2001-1-22 03:04:05.321 Asia/Oral' as timestamp)",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, LocalDateTime.of(2001, 1, 22, 3, 4, 5, 321_000_000)));
         assertFunction(
                 "cast('2001-1-22 03:04:05 Asia/Oral' as timestamp)",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, LocalDateTime.of(2001, 1, 22, 3, 4, 5)));
         assertFunction(
                 "cast('2001-1-22 03:04 Asia/Oral' as timestamp)",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, LocalDateTime.of(2001, 1, 22, 3, 4, 0)));
         assertFunction(
                 "cast('2001-1-22 Asia/Oral' as timestamp)",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, LocalDateTime.of(2001, 1, 22, 0, 0, 0)));
     }
 
@@ -261,25 +261,25 @@ public class TestTimestamp
     public void testCastFromSlice()
     {
         assertFunction("cast('2001-1-22 03:04:05.321' as timestamp)",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, 2001, 1, 22, 3, 4, 5, 321));
         assertFunction("cast('2001-1-22 03:04:05' as timestamp)",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, 2001, 1, 22, 3, 4, 5, 0));
         assertFunction("cast('2001-1-22 03:04' as timestamp)",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, 2001, 1, 22, 3, 4, 0, 0));
         assertFunction("cast('2001-1-22' as timestamp)",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, 2001, 1, 22, 0, 0, 0, 0));
         assertFunction("cast('\n\t 2001-1-22 03:04:05.321' as timestamp)",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, 2001, 1, 22, 3, 4, 5, 321));
         assertFunction("cast('2001-1-22 03:04:05.321 \t\n' as timestamp)",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, 2001, 1, 22, 3, 4, 5, 321));
         assertFunction("cast('\n\t 2001-1-22 03:04:05.321 \t\n' as timestamp)",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, 2001, 1, 22, 3, 4, 5, 321));
     }
 

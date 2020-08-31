@@ -43,7 +43,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -235,7 +235,7 @@ public abstract class AbstractTestAccumuloRowSerializer
             throws Exception
     {
         AccumuloRowSerializer serializer = serializerClass.getConstructor().newInstance();
-        Type type = TIMESTAMP;
+        Type type = TIMESTAMP_MILLIS;
         Timestamp expected = new Timestamp(new java.util.Date().getTime());
         byte[] data = serializer.encode(type, expected);
         Timestamp actual = new Timestamp(serializer.decode(type, data));
