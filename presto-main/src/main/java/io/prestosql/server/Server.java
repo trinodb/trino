@@ -34,6 +34,7 @@ import io.airlift.log.LogJmxModule;
 import io.airlift.log.Logger;
 import io.airlift.node.NodeModule;
 import io.airlift.tracetoken.TraceTokenModule;
+import io.prestosql.client.NodeVersion;
 import io.prestosql.eventlistener.EventListenerManager;
 import io.prestosql.eventlistener.EventListenerModule;
 import io.prestosql.execution.resourcegroups.ResourceGroupManager;
@@ -109,6 +110,7 @@ public class Server
         try {
             Injector injector = app.strictConfig().initialize();
 
+            log.info("Presto version: %s", injector.getInstance(NodeVersion.class).getVersion());
             logLocation(log, "Working directory", Paths.get("."));
             logLocation(log, "Etc directory", Paths.get("etc"));
 
