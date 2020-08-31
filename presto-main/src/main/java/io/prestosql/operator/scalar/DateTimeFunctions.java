@@ -23,6 +23,7 @@ import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
+import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.TimeZoneNotSupportedException;
@@ -161,6 +162,16 @@ public final class DateTimeFunctions
     public static long fromUnixTime(@SqlType(StandardTypes.DOUBLE) double unixTime, @SqlType("varchar(x)") Slice zoneId)
     {
         return packDateTimeWithZone(Math.round(unixTime * 1000), zoneId.toStringUtf8());
+    }
+
+    @ScalarFunction("from_unixtime_nanos")
+    @SqlType("timestamp(9)")
+    public static LongTimestamp fromUnixTimeNanos(@SqlType(StandardTypes.BIGINT) long unixTimeNanos)
+    {
+        long epochMicros = unixTimeNanos / 1000;
+        int picosOfMicro = 1000 * (int) (unixTimeNanos % 1000);
+
+        return new LongTimestamp(epochMicros, picosOfMicro);
     }
 
     @ScalarFunction("to_iso8601")

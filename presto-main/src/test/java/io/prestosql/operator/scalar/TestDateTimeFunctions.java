@@ -20,6 +20,7 @@ import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.SqlTimeWithTimeZone;
+import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.TimeZoneKey;
@@ -40,6 +41,7 @@ import org.testng.annotations.Test;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetTime;
 import java.time.ZoneId;
@@ -265,6 +267,20 @@ public class TestDateTimeFunctions
         zoneId = "America/Los_Angeles";
         expected = new DateTime(1969, 12, 31, 18, 0, 0, DateTimeZone.forID(zoneId));
         assertFunction(format("from_unixtime(7200, '%s')", zoneId), TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(expected));
+    }
+
+    @Test
+    public void testFromUnixTimeNanos()
+    {
+        LocalDateTime dateTime = LocalDateTime.of(2001, 1, 22, 3, 4, 5, 123456789);
+        long epochNanos = (1_000_000_000L * dateTime.toEpochSecond(ZoneOffset.UTC)) + dateTime.getNano();
+        SqlTimestamp expected = SqlTimestamp.newInstance(9, epochNanos / 1000L, (dateTime.getNano() % 1000) * 1000);
+        assertFunction("from_unixtime_nanos(" + epochNanos + ")", TimestampType.TIMESTAMP_NANOS, expected);
+
+        dateTime = LocalDateTime.of(2001, 1, 22, 3, 4, 5, 0);
+        epochNanos = 1_000_000_000L * dateTime.toEpochSecond(ZoneOffset.UTC);
+        expected = SqlTimestamp.newInstance(9, epochNanos / 1000L, 0);
+        assertFunction("from_unixtime_nanos(" + epochNanos + ")", TimestampType.TIMESTAMP_NANOS, expected);
     }
 
     @Test
