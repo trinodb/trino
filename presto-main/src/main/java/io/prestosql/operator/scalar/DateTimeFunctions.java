@@ -23,6 +23,7 @@ import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
+import io.prestosql.spi.type.LongTimestampWithTimeZone;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.TimeZoneNotSupportedException;
@@ -37,6 +38,11 @@ import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.ISODateTimeFormat;
 
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeParseException;
+import java.time.temporal.TemporalAccessor;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
@@ -184,6 +190,19 @@ public final class DateTimeFunctions
                 .withChronology(getChronology(session.getTimeZoneKey()))
                 .withOffsetParsed();
         return packDateTimeWithZone(parseDateTimeHelper(formatter, iso8601DateTime.toStringUtf8()));
+    }
+
+    @ScalarFunction("from_iso8601_timestamp_nanos")
+    @LiteralParameters("x")
+    @SqlType("timestamp(9) with time zone")
+    public static LongTimestampWithTimeZone fromISO8601TimestampNanos(ConnectorSession session, @SqlType("varchar(x)") Slice iso8601DateTime)
+    {
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ISO_DATE_TIME;
+        ZonedDateTime zdt = parseJavaDateTimeHelper(formatter, iso8601DateTime.toStringUtf8());
+
+        long picosOfSecond = zdt.getNano() * 1000L;
+        TimeZoneKey zone = TimeZoneKey.getTimeZoneKey(zdt.getZone().getId());
+        return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(zdt.toEpochSecond(), picosOfSecond, zone);
     }
 
     @ScalarFunction("from_iso8601_date")
@@ -370,6 +389,24 @@ public final class DateTimeFunctions
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
+    }
+
+    private static ZonedDateTime parseJavaDateTimeHelper(java.time.format.DateTimeFormatter formatter, String datetimeString)
+    {
+        TemporalAccessor dt;
+        try {
+            dt = formatter.parseBest(datetimeString, ZonedDateTime::from, LocalDateTime::from);
+        }
+        catch (DateTimeParseException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
+
+        if (dt instanceof ZonedDateTime) {
+            return (ZonedDateTime) dt;
+        }
+        else {
+            return ((LocalDateTime) dt).atZone(ZoneId.of("UTC"));
         }
     }
 

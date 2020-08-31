@@ -24,6 +24,7 @@ import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.testing.TestingConnectorSession;
 import io.prestosql.testing.TestingSession;
@@ -44,6 +45,7 @@ import java.time.LocalTime;
 import java.time.OffsetTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
@@ -288,6 +290,28 @@ public class TestDateTimeFunctions
         assertFunction("from_iso8601_timestamp('" + TIMESTAMP_ISO8601_STRING + "')", TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(TIMESTAMP_WITH_NUMERICAL_ZONE));
         assertFunction("from_iso8601_timestamp('" + WEIRD_TIMESTAMP_ISO8601_STRING + "')", TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(WEIRD_TIMESTAMP));
         assertFunction("from_iso8601_date('" + DATE_ISO8601_STRING + "')", DateType.DATE, toDate(DATE));
+    }
+
+    @Test
+    public void testFromISO8601Nanos()
+    {
+        String utcTimestamp = "2001-08-22T12:34:56.123456789Z";
+        String noZoneTimestamp = "2001-08-22T12:34:56.123456789";
+        String negOffsetTimestamp = "2001-08-22T07:34:56.123456789-05:00";
+        String posOffsetTimestamp = "2001-08-22T13:34:56.123456789+01:00";
+        String notActuallyNanosTimestamp = "2001-08-22T12:34:56.123Z";
+
+        Instant instant = ZonedDateTime.of(2001, 8, 22, 12, 34, 56, 123456789, ZoneId.of("UTC")).toInstant();
+        SqlTimestampWithTimeZone expectedUtc = SqlTimestampWithTimeZone.newInstance(9, instant, ZoneId.of("UTC"));
+        SqlTimestampWithTimeZone expectedNegOffset = SqlTimestampWithTimeZone.newInstance(9, instant, ZoneId.of("-0500"));
+        SqlTimestampWithTimeZone expectedPosOffset = SqlTimestampWithTimeZone.newInstance(9, instant, ZoneId.of("+0100"));
+        SqlTimestampWithTimeZone expectedNotActuallyNanos = SqlTimestampWithTimeZone.newInstance(9, instant.minusNanos(456789), ZoneId.of("UTC"));
+
+        assertFunction("from_iso8601_timestamp_nanos('" + utcTimestamp + "')", TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS, expectedUtc);
+        assertFunction("from_iso8601_timestamp_nanos('" + noZoneTimestamp + "')", TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS, expectedUtc);
+        assertFunction("from_iso8601_timestamp_nanos('" + negOffsetTimestamp + "')", TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS, expectedNegOffset);
+        assertFunction("from_iso8601_timestamp_nanos('" + posOffsetTimestamp + "')", TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS, expectedPosOffset);
+        assertFunction("from_iso8601_timestamp_nanos('" + notActuallyNanosTimestamp + "')", TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS, expectedNotActuallyNanos);
     }
 
     @Test
