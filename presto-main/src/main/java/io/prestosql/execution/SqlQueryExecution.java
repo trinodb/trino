@@ -82,6 +82,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.prestosql.SystemSessionProperties.isEnableDynamicFiltering;
@@ -180,8 +181,13 @@ public class SqlQueryExecution
             // analyze query
             this.analysis = analyze(preparedQuery, stateMachine, metadata, accessControl, sqlParser, queryExplainer, warningCollector);
 
-            stateMachine.addStateChangeListener(state -> unregisterDynamicFilteringQuery(
-                    dynamicFilterService.getDynamicFilteringStats(stateMachine.getQueryId(), stateMachine.getSession())));
+            stateMachine.addStateChangeListener(state -> {
+                if (!state.isDone()) {
+                    return;
+                }
+                unregisterDynamicFilteringQuery(
+                        dynamicFilterService.getDynamicFilteringStats(stateMachine.getQueryId(), stateMachine.getSession()));
+            });
 
             // when the query finishes cache the final query info, and clear the reference to the output stage
             AtomicReference<SqlQueryScheduler> queryScheduler = this.queryScheduler;
@@ -221,9 +227,7 @@ public class SqlQueryExecution
 
     private synchronized void unregisterDynamicFilteringQuery(DynamicFiltersStats finalDynamicFiltersStats)
     {
-        if (!isDone()) {
-            return;
-        }
+        checkState(isDone(), "Expected query to be in done state");
         stateMachine.setDynamicFiltersStatsSupplier(() -> finalDynamicFiltersStats);
         dynamicFilterService.removeQuery(stateMachine.getQueryId());
     }
