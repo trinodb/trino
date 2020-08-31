@@ -42,7 +42,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -102,7 +102,7 @@ public class Field
         else if (type.equals(TIME)) {
             this.value = new Time(field.getTime().getTime());
         }
-        else if (type.equals(TIMESTAMP)) {
+        else if (type.equals(TIMESTAMP_MILLIS)) {
             this.value = new Timestamp(field.getTimestamp().getTime());
         }
         else if (type.equals(TINYINT)) {
@@ -233,7 +233,7 @@ public class Field
                     // aren't they so fancy
                     retval = Arrays.equals((byte[]) value, (byte[]) field.getObject());
                 }
-                else if (type.equals(DATE) || type.equals(TIME) || type.equals(TIMESTAMP)) {
+                else if (type.equals(DATE) || type.equals(TIME) || type.equals(TIMESTAMP_MILLIS)) {
                     retval = value.toString().equals(field.getObject().toString());
                 }
                 else {
@@ -334,7 +334,7 @@ public class Field
             return new Time((long) value);
         }
 
-        if (type.equals(TIMESTAMP)) {
+        if (type.equals(TIMESTAMP_MILLIS)) {
             return new Timestamp((long) value);
         }
 

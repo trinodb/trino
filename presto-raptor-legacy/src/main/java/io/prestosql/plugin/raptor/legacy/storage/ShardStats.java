@@ -86,7 +86,7 @@ public final class ShardStats
         }
         if (type.equals(BigintType.BIGINT) ||
                 type.equals(DateType.DATE) ||
-                type.equals(TimestampType.TIMESTAMP)) {
+                type.equals(TimestampType.TIMESTAMP_MILLIS)) {
             return indexLong(type, reader, columnId);
         }
         if (type.equals(DoubleType.DOUBLE)) {

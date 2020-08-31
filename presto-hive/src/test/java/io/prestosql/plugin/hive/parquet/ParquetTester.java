@@ -111,7 +111,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
@@ -525,7 +525,7 @@ public class ParquetTester
         if (DATE.equals(type)) {
             return new SqlDate(((Long) fieldFromCursor).intValue());
         }
-        if (TIMESTAMP.equals(type)) {
+        if (TIMESTAMP_MILLIS.equals(type)) {
             return SqlTimestamp.fromMillis(3, (long) fieldFromCursor);
         }
         return fieldFromCursor;
@@ -782,7 +782,7 @@ public class ParquetTester
                 long days = ((SqlDate) value).getDays();
                 type.writeLong(blockBuilder, days);
             }
-            else if (TIMESTAMP.equals(type)) {
+            else if (TIMESTAMP_MILLIS.equals(type)) {
                 long millis = ((SqlTimestamp) value).getMillis();
                 type.writeLong(blockBuilder, millis);
             }

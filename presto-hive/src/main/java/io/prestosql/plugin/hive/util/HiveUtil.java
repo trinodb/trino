@@ -151,7 +151,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Byte.parseByte;
@@ -517,7 +517,7 @@ public final class HiveUtil
                 REAL.equals(type) ||
                 DOUBLE.equals(type) ||
                 DATE.equals(type) ||
-                TIMESTAMP.equals(type) ||
+                TIMESTAMP_MILLIS.equals(type) ||
                 isVarcharType(type) ||
                 isCharType(type);
     }
@@ -604,11 +604,11 @@ public final class HiveUtil
             return NullableValue.of(DATE, datePartitionKey(value, partitionName));
         }
 
-        if (TIMESTAMP.equals(type)) {
+        if (TIMESTAMP_MILLIS.equals(type)) {
             if (isNull) {
-                return NullableValue.asNull(TIMESTAMP);
+                return NullableValue.asNull(TIMESTAMP_MILLIS);
             }
-            return NullableValue.of(TIMESTAMP, timestampPartitionKey(value, partitionName));
+            return NullableValue.of(TIMESTAMP_MILLIS, timestampPartitionKey(value, partitionName));
         }
 
         if (REAL.equals(type)) {

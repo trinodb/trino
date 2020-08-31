@@ -59,7 +59,6 @@ import io.prestosql.spi.type.RowFieldName;
 import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.RowType.Field;
 import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import io.prestosql.spi.type.TypeSignature;
@@ -118,6 +117,7 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.CharType.createCharType;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
@@ -553,7 +553,7 @@ public class OrcStorageManager
     static Type toOrcFileType(Type raptorType, TypeManager typeManager)
     {
         // TIMESTAMPS are stored as BIGINT to void the poor encoding in ORC
-        if (raptorType.equals(TimestampType.TIMESTAMP)) {
+        if (raptorType.equals(TIMESTAMP_MILLIS)) {
             return BIGINT;
         }
         if (raptorType instanceof ArrayType) {

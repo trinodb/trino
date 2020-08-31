@@ -764,7 +764,7 @@ public class TestPrestoDatabaseMetaData
                 assertColumnSpec(rs, Types.VARBINARY, (long) Integer.MAX_VALUE, null, null, (long) Integer.MAX_VALUE, VarbinaryType.VARBINARY);
                 assertColumnSpec(rs, Types.TIME, 12L, null, null, null, TimeType.TIME);
                 assertColumnSpec(rs, Types.TIME_WITH_TIMEZONE, 18L, null, null, null, TimeWithTimeZoneType.TIME_WITH_TIME_ZONE);
-                assertColumnSpec(rs, Types.TIMESTAMP, 25L, null, null, null, TimestampType.TIMESTAMP);
+                assertColumnSpec(rs, Types.TIMESTAMP, 25L, null, null, null, TimestampType.TIMESTAMP_MILLIS);
                 assertColumnSpec(rs, Types.TIMESTAMP, 31L, null, null, null, createTimestampType(9));
                 assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 59L, null, null, null, TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE);
                 assertColumnSpec(rs, Types.TIMESTAMP_WITH_TIMEZONE, 65L, null, null, null, createTimestampWithTimeZoneType(9));

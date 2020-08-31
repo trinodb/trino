@@ -21,7 +21,7 @@ import java.time.Duration;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.lang.Math.toIntExact;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -35,8 +35,8 @@ public final class TemporalFunction
             return toIntExact(DATE.getLong(block, position));
         }
 
-        if (type.equals(TIMESTAMP)) {
-            long millis = TIMESTAMP.getLong(block, position);
+        if (type.equals(TIMESTAMP_MILLIS)) {
+            long millis = TIMESTAMP_MILLIS.getLong(block, position);
             long days = MILLISECONDS.toDays(millis);
             return toIntExact(days);
         }
@@ -55,7 +55,7 @@ public final class TemporalFunction
             return (int) getOnlyElement(min.getValues());
         }
 
-        if (type.equals(TIMESTAMP)) {
+        if (type.equals(TIMESTAMP_MILLIS)) {
             long minValue = (long) getOnlyElement(min.getValues());
             long maxValue = (long) getOnlyElement(max.getValues());
             return determineDay(minValue, maxValue);

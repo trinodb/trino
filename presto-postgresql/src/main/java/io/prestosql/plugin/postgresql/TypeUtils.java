@@ -48,7 +48,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.TypeUtils.readNativeValue;
@@ -176,7 +176,7 @@ final class TypeUtils
             return new Date(UTC.getMillisKeepLocal(DateTimeZone.getDefault(), millis));
         }
 
-        if (TIMESTAMP.equals(prestoType)) {
+        if (TIMESTAMP_MILLIS.equals(prestoType)) {
             return toPgTimestamp(fromPrestoTimestamp((long) prestoNative));
         }
 

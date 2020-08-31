@@ -75,7 +75,7 @@ import static io.prestosql.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -138,7 +138,7 @@ public class TestDomainTranslator
             .put(C_BIGINT_1, BIGINT)
             .put(C_DOUBLE_1, DOUBLE)
             .put(C_VARCHAR_1, VARCHAR)
-            .put(C_TIMESTAMP, TIMESTAMP)
+            .put(C_TIMESTAMP, TIMESTAMP_MILLIS)
             .put(C_DATE, DATE)
             .put(C_COLOR, COLOR) // Equatable, but not orderable
             .put(C_HYPER_LOG_LOG, HYPER_LOG_LOG) // Not Equatable or orderable
@@ -211,7 +211,7 @@ public class TestDomainTranslator
                 .put(C_BIGINT_1, Domain.singleValue(BIGINT, 2L))
                 .put(C_DOUBLE_1, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(DOUBLE, 1.1), Range.equal(DOUBLE, 2.0), Range.range(DOUBLE, 3.0, false, 3.5, true)), true))
                 .put(C_VARCHAR_1, Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(VARCHAR, utf8Slice("2013-01-01")), Range.greaterThan(VARCHAR, utf8Slice("2013-10-01"))), false))
-                .put(C_TIMESTAMP, Domain.singleValue(TIMESTAMP, TIMESTAMP_VALUE))
+                .put(C_TIMESTAMP, Domain.singleValue(TIMESTAMP_MILLIS, TIMESTAMP_VALUE))
                 .put(C_DATE, Domain.singleValue(DATE, DATE_VALUE))
                 .put(C_COLOR, Domain.singleValue(COLOR, COLOR_VALUE_1))
                 .put(C_HYPER_LOG_LOG, Domain.notNull(HYPER_LOG_LOG))

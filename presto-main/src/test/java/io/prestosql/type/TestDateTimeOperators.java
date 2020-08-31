@@ -28,7 +28,7 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampType.createTimestampType;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -153,28 +153,28 @@ public class TestDateTimeOperators
     public void testTimestampPlusInterval()
     {
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' + INTERVAL '3' hour",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, 2001, 1, 22, 6, 4, 5, 321));
         assertFunction("INTERVAL '3' hour + TIMESTAMP '2001-1-22 03:04:05.321'",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, 2001, 1, 22, 6, 4, 5, 321));
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' + INTERVAL '3' day",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, 2001, 1, 25, 3, 4, 5, 321));
         assertFunction("INTERVAL '3' day + TIMESTAMP '2001-1-22 03:04:05.321'",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, 2001, 1, 25, 3, 4, 5, 321));
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' + INTERVAL '3' month",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, 2001, 4, 22, 3, 4, 5, 321));
         assertFunction("INTERVAL '3' month + TIMESTAMP '2001-1-22 03:04:05.321'",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, 2001, 4, 22, 3, 4, 5, 321));
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' + INTERVAL '3' year",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, 2004, 1, 22, 3, 4, 5, 321));
         assertFunction("INTERVAL '3' year + TIMESTAMP '2001-1-22 03:04:05.321'",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, 2004, 1, 22, 3, 4, 5, 321));
 
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321 +05:09' + INTERVAL '3' hour",
@@ -215,13 +215,13 @@ public class TestDateTimeOperators
     public void testTimestampMinusInterval()
     {
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' - INTERVAL '3' day",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, 2001, 1, 19, 3, 4, 5, 321));
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321 +05:09' - INTERVAL '3' day",
                 TIMESTAMP_WITH_TIME_ZONE,
                 SqlTimestampWithTimeZone.newInstance(3, new DateTime(2001, 1, 19, 3, 4, 5, 321, WEIRD_TIME_ZONE).getMillis(), 0, WEIRD_TIME_ZONE_KEY));
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321' - INTERVAL '3' month",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, 2000, 10, 22, 3, 4, 5, 321));
         assertFunction("TIMESTAMP '2001-1-22 03:04:05.321 +05:09' - INTERVAL '3' month",
                 TIMESTAMP_WITH_TIME_ZONE,

@@ -30,7 +30,7 @@ import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -283,12 +283,12 @@ public class TestTimestampWithTimeZone
     public void testCastToTimestamp()
     {
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 +07:09' as timestamp)",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, 2001, 1, 22, 3, 4, 5, 321));
 
         // This TZ had switch in 2014, so if we test for 2014 and used unpacked value we would use wrong shift
         assertFunction("cast(TIMESTAMP '2001-1-22 03:04:05.321 Pacific/Bougainville' as timestamp)",
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 sqlTimestampOf(3, 2001, 1, 22, 3, 4, 5, 321));
     }
 

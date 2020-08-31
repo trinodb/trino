@@ -64,7 +64,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.Math.toIntExact;
@@ -1026,7 +1026,7 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(TIMESTAMP);
+            setup(TIMESTAMP_MILLIS);
         }
 
         @Override
@@ -1048,7 +1048,7 @@ public class BenchmarkColumnReaders
         public void setup()
                 throws Exception
         {
-            setup(TIMESTAMP);
+            setup(TIMESTAMP_MILLIS);
         }
 
         @Override

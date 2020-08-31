@@ -30,7 +30,7 @@ public class TimestampParametricType
     public Type createType(TypeManager typeManager, List<TypeParameter> parameters)
     {
         if (parameters.isEmpty()) {
-            return TimestampType.TIMESTAMP;
+            return TimestampType.TIMESTAMP_MILLIS;
         }
         if (parameters.size() != 1) {
             throw new IllegalArgumentException("Expected exactly one parameter for TIMESTAMP");

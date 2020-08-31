@@ -22,7 +22,7 @@ import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static java.util.Arrays.asList;
 
@@ -33,9 +33,9 @@ public class TestISO8601JsonFieldDecoder
     @Test
     public void testDecode()
     {
-        tester.assertDecodedAs("\"2018-02-19T09:20:11\"", TIMESTAMP, 1519032011000L);
-        tester.assertDecodedAs("\"2018-02-19T09:20:11Z\"", TIMESTAMP, 1519032011000L);
-        tester.assertDecodedAs("\"2018-02-19T09:20:11+10:00\"", TIMESTAMP, 1519032011000L);
+        tester.assertDecodedAs("\"2018-02-19T09:20:11\"", TIMESTAMP_MILLIS, 1519032011000L);
+        tester.assertDecodedAs("\"2018-02-19T09:20:11Z\"", TIMESTAMP_MILLIS, 1519032011000L);
+        tester.assertDecodedAs("\"2018-02-19T09:20:11+10:00\"", TIMESTAMP_MILLIS, 1519032011000L);
         tester.assertDecodedAs("\"13:15:18\"", TIME, 47_718_000_000_000_000L);
         tester.assertDecodedAs("\"13:15\"", TIME, 47_700_000_000_000_000L);
         tester.assertDecodedAs("\"13:15:18Z\"", TIME, 47_718_000_000_000_000L);
@@ -52,7 +52,7 @@ public class TestISO8601JsonFieldDecoder
     @Test
     public void testDecodeNulls()
     {
-        for (Type type : asList(DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP, TIMESTAMP_WITH_TIME_ZONE)) {
+        for (Type type : asList(DATE, TIME, TIME_WITH_TIME_ZONE, TIMESTAMP_MILLIS, TIMESTAMP_WITH_TIME_ZONE)) {
             tester.assertDecodedAsNull("null", type);
             tester.assertMissingDecodedAsNull(type);
         }
@@ -61,10 +61,10 @@ public class TestISO8601JsonFieldDecoder
     @Test
     public void testDecodeInvalid()
     {
-        tester.assertInvalidInput("1", TIMESTAMP, "\\Qcould not parse value '1' as 'timestamp(3)' for column 'some_column'\\E");
-        tester.assertInvalidInput("{}", TIMESTAMP, "\\Qcould not parse non-value node as 'timestamp(3)' for column 'some_column'\\E");
-        tester.assertInvalidInput("\"a\"", TIMESTAMP, "\\Qcould not parse value 'a' as 'timestamp(3)' for column 'some_column'\\E");
-        tester.assertInvalidInput("1", TIMESTAMP, "\\Qcould not parse value '1' as 'timestamp(3)' for column 'some_column'\\E");
+        tester.assertInvalidInput("1", TIMESTAMP_MILLIS, "\\Qcould not parse value '1' as 'timestamp(3)' for column 'some_column'\\E");
+        tester.assertInvalidInput("{}", TIMESTAMP_MILLIS, "\\Qcould not parse non-value node as 'timestamp(3)' for column 'some_column'\\E");
+        tester.assertInvalidInput("\"a\"", TIMESTAMP_MILLIS, "\\Qcould not parse value 'a' as 'timestamp(3)' for column 'some_column'\\E");
+        tester.assertInvalidInput("1", TIMESTAMP_MILLIS, "\\Qcould not parse value '1' as 'timestamp(3)' for column 'some_column'\\E");
 
         tester.assertInvalidInput("\"2018-02-19T09:20:11\"", DATE, "could not parse value '2018-02-19T09:20:11' as 'date' for column 'some_column'");
         tester.assertInvalidInput("\"2018-02-19T09:20:11Z\"", DATE, "could not parse value '2018-02-19T09:20:11Z' as 'date' for column 'some_column'");

@@ -68,7 +68,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
@@ -480,7 +480,7 @@ public class GenericHiveRecordCursor<K, V extends Writable>
         else if (DATE.equals(type)) {
             parseLongColumn(column);
         }
-        else if (TIMESTAMP.equals(type)) {
+        else if (TIMESTAMP_MILLIS.equals(type)) {
             parseLongColumn(column);
         }
         else if (type instanceof DecimalType) {

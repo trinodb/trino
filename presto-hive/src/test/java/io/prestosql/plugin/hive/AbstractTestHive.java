@@ -111,6 +111,7 @@ import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.SqlVarbinary;
+import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.gen.JoinCompiler;
 import io.prestosql.testing.MaterializedResult;
@@ -256,7 +257,7 @@ import static io.prestosql.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
@@ -473,7 +474,7 @@ public abstract class AbstractTestHive
             .add(new ColumnMetadata("t_char", createCharType(5)))
             .add(new ColumnMetadata("t_varbinary", VARBINARY))
             .add(new ColumnMetadata("t_date", DATE))
-            .add(new ColumnMetadata("t_timestamp", TIMESTAMP))
+            .add(new ColumnMetadata("t_timestamp", TIMESTAMP_MILLIS))
             .add(new ColumnMetadata("t_short_decimal", createDecimalType(5, 2)))
             .add(new ColumnMetadata("t_long_decimal", createDecimalType(20, 3)))
             .build();
@@ -4538,7 +4539,7 @@ public abstract class AbstractTestHive
                 else if (VARBINARY.equals(column.getType())) {
                     assertInstanceOf(value, SqlVarbinary.class);
                 }
-                else if (TIMESTAMP.equals(column.getType())) {
+                else if (TIMESTAMP_MILLIS.equals(column.getType())) {
                     assertInstanceOf(value, SqlTimestamp.class);
                 }
                 else if (TIMESTAMP_WITH_TIME_ZONE.equals(column.getType())) {

@@ -330,7 +330,7 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_map_timestamp",
                     getStandardMapObjectInspector(javaTimestampObjectInspector, javaTimestampObjectInspector),
                     ImmutableMap.of(HIVE_TIMESTAMP, HIVE_TIMESTAMP),
-                    mapBlockOf(TimestampType.TIMESTAMP, TimestampType.TIMESTAMP, TIMESTAMP, TIMESTAMP)))
+                    mapBlockOf(TimestampType.TIMESTAMP_MILLIS, TimestampType.TIMESTAMP_MILLIS, TIMESTAMP, TIMESTAMP)))
             .add(new TestColumn("t_map_decimal_precision_2",
                     getStandardMapObjectInspector(DECIMAL_INSPECTOR_PRECISION_2, DECIMAL_INSPECTOR_PRECISION_2),
                     ImmutableMap.of(WRITE_DECIMAL_PRECISION_2, WRITE_DECIMAL_PRECISION_2),
@@ -381,7 +381,7 @@ public abstract class AbstractTestHiveFileFormats
             .add(new TestColumn("t_array_timestamp",
                     getStandardListObjectInspector(javaTimestampObjectInspector),
                     ImmutableList.of(HIVE_TIMESTAMP),
-                    arrayBlockOf(TimestampType.TIMESTAMP, TIMESTAMP)))
+                    arrayBlockOf(TimestampType.TIMESTAMP_MILLIS, TIMESTAMP)))
             .add(new TestColumn("t_array_decimal_precision_2",
                     getStandardListObjectInspector(DECIMAL_INSPECTOR_PRECISION_2),
                     ImmutableList.of(WRITE_DECIMAL_PRECISION_2),
@@ -708,7 +708,7 @@ public abstract class AbstractTestHiveFileFormats
         if (DateType.DATE.equals(type)) {
             return cursor.getLong(field);
         }
-        if (TimestampType.TIMESTAMP.equals(type)) {
+        if (TimestampType.TIMESTAMP_MILLIS.equals(type)) {
             return cursor.getLong(field);
         }
         if (isStructuralType(type)) {

@@ -67,7 +67,7 @@ import static io.prestosql.plugin.raptor.legacy.storage.TestOrcStorageManager.cr
 import static io.prestosql.spi.transaction.IsolationLevel.READ_COMMITTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static io.prestosql.util.DateTimeUtils.parseDate;
 import static org.testng.Assert.assertEquals;
@@ -201,10 +201,10 @@ public class TestRaptorConnector
         assertSplitShard(DATE, "2001-08-22", "2001-08-23", 2);
 
         // Same timestamp should be in same split
-        assertSplitShard(TIMESTAMP, "2001-08-22 00:00:01.000", "2001-08-22 23:59:01.000", 1);
+        assertSplitShard(TIMESTAMP_MILLIS, "2001-08-22 00:00:01.000", "2001-08-22 23:59:01.000", 1);
 
         // Same timestamp should be in different splits
-        assertSplitShard(TIMESTAMP, "2001-08-22 23:59:01.000", "2001-08-23 00:00:01.000", 2);
+        assertSplitShard(TIMESTAMP_MILLIS, "2001-08-22 23:59:01.000", "2001-08-23 00:00:01.000", 2);
     }
 
     private void assertSplitShard(Type temporalType, String min, String max, int expectedSplits)
@@ -231,9 +231,9 @@ public class TestRaptorConnector
 
         Object timestamp1 = null;
         Object timestamp2 = null;
-        if (temporalType.equals(TIMESTAMP)) {
-            timestamp1 = SqlTimestamp.fromMillis(3, castToShortTimestamp(TIMESTAMP.getPrecision(), min));
-            timestamp2 = SqlTimestamp.fromMillis(3, castToShortTimestamp(TIMESTAMP.getPrecision(), max));
+        if (temporalType.equals(TIMESTAMP_MILLIS)) {
+            timestamp1 = SqlTimestamp.fromMillis(3, castToShortTimestamp(TIMESTAMP_MILLIS.getPrecision(), min));
+            timestamp2 = SqlTimestamp.fromMillis(3, castToShortTimestamp(TIMESTAMP_MILLIS.getPrecision(), max));
         }
         else if (temporalType.equals(DATE)) {
             timestamp1 = new SqlDate(parseDate(min));
