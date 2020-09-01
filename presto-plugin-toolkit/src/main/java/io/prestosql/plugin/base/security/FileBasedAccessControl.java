@@ -27,12 +27,11 @@ import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.ViewExpression;
 import io.prestosql.spi.type.Type;
 
-import javax.inject.Inject;
-
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
@@ -74,20 +73,23 @@ import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowTables;
+import static java.util.Objects.requireNonNull;
 
 public class FileBasedAccessControl
         implements ConnectorAccessControl
 {
     private static final String INFORMATION_SCHEMA_NAME = "information_schema";
 
+    private final String catalogName;
     private final List<SchemaAccessControlRule> schemaRules;
     private final List<TableAccessControlRule> tableRules;
     private final List<SessionPropertyAccessControlRule> sessionPropertyRules;
     private final Set<AnySchemaPermissionsRule> anySchemaPermissionsRules;
 
-    @Inject
-    public FileBasedAccessControl(FileBasedAccessControlConfig config)
+    public FileBasedAccessControl(String catalogName, FileBasedAccessControlConfig config)
     {
+        this.catalogName = requireNonNull(catalogName, "catalogName is null");
+
         AccessControlRules rules = parseJson(Paths.get(config.getConfigFile()), AccessControlRules.class);
 
         this.schemaRules = rules.getSchemaRules();
@@ -455,7 +457,16 @@ public class FileBasedAccessControl
     @Override
     public Optional<ViewExpression> getColumnMask(ConnectorSecurityContext context, SchemaTableName tableName, String columnName, Type type)
     {
-        return Optional.empty();
+        if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
+            return Optional.empty();
+        }
+
+        ConnectorIdentity identity = context.getIdentity();
+        return tableRules.stream()
+                .filter(rule -> rule.matches(identity.getUser(), identity.getGroups(), tableName))
+                .map(rule -> rule.getColumnMask(identity.getUser(), catalogName, tableName.getSchemaName(), columnName))
+                .findFirst()
+                .flatMap(Function.identity());
     }
 
     private boolean canSetSessionProperty(ConnectorSecurityContext context, String property)

@@ -17,9 +17,12 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Maps;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.security.ViewExpression;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Pattern;
@@ -40,6 +43,7 @@ public class TableAccessControlRule
             Optional.empty());
 
     private final Set<TablePrivilege> privileges;
+    private final Map<String, ColumnConstraint> columnConstraints;
     private final Set<String> restrictedColumns;
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> groupRegex;
@@ -56,7 +60,8 @@ public class TableAccessControlRule
             @JsonProperty("table") Optional<Pattern> tableRegex)
     {
         this.privileges = ImmutableSet.copyOf(requireNonNull(privileges, "privileges is null"));
-        this.restrictedColumns = requireNonNull(columns, "columns is null").orElse(ImmutableList.of()).stream()
+        this.columnConstraints = Maps.uniqueIndex(requireNonNull(columns, "columns is null").orElse(ImmutableList.of()), ColumnConstraint::getName);
+        this.restrictedColumns = columnConstraints.values().stream()
                 .filter(constraint -> !constraint.isAllowed())
                 .map(ColumnConstraint::getName)
                 .collect(toImmutableSet());
@@ -82,6 +87,16 @@ public class TableAccessControlRule
     public boolean canSelectColumns(Set<String> columnNames)
     {
         return (privileges.contains(SELECT) || privileges.contains(GRANT_SELECT)) && restrictedColumns.stream().noneMatch(columnNames::contains);
+    }
+
+    public Optional<ViewExpression> getColumnMask(String user, String catalog, String schema, String column)
+    {
+        return Optional.ofNullable(columnConstraints.get(column)).flatMap(constraint ->
+                constraint.getMask().map(mask -> new ViewExpression(
+                        constraint.getMaskEnvironment().flatMap(ExpressionEnvironment::getUser).orElse(user),
+                        Optional.of(catalog),
+                        Optional.of(schema),
+                        mask)));
     }
 
     Optional<AnySchemaPermissionsRule> toAnySchemaPermissionsRule()

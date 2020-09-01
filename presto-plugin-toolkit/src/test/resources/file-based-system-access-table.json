@@ -46,6 +46,17 @@
          {
            "name": "restricted",
            "allow": false
+         },
+         {
+           "name": "masked",
+           "mask": "'mask'"
+         },
+         {
+           "name": "masked_with_user",
+           "mask": "'mask-with-user'",
+           "mask_environment": {
+             "user": "mask-user"
+           }
          }
       ]
     },

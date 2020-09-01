@@ -43,6 +43,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
@@ -762,9 +763,19 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName tableName, String columnName, Type type)
+    public Optional<ViewExpression> getColumnMask(SystemSecurityContext context, CatalogSchemaTableName table, String columnName, Type type)
     {
-        return Optional.empty();
+        SchemaTableName tableName = table.getSchemaTableName();
+        if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
+            return Optional.empty();
+        }
+
+        Identity identity = context.getIdentity();
+        return tableRules.stream()
+                .filter(rule -> rule.matches(identity.getUser(), identity.getGroups(), table))
+                .map(rule -> rule.getColumnMask(identity.getUser(), table.getCatalogName(), table.getSchemaTableName().getSchemaName(), columnName))
+                .findFirst()
+                .flatMap(Function.identity());
     }
 
     private boolean checkAnyCatalogAccess(SystemSecurityContext context, String catalogName)
