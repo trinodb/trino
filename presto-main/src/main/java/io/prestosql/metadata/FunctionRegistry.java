@@ -484,6 +484,7 @@ public class FunctionRegistry
                 .scalar(MathFunctions.Floor.class)
                 .scalars(BitwiseFunctions.class)
                 .scalars(DateTimeFunctions.class)
+                .scalar(DateTimeFunctions.FromUnixtimeNanosDecimal.class)
                 .scalars(JsonFunctions.class)
                 .scalars(ColorFunctions.class)
                 .scalars(ColorOperators.class)

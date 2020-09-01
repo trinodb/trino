@@ -20,12 +20,15 @@ import io.prestosql.operator.scalar.timestamptz.CurrentTimestamp;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.Description;
+import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
+import io.prestosql.spi.type.LongTimestamp;
 import io.prestosql.spi.type.LongTimestampWithTimeZone;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.TimeZoneKey;
+import io.prestosql.type.DateTimes;
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeField;
 import org.joda.time.DateTimeZone;
@@ -37,6 +40,7 @@ import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.ISODateTimeFormat;
 
+import java.math.BigInteger;
 import java.time.LocalDateTime;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeParseException;
@@ -51,12 +55,18 @@ import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
+import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_SECOND;
+import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.rescale;
+import static io.prestosql.spi.type.UnscaledDecimal128Arithmetic.unscaledDecimalToBigInteger;
 import static io.prestosql.type.DateTimes.MICROSECONDS_PER_SECOND;
 import static io.prestosql.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_SECOND;
 import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
 import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
 import static io.prestosql.util.DateTimeZoneIndex.packDateTimeWithZone;
+import static java.lang.Math.floorDiv;
+import static java.lang.Math.floorMod;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
@@ -143,6 +153,47 @@ public final class DateTimeFunctions
     public static long fromUnixTime(@SqlType(StandardTypes.DOUBLE) double unixTime, @SqlType("varchar(x)") Slice zoneId)
     {
         return packDateTimeWithZone(Math.round(unixTime * 1000), zoneId.toStringUtf8());
+    }
+
+    @ScalarFunction("from_unixtime_nanos")
+    public static final class FromUnixtimeNanosDecimal
+    {
+        private FromUnixtimeNanosDecimal() {}
+
+        @LiteralParameters({"p", "s"})
+        @SqlType("timestamp(9)")
+        public static LongTimestamp fromLong(@LiteralParameter("s") long scale, @SqlType("decimal(p, s)") Slice unixTimeNanos)
+        {
+            BigInteger unixTimeNanosInt = unscaledDecimalToBigInteger(rescale(unixTimeNanos, -(int) scale));
+            long epochSeconds = unixTimeNanosInt.divide(BigInteger.valueOf(NANOSECONDS_PER_SECOND)).longValue();
+            long nanosOfSecond = unixTimeNanosInt.remainder(BigInteger.valueOf(NANOSECONDS_PER_SECOND)).longValue();
+            long picosOfSecond = nanosOfSecond * PICOSECONDS_PER_NANOSECOND;
+            // simulate floorDiv and floorMod as BigInteger does not support those
+            if (picosOfSecond < 0) {
+                epochSeconds -= 1;
+                picosOfSecond += PICOSECONDS_PER_SECOND;
+            }
+            return DateTimes.longTimestamp(epochSeconds, picosOfSecond);
+        }
+
+        @LiteralParameters({"p", "s"})
+        @SqlType("timestamp(9)")
+        public static LongTimestamp fromShort(@LiteralParameter("s") long scale, @SqlType("decimal(p, s)") long unixTimeNanos)
+        {
+            long roundedUnixTimeNanos = MathFunctions.Round.roundShort(scale, unixTimeNanos);
+            return fromUnixtimeNanosLong(roundedUnixTimeNanos);
+        }
+    }
+
+    @ScalarFunction("from_unixtime_nanos")
+    @SqlType("timestamp(9)")
+    public static LongTimestamp fromUnixtimeNanosLong(@SqlType(StandardTypes.BIGINT) long unixTimeNanos)
+    {
+        long epochSeconds = floorDiv(unixTimeNanos, NANOSECONDS_PER_SECOND);
+        long nanosOfSecond = floorMod(unixTimeNanos, NANOSECONDS_PER_SECOND);
+        long picosOfSecond = nanosOfSecond * PICOSECONDS_PER_NANOSECOND;
+
+        return DateTimes.longTimestamp(epochSeconds, picosOfSecond);
     }
 
     @ScalarFunction("to_iso8601")

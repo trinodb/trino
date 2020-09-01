@@ -150,6 +150,11 @@ Date and Time Functions
     using ``hours`` and ``minutes`` for the time zone offset. ``unixtime`` is
     the number of seconds since ``1970-01-01 00:00:00`` in ``double`` data type.
 
+.. function:: from_unixtime_nanos(unixtime) -> timestamp(9)
+
+    Returns the UNIX timestamp ``unixtime`` as a timestamp. ``unixtime`` is the
+    number of nanoseconds since ``1970-01-01 00:00:00.000000000 UTC``.
+
 .. data:: localtime
 
     Returns the current time as of the start of the query.
