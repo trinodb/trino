@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.cassandra;
 
+import com.datastax.driver.core.BatchStatement;
 import com.datastax.driver.core.LocalDate;
 import com.datastax.driver.core.PreparedStatement;
 import com.datastax.driver.core.ProtocolVersion;
@@ -72,7 +73,9 @@ public class CassandraPageSink
     private final PreparedStatement insert;
     private final List<Type> columnTypes;
     private final boolean generateUuid;
+    private final int batchSize;
     private final Function<Long, Object> toCassandraDate;
+    private final BatchStatement batchStatement = new BatchStatement();
 
     public CassandraPageSink(
             CassandraSession cassandraSession,
@@ -81,7 +84,8 @@ public class CassandraPageSink
             String tableName,
             List<String> columnNames,
             List<Type> columnTypes,
-            boolean generateUuid)
+            boolean generateUuid,
+            int batchSize)
     {
         this.cassandraSession = requireNonNull(cassandraSession, "cassandraSession");
         requireNonNull(schemaName, "schemaName is null");
@@ -89,6 +93,7 @@ public class CassandraPageSink
         requireNonNull(columnNames, "columnNames is null");
         this.columnTypes = ImmutableList.copyOf(requireNonNull(columnTypes, "columnTypes is null"));
         this.generateUuid = generateUuid;
+        this.batchSize = batchSize;
 
         if (protocolVersion.toInt() <= ProtocolVersion.V3.toInt()) {
             this.toCassandraDate = value -> DATE_FORMATTER.print(TimeUnit.DAYS.toMillis(value));
@@ -122,7 +127,12 @@ public class CassandraPageSink
                 appendColumn(values, page, position, channel);
             }
 
-            cassandraSession.execute(insert.bind(values.toArray()));
+            batchStatement.add(insert.bind(values.toArray()));
+
+            if (batchStatement.size() >= batchSize) {
+                cassandraSession.execute(batchStatement);
+                batchStatement.clear();
+            }
         }
         return NOT_BLOCKED;
     }
@@ -175,6 +185,11 @@ public class CassandraPageSink
     @Override
     public CompletableFuture<Collection<Slice>> finish()
     {
+        if (batchStatement.size() > 0) {
+            cassandraSession.execute(batchStatement);
+            batchStatement.clear();
+        }
+
         // the committer does not need any additional info
         return completedFuture(ImmutableList.of());
     }
