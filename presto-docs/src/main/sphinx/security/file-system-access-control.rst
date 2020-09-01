@@ -213,6 +213,15 @@ Each table rule is composed of the following fields:
 * ``table`` (optional): regex to match against table names. Defaults to ``.*``.
 * ``privileges`` (required): zero or more of ``SELECT``, ``INSERT``,
   ``DELETE``, ``OWNERSHIP``, ``GRANT_SELECT``
+* ``columns`` (optional): list of column constraints.
+
+Column Constraint
+^^^^^^^^^^^^^^^^^
+
+These constraints can be used to restrict access to column data.
+
+* ``name``: name of the column.
+* ``allowed`` (optional): if false, column can not be accessed.
 
 .. note::
 
@@ -222,7 +231,8 @@ The example below defines the following table access policy:
 
 * User ``admin`` has all privileges across all tables and schemas
 * User ``banned_user`` has no privileges
-* All users have ``SELECT`` privileges on all tables in the ``default.default`` schema
+* All users have ``SELECT`` privileges on all tables in the ``default.default``
+  schema, except for the ``address`` column which is blocked.
 
 .. code-block:: json
 
@@ -240,7 +250,13 @@ The example below defines the following table access policy:
           "catalog": "default",
           "schema": "default",
           "table": ".*",
-          "privileges": ["SELECT"]
+          "privileges": ["SELECT"],
+          "columns" : [
+             {
+                "name": "address",
+                "allow": false
+             }
+          ]
         }
       ]
     }

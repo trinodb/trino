@@ -514,6 +514,16 @@ These rules govern the privileges granted on specific tables.
 * ``privileges`` (required): zero or more of ``SELECT``, ``INSERT``,
   ``DELETE``, ``OWNERSHIP``, ``GRANT_SELECT``.
 
+* ``columns`` (optional): list of column constraints.
+
+Column Constraint
+^^^^^^^^^^^^^^^^^
+
+These constraints can be used to restrict access to column data.
+
+* ``name``: name of the column.
+* ``allowed`` (optional): if false, column can not be accessed.
+
 Session Property Rules
 ----------------------
 
@@ -564,7 +574,13 @@ See below for an example.
         {
           "schema": "default",
           "table": ".*",
-          "privileges": ["SELECT"]
+          "privileges": ["SELECT"],
+          "columns" : [
+             {
+                "name": "address",
+                "allow": false
+             }
+          ]
         }
       ],
       "session_properties": [

@@ -93,6 +93,7 @@ public class TestFileBasedSystemAccessControl
     private static final String DROP_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot drop table .*";
     private static final String CREATE_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot show create table for .*";
     private static final String RENAME_TABLE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot rename table .*";
+    private static final String CREATE_VIEW_ACCESS_DENIED_MESSAGE = "Access Denied: View owner '.*' cannot create view that selects from .*";
     private static final String GRANT_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot grant privilege DELETE on table .*";
     private static final String REVOKE_DELETE_PRIVILEGE_ACCESS_DENIED_MESSAGE = "Access Denied: Cannot revoke privilege DELETE on table .*";
 
@@ -246,13 +247,63 @@ public class TestFileBasedSystemAccessControl
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
 
         accessControl.checkCanSelectFromColumns(ALICE, new CatalogSchemaTableName("some-catalog", "test", "test"), ImmutableSet.of());
-        accessControl.checkCanSelectFromColumns(ALICE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableSet.of());
-        accessControl.checkCanSelectFromColumns(ALICE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableSet.of("bobcolumn"));
-        accessControl.checkCanSelectFromColumns(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableSet.of());
-        accessControl.checkCanSelectFromColumns(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableSet.of("bobcolumn"));
-        accessControl.checkCanSelectFromColumns(JOE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableSet.of());
-        assertAccessDenied(() -> accessControl.checkCanSelectFromColumns(ADMIN, new CatalogSchemaTableName("secret", "secret", "secret"), ImmutableSet.of()), SELECT_TABLE_ACCESS_DENIED_MESSAGE);
-        assertAccessDenied(() -> accessControl.checkCanSelectFromColumns(JOE, new CatalogSchemaTableName("secret", "secret", "secret"), ImmutableSet.of()), SELECT_TABLE_ACCESS_DENIED_MESSAGE);
+        accessControl.checkCanSelectFromColumns(ALICE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"), ImmutableSet.of());
+        accessControl.checkCanSelectFromColumns(
+                ALICE,
+                new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
+                ImmutableSet.of("bobcolumn", "private", "restricted"));
+
+        accessControl.checkCanSelectFromColumns(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"), ImmutableSet.of());
+        accessControl.checkCanSelectFromColumns(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"), ImmutableSet.of("bobcolumn"));
+        assertAccessDenied(
+                () -> accessControl.checkCanSelectFromColumns(
+                        CHARLIE,
+                        new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
+                        ImmutableSet.of("bobcolumn", "private")),
+                SELECT_TABLE_ACCESS_DENIED_MESSAGE);
+        accessControl.checkCanSelectFromColumns(JOE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"), ImmutableSet.of());
+
+        assertAccessDenied(
+                () -> accessControl.checkCanSelectFromColumns(
+                        ADMIN,
+                        new CatalogSchemaTableName("secret", "secret", "secret"),
+                        ImmutableSet.of()),
+                SELECT_TABLE_ACCESS_DENIED_MESSAGE);
+        assertAccessDenied(
+                () -> accessControl.checkCanSelectFromColumns(
+                        JOE,
+                        new CatalogSchemaTableName("secret", "secret", "secret"),
+                        ImmutableSet.of()),
+                SELECT_TABLE_ACCESS_DENIED_MESSAGE);
+    }
+
+    @Test
+    public void testTableRulesForCheckCanCreateViewWithSelectFromColumns()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        assertAccessDenied(
+                () -> accessControl.checkCanCreateViewWithSelectFromColumns(
+                        ALICE,
+                        new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns_with_grant"),
+                        ImmutableSet.of()),
+                CREATE_VIEW_ACCESS_DENIED_MESSAGE);
+
+        accessControl.checkCanCreateViewWithSelectFromColumns(
+                BOB,
+                new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns_with_grant"),
+                ImmutableSet.of("bobcolumn", "private"));
+
+        accessControl.checkCanCreateViewWithSelectFromColumns(
+                CHARLIE,
+                new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns_with_grant"),
+                ImmutableSet.of("bobcolumn"));
+        assertAccessDenied(
+                () -> accessControl.checkCanCreateViewWithSelectFromColumns(
+                        CHARLIE,
+                        new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns_with_grant"),
+                        ImmutableSet.of("bobcolumn", "private")),
+                SELECT_TABLE_ACCESS_DENIED_MESSAGE);
     }
 
     @Test
@@ -278,11 +329,23 @@ public class TestFileBasedSystemAccessControl
         SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
 
         assertEquals(
-                accessControl.filterColumns(ALICE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableList.of(column("a"))),
-                ImmutableList.of(column("a")));
+                accessControl.filterColumns(
+                        ALICE,
+                        new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
+                        ImmutableList.of(column("private"), column("a"), column("restricted"), column("b"))),
+                ImmutableList.of(column("private"), column("a"), column("restricted"), column("b")));
         assertEquals(
-                accessControl.filterColumns(BOB, new CatalogSchemaTableName("some-catalog", "bobschema", "bobtable"), ImmutableList.of(column("a"))),
-                ImmutableList.of(column("a")));
+                accessControl.filterColumns(
+                        BOB,
+                        new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
+                        ImmutableList.of(column("private"), column("a"), column("restricted"), column("b"))),
+                ImmutableList.of(column("private"), column("a"), column("restricted"), column("b")));
+        assertEquals(
+                accessControl.filterColumns(
+                        CHARLIE,
+                        new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
+                        ImmutableList.of(column("private"), column("a"), column("restricted"), column("b"))),
+                ImmutableList.of(column("a"), column("b")));
     }
 
     @Test
