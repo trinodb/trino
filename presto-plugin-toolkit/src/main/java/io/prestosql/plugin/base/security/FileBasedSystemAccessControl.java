@@ -757,9 +757,19 @@ public class FileBasedSystemAccessControl
     }
 
     @Override
-    public Optional<ViewExpression> getRowFilter(SystemSecurityContext context, CatalogSchemaTableName tableName)
+    public Optional<ViewExpression> getRowFilter(SystemSecurityContext context, CatalogSchemaTableName table)
     {
-        return Optional.empty();
+        SchemaTableName tableName = table.getSchemaTableName();
+        if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
+            return Optional.empty();
+        }
+
+        Identity identity = context.getIdentity();
+        return tableRules.stream()
+                .filter(rule -> rule.matches(identity.getUser(), identity.getGroups(), table))
+                .map(rule -> rule.getFilter(identity.getUser(), table.getCatalogName(), tableName.getSchemaName()))
+                .findFirst()
+                .flatMap(Function.identity());
     }
 
     @Override

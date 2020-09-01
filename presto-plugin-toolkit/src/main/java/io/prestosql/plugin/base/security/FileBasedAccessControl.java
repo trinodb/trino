@@ -451,7 +451,16 @@ public class FileBasedAccessControl
     @Override
     public Optional<ViewExpression> getRowFilter(ConnectorSecurityContext context, SchemaTableName tableName)
     {
-        return Optional.empty();
+        if (INFORMATION_SCHEMA_NAME.equals(tableName.getSchemaName())) {
+            return Optional.empty();
+        }
+
+        ConnectorIdentity identity = context.getIdentity();
+        return tableRules.stream()
+                .filter(rule -> rule.matches(identity.getUser(), identity.getGroups(), tableName))
+                .map(rule -> rule.getFilter(identity.getUser(), catalogName, tableName.getSchemaName()))
+                .findFirst()
+                .flatMap(Function.identity());
     }
 
     @Override

@@ -40,11 +40,15 @@ public class TableAccessControlRule
             Optional.empty(),
             Optional.empty(),
             Optional.empty(),
+            Optional.empty(),
+            Optional.empty(),
             Optional.empty());
 
     private final Set<TablePrivilege> privileges;
     private final Map<String, ColumnConstraint> columnConstraints;
     private final Set<String> restrictedColumns;
+    private final Optional<String> filter;
+    private final Optional<ExpressionEnvironment> filterEnvironment;
     private final Optional<Pattern> userRegex;
     private final Optional<Pattern> groupRegex;
     private final Optional<Pattern> schemaRegex;
@@ -54,6 +58,8 @@ public class TableAccessControlRule
     public TableAccessControlRule(
             @JsonProperty("privileges") Set<TablePrivilege> privileges,
             @JsonProperty("columns") Optional<List<ColumnConstraint>> columns,
+            @JsonProperty("filter") Optional<String> filter,
+            @JsonProperty("filter_environment") Optional<ExpressionEnvironment> filterEnvironment,
             @JsonProperty("user") Optional<Pattern> userRegex,
             @JsonProperty("group") Optional<Pattern> groupRegex,
             @JsonProperty("schema") Optional<Pattern> schemaRegex,
@@ -65,6 +71,8 @@ public class TableAccessControlRule
                 .filter(constraint -> !constraint.isAllowed())
                 .map(ColumnConstraint::getName)
                 .collect(toImmutableSet());
+        this.filter = requireNonNull(filter, "filter is null");
+        this.filterEnvironment = requireNonNull(filterEnvironment, "filterEnvironment is null");
         this.userRegex = requireNonNull(userRegex, "user is null");
         this.groupRegex = requireNonNull(groupRegex, "group is null");
         this.schemaRegex = requireNonNull(schemaRegex, "sourceRegex is null");
@@ -97,6 +105,15 @@ public class TableAccessControlRule
                         Optional.of(catalog),
                         Optional.of(schema),
                         mask)));
+    }
+
+    public Optional<ViewExpression> getFilter(String user, String catalog, String schema)
+    {
+        return filter.map(filter -> new ViewExpression(
+                filterEnvironment.flatMap(ExpressionEnvironment::getUser).orElse(user),
+                Optional.of(catalog),
+                Optional.of(schema),
+                filter));
     }
 
     Optional<AnySchemaPermissionsRule> toAnySchemaPermissionsRule()

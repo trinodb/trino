@@ -516,6 +516,10 @@ These rules govern the privileges granted on specific tables.
 
 * ``columns`` (optional): list of column constraints.
 
+* ``filter`` (optional): boolean filter expression for the table.
+
+* ``filter_environment`` (optional): environment use during filter evaluation.
+
 Column Constraint
 ^^^^^^^^^^^^^^^^^
 
@@ -526,8 +530,8 @@ These constraints can be used to restrict access to column data.
 * ``mask`` (optional): mask expression applied to column.
 * ``mask_environment`` (optional): environment use during mask evaluation.
 
-Mask Environment
-^^^^^^^^^^^^^^^^
+Filter and Mask Environment
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * ``user`` (optional): username for checking permission of subqueries in mask.
 
@@ -578,6 +582,12 @@ See below for an example.
           "user": "banned_user",
           "privileges": []
         },
+        {
+          "schema": "hr",
+          "table": "employee",
+          "privileges": ["SELECT"],
+          "filter": "user = current_user"
+        }
         {
           "schema": "default",
           "table": ".*",

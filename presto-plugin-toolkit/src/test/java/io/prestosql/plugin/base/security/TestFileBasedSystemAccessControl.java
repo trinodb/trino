@@ -972,6 +972,24 @@ public class TestFileBasedSystemAccessControl
                 new ViewExpression("mask-user", Optional.of("some-catalog"), Optional.of("bobschema"), "'mask-with-user'"));
     }
 
+    @Test
+    public void testGetRowFilter()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        assertEquals(
+                accessControl.getRowFilter(ALICE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns")),
+                Optional.empty());
+
+        assertViewExpressionEquals(
+                accessControl.getRowFilter(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns")),
+                new ViewExpression(CHARLIE.getIdentity().getUser(), Optional.of("some-catalog"), Optional.of("bobschema"), "starts_with(value, 'filter')"));
+
+        assertViewExpressionEquals(
+                accessControl.getRowFilter(CHARLIE, new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns_with_grant")),
+                new ViewExpression("filter-user", Optional.of("some-catalog"), Optional.of("bobschema"), "starts_with(value, 'filter-with-user')"));
+    }
+
     private static void assertViewExpressionEquals(Optional<ViewExpression> result, ViewExpression expected)
     {
         assertTrue(result.isPresent());
