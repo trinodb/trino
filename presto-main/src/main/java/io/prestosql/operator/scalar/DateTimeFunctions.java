@@ -23,6 +23,7 @@ import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
+import io.prestosql.spi.type.LongTimestampWithTimeZone;
 import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.TimeZoneKey;
 import org.joda.time.DateTime;
@@ -36,6 +37,10 @@ import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
 import org.joda.time.format.ISODateTimeFormat;
 
+import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
+import java.time.format.DateTimeParseException;
+import java.time.temporal.TemporalAccessor;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
@@ -47,6 +52,7 @@ import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.prestosql.type.DateTimes.MICROSECONDS_PER_SECOND;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
 import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
 import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
@@ -160,6 +166,35 @@ public final class DateTimeFunctions
                 .withChronology(getChronology(session.getTimeZoneKey()))
                 .withOffsetParsed();
         return packDateTimeWithZone(parseDateTimeHelper(formatter, iso8601DateTime.toStringUtf8()));
+    }
+
+    @ScalarFunction("from_iso8601_timestamp_nanos")
+    @LiteralParameters("x")
+    @SqlType("timestamp(9) with time zone")
+    public static LongTimestampWithTimeZone fromIso8601TimestampNanos(ConnectorSession session, @SqlType("varchar(x)") Slice iso8601DateTime)
+    {
+        java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ISO_DATE_TIME;
+        String datetimeString = iso8601DateTime.toStringUtf8();
+
+        TemporalAccessor parsedDatetime;
+        try {
+            parsedDatetime = formatter.parseBest(datetimeString, ZonedDateTime::from, LocalDateTime::from);
+        }
+        catch (DateTimeParseException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, e);
+        }
+
+        ZonedDateTime zonedDatetime;
+        if (parsedDatetime instanceof ZonedDateTime) {
+            zonedDatetime = (ZonedDateTime) parsedDatetime;
+        }
+        else {
+            zonedDatetime = ((LocalDateTime) parsedDatetime).atZone(session.getTimeZoneKey().getZoneId());
+        }
+
+        long picosOfSecond = zonedDatetime.getNano() * ((long) PICOSECONDS_PER_NANOSECOND);
+        TimeZoneKey zone = TimeZoneKey.getTimeZoneKey(zonedDatetime.getZone().getId());
+        return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(zonedDatetime.toEpochSecond(), picosOfSecond, zone);
     }
 
     @ScalarFunction("from_iso8601_date")

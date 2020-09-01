@@ -41,6 +41,7 @@ import java.time.LocalTime;
 import java.time.OffsetTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
@@ -55,6 +56,7 @@ import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKeyForOffset;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampType.createTimestampType;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -286,6 +288,31 @@ public class TestDateTimeFunctions
         assertFunction("from_iso8601_timestamp('" + TIMESTAMP_ISO8601_STRING + "')", TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(TIMESTAMP_WITH_NUMERICAL_ZONE));
         assertFunction("from_iso8601_timestamp('" + WEIRD_TIMESTAMP_ISO8601_STRING + "')", TIMESTAMP_WITH_TIME_ZONE, toTimestampWithTimeZone(WEIRD_TIMESTAMP));
         assertFunction("from_iso8601_date('" + DATE_ISO8601_STRING + "')", DateType.DATE, toDate(DATE));
+    }
+
+    @Test
+    public void testFromIso8601Nanos()
+    {
+        Instant instant = ZonedDateTime.of(2001, 8, 22, 12, 34, 56, 123456789, ZoneId.of("UTC")).toInstant();
+
+        assertFunction("from_iso8601_timestamp_nanos('2001-08-22T12:34:56.123456789Z')", TIMESTAMP_TZ_NANOS,
+                SqlTimestampWithTimeZone.newInstance(9, instant, ZoneId.of("UTC")));
+        assertFunction("from_iso8601_timestamp_nanos('2001-08-22T07:34:56.123456789-05:00')", TIMESTAMP_TZ_NANOS,
+                SqlTimestampWithTimeZone.newInstance(9, instant, ZoneId.of("-0500")));
+        assertFunction("from_iso8601_timestamp_nanos('2001-08-22T13:34:56.123456789+01:00')", TIMESTAMP_TZ_NANOS,
+                SqlTimestampWithTimeZone.newInstance(9, instant, ZoneId.of("+0100")));
+        assertFunction("from_iso8601_timestamp_nanos('2001-08-22T12:34:56.123Z')", TIMESTAMP_TZ_NANOS,
+                SqlTimestampWithTimeZone.newInstance(9, instant.minusNanos(456789), ZoneId.of("UTC")));
+
+        // make sure that strings without a timezone are parsed in the session local time
+        ZoneId nineHoursBehindZone = ZoneId.of("-0900");
+        Session localSession = Session.builder(session)
+                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(nineHoursBehindZone.getId()))
+                .build();
+        try (FunctionAssertions localAssertion = new FunctionAssertions(localSession)) {
+            localAssertion.assertFunction("from_iso8601_timestamp_nanos('2001-08-22T03:34:56.123456789')", TIMESTAMP_TZ_NANOS,
+                    SqlTimestampWithTimeZone.newInstance(9, instant, nineHoursBehindZone));
+        }
     }
 
     @Test
