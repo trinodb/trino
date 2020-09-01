@@ -119,7 +119,7 @@ public final class MemoryPageSourceProvider
         @Override
         public Page getNextPage()
         {
-            if (enableLazyDynamicFiltering && !dynamicFilter.isComplete()) {
+            if (enableLazyDynamicFiltering && dynamicFilter.isAwaitable()) {
                 return null;
             }
             TupleDomain<ColumnHandle> predicate = dynamicFilter.getCurrentPredicate();

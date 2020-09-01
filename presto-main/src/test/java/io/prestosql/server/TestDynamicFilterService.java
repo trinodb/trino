@@ -171,6 +171,7 @@ public class TestDynamicFilterService
 
         assertTrue(dynamicFilter.getCurrentPredicate().isAll());
         assertFalse(dynamicFilter.isComplete());
+        assertTrue(dynamicFilter.isAwaitable());
 
         // assert initial dynamic filtering stats
         DynamicFiltersStats stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
@@ -192,6 +193,7 @@ public class TestDynamicFilterService
         // tuple domain from two tasks are needed for dynamic filter to be narrowed down
         assertTrue(dynamicFilter.getCurrentPredicate().isAll());
         assertFalse(dynamicFilter.isComplete());
+        assertTrue(dynamicFilter.isAwaitable());
         assertFalse(blockedFuture.isDone());
         assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 1);
 
@@ -213,6 +215,7 @@ public class TestDynamicFilterService
 
         // there are still more dynamic filters to be collected
         assertFalse(dynamicFilter.isComplete());
+        assertTrue(dynamicFilter.isAwaitable());
         blockedFuture = dynamicFilter.isBlocked();
         assertFalse(blockedFuture.isDone());
 
@@ -227,6 +230,7 @@ public class TestDynamicFilterService
                 new TestingColumnHandle("probeColumnA"),
                 multipleValues(INTEGER, ImmutableList.of(1L, 2L)))));
         assertFalse(dynamicFilter.isComplete());
+        assertTrue(dynamicFilter.isAwaitable());
         assertFalse(blockedFuture.isDone());
         assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 3);
 
@@ -251,6 +255,7 @@ public class TestDynamicFilterService
 
         // there are still more dynamic filters to be collected for columns A and B
         assertFalse(dynamicFilter.isComplete());
+        assertTrue(dynamicFilter.isAwaitable());
         blockedFuture = dynamicFilter.isBlocked();
         assertFalse(blockedFuture.isDone());
 
@@ -265,6 +270,7 @@ public class TestDynamicFilterService
                         Symbol.from(df2), new TestingColumnHandle("probeColumnA")));
 
         assertTrue(dynamicFilterColumnA.isComplete());
+        assertFalse(dynamicFilterColumnA.isAwaitable());
         assertTrue(dynamicFilterColumnA.isBlocked().isDone());
         assertEquals(dynamicFilterColumnA.getCurrentPredicate(), TupleDomain.withColumnDomains(ImmutableMap.of(
                 new TestingColumnHandle("probeColumnA"),
@@ -281,6 +287,7 @@ public class TestDynamicFilterService
                 new TestingColumnHandle("probeColumnA"),
                 singleValue(INTEGER, 2L))));
         assertFalse(dynamicFilter.isComplete());
+        assertTrue(dynamicFilter.isAwaitable());
         assertFalse(blockedFuture.isDone());
         assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 5);
 
@@ -313,6 +320,7 @@ public class TestDynamicFilterService
         // all dynamic filters have been collected, no need for more requests
         dynamicFilterService.collectDynamicFilters();
         assertTrue(dynamicFilter.isComplete());
+        assertFalse(dynamicFilter.isAwaitable());
         assertTrue(dynamicFilter.isBlocked().isDone());
         assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 6);
     }
@@ -391,7 +399,6 @@ public class TestDynamicFilterService
                 ImmutableMap.of(
                         Symbol.from(df1), new TestingColumnHandle("probeColumnA")));
         assertTrue(dynamicFilter.getCurrentPredicate().isAll());
-        assertFalse(dynamicFilter.isComplete());
 
         // assert initial dynamic filtering stats
         DynamicFiltersStats stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
@@ -401,6 +408,8 @@ public class TestDynamicFilterService
         assertEquals(stats.getLazyDynamicFilters(), 0);
 
         // replicated dynamic filters cannot be lazy due to replicated join task scheduling dependencies
+        assertFalse(dynamicFilter.isComplete());
+        assertFalse(dynamicFilter.isAwaitable());
         assertTrue(dynamicFilter.isBlocked().isDone());
 
         dynamicFiltersStageSupplier.storeSummary(
@@ -414,6 +423,7 @@ public class TestDynamicFilterService
                 new TestingColumnHandle("probeColumnA"),
                 singleValue(INTEGER, 1L))));
         assertTrue(dynamicFilter.isComplete());
+        assertFalse(dynamicFilter.isAwaitable());
         assertEquals(dynamicFiltersStageSupplier.getRequestCount(), 1);
 
         stats = dynamicFilterService.getDynamicFilteringStats(queryId, session);
@@ -481,6 +491,42 @@ public class TestDynamicFilterService
         assertTrue(dynamicFilter.isComplete());
         assertEquals(dynamicFilter.getCurrentPredicate(), TupleDomain.withColumnDomains(
                 ImmutableMap.of(column, multipleValues(INTEGER, ImmutableList.of(1L, 2L)))));
+    }
+
+    @Test
+    public void testIsAwaitable()
+    {
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(new FeaturesConfig());
+        DynamicFilterId filterId1 = new DynamicFilterId("df1");
+        DynamicFilterId filterId2 = new DynamicFilterId("df2");
+        Expression symbol = new Symbol("symbol").toSymbolReference();
+        ColumnHandle handle = new TestingColumnHandle("probeColumnA");
+        QueryId queryId = new QueryId("query");
+        StageId stageId = new StageId(queryId, 1);
+
+        TestDynamicFiltersStageSupplier dynamicFiltersStageSupplier = new TestDynamicFiltersStageSupplier(SCHEDULING);
+        dynamicFiltersStageSupplier.addTasks(ImmutableList.of(new TaskId(stageId, 0)));
+
+        dynamicFilterService.registerQuery(
+                queryId,
+                dynamicFiltersStageSupplier,
+                ImmutableSet.of(filterId1, filterId2),
+                ImmutableSet.of(filterId1),
+                ImmutableSet.of());
+
+        DynamicFilter dynamicFilter1 = dynamicFilterService.createDynamicFilter(
+                queryId,
+                ImmutableList.of(new DynamicFilters.Descriptor(filterId1, symbol)),
+                ImmutableMap.of(Symbol.from(symbol), handle));
+
+        DynamicFilter dynamicFilter2 = dynamicFilterService.createDynamicFilter(
+                queryId,
+                ImmutableList.of(new DynamicFilters.Descriptor(filterId2, symbol)),
+                ImmutableMap.of(Symbol.from(symbol), handle));
+
+        assertTrue(dynamicFilter1.isAwaitable());
+        // non lazy dynamic filters are marked as non-awaitable
+        assertFalse(dynamicFilter2.isAwaitable());
     }
 
     @Test
