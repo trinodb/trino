@@ -365,7 +365,7 @@ public class TestFileBasedAccessControl
         String path = this.getClass().getClassLoader().getResource(fileName).getPath();
         FileBasedAccessControlConfig config = new FileBasedAccessControlConfig();
         config.setConfigFile(path);
-        return new FileBasedAccessControl(config);
+        return new FileBasedAccessControl("test_catalog", config);
     }
 
     private static void assertDenied(ThrowingRunnable runnable)

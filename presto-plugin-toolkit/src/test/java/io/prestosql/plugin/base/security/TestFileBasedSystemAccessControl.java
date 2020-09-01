@@ -29,7 +29,7 @@ import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.spi.security.Privilege;
 import io.prestosql.spi.security.SystemAccessControl;
 import io.prestosql.spi.security.SystemSecurityContext;
-import io.prestosql.spi.type.VarcharType;
+import io.prestosql.spi.security.ViewExpression;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.testng.annotations.Test;
 
@@ -43,10 +43,12 @@ import static com.google.common.io.Files.copy;
 import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
 import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
 import static io.prestosql.spi.testing.InterfaceTestUtils.assertAllMethodsOverridden;
+import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.lang.Thread.sleep;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.util.Files.newTemporaryFile;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestFileBasedSystemAccessControl
 {
@@ -941,6 +943,46 @@ public class TestFileBasedSystemAccessControl
     }
 
     @Test
+    public void testGetColumnMask()
+    {
+        SystemAccessControl accessControl = newFileBasedSystemAccessControl("file-based-system-access-table.json");
+
+        assertEquals(
+                accessControl.getColumnMask(
+                        ALICE,
+                        new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
+                        "masked",
+                        VARCHAR),
+                Optional.empty());
+
+        assertViewExpressionEquals(
+                accessControl.getColumnMask(
+                        CHARLIE,
+                        new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
+                        "masked",
+                        VARCHAR),
+                new ViewExpression(CHARLIE.getIdentity().getUser(), Optional.of("some-catalog"), Optional.of("bobschema"), "'mask'"));
+
+        assertViewExpressionEquals(
+                accessControl.getColumnMask(
+                        CHARLIE,
+                        new CatalogSchemaTableName("some-catalog", "bobschema", "bobcolumns"),
+                        "masked_with_user",
+                        VARCHAR),
+                new ViewExpression("mask-user", Optional.of("some-catalog"), Optional.of("bobschema"), "'mask-with-user'"));
+    }
+
+    private static void assertViewExpressionEquals(Optional<ViewExpression> result, ViewExpression expected)
+    {
+        assertTrue(result.isPresent());
+        ViewExpression actual = result.get();
+        assertEquals(actual.getIdentity(), expected.getIdentity(), "Identity");
+        assertEquals(actual.getCatalog(), expected.getCatalog(), "Catalog");
+        assertEquals(actual.getSchema(), expected.getSchema(), "Schema");
+        assertEquals(actual.getExpression(), expected.getExpression(), "Expression");
+    }
+
+    @Test
     public void testEverythingImplemented()
     {
         assertAllMethodsOverridden(SystemAccessControl.class, FileBasedSystemAccessControl.class);
@@ -1012,6 +1054,6 @@ public class TestFileBasedSystemAccessControl
 
     private static ColumnMetadata column(String columnName)
     {
-        return new ColumnMetadata(columnName, VarcharType.VARCHAR);
+        return new ColumnMetadata(columnName, VARCHAR);
     }
 }
