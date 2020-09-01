@@ -380,14 +380,14 @@ public class TestPostgreSqlIntegrationSmokeTest
     @Test
     public void testTopNPushdown()
     {
-        assertTopNPushedDown("SELECT orderkey FROM orders order by orderkey limit 10");
-        assertTopNPushedDown("SELECT orderkey FROM orders order by orderkey desc limit 10");
+        assertThat(query("SELECT orderkey FROM orders order by orderkey limit 10")).isCorrectlyPushedDown();
+        assertThat(query("SELECT orderkey FROM orders order by orderkey desc limit 10")).isCorrectlyPushedDown();
 
         // multiple sort columns with different sort orders
-        assertTopNPushedDown("SELECT * FROM orders order by orderpriority desc, totalprice asc limit 10");
+        assertThat(query("SELECT * FROM orders order by orderpriority desc, totalprice asc limit 10")).isCorrectlyPushedDown();
 
         //TopN with aggregation over aggregation column
-        assertTopNPushedDown("SELECT sum(totalprice) FROM orders order by sum(totalprice) limit 10");
+        assertThat(query("SELECT sum(totalprice) FROM orders order by sum(totalprice) limit 10")).isCorrectlyPushedDown();
     }
 
     @Test
