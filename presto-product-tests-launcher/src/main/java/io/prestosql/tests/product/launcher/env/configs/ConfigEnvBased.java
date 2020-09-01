@@ -14,15 +14,30 @@
 package io.prestosql.tests.product.launcher.env.configs;
 
 import com.google.common.base.Splitter;
+import com.google.common.base.Strings;
+import io.prestosql.tests.product.launcher.docker.DockerFiles;
+import io.prestosql.tests.product.launcher.env.common.EnvironmentExtender;
+
+import javax.inject.Inject;
 
 import java.util.List;
 import java.util.Optional;
 
 import static java.lang.System.getenv;
+import static java.util.Objects.requireNonNull;
+import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public class ConfigEnvBased
         extends ConfigDefault
 {
+    private final DockerFiles dockerFiles;
+
+    @Inject
+    public ConfigEnvBased(DockerFiles dockerFiles)
+    {
+        this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
+    }
+
     @Override
     public String getHadoopBaseImage()
     {
@@ -69,6 +84,22 @@ public class ConfigEnvBased
                         .trimResults()
                         .splitToList(value))
                 .orElse(super.getExcludedTests());
+    }
+
+    @Override
+    public Optional<EnvironmentExtender> extendEnvironment(String environmentName)
+    {
+        return Optional.of((builder -> builder.configureContainers((containerName, container) -> {
+            if (containerName.startsWith("presto-")) {
+                String hadoopInitScript = getenv("HADOOP_PRESTO_INIT_SCRIPT");
+
+                if (!Strings.isNullOrEmpty(hadoopInitScript)) {
+                    container.withCopyFileToContainer(
+                            forHostPath(dockerFiles.getDockerFilesHostPath(hadoopInitScript)),
+                            "/docker/presto-init.d/hadoop-presto-init.sh");
+                }
+            }
+        })));
     }
 
     private static String getEnvOrDefault(String envKey, String defaultValue)
