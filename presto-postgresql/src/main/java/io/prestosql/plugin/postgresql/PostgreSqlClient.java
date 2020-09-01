@@ -475,6 +475,7 @@ public class PostgreSqlClient
         return Optional.of((sql, limit) -> sql + " LIMIT " + limit);
     }
 
+    @Override
     protected Optional<BiFunction<String, List<SortItem>, String>> orderByFunction()
     {
         return Optional.of((sql, sortItems) -> sql + " ORDER BY " + sortItems.stream()
