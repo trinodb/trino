@@ -58,7 +58,8 @@
              "user": "mask-user"
            }
          }
-      ]
+      ],
+      "filter": "starts_with(value, 'filter')"
     },
     {
       "group": "guests",
@@ -70,7 +71,11 @@
            "name": "private",
            "allow": false
          }
-      ]
+      ],
+      "filter": "starts_with(value, 'filter-with-user')",
+      "filter_environment": {
+        "user": "filter-user"
+      }
     },
     {
       "privileges": ["SELECT"]

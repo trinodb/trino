@@ -37,13 +37,15 @@ public class CatalogTableAccessControlRule
     public CatalogTableAccessControlRule(
             @JsonProperty("privileges") Set<TablePrivilege> privileges,
             @JsonProperty("columns") Optional<List<ColumnConstraint>> columns,
+            @JsonProperty("filter") Optional<String> filter,
+            @JsonProperty("filter_environment") Optional<ExpressionEnvironment> filterEnvironment,
             @JsonProperty("user") Optional<Pattern> userRegex,
             @JsonProperty("group") Optional<Pattern> groupRegex,
             @JsonProperty("schema") Optional<Pattern> schemaRegex,
             @JsonProperty("table") Optional<Pattern> tableRegex,
             @JsonProperty("catalog") Optional<Pattern> catalogRegex)
     {
-        this.tableAccessControlRule = new TableAccessControlRule(privileges, columns, userRegex, groupRegex, schemaRegex, tableRegex);
+        this.tableAccessControlRule = new TableAccessControlRule(privileges, columns, filter, filterEnvironment, userRegex, groupRegex, schemaRegex, tableRegex);
         this.catalogRegex = requireNonNull(catalogRegex, "catalogRegex is null");
     }
 
@@ -79,6 +81,11 @@ public class CatalogTableAccessControlRule
     public Optional<ViewExpression> getColumnMask(String user, String catalog, String schema, String column)
     {
         return tableAccessControlRule.getColumnMask(user, catalog, schema, column);
+    }
+
+    public Optional<ViewExpression> getFilter(String user, String catalog, String schema)
+    {
+        return tableAccessControlRule.getFilter(user, catalog, schema);
     }
 
     Optional<AnyCatalogPermissionsRule> toAnyCatalogPermissionsRule()

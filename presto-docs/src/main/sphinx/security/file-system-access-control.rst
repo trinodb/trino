@@ -214,6 +214,8 @@ Each table rule is composed of the following fields:
 * ``privileges`` (required): zero or more of ``SELECT``, ``INSERT``,
   ``DELETE``, ``OWNERSHIP``, ``GRANT_SELECT``
 * ``columns`` (optional): list of column constraints.
+* ``filter`` (optional): boolean filter expression for the table.
+* ``filter_environment`` (optional): environment use during filter evaluation.
 
 Column Constraint
 ^^^^^^^^^^^^^^^^^
@@ -225,8 +227,8 @@ These constraints can be used to restrict access to column data.
 * ``mask`` (optional): mask expression applied to column.
 * ``mask_environment`` (optional): environment use during mask evaluation.
 
-Mask Environment
-^^^^^^^^^^^^^^^^
+Filter and Mask Environment
+^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * ``user`` (optional): username for checking permission of subqueries in mask.
 
@@ -238,6 +240,8 @@ The example below defines the following table access policy:
 
 * User ``admin`` has all privileges across all tables and schemas
 * User ``banned_user`` has no privileges
+* All users have ``SELECT`` privileges on ``default.hr.employees``, but the
+  table is filtered to only the row for the current user.
 * All users have ``SELECT`` privileges on all tables in the ``default.default``
   schema, except for the ``address`` column which is blocked, and ``ssn`` which is masked.
 
@@ -253,6 +257,16 @@ The example below defines the following table access policy:
           "user": "banned_user",
           "privileges": []
         },
+        {
+          "catalog": "default",
+          "schema": "hr",
+          "table": "employee",
+          "privileges": ["SELECT"],
+          "filter": "user = current_user"
+          "filter_environment": {
+            "user": "admin"
+          }
+        }
         {
           "catalog": "default",
           "schema": "default",
