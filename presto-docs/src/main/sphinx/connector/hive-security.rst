@@ -523,6 +523,13 @@ These constraints can be used to restrict access to column data.
 
 * ``name``: name of the column.
 * ``allowed`` (optional): if false, column can not be accessed.
+* ``mask`` (optional): mask expression applied to column.
+* ``mask_environment`` (optional): environment use during mask evaluation.
+
+Mask Environment
+^^^^^^^^^^^^^^^^
+
+* ``user`` (optional): username for checking permission of subqueries in mask.
 
 Session Property Rules
 ----------------------
@@ -579,6 +586,13 @@ See below for an example.
              {
                 "name": "address",
                 "allow": false
+             },
+             {
+                "name": "ssn",
+                "mask": "'XXX-XX-' + substring(credit_card, -4)",
+                "mask_environment": {
+                  "user": "admin"
+                }
              }
           ]
         }

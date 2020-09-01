@@ -17,6 +17,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege;
 import io.prestosql.spi.connector.CatalogSchemaTableName;
+import io.prestosql.spi.security.ViewExpression;
 
 import java.util.List;
 import java.util.Optional;
@@ -73,6 +74,11 @@ public class CatalogTableAccessControlRule
     public boolean canSelectColumns(Set<String> columnNames)
     {
         return tableAccessControlRule.canSelectColumns(columnNames);
+    }
+
+    public Optional<ViewExpression> getColumnMask(String user, String catalog, String schema, String column)
+    {
+        return tableAccessControlRule.getColumnMask(user, catalog, schema, column);
     }
 
     Optional<AnyCatalogPermissionsRule> toAnyCatalogPermissionsRule()

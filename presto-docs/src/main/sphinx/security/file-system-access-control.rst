@@ -222,6 +222,13 @@ These constraints can be used to restrict access to column data.
 
 * ``name``: name of the column.
 * ``allowed`` (optional): if false, column can not be accessed.
+* ``mask`` (optional): mask expression applied to column.
+* ``mask_environment`` (optional): environment use during mask evaluation.
+
+Mask Environment
+^^^^^^^^^^^^^^^^
+
+* ``user`` (optional): username for checking permission of subqueries in mask.
 
 .. note::
 
@@ -232,7 +239,7 @@ The example below defines the following table access policy:
 * User ``admin`` has all privileges across all tables and schemas
 * User ``banned_user`` has no privileges
 * All users have ``SELECT`` privileges on all tables in the ``default.default``
-  schema, except for the ``address`` column which is blocked.
+  schema, except for the ``address`` column which is blocked, and ``ssn`` which is masked.
 
 .. code-block:: json
 
@@ -255,6 +262,13 @@ The example below defines the following table access policy:
              {
                 "name": "address",
                 "allow": false
+             },
+             {
+                "name": "SSN",
+                "mask": "'XXX-XX-' + substring(credit_card, -4)",
+                "mask_environment": {
+                  "user": "admin"
+                }
              }
           ]
         }

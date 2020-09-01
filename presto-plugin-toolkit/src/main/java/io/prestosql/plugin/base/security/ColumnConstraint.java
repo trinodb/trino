@@ -22,14 +22,20 @@ public class ColumnConstraint
 {
     private final String name;
     private final boolean allowed;
+    private final Optional<String> mask;
+    private final Optional<ExpressionEnvironment> maskEnvironment;
 
     @JsonCreator
     public ColumnConstraint(
             @JsonProperty("name") String name,
-            @JsonProperty("allow") Optional<Boolean> allow)
+            @JsonProperty("allow") Optional<Boolean> allow,
+            @JsonProperty("mask") Optional<String> mask,
+            @JsonProperty("mask_environment") Optional<ExpressionEnvironment> maskEnvironment)
     {
         this.name = name;
         this.allowed = allow.orElse(true);
+        this.mask = mask;
+        this.maskEnvironment = maskEnvironment;
     }
 
     public String getName()
@@ -40,5 +46,15 @@ public class ColumnConstraint
     public boolean isAllowed()
     {
         return allowed;
+    }
+
+    public Optional<String> getMask()
+    {
+        return mask;
+    }
+
+    public Optional<ExpressionEnvironment> getMaskEnvironment()
+    {
+        return maskEnvironment;
     }
 }
