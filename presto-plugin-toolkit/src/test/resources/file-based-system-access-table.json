@@ -34,6 +34,34 @@
       "privileges": ["SELECT", "INSERT"]
     },
     {
+      "group": "guests",
+      "schema": "bobschema",
+      "table": "bobcolumns",
+      "privileges": ["SELECT"],
+      "columns" : [
+         {
+           "name": "private",
+           "allow": false
+         },
+         {
+           "name": "restricted",
+           "allow": false
+         }
+      ]
+    },
+    {
+      "group": "guests",
+      "schema": "bobschema",
+      "table": "bobcolumns_with_grant",
+      "privileges": ["GRANT_SELECT"],
+      "columns" : [
+         {
+           "name": "private",
+           "allow": false
+         }
+      ]
+    },
+    {
       "privileges": ["SELECT"]
     }
   ]
