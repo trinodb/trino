@@ -72,7 +72,6 @@ import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
-import static io.prestosql.operator.JoinUtils.isBuildSideReplicated;
 import static io.prestosql.spi.connector.DynamicFilter.EMPTY;
 import static io.prestosql.spi.predicate.Domain.union;
 import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
@@ -230,6 +229,13 @@ public class DynamicFilterService
             {
                 return dynamicFilters.stream()
                         .allMatch(context.getDynamicFilterSummaries()::containsKey);
+            }
+
+            @Override
+            public boolean isAwaitable()
+            {
+                return lazyDynamicFilterFutures.stream()
+                        .anyMatch(future -> !future.isDone());
             }
 
             @Override

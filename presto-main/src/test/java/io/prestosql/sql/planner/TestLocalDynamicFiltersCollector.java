@@ -51,6 +51,7 @@ public class TestLocalDynamicFiltersCollector
         // Filter is blocked and not completed.
         CompletableFuture<?> isBlocked = filter.isBlocked();
         assertFalse(filter.isComplete());
+        assertTrue(filter.isAwaitable());
         assertFalse(isBlocked.isDone());
         assertEquals(filter.getCurrentPredicate(), TupleDomain.all());
 
@@ -59,6 +60,7 @@ public class TestLocalDynamicFiltersCollector
 
         // Unblocked and completed.
         assertTrue(filter.isComplete());
+        assertFalse(filter.isAwaitable());
         assertTrue(isBlocked.isDone());
         assertEquals(filter.getCurrentPredicate(), TupleDomain.withColumnDomains(ImmutableMap.of(column, domain)));
     }
@@ -116,6 +118,7 @@ public class TestLocalDynamicFiltersCollector
         // Filter is blocked and not completed.
         CompletableFuture<?> isBlocked = filter.isBlocked();
         assertFalse(filter.isComplete());
+        assertTrue(filter.isAwaitable());
         assertFalse(isBlocked.isDone());
         assertEquals(filter.getCurrentPredicate(), TupleDomain.all());
 
@@ -124,6 +127,7 @@ public class TestLocalDynamicFiltersCollector
 
         // Unblocked and completed.
         assertTrue(filter.isComplete());
+        assertFalse(filter.isAwaitable());
         assertTrue(isBlocked.isDone());
         assertEquals(filter.getCurrentPredicate(), TupleDomain.withColumnDomains(ImmutableMap.of(column1, domain, column2, domain)));
     }
@@ -149,6 +153,7 @@ public class TestLocalDynamicFiltersCollector
         // Filter is blocking and not completed.
         CompletableFuture<?> isBlocked = filter.isBlocked();
         assertFalse(filter.isComplete());
+        assertTrue(filter.isAwaitable());
         assertFalse(isBlocked.isDone());
         assertEquals(filter.getCurrentPredicate(), TupleDomain.all());
 
@@ -157,6 +162,7 @@ public class TestLocalDynamicFiltersCollector
 
         // Unblocked, but not completed.
         assertFalse(filter.isComplete());
+        assertTrue(filter.isAwaitable());
         assertTrue(isBlocked.isDone());
         assertEquals(filter.getCurrentPredicate(), TupleDomain.withColumnDomains(
                 ImmutableMap.of(column, Domain.multipleValues(BIGINT, ImmutableList.of(1L, 2L, 3L)))));
@@ -165,12 +171,14 @@ public class TestLocalDynamicFiltersCollector
         isBlocked = filter.isBlocked();
         assertFalse(isBlocked.isDone());
         assertFalse(filter.isComplete());
+        assertTrue(filter.isAwaitable());
 
         collector.collectDynamicFilterDomains(
                 ImmutableMap.of(filter2, Domain.multipleValues(BIGINT, ImmutableList.of(2L, 3L, 4L))));
 
         // Unblocked and completed.
         assertTrue(filter.isComplete());
+        assertFalse(filter.isAwaitable());
         assertTrue(isBlocked.isDone());
         assertEquals(filter.getCurrentPredicate(), TupleDomain.withColumnDomains(
                 ImmutableMap.of(column, Domain.multipleValues(BIGINT, ImmutableList.of(2L, 3L)))));
@@ -195,6 +203,7 @@ public class TestLocalDynamicFiltersCollector
         // Filter is blocking and not completed.
         CompletableFuture<?> isBlocked = filter.isBlocked();
         assertFalse(filter.isComplete());
+        assertTrue(filter.isAwaitable());
         assertFalse(isBlocked.isDone());
         assertEquals(filter.getCurrentPredicate(), TupleDomain.all());
 
@@ -209,6 +218,7 @@ public class TestLocalDynamicFiltersCollector
 
         // Unblocked and completed.
         assertTrue(filter.isComplete());
+        assertFalse(filter.isAwaitable());
         assertTrue(isBlocked.isDone());
         assertEquals(filter.getCurrentPredicate(), TupleDomain.withColumnDomains(ImmutableMap.of(usedColumn, Domain.singleValue(BIGINT, 2L))));
     }
@@ -235,6 +245,7 @@ public class TestLocalDynamicFiltersCollector
         // Filter is blocked and not completed.
         CompletableFuture<?> isBlocked = filter.isBlocked();
         assertFalse(filter.isComplete());
+        assertTrue(filter.isAwaitable());
         assertFalse(isBlocked.isDone());
         assertEquals(filter.getCurrentPredicate(), TupleDomain.all());
 
@@ -242,6 +253,7 @@ public class TestLocalDynamicFiltersCollector
 
         // Unblocked and completed (don't wait for filter2)
         assertTrue(filter.isComplete());
+        assertFalse(filter.isAwaitable());
         assertTrue(isBlocked.isDone());
         assertEquals(filter.getCurrentPredicate(), TupleDomain.withColumnDomains(ImmutableMap.of(registeredColumn, Domain.singleValue(BIGINT, 2L))));
     }
