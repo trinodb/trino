@@ -240,7 +240,7 @@ public class BackgroundHiveSplitLoader
                 // 1. Completion of DynamicFilter
                 // 2. Timeout after waiting for the configured time
                 long timeLeft = dynamicFilteringProbeBlockingTimeoutMillis - stopwatch.elapsed(MILLISECONDS);
-                if (timeLeft > 0 && !dynamicFilter.isComplete()) {
+                if (timeLeft > 0 && dynamicFilter.isAwaitable()) {
                     future = toListenableFuture(dynamicFilter.isBlocked().orTimeout(timeLeft, MILLISECONDS));
                     return TaskStatus.continueOn(future);
                 }

@@ -156,6 +156,12 @@ class LocalDynamicFiltersCollector
         }
 
         @Override
+        public synchronized boolean isAwaitable()
+        {
+            return futuresLeft > 0;
+        }
+
+        @Override
         public synchronized TupleDomain<ColumnHandle> getCurrentPredicate()
         {
             return currentPredicate;
