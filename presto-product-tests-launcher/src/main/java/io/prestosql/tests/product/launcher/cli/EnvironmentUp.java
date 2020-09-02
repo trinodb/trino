@@ -36,7 +36,9 @@ import javax.inject.Inject;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.file.Path;
 import java.util.Collection;
+import java.util.Optional;
 
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static java.util.Objects.requireNonNull;
@@ -51,6 +53,7 @@ public final class EnvironmentUp
         implements Runnable
 {
     private static final Logger log = Logger.get(EnvironmentUp.class);
+    private static final String LOGS_DIR = "logs/";
 
     @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
     public boolean usageHelpRequested;
@@ -88,6 +91,9 @@ public final class EnvironmentUp
         @Option(names = "--environment", paramLabel = "<environment>", description = "Name of the environment to start", required = true)
         public String environment;
 
+        @Option(names = "--logs-dir", paramLabel = "<dir>", description = "Location of the exported logs directory", converter = OptionalPathConverter.class, defaultValue = "")
+        public Optional<Path> logsDirBase;
+
         public Module toModule()
         {
             return binder -> binder.bind(EnvironmentUpOptions.class).toInstance(this);
@@ -103,6 +109,7 @@ public final class EnvironmentUp
         private final String environment;
         private final boolean debug;
         private final EnvironmentConfig environmentConfig;
+        private final Optional<Path> logsDirBase;
 
         @Inject
         public Execution(EnvironmentFactory environmentFactory, EnvironmentConfig environmentConfig, EnvironmentOptions options, EnvironmentUpOptions environmentUpOptions)
@@ -113,6 +120,7 @@ public final class EnvironmentUp
             this.background = environmentUpOptions.background;
             this.environment = environmentUpOptions.environment;
             this.debug = options.debug;
+            this.logsDirBase = requireNonNull(environmentUpOptions.logsDirBase, "environmentUpOptions.logsDirBase is null");
         }
 
         @Override
@@ -133,8 +141,10 @@ public final class EnvironmentUp
                 builder.configureContainers(Standard::enablePrestoJavaDebugger);
             }
 
-            Environment environment = builder.build();
+            Optional<Path> environmentLogPath = logsDirBase.map(dir -> dir.resolve(environment));
+            environmentLogPath.ifPresent(builder::exposeLogsInHostPath);
 
+            Environment environment = builder.build();
             log.info("Starting the environment '%s'", this.environment);
             environment.start();
             log.info("Environment '%s' started", this.environment);

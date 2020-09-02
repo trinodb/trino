@@ -33,7 +33,6 @@ import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.testcontainers.ExistingNetwork;
 import net.jodah.failsafe.Failsafe;
 import net.jodah.failsafe.RetryPolicy;
-import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import picocli.CommandLine.Mixin;
@@ -42,21 +41,21 @@ import picocli.CommandLine.Parameters;
 import javax.inject.Inject;
 
 import java.io.File;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static io.prestosql.tests.product.launcher.docker.ContainerUtil.exposePort;
+import static io.prestosql.tests.product.launcher.env.DockerContainer.cleanOrCreateHostPath;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
+import static org.testcontainers.containers.BindMode.READ_WRITE;
 import static picocli.CommandLine.Command;
 import static picocli.CommandLine.Option;
 
@@ -112,8 +111,11 @@ public final class TestRun
         @Option(names = "--attach", description = "attach to an existing environment")
         public boolean attach;
 
-        @Option(names = "--reports-dir", paramLabel = "<dir>", defaultValue = TARGET, description = "Location of the reports directory " + DEFAULT_VALUE)
+        @Option(names = "--reports-dir", paramLabel = "<dir>", defaultValue = TARGET + "/reports", description = "Location of the reports directory " + DEFAULT_VALUE)
         public Path reportsDir;
+
+        @Option(names = "--logs-dir", paramLabel = "<dir>", description = "Location of the exported logs directory " + DEFAULT_VALUE, converter = OptionalPathConverter.class, defaultValue = "")
+        public Optional<Path> logsDirBase;
 
         @Option(names = "--startup-retries", paramLabel = "<retries>", defaultValue = "5", description = "Environment startup retries " + DEFAULT_VALUE)
         public int startupRetries;
@@ -140,6 +142,7 @@ public final class TestRun
         private final boolean attach;
         private final int startupRetries;
         private final Path reportsDirBase;
+        private final Optional<Path> logsDirBase;
         private final EnvironmentConfig environmentConfig;
 
         @Inject
@@ -155,6 +158,7 @@ public final class TestRun
             this.attach = testRunOptions.attach;
             this.startupRetries = testRunOptions.startupRetries;
             this.reportsDirBase = requireNonNull(testRunOptions.reportsDir, "testRunOptions.reportsDirBase is empty");
+            this.logsDirBase = requireNonNull(testRunOptions.logsDirBase, "testRunOptions.logsDirBase is empty");
             this.environmentConfig = requireNonNull(environmentConfig, "environmentConfig is null");
         }
 
@@ -263,7 +267,9 @@ public final class TestRun
 
             environmentConfig.extendEnvironment(this.environment).ifPresent(extender -> extender.extendEnvironment(environment));
 
-            return environment.build();
+            logsDirBase.ifPresent(environment::exposeLogsInHostPath);
+            return environment
+                    .build();
         }
 
         private static Iterable<? extends String> reportsDirOptions(Path path)
@@ -281,22 +287,9 @@ public final class TestRun
                 return;
             }
 
-            ensureReportsDirExists(reportsDirBase);
-            container.withFileSystemBind(reportsDirBase.toString(), CONTAINER_REPORTS_DIR, BindMode.READ_WRITE);
-            log.info("Bound host %s into container's %s report dir", reportsDirBase, CONTAINER_REPORTS_DIR);
-        }
-
-        private static void ensureReportsDirExists(Path reportsDirBase)
-        {
-            if (!Files.exists(reportsDirBase)) {
-                try {
-                    Files.createDirectories(reportsDirBase);
-                    log.info("Created reports dir %s", reportsDirBase);
-                }
-                catch (IOException e) {
-                    throw new UncheckedIOException(e);
-                }
-            }
+            cleanOrCreateHostPath(reportsDirBase);
+            container.withFileSystemBind(reportsDirBase.toString(), CONTAINER_REPORTS_DIR, READ_WRITE);
+            log.info("Exposing tests report dir in host directory '%s'", reportsDirBase);
         }
 
         private void awaitTestsCompletion(Environment environment)

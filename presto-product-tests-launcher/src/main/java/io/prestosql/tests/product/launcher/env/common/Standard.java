@@ -115,6 +115,7 @@ public final class Standard
     public static DockerContainer createPrestoContainer(DockerFiles dockerFiles, PathResolver pathResolver, File serverPackage, String dockerImageName)
     {
         return new DockerContainer(dockerImageName)
+                .withExposedLogPaths("/var/presto/var/log")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/presto/etc/jvm.config")), CONTAINER_PRESTO_JVM_CONFIG)
                 // the server package is hundreds MB and file system bind is much more efficient

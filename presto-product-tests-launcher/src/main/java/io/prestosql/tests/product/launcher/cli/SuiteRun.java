@@ -36,6 +36,7 @@ import picocli.CommandLine.Option;
 import javax.inject.Inject;
 
 import java.io.File;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.List;
 import java.util.Optional;
@@ -96,6 +97,9 @@ public class SuiteRun
 
         @Option(names = "--test-jar", paramLabel = "<jar>", description = "Path to test JAR " + DEFAULT_VALUE)
         public File testJar = new File("presto-product-tests/target/presto-product-tests-${project.version}-executable.jar");
+
+        @Option(names = "--logs-dir", paramLabel = "<dir>", description = "Location of the exported logs directory " + DEFAULT_VALUE, converter = OptionalPathConverter.class, defaultValue = "")
+        public Optional<Path> logsDirBase;
 
         public Module toModule()
         {
@@ -183,7 +187,7 @@ public class SuiteRun
 
             Throwable t = null;
             try {
-                TestRun.TestRunOptions testRunOptions = createTestRunOptions(suiteName, suiteTestRun, environmentConfig);
+                TestRun.TestRunOptions testRunOptions = createTestRunOptions(suiteName, suiteTestRun, environmentConfig, suiteRunOptions.logsDirBase);
                 log.info("Execute this test run using:\npresto-product-tests-launcher/bin/run-launcher test run %s", OptionsPrinter.format(environmentOptions, testRunOptions));
                 new TestRun.Execution(environmentFactory, pathResolver, environmentOptions, environmentConfig, testRunOptions).run();
             }
@@ -195,13 +199,15 @@ public class SuiteRun
             return new TestRunResult(suiteTestRun, environmentConfig, nanosSince(startTime), Optional.ofNullable(t));
         }
 
-        private TestRun.TestRunOptions createTestRunOptions(String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig)
+        private TestRun.TestRunOptions createTestRunOptions(String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig, Optional<Path> logsDirBase)
         {
             TestRun.TestRunOptions testRunOptions = new TestRun.TestRunOptions();
             testRunOptions.environment = suiteTestRun.getEnvironmentName();
             testRunOptions.testArguments = suiteTestRun.getTemptoRunArguments(environmentConfig);
             testRunOptions.testJar = pathResolver.resolvePlaceholders(suiteRunOptions.testJar);
-            testRunOptions.reportsDir = Paths.get(format("presto-product-tests/target/%s/%s/%s", suiteName, environmentConfig.getConfigName(), suiteTestRun.getEnvironmentName()));
+            String targetDirectory = format("%s-%s-%s", suiteName, environmentConfig.getConfigName(), suiteTestRun.getEnvironmentName());
+            testRunOptions.reportsDir = Paths.get("presto-product-tests/target/reports/" + targetDirectory);
+            testRunOptions.logsDirBase = logsDirBase.map(dir -> dir.resolve(targetDirectory));
             return testRunOptions;
         }
     }
