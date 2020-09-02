@@ -113,7 +113,7 @@ public class TableJdbcTable
         return table.build().cursor();
     }
 
-    private static boolean isUpperCase(Optional<String> filter)
+    private static boolean isNonLowercase(Optional<String> filter)
     {
         return filter.filter(value -> !value.equals(value.toLowerCase(ENGLISH))).isPresent();
     }
