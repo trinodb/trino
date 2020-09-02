@@ -163,6 +163,5 @@ public class TestMetadataManager
                 .isEmpty();
         assertThat(queryRunner.execute("SELECT * FROM system.jdbc.tables WHERE TABLE_NAME = 'UPPER_CASE_TABLE'"))
                 .isEmpty();
-        // The last 2 queries should return actual tables once https://github.com/prestosql/presto/issues/17 is fixed
     }
 }
