@@ -38,6 +38,7 @@ import org.apache.parquet.column.statistics.FloatStatistics;
 import org.apache.parquet.column.statistics.IntStatistics;
 import org.apache.parquet.column.statistics.LongStatistics;
 import org.apache.parquet.column.statistics.Statistics;
+import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.joda.time.DateTimeZone;
 
@@ -49,6 +50,7 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static io.prestosql.parquet.ParquetTimestampUtils.getTimestampMillis;
+import static io.prestosql.parquet.ParquetTimestampUtils.scaleParquetTimestamp;
 import static io.prestosql.parquet.predicate.PredicateUtils.isStatisticsOverflow;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
@@ -261,6 +263,23 @@ public class TupleDomainParquetPredicate
             return createDomain(type, hasNullValue, parquetTimestampStatistics);
         }
 
+        if (type instanceof TimestampType && statistics instanceof LongStatistics) {
+            TimestampType timestampType = (TimestampType) type;
+            LongStatistics longStatistics = (LongStatistics) statistics;
+
+            long min = longStatistics.getMin();
+            long max = longStatistics.getMax();
+            if (min > max) {
+                failWithCorruptionException(failOnCorruptedParquetStatistics, column, id, longStatistics);
+                return Domain.create(ValueSet.all(type), hasNullValue);
+            }
+
+            OriginalType parquetType = statistics.type().getOriginalType();
+            ParquetTimestampStatistics parquetTimestampStatistics = new ParquetTimestampStatistics(
+                    scaleParquetTimestamp(parquetType, timestampType, min),
+                    scaleParquetTimestamp(parquetType, timestampType, max));
+            return createDomain(type, hasNullValue, parquetTimestampStatistics);
+        }
         return Domain.create(ValueSet.all(type), hasNullValue);
     }
 

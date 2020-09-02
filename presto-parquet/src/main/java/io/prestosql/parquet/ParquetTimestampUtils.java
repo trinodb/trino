@@ -14,14 +14,21 @@
 package io.prestosql.parquet;
 
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.math.LongMath;
 import com.google.common.primitives.Ints;
 import com.google.common.primitives.Longs;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.type.TimestampType;
 import org.apache.parquet.io.api.Binary;
+import org.apache.parquet.schema.OriginalType;
 
+import java.math.RoundingMode;
 import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+import static org.apache.parquet.schema.OriginalType.TIMESTAMP_MICROS;
+import static org.apache.parquet.schema.OriginalType.TIMESTAMP_MILLIS;
 
 /**
  * Utility class for decoding INT96 encoded parquet timestamp to timestamp millis in GMT.
@@ -33,7 +40,7 @@ public final class ParquetTimestampUtils
     static final int JULIAN_EPOCH_OFFSET_DAYS = 2_440_588;
 
     private static final long MILLIS_IN_DAY = TimeUnit.DAYS.toMillis(1);
-    private static final long NANOS_PER_MILLISECOND = TimeUnit.MILLISECONDS.toNanos(1);
+    private static final long NANOS_PER_MILLISECOND = MILLISECONDS.toNanos(1);
 
     private ParquetTimestampUtils() {}
 
@@ -60,5 +67,32 @@ public final class ParquetTimestampUtils
     private static long julianDayToMillis(int julianDay)
     {
         return (julianDay - JULIAN_EPOCH_OFFSET_DAYS) * MILLIS_IN_DAY;
+    }
+
+    public static long scaleParquetTimestamp(OriginalType originalType, TimestampType prestoType, long parquetTimestampValue)
+    {
+        int parquetScale;
+        if (originalType == TIMESTAMP_MILLIS) {
+            parquetScale = 3;
+        }
+        else if (originalType == TIMESTAMP_MICROS) {
+            parquetScale = 6;
+        }
+        else {
+            throw new IllegalArgumentException("Unsupported original type: " + originalType);
+        }
+
+        int prestoPrecision = prestoType.getPrecision();
+        if (prestoPrecision == parquetScale) {
+            return parquetTimestampValue;
+        }
+        else if (prestoPrecision > parquetScale) {
+            long scale = (long) Math.pow(10, prestoPrecision - parquetScale);
+            return parquetTimestampValue * scale;
+        }
+        else {
+            long scale = (long) Math.pow(10, parquetScale - prestoPrecision);
+            return LongMath.divide(parquetTimestampValue, scale, RoundingMode.HALF_UP);
+        }
     }
 }

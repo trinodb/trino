@@ -132,6 +132,7 @@ import static io.prestosql.testing.TestingAccessControlManager.privilege;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static io.prestosql.testing.assertions.Assert.assertEventually;
+import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static io.prestosql.tpch.TpchTable.CUSTOMER;
 import static io.prestosql.tpch.TpchTable.NATION;
 import static io.prestosql.tpch.TpchTable.ORDERS;
@@ -4120,21 +4121,38 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
-    public void testParquetTimestampPredicatePushdown()
+    public void testParquetTimestampInt96PredicatePushdown()
     {
-        assertUpdate("CREATE TABLE test_parquet_timestamp_predicate_pushdown (t TIMESTAMP) WITH (format = 'PARQUET')");
-        assertUpdate("INSERT INTO test_parquet_timestamp_predicate_pushdown VALUES (TIMESTAMP '2012-10-31 01:00')", 1);
+        testParquetTimestampPredicatePushdown(getSession());
+    }
+
+    @Test
+    public void testParquetTimestampInt64PredicatePushdown()
+    {
+        testParquetTimestampPredicatePushdown(
+                Session.builder(getSession())
+                        .setCatalogSessionProperty(catalog, "parquet_optimized_writer_enabled", "true")
+                        .build());
+    }
+
+    private void testParquetTimestampPredicatePushdown(Session session)
+    {
+        String tableName = "test_parquet_timestamp_predicate_pushdown" + randomTableSuffix();
+        assertUpdate(session, "CREATE TABLE " + tableName + " (t TIMESTAMP) WITH (format = 'PARQUET')");
+        assertUpdate(session, "INSERT INTO " + tableName + " VALUES (TIMESTAMP '2012-10-31 01:00')", 1);
         assertQuery("SELECT * FROM test_parquet_timestamp_predicate_pushdown", "VALUES (TIMESTAMP '2012-10-31 01:00')");
 
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
         ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(
-                getSession(),
-                "SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t < TIMESTAMP '2012-10-31 01:00'");
+                session,
+                "SELECT * FROM " + tableName + " WHERE t < TIMESTAMP '2012-10-31 01:00'");
+        assertEquals(queryResult.getResult().getRowCount(), 0);
         assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
 
         queryResult = queryRunner.executeWithQueryId(
-                getSession(),
-                "SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t > TIMESTAMP '2012-10-31 01:00'");
+                session,
+                "SELECT * FROM " + tableName + " WHERE t > TIMESTAMP '2012-10-31 01:00'");
+        assertEquals(queryResult.getResult().getRowCount(), 0);
         assertEquals(getQueryInfo(queryRunner, queryResult).getQueryStats().getProcessedInputDataSize().toBytes(), 0);
 
         // TODO: replace this with a simple query stats check once we find a way to wait until all pending updates to query stats have been applied
@@ -4146,7 +4164,8 @@ public class TestHiveIntegrationSmokeTest
         assertEventually(new Duration(30, SECONDS), () -> {
             ResultWithQueryId<MaterializedResult> result = queryRunner.executeWithQueryId(
                     getSession(),
-                    "SELECT * FROM test_parquet_timestamp_predicate_pushdown WHERE t = TIMESTAMP '2012-10-31 01:00'");
+                    "SELECT * FROM " + tableName + " WHERE t = TIMESTAMP '2012-10-31 01:00'");
+            assertEquals(result.getResult().getOnlyValue(), LocalDateTime.of(2012, 10, 31, 1, 0));
             sleeper.sleep();
             assertThat(getQueryInfo(queryRunner, result).getQueryStats().getProcessedInputDataSize().toBytes()).isGreaterThan(0);
         });
