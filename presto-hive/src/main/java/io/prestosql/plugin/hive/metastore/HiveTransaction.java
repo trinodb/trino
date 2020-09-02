@@ -20,6 +20,7 @@ import io.prestosql.plugin.hive.acid.AcidTransaction;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.spi.connector.SchemaTableName;
 import org.apache.hadoop.hive.common.ValidTxnWriteIdList;
+import org.apache.hadoop.hive.metastore.api.DataOperationType;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -64,12 +65,12 @@ public class HiveTransaction
     public ValidTxnWriteIdList getValidWriteIds(HiveMetastoreClosure metastore, HiveTableHandle tableHandle)
     {
         // Different calls for same table might need to lock different partitions so acquire locks every time
-        metastore.acquireSharedReadLock(
+        metastore.acquireLock(
                 identity,
                 queryId,
                 transactionId,
-                tableHandle.getPartitions().isEmpty() ? ImmutableList.of(tableHandle.getSchemaTableName()) : ImmutableList.of(),
-                tableHandle.getPartitions().orElse(ImmutableList.of()));
+                !tableHandle.getPartitions().isPresent() ? ImmutableList.of(tableHandle.getSchemaTableName()) : ImmutableList.of(),
+                tableHandle.getPartitions().orElse(ImmutableList.of()), DataOperationType.SELECT);
 
         // For repeatable reads within a query, use the same list of valid transactions for a table which have once been used
         return validHiveTransactionsForTable.computeIfAbsent(tableHandle.getSchemaTableName(), schemaTableName -> new ValidTxnWriteIdList(

@@ -148,7 +148,7 @@ public interface ThriftMetastore
         throw new UnsupportedOperationException();
     }
 
-    default void acquireSharedReadLock(HiveIdentity identity, String queryId, long transactionId, List<SchemaTableName> fullTables, List<HivePartition> partitions)
+    default void acquireLock(HiveIdentity identity, String queryId, long transactionId, List<SchemaTableName> fullTables, List<HivePartition> partitions, DataOperationType dataOperationType)
     {
         throw new UnsupportedOperationException();
     }

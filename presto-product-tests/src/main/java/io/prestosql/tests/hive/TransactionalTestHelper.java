@@ -22,6 +22,12 @@ import io.prestosql.plugin.hive.metastore.thrift.Transport;
 import io.prestosql.tempto.hadoop.hdfs.HdfsClient;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.Path;
+import org.apache.hadoop.hive.metastore.LockComponentBuilder;
+import org.apache.hadoop.hive.metastore.LockRequestBuilder;
+import org.apache.hadoop.hive.metastore.api.AllocateTableWriteIdsRequest;
+import org.apache.hadoop.hive.metastore.api.DataOperationType;
+import org.apache.hadoop.hive.metastore.api.LockRequest;
+import org.apache.hadoop.hive.metastore.api.LockResponse;
 import org.apache.hadoop.hive.ql.exec.vector.VectorizedRowBatch;
 import org.apache.orc.OrcFile;
 import org.apache.orc.Reader;
@@ -102,7 +108,31 @@ public final class TransactionalTestHelper
         }
     }
 
-    private ThriftHiveMetastoreClient createMetastoreClient()
+    public LockResponse acquireDropTableLock(ThriftHiveMetastoreClient client, String database, String tableName, long transaction)
+            throws TException
+    {
+        AllocateTableWriteIdsRequest rqst = new AllocateTableWriteIdsRequest(database, tableName);
+        rqst.setTxnIds(Collections.singletonList(transaction));
+
+        LockComponentBuilder builder = new LockComponentBuilder();
+        builder.setExclusive();
+        builder.setOperationType(DataOperationType.NO_TXN);
+
+        builder.setDbName(database);
+        builder.setTableName(tableName);
+
+        // acquire locks is called only for TransactionalTable
+        builder.setIsTransactional(true);
+
+        LockRequestBuilder request = new LockRequestBuilder()
+                .setTransactionId(transaction)
+                .setUser("hdfs");
+        request.addLockComponent(builder.build());
+        LockRequest lockRequest = request.build();
+        return client.acquireLock(lockRequest);
+    }
+
+    public ThriftHiveMetastoreClient createMetastoreClient()
             throws TException
     {
         URI metastore = URI.create("thrift://" + metastoreHost + ":" + metastorePort);

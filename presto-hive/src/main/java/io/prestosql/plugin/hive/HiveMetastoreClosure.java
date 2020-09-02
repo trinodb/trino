@@ -32,7 +32,10 @@ import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
 import org.apache.hadoop.hive.metastore.api.DataOperationType;
+<<<<<<< HEAD
 import org.apache.hadoop.hive.metastore.api.EnvironmentContext;
+=======
+>>>>>>> Acquire lock before dropping transactional table.
 
 import java.util.List;
 import java.util.Map;
@@ -311,9 +314,9 @@ public class HiveMetastoreClosure
         delegate.sendTransactionHeartbeat(identity, transactionId);
     }
 
-    public void acquireSharedReadLock(HiveIdentity identity, String queryId, long transactionId, List<SchemaTableName> fullTables, List<HivePartition> partitions)
+    public void acquireLock(HiveIdentity identity, String queryId, long transactionId, List<SchemaTableName> fullTables, List<HivePartition> partitions, DataOperationType dataOperationType)
     {
-        delegate.acquireSharedReadLock(identity, queryId, transactionId, fullTables, partitions);
+        delegate.acquireLock(identity, queryId, transactionId, fullTables, partitions, dataOperationType);
     }
 
     public String getValidWriteIds(HiveIdentity identity, List<SchemaTableName> tables, long currentTransactionId)

@@ -1093,7 +1093,7 @@ public class ThriftHiveMetastore
                     .stopOnIllegalExceptions()
                     .run("dropTable", stats.getDropTable().wrap(() -> {
                         try (ThriftMetastoreClient client = createMetastoreClient(identity)) {
-                            Table table = client.getTable(databaseName, tableName);
+                            Table table = client.getTableWithCapabilities(databaseName, tableName);
                             client.dropTable(databaseName, tableName, deleteData);
                             String tableLocation = table.getSd().getLocation();
                             if (deleteFilesOnDrop && deleteData && isManagedTable(table) && !isNullOrEmpty(tableLocation)) {
@@ -1632,7 +1632,7 @@ public class ThriftHiveMetastore
     }
 
     @Override
-    public void acquireSharedReadLock(HiveIdentity identity, String queryId, long transactionId, List<SchemaTableName> fullTables, List<HivePartition> partitions)
+    public void acquireLock(HiveIdentity identity, String queryId, long transactionId, List<SchemaTableName> fullTables, List<HivePartition> partitions, DataOperationType dataOperationType)
     {
         acquireSharedLock(DataOperationType.SELECT, false, identity, queryId, transactionId, fullTables, partitions);
     }
@@ -1658,11 +1658,19 @@ public class ThriftHiveMetastore
                 .setUser(identity.getUsername().get());
 
         for (SchemaTableName table : fullTables) {
+<<<<<<< HEAD
             request.addLockComponent(createLockComponentForOperation(table, operation, isDynamicPartitionWrite, Optional.empty()));
         }
 
         for (HivePartition partition : partitions) {
             request.addLockComponent(createLockComponentForOperation(partition.getTableName(), operation, isDynamicPartitionWrite, Optional.of(partition.getPartitionId())));
+=======
+            request.addLockComponent(createLockComponent(table, Optional.empty(), dataOperationType));
+        }
+
+        for (HivePartition partition : partitions) {
+            request.addLockComponent(createLockComponent(partition.getTableName(), Optional.of(partition.getPartitionId()), dataOperationType));
+>>>>>>> Acquire lock before dropping transactional table.
         }
 
         LockRequest lockRequest = request.build();
@@ -1707,14 +1715,31 @@ public class ThriftHiveMetastore
         }
     }
 
+<<<<<<< HEAD
     private static LockComponent createLockComponentForOperation(SchemaTableName table, DataOperationType operation, boolean isDynamicPartitionWrite, Optional<String> partitionName)
+=======
+    private static LockComponent createLockComponent(SchemaTableName table, Optional<String> partitionName, DataOperationType dataOperationType)
+>>>>>>> Acquire lock before dropping transactional table.
     {
         requireNonNull(table, "table is null");
         requireNonNull(partitionName, "partitionName is null");
 
         LockComponentBuilder builder = new LockComponentBuilder();
+<<<<<<< HEAD
         builder.setShared();
         builder.setOperationType(operation);
+=======
+        switch (dataOperationType) {
+            case SELECT:
+                builder.setShared();
+                builder.setOperationType(DataOperationType.SELECT);
+                break;
+            case NO_TXN:
+                builder.setExclusive();
+                builder.setOperationType(DataOperationType.NO_TXN);
+                break;
+        }
+>>>>>>> Acquire lock before dropping transactional table.
 
         builder.setDbName(table.getSchemaName());
         builder.setTableName(table.getTableName());
