@@ -327,6 +327,13 @@ public class TestVarbinaryFunctions
     }
 
     @Test
+    public void testMurmur3()
+    {
+        assertFunction("murmur3(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryFromHex("00000000000000000000000000000000"));
+        assertFunction("murmur3(CAST('hashme' AS VARBINARY))", VARBINARY, sqlVarbinaryFromHex("93192FE805BE23041C8318F67EC4F2BC"));
+    }
+
+    @Test
     public void testXxhash64()
     {
         assertFunction("xxhash64(CAST('' AS VARBINARY))", VARBINARY, sqlVarbinaryFromHex("EF46DB3751D8E999"));

@@ -170,6 +170,10 @@ Hashing Functions
 
     Computes the xxHash64 hash of ``binary``.
 
+.. function:: murmur3(binary) -> varbinary
+
+    Computes the 128-bit murmur3 hash of ``binary``.
+
 HMAC Functions
 --------------
 
