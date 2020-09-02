@@ -434,12 +434,16 @@ public final class TupleDomain<T>
 
     public <U> TupleDomain<U> transform(Function<T, U> function)
     {
-        if (domains.isEmpty()) {
-            return TupleDomain.none();
+        if (isNone()) {
+            return none();
+        }
+        if (isAll()) {
+            return all();
         }
 
-        HashMap<U, Domain> result = new LinkedHashMap<>(domains.get().size());
-        for (Map.Entry<T, Domain> entry : domains.get().entrySet()) {
+        Map<T, Domain> domains = this.domains.orElseThrow();
+        HashMap<U, Domain> result = new LinkedHashMap<>(domains.size());
+        for (Map.Entry<T, Domain> entry : domains.entrySet()) {
             U key = function.apply(entry.getKey());
 
             if (key == null) {
