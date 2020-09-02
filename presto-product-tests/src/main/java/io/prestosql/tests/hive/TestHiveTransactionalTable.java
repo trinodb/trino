@@ -81,6 +81,7 @@ public class TestHiveTransactionalTable
 
     // This test is in STORAGE_FORMATS group to ensure test coverage of transactional tables with various
     // metastore and HDFS setups (kerberized or not, impersonation or not).
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/4927", match = "Hive table .* is is corrupt. Found sub-directory in bucket directory for partition")
     @Test(groups = {HIVE_TRANSACTIONAL, STORAGE_FORMATS}, timeOut = TEST_TIMEOUT)
     public void testReadFullAcidPartitionedBucketed()
     {
