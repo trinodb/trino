@@ -31,6 +31,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
+import java.util.OptionalDouble;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -102,15 +103,15 @@ public class BroadcastOutputBuffer
     }
 
     @Override
-    public double getUtilization()
+    public OptionalDouble getUtilization()
     {
-        return memoryManager.getUtilization();
+        return OptionalDouble.of(memoryManager.getUtilization());
     }
 
     @Override
-    public boolean isOverutilized()
+    public BufferState getState()
     {
-        return (getUtilization() > 0.5) && state.get().canAddPages();
+        return state.get();
     }
 
     @Override

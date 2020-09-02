@@ -611,14 +611,15 @@ public class TestHttpRemoteTask
                     initialTaskStatus.getFailures(),
                     initialTaskStatus.getQueuedPartitionedDrivers(),
                     initialTaskStatus.getRunningPartitionedDrivers(),
-                    initialTaskStatus.isOutputBufferOverutilized(),
                     initialTaskStatus.getPhysicalWrittenDataSize(),
                     initialTaskStatus.getMemoryReservation(),
                     initialTaskStatus.getSystemMemoryReservation(),
                     initialTaskStatus.getRevocableMemoryReservation(),
                     initialTaskStatus.getFullGcCount(),
                     initialTaskStatus.getFullGcTime(),
-                    dynamicFilterDomains.map(VersionedDynamicFilterDomains::getVersion).orElse(INITIAL_DYNAMIC_FILTERS_VERSION));
+                    dynamicFilterDomains.map(VersionedDynamicFilterDomains::getVersion).orElse(INITIAL_DYNAMIC_FILTERS_VERSION),
+                    initialTaskStatus.getOutputBufferUtilization(),
+                    initialTaskStatus.getOutputBufferState());
         }
     }
 }

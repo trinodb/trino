@@ -572,11 +572,6 @@ public final class SqlStageExecution
                 .collect(toImmutableList());
     }
 
-    public boolean isAnyTaskBlocked()
-    {
-        return getTaskStatuses().stream().anyMatch(TaskStatus::isOutputBufferOverutilized);
-    }
-
     private ExecutionFailureInfo rewriteTransportFailure(ExecutionFailureInfo executionFailureInfo)
     {
         if (executionFailureInfo.getRemoteHost() == null || failureDetector.getState(executionFailureInfo.getRemoteHost()) != GONE) {

@@ -23,6 +23,8 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.RemoteTask;
 import io.prestosql.execution.SqlStageExecution;
+import io.prestosql.execution.TaskStatus;
+import io.prestosql.execution.buffer.BufferState;
 import io.prestosql.execution.scheduler.FixedSourcePartitionedScheduler.BucketedSplitPlacementPolicy;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
@@ -529,6 +531,11 @@ public class SourcePartitionedScheduler
         stage.transitionToSchedulingSplits();
 
         return newTasks;
+    }
+
+    static boolean isTaskOverutilized(TaskStatus taskStatus)
+    {
+        return taskStatus.getOutputBufferUtilization().orElse(0) > 0.5 && BufferState.valueOf(taskStatus.getOutputBufferState().name()).canAddPages();
     }
 
     private static class ScheduleGroup

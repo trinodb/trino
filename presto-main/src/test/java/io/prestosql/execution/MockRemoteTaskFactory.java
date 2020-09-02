@@ -27,6 +27,7 @@ import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.cost.StatsAndCosts;
 import io.prestosql.execution.NodeTaskMap.PartitionedSplitCountTracker;
+import io.prestosql.execution.buffer.BufferState;
 import io.prestosql.execution.buffer.LazyOutputBuffer;
 import io.prestosql.execution.buffer.OutputBuffer;
 import io.prestosql.execution.buffer.OutputBuffers;
@@ -61,6 +62,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.Executor;
@@ -168,8 +170,6 @@ public class MockRemoteTaskFactory
 
         private final PartitionedSplitCountTracker partitionedSplitCountTracker;
 
-        private boolean isOutputBufferOverUtilized;
-
         public MockRemoteTask(
                 TaskId taskId,
                 PlanFragment fragment,
@@ -246,14 +246,15 @@ public class MockRemoteTaskFactory
                             failures,
                             0,
                             0,
-                            isOutputBufferOverUtilized,
                             DataSize.ofBytes(0),
                             DataSize.ofBytes(0),
                             DataSize.ofBytes(0),
                             DataSize.ofBytes(0),
                             0,
                             new Duration(0, MILLISECONDS),
-                            INITIAL_DYNAMIC_FILTERS_VERSION),
+                            INITIAL_DYNAMIC_FILTERS_VERSION,
+                            OptionalDouble.empty(),
+                            BufferState.OPEN),
                     DateTime.now(),
                     outputBuffer.getInfo(),
                     ImmutableSet.of(),
@@ -275,14 +276,15 @@ public class MockRemoteTaskFactory
                     ImmutableList.of(),
                     stats.getQueuedPartitionedDrivers(),
                     stats.getRunningPartitionedDrivers(),
-                    isOutputBufferOverUtilized,
                     stats.getPhysicalWrittenDataSize(),
                     stats.getUserMemoryReservation(),
                     stats.getSystemMemoryReservation(),
                     stats.getRevocableMemoryReservation(),
                     0,
                     new Duration(0, MILLISECONDS),
-                    INITIAL_DYNAMIC_FILTERS_VERSION);
+                    INITIAL_DYNAMIC_FILTERS_VERSION,
+                    OptionalDouble.empty(),
+                    BufferState.OPEN);
         }
 
         private synchronized void updateSplitQueueSpace()
@@ -325,11 +327,6 @@ public class MockRemoteTaskFactory
             runningDrivers = splits.size();
             runningDrivers = Math.min(runningDrivers, maxRunning);
             updateSplitQueueSpace();
-        }
-
-        public synchronized void setOutputBufferOverUtilized(boolean isOutputBufferOverUtilized)
-        {
-            this.isOutputBufferOverUtilized = isOutputBufferOverUtilized;
         }
 
         @Override

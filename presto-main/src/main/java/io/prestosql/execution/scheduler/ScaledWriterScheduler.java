@@ -18,6 +18,7 @@ import com.google.common.util.concurrent.SettableFuture;
 import io.airlift.units.DataSize;
 import io.prestosql.execution.RemoteTask;
 import io.prestosql.execution.SqlStageExecution;
+import io.prestosql.execution.TaskState;
 import io.prestosql.execution.TaskStatus;
 import io.prestosql.metadata.InternalNode;
 
@@ -90,9 +91,10 @@ public class ScaledWriterScheduler
             return 1;
         }
 
-        double fullTasks = sourceTasksProvider.get().stream()
-                .filter(task -> !task.getState().isDone())
-                .map(TaskStatus::isOutputBufferOverutilized)
+        // only consider source tasks which have started running and have an initialized output buffer
+        double sourcesBufferUtilizationAvg = sourceTasksProvider.get().stream()
+                .filter(task -> task.getState() == TaskState.RUNNING && task.getOutputBufferUtilization().isPresent())
+                .map(taskStatus -> taskStatus.getOutputBufferUtilization().getAsDouble() > 0.5)
                 .mapToDouble(full -> full ? 1.0 : 0.0)
                 .average().orElse(0.0);
 
@@ -101,7 +103,7 @@ public class ScaledWriterScheduler
                 .mapToLong(DataSize::toBytes)
                 .sum();
 
-        if ((fullTasks >= 0.5) && (writtenBytes >= (writerMinSizeBytes * scheduledNodes.size()))) {
+        if ((sourcesBufferUtilizationAvg >= 0.5) && (writtenBytes >= (writerMinSizeBytes * scheduledNodes.size()))) {
             return 1;
         }
 

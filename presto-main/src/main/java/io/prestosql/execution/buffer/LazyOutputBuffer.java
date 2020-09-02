@@ -29,6 +29,7 @@ import javax.annotation.concurrent.GuardedBy;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.OptionalDouble;
 import java.util.Set;
 import java.util.concurrent.Executor;
 import java.util.function.Supplier;
@@ -93,7 +94,7 @@ public class LazyOutputBuffer
     }
 
     @Override
-    public double getUtilization()
+    public OptionalDouble getUtilization()
     {
         OutputBuffer outputBuffer;
         synchronized (this) {
@@ -102,21 +103,23 @@ public class LazyOutputBuffer
 
         // until output buffer is initialized, it is "full"
         if (outputBuffer == null) {
-            return 1.0;
+            return OptionalDouble.empty();
         }
         return outputBuffer.getUtilization();
     }
 
     @Override
-    public boolean isOverutilized()
+    public BufferState getState()
     {
         OutputBuffer outputBuffer;
         synchronized (this) {
             outputBuffer = delegate;
         }
 
-        // until output buffer is initialized, readers cannot enqueue and thus cannot be blocked
-        return (outputBuffer != null) && outputBuffer.isOverutilized();
+        if (outputBuffer == null) {
+            return state.get();
+        }
+        return outputBuffer.getState();
     }
 
     @Override

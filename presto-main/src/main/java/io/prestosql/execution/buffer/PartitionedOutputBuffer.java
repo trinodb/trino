@@ -23,6 +23,7 @@ import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 import io.prestosql.memory.context.LocalMemoryContext;
 
 import java.util.List;
+import java.util.OptionalDouble;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Supplier;
@@ -96,15 +97,15 @@ public class PartitionedOutputBuffer
     }
 
     @Override
-    public double getUtilization()
+    public OptionalDouble getUtilization()
     {
-        return memoryManager.getUtilization();
+        return OptionalDouble.of(memoryManager.getUtilization());
     }
 
     @Override
-    public boolean isOverutilized()
+    public BufferState getState()
     {
-        return memoryManager.isOverutilized();
+        return state.get();
     }
 
     @Override

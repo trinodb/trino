@@ -363,7 +363,10 @@ public class SqlQueryScheduler
                     placementPolicy,
                     splitBatchSize,
                     dynamicFilterService,
-                    () -> childStages.stream().anyMatch(SqlStageExecution::isAnyTaskBlocked)));
+                    () -> childStages.stream()
+                            .map(SqlStageExecution::getTaskStatuses)
+                            .flatMap(List::stream)
+                            .anyMatch(SourcePartitionedScheduler::isTaskOverutilized)));
         }
         else if (partitioningHandle.equals(SCALED_WRITER_DISTRIBUTION)) {
             childStages = createChildStages.apply(Optional.of(new int[1]));

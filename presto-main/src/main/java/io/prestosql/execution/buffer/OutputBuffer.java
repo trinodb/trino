@@ -19,6 +19,7 @@ import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 
 import java.util.List;
+import java.util.OptionalDouble;
 
 public interface OutputBuffer
 {
@@ -35,14 +36,15 @@ public interface OutputBuffer
     boolean isFinished();
 
     /**
-     * Get the memory utilization percentage.
+     * Get the memory utilization ratio.
+     * Empty utilization strictly signifies an un-initialized lazy buffer.
      */
-    double getUtilization();
+    OptionalDouble getUtilization();
 
     /**
-     * Check if the buffer is blocking producers.
+     * Get the state of the output buffer.
      */
-    boolean isOverutilized();
+    BufferState getState();
 
     /**
      * Add a listener which fires anytime the buffer state changes.

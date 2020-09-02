@@ -33,6 +33,7 @@ import java.util.Collection;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Optional;
+import java.util.OptionalDouble;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.Executor;
@@ -110,15 +111,15 @@ public class ArbitraryOutputBuffer
     }
 
     @Override
-    public double getUtilization()
+    public OptionalDouble getUtilization()
     {
-        return memoryManager.getUtilization();
+        return OptionalDouble.of(memoryManager.getUtilization());
     }
 
     @Override
-    public boolean isOverutilized()
+    public BufferState getState()
     {
-        return (memoryManager.getUtilization() >= 0.5) || !state.get().canAddPages();
+        return state.get();
     }
 
     @Override

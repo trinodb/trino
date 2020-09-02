@@ -19,9 +19,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.execution.buffer.BufferState;
 
 import java.net.URI;
 import java.util.List;
+import java.util.OptionalDouble;
 import java.util.Set;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -56,7 +58,6 @@ public class TaskStatus
 
     private final int queuedPartitionedDrivers;
     private final int runningPartitionedDrivers;
-    private final boolean outputBufferOverutilized;
     private final DataSize physicalWrittenDataSize;
     private final DataSize memoryReservation;
     private final DataSize systemMemoryReservation;
@@ -68,6 +69,9 @@ public class TaskStatus
     private final List<ExecutionFailureInfo> failures;
 
     private final long dynamicFiltersVersion;
+
+    private final OptionalDouble outputBufferUtilization;
+    private final BufferState outputBufferState;
 
     @JsonCreator
     public TaskStatus(
@@ -81,14 +85,15 @@ public class TaskStatus
             @JsonProperty("failures") List<ExecutionFailureInfo> failures,
             @JsonProperty("queuedPartitionedDrivers") int queuedPartitionedDrivers,
             @JsonProperty("runningPartitionedDrivers") int runningPartitionedDrivers,
-            @JsonProperty("outputBufferOverutilized") boolean outputBufferOverutilized,
             @JsonProperty("physicalWrittenDataSize") DataSize physicalWrittenDataSize,
             @JsonProperty("memoryReservation") DataSize memoryReservation,
             @JsonProperty("systemMemoryReservation") DataSize systemMemoryReservation,
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("fullGcCount") long fullGcCount,
             @JsonProperty("fullGcTime") Duration fullGcTime,
-            @JsonProperty("dynamicFiltersVersion") long dynamicFiltersVersion)
+            @JsonProperty("dynamicFiltersVersion") long dynamicFiltersVersion,
+            @JsonProperty("outputBufferUtilization") OptionalDouble outputBufferUtilization,
+            @JsonProperty("outputBufferState") BufferState outputBufferState)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
@@ -106,8 +111,6 @@ public class TaskStatus
         checkArgument(runningPartitionedDrivers >= 0, "runningPartitionedDrivers must be positive");
         this.runningPartitionedDrivers = runningPartitionedDrivers;
 
-        this.outputBufferOverutilized = outputBufferOverutilized;
-
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "physicalWrittenDataSize is null");
 
         this.memoryReservation = requireNonNull(memoryReservation, "memoryReservation is null");
@@ -120,6 +123,9 @@ public class TaskStatus
         this.fullGcTime = requireNonNull(fullGcTime, "fullGcTime is null");
         checkArgument(dynamicFiltersVersion >= INITIAL_DYNAMIC_FILTERS_VERSION, "dynamicFiltersVersion must be >= INITIAL_DYNAMIC_FILTERS_VERSION");
         this.dynamicFiltersVersion = dynamicFiltersVersion;
+
+        this.outputBufferUtilization = requireNonNull(outputBufferUtilization, "outputBufferUtilization is null");
+        this.outputBufferState = requireNonNull(outputBufferState, "outputBufferState is null");
     }
 
     @JsonProperty
@@ -189,12 +195,6 @@ public class TaskStatus
     }
 
     @JsonProperty
-    public boolean isOutputBufferOverutilized()
-    {
-        return outputBufferOverutilized;
-    }
-
-    @JsonProperty
     public DataSize getMemoryReservation()
     {
         return memoryReservation;
@@ -230,6 +230,18 @@ public class TaskStatus
         return dynamicFiltersVersion;
     }
 
+    @JsonProperty
+    public OptionalDouble getOutputBufferUtilization()
+    {
+        return outputBufferUtilization;
+    }
+
+    @JsonProperty
+    public BufferState getOutputBufferState()
+    {
+        return outputBufferState;
+    }
+
     @Override
     public String toString()
     {
@@ -252,14 +264,15 @@ public class TaskStatus
                 ImmutableList.of(),
                 0,
                 0,
-                false,
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 DataSize.ofBytes(0),
                 0,
                 new Duration(0, MILLISECONDS),
-                INITIAL_DYNAMIC_FILTERS_VERSION);
+                INITIAL_DYNAMIC_FILTERS_VERSION,
+                OptionalDouble.empty(),
+                BufferState.OPEN);
     }
 
     public static TaskStatus failWith(TaskStatus taskStatus, TaskState state, List<ExecutionFailureInfo> exceptions)
@@ -275,13 +288,14 @@ public class TaskStatus
                 exceptions,
                 taskStatus.getQueuedPartitionedDrivers(),
                 taskStatus.getRunningPartitionedDrivers(),
-                taskStatus.isOutputBufferOverutilized(),
                 taskStatus.getPhysicalWrittenDataSize(),
                 taskStatus.getMemoryReservation(),
                 taskStatus.getSystemMemoryReservation(),
                 taskStatus.getRevocableMemoryReservation(),
                 taskStatus.getFullGcCount(),
                 taskStatus.getFullGcTime(),
-                taskStatus.getDynamicFiltersVersion());
+                taskStatus.getDynamicFiltersVersion(),
+                taskStatus.getOutputBufferUtilization(),
+                taskStatus.getOutputBufferState());
     }
 }
