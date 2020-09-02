@@ -366,7 +366,6 @@ public class TestPostgreSqlIntegrationSmokeTest
 
         // GROUPING SET
         assertThat(query("SELECT regionkey, nationkey, sum(nationkey) FROM nation GROUP BY GROUPING SETS ((regionkey), (nationkey))")).isCorrectlyPushedDown();
-        assertThat(query("SELECT distinct regionkey, nationkey FROM nation GROUP BY GROUPING SETS ((regionkey), (nationkey))")).isCorrectlyPushedDown();
 
         // decimals
         try (AutoCloseable ignoreTable = withTable("tpch.test_aggregation_pushdown", "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {

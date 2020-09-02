@@ -15,10 +15,6 @@ package io.prestosql.sql.planner.iterative.rule;
 
 import com.google.common.collect.ImmutableBiMap;
 import com.google.common.collect.ImmutableList;
-import io.prestosql.Session;
-import io.prestosql.matching.Capture;
-import io.prestosql.matching.Captures;
-import io.prestosql.matching.Pattern;
 import io.prestosql.metadata.BoundSignature;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.TableHandle;
@@ -33,16 +29,15 @@ import io.prestosql.sql.planner.ConnectorExpressionTranslator;
 import io.prestosql.sql.planner.LiteralEncoder;
 import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.iterative.Rule;
+import io.prestosql.sql.planner.iterative.Rule.Context;
+import io.prestosql.sql.planner.iterative.Rule.Result;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.Assignments;
-import io.prestosql.sql.planner.plan.GroupIdNode;
 import io.prestosql.sql.planner.plan.ProjectNode;
 import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.SymbolReference;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -51,26 +46,15 @@ import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Optional;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static io.prestosql.SystemSessionProperties.isAllowPushdownIntoConnectors;
-import static io.prestosql.matching.Capture.newCapture;
-import static io.prestosql.matching.Pattern.typeOf;
-import static io.prestosql.sql.planner.plan.Patterns.aggregation;
-import static io.prestosql.sql.planner.plan.Patterns.source;
-import static io.prestosql.sql.planner.plan.Patterns.tableScan;
-import static java.util.function.Function.identity;
 import static java.util.stream.Collectors.toSet;
 
-public abstract class PushAggregationIntoTableScan
-        implements Rule<AggregationNode>
+class PushAggregationIntoTableScan
 {
-    private static final Capture<TableScanNode> TABLE_SCAN = newCapture();
-
     private final Metadata metadata;
 
     public PushAggregationIntoTableScan(Metadata metadata)
@@ -78,13 +62,7 @@ public abstract class PushAggregationIntoTableScan
         this.metadata = metadata;
     }
 
-    @Override
-    public boolean isEnabled(Session session)
-    {
-        return isAllowPushdownIntoConnectors(session);
-    }
-
-    private static boolean allArgumentsAreSimpleReferences(AggregationNode node)
+    static boolean allArgumentsAreSimpleReferences(AggregationNode node)
     {
         return node.getAggregations()
                 .values().stream()
@@ -92,7 +70,7 @@ public abstract class PushAggregationIntoTableScan
                 .allMatch(SymbolReference.class::isInstance);
     }
 
-    private static boolean hasNoMasks(AggregationNode node)
+    static boolean hasNoMasks(AggregationNode node)
     {
         return !node.getAggregations()
                 .values().stream()
@@ -100,14 +78,13 @@ public abstract class PushAggregationIntoTableScan
                 .anyMatch(isMaskPresent -> isMaskPresent);
     }
 
-    protected abstract List<List<Symbol>> groupBySymbols(AggregationNode node, Captures captures);
-
-    protected abstract Map<Symbol, Symbol> groupingSetSymbolMapping(AggregationNode node, Captures captures);
-
-    @Override
-    public Result apply(AggregationNode node, Captures captures, Context context)
+    public Result apply(
+            AggregationNode node,
+            TableScanNode tableScan,
+            Context context,
+            List<List<Symbol>> groupBySymbols,
+            Map<Symbol, Symbol> groupingSetSymbolMapping)
     {
-        TableScanNode tableScan = captures.get(TABLE_SCAN);
         Map<String, ColumnHandle> assignments = tableScan.getAssignments()
                 .entrySet().stream()
                 .collect(toImmutableMap(entry -> entry.getKey().getName(), Entry::getValue));
@@ -125,7 +102,7 @@ public abstract class PushAggregationIntoTableScan
                 .map(Entry::getKey)
                 .collect(toImmutableList());
 
-        List<List<ColumnHandle>> groupByColumns = groupBySymbols(node, captures).stream()
+        List<List<ColumnHandle>> groupByColumns = groupBySymbols.stream()
                 .map(groupingSetColumns -> groupingSetColumns.stream()
                         .map(groupByColumn -> assignments.get(groupByColumn.getName()))
                         .collect(toImmutableList()))
@@ -179,7 +156,7 @@ public abstract class PushAggregationIntoTableScan
         ImmutableBiMap<Symbol, ColumnHandle> scanAssignments = newScanAssignments.build();
         ImmutableBiMap<ColumnHandle, Symbol> columnHandleToSymbol = scanAssignments.inverse();
         // projections assignmentBuilder should have both agg and group by so we add all the group bys as symbol references
-        groupingSetSymbolMapping(node, captures).forEach((key, value) -> {
+        groupingSetSymbolMapping.forEach((key, value) -> {
             // if the connector returned a new mapping from oldColumnHandle to newColumnHandle, groupBy needs to point to
             // new columnHandle's symbol reference, otherwise it will continue pointing at oldColumnHandle.
             ColumnHandle originalColumnHandle = assignments.get(value.getName());
@@ -233,83 +210,5 @@ public abstract class PushAggregationIntoTableScan
                 sortBy.orElse(ImmutableList.of()),
                 aggregation.isDistinct(),
                 filter);
-    }
-
-    public static class PushAggregationIntoTableScanWithoutGroupingSets
-            extends PushAggregationIntoTableScan
-    {
-        private static final Pattern<AggregationNode> PATTERN =
-                aggregation()
-                        .matching(PushAggregationIntoTableScan::allArgumentsAreSimpleReferences)
-                        .matching(PushAggregationIntoTableScan::hasNoMasks)
-                        .with(source().matching(tableScan().capturedAs(TABLE_SCAN)));
-
-        public PushAggregationIntoTableScanWithoutGroupingSets(Metadata metadata)
-        {
-            super(metadata);
-        }
-
-        @Override
-        public Pattern<AggregationNode> getPattern()
-        {
-            return PATTERN;
-        }
-
-        @Override
-        public List<List<Symbol>> groupBySymbols(AggregationNode node, Captures captures)
-        {
-            return List.of(node.getGroupingSets().getGroupingKeys());
-        }
-
-        @Override
-        protected Map<Symbol, Symbol> groupingSetSymbolMapping(AggregationNode node, Captures captures)
-        {
-            return node.getGroupingSets().getGroupingKeys().stream()
-                    .collect(Collectors.toMap(identity(), identity()));
-        }
-    }
-
-    public static class PushAggregationIntoTableScanWithGroupingSets
-            extends PushAggregationIntoTableScan
-    {
-        private static final Capture<GroupIdNode> GROUP_ID = newCapture();
-        private static final Pattern<AggregationNode> PATTERN =
-                aggregation()
-                        .matching(PushAggregationIntoTableScan::allArgumentsAreSimpleReferences)
-                        .matching(PushAggregationIntoTableScan::hasNoMasks)
-                        .with(source().matching(typeOf(GroupIdNode.class).capturedAs(GROUP_ID)
-                                .with(source().matching(tableScan().capturedAs(TABLE_SCAN)))));
-
-        public PushAggregationIntoTableScanWithGroupingSets(Metadata metadata)
-        {
-            super(metadata);
-        }
-
-        @Override
-        public Pattern<AggregationNode> getPattern()
-        {
-            return PATTERN;
-        }
-
-        @Override
-        public List<List<Symbol>> groupBySymbols(AggregationNode node, Captures captures)
-        {
-            GroupIdNode groupIdNode = captures.get(GROUP_ID);
-
-            return groupIdNode.getGroupingSets().stream()
-                    .map(groupIdNodeSymbols -> groupIdNodeSymbols.stream()
-                            .map(groupIdNode.getGroupingColumns()::get)
-                            .collect(toImmutableList()))
-                    .collect(toImmutableList());
-        }
-
-        @Override
-        protected Map<Symbol, Symbol> groupingSetSymbolMapping(AggregationNode node, Captures captures)
-        {
-            GroupIdNode groupIdNode = captures.get(GROUP_ID);
-            return groupIdNode.getGroupingSets().stream()
-                    .flatMap(Collection::stream)
-                    .collect(Collectors.toMap(identity(), groupIdNode.getGroupingColumns()::get, (originalKey, duplicateKey) -> originalKey));
-        }
     }
 }
