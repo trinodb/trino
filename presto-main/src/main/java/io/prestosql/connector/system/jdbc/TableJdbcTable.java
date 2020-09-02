@@ -95,7 +95,7 @@ public class TableJdbcTable
         }
 
         if (isUpperCase(schemaFilter) || isUpperCase(tableFilter)) {
-            // Uppercase predicate will never match a lowercase name
+            // Non-lowercase predicate will never match a lowercase name (until TODO https://github.com/prestosql/presto/issues/17)
             return table.build().cursor();
         }
 
