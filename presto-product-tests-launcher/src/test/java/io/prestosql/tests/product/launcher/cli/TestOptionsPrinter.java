@@ -19,6 +19,7 @@ import picocli.CommandLine.Option;
 import picocli.CommandLine.Parameters;
 
 import java.util.List;
+import java.util.Optional;
 
 import static java.util.Collections.emptyList;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -59,6 +60,21 @@ public class TestOptionsPrinter
         assertThat(OptionsPrinter.format(first, second)).isEqualTo("--value first \\\n-- hello world \\\n--value second \\\n-- hello world");
     }
 
+    @Test
+    public void shouldFormatNegatableOptions()
+    {
+        assertThat(OptionsPrinter.format(new NegatableOptions(true))).isEqualTo("--negatable");
+        assertThat(OptionsPrinter.format(new NegatableOptions(false))).isEqualTo("--no-negatable");
+    }
+
+    @Test
+    public void shouldFormatOptionalValues()
+    {
+        assertThat(OptionsPrinter.format(new OptionalFields(""))).isEqualTo("");
+        assertThat(OptionsPrinter.format(new OptionalFields("test"))).isEqualTo("--value test");
+        assertThat(OptionsPrinter.format(new OptionalFields(null))).isEqualTo("");
+    }
+
     private static class Options
     {
         @Option(names = "--value", paramLabel = "<value>", description = "Test value")
@@ -75,6 +91,28 @@ public class TestOptionsPrinter
             this.value = value;
             this.valueBoolean = valueBoolean;
             this.arguments = arguments;
+        }
+    }
+
+    private static class NegatableOptions
+    {
+        @Option(names = "--no-negatable", paramLabel = "<boolean>", description = "Test value boolean", negatable = true)
+        public boolean valueBoolean;
+
+        public NegatableOptions(boolean valueBoolean)
+        {
+            this.valueBoolean = valueBoolean;
+        }
+    }
+
+    private static class OptionalFields
+    {
+        @Option(names = "--value", paramLabel = "<value>", description = "Test optional value")
+        public Optional<String> value;
+
+        public OptionalFields(String value)
+        {
+            this.value = Optional.ofNullable(value);
         }
     }
 }

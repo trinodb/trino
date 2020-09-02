@@ -71,6 +71,7 @@ public final class Hadoop
         DockerContainer container = new DockerContainer(hadoopBaseImage + ":" + hadoopImagesVersion)
                 // TODO HIVE_PROXY_PORT:1180
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
+                .withExposedLogPaths("/var/log/hadoop-yarn", "/var/log/hadoop-hdfs", "/var/log/hive")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(new SelectedPortWaitStrategy(10000)) // HiveServer2
                 .withStartupTimeout(Duration.ofMinutes(5));

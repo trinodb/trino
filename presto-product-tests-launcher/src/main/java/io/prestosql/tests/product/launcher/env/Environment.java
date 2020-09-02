@@ -17,6 +17,7 @@ import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.HostConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.testcontainers.PrintingLogConsumer;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.GenericContainer;
@@ -28,6 +29,7 @@ import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
+import java.nio.file.Path;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -46,6 +48,8 @@ public final class Environment
     public static final String PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME = Environment.class.getName() + ".ptl-started";
     public static final String PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE = "true";
     public static final String PRODUCT_TEST_LAUNCHER_NETWORK = "ptl-network";
+
+    private static final Logger log = Logger.get(Environment.class);
 
     private final String name;
     private final Map<String, DockerContainer> containers;
@@ -194,6 +198,17 @@ public final class Environment
             });
 
             return new Environment(name, containers);
+        }
+
+        public Builder exposeLogsInHostPath(Path basePath)
+        {
+            log.info("Exposing environment '%s' logs in: '%s'", name, basePath);
+
+            return configureContainers((containerName, dockerContainer) -> {
+                Path containerLogPath = basePath.resolve(containerName);
+                log.info("Exposing container '%s' logs in host directory '%s'", containerName, containerLogPath);
+                dockerContainer.exposeLogsInHostPath(containerLogPath);
+            });
         }
     }
 }
