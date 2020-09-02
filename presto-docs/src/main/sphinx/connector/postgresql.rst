@@ -7,8 +7,6 @@ external `PostgreSQL <https://www.postgresql.org/>`_ database. This can be used 
 different systems like PostgreSQL and Hive, or between different
 PostgreSQL instances.
 
-This connector is tested against PostgreSQL 12.4.
-
 Configuration
 -------------
 
