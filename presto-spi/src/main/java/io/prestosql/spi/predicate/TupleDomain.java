@@ -224,6 +224,12 @@ public final class TupleDomain<T>
         if (this == other) {
             return this;
         }
+        if (this.isAll()) {
+            return other;
+        }
+        if (other.isAll()) {
+            return this;
+        }
 
         Map<T, Domain> intersected = new LinkedHashMap<>(this.getDomains().get());
         for (Map.Entry<T, Domain> entry : other.getDomains().get().entrySet()) {
