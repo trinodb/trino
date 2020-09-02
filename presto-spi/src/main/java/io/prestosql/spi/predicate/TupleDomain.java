@@ -216,6 +216,8 @@ public final class TupleDomain<T>
      */
     public TupleDomain<T> intersect(TupleDomain<T> other)
     {
+        requireNonNull(other, "other is null");
+
         if (this.isNone() || other.isNone()) {
             return none();
         }
