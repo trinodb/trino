@@ -161,6 +161,7 @@ public class TestMetadataManager
         // TODO (https://github.com/prestosql/presto/issues/17) this should return 1 row
         assertThat(queryRunner.execute("SELECT * FROM system.jdbc.tables WHERE TABLE_SCHEM = 'UPPER_CASE_SCHEMA'"))
                 .isEmpty();
+        // TODO (https://github.com/prestosql/presto/issues/17) this should return 1 row
         assertThat(queryRunner.execute("SELECT * FROM system.jdbc.tables WHERE TABLE_NAME = 'UPPER_CASE_TABLE'"))
                 .isEmpty();
     }
