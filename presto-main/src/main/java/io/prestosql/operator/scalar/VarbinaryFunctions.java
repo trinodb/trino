@@ -16,6 +16,7 @@ package io.prestosql.operator.scalar;
 import com.google.common.hash.Hashing;
 import com.google.common.io.BaseEncoding;
 import com.google.common.primitives.Ints;
+import io.airlift.slice.Murmur3Hash128;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.slice.SpookyHashV2;
@@ -277,6 +278,14 @@ public final class VarbinaryFunctions
     public static Slice sha512(@SqlType(StandardTypes.VARBINARY) Slice slice)
     {
         return computeHash(Hashing.sha512(), slice);
+    }
+
+    @Description("Compute murmur3 hash")
+    @ScalarFunction
+    @SqlType(StandardTypes.VARBINARY)
+    public static Slice murmur3(@SqlType(StandardTypes.VARBINARY) Slice slice)
+    {
+        return Murmur3Hash128.hash(slice, 0, slice.length());
     }
 
     private static int hexDigitCharToInt(byte b)
