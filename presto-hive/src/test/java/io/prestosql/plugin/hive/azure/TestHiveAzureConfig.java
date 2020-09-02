@@ -11,10 +11,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package io.prestosql.plugin.hive;
+package io.prestosql.plugin.hive.azure;
 
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.plugin.hive.azure.HiveAzureConfig;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -31,8 +30,8 @@ public class TestHiveAzureConfig
         assertRecordedDefaults(recordDefaults(HiveAzureConfig.class)
                 .setWasbAccessKey(null)
                 .setWasbStorageAccount(null)
-                .setAbfsAccessKey(null)
                 .setAbfsStorageAccount(null)
+                .setAbfsAccessKey(null)
                 .setAdlClientId(null)
                 .setAdlCredential(null)
                 .setAdlRefreshUrl(null));
