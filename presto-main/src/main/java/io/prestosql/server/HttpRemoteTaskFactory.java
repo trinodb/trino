@@ -73,6 +73,7 @@ public class HttpRemoteTaskFactory
     private final ScheduledExecutorService updateScheduledExecutor;
     private final ScheduledExecutorService errorScheduledExecutor;
     private final RemoteTaskStats stats;
+    private final DynamicFilterService dynamicFilterService;
 
     @Inject
     public HttpRemoteTaskFactory(
@@ -84,7 +85,8 @@ public class HttpRemoteTaskFactory
             JsonCodec<VersionedDynamicFilterDomains> dynamicFilterDomainsCodec,
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
-            RemoteTaskStats stats)
+            RemoteTaskStats stats,
+            DynamicFilterService dynamicFilterService)
     {
         this.httpClient = httpClient;
         this.locationFactory = locationFactory;
@@ -99,6 +101,7 @@ public class HttpRemoteTaskFactory
         this.executor = new BoundedExecutor(coreExecutor, config.getRemoteTaskMaxCallbackThreads());
         this.executorMBean = new ThreadPoolExecutorMBean((ThreadPoolExecutor) coreExecutor);
         this.stats = requireNonNull(stats, "stats is null");
+        this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
 
         this.updateScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("task-info-update-scheduler-%s"));
         this.errorScheduledExecutor = newSingleThreadScheduledExecutor(daemonThreadsNamed("remote-task-error-delay-%s"));
@@ -152,6 +155,7 @@ public class HttpRemoteTaskFactory
                 taskInfoCodec,
                 taskUpdateRequestCodec,
                 partitionedSplitCountTracker,
-                stats);
+                stats,
+                dynamicFilterService);
     }
 }
