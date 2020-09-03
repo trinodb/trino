@@ -886,12 +886,17 @@ public class QueryStateMachine
         try {
             QUERY_STATE_LOG.debug(throwable, "Query %s failed", queryId);
             session.getTransactionId().ifPresent(transactionId -> {
-                if (transactionManager.isAutoCommit(transactionId)) {
-                    transactionManager.asyncAbort(transactionId);
+                try {
+                    if (transactionManager.transactionExists(transactionId) && transactionManager.isAutoCommit(transactionId)) {
+                        transactionManager.asyncAbort(transactionId);
+                        return;
+                    }
                 }
-                else {
-                    transactionManager.fail(transactionId);
+                catch (RuntimeException e) {
+                    // This shouldn't happen but be safe and just fail the transaction directly
+                    QUERY_STATE_LOG.error(e, "Error aborting transaction for failed query. Transaction will be failed directly");
                 }
+                transactionManager.fail(transactionId);
             });
         }
         finally {
