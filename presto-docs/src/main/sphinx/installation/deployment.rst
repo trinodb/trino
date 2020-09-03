@@ -10,6 +10,17 @@ Linux Operating System
 
 * 64-bit required
 * newer release preferred, especially when running on containers
+* adequate ulimits for the user that runs the Presto process. These limits
+  may depend on the specific Linux distribution you are using. The number
+  of open file descriptors needed for a particular Presto instance scales
+  as roughly the number of machines in the cluster, times some factor 
+  depending on the workload. We recommend the following limits, which can 
+  typically be set in ``/etc/security/limits.conf``:
+
+.. code-block:: none
+
+    presto soft nofile 131072
+    presto hard nofile 131072
 
 .. _requirements-java:
 
