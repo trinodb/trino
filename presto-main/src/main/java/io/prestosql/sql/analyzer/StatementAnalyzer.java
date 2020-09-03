@@ -56,6 +56,7 @@ import io.prestosql.spi.type.RowType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeNotFoundException;
 import io.prestosql.spi.type.VarcharType;
+import io.prestosql.sql.InterpretedFunctionInvoker;
 import io.prestosql.sql.SqlPath;
 import io.prestosql.sql.analyzer.Analysis.GroupingSetAnalysis;
 import io.prestosql.sql.analyzer.Analysis.SelectExpression;
@@ -1473,7 +1474,8 @@ class StatementAnalyzer
                     analysis.isDescribe())
                     .getExpressionTypes();
 
-            if (!typeCoercion.canCoerce(expressionTypes.get(NodeRef.of(samplePercentage)), DOUBLE)) {
+            Type samplePercentageType = expressionTypes.get(NodeRef.of(samplePercentage));
+            if (!typeCoercion.canCoerce(samplePercentageType, DOUBLE)) {
                 throw semanticException(TYPE_MISMATCH, samplePercentage, "Sample percentage should be a numeric expression");
             }
 
@@ -1487,8 +1489,14 @@ class StatementAnalyzer
                 throw semanticException(INVALID_ARGUMENTS, samplePercentage, "Sample percentage cannot be NULL");
             }
 
-            verify(samplePercentageObject instanceof Number, "Sample percentage should evaluate to a Number");
-            double samplePercentageValue = ((Number) samplePercentageObject).doubleValue();
+            if (samplePercentageType != DOUBLE) {
+                ResolvedFunction coercion = metadata.getCoercion(samplePercentageType, DOUBLE);
+                InterpretedFunctionInvoker functionInvoker = new InterpretedFunctionInvoker(metadata);
+                samplePercentageObject = functionInvoker.invoke(coercion, session.toConnectorSession(), samplePercentageObject);
+                verify(samplePercentageObject != null, "Coercion from %s to %s returned null", samplePercentageType, DOUBLE);
+            }
+
+            double samplePercentageValue = (double) samplePercentageObject;
 
             if (samplePercentageValue < 0.0) {
                 throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, samplePercentage, "Sample percentage must be greater than or equal to 0");
