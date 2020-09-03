@@ -19,7 +19,6 @@ import com.google.inject.Module;
 import com.google.inject.Provides;
 import com.google.inject.Singleton;
 import com.google.inject.multibindings.MapBinder;
-import io.prestosql.tests.product.launcher.PathResolver;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Kafka;
 import io.prestosql.tests.product.launcher.env.common.Kerberos;
@@ -38,12 +37,12 @@ public final class EnvironmentModule
 {
     public static final String BASE_PACKAGE = "io.prestosql.tests.product.launcher.env.environment";
     public static final String BASE_CONFIG_PACKAGE = "io.prestosql.tests.product.launcher.env.configs";
-    private final EnvironmentOptions baseEnvironmentOptions;
+    private final EnvironmentOptions environmentOptions;
     private final Module additionalEnvironments;
 
-    public EnvironmentModule(EnvironmentOptions baseEnvironmentOptions, Module additionalEnvironments)
+    public EnvironmentModule(EnvironmentOptions environmentOptions, Module additionalEnvironments)
     {
-        this.baseEnvironmentOptions = requireNonNull(baseEnvironmentOptions, "baseEnvironmentOptions is null");
+        this.environmentOptions = requireNonNull(environmentOptions, "environmentOptions is null");
         this.additionalEnvironments = requireNonNull(additionalEnvironments, "additionalEnvironments is null");
     }
 
@@ -58,6 +57,7 @@ public final class EnvironmentModule
         binder.bind(Kerberos.class);
         binder.bind(KerberosKms.class);
         binder.bind(Kafka.class);
+        binder.bind(EnvironmentOptions.class).toInstance(environmentOptions);
 
         MapBinder<String, EnvironmentProvider> environments = newMapBinder(binder, String.class, EnvironmentProvider.class);
         Environments.findByBasePackage(BASE_PACKAGE).forEach(clazz -> environments.addBinding(Environments.nameForClass(clazz)).to(clazz));
@@ -66,16 +66,6 @@ public final class EnvironmentModule
         Environments.findConfigsByBasePackage(BASE_CONFIG_PACKAGE).forEach(clazz -> environmentConfigs.addBinding(nameForConfigClass(clazz)).to(clazz));
 
         binder.install(additionalEnvironments);
-    }
-
-    @Provides
-    @Inject
-    @Singleton
-    private EnvironmentOptions provideEnvironmentOptions(PathResolver pathResolver)
-    {
-        EnvironmentOptions copy = baseEnvironmentOptions.copyOf();
-        copy.serverPackage = pathResolver.resolvePlaceholders(baseEnvironmentOptions.serverPackage);
-        return copy;
     }
 
     @Inject

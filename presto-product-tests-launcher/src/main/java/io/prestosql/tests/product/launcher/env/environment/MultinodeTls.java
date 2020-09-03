@@ -14,7 +14,6 @@
 package io.prestosql.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.tests.product.launcher.PathResolver;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
@@ -42,7 +41,6 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public final class MultinodeTls
         extends AbstractEnvironmentProvider
 {
-    private final PathResolver pathResolver;
     private final DockerFiles dockerFiles;
     private final PortBinder portBinder;
 
@@ -51,7 +49,6 @@ public final class MultinodeTls
 
     @Inject
     public MultinodeTls(
-            PathResolver pathResolver,
             DockerFiles dockerFiles,
             PortBinder portBinder,
             Standard standard,
@@ -60,7 +57,6 @@ public final class MultinodeTls
             @ServerPackage File serverPackage)
     {
         super(ImmutableList.of(standard, hadoop));
-        this.pathResolver = requireNonNull(pathResolver, "pathResolver is null");
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
         this.imagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getImagesVersion();
@@ -90,7 +86,7 @@ public final class MultinodeTls
 
     private void addPrestoWorker(Environment.Builder builder, String workerName)
     {
-        DockerContainer container = createPrestoContainer(dockerFiles, pathResolver, serverPackage, "prestodev/centos7-oj11:" + imagesVersion)
+        DockerContainer container = createPrestoContainer(dockerFiles, serverPackage, "prestodev/centos7-oj11:" + imagesVersion)
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withDomainName("docker.cluster"))
                 .withNetworkAliases(workerName + ".docker.cluster")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls/config-worker.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES)
