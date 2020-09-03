@@ -52,7 +52,9 @@ public class Launcher
     {
         Launcher launcher = new Launcher();
         IFactory factory = createFactory(launcher.getExtensions());
-        System.exit(new CommandLine(launcher, factory).execute(args));
+        CommandLine commandLine = new CommandLine(launcher, factory)
+                .setUnmatchedOptionsArePositionalParams(true);
+        System.exit(commandLine.execute(args));
     }
 
     private static IFactory createFactory(Extensions extensions)
