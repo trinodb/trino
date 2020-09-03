@@ -19,7 +19,6 @@ import io.airlift.slice.Slices;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import org.apache.iceberg.PartitionField;
 import org.joda.time.DurationField;
@@ -154,9 +153,6 @@ public final class PartitionTransforms
             }
             if (type.equals(VARBINARY)) {
                 return new ColumnTransform(INTEGER, block -> bucketVarbinary(block, count));
-            }
-            if (type.getBaseName().equals(StandardTypes.UUID)) {
-                return new ColumnTransform(INTEGER, block -> bucketUuid(block, count));
             }
             throw new UnsupportedOperationException("Unsupported type for 'bucket': " + field);
         }
@@ -348,11 +344,6 @@ public final class PartitionTransforms
     }
 
     private static Block bucketVarbinary(Block block, int count)
-    {
-        return bucketBlock(block, count, position -> bucketHash(VARCHAR.getSlice(block, position)));
-    }
-
-    private static Block bucketUuid(Block block, int count)
     {
         return bucketBlock(block, count, position -> bucketHash(VARCHAR.getSlice(block, position)));
     }
