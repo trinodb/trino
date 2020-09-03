@@ -13,7 +13,6 @@
  */
 package io.prestosql.execution;
 
-import com.google.common.collect.ImmutableList;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.log.Logger;
@@ -41,7 +40,6 @@ import io.prestosql.operator.ForScheduler;
 import io.prestosql.security.AccessControl;
 import io.prestosql.server.BasicQueryInfo;
 import io.prestosql.server.DynamicFilterService;
-import io.prestosql.server.DynamicFilterService.StageDynamicFilters;
 import io.prestosql.server.protocol.Slug;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.QueryId;
@@ -593,16 +591,6 @@ public class SqlQueryExecution
 
             return stateMachine.getFinalQueryInfo().orElseGet(() -> buildQueryInfo(scheduler));
         }
-    }
-
-    public List<StageDynamicFilters> getStageDynamicFilters()
-    {
-        SqlQueryScheduler scheduler = queryScheduler.get();
-        if (scheduler == null) {
-            return ImmutableList.of();
-        }
-
-        return queryScheduler.get().getStageDynamicFilters();
     }
 
     @Override

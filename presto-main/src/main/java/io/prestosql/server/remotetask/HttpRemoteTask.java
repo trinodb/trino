@@ -49,10 +49,9 @@ import io.prestosql.execution.buffer.OutputBuffers;
 import io.prestosql.execution.buffer.PageBufferInfo;
 import io.prestosql.metadata.Split;
 import io.prestosql.operator.TaskStats;
+import io.prestosql.server.DynamicFilterService;
 import io.prestosql.server.TaskUpdateRequest;
-import io.prestosql.spi.predicate.Domain;
 import io.prestosql.sql.planner.PlanFragment;
-import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import org.joda.time.DateTime;
@@ -182,7 +181,8 @@ public final class HttpRemoteTask
             JsonCodec<TaskInfo> taskInfoCodec,
             JsonCodec<TaskUpdateRequest> taskUpdateRequestCodec,
             PartitionedSplitCountTracker partitionedSplitCountTracker,
-            RemoteTaskStats stats)
+            RemoteTaskStats stats,
+            DynamicFilterService dynamicFilterService)
     {
         requireNonNull(session, "session is null");
         requireNonNull(taskId, "taskId is null");
@@ -242,7 +242,8 @@ public final class HttpRemoteTask
                     httpClient,
                     maxErrorDuration,
                     errorScheduledExecutor,
-                    stats);
+                    stats,
+                    dynamicFilterService);
 
             this.taskStatusFetcher = new ContinuousTaskStatusFetcher(
                     this::failTask,
@@ -307,12 +308,6 @@ public final class HttpRemoteTask
     public TaskStatus getTaskStatus()
     {
         return taskStatusFetcher.getTaskStatus();
-    }
-
-    @Override
-    public Map<DynamicFilterId, Domain> getDynamicFilterDomains()
-    {
-        return dynamicFiltersFetcher.getDynamicFilterDomains();
     }
 
     @Override
