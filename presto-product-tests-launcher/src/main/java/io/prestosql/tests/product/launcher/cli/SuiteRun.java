@@ -13,6 +13,7 @@
  */
 package io.prestosql.tests.product.launcher.cli;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
 import io.airlift.log.Logger;
@@ -152,28 +153,41 @@ public class SuiteRun
             }
 
             List<TestRunResult> testRunsResults = results.build();
-            boolean allSuccessful = testRunsResults.stream()
-                    .allMatch(TestRunResult::isSuccessful);
-
-            if (allSuccessful) {
-                log.info("Suite succeeded in %s:", nanosSince(suiteStartTime));
-                printTestRunsSummary(testRunsResults);
-                exit(0);
-            }
-
-            log.error("Suite failed in %s:", nanosSince(suiteStartTime));
-            printTestRunsSummary(testRunsResults);
-            exit(1);
+            printTestRunsSummary(suiteStartTime, suiteName, testRunsResults);
         }
 
-        private static void printTestRunsSummary(List<TestRunResult> results)
+        private static void printTestRunsSummary(long startTime, String suiteName, List<TestRunResult> results)
         {
             long failedRuns = results.stream()
                     .filter(TestRunResult::hasFailed)
                     .count();
 
-            log.info("Test runs summary (%d passed, %d failed): ", results.size() - failedRuns, failedRuns);
-            results.forEach(result -> log.info(" * '%s' %s in %s", result.getSuiteRun(), result.isSuccessful() ? "PASSED" : "FAILED", result.getDuration()));
+            if (failedRuns > 0) {
+                log.info("Suite %s failed in %s (%d passed, %d failed): ", suiteName, nanosSince(startTime), results.size() - failedRuns, failedRuns);
+            }
+            else {
+                log.info("Suite %s succeeded in %s: ", suiteName, nanosSince(startTime));
+            }
+
+            results.stream()
+                    .filter(TestRunResult::isSuccessful)
+                    .forEach(Execution::printTestRunSummary);
+
+            results.stream()
+                    .filter(TestRunResult::hasFailed)
+                    .forEach(Execution::printTestRunSummary);
+
+            exit(failedRuns == 0L ? 0 : 1);
+        }
+
+        private static void printTestRunSummary(TestRunResult result)
+        {
+            if (result.isSuccessful()) {
+                log.info("PASSED %s with %s [took %s]", result.getSuiteRun(), result.getSuiteConfig(), result.getDuration());
+            }
+            else {
+                log.info("FAILED %s with %s [took %s]:\n%s", result.getSuiteRun(), result.getSuiteConfig(), result.getDuration(), result.getThrowable().map(Throwables::getStackTraceAsString).orElse("no stacktrace"));
+            }
         }
 
         public TestRunResult executeSuiteTestRun(String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig)
