@@ -1455,8 +1455,9 @@ class StatementAnalyzer
         @Override
         protected Scope visitSampledRelation(SampledRelation relation, Optional<Scope> scope)
         {
-            if (!SymbolsExtractor.extractNames(relation.getSamplePercentage(), analysis.getColumnReferences()).isEmpty()) {
-                throw semanticException(EXPRESSION_NOT_CONSTANT, relation.getSamplePercentage(), "Sample percentage cannot contain column references");
+            Expression samplePercentage = relation.getSamplePercentage();
+            if (!SymbolsExtractor.extractNames(samplePercentage, analysis.getColumnReferences()).isEmpty()) {
+                throw semanticException(EXPRESSION_NOT_CONSTANT, samplePercentage, "Sample percentage cannot contain column references");
             }
 
             Map<NodeRef<Expression>, Type> expressionTypes = ExpressionAnalyzer.analyzeExpressions(
@@ -1465,29 +1466,29 @@ class StatementAnalyzer
                     accessControl,
                     sqlParser,
                     TypeProvider.empty(),
-                    ImmutableList.of(relation.getSamplePercentage()),
+                    ImmutableList.of(samplePercentage),
                     analysis.getParameters(),
                     WarningCollector.NOOP,
                     analysis.isDescribe())
                     .getExpressionTypes();
 
-            ExpressionInterpreter samplePercentageEval = expressionOptimizer(relation.getSamplePercentage(), metadata, session, expressionTypes);
+            ExpressionInterpreter samplePercentageEval = expressionOptimizer(samplePercentage, metadata, session, expressionTypes);
 
             Object samplePercentageObject = samplePercentageEval.optimize(symbol -> {
-                throw semanticException(EXPRESSION_NOT_CONSTANT, relation.getSamplePercentage(), "Sample percentage cannot contain column references");
+                throw semanticException(EXPRESSION_NOT_CONSTANT, samplePercentage, "Sample percentage cannot contain column references");
             });
 
             if (!(samplePercentageObject instanceof Number)) {
-                throw semanticException(TYPE_MISMATCH, relation.getSamplePercentage(), "Sample percentage should evaluate to a numeric expression");
+                throw semanticException(TYPE_MISMATCH, samplePercentage, "Sample percentage should evaluate to a numeric expression");
             }
 
             double samplePercentageValue = ((Number) samplePercentageObject).doubleValue();
 
             if (samplePercentageValue < 0.0) {
-                throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, relation.getSamplePercentage(), "Sample percentage must be greater than or equal to 0");
+                throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, samplePercentage, "Sample percentage must be greater than or equal to 0");
             }
             if ((samplePercentageValue > 100.0)) {
-                throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, relation.getSamplePercentage(), "Sample percentage must be less than or equal to 100");
+                throw semanticException(NUMERIC_VALUE_OUT_OF_RANGE, samplePercentage, "Sample percentage must be less than or equal to 100");
             }
 
             analysis.setSampleRatio(relation, samplePercentageValue / 100);
