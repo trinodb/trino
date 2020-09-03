@@ -18,6 +18,8 @@ import org.testng.IClassListener;
 import org.testng.ITestClass;
 
 import java.lang.annotation.Annotation;
+import java.lang.annotation.Retention;
+import java.lang.annotation.Target;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.Arrays;
@@ -27,6 +29,8 @@ import java.util.Optional;
 import static com.google.common.base.Throwables.getStackTraceAsString;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.testng.services.Listeners.reportListenerFailure;
+import static java.lang.annotation.ElementType.METHOD;
+import static java.lang.annotation.RetentionPolicy.RUNTIME;
 import static java.util.stream.Collectors.joining;
 
 public class ReportUnannotatedMethods
@@ -131,6 +135,9 @@ public class ReportUnannotatedMethods
         return Arrays.stream(method.getAnnotations())
                 .map(Annotation::annotationType)
                 .anyMatch(annotationClass -> {
+                    if (Suppress.class.equals(annotationClass)) {
+                        return true;
+                    }
                     if ("org.openjdk.jmh.annotations.Benchmark".equals(annotationClass.getName())) {
                         return true;
                     }
@@ -152,5 +159,11 @@ public class ReportUnannotatedMethods
         String temptoPackage = "io.prestosql.tempto";
         String aPackage = aClass.getPackage().getName();
         return aPackage.equals(temptoPackage) || aPackage.startsWith(temptoPackage + ".");
+    }
+
+    @Retention(RUNTIME)
+    @Target(METHOD)
+    public @interface Suppress
+    {
     }
 }
