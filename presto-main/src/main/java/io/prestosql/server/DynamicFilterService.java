@@ -26,7 +26,8 @@ import io.airlift.units.Duration;
 import io.prestosql.Session;
 import io.prestosql.execution.DynamicFilterConfig;
 import io.prestosql.execution.SqlQueryExecution;
-import io.prestosql.execution.StageState;
+import io.prestosql.execution.StageId;
+import io.prestosql.execution.TaskId;
 import io.prestosql.operator.JoinUtils;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -54,14 +55,15 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Supplier;
 
+import static com.google.common.base.Functions.identity;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableListMultimap.toImmutableListMultimap;
@@ -69,6 +71,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
 import static com.google.common.collect.Sets.intersection;
+import static com.google.common.collect.Sets.newConcurrentHashSet;
 import static com.google.common.collect.Sets.union;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
 import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
@@ -83,8 +86,6 @@ import static io.prestosql.util.MorePredicates.isInstanceOfAny;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
-import static java.util.stream.Collectors.groupingBy;
-import static java.util.stream.Collectors.mapping;
 
 @ThreadSafe
 public class DynamicFilterService
@@ -126,7 +127,6 @@ public class DynamicFilterService
         if (!dynamicFilters.isEmpty()) {
             registerQuery(
                     sqlQueryExecution.getQueryId(),
-                    sqlQueryExecution::getStageDynamicFilters,
                     dynamicFilters,
                     lazyDynamicFilters,
                     replicatedDynamicFilters);
@@ -136,7 +136,6 @@ public class DynamicFilterService
     @VisibleForTesting
     public void registerQuery(
             QueryId queryId,
-            Supplier<List<StageDynamicFilters>> stageDynamicFiltersSupplier,
             Set<DynamicFilterId> dynamicFilters,
             Set<DynamicFilterId> lazyDynamicFilters,
             Set<DynamicFilterId> replicatedDynamicFilters)
@@ -144,7 +143,6 @@ public class DynamicFilterService
         Map<DynamicFilterId, SettableFuture<?>> lazyDynamicFilterFutures = lazyDynamicFilters.stream()
                 .collect(toImmutableMap(filter -> filter, filter -> SettableFuture.create()));
         dynamicFilterContexts.putIfAbsent(queryId, new DynamicFilterContext(
-                stageDynamicFiltersSupplier,
                 dynamicFilters,
                 lazyDynamicFilterFutures,
                 replicatedDynamicFilters));
@@ -303,6 +301,28 @@ public class DynamicFilterService
         };
     }
 
+    public void addTaskDynamicFilters(TaskId taskId, Map<DynamicFilterId, Domain> newDynamicFilters)
+    {
+        DynamicFilterContext context = dynamicFilterContexts.get(taskId.getQueryId());
+        if (context == null) {
+            // query has been removed
+            return;
+        }
+
+        context.addTaskDynamicFilters(taskId, newDynamicFilters);
+    }
+
+    public void stageCannotScheduleMoreTasks(StageId stageId, int numberOfTasks)
+    {
+        DynamicFilterContext context = dynamicFilterContexts.get(stageId.getQueryId());
+        if (context == null) {
+            // query has been removed
+            return;
+        }
+
+        context.stageCannotScheduleMoreTasks(stageId, numberOfTasks);
+    }
+
     @VisibleForTesting
     void collectDynamicFilters()
     {
@@ -311,31 +331,26 @@ public class DynamicFilterService
                 continue;
             }
 
-            Set<DynamicFilterId> uncollectedFilters = context.getUncollectedDynamicFilters();
             ImmutableMap.Builder<DynamicFilterId, Domain> newDynamicFiltersBuilder = ImmutableMap.builder();
-            for (StageDynamicFilters stageDynamicFilters : context.getDynamicFilterSupplier().get()) {
-                StageState stageState = stageDynamicFilters.getStageState();
-                stageDynamicFilters.getTaskDynamicFilters().stream()
-                        .flatMap(taskDomains -> taskDomains.entrySet().stream())
-                        .filter(domain -> uncollectedFilters.contains(domain.getKey()))
-                        .collect(groupingBy(Map.Entry::getKey, mapping(Map.Entry::getValue, toImmutableList())))
-                        .entrySet().stream()
+            for (StageId stageId : context.getStages()) {
+                OptionalInt stageNumberOfTasks = context.getNumberOfTasks(stageId);
+                context.getTaskDynamicFilters(stageId).entrySet().stream()
                         .filter(stageDomains -> {
                             if (stageDomains.getValue().stream().anyMatch(Domain::isAll)) {
                                 // if one of the domains is all, we don't need to get dynamic filters from all tasks
                                 return true;
                             }
 
-                            if (context.getReplicatedDynamicFilters().contains(stageDomains.getKey())) {
+                            if (!stageDomains.getValue().isEmpty() && context.getReplicatedDynamicFilters().contains(stageDomains.getKey())) {
+                                // for replicated dynamic filters it's enough to get dynamic filter from a single task
                                 checkState(
                                         stageDomains.getValue().size() == 1,
                                         "Replicated dynamic filter should be collected from single task");
-                                // for replicated dynamic filters it's enough to get dynamic filter from a single task
                                 return true;
                             }
 
                             // check if all tasks of a dynamic filter source have reported dynamic filter summary
-                            return !stageState.canScheduleMoreTasks() && stageDomains.getValue().size() == stageDynamicFilters.getNumberOfTasks();
+                            return stageNumberOfTasks.isPresent() && stageDomains.getValue().size() == stageNumberOfTasks.getAsInt();
                         })
                         .forEach(stageDomains -> newDynamicFiltersBuilder.put(stageDomains.getKey(), union(stageDomains.getValue())));
             }
@@ -428,35 +443,6 @@ public class DynamicFilterService
                 .flatMap(expression -> extractDynamicFilters(expression).getDynamicConjuncts().stream())
                 .map(DynamicFilters.Descriptor::getId)
                 .collect(toImmutableSet());
-    }
-
-    public static class StageDynamicFilters
-    {
-        private final StageState stageState;
-        private final int numberOfTasks;
-        private final List<Map<DynamicFilterId, Domain>> taskDynamicFilters;
-
-        public StageDynamicFilters(StageState stageState, int numberOfTasks, List<Map<DynamicFilterId, Domain>> taskDynamicFilters)
-        {
-            this.stageState = requireNonNull(stageState, "stageState is null");
-            this.numberOfTasks = numberOfTasks;
-            this.taskDynamicFilters = ImmutableList.copyOf(requireNonNull(taskDynamicFilters, "taskDynamicFilters is null"));
-        }
-
-        private StageState getStageState()
-        {
-            return stageState;
-        }
-
-        private int getNumberOfTasks()
-        {
-            return numberOfTasks;
-        }
-
-        private List<Map<DynamicFilterId, Domain>> getTaskDynamicFilters()
-        {
-            return taskDynamicFilters;
-        }
     }
 
     public static class DynamicFiltersStats
@@ -605,25 +591,34 @@ public class DynamicFilterService
         }
     }
 
+    /*
+     * DynamicFilterContext can be fully lock-free since computing dynamic filter summaries
+     * is idempotent. Concurrent computations of DF summaries should produce exact same result
+     * when partial (from tasks) DFs are available. Partial DFs are only removed when
+     * final dynamic filter summary is computed.
+     */
     private static class DynamicFilterContext
     {
         private final Map<DynamicFilterId, Domain> dynamicFilterSummaries = new ConcurrentHashMap<>();
-        private final Supplier<List<StageDynamicFilters>> dynamicFilterSupplier;
         private final Set<DynamicFilterId> dynamicFilters;
         private final Map<DynamicFilterId, SettableFuture<?>> lazyDynamicFilters;
         private final Set<DynamicFilterId> replicatedDynamicFilters;
         private final AtomicBoolean completed = new AtomicBoolean();
+        private final Map<StageId, Set<DynamicFilterId>> stageDynamicFilters = new ConcurrentHashMap<>();
+        private final Map<StageId, Integer> stageNumberOfTasks = new ConcurrentHashMap<>();
+        // when map value for given filter id is empty it means that dynamic filter has already been collected
+        // and no partial task domains are required
+        private final Map<DynamicFilterId, Map<TaskId, Domain>> taskDynamicFilters = new ConcurrentHashMap<>();
 
         private DynamicFilterContext(
-                Supplier<List<StageDynamicFilters>> dynamicFilterSupplier,
                 Set<DynamicFilterId> dynamicFilters,
                 Map<DynamicFilterId, SettableFuture<?>> lazyDynamicFilters,
                 Set<DynamicFilterId> replicatedDynamicFilters)
         {
-            this.dynamicFilterSupplier = requireNonNull(dynamicFilterSupplier, "dynamicFilterSupplier is null");
             this.dynamicFilters = requireNonNull(dynamicFilters, "dynamicFilters is null");
             this.lazyDynamicFilters = requireNonNull(lazyDynamicFilters, "lazyDynamicFilters is null");
             this.replicatedDynamicFilters = requireNonNull(replicatedDynamicFilters, "replicatedDynamicFilters is null");
+            dynamicFilters.forEach(filter -> taskDynamicFilters.put(filter, new ConcurrentHashMap<>()));
         }
 
         private int getTotalDynamicFilters()
@@ -631,17 +626,34 @@ public class DynamicFilterService
             return dynamicFilters.size();
         }
 
-        private Set<DynamicFilterId> getUncollectedDynamicFilters()
+        private Set<StageId> getStages()
         {
-            return dynamicFilters.stream()
-                    .filter(filter -> !dynamicFilterSummaries.containsKey(filter))
-                    .collect(toImmutableSet());
+            return stageDynamicFilters.keySet();
+        }
+
+        private OptionalInt getNumberOfTasks(StageId stageId)
+        {
+            return Optional.ofNullable(stageNumberOfTasks.get(stageId))
+                    .map(OptionalInt::of)
+                    .orElse(OptionalInt.empty());
+        }
+
+        private Map<DynamicFilterId, List<Domain>> getTaskDynamicFilters(StageId stageId)
+        {
+            return stageDynamicFilters.get(stageId).stream()
+                    .collect(toImmutableMap(
+                            identity(),
+                            filter -> Optional.ofNullable(taskDynamicFilters.get(filter))
+                                    .map(taskDomains -> ImmutableList.copyOf(taskDomains.values()))
+                                    // return empty list in case filter has already been collected and task domains have been removed
+                                    .orElse(ImmutableList.of())));
         }
 
         private void addDynamicFilters(Map<DynamicFilterId, Domain> newDynamicFilters)
         {
             newDynamicFilters.forEach((filter, domain) -> {
                 dynamicFilterSummaries.put(filter, domain);
+                taskDynamicFilters.remove(filter);
                 Optional.ofNullable(lazyDynamicFilters.get(filter)).ifPresent(future -> future.set(null));
             });
 
@@ -649,14 +661,31 @@ public class DynamicFilterService
             completed.set(dynamicFilters.stream().allMatch(dynamicFilterSummaries::containsKey));
         }
 
+        private void addTaskDynamicFilters(TaskId taskId, Map<DynamicFilterId, Domain> newDynamicFilters)
+        {
+            stageDynamicFilters.computeIfAbsent(taskId.getStageId(), ignored -> newConcurrentHashSet())
+                    .addAll(newDynamicFilters.keySet());
+            newDynamicFilters.forEach((filter, domain) -> {
+                Map<TaskId, Domain> taskDomains = taskDynamicFilters.get(filter);
+                if (taskDomains == null) {
+                    // dynamic filter has already been collected
+                    return;
+                }
+                // Narrowing down of task dynamic filter is not supported.
+                // Currently, task dynamic filters are derived from join and semi-join,
+                // which produce just a single version of dynamic filter.
+                checkState(taskDomains.put(taskId, domain) == null, "Task dynamic filter is set twice");
+            });
+        }
+
+        private void stageCannotScheduleMoreTasks(StageId stageId, int numberOfTasks)
+        {
+            stageNumberOfTasks.put(stageId, numberOfTasks);
+        }
+
         private Map<DynamicFilterId, Domain> getDynamicFilterSummaries()
         {
             return dynamicFilterSummaries;
-        }
-
-        private Supplier<List<StageDynamicFilters>> getDynamicFilterSupplier()
-        {
-            return dynamicFilterSupplier;
         }
 
         private Map<DynamicFilterId, SettableFuture<?>> getLazyDynamicFilters()

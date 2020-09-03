@@ -13,7 +13,6 @@
  */
 package io.prestosql.server.remotetask;
 
-import com.google.common.collect.ImmutableMap;
 import com.google.common.util.concurrent.ListenableFuture;
 import io.airlift.concurrent.SetThreadName;
 import io.airlift.http.client.FullJsonResponseHandler.JsonResponse;
@@ -23,20 +22,16 @@ import io.airlift.json.JsonCodec;
 import io.airlift.units.Duration;
 import io.prestosql.execution.DynamicFiltersCollector.VersionedDynamicFilterDomains;
 import io.prestosql.execution.TaskId;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.sql.planner.plan.DynamicFilterId;
+import io.prestosql.server.DynamicFilterService;
 
 import javax.annotation.concurrent.GuardedBy;
 
 import java.net.URI;
-import java.util.Map;
 import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.function.Consumer;
 
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
-import static com.google.common.collect.Streams.concat;
 import static com.google.common.net.HttpHeaders.CONTENT_TYPE;
 import static com.google.common.net.MediaType.JSON_UTF_8;
 import static com.google.common.util.concurrent.Futures.addCallback;
@@ -61,14 +56,13 @@ class DynamicFiltersFetcher
     private final HttpClient httpClient;
     private final RequestErrorTracker errorTracker;
     private final RemoteTaskStats stats;
+    private final DynamicFilterService dynamicFilterService;
     private final AtomicLong currentRequestStartNanos = new AtomicLong();
 
     @GuardedBy("this")
     private long dynamicFiltersVersion = INITIAL_DYNAMIC_FILTERS_VERSION;
     @GuardedBy("this")
     private long localDynamicFiltersVersion = INITIAL_DYNAMIC_FILTERS_VERSION;
-    @GuardedBy("this")
-    private Map<DynamicFilterId, Domain> dynamicFilterDomains = ImmutableMap.of();
     @GuardedBy("this")
     private boolean running;
     @GuardedBy("this")
@@ -84,7 +78,8 @@ class DynamicFiltersFetcher
             HttpClient httpClient,
             Duration maxErrorDuration,
             ScheduledExecutorService errorScheduledExecutor,
-            RemoteTaskStats stats)
+            RemoteTaskStats stats,
+            DynamicFilterService dynamicFilterService)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskUri = requireNonNull(taskUri, "taskUri is null");
@@ -98,6 +93,7 @@ class DynamicFiltersFetcher
 
         this.errorTracker = new RequestErrorTracker(taskId, taskUri, maxErrorDuration, errorScheduledExecutor, "getting dynamic filter domains");
         this.stats = requireNonNull(stats, "stats is null");
+        this.dynamicFilterService = requireNonNull(dynamicFilterService, "dynamicFilterService is null");
     }
 
     public synchronized void start()
@@ -117,11 +113,6 @@ class DynamicFiltersFetcher
             future.cancel(true);
             future = null;
         }
-    }
-
-    public synchronized Map<DynamicFilterId, Domain> getDynamicFilterDomains()
-    {
-        return dynamicFilterDomains;
     }
 
     public synchronized void updateDynamicFiltersVersion(long newDynamicFiltersVersion)
@@ -216,20 +207,21 @@ class DynamicFiltersFetcher
         }
     }
 
-    private synchronized void updateDynamicFilterDomains(VersionedDynamicFilterDomains newDynamicFilterDomains)
+    private void updateDynamicFilterDomains(VersionedDynamicFilterDomains newDynamicFilterDomains)
     {
-        if (localDynamicFiltersVersion >= newDynamicFilterDomains.getVersion()) {
-            // newer dynamic filters were already received
-            return;
+        synchronized (this) {
+            if (localDynamicFiltersVersion >= newDynamicFilterDomains.getVersion()) {
+                // newer dynamic filters were already received
+                return;
+            }
+
+            localDynamicFiltersVersion = newDynamicFilterDomains.getVersion();
+            updateDynamicFiltersVersion(localDynamicFiltersVersion);
         }
 
-        dynamicFilterDomains = concat(
-                dynamicFilterDomains.entrySet().stream(),
-                newDynamicFilterDomains.getDynamicFilterDomains().entrySet().stream())
-                .collect(toImmutableMap(Map.Entry::getKey, Map.Entry::getValue, Domain::intersect));
-
-        localDynamicFiltersVersion = newDynamicFilterDomains.getVersion();
-        updateDynamicFiltersVersion(localDynamicFiltersVersion);
+        // Subsequent DF versions can be narrowing down only. Therefore order in which they are intersected
+        // (and passed to dynamic filter service) doesn't matter.
+        dynamicFilterService.addTaskDynamicFilters(taskId, newDynamicFilterDomains.getDynamicFilterDomains());
     }
 
     private void updateStats(long currentRequestStartNanos)

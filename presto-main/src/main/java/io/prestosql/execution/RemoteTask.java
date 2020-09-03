@@ -18,11 +18,7 @@ import com.google.common.util.concurrent.ListenableFuture;
 import io.prestosql.execution.StateMachine.StateChangeListener;
 import io.prestosql.execution.buffer.OutputBuffers;
 import io.prestosql.metadata.Split;
-import io.prestosql.spi.predicate.Domain;
-import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.PlanNodeId;
-
-import java.util.Map;
 
 public interface RemoteTask
 {
@@ -33,8 +29,6 @@ public interface RemoteTask
     TaskInfo getTaskInfo();
 
     TaskStatus getTaskStatus();
-
-    Map<DynamicFilterId, Domain> getDynamicFilterDomains();
 
     void start();
 

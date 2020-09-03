@@ -471,7 +471,6 @@ public class TestSourcePartitionedScheduler
         DynamicFilterService dynamicFilterService = new DynamicFilterService(new DynamicFilterConfig());
         dynamicFilterService.registerQuery(
                 QUERY_ID,
-                ImmutableList::of,
                 ImmutableSet.of(DYNAMIC_FILTER_ID),
                 ImmutableSet.of(DYNAMIC_FILTER_ID),
                 ImmutableSet.of(DYNAMIC_FILTER_ID));
@@ -642,6 +641,7 @@ public class TestSourcePartitionedScheduler
                 nodeTaskMap,
                 queryExecutor,
                 new NoOpFailureDetector(),
+                new DynamicFilterService(new DynamicFilterConfig()),
                 new SplitSchedulerStats());
 
         stage.setOutputBuffers(createInitialEmptyOutputBuffers(PARTITIONED)

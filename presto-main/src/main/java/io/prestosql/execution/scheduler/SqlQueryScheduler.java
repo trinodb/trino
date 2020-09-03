@@ -41,7 +41,6 @@ import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 import io.prestosql.failuredetector.FailureDetector;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.server.DynamicFilterService;
-import io.prestosql.server.DynamicFilterService.StageDynamicFilters;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorPartitionHandle;
 import io.prestosql.split.SplitSource;
@@ -310,6 +309,7 @@ public class SqlQueryScheduler
                 nodeTaskMap,
                 queryExecutor,
                 failureDetector,
+                dynamicFilterService,
                 schedulerStats);
         stages.add(stage);
 
@@ -482,13 +482,6 @@ public class SqlQueryScheduler
                 .collect(toImmutableMap(StageInfo::getStageId, identity()));
 
         return buildStageInfo(rootStageId, stageInfos);
-    }
-
-    public List<StageDynamicFilters> getStageDynamicFilters()
-    {
-        return stages.values().stream()
-                .map(SqlStageExecution::getStageDynamicFilters)
-                .collect(toImmutableList());
     }
 
     private StageInfo buildStageInfo(StageId stageId, Map<StageId, StageInfo> stageInfos)
