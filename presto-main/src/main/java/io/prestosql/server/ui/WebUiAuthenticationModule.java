@@ -50,6 +50,7 @@ public class WebUiAuthenticationModule
         installWebUiAuthenticator("insecure", new FormUiAuthenticatorModule(false));
         installWebUiAuthenticator("form", new FormUiAuthenticatorModule(true));
         installWebUiAuthenticator("fixed", new FixedUiAuthenticatorModule());
+        installWebUiAuthenticator("oauth2", new OAuth2WebUiModule());
 
         install(webUiAuthenticator("certificate", CertificateAuthenticator.class, certificateBinder -> {
             newOptionalBinder(certificateBinder, ClientCertificate.class).setBinding().toInstance(REQUESTED);

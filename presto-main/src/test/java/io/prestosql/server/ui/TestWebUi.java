@@ -14,6 +14,7 @@
 package io.prestosql.server.ui;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.common.hash.Hashing;
 import com.google.common.io.Resources;
 import com.google.inject.Key;
 import io.airlift.http.server.HttpServerConfig;
@@ -25,6 +26,7 @@ import io.jsonwebtoken.JwsHeader;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.prestosql.server.security.PasswordAuthenticatorManager;
+import io.prestosql.server.security.oauth2.OAuth2Client;
 import io.prestosql.server.testing.TestingPrestoServer;
 import io.prestosql.spi.security.AccessDeniedException;
 import io.prestosql.spi.security.BasicPrincipal;
@@ -61,14 +63,17 @@ import static com.google.common.net.HttpHeaders.LOCATION;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_HOST;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PORT;
 import static com.google.common.net.HttpHeaders.X_FORWARDED_PROTO;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.prestosql.client.OkHttpUtil.setupSsl;
+import static io.prestosql.server.security.oauth2.OAuth2CallbackResource.CALLBACK_ENDPOINT;
 import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.DISABLED_LOCATION;
 import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.LOGIN_FORM;
 import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.UI_LOGIN;
 import static io.prestosql.server.ui.FormWebUiAuthenticationFilter.UI_LOGOUT;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.util.concurrent.TimeUnit.MINUTES;
 import static javax.servlet.http.HttpServletResponse.SC_NOT_FOUND;
 import static javax.servlet.http.HttpServletResponse.SC_OK;
 import static javax.servlet.http.HttpServletResponse.SC_SEE_OTHER;
@@ -492,6 +497,110 @@ public class TestWebUi
                             .build())
                     .build();
             testAlwaysAuthorized(httpServerInfo.getHttpsUri(), clientWithJwt, nodeId);
+        }
+        finally {
+            jwkServer.stop();
+        }
+    }
+
+    @Test
+    public void testOAuth2Authenticator()
+            throws Exception
+    {
+        CookieManager cookieManager = new CookieManager();
+        OkHttpClient client = this.client.newBuilder()
+                .cookieJar(new JavaNetCookieJar(cookieManager))
+                .build();
+
+        String state = Jwts.builder()
+                .signWith(SignatureAlgorithm.HS256, Hashing.sha256().hashString("test-state-key", UTF_8).asBytes())
+                .setAudience("presto_oauth")
+                .setExpiration(Date.from(ZonedDateTime.now().plusMinutes(10).toInstant()))
+                .compact();
+
+        Date tokenExpiration = Date.from(ZonedDateTime.now().plusMinutes(5).toInstant());
+        String token = Jwts.builder()
+                .signWith(SignatureAlgorithm.RS256, JWK_PRIVATE_KEY)
+                .setHeaderParam(JwsHeader.KEY_ID, "test-rsa")
+                .setSubject("test-user")
+                .setExpiration(tokenExpiration)
+                .compact();
+
+        TestingHttpServer jwkServer = createTestingJwkServer();
+        jwkServer.start();
+        try (TestingPrestoServer server = TestingPrestoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .putAll(SECURE_PROPERTIES)
+                        .put("web-ui.authentication.type", "oauth2")
+                        .put("http-server.authentication.oauth2.jwks-url", jwkServer.getBaseUrl().toString())
+                        .put("http-server.authentication.oauth2.state-key", "test-state-key")
+                        .put("http-server.authentication.oauth2.auth-url", "http://example.com/")
+                        .put("http-server.authentication.oauth2.token-url", "http://example.com/")
+                        .put("http-server.authentication.oauth2.client-id", "client")
+                        .put("http-server.authentication.oauth2.client-secret", "client-secret")
+                        .build())
+                .setAdditionalModule(binder -> newOptionalBinder(binder, OAuth2Client.class)
+                        .setBinding()
+                        .toInstance(new OAuth2Client()
+                        {
+                            @Override
+                            public URI getAuthorizationUri(String state, URI callbackUri)
+                            {
+                                return URI.create("http://example.com/authorize");
+                            }
+
+                            @Override
+                            public AccessToken getAccessToken(String code, URI callbackUri)
+                            {
+                                if (!"TEST_CODE".equals(code)) {
+                                    throw new IllegalArgumentException("Expected TEST_CODE");
+                                }
+                                return new AccessToken(token, Optional.empty());
+                            }
+                        }))
+                .build()) {
+            HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
+
+            // HTTP is not allowed for OAuth
+            testDisabled(httpServerInfo.getHttpUri());
+
+            // verify HTTPS before login
+            URI baseUri = httpServerInfo.getHttpsUri();
+            testRootRedirect(baseUri, client);
+            assertRedirect(client, getUiLocation(baseUri), "http://example.com/authorize", false);
+            assertRedirect(client, getValidApiLocation(baseUri), "http://example.com/authorize", false);
+            assertRedirect(client, getLocation(baseUri, "/ui/unknown"), "http://example.com/authorize", false);
+            assertRedirect(client, getLocation(baseUri, "/ui/api/unknown"), "http://example.com/authorize", false);
+
+            // login with the callback endpoint
+            assertRedirect(
+                    client,
+                    uriBuilderFrom(baseUri)
+                            .replacePath(CALLBACK_ENDPOINT)
+                            .addParameter("code", "TEST_CODE")
+                            .addParameter("state", state)
+                            .toString(),
+                    getUiLocation(baseUri),
+                    false);
+            HttpCookie cookie = getOnlyElement(cookieManager.getCookieStore().getCookies());
+            assertEquals(cookie.getValue(), token);
+            assertEquals(cookie.getPath(), "/ui/");
+            assertEquals(cookie.getDomain(), baseUri.getHost());
+            assertTrue(cookie.getMaxAge() > 0 && cookie.getMaxAge() < MINUTES.toSeconds(5));
+            assertTrue(cookie.isHttpOnly());
+
+            // authentication cookie is now set, so UI should work
+            testRootRedirect(baseUri, client);
+            assertOk(client, getUiLocation(baseUri));
+            assertOk(client, getUiLocation(baseUri));
+            assertOk(client, getValidApiLocation(baseUri));
+            assertResponseCode(client, getLocation(baseUri, "/ui/unknown"), SC_NOT_FOUND);
+            assertResponseCode(client, getLocation(baseUri, "/ui/api/unknown"), SC_NOT_FOUND);
+
+            // logout
+            assertRedirect(client, getLogoutLocation(baseUri), getUiLocation(baseUri), false);
+            assertThat(cookieManager.getCookieStore().getCookies()).isEmpty();
+            assertRedirect(client, getUiLocation(baseUri), "http://example.com/authorize", false);
         }
         finally {
             jwkServer.stop();
