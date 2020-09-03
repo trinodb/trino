@@ -88,7 +88,7 @@ import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
@@ -313,7 +313,7 @@ public class SnowflakeClient
     private static ColumnMapping timestampColumnMapping()
     {
         return ColumnMapping.longMapping(
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 (resultSet, columnIndex) -> toPrestoTimestamp(toLocalDateTime(resultSet, columnIndex)),
                 timestampWriteFunction());
     }

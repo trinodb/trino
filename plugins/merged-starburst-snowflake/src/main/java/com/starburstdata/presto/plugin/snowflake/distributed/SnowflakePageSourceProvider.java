@@ -61,7 +61,7 @@ class SnowflakePageSourceProvider
     private final FileFormatDataSourceStats stats;
     private final ParquetReaderConfig parquetReaderConfig;
     // TODO should there be a config for this
-    private final DateTimeZone parquetTimeZone = DateTimeZone.getDefault();
+    private final DateTimeZone parquetTimeZone = DateTimeZone.forID("UTC");
 
     @Inject
     public SnowflakePageSourceProvider(FileFormatDataSourceStats stats, SnowflakeDistributedConfig config)
