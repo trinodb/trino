@@ -67,6 +67,15 @@ public class TestReportUnannotatedMethods
         assertFalse(isTemptoClass(getClass()));
     }
 
+    @Test
+    public void testSuppressedMethods()
+    {
+        assertThat(instance.findUnannotatedTestMethods(TestingTestWithSuppressedPublicMethod.class))
+                .isEmpty();
+        assertThat(instance.findUnannotatedTestMethods(TestingTestWithSuppressedPublicMethodInInterface.class))
+                .isEmpty();
+    }
+
     private static class TestingTest
             implements TestingInterfaceWithTest
     {
@@ -135,5 +144,27 @@ public class TestReportUnannotatedMethods
     private interface TestingInterface
     {
         default void methodInInterface() {}
+    }
+
+    private static class TestingTestWithSuppressedPublicMethod
+    {
+        @Test
+        public void test() {}
+
+        @ReportUnannotatedMethods.Suppress
+        public void method() {}
+    }
+
+    private static class TestingTestWithSuppressedPublicMethodInInterface
+            implements InterfaceWithSuppressedPublicMethod
+    {
+        @Test
+        public void test() {}
+    }
+
+    private interface InterfaceWithSuppressedPublicMethod
+    {
+        @ReportUnannotatedMethods.Suppress
+        default void method() {}
     }
 }
