@@ -76,6 +76,9 @@ public final class OptionsPrinter
     {
         if (value instanceof Boolean) {
             if ((boolean) value) {
+                return annotation.names()[0].replaceFirst("--no-", "--");
+            }
+            else if (annotation.negatable()) {
                 return annotation.names()[0];
             }
 
