@@ -22,8 +22,10 @@ import io.prestosql.execution.MockRemoteTaskFactory.MockRemoteTask;
 import io.prestosql.execution.scheduler.SplitSchedulerStats;
 import io.prestosql.failuredetector.NoOpFailureDetector;
 import io.prestosql.metadata.InternalNode;
+import io.prestosql.server.DynamicFilterService;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.PartitioningScheme;
 import io.prestosql.sql.planner.PlanFragment;
@@ -110,6 +112,7 @@ public class TestSqlStageExecution
                 nodeTaskMap,
                 executor,
                 new NoOpFailureDetector(),
+                new DynamicFilterService(new FeaturesConfig()),
                 new SplitSchedulerStats());
         stage.setOutputBuffers(createInitialEmptyOutputBuffers(ARBITRARY));
 
@@ -172,6 +175,7 @@ public class TestSqlStageExecution
                 nodeTaskMap,
                 executor,
                 new NoOpFailureDetector(),
+                new DynamicFilterService(new FeaturesConfig()),
                 new SplitSchedulerStats());
         stage.setOutputBuffers(createInitialEmptyOutputBuffers(ARBITRARY));
 

@@ -38,13 +38,11 @@ import io.prestosql.metadata.Split;
 import io.prestosql.operator.TaskContext;
 import io.prestosql.operator.TaskStats;
 import io.prestosql.spi.memory.MemoryPoolId;
-import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spiller.SpillSpaceTracker;
 import io.prestosql.sql.planner.Partitioning;
 import io.prestosql.sql.planner.PartitioningScheme;
 import io.prestosql.sql.planner.PlanFragment;
 import io.prestosql.sql.planner.Symbol;
-import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.PlanFragmentId;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -284,12 +282,6 @@ public class MockRemoteTaskFactory
                     0,
                     new Duration(0, MILLISECONDS),
                     INITIAL_DYNAMIC_FILTERS_VERSION);
-        }
-
-        @Override
-        public Map<DynamicFilterId, Domain> getDynamicFilterDomains()
-        {
-            return ImmutableMap.of();
         }
 
         private synchronized void updateSplitQueueSpace()

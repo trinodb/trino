@@ -13,6 +13,7 @@
  */
 package io.prestosql.server.remotetask;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -35,6 +36,7 @@ import io.prestosql.execution.Lifespan;
 import io.prestosql.execution.NodeTaskMap;
 import io.prestosql.execution.QueryManagerConfig;
 import io.prestosql.execution.RemoteTask;
+import io.prestosql.execution.StageId;
 import io.prestosql.execution.TaskId;
 import io.prestosql.execution.TaskInfo;
 import io.prestosql.execution.TaskManagerConfig;
@@ -49,15 +51,25 @@ import io.prestosql.metadata.HandleResolver;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Split;
+import io.prestosql.server.DynamicFilterService;
 import io.prestosql.server.HttpRemoteTaskFactory;
 import io.prestosql.server.TaskUpdateRequest;
 import io.prestosql.spi.ErrorCode;
+import io.prestosql.spi.QueryId;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockEncodingSerde;
+import io.prestosql.spi.connector.ColumnHandle;
+import io.prestosql.spi.connector.DynamicFilter;
+import io.prestosql.spi.connector.TestingColumnHandle;
 import io.prestosql.spi.predicate.Domain;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
+import io.prestosql.sql.DynamicFilters;
+import io.prestosql.sql.analyzer.FeaturesConfig;
+import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.PlanNodeId;
+import io.prestosql.sql.tree.Expression;
 import io.prestosql.testing.TestingHandleResolver;
 import io.prestosql.testing.TestingSplit;
 import io.prestosql.type.TypeDeserializer;
@@ -102,6 +114,7 @@ import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.StandardErrorCode.REMOTE_TASK_ERROR;
 import static io.prestosql.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.prestosql.spi.type.BigintType.BIGINT;
+import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expression;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static io.prestosql.testing.assertions.Assert.assertEventually;
 import static java.lang.Math.min;
@@ -180,38 +193,71 @@ public class TestHttpRemoteTask
 
     @Test(timeOut = 30000)
     public void testDynamicFilters()
+            throws Exception
     {
+        DynamicFilterId filterId1 = new DynamicFilterId("df1");
+        DynamicFilterId filterId2 = new DynamicFilterId("df2");
+        Expression df1 = expression("DF_SYMBOL1");
+        Expression df2 = expression("DF_SYMBOL2");
+        ColumnHandle handle1 = new TestingColumnHandle("column1");
+        ColumnHandle handle2 = new TestingColumnHandle("column2");
+        QueryId queryId = new QueryId("test");
+
         TestingTaskResource testingTaskResource = new TestingTaskResource(new AtomicLong(System.nanoTime()), FailureScenario.NO_FAILURE);
-        HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource);
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(new FeaturesConfig());
+        HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource, dynamicFilterService);
         RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
 
-        Map<DynamicFilterId, Domain> initialDomains = ImmutableMap.of(
-                new DynamicFilterId("filter"),
+        Map<DynamicFilterId, Domain> initialDomain = ImmutableMap.of(
+                filterId1,
                 Domain.singleValue(BIGINT, 1L));
         testingTaskResource.setInitialTaskInfo(remoteTask.getTaskInfo());
-        testingTaskResource.setDynamicFilterDomains(new VersionedDynamicFilterDomains(1L, initialDomains));
+        testingTaskResource.setDynamicFilterDomains(new VersionedDynamicFilterDomains(1L, initialDomain));
+        dynamicFilterService.registerQuery(
+                queryId,
+                ImmutableSet.of(filterId1, filterId2),
+                ImmutableSet.of(filterId1, filterId2),
+                ImmutableSet.of());
+        dynamicFilterService.stageCannotScheduleMoreTasks(new StageId(queryId, 1), 1);
+
         remoteTask.start();
+        dynamicFilterService.start();
+
+        DynamicFilter dynamicFilter = dynamicFilterService.createDynamicFilter(
+                queryId,
+                ImmutableList.of(
+                        new DynamicFilters.Descriptor(filterId1, df1),
+                        new DynamicFilters.Descriptor(filterId2, df2)),
+                ImmutableMap.of(
+                        Symbol.from(df1), handle1,
+                        Symbol.from(df2), handle2));
 
         // make sure initial dynamic filters are collected
-        assertEventually(
-                new Duration(5, SECONDS),
-                () -> assertEquals(remoteTask.getDynamicFilterDomains(), initialDomains));
+        dynamicFilter.isBlocked().get();
+        assertEquals(
+                dynamicFilter.getCurrentPredicate(),
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        handle1, Domain.singleValue(BIGINT, 1L))));
         assertEquals(testingTaskResource.getDynamicFiltersFetchCounter(), 1);
 
-        // make sure dynamic filters are intersected and are not collected for every status update
+        // make sure dynamic filters are not collected for every status update
         assertEventually(
                 new Duration(5, SECONDS),
                 () -> assertGreaterThanOrEqual(testingTaskResource.getStatusFetchCounter(), 3L));
         testingTaskResource.setDynamicFilterDomains(new VersionedDynamicFilterDomains(
                 2L,
-                ImmutableMap.of(new DynamicFilterId("filter"), Domain.singleValue(BIGINT, 2L))));
-        assertEventually(
-                new Duration(5, SECONDS),
-                () -> assertEquals(remoteTask.getDynamicFilterDomains(), ImmutableMap.of(new DynamicFilterId("filter"), Domain.none(BIGINT))));
+                ImmutableMap.of(filterId2, Domain.singleValue(BIGINT, 2L))));
+        dynamicFilter.isBlocked().get();
+        assertEquals(
+                dynamicFilter.getCurrentPredicate(),
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        handle1, Domain.singleValue(BIGINT, 1L),
+                        handle2, Domain.singleValue(BIGINT, 2L))));
         assertEquals(testingTaskResource.getDynamicFiltersFetchCounter(), 2L);
         assertGreaterThanOrEqual(testingTaskResource.getStatusFetchCounter(), 4L);
 
         httpRemoteTaskFactory.stop();
+        dynamicFilterService.stop();
     }
 
     private void runTest(FailureScenario failureScenario)
@@ -263,6 +309,11 @@ public class TestHttpRemoteTask
 
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource)
     {
+        return createHttpRemoteTaskFactory(testingTaskResource, new DynamicFilterService(new FeaturesConfig()));
+    }
+
+    private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource, DynamicFilterService dynamicFilterService)
+    {
         Bootstrap app = new Bootstrap(
                 new JsonModule(),
                 new HandleJsonModule(),
@@ -309,7 +360,8 @@ public class TestHttpRemoteTask
                                 dynamicFilterDomainsCodec,
                                 taskInfoCodec,
                                 taskUpdateRequestCodec,
-                                new RemoteTaskStats());
+                                new RemoteTaskStats(),
+                                dynamicFilterService);
                     }
                 });
         Injector injector = app
