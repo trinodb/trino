@@ -411,7 +411,7 @@ public enum CassandraType
                 // Otherwise partition id doesn't match
                 return new BigDecimal(prestoNativeValue.toString());
             case TIMESTAMP:
-                return new Date((Long) prestoNativeValue);
+                return new Date(unpackMillisUtc((Long) prestoNativeValue));
             case DATE:
                 return LocalDate.fromDaysSinceEpoch(((Long) prestoNativeValue).intValue());
             case UUID:

@@ -32,6 +32,7 @@ import java.sql.Timestamp;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 import static com.datastax.driver.core.utils.Bytes.toRawHexString;
 import static io.prestosql.plugin.cassandra.CassandraQueryRunner.createCassandraQueryRunner;
@@ -159,6 +160,29 @@ public class TestCassandraIntegrationSmokeTest
         MaterializedResult result = execute(sql);
 
         assertEquals(result.getRowCount(), 1);
+    }
+
+    @Test
+    public void testTimestampPartitionKey()
+            throws Exception
+    {
+        String tableName = "test_timestamp_" + Math.abs(ThreadLocalRandom.current().nextLong());
+        session.execute(format("CREATE TABLE %s.%s (c1 timestamp primary key)", KEYSPACE, tableName));
+        session.execute(format("INSERT INTO %s.%s (c1) VALUES ('2017-04-01T11:21:59.001+0000')", KEYSPACE, tableName));
+        server.refreshSizeEstimates(KEYSPACE, tableName);
+
+        try {
+            String sql = format(
+                    "SELECT * " +
+                            "FROM %s " +
+                            "WHERE c1 = TIMESTAMP '2017-04-01 11:21:59.001 UTC'", tableName);
+            MaterializedResult result = execute(sql);
+
+            assertEquals(result.getRowCount(), 1);
+        }
+        finally {
+            session.execute(format("DROP TABLE %s.%s", KEYSPACE, tableName));
+        }
     }
 
     @Test
