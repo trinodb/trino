@@ -65,6 +65,18 @@ public class TestTablesample
         // 1%
         assertThat(assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (1)"))
                 .satisfies(result -> assertThat((Long) result.getOnlyValue()).isBetween(50L, 450L));
+
+        // 0.1%
+        assertThat(assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (1e-1)"))
+                .satisfies(result -> assertThat((Long) result.getOnlyValue()).isBetween(5L, 45L));
+
+        // 0.1% as decimal
+        assertThat(assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (0.1)"))
+                .satisfies(result -> assertThat((Long) result.getOnlyValue()).isBetween(5L, 45L));
+
+        // fraction as long decimal
+        assertThat(assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (0.000000000000000000001)"))
+                .satisfies(result -> assertThat((Long) result.getOnlyValue()).isBetween(0L, 5L));
     }
 
     @Test
