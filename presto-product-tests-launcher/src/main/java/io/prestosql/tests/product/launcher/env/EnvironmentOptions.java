@@ -14,10 +14,7 @@
 package io.prestosql.tests.product.launcher.env;
 
 import java.io.File;
-import java.util.Locale;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
-import static java.util.Objects.requireNonNull;
 import static picocli.CommandLine.Option;
 
 public final class EnvironmentOptions
@@ -33,34 +30,11 @@ public final class EnvironmentOptions
     @Option(names = "--without-presto", description = "Do not start presto-master")
     public boolean withoutPrestoMaster;
 
-    @Option(names = "--bind", description = "Bind ports on localhost")
-    public boolean bindPorts = toBoolean(firstNonNull(System.getenv("PTL_BIND_PORTS"), "true"));
+    @Option(names = "--no-bind", description = "Bind ports on localhost", negatable = true)
+    public boolean bindPorts = true;
 
     @Option(names = "--debug", description = "Open Java debug ports")
     public boolean debug;
-
-    public EnvironmentOptions copyOf()
-    {
-        EnvironmentOptions copy = new EnvironmentOptions();
-        copy.bindPorts = bindPorts;
-        copy.debug = debug;
-        copy.withoutPrestoMaster = withoutPrestoMaster;
-        copy.serverPackage = serverPackage;
-        copy.config = config;
-        return copy;
-    }
-
-    private static boolean toBoolean(String value)
-    {
-        requireNonNull(value, "value is null");
-        switch (value.toLowerCase(Locale.ENGLISH)) {
-            case "true":
-                return true;
-            case "false":
-                return false;
-        }
-        throw new IllegalArgumentException("Cannot convert to boolean: " + value);
-    }
 
     public static EnvironmentOptions empty()
     {

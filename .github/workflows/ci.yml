@@ -298,6 +298,5 @@ jobs:
           rm -rf ~/.m2/repository
       - name: Product Tests
         run: |
-          export PTL_BIND_PORTS=false &&
-          presto-product-tests-launcher/bin/run-launcher suite run --suite ${{ matrix.suite }} --config ${{ matrix.config }}
+          presto-product-tests-launcher/bin/run-launcher suite run --suite ${{ matrix.suite }} --config ${{ matrix.config }} --no-bind
 
