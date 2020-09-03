@@ -20,6 +20,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.Type;
 
+import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 
 import static io.prestosql.decoder.DecoderErrorCode.DECODER_CONVERSION_NOT_SUPPORTED;
@@ -31,6 +32,7 @@ import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.prestosql.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
 import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static java.lang.String.format;
@@ -81,7 +83,8 @@ public abstract class AbstractDateTimeJsonValueProvider
             return packDateTimeWithZone(millis, getTimeZone());
         }
         if (type.equals(TIME_WITH_TIME_ZONE)) {
-            return packTimeWithTimeZone(millis * NANOSECONDS_PER_MILLISECOND, 0);
+            int offsetMinutes = getTimeZone().getZoneId().getRules().getOffset(Instant.ofEpochMilli(millis)).getTotalSeconds() / 60;
+            return packTimeWithTimeZone((millis + (offsetMinutes * 60 * MILLISECONDS_PER_SECOND)) * NANOSECONDS_PER_MILLISECOND, offsetMinutes);
         }
 
         throw new IllegalStateException("Unsupported type: " + type);
