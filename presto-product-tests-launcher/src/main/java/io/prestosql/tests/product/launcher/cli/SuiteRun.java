@@ -141,15 +141,23 @@ public class SuiteRun
             List<SuiteTestRun> suiteTestRuns = suite.getTestRuns(environmentConfig);
 
             log.info("Starting suite '%s' with config '%s' and test runs: ", suiteName, environmentConfig.getConfigName());
-            suiteTestRuns.forEach(job ->
-                    log.info(" * environment '%s': groups: %s, excluded groups: %s, tests: %s, excluded tests: %s",
-                            job.getEnvironmentName(), job.getGroups(), job.getExcludedGroups(), job.getTests(), job.getExcludedTests()));
+
+            for (int runId = 0; runId < suiteTestRuns.size(); runId++) {
+                SuiteTestRun testRun = suiteTestRuns.get(runId);
+                log.info("#%02d %s - groups: %s, excluded groups: %s, tests: %s, excluded tests: %s",
+                        runId + 1,
+                        testRun.getEnvironmentName(),
+                        testRun.getGroups(),
+                        testRun.getExcludedGroups(),
+                        testRun.getTests(),
+                        testRun.getExcludedTests());
+            }
 
             long suiteStartTime = System.nanoTime();
             ImmutableList.Builder<TestRunResult> results = ImmutableList.builder();
 
-            for (SuiteTestRun testRun : suiteTestRuns) {
-                results.add(executeSuiteTestRun(suiteName, testRun, environmentConfig));
+            for (int runId = 0; runId < suiteTestRuns.size(); runId++) {
+                results.add(executeSuiteTestRun(runId + 1, suiteName, suiteTestRuns.get(runId), environmentConfig));
             }
 
             List<TestRunResult> testRunsResults = results.build();
@@ -190,14 +198,14 @@ public class SuiteRun
             }
         }
 
-        public TestRunResult executeSuiteTestRun(String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig)
+        public TestRunResult executeSuiteTestRun(int runId, String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig)
         {
-            log.info("Starting test run %s with config %s", suiteTestRun, environmentConfig);
+            log.info("Starting test run #%02d %s with config %s", runId, suiteTestRun, environmentConfig);
             long startTime = System.nanoTime();
 
             Throwable t = null;
             try {
-                TestRun.TestRunOptions testRunOptions = createTestRunOptions(suiteName, suiteTestRun, environmentConfig, suiteRunOptions.logsDirBase);
+                TestRun.TestRunOptions testRunOptions = createTestRunOptions(runId, suiteName, suiteTestRun, environmentConfig, suiteRunOptions.logsDirBase);
                 log.info("Execute this test run using:\npresto-product-tests-launcher/bin/run-launcher test run %s", OptionsPrinter.format(environmentOptions, testRunOptions));
                 new TestRun.Execution(environmentFactory, environmentOptions, environmentConfig, testRunOptions).run();
             }
@@ -206,35 +214,47 @@ public class SuiteRun
                 log.error("Failed to execute test run %s", suiteTestRun, e);
             }
 
-            return new TestRunResult(suiteTestRun, environmentConfig, nanosSince(startTime), Optional.ofNullable(t));
+            return new TestRunResult(runId, suiteTestRun, environmentConfig, nanosSince(startTime), Optional.ofNullable(t));
         }
 
-        private TestRun.TestRunOptions createTestRunOptions(String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig, Optional<Path> logsDirBase)
+        private TestRun.TestRunOptions createTestRunOptions(int runId, String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig, Optional<Path> logsDirBase)
         {
             TestRun.TestRunOptions testRunOptions = new TestRun.TestRunOptions();
             testRunOptions.environment = suiteTestRun.getEnvironmentName();
             testRunOptions.testArguments = suiteTestRun.getTemptoRunArguments(environmentConfig);
             testRunOptions.testJar = suiteRunOptions.testJar;
-            String targetDirectory = format("%s-%s-%s", suiteName, environmentConfig.getConfigName(), suiteTestRun.getEnvironmentName());
-            testRunOptions.reportsDir = Paths.get("presto-product-tests/target/reports/" + targetDirectory);
-            testRunOptions.logsDirBase = logsDirBase.map(dir -> dir.resolve(targetDirectory));
+            String suiteRunId = suiteRunId(runId, suiteName, suiteTestRun, environmentConfig);
+            testRunOptions.reportsDir = Paths.get("presto-product-tests/target/reports/" + suiteRunId);
+            testRunOptions.logsDirBase = logsDirBase.map(dir -> dir.resolve(suiteRunId));
             return testRunOptions;
+        }
+
+        private static String suiteRunId(int runId, String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig)
+        {
+            return format("%s-%s-%s-%02d", suiteName, suiteTestRun.getEnvironmentName(), environmentConfig.getConfigName(), runId);
         }
     }
 
     private static class TestRunResult
     {
+        private final int runId;
         private final SuiteTestRun suiteRun;
         private final EnvironmentConfig environmentConfig;
         private final Duration duration;
         private final Optional<Throwable> throwable;
 
-        public TestRunResult(SuiteTestRun suiteRun, EnvironmentConfig environmentConfig, Duration duration, Optional<Throwable> throwable)
+        public TestRunResult(int runId, SuiteTestRun suiteRun, EnvironmentConfig environmentConfig, Duration duration, Optional<Throwable> throwable)
         {
+            this.runId = runId;
             this.suiteRun = requireNonNull(suiteRun, "suiteRun is null");
             this.environmentConfig = requireNonNull(environmentConfig, "suiteConfig is null");
             this.duration = requireNonNull(duration, "duration is null");
             this.throwable = requireNonNull(throwable, "throwable is null");
+        }
+
+        public int getRunId()
+        {
+            return this.runId;
         }
 
         public SuiteTestRun getSuiteRun()
@@ -271,6 +291,7 @@ public class SuiteRun
         public String toString()
         {
             return toStringHelper(this)
+                    .add("runId", runId)
                     .add("suiteRun", suiteRun)
                     .add("suiteConfig", environmentConfig)
                     .add("duration", duration)
