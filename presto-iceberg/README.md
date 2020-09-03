@@ -95,7 +95,6 @@ CALL system.rollback_to_snapshot(schema_name, table_name, snapshot_id)
 * Writing of decimals and timestamps is broken, since their representation in Parquet seems
   to be different for Iceberg and Hive. Reads are probably also broken, but this isn't tested
   yet since writes don't work.
-* UUID likely does not work and is not tested.
 * Implement time type.
 * System tables (history, snapshots, manifests, partitions) probably do not work and are not tested.
   These likely need to be implemented as a Presto `SystemTable` using the API in the Iceberg library.
