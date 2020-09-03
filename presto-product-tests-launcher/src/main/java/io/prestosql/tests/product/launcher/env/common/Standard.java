@@ -14,7 +14,6 @@
 package io.prestosql.tests.product.launcher.env.common;
 
 import io.airlift.log.Logger;
-import io.prestosql.tests.product.launcher.PathResolver;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
@@ -57,7 +56,6 @@ public final class Standard
     public static final String CONTAINER_PRESTO_CONFIG_PROPERTIES = CONTAINER_PRESTO_ETC + "/config.properties";
     public static final String CONTAINER_TEMPTO_PROFILE_CONFIG = "/docker/presto-product-tests/conf/tempto/tempto-configuration-profile-config-file.yaml";
 
-    private final PathResolver pathResolver;
     private final DockerFiles dockerFiles;
     private final PortBinder portBinder;
 
@@ -66,13 +64,11 @@ public final class Standard
 
     @Inject
     public Standard(
-            PathResolver pathResolver,
             DockerFiles dockerFiles,
             PortBinder portBinder,
             EnvironmentConfig environmentConfig,
             @ServerPackage File serverPackage)
     {
-        this.pathResolver = requireNonNull(pathResolver, "pathResolver is null");
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
         this.imagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getImagesVersion();
@@ -91,7 +87,7 @@ public final class Standard
     private DockerContainer createPrestoMaster()
     {
         DockerContainer container =
-                createPrestoContainer(dockerFiles, pathResolver, serverPackage, "prestodev/centos7-oj11:" + imagesVersion)
+                createPrestoContainer(dockerFiles, serverPackage, "prestodev/centos7-oj11:" + imagesVersion)
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/access-control.properties")), CONTAINER_PRESTO_ACCESS_CONTROL_PROPERTIES)
                         .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/standard/config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES);
 
@@ -112,14 +108,14 @@ public final class Standard
     }
 
     @SuppressWarnings("resource")
-    public static DockerContainer createPrestoContainer(DockerFiles dockerFiles, PathResolver pathResolver, File serverPackage, String dockerImageName)
+    public static DockerContainer createPrestoContainer(DockerFiles dockerFiles, File serverPackage, String dockerImageName)
     {
         return new DockerContainer(dockerImageName)
                 .withExposedLogPaths("/var/presto/var/log")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/presto/etc/jvm.config")), CONTAINER_PRESTO_JVM_CONFIG)
                 // the server package is hundreds MB and file system bind is much more efficient
-                .withFileSystemBind(pathResolver.resolvePlaceholders(serverPackage).getPath(), "/docker/presto-server.tar.gz", READ_ONLY)
+                .withFileSystemBind(serverPackage.getPath(), "/docker/presto-server.tar.gz", READ_ONLY)
                 .withCommand("/docker/presto-product-tests/run-presto.sh")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(Wait.forLogMessage(".*======== SERVER STARTED ========.*", 1))

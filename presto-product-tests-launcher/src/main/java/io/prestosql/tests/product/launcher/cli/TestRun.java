@@ -21,7 +21,6 @@ import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
-import io.prestosql.tests.product.launcher.PathResolver;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
 import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
@@ -102,8 +101,8 @@ public final class TestRun
 
         private static final String DEFAULT_VALUE = "(default: ${DEFAULT-VALUE})";
 
-        @Option(names = "--test-jar", paramLabel = "<jar>", description = "Path to test JAR " + DEFAULT_VALUE)
-        public File testJar = new File(TARGET + "/presto-product-tests-${project.version}-executable.jar");
+        @Option(names = "--test-jar", paramLabel = "<jar>", description = "Path to test JAR " + DEFAULT_VALUE, defaultValue = TARGET + "/presto-product-tests-${project.version}-executable.jar")
+        public File testJar;
 
         @Option(names = "--environment", paramLabel = "<environment>", description = "Name of the environment to start", required = true)
         public String environment;
@@ -134,7 +133,6 @@ public final class TestRun
     {
         private static final String CONTAINER_REPORTS_DIR = "/docker/test-reports";
         private final EnvironmentFactory environmentFactory;
-        private final PathResolver pathResolver;
         private final boolean debug;
         private final File testJar;
         private final List<String> testArguments;
@@ -146,10 +144,9 @@ public final class TestRun
         private final EnvironmentConfig environmentConfig;
 
         @Inject
-        public Execution(EnvironmentFactory environmentFactory, PathResolver pathResolver, EnvironmentOptions environmentOptions, EnvironmentConfig environmentConfig, TestRunOptions testRunOptions)
+        public Execution(EnvironmentFactory environmentFactory, EnvironmentOptions environmentOptions, EnvironmentConfig environmentConfig, TestRunOptions testRunOptions)
         {
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
-            this.pathResolver = requireNonNull(pathResolver, "pathResolver is null");
             requireNonNull(environmentOptions, "environmentOptions is null");
             this.debug = environmentOptions.debug;
             this.testJar = requireNonNull(testRunOptions.testJar, "testOptions.testJar is null");
@@ -237,7 +234,7 @@ public final class TestRun
 
                 container
                         // the test jar is hundreds MB and file system bind is much more efficient
-                        .withFileSystemBind(pathResolver.resolvePlaceholders(testJar).getPath(), "/docker/test.jar", READ_ONLY)
+                        .withFileSystemBind(testJar.getPath(), "/docker/test.jar", READ_ONLY)
                         .withCommand(ImmutableList.<String>builder()
                                 .add(
                                         "/usr/lib/jvm/zulu-11/bin/java",

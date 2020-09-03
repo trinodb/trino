@@ -24,7 +24,6 @@ public final class LauncherModule
     @Override
     public void configure(Binder binder)
     {
-        binder.bind(PathResolver.class).in(Scopes.SINGLETON);
         binder.bind(DockerFiles.class).in(Scopes.SINGLETON);
     }
 }

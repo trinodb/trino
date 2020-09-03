@@ -17,7 +17,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
 import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
-import io.prestosql.tests.product.launcher.PathResolver;
 import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.EnvironmentConfigFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentModule;
@@ -31,6 +30,7 @@ import picocli.CommandLine.Mixin;
 
 import javax.inject.Inject;
 
+import java.io.File;
 import java.io.FileDescriptor;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
@@ -83,8 +83,14 @@ public class SuiteDescribe
 
     public static class SuiteDescribeOptions
     {
+        private static final String DEFAULT_VALUE = "(default: ${DEFAULT-VALUE})";
+        private static final String TARGET = "presto-product-tests/target";
+
         @Option(names = "--suite", paramLabel = "<suite>", description = "Name of the suite to describe", required = true)
         public String suite;
+
+        @Option(names = "--test-jar", paramLabel = "<jar>", description = "Path to test JAR " + DEFAULT_VALUE, defaultValue = TARGET + "/presto-product-tests-${project.version}-executable.jar")
+        public File testJar;
 
         public Module toModule()
         {
@@ -96,11 +102,11 @@ public class SuiteDescribe
             implements Runnable
     {
         private final String suiteName;
+        private final File testJar;
         private final String config;
         private final SuiteFactory suiteFactory;
         private final EnvironmentConfigFactory configFactory;
         private final EnvironmentOptions environmentOptions;
-        private final PathResolver pathResolver;
         private final PrintStream out;
 
         @Inject
@@ -108,14 +114,13 @@ public class SuiteDescribe
                 SuiteDescribeOptions describeOptions,
                 SuiteFactory suiteFactory,
                 EnvironmentConfigFactory configFactory,
-                PathResolver pathResolver,
                 EnvironmentOptions environmentOptions)
         {
             this.suiteName = requireNonNull(describeOptions.suite, "describeOptions.suite is null");
+            this.testJar = requireNonNull(describeOptions.testJar, "describeOptions.testJar is null");
             this.config = requireNonNull(environmentOptions.config, "environmentOptions.config is null");
             this.suiteFactory = requireNonNull(suiteFactory, "suiteFactory is null");
             this.configFactory = requireNonNull(configFactory, "configFactory is null");
-            this.pathResolver = requireNonNull(pathResolver, "pathResolver is null");
             this.environmentOptions = requireNonNull(environmentOptions, "environmentOptions is null");
 
             try {
@@ -145,7 +150,7 @@ public class SuiteDescribe
             TestRun.TestRunOptions testRunOptions = new TestRun.TestRunOptions();
             testRunOptions.environment = suiteTestRun.getEnvironmentName();
             testRunOptions.testArguments = suiteTestRun.getTemptoRunArguments(environmentConfig);
-            testRunOptions.testJar = pathResolver.resolvePlaceholders(testRunOptions.testJar);
+            testRunOptions.testJar = testJar;
             testRunOptions.reportsDir = Paths.get(format("presto-product-tests/target/%s/%s/%s", suiteName, environmentConfig.getConfigName(), suiteTestRun.getEnvironmentName()));
             return testRunOptions;
         }
