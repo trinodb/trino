@@ -13,6 +13,7 @@
  */
 package io.prestosql.tests.product.launcher.cli;
 
+import com.google.common.io.Resources;
 import io.prestosql.tests.product.launcher.Extensions;
 import picocli.CommandLine;
 import picocli.CommandLine.Command;
@@ -21,11 +22,16 @@ import picocli.CommandLine.IFactory;
 import picocli.CommandLine.Model.CommandSpec;
 import picocli.CommandLine.Option;
 
+import java.io.IOException;
+import java.util.ListResourceBundle;
+
 import static com.google.common.base.MoreObjects.firstNonNull;
+import static com.google.common.base.Preconditions.checkState;
 import static io.prestosql.tests.product.launcher.cli.Launcher.EnvironmentCommand;
 import static io.prestosql.tests.product.launcher.cli.Launcher.SuiteCommand;
 import static io.prestosql.tests.product.launcher.cli.Launcher.TestCommand;
 import static io.prestosql.tests.product.launcher.cli.Launcher.VersionProvider;
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static picocli.CommandLine.IVersionProvider;
 import static picocli.CommandLine.Spec;
@@ -57,7 +63,7 @@ public class Launcher
     public static void run(Launcher launcher, String[] args)
     {
         IFactory factory = createFactory(launcher.getExtensions());
-        System.exit(new CommandLine(launcher, factory).execute(args));
+        System.exit(new CommandLine(launcher, factory).setResourceBundle(new LauncherBundle()).execute(args));
     }
 
     private static IFactory createFactory(Extensions extensions)
@@ -139,8 +145,29 @@ public class Launcher
         @Override
         public String[] getVersion()
         {
-            String version = getClass().getPackage().getImplementationVersion();
-            return new String[] {spec.name() + " " + firstNonNull(version, "(version unknown)")};
+            return new String[] {spec.name() + " " + readProjectVersion()};
+        }
+    }
+
+    private static class LauncherBundle
+            extends ListResourceBundle
+    {
+        @Override
+        protected Object[][] getContents()
+        {
+            return new Object[][]{{"project.version", readProjectVersion()}};
+        }
+    }
+
+    private static String readProjectVersion()
+    {
+        try {
+            String version = Resources.toString(Resources.getResource("presto-product-tests-launcher-version.txt"), UTF_8).trim();
+            checkState(!version.isEmpty(), "version is empty");
+            return version;
+        }
+        catch (IOException e) {
+            return firstNonNull(LauncherBundle.class.getPackage().getImplementationVersion(), "unknown");
         }
     }
 }

@@ -14,7 +14,6 @@
 package io.prestosql.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.tests.product.launcher.PathResolver;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
@@ -41,7 +40,6 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public final class Multinode
         extends AbstractEnvironmentProvider
 {
-    private final PathResolver pathResolver;
     private final DockerFiles dockerFiles;
 
     private final String imagesVersion;
@@ -49,7 +47,6 @@ public final class Multinode
 
     @Inject
     public Multinode(
-            PathResolver pathResolver,
             DockerFiles dockerFiles,
             Standard standard,
             Hadoop hadoop,
@@ -57,7 +54,6 @@ public final class Multinode
             @ServerPackage File serverPackage)
     {
         super(ImmutableList.of(standard, hadoop));
-        this.pathResolver = requireNonNull(pathResolver, "pathResolver is null");
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.imagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getImagesVersion();
         this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");
@@ -78,7 +74,7 @@ public final class Multinode
     @SuppressWarnings("resource")
     private DockerContainer createPrestoWorker()
     {
-        return createPrestoContainer(dockerFiles, pathResolver, serverPackage, "prestodev/centos7-oj11:" + imagesVersion)
+        return createPrestoContainer(dockerFiles, serverPackage, "prestodev/centos7-oj11:" + imagesVersion)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode/multinode-worker-jvm.config")), CONTAINER_PRESTO_JVM_CONFIG)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode/multinode-worker-config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES)

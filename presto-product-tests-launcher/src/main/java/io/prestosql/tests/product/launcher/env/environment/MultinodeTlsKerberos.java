@@ -14,7 +14,6 @@
 package io.prestosql.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.tests.product.launcher.PathResolver;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
@@ -43,7 +42,6 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public final class MultinodeTlsKerberos
         extends AbstractEnvironmentProvider
 {
-    private final PathResolver pathResolver;
     private final DockerFiles dockerFiles;
 
     private final String prestoDockerImageName;
@@ -51,7 +49,6 @@ public final class MultinodeTlsKerberos
 
     @Inject
     public MultinodeTlsKerberos(
-            PathResolver pathResolver,
             DockerFiles dockerFiles,
             Standard standard,
             Hadoop hadoop,
@@ -60,7 +57,6 @@ public final class MultinodeTlsKerberos
             @ServerPackage File serverPackage)
     {
         super(ImmutableList.of(standard, hadoop, kerberos));
-        this.pathResolver = requireNonNull(pathResolver, "pathResolver is null");
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         String hadoopBaseImage = requireNonNull(config, "config is null").getHadoopBaseImage();
         String hadoopImagesVersion = requireNonNull(config, "config is null").getHadoopImagesVersion();
@@ -87,7 +83,7 @@ public final class MultinodeTlsKerberos
     @SuppressWarnings("resource")
     private void addPrestoWorker(Environment.Builder builder, String workerName)
     {
-        DockerContainer container = createPrestoContainer(dockerFiles, pathResolver, serverPackage, prestoDockerImageName)
+        DockerContainer container = createPrestoContainer(dockerFiles, serverPackage, prestoDockerImageName)
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withDomainName("docker.cluster"))
                 .withNetworkAliases(workerName + ".docker.cluster")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode-tls-kerberos/config-worker.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES)

@@ -19,7 +19,6 @@ import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
-import io.prestosql.tests.product.launcher.PathResolver;
 import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.EnvironmentConfigFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentFactory;
@@ -95,8 +94,8 @@ public class SuiteRun
         @Option(names = "--suite", paramLabel = "<suite>", description = "Name of the suite to run", required = true)
         public String suite;
 
-        @Option(names = "--test-jar", paramLabel = "<jar>", description = "Path to test JAR " + DEFAULT_VALUE)
-        public File testJar = new File("presto-product-tests/target/presto-product-tests-${project.version}-executable.jar");
+        @Option(names = "--test-jar", paramLabel = "<jar>", description = "Path to test JAR " + DEFAULT_VALUE, defaultValue = "presto-product-tests/target/presto-product-tests-${project.version}-executable.jar")
+        public File testJar;
 
         @Option(names = "--logs-dir", paramLabel = "<dir>", description = "Location of the exported logs directory " + DEFAULT_VALUE, converter = OptionalPathConverter.class, defaultValue = "")
         public Optional<Path> logsDirBase;
@@ -112,7 +111,6 @@ public class SuiteRun
     {
         private final SuiteRunOptions suiteRunOptions;
         private final EnvironmentOptions environmentOptions;
-        private final PathResolver pathResolver;
         private final SuiteFactory suiteFactory;
         private final EnvironmentFactory environmentFactory;
         private final EnvironmentConfigFactory configFactory;
@@ -121,14 +119,12 @@ public class SuiteRun
         public Execution(
                 SuiteRunOptions suiteRunOptions,
                 EnvironmentOptions environmentOptions,
-                PathResolver pathResolver,
                 SuiteFactory suiteFactory,
                 EnvironmentFactory environmentFactory,
                 EnvironmentConfigFactory configFactory)
         {
             this.suiteRunOptions = requireNonNull(suiteRunOptions, "suiteRunOptions is null");
             this.environmentOptions = requireNonNull(environmentOptions, "environmentOptions is null");
-            this.pathResolver = requireNonNull(pathResolver, "pathResolver is null");
             this.suiteFactory = requireNonNull(suiteFactory, "suiteFactory is null");
             this.environmentFactory = requireNonNull(environmentFactory, "environmentFactory is null");
             this.configFactory = requireNonNull(configFactory, "configFactory is null");
@@ -189,7 +185,7 @@ public class SuiteRun
             try {
                 TestRun.TestRunOptions testRunOptions = createTestRunOptions(suiteName, suiteTestRun, environmentConfig, suiteRunOptions.logsDirBase);
                 log.info("Execute this test run using:\npresto-product-tests-launcher/bin/run-launcher test run %s", OptionsPrinter.format(environmentOptions, testRunOptions));
-                new TestRun.Execution(environmentFactory, pathResolver, environmentOptions, environmentConfig, testRunOptions).run();
+                new TestRun.Execution(environmentFactory, environmentOptions, environmentConfig, testRunOptions).run();
             }
             catch (Exception e) {
                 t = e;
@@ -204,7 +200,7 @@ public class SuiteRun
             TestRun.TestRunOptions testRunOptions = new TestRun.TestRunOptions();
             testRunOptions.environment = suiteTestRun.getEnvironmentName();
             testRunOptions.testArguments = suiteTestRun.getTemptoRunArguments(environmentConfig);
-            testRunOptions.testJar = pathResolver.resolvePlaceholders(suiteRunOptions.testJar);
+            testRunOptions.testJar = suiteRunOptions.testJar;
             String targetDirectory = format("%s-%s-%s", suiteName, environmentConfig.getConfigName(), suiteTestRun.getEnvironmentName());
             testRunOptions.reportsDir = Paths.get("presto-product-tests/target/reports/" + targetDirectory);
             testRunOptions.logsDirBase = logsDirBase.map(dir -> dir.resolve(targetDirectory));
