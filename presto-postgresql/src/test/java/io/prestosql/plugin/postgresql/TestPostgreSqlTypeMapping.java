@@ -1240,6 +1240,9 @@ public class TestPostgreSqlTypeMapping
     {
         uuidTestCases(uuidDataType())
                 .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_uuid"));
+
+        uuidTestCases(uuidDataType())
+                .execute(getQueryRunner(), postgresCreateAndInsert("tpch.postgresql_test_uuid"));
     }
 
     private DataTypeTest uuidTestCases(DataType<java.util.UUID> uuidDataType)

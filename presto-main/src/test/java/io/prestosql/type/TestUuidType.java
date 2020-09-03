@@ -19,6 +19,7 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import org.testng.annotations.Test;
 
+import static io.airlift.slice.SizeOf.SIZE_OF_LONG;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.type.UuidOperators.castFromVarcharToUuid;
 import static io.prestosql.type.UuidType.UUID;
@@ -46,7 +47,7 @@ public class TestUuidType
     protected Object getGreaterValue(Object value)
     {
         Slice slice = (Slice) value;
-        return Slices.wrappedLongArray(slice.getLong(0), slice.getLong(1) + 1);
+        return Slices.wrappedLongArray(slice.getLong(0), slice.getLong(SIZE_OF_LONG) + 1);
     }
 
     @Override
