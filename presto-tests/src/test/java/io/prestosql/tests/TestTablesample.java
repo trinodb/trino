@@ -23,6 +23,7 @@ import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
+import static io.prestosql.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.testing.assertions.PrestoExceptionAssert.assertPrestoExceptionThrownBy;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -71,22 +72,30 @@ public class TestTablesample
     {
         // NULL
         assertPrestoExceptionThrownBy(() -> assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (NULL)"))
-                .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:62: Sample percentage should evaluate to a numeric expression");
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:62: Sample percentage cannot be NULL");
 
         // NULL integer
         assertPrestoExceptionThrownBy(() -> assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (CAST(NULL AS integer))"))
-                .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:62: Sample percentage should evaluate to a numeric expression");
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:62: Sample percentage cannot be NULL");
 
         // NULL double
         assertPrestoExceptionThrownBy(() -> assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (CAST(NULL AS double))"))
-                .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:62: Sample percentage should evaluate to a numeric expression");
+                .hasErrorCode(INVALID_ARGUMENTS)
+                .hasMessage("line 1:62: Sample percentage cannot be NULL");
 
         // NULL varchar
         assertPrestoExceptionThrownBy(() -> assertions.query("SELECT count(*) FROM tpch.tiny.orders TABLESAMPLE BERNOULLI (CAST(NULL AS varchar))"))
                 .hasErrorCode(TYPE_MISMATCH)
-                .hasMessage("line 1:62: Sample percentage should evaluate to a numeric expression");
+                .hasMessage("line 1:62: Sample percentage should be a numeric expression");
+    }
+
+    @Test
+    public void testInvalidRatioType()
+    {
+        assertPrestoExceptionThrownBy(() -> assertions.query("SELECT count(*) FROM tpch.sf1.orders TABLESAMPLE BERNOULLI (DATE '1970-01-02')"))
+                .hasErrorCode(TYPE_MISMATCH)
+                .hasMessage("line 1:61: Sample percentage should be a numeric expression");
     }
 }
