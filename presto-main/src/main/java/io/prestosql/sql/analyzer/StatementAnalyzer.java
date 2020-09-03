@@ -223,6 +223,7 @@ import static io.prestosql.spi.StandardErrorCode.VIEW_IS_STALE;
 import static io.prestosql.spi.connector.StandardWarningCode.REDUNDANT_ORDER_BY;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
+import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.sql.NodeUtils.getSortItemsFromOrderBy;
 import static io.prestosql.sql.NodeUtils.mapFromProperties;
@@ -1472,16 +1473,21 @@ class StatementAnalyzer
                     analysis.isDescribe())
                     .getExpressionTypes();
 
+            if (!typeCoercion.canCoerce(expressionTypes.get(NodeRef.of(samplePercentage)), DOUBLE)) {
+                throw semanticException(TYPE_MISMATCH, samplePercentage, "Sample percentage should be a numeric expression");
+            }
+
             ExpressionInterpreter samplePercentageEval = expressionOptimizer(samplePercentage, metadata, session, expressionTypes);
 
             Object samplePercentageObject = samplePercentageEval.optimize(symbol -> {
                 throw semanticException(EXPRESSION_NOT_CONSTANT, samplePercentage, "Sample percentage cannot contain column references");
             });
 
-            if (!(samplePercentageObject instanceof Number)) {
-                throw semanticException(TYPE_MISMATCH, samplePercentage, "Sample percentage should evaluate to a numeric expression");
+            if (samplePercentageObject == null) {
+                throw semanticException(INVALID_ARGUMENTS, samplePercentage, "Sample percentage cannot be NULL");
             }
 
+            verify(samplePercentageObject instanceof Number, "Sample percentage should evaluate to a Number");
             double samplePercentageValue = ((Number) samplePercentageObject).doubleValue();
 
             if (samplePercentageValue < 0.0) {
