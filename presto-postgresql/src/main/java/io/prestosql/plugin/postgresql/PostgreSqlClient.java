@@ -729,14 +729,18 @@ public class PostgreSqlClient
     private static SliceWriteFunction uuidWriteFunction()
     {
         return (statement, index, value) -> {
-            UUID uuid = new UUID(value.getLong(0), value.getLong(SIZE_OF_LONG));
+            long high = Long.reverseBytes(value.getLong(0));
+            long low = Long.reverseBytes(value.getLong(SIZE_OF_LONG));
+            UUID uuid = new UUID(high, low);
             statement.setObject(index, uuid, Types.OTHER);
         };
     }
 
     private static Slice uuidSlice(UUID uuid)
     {
-        return wrappedLongArray(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits());
+        return wrappedLongArray(
+                Long.reverseBytes(uuid.getMostSignificantBits()),
+                Long.reverseBytes(uuid.getLeastSignificantBits()));
     }
 
     private ColumnMapping uuidColumnMapping()
