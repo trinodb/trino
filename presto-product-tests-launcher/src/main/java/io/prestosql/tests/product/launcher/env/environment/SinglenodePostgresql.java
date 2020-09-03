@@ -63,7 +63,8 @@ public final class SinglenodePostgresql
     @SuppressWarnings("resource")
     private DockerContainer createPostgreSql()
     {
-        DockerContainer container = new DockerContainer("postgres:10.3")
+        // Use the oldest supported PostgreSQL version
+        DockerContainer container = new DockerContainer("postgres:9.5")
                 .withEnv("POSTGRES_PASSWORD", "test")
                 .withEnv("POSTGRES_USER", "test")
                 .withEnv("POSTGRES_DB", "test")

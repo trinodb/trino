@@ -366,7 +366,8 @@ public class TestJdbcResultSetTimezone
 
         PostgresqlReferenceDriver()
         {
-            postgresqlContainer = new PostgreSQLContainer<>("postgres:10.3");
+            // Use the current latest PostgreSQL version as the reference
+            postgresqlContainer = new PostgreSQLContainer<>("postgres:12.4");
             postgresqlContainer.start();
         }
 
