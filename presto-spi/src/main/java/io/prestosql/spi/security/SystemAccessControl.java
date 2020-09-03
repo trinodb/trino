@@ -45,14 +45,12 @@ import static io.prestosql.spi.security.AccessDeniedException.denyExecuteFunctio
 import static io.prestosql.spi.security.AccessDeniedException.denyExecuteProcedure;
 import static io.prestosql.spi.security.AccessDeniedException.denyExecuteQuery;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantExecuteFunctionPrivilege;
-import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyKillQuery;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
-import static io.prestosql.spi.security.AccessDeniedException.denyRevokeTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denySelectColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denySetCatalogSessionProperty;
 import static io.prestosql.spi.security.AccessDeniedException.denySetSchemaAuthorization;
@@ -475,26 +473,6 @@ public interface SystemAccessControl
     default void checkCanSetCatalogSessionProperty(SystemSecurityContext context, String catalogName, String propertyName)
     {
         denySetCatalogSessionProperty(propertyName);
-    }
-
-    /**
-     * Check if identity is allowed to grant the specified privilege to the grantee on the specified table.
-     *
-     * @throws AccessDeniedException if not allowed
-     */
-    default void checkCanGrantTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal grantee, boolean grantOption)
-    {
-        denyGrantTablePrivilege(privilege.toString(), table.toString());
-    }
-
-    /**
-     * Check if identity is allowed to revoke the specified privilege on the specified table from the revokee.
-     *
-     * @throws AccessDeniedException if not allowed
-     */
-    default void checkCanRevokeTablePrivilege(SystemSecurityContext context, Privilege privilege, CatalogSchemaTableName table, PrestoPrincipal revokee, boolean grantOption)
-    {
-        denyRevokeTablePrivilege(privilege.toString(), table.toString());
     }
 
     /**
