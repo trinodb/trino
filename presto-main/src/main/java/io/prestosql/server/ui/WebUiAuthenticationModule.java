@@ -26,6 +26,8 @@ import io.prestosql.server.security.JsonWebTokenConfig;
 import io.prestosql.server.security.KerberosAuthenticator;
 import io.prestosql.server.security.KerberosConfig;
 import io.prestosql.server.security.SecurityConfig;
+import io.prestosql.server.security.oauth2.OAuth2Authenticator;
+import io.prestosql.server.security.oauth2.OAuth2Config;
 
 import java.util.List;
 
@@ -57,6 +59,7 @@ public class WebUiAuthenticationModule
         }));
         installWebUiAuthenticator("kerberos", KerberosAuthenticator.class, KerberosConfig.class);
         installWebUiAuthenticator("jwt", JsonWebTokenAuthenticator.class, JsonWebTokenConfig.class);
+        installWebUiAuthenticator("oauth2", OAuth2Authenticator.class, OAuth2Config.class);
     }
 
     private void installWebUiAuthenticator(String type, Module module)

@@ -56,6 +56,7 @@
         <dep.tempto.version>181</dep.tempto.version>
         <dep.gcs.version>2.0.0</dep.gcs.version>
         <dep.errorprone.version>2.4.0</dep.errorprone.version>
+        <!-- TODO remove after changing the airbase version to >= 103 -->
         <dep.joda.version>2.10.6</dep.joda.version>
         <dep.coral.version>1.0.8</dep.coral.version>
 
@@ -942,6 +943,12 @@
                 <groupId>com.fasterxml.jackson.dataformat</groupId>
                 <artifactId>jackson-dataformat-cbor</artifactId>
                 <version>${dep.jackson.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.github.scribejava</groupId>
+                <artifactId>scribejava-core</artifactId>
+                <version>6.9.0</version>
             </dependency>
 
             <dependency>

@@ -26,6 +26,8 @@ import io.airlift.discovery.store.StoreResource;
 import io.airlift.http.server.HttpServer.ClientCertificate;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.jmx.MBeanResource;
+import io.prestosql.server.security.oauth2.OAuth2Authenticator;
+import io.prestosql.server.security.oauth2.OAuth2Config;
 
 import java.util.List;
 import java.util.Map;
@@ -71,6 +73,7 @@ public class ServerSecurityModule
         installAuthenticator("kerberos", KerberosAuthenticator.class, KerberosConfig.class);
         installAuthenticator("password", PasswordAuthenticator.class, PasswordAuthenticatorConfig.class);
         installAuthenticator("jwt", JsonWebTokenAuthenticator.class, JsonWebTokenConfig.class);
+        installAuthenticator("oauth2", OAuth2Authenticator.class, OAuth2Config.class);
 
         configBinder(binder).bindConfig(InsecureAuthenticatorConfig.class);
         binder.bind(InsecureAuthenticator.class).in(Scopes.SINGLETON);
