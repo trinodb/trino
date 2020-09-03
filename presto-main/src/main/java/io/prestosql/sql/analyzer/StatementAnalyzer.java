@@ -1410,13 +1410,13 @@ class StatementAnalyzer
             // are implicitly coercible to the declared materialized view types.
             List<Field> outputFields = viewColumns.stream()
                     .map(column -> Field.newQualified(
-                    table.getName(),
-                    Optional.of(column.getName()),
-                    getViewColumnType(column, name, table),
-                    false,
-                    Optional.of(name),
-                    Optional.of(column.getName()),
-                    false))
+                            table.getName(),
+                            Optional.of(column.getName()),
+                            getViewColumnType(column, name, table),
+                            false,
+                            Optional.of(name),
+                            Optional.of(column.getName()),
+                            false))
                     .collect(toImmutableList());
 
             analysis.addRelationCoercion(table, outputFields.stream().map(Field::getType).toArray(Type[]::new));
