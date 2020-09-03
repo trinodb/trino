@@ -80,14 +80,12 @@ public class TestOrcPageSourceFactory
 
     @Test
     public void testFullFileRead()
-            throws Exception
     {
         assertRead(ImmutableSet.copyOf(NationColumn.values()), OptionalLong.empty(), Optional.empty(), nationKey -> false);
     }
 
     @Test
     public void testSingleColumnRead()
-            throws Exception
     {
         assertRead(ImmutableSet.of(REGION_KEY), OptionalLong.empty(), Optional.empty(), nationKey -> false);
     }
@@ -97,7 +95,6 @@ public class TestOrcPageSourceFactory
      */
     @Test
     public void testFullFileSkipped()
-            throws Exception
     {
         assertRead(ImmutableSet.copyOf(NationColumn.values()), OptionalLong.of(100L), Optional.empty(), nationKey -> false);
     }
@@ -107,14 +104,12 @@ public class TestOrcPageSourceFactory
      */
     @Test
     public void testSomeStripesAndRowGroupRead()
-            throws Exception
     {
         assertRead(ImmutableSet.copyOf(NationColumn.values()), OptionalLong.of(5L), Optional.empty(), nationKey -> false);
     }
 
     @Test
     public void testDeletedRows()
-            throws Exception
     {
         Path partitionLocation = new Path(getClass().getClassLoader().getResource("nation_delete_deltas") + "/");
         Optional<AcidInfo> acidInfo = AcidInfo.builder(partitionLocation)
