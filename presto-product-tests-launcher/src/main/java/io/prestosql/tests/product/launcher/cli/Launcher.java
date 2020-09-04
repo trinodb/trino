@@ -155,7 +155,12 @@ public class Launcher
         @Override
         protected Object[][] getContents()
         {
-            return new Object[][]{{"project.version", readProjectVersion()}};
+            return new Object[][] {
+                    {"project.version", readProjectVersion()},
+                    {"product-tests.module", "presto-product-tests"},
+                    {"server.module", "presto-server"},
+                    {"server.name", "presto-server"},
+            };
         }
     }
 

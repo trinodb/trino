@@ -84,12 +84,11 @@ public class SuiteDescribe
     public static class SuiteDescribeOptions
     {
         private static final String DEFAULT_VALUE = "(default: ${DEFAULT-VALUE})";
-        private static final String TARGET = "presto-product-tests/target";
 
         @Option(names = "--suite", paramLabel = "<suite>", description = "Name of the suite to describe", required = true)
         public String suite;
 
-        @Option(names = "--test-jar", paramLabel = "<jar>", description = "Path to test JAR " + DEFAULT_VALUE, defaultValue = TARGET + "/presto-product-tests-${project.version}-executable.jar")
+        @Option(names = "--test-jar", paramLabel = "<jar>", description = "Path to test JAR " + DEFAULT_VALUE, defaultValue = "${product-tests.module}/target/${product-tests.module}-${project.version}-executable.jar")
         public File testJar;
 
         public Module toModule()
