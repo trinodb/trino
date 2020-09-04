@@ -1062,7 +1062,7 @@ public abstract class AbstractTestDistributedQueries
         // verify selecting from a view over a table requires the view owner to have special view creation privileges for the table
         assertAccessDenied(
                 "SELECT * FROM " + columnAccessViewName,
-                "View owner 'test_view_access_owner' cannot create view that selects from .*.orders.*",
+                "View owner does not have sufficient privileges: View owner 'test_view_access_owner' cannot create view that selects from \\w+.\\w+.orders\\w*",
                 privilege(viewOwnerSession.getUser(), "orders", CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify the view owner can select from the view even without special view creation privileges
@@ -1095,7 +1095,7 @@ public abstract class AbstractTestDistributedQueries
         // verify selecting from a view over a view requires the view owner of the outer view to have special view creation privileges for the inner view
         assertAccessDenied(
                 "SELECT * FROM " + nestedViewName,
-                "View owner 'test_nested_view_access_owner' cannot create view that selects from .*.test_view_column_access.*",
+                "View owner does not have sufficient privileges: View owner 'test_nested_view_access_owner' cannot create view that selects from \\w+.\\w+.test_view_column_access\\w*",
                 privilege(nestedViewOwnerSession.getUser(), columnAccessViewName, CREATE_VIEW_WITH_SELECT_COLUMNS));
 
         // verify selecting from a view over a view does not require the session user to have SELECT privileges for the inner view
@@ -1150,7 +1150,7 @@ public abstract class AbstractTestDistributedQueries
 
         assertAccessDenied(
                 "SELECT * FROM " + functionAccessViewName,
-                "'test_view_access_owner' cannot grant 'abs' execution to user '\\w*'",
+                "View owner does not have sufficient privileges: 'test_view_access_owner' cannot grant 'abs' execution to user '\\w*'",
                 privilege(viewOwnerSession.getUser(), "abs", GRANT_EXECUTE_FUNCTION));
 
         // verify executing from a view over a function does not require the session user to have execute privileges on the underlying function
