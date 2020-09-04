@@ -26,6 +26,8 @@ import java.util.concurrent.TimeUnit;
 import static io.airlift.configuration.testing.ConfigAssertions.assertFullMapping;
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
+import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
+import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.OVERWRITE;
 import static io.prestosql.plugin.hive.util.TestHiveUtil.nonDefaultTimeZone;
 
 public class TestHiveConfig
@@ -58,6 +60,7 @@ public class TestHiveConfig
                 .setHiveCompressionCodec(HiveCompressionCodec.GZIP)
                 .setRespectTableFormat(true)
                 .setImmutablePartitions(false)
+                .setInsertExistingPartitionsBehavior(APPEND)
                 .setCreateEmptyBucketFiles(false)
                 .setSortedWritingEnabled(true)
                 .setMaxPartitionsPerWriter(100)
@@ -124,6 +127,7 @@ public class TestHiveConfig
                 .put("hive.compression-codec", "NONE")
                 .put("hive.respect-table-format", "false")
                 .put("hive.immutable-partitions", "true")
+                .put("hive.insert-existing-partitions-behavior", "OVERWRITE")
                 .put("hive.create-empty-bucket-files", "true")
                 .put("hive.max-partitions-per-writers", "222")
                 .put("hive.max-open-sort-files", "333")
@@ -193,6 +197,7 @@ public class TestHiveConfig
                 .setHiveCompressionCodec(HiveCompressionCodec.NONE)
                 .setRespectTableFormat(false)
                 .setImmutablePartitions(true)
+                .setInsertExistingPartitionsBehavior(OVERWRITE)
                 .setCreateEmptyBucketFiles(true)
                 .setMaxPartitionsPerWriter(222)
                 .setMaxOpenSortFiles(333)

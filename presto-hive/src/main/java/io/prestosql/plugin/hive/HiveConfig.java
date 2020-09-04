@@ -23,9 +23,11 @@ import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
+import io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior;
 import org.joda.time.DateTimeZone;
 
 import javax.annotation.Nullable;
+import javax.validation.constraints.AssertTrue;
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
@@ -35,6 +37,8 @@ import java.util.Optional;
 import java.util.TimeZone;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
+import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
+import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
@@ -80,6 +84,7 @@ public class HiveConfig
     private HiveCompressionCodec hiveCompressionCodec = HiveCompressionCodec.GZIP;
     private boolean respectTableFormat = true;
     private boolean immutablePartitions;
+    private Optional<InsertExistingPartitionsBehavior> insertExistingPartitionsBehavior = Optional.empty();
     private boolean createEmptyBucketFiles;
     private int maxPartitionsPerWriter = 100;
     private int maxOpenSortFiles = 50;
@@ -450,6 +455,27 @@ public class HiveConfig
     {
         this.immutablePartitions = immutablePartitions;
         return this;
+    }
+
+    public InsertExistingPartitionsBehavior getInsertExistingPartitionsBehavior()
+    {
+        return insertExistingPartitionsBehavior.orElse(immutablePartitions ? ERROR : APPEND);
+    }
+
+    @Config("hive.insert-existing-partitions-behavior")
+    @ConfigDescription("Default value for insert existing partitions behavior")
+    public HiveConfig setInsertExistingPartitionsBehavior(InsertExistingPartitionsBehavior insertExistingPartitionsBehavior)
+    {
+        this.insertExistingPartitionsBehavior = Optional.ofNullable(insertExistingPartitionsBehavior);
+        return this;
+    }
+
+    @AssertTrue(message = "insert-existing-partitions-behavior cannot be APPEND when immutable-partitions is true")
+    public boolean isInsertExistingPartitionsBehaviorValid()
+    {
+        return insertExistingPartitionsBehavior
+                .map(v -> InsertExistingPartitionsBehavior.isValid(v, immutablePartitions))
+                .orElse(true);
     }
 
     public boolean isCreateEmptyBucketFiles()
