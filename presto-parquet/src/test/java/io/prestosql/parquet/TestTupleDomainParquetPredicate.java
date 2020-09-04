@@ -361,16 +361,10 @@ public class TestTupleDomainParquetPredicate
         TimestampType timestampType = createTimestampType(3);
         assertEquals(getDomain(timestampType, 0, null, ID, column, true, UTC), all(timestampType));
         assertEquals(getDomain(timestampType, 10, timestampColumnStats(baseTime, baseTime), ID, column, true, UTC), singleValue(timestampType, baseTime.toEpochMilli() * MICROSECONDS_PER_MILLISECOND));
+        // INT96 binary ranges ignored when min <> max
         assertEquals(
                 getDomain(timestampType, 10, timestampColumnStats(baseTime.minusSeconds(10), baseTime), ID, column, true, UTC),
-                create(ValueSet.ofRanges(range(timestampType, baseTime.minusSeconds(10).toEpochMilli() * MICROSECONDS_PER_MILLISECOND, true, baseTime.toEpochMilli() * MICROSECONDS_PER_MILLISECOND, true)), false));
-
-        // ignore corrupted statistics
-        assertEquals(getDomain(timestampType, 10, timestampColumnStats(baseTime.plusSeconds(10), baseTime), ID, column, false, UTC), create(ValueSet.all(timestampType), false));
-        // fail on corrupted statistics
-        assertThatExceptionOfType(ParquetCorruptionException.class)
-                .isThrownBy(() -> getDomain(timestampType, 10, timestampColumnStats(baseTime.plusSeconds(10), baseTime), ID, column, true, UTC))
-                .withMessageMatching("Corrupted statistics for column \"timestampColumn\" in Parquet file \"testFile\":.*");
+                create(ValueSet.all(timestampType), false));
     }
 
     private static BinaryStatistics timestampColumnStats(Instant minimum, Instant maximum)

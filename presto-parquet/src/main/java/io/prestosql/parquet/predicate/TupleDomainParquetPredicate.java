@@ -250,16 +250,15 @@ public class TupleDomainParquetPredicate
 
         if (type instanceof TimestampType && statistics instanceof BinaryStatistics) {
             BinaryStatistics binaryStatistics = (BinaryStatistics) statistics;
-            long max = getTimestampMillis(binaryStatistics.genericGetMax());
-            max = timeZone.convertUTCToLocal(max) * MICROSECONDS_PER_MILLISECOND;
-            long min = getTimestampMillis(binaryStatistics.genericGetMin());
-            min = timeZone.convertUTCToLocal(min) * MICROSECONDS_PER_MILLISECOND;
-            if (min > max) {
-                failWithCorruptionException(failOnCorruptedParquetStatistics, column, id, binaryStatistics);
-                return Domain.create(ValueSet.all(type), hasNullValue);
+            // Parquet INT96 timestamp values were compared incorrectly for the purposes of producing statistics by older parquet writers, so
+            // PARQUET-1065 deprecated them. The result is that any writer that produced stats was producing unusable incorrect values, except
+            // the special case where min == max and an incorrect ordering would not be material to the result. PARQUET-1026 made binary stats
+            // available and valid in that special case
+            if (binaryStatistics.genericGetMin().equals(binaryStatistics.genericGetMax())) {
+                long timestampValue = getTimestampMillis(binaryStatistics.genericGetMax());
+                timestampValue = timeZone.convertUTCToLocal(timestampValue) * MICROSECONDS_PER_MILLISECOND;
+                return createDomain(type, hasNullValue, new ParquetTimestampStatistics(timestampValue, timestampValue));
             }
-            ParquetTimestampStatistics parquetTimestampStatistics = new ParquetTimestampStatistics(min, max);
-            return createDomain(type, hasNullValue, parquetTimestampStatistics);
         }
 
         return Domain.create(ValueSet.all(type), hasNullValue);
