@@ -33,8 +33,6 @@ import java.util.concurrent.ThreadLocalRandom;
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.prestosql.plugin.base.session.PropertyMetadataUtil.dataSizeProperty;
 import static io.prestosql.plugin.base.session.PropertyMetadataUtil.durationProperty;
-import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.APPEND;
-import static io.prestosql.plugin.hive.HiveSessionProperties.InsertExistingPartitionsBehavior.ERROR;
 import static io.prestosql.spi.StandardErrorCode.INVALID_SESSION_PROPERTY;
 import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
 import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
@@ -104,14 +102,16 @@ public final class HiveSessionProperties
         OVERWRITE,
         /**/;
 
-        public static InsertExistingPartitionsBehavior valueOf(String value, boolean immutablePartition)
+        public static InsertExistingPartitionsBehavior valueOf(String value, boolean immutablePartitions)
         {
             InsertExistingPartitionsBehavior enumValue = valueOf(value.toUpperCase(ENGLISH));
-            if (immutablePartition) {
-                checkArgument(enumValue != APPEND, "Presto is configured to treat Hive partitions as immutable. %s is not allowed to be set to %s", INSERT_EXISTING_PARTITIONS_BEHAVIOR, APPEND);
-            }
-
+            checkArgument(isValid(enumValue, immutablePartitions), "Presto is configured to treat Hive partitions as immutable. %s is not allowed to be set to %s", INSERT_EXISTING_PARTITIONS_BEHAVIOR, APPEND);
             return enumValue;
+        }
+
+        static boolean isValid(InsertExistingPartitionsBehavior value, boolean immutable)
+        {
+            return !(immutable && value == APPEND);
         }
     }
 
@@ -139,7 +139,7 @@ public final class HiveSessionProperties
                         "Behavior on insert existing partitions; this session property doesn't control behavior on insert existing unpartitioned table",
                         VARCHAR,
                         InsertExistingPartitionsBehavior.class,
-                        hiveConfig.isImmutablePartitions() ? ERROR : APPEND,
+                        hiveConfig.getInsertExistingPartitionsBehavior(),
                         false,
                         value -> InsertExistingPartitionsBehavior.valueOf((String) value, hiveConfig.isImmutablePartitions()),
                         InsertExistingPartitionsBehavior::toString),
