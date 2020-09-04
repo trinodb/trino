@@ -51,6 +51,11 @@ public class Launcher
     public static void main(String[] args)
     {
         Launcher launcher = new Launcher();
+        run(launcher, args);
+    }
+
+    public static void run(Launcher launcher, String[] args)
+    {
         IFactory factory = createFactory(launcher.getExtensions());
         System.exit(new CommandLine(launcher, factory).execute(args));
     }
