@@ -61,7 +61,6 @@ public class HivePageSinkProvider
     private final int maxOpenPartitions;
     private final int maxOpenSortFiles;
     private final DataSize writerSortBufferSize;
-    private final boolean immutablePartitions;
     private final LocationService locationService;
     private final ListeningExecutorService writeVerificationExecutor;
     private final JsonCodec<PartitionUpdate> partitionUpdateCodec;
@@ -97,7 +96,6 @@ public class HivePageSinkProvider
         this.maxOpenPartitions = config.getMaxPartitionsPerWriter();
         this.maxOpenSortFiles = config.getMaxOpenSortFiles();
         this.writerSortBufferSize = requireNonNull(config.getWriterSortBufferSize(), "writerSortBufferSize is null");
-        this.immutablePartitions = config.isImmutablePartitions();
         this.locationService = requireNonNull(locationService, "locationService is null");
         this.writeVerificationExecutor = listeningDecorator(newFixedThreadPool(config.getWriteValidationThreads(), daemonThreadsNamed("hive-write-validation-%s")));
         this.partitionUpdateCodec = requireNonNull(partitionUpdateCodec, "partitionUpdateCodec is null");
@@ -157,7 +155,6 @@ public class HivePageSinkProvider
                 pageSorter,
                 writerSortBufferSize,
                 maxOpenSortFiles,
-                immutablePartitions,
                 parquetTimeZone,
                 session,
                 nodeManager,
