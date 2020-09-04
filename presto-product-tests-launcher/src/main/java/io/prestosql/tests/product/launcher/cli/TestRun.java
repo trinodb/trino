@@ -97,11 +97,9 @@ public final class TestRun
 
     public static class TestRunOptions
     {
-        private static final String TARGET = "presto-product-tests/target";
-
         private static final String DEFAULT_VALUE = "(default: ${DEFAULT-VALUE})";
 
-        @Option(names = "--test-jar", paramLabel = "<jar>", description = "Path to test JAR " + DEFAULT_VALUE, defaultValue = TARGET + "/presto-product-tests-${project.version}-executable.jar")
+        @Option(names = "--test-jar", paramLabel = "<jar>", description = "Path to test JAR " + DEFAULT_VALUE, defaultValue = "${product-tests.module}/target/${product-tests.module}-${project.version}-executable.jar")
         public File testJar;
 
         @Option(names = "--environment", paramLabel = "<environment>", description = "Name of the environment to start", required = true)
@@ -110,13 +108,13 @@ public final class TestRun
         @Option(names = "--attach", description = "attach to an existing environment")
         public boolean attach;
 
-        @Option(names = "--reports-dir", paramLabel = "<dir>", defaultValue = TARGET + "/reports", description = "Location of the reports directory " + DEFAULT_VALUE)
+        @Option(names = "--reports-dir", paramLabel = "<dir>", description = "Location of the reports directory " + DEFAULT_VALUE, defaultValue = "${product-tests.module}/target/reports")
         public Path reportsDir;
 
         @Option(names = "--logs-dir", paramLabel = "<dir>", description = "Location of the exported logs directory " + DEFAULT_VALUE, converter = OptionalPathConverter.class, defaultValue = "")
         public Optional<Path> logsDirBase;
 
-        @Option(names = "--startup-retries", paramLabel = "<retries>", defaultValue = "5", description = "Environment startup retries " + DEFAULT_VALUE)
+        @Option(names = "--startup-retries", paramLabel = "<retries>", description = "Environment startup retries " + DEFAULT_VALUE, defaultValue = "5")
         public int startupRetries;
 
         @Parameters(paramLabel = "<argument>", description = "Test arguments")
