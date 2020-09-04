@@ -15,7 +15,6 @@ package io.prestosql.execution;
 
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import java.util.Map;
@@ -24,7 +23,6 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class TestDynamicFilterConfig
 {
@@ -33,7 +31,6 @@ public class TestDynamicFilterConfig
     {
         assertRecordedDefaults(recordDefaults(DynamicFilterConfig.class)
                 .setEnableDynamicFiltering(true)
-                .setDynamicFilteringRefreshInterval(new Duration(200, MILLISECONDS))
                 .setEnableLargeDynamicFilters(false)
                 .setSmallBroadcastMaxDistinctValuesPerDriver(100)
                 .setSmallBroadcastMaxSizePerDriver(DataSize.of(10, KILOBYTE))
@@ -55,7 +52,6 @@ public class TestDynamicFilterConfig
         Map<String, String> properties = new ImmutableMap.Builder<String, String>()
                 .put("enable-dynamic-filtering", "false")
                 .put("enable-large-dynamic-filters", "true")
-                .put("experimental.dynamic-filtering-refresh-interval", "300ms")
                 .put("dynamic-filtering.small-broadcast.max-distinct-values-per-driver", "256")
                 .put("dynamic-filtering.small-broadcast.max-size-per-driver", "64kB")
                 .put("dynamic-filtering.small-broadcast.range-row-limit-per-driver", "10000")
@@ -72,7 +68,6 @@ public class TestDynamicFilterConfig
 
         DynamicFilterConfig expected = new DynamicFilterConfig()
                 .setEnableDynamicFiltering(false)
-                .setDynamicFilteringRefreshInterval(new Duration(300, MILLISECONDS))
                 .setEnableLargeDynamicFilters(true)
                 .setSmallBroadcastMaxDistinctValuesPerDriver(256)
                 .setSmallBroadcastMaxSizePerDriver(DataSize.of(64, KILOBYTE))
