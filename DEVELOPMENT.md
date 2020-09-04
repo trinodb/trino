@@ -61,11 +61,14 @@ classes, which hides the fact that these classes are not (easily) testable. We
 prefer to write mocks by hand, which forces code to be written in a certain
 testable style.
 
+#### Use AssertJ
+
+Prefer AssertJ for complex assertions.
+
 #### Use Airlift's `Assertions`
 
-Use an assertion from Airlift's `Assertions` class if there is one that covers
-your case rather than writing the assertion by hand. Over time we may move over
-to more fluent assertions like AssertJ.
+For thing not easily expressible with AssertJ, use Airlift's `Assertions` class
+if there is one that covers your case.
 
 #### Avoid `var`
 
@@ -87,7 +90,9 @@ When writing a Git commit message, follow these [guidelines](https://chris.beams
 #### Avoid abbreviations
 
 Please avoid abbreviations, slang or inside jokes as this makes harder for
-non-native english speaker to understand the code.
+non-native english speaker to understand the code. Very well known
+abbreviations like `max` or `min` and ones already very commonly used across
+the code base like `ttl` are allowed and encouraged.
 
 ### Additional IDE configuration
 
