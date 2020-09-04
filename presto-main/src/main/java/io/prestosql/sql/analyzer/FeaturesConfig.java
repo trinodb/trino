@@ -23,8 +23,6 @@ import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
-import io.airlift.units.MaxDuration;
-import io.airlift.units.MinDuration;
 import io.prestosql.operator.aggregation.arrayagg.ArrayAggGroupImplementation;
 import io.prestosql.operator.aggregation.histogram.HistogramGroupImplementation;
 import io.prestosql.operator.aggregation.multimapagg.MultimapAggGroupImplementation;
@@ -43,7 +41,6 @@ import static io.airlift.units.DataSize.Unit.KILOBYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.sql.analyzer.RegexLibrary.JONI;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 
 @DefunctConfig({
@@ -137,7 +134,6 @@ public class FeaturesConfig
     private boolean enableDynamicFiltering = true;
     private int dynamicFilteringMaxPerDriverRowCount = 100;
     private DataSize dynamicFilteringMaxPerDriverSize = DataSize.of(10, KILOBYTE);
-    private Duration dynamicFilteringRefreshInterval = new Duration(200, MILLISECONDS);
     private int dynamicFilteringRangeRowLimitPerDriver;
 
     private DataSize filterAndProjectMinOutputPageSize = DataSize.of(500, KILOBYTE);
@@ -779,21 +775,6 @@ public class FeaturesConfig
     public FeaturesConfig setDynamicFilteringMaxPerDriverSize(DataSize dynamicFilteringMaxPerDriverSize)
     {
         this.dynamicFilteringMaxPerDriverSize = dynamicFilteringMaxPerDriverSize;
-        return this;
-    }
-
-    @MinDuration("1ms")
-    @MaxDuration("10s")
-    @NotNull
-    public Duration getDynamicFilteringRefreshInterval()
-    {
-        return dynamicFilteringRefreshInterval;
-    }
-
-    @Config("experimental.dynamic-filtering-refresh-interval")
-    public FeaturesConfig setDynamicFilteringRefreshInterval(Duration dynamicFilteringRefreshInterval)
-    {
-        this.dynamicFilteringRefreshInterval = dynamicFilteringRefreshInterval;
         return this;
     }
 

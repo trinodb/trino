@@ -65,7 +65,6 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.DynamicFilters;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.sql.planner.Symbol;
 import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -101,6 +100,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.BooleanSupplier;
 
 import static com.google.common.collect.Iterables.getOnlyElement;
+import static com.google.common.util.concurrent.MoreExecutors.newDirectExecutorService;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
@@ -204,7 +204,7 @@ public class TestHttpRemoteTask
         QueryId queryId = new QueryId("test");
 
         TestingTaskResource testingTaskResource = new TestingTaskResource(new AtomicLong(System.nanoTime()), FailureScenario.NO_FAILURE);
-        DynamicFilterService dynamicFilterService = new DynamicFilterService(new FeaturesConfig());
+        DynamicFilterService dynamicFilterService = new DynamicFilterService(newDirectExecutorService());
         HttpRemoteTaskFactory httpRemoteTaskFactory = createHttpRemoteTaskFactory(testingTaskResource, dynamicFilterService);
         RemoteTask remoteTask = createRemoteTask(httpRemoteTaskFactory);
 
@@ -221,7 +221,6 @@ public class TestHttpRemoteTask
         dynamicFilterService.stageCannotScheduleMoreTasks(new StageId(queryId, 1), 1);
 
         remoteTask.start();
-        dynamicFilterService.start();
 
         DynamicFilter dynamicFilter = dynamicFilterService.createDynamicFilter(
                 queryId,
@@ -309,7 +308,7 @@ public class TestHttpRemoteTask
 
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource)
     {
-        return createHttpRemoteTaskFactory(testingTaskResource, new DynamicFilterService(new FeaturesConfig()));
+        return createHttpRemoteTaskFactory(testingTaskResource, new DynamicFilterService());
     }
 
     private static HttpRemoteTaskFactory createHttpRemoteTaskFactory(TestingTaskResource testingTaskResource, DynamicFilterService dynamicFilterService)
