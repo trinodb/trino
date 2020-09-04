@@ -56,7 +56,7 @@ import static java.util.concurrent.TimeUnit.MINUTES;
         "optimizer.processing-optimization",
         "deprecated.legacy-order-by",
         "deprecated.legacy-join-using",
-        "deprecated.legacy-timestamp",
+        "deprecated.legacy-timestamp"
 })
 public class FeaturesConfig
 {
@@ -131,7 +131,6 @@ public class FeaturesConfig
     private boolean iterativeRuleBasedColumnPruning = true;
 
     private Duration iterativeOptimizerTimeout = new Duration(3, MINUTES); // by default let optimizer wait a long time in case it retrieves some data from ConnectorMetadata
-
     private DataSize filterAndProjectMinOutputPageSize = DataSize.of(500, KILOBYTE);
     private int filterAndProjectMinOutputPageRowCount = 256;
     private int maxGroupingSets = 2048;
