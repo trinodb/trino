@@ -93,7 +93,7 @@ public abstract class PrimitiveColumnReader
                     return new TimestampMicrosColumnReader(descriptor);
                 }
                 if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.TIMESTAMP_MILLIS) {
-                    return new Int64TimestampMillisColumnReader(descriptor, timeZone);
+                    return new Int64TimestampMillisColumnReader(descriptor);
                 }
                 return createDecimalColumnReader(descriptor).orElse(new LongColumnReader(descriptor));
             case INT96:
