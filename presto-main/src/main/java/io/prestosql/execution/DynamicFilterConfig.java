@@ -17,29 +17,24 @@ import io.airlift.configuration.Config;
 import io.airlift.configuration.DefunctConfig;
 import io.airlift.configuration.LegacyConfig;
 import io.airlift.units.DataSize;
-import io.airlift.units.Duration;
 import io.airlift.units.MaxDataSize;
-import io.airlift.units.MaxDuration;
-import io.airlift.units.MinDuration;
 
 import javax.validation.constraints.Min;
-import javax.validation.constraints.NotNull;
 
 import static io.airlift.units.DataSize.Unit.KILOBYTE;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @DefunctConfig({
         "dynamic-filtering-max-per-driver-row-count",
         "experimental.dynamic-filtering-max-per-driver-row-count",
         "dynamic-filtering-max-per-driver-size",
         "experimental.dynamic-filtering-max-per-driver-size",
-        "dynamic-filtering-range-row-limit-per-driver"
+        "dynamic-filtering-range-row-limit-per-driver",
+        "experimental.dynamic-filtering-refresh-interval"
 })
 public class DynamicFilterConfig
 {
     private boolean enableDynamicFiltering = true;
     private boolean enableLargeDynamicFilters;
-    private Duration dynamicFilteringRefreshInterval = new Duration(200, MILLISECONDS);
 
     private int smallBroadcastMaxDistinctValuesPerDriver = 100;
     private DataSize smallBroadcastMaxSizePerDriver = DataSize.of(10, KILOBYTE);
@@ -77,21 +72,6 @@ public class DynamicFilterConfig
     public DynamicFilterConfig setEnableLargeDynamicFilters(boolean enableLargeDynamicFilters)
     {
         this.enableLargeDynamicFilters = enableLargeDynamicFilters;
-        return this;
-    }
-
-    @MinDuration("1ms")
-    @MaxDuration("10s")
-    @NotNull
-    public Duration getDynamicFilteringRefreshInterval()
-    {
-        return dynamicFilteringRefreshInterval;
-    }
-
-    @Config("experimental.dynamic-filtering-refresh-interval")
-    public DynamicFilterConfig setDynamicFilteringRefreshInterval(Duration dynamicFilteringRefreshInterval)
-    {
-        this.dynamicFilteringRefreshInterval = dynamicFilteringRefreshInterval;
         return this;
     }
 
