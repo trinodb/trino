@@ -17,7 +17,7 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.SliceInput;
 import io.airlift.slice.SliceOutput;
 import io.airlift.slice.Slices;
-import io.airlift.stats.QuantileDigest;
+import io.airlift.stats.TDigest;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.function.AccumulatorStateSerializer;
@@ -27,8 +27,8 @@ import static io.airlift.slice.SizeOf.SIZE_OF_DOUBLE;
 import static io.airlift.slice.SizeOf.SIZE_OF_INT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 
-public class DigestAndPercentileStateSerializer
-        implements AccumulatorStateSerializer<DigestAndPercentileState>
+public class TDigestAndPercentileStateSerializer
+        implements AccumulatorStateSerializer<TDigestAndPercentileState>
 {
     @Override
     public Type getSerializedType()
@@ -37,7 +37,7 @@ public class DigestAndPercentileStateSerializer
     }
 
     @Override
-    public void serialize(DigestAndPercentileState state, BlockBuilder out)
+    public void serialize(TDigestAndPercentileState state, BlockBuilder out)
     {
         if (state.getDigest() == null) {
             out.appendNull();
@@ -55,7 +55,7 @@ public class DigestAndPercentileStateSerializer
     }
 
     @Override
-    public void deserialize(Block block, int index, DigestAndPercentileState state)
+    public void deserialize(Block block, int index, TDigestAndPercentileState state)
     {
         SliceInput input = VARBINARY.getSlice(block, index).getInput();
 
@@ -64,7 +64,7 @@ public class DigestAndPercentileStateSerializer
 
         // read digest
         int length = input.readInt();
-        QuantileDigest digest = new QuantileDigest(input.readSlice(length));
+        TDigest digest = TDigest.deserialize(input.readSlice(length));
         state.setDigest(digest);
         state.addMemoryUsage(state.getDigest().estimatedInMemorySizeInBytes());
     }
