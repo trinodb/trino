@@ -177,7 +177,7 @@ public class TestApproximatePercentileAggregation
                 LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
                 2L,
                 createLongsBlock(1L, 2L, 3L),
-                createDoublesBlock(0.1, 0.1, 0.1),
+                createDoublesBlock(23.4, 23.4, 23.4),
                 createRLEBlock(0.5, 3));
 
         assertAggregation(
@@ -191,7 +191,7 @@ public class TestApproximatePercentileAggregation
                 LONG_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
                 3L,
                 createLongsBlock(1L, null, 2L, null, 2L, null, 2L, null, 3L, null, 3L, null, 3L, 4L, 5L, 6L, 7L),
-                createDoublesBlock(0.1, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1),
+                createDoublesBlock(1.1, 1.1, 2.2, 1.1, 2.2, 1.1, 2.2, 1.1, 2.2, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1),
                 createRLEBlock(0.5, 17));
 
         assertAggregation(
@@ -325,16 +325,16 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
-                3.0f,
+                2.75f,
                 createBlockOfReals(1.0f, null, 2.0f, null, 2.0f, null, 2.0f, null, 3.0f, null, 3.0f, null, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f),
                 createDoublesBlock(1.0, 1.0, 2.0, 1.0, 2.0, 1.0, 2.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0),
                 createRLEBlock(0.5, 17));
 
         assertAggregation(
                 FLOAT_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
-                3.0f,
+                2.75f,
                 createBlockOfReals(1.0f, null, 2.0f, null, 2.0f, null, 2.0f, null, 3.0f, null, 3.0f, null, 3.0f, 4.0f, 5.0f, 6.0f, 7.0f),
-                createDoublesBlock(0.1, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1),
+                createDoublesBlock(1.1, 1.1, 2.2, 1.1, 2.2, 1.1, 2.2, 1.1, 2.2, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1),
                 createRLEBlock(0.5, 17));
 
         assertAggregation(
@@ -456,16 +456,16 @@ public class TestApproximatePercentileAggregation
 
         assertAggregation(
                 DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
-                3.0,
+                2.75,
                 createDoublesBlock(1.0, null, 2.0, null, 2.0, null, 2.0, null, 3.0, null, 3.0, null, 3.0, 4.0, 5.0, 6.0, 7.0),
                 createDoublesBlock(1.0, 1.0, 2.0, 1.0, 2.0, 1.0, 2.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0),
                 createRLEBlock(0.5, 17));
 
         assertAggregation(
                 DOUBLE_APPROXIMATE_PERCENTILE_WEIGHTED_AGGREGATION,
-                3.0,
+                2.75,
                 createDoublesBlock(1.0, null, 2.0, null, 2.0, null, 2.0, null, 3.0, null, 3.0, null, 3.0, 4.0, 5.0, 6.0, 7.0),
-                createDoublesBlock(0.1, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2, 0.1, 0.2, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1, 0.1),
+                createDoublesBlock(1.1, 1.1, 2.2, 1.1, 2.2, 1.1, 2.2, 1.1, 2.2, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1, 1.1),
                 createRLEBlock(0.5, 17));
 
         assertAggregation(

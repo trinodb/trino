@@ -2889,12 +2889,12 @@ public abstract class AbstractTestEngineOnlyQueries
 
         MaterializedResult actual = computeActual("" +
                 "SELECT orderstatus, " +
-                "   approx_percentile(orderkey, 0.5), " +
-                "   approx_percentile(totalprice, 0.5)," +
-                "   approx_percentile(orderkey, 2, 0.5)," +
-                "   approx_percentile(totalprice, 2, 0.5)," +
-                "   approx_percentile(orderkey, .2, 0.5)," +
-                "   approx_percentile(totalprice, .2, 0.5)\n" +
+                "   approx_percentile(orderkey, 5, 0.999), " +
+                "   approx_percentile(totalprice, 5, 0.999)," +
+                "   approx_percentile(orderkey, 10, 0.999)," +
+                "   approx_percentile(totalprice, 10, 0.999)," +
+                "   approx_percentile(orderkey, 0.999)," +
+                "   approx_percentile(totalprice, 0.999)\n" +
                 "FROM orders\n" +
                 "GROUP BY orderstatus");
 
@@ -2910,24 +2910,24 @@ public abstract class AbstractTestEngineOnlyQueries
             List<Long> orderKeys = Ordering.natural().sortedCopy(orderKeyByStatus.get(status));
             List<Double> totalPrices = Ordering.natural().sortedCopy(totalPriceByStatus.get(status));
 
-            // verify real rank of returned value is within 1% of requested rank
-            assertTrue(orderKey >= orderKeys.get((int) (0.49 * orderKeys.size())));
-            assertTrue(orderKey <= orderKeys.get((int) (0.51 * orderKeys.size())));
+            // verify real rank of returned value is within 0.05% of requested rank
+            assertTrue(orderKey >= orderKeys.get((int) (0.9985 * orderKeys.size())));
+            assertTrue(orderKey <= orderKeys.get((int) (0.9995 * orderKeys.size())));
 
-            assertTrue(orderKeyWeighted >= orderKeys.get((int) (0.49 * orderKeys.size())));
-            assertTrue(orderKeyWeighted <= orderKeys.get((int) (0.51 * orderKeys.size())));
+            assertTrue(orderKeyWeighted >= orderKeys.get((int) (0.9985 * orderKeys.size())));
+            assertTrue(orderKeyWeighted <= orderKeys.get((int) (0.9995 * orderKeys.size())));
 
-            assertTrue(orderKeyFractionalWeighted >= orderKeys.get((int) (0.49 * orderKeys.size())));
-            assertTrue(orderKeyFractionalWeighted <= orderKeys.get((int) (0.51 * orderKeys.size())));
+            assertTrue(orderKeyFractionalWeighted >= orderKeys.get((int) (0.9985 * orderKeys.size())));
+            assertTrue(orderKeyFractionalWeighted <= orderKeys.get((int) (0.9995 * orderKeys.size())));
 
-            assertTrue(totalPrice >= totalPrices.get((int) (0.49 * totalPrices.size())));
-            assertTrue(totalPrice <= totalPrices.get((int) (0.51 * totalPrices.size())));
+            assertTrue(totalPrice >= totalPrices.get((int) (0.9985 * totalPrices.size())));
+            assertTrue(totalPrice <= totalPrices.get((int) (0.9995 * totalPrices.size())));
 
-            assertTrue(totalPriceWeighted >= totalPrices.get((int) (0.49 * totalPrices.size())));
-            assertTrue(totalPriceWeighted <= totalPrices.get((int) (0.51 * totalPrices.size())));
+            assertTrue(totalPriceWeighted >= totalPrices.get((int) (0.9985 * totalPrices.size())));
+            assertTrue(totalPriceWeighted <= totalPrices.get((int) (0.9995 * totalPrices.size())));
 
-            assertTrue(totalPriceFractionalWeighted >= totalPrices.get((int) (0.49 * totalPrices.size())));
-            assertTrue(totalPriceFractionalWeighted <= totalPrices.get((int) (0.51 * totalPrices.size())));
+            assertTrue(totalPriceFractionalWeighted >= totalPrices.get((int) (0.9985 * totalPrices.size())));
+            assertTrue(totalPriceFractionalWeighted <= totalPrices.get((int) (0.9995 * totalPrices.size())));
         }
     }
 

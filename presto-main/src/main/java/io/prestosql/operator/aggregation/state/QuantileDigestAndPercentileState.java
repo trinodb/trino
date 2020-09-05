@@ -17,8 +17,8 @@ import io.airlift.stats.QuantileDigest;
 import io.prestosql.spi.function.AccumulatorState;
 import io.prestosql.spi.function.AccumulatorStateMetadata;
 
-@AccumulatorStateMetadata(stateSerializerClass = DigestAndPercentileStateSerializer.class, stateFactoryClass = DigestAndPercentileStateFactory.class)
-public interface DigestAndPercentileState
+@AccumulatorStateMetadata(stateSerializerClass = QuantileDigestAndPercentileStateSerializer.class, stateFactoryClass = QuantileDigestAndPercentileStateFactory.class)
+public interface QuantileDigestAndPercentileState
         extends AccumulatorState
 {
     QuantileDigest getDigest();
