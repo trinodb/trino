@@ -13,19 +13,19 @@
  */
 package io.prestosql.operator.aggregation.state;
 
-import io.airlift.stats.QuantileDigest;
+import io.airlift.stats.TDigest;
 import io.prestosql.spi.function.AccumulatorState;
 import io.prestosql.spi.function.AccumulatorStateMetadata;
 
 import java.util.List;
 
-@AccumulatorStateMetadata(stateSerializerClass = DigestAndPercentileArrayStateSerializer.class, stateFactoryClass = DigestAndPercentileArrayStateFactory.class)
-public interface DigestAndPercentileArrayState
+@AccumulatorStateMetadata(stateSerializerClass = TDigestAndPercentileArrayStateSerializer.class, stateFactoryClass = TDigestAndPercentileArrayStateFactory.class)
+public interface TDigestAndPercentileArrayState
         extends AccumulatorState
 {
-    QuantileDigest getDigest();
+    TDigest getDigest();
 
-    void setDigest(QuantileDigest digest);
+    void setDigest(TDigest digest);
 
     void setPercentiles(List<Double> percentiles);
 
