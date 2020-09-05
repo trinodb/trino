@@ -14,7 +14,7 @@
 package io.prestosql.operator.aggregation.state;
 
 import io.airlift.slice.SizeOf;
-import io.airlift.stats.QuantileDigest;
+import io.airlift.stats.TDigest;
 import io.prestosql.array.ObjectBigArray;
 import io.prestosql.spi.function.AccumulatorStateFactory;
 import org.openjdk.jol.info.ClassLayout;
@@ -23,39 +23,39 @@ import java.util.List;
 
 import static java.util.Objects.requireNonNull;
 
-public class DigestAndPercentileArrayStateFactory
-        implements AccumulatorStateFactory<DigestAndPercentileArrayState>
+public class TDigestAndPercentileArrayStateFactory
+        implements AccumulatorStateFactory<TDigestAndPercentileArrayState>
 {
     @Override
-    public DigestAndPercentileArrayState createSingleState()
+    public TDigestAndPercentileArrayState createSingleState()
     {
-        return new SingleDigestAndPercentileArrayState();
+        return new SingleTDigestAndPercentileArrayState();
     }
 
     @Override
-    public Class<? extends DigestAndPercentileArrayState> getSingleStateClass()
+    public Class<? extends TDigestAndPercentileArrayState> getSingleStateClass()
     {
-        return SingleDigestAndPercentileArrayState.class;
+        return SingleTDigestAndPercentileArrayState.class;
     }
 
     @Override
-    public DigestAndPercentileArrayState createGroupedState()
+    public TDigestAndPercentileArrayState createGroupedState()
     {
-        return new GroupedDigestAndPercentileArrayState();
+        return new GroupedTDigestAndPercentileArrayState();
     }
 
     @Override
-    public Class<? extends DigestAndPercentileArrayState> getGroupedStateClass()
+    public Class<? extends TDigestAndPercentileArrayState> getGroupedStateClass()
     {
-        return GroupedDigestAndPercentileArrayState.class;
+        return GroupedTDigestAndPercentileArrayState.class;
     }
 
-    public static class GroupedDigestAndPercentileArrayState
+    public static class GroupedTDigestAndPercentileArrayState
             extends AbstractGroupedAccumulatorState
-            implements DigestAndPercentileArrayState
+            implements TDigestAndPercentileArrayState
     {
-        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedDigestAndPercentileArrayState.class).instanceSize();
-        private final ObjectBigArray<QuantileDigest> digests = new ObjectBigArray<>();
+        private static final int INSTANCE_SIZE = ClassLayout.parseClass(GroupedTDigestAndPercentileArrayState.class).instanceSize();
+        private final ObjectBigArray<TDigest> digests = new ObjectBigArray<>();
         private final ObjectBigArray<List<Double>> percentilesArray = new ObjectBigArray<>();
         private long size;
 
@@ -67,13 +67,13 @@ public class DigestAndPercentileArrayStateFactory
         }
 
         @Override
-        public QuantileDigest getDigest()
+        public TDigest getDigest()
         {
             return digests.get(getGroupId());
         }
 
         @Override
-        public void setDigest(QuantileDigest digest)
+        public void setDigest(TDigest digest)
         {
             digests.set(getGroupId(), requireNonNull(digest, "digest is null"));
         }
@@ -103,21 +103,21 @@ public class DigestAndPercentileArrayStateFactory
         }
     }
 
-    public static class SingleDigestAndPercentileArrayState
-            implements DigestAndPercentileArrayState
+    public static class SingleTDigestAndPercentileArrayState
+            implements TDigestAndPercentileArrayState
     {
-        public static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleDigestAndPercentileArrayState.class).instanceSize();
-        private QuantileDigest digest;
+        public static final int INSTANCE_SIZE = ClassLayout.parseClass(SingleTDigestAndPercentileArrayState.class).instanceSize();
+        private TDigest digest;
         private List<Double> percentiles;
 
         @Override
-        public QuantileDigest getDigest()
+        public TDigest getDigest()
         {
             return digest;
         }
 
         @Override
-        public void setDigest(QuantileDigest digest)
+        public void setDigest(TDigest digest)
         {
             this.digest = requireNonNull(digest, "digest is null");
         }

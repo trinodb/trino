@@ -205,7 +205,7 @@ public class TestApproximatePercentileAggregation
         // weighted + array of approx_percentile
         assertAggregation(
                 LONG_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION,
-                ImmutableList.of(1L, 2L),
+                ImmutableList.of(2L, 3L),
                 createLongsBlock(1L, 2L, 3L),
                 createDoublesBlock(4.0, 2.0, 1.0),
                 createRLEBlock(ImmutableList.of(0.5, 0.8), 3));
@@ -348,7 +348,7 @@ public class TestApproximatePercentileAggregation
         // weighted + array of approx_percentile
         assertAggregation(
                 FLOAT_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION,
-                ImmutableList.of(1.0f, 2.0f),
+                ImmutableList.of(1.5f, 2.6f),
                 createBlockOfReals(1.0f, 2.0f, 3.0f),
                 createDoublesBlock(4.0, 2.0, 1.0),
                 createRLEBlock(ImmutableList.of(0.5, 0.8), 3));
@@ -479,7 +479,7 @@ public class TestApproximatePercentileAggregation
         // weighted + array of approx_percentile
         assertAggregation(
                 DOUBLE_APPROXIMATE_PERCENTILE_ARRAY_WEIGHTED_AGGREGATION,
-                ImmutableList.of(1.0, 2.0),
+                ImmutableList.of(1.5, 2.6000000000000005),
                 createDoublesBlock(1.0, 2.0, 3.0),
                 createDoublesBlock(4.0, 2.0, 1.0),
                 createRLEBlock(ImmutableList.of(0.5, 0.8), 3));
