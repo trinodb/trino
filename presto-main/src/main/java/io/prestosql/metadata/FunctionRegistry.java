@@ -54,6 +54,7 @@ import io.prestosql.operator.aggregation.LongSumAggregation;
 import io.prestosql.operator.aggregation.MaxDataSizeForStats;
 import io.prestosql.operator.aggregation.MergeHyperLogLogAggregation;
 import io.prestosql.operator.aggregation.MergeQuantileDigestFunction;
+import io.prestosql.operator.aggregation.MergeTDigestAggregation;
 import io.prestosql.operator.aggregation.RealCorrelationAggregation;
 import io.prestosql.operator.aggregation.RealCovarianceAggregation;
 import io.prestosql.operator.aggregation.RealGeometricMeanAggregations;
@@ -454,6 +455,7 @@ public class FunctionRegistry
                 .aggregates(ApproximateSetAggregation.class)
                 .functions(QDIGEST_AGG, QDIGEST_AGG_WITH_WEIGHT, QDIGEST_AGG_WITH_WEIGHT_AND_ERROR)
                 .function(MergeQuantileDigestFunction.MERGE)
+                .aggregates(MergeTDigestAggregation.class)
                 .aggregates(DoubleHistogramAggregation.class)
                 .aggregates(RealHistogramAggregation.class)
                 .aggregates(DoubleCovarianceAggregation.class)
