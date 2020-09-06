@@ -138,6 +138,7 @@ import io.prestosql.operator.scalar.SessionFunctions;
 import io.prestosql.operator.scalar.SplitToMapFunction;
 import io.prestosql.operator.scalar.SplitToMultimapFunction;
 import io.prestosql.operator.scalar.StringFunctions;
+import io.prestosql.operator.scalar.TDigestFunctions;
 import io.prestosql.operator.scalar.TryFunction;
 import io.prestosql.operator.scalar.TypeOfFunction;
 import io.prestosql.operator.scalar.UrlFunctions;
@@ -493,6 +494,7 @@ public class FunctionRegistry
                 .scalar(ColorOperators.ColorDistinctFromOperator.class)
                 .scalars(HyperLogLogFunctions.class)
                 .scalars(QuantileDigestFunctions.class)
+                .scalars(TDigestFunctions.class)
                 .scalars(UnknownOperators.class)
                 .scalar(UnknownOperators.UnknownDistinctFromOperator.class)
                 .scalars(BooleanOperators.class)
