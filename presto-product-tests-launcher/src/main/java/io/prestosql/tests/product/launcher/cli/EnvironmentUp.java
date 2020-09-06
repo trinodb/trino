@@ -55,7 +55,6 @@ public final class EnvironmentUp
         implements Callable<Integer>
 {
     private static final Logger log = Logger.get(EnvironmentUp.class);
-    private static final String LOGS_DIR = "logs/";
 
     @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
     public boolean usageHelpRequested;
