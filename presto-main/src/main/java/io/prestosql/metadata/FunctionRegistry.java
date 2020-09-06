@@ -244,6 +244,7 @@ import io.prestosql.type.LikeFunctions;
 import io.prestosql.type.QuantileDigestOperators;
 import io.prestosql.type.RealOperators;
 import io.prestosql.type.SmallintOperators;
+import io.prestosql.type.TDigestOperators;
 import io.prestosql.type.TinyintOperators;
 import io.prestosql.type.UnknownOperators;
 import io.prestosql.type.UuidOperators;
@@ -521,6 +522,7 @@ public class FunctionRegistry
                 .scalars(DateTimeOperators.class)
                 .scalars(HyperLogLogOperators.class)
                 .scalars(QuantileDigestOperators.class)
+                .scalars(TDigestOperators.class)
                 .scalars(IpAddressOperators.class)
                 .scalar(IpAddressOperators.IpAddressDistinctFromOperator.class)
                 .scalars(UuidOperators.class)
