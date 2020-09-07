@@ -50,6 +50,7 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.Executor;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -64,6 +65,7 @@ import static com.google.common.util.concurrent.MoreExecutors.directExecutor;
 import static io.airlift.units.DataSize.succinctBytes;
 import static io.prestosql.execution.TaskState.ABORTED;
 import static io.prestosql.execution.TaskState.FAILED;
+import static io.prestosql.execution.TaskState.RUNNING;
 import static io.prestosql.util.Failures.toFailures;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -81,9 +83,11 @@ public class SqlTask
     private final QueryContext queryContext;
 
     private final SqlTaskExecutionFactory sqlTaskExecutionFactory;
+    private final Executor taskNotificationExecutor;
 
     private final AtomicReference<DateTime> lastHeartbeat = new AtomicReference<>(DateTime.now());
-    private final AtomicLong nextTaskStatusVersion = new AtomicLong(TaskStatus.STARTING_VERSION);
+    private final AtomicLong taskStatusVersion = new AtomicLong(TaskStatus.STARTING_VERSION);
+    private final FutureStateChange<?> taskStatusVersionChange = new FutureStateChange<>();
 
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
     private final AtomicBoolean needsPlan = new AtomicBoolean(true);
@@ -119,7 +123,7 @@ public class SqlTask
         this.nodeId = requireNonNull(nodeId, "nodeId is null");
         this.queryContext = requireNonNull(queryContext, "queryContext is null");
         this.sqlTaskExecutionFactory = requireNonNull(sqlTaskExecutionFactory, "sqlTaskExecutionFactory is null");
-        requireNonNull(taskNotificationExecutor, "taskNotificationExecutor is null");
+        this.taskNotificationExecutor = requireNonNull(taskNotificationExecutor, "taskNotificationExecutor is null");
         requireNonNull(maxBufferSize, "maxBufferSize is null");
 
         outputBuffer = new LazyOutputBuffer(
@@ -140,6 +144,10 @@ public class SqlTask
         requireNonNull(failedTasks, "failedTasks is null");
         taskStateMachine.addStateChangeListener(newState -> {
             if (!newState.isDone()) {
+                if (newState != RUNNING) {
+                    // notify that task state changed (apart from initial RUNNING state notification)
+                    notifyStatusChanged();
+                }
                 return;
             }
 
@@ -177,6 +185,9 @@ public class SqlTask
             catch (Exception e) {
                 log.warn(e, "Error running task cleanup callback %s", SqlTask.this.taskId);
             }
+
+            // notify that task is finished
+            notifyStatusChanged();
         });
     }
 
@@ -219,11 +230,18 @@ public class SqlTask
         }
     }
 
+    private synchronized void notifyStatusChanged()
+    {
+        taskStatusVersion.incrementAndGet();
+        taskStatusVersionChange.complete(null, taskNotificationExecutor);
+    }
+
     private TaskStatus createTaskStatus(TaskHolder taskHolder)
     {
-        // Always return a new TaskStatus with a larger version number;
-        // otherwise a client will not accept the update
-        long versionNumber = nextTaskStatusVersion.getAndIncrement();
+        // Obtain task status version before building actual TaskStatus object.
+        // This way any task updates won't be lost since all updates happen
+        // before version number is increased.
+        long versionNumber = taskStatusVersion.get();
 
         TaskState state = taskStateMachine.getState();
         List<ExecutionFailureInfo> failures = ImmutableList.of();
@@ -340,32 +358,28 @@ public class SqlTask
                 needsPlan.get());
     }
 
-    public ListenableFuture<TaskStatus> getTaskStatus(TaskState callersCurrentState)
+    public synchronized ListenableFuture<TaskStatus> getTaskStatus(long callersCurrentVersion)
     {
-        requireNonNull(callersCurrentState, "callersCurrentState is null");
-
-        if (callersCurrentState.isDone()) {
+        if (callersCurrentVersion < taskStatusVersion.get() || taskHolderReference.get().isFinished()) {
+            // return immediately if caller has older task status version or final task info is available
             return immediateFuture(getTaskStatus());
         }
 
-        ListenableFuture<TaskState> futureTaskState = taskStateMachine.getStateChange(callersCurrentState);
-        return Futures.transform(futureTaskState, input -> getTaskStatus(), directExecutor());
+        // At this point taskHolderReference.get().isFinished() might become true. However notifyStatusChanged()
+        // is synchronized therefore notification for new listener won't be lost.
+        return Futures.transform(taskStatusVersionChange.createNewListener(), input -> getTaskStatus(), directExecutor());
     }
 
-    public ListenableFuture<TaskInfo> getTaskInfo(TaskState callersCurrentState)
+    public synchronized ListenableFuture<TaskInfo> getTaskInfo(long callersCurrentVersion)
     {
-        requireNonNull(callersCurrentState, "callersCurrentState is null");
-
-        // If the caller's current state is already done, just return the current
-        // state of this task as it will either be done or possibly still running
-        // (due to a bug in the caller), since we cannot transition from a done
-        // state.
-        if (callersCurrentState.isDone()) {
+        if (callersCurrentVersion < taskStatusVersion.get() || taskHolderReference.get().isFinished()) {
+            // return immediately if caller has older task status version or final task info is available
             return immediateFuture(getTaskInfo());
         }
 
-        ListenableFuture<TaskState> futureTaskState = taskStateMachine.getStateChange(callersCurrentState);
-        return Futures.transform(futureTaskState, input -> getTaskInfo(), directExecutor());
+        // At this point taskHolderReference.get().isFinished() might become true. However notifyStatusChanged()
+        // is synchronized therefore notification for new listener won't be lost.
+        return Futures.transform(taskStatusVersionChange.createNewListener(), input -> getTaskInfo(), directExecutor());
     }
 
     public TaskInfo updateTask(Session session, Optional<PlanFragment> fragment, List<TaskSource> sources, OutputBuffers outputBuffers, OptionalInt totalPartitions)

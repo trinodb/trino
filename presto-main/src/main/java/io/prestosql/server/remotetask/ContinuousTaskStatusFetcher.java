@@ -43,7 +43,7 @@ import static io.airlift.http.client.FullJsonResponseHandler.createFullJsonRespo
 import static io.airlift.http.client.HttpUriBuilder.uriBuilderFrom;
 import static io.airlift.http.client.Request.Builder.prepareGet;
 import static io.airlift.units.Duration.nanosSince;
-import static io.prestosql.client.PrestoHeaders.PRESTO_CURRENT_STATE;
+import static io.prestosql.client.PrestoHeaders.PRESTO_CURRENT_VERSION;
 import static io.prestosql.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static io.prestosql.spi.StandardErrorCode.REMOTE_TASK_MISMATCH;
 import static io.prestosql.util.Failures.REMOTE_TASK_MISMATCH_ERROR;
@@ -145,7 +145,7 @@ class ContinuousTaskStatusFetcher
         Request request = prepareGet()
                 .setUri(uriBuilderFrom(taskStatus.getSelf()).appendPath("status").build())
                 .setHeader(CONTENT_TYPE, JSON_UTF_8.toString())
-                .setHeader(PRESTO_CURRENT_STATE, taskStatus.getState().toString())
+                .setHeader(PRESTO_CURRENT_VERSION, Long.toString(taskStatus.getVersion()))
                 .setHeader(PRESTO_MAX_WAIT, refreshMaxWait.toString())
                 .build();
 

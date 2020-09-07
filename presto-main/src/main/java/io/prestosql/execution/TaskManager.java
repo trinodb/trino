@@ -58,7 +58,7 @@ public interface TaskManager
      * NOTE: this design assumes that only tasks that will eventually exist are
      * queried.
      */
-    ListenableFuture<TaskInfo> getTaskInfo(TaskId taskId, TaskState currentState);
+    ListenableFuture<TaskInfo> getTaskInfo(TaskId taskId, long currentVersion);
 
     /**
      * Gets the unique instance id of a task.  This can be used to detect a task
@@ -75,7 +75,7 @@ public interface TaskManager
      * NOTE: this design assumes that only tasks that will eventually exist are
      * queried.
      */
-    ListenableFuture<TaskStatus> getTaskStatus(TaskId taskId, TaskState currentState);
+    ListenableFuture<TaskStatus> getTaskStatus(TaskId taskId, long currentVersion);
 
     void updateMemoryPoolAssignments(MemoryPoolAssignmentsRequest assignments);
 

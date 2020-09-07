@@ -38,15 +38,10 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class TaskStatus
 {
     /**
-     * The first valid version that will be returned for a remote task.
+     * Version of task status that can be used to create an initial local task
+     * that is always older or equal than any remote task.
      */
-    public static final long STARTING_VERSION = 1;
-
-    /**
-     * A value lower than {@link #STARTING_VERSION}. This value can be used to
-     * create an initial local task that is always older than any remote task.
-     */
-    private static final long MIN_VERSION = 0;
+    public static final long STARTING_VERSION = 0;
 
     /**
      * A value larger than any valid value. This value can be used to create
@@ -101,7 +96,7 @@ public class TaskStatus
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
 
-        checkState(version >= MIN_VERSION, "version must be >= MIN_VERSION");
+        checkState(version >= STARTING_VERSION, "version must be >= STARTING_VERSION");
         this.version = version;
         this.state = requireNonNull(state, "state is null");
         this.self = requireNonNull(self, "self is null");
@@ -251,7 +246,7 @@ public class TaskStatus
         return new TaskStatus(
                 taskId,
                 "",
-                MIN_VERSION,
+                STARTING_VERSION,
                 PLANNED,
                 location,
                 nodeId,
