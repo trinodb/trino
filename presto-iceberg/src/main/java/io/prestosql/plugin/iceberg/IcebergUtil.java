@@ -39,6 +39,7 @@ import java.util.Optional;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Streams.stream;
+import static io.prestosql.plugin.hive.HiveMetadata.TABLE_COMMENT;
 import static io.prestosql.plugin.iceberg.TypeConverter.toPrestoType;
 import static org.apache.iceberg.BaseMetastoreTableOperations.ICEBERG_TABLE_TYPE_VALUE;
 import static org.apache.iceberg.BaseMetastoreTableOperations.TABLE_TYPE_PROP;
@@ -101,9 +102,14 @@ final class IcebergUtil
                 .toUpperCase(Locale.ENGLISH));
     }
 
+    public static Optional<String> getTableComment(Table table)
+    {
+        return Optional.ofNullable(table.properties().get(TABLE_COMMENT));
+    }
+
     public static TableScan getTableScan(ConnectorSession session, TupleDomain<IcebergColumnHandle> predicates, Optional<Long> snapshotId, Table icebergTable)
     {
-        Expression expression = ExpressionConverter.toIcebergExpression(predicates, session);
+        Expression expression = ExpressionConverter.toIcebergExpression(predicates);
         TableScan tableScan = icebergTable.newScan().filter(expression);
         return snapshotId
                 .map(id -> isSnapshot(icebergTable, id) ? tableScan.useSnapshot(id) : tableScan.asOfTime(id))

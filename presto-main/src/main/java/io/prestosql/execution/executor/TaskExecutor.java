@@ -464,7 +464,7 @@ public class TaskExecutor
             try (SetThreadName runnerName = new SetThreadName("SplitRunner-%s", runnerId)) {
                 while (!closed && !Thread.currentThread().isInterrupted()) {
                     // select next worker
-                    final PrioritizedSplitRunner split;
+                    PrioritizedSplitRunner split;
                     try {
                         split = waitingSplits.take();
                     }

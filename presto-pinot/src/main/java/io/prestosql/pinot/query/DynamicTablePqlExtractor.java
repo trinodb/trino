@@ -49,7 +49,7 @@ public final class DynamicTablePqlExtractor
             }
         }
         builder.append(table.getAggregateColumns().stream()
-                .map(aggregationExpression -> convertAggregationExpressionToPql(aggregationExpression))
+                .map(DynamicTablePqlExtractor::convertAggregationExpressionToPql)
                 .collect(joining(", ")));
         builder.append(" from ");
         builder.append(table.getTableName());
@@ -68,7 +68,7 @@ public final class DynamicTablePqlExtractor
         if (!table.getOrderBy().isEmpty()) {
             builder.append(" order by ")
                     .append(table.getOrderBy().stream()
-                            .map(orderByExpression -> convertOrderByExpressionToPql(orderByExpression))
+                            .map(DynamicTablePqlExtractor::convertOrderByExpressionToPql)
                             .collect(joining(", ")));
         }
         if (table.getLimit().isPresent()) {

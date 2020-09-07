@@ -27,6 +27,7 @@ import io.prestosql.execution.scheduler.SplitSchedulerStats;
 import io.prestosql.failuredetector.FailureDetector;
 import io.prestosql.metadata.InternalNode;
 import io.prestosql.metadata.Split;
+import io.prestosql.server.DynamicFilterService.StageDynamicFilters;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.split.RemoteSplit;
 import io.prestosql.sql.planner.PlanFragment;
@@ -87,6 +88,8 @@ public final class SqlStageExecution
     private final Set<TaskId> allTasks = newConcurrentHashSet();
     @GuardedBy("this")
     private final Set<TaskId> finishedTasks = newConcurrentHashSet();
+    @GuardedBy("this")
+    private final Set<TaskId> flushingTasks = newConcurrentHashSet();
     @GuardedBy("this")
     private final Set<TaskId> tasksWithFinalInfo = newConcurrentHashSet();
     @GuardedBy("this")
@@ -224,6 +227,9 @@ public final class SqlStageExecution
         if (getAllTasks().stream().anyMatch(task -> getState() == StageState.RUNNING)) {
             stateMachine.transitionToRunning();
         }
+        if (isFlushing()) {
+            stateMachine.transitionToFlushing();
+        }
         if (finishedTasks.containsAll(allTasks)) {
             stateMachine.transitionToFinished();
         }
@@ -279,6 +285,17 @@ public final class SqlStageExecution
     public StageInfo getStageInfo()
     {
         return stateMachine.getStageInfo(this::getAllTaskInfo);
+    }
+
+    public StageDynamicFilters getStageDynamicFilters()
+    {
+        List<RemoteTask> tasks = getAllTasks();
+        return new StageDynamicFilters(
+                stateMachine.getState(),
+                tasks.size(),
+                tasks.stream()
+                        .map(task -> task.getTaskStatus().getDynamicFilterDomains())
+                        .collect(toImmutableList()));
     }
 
     private Iterable<TaskInfo> getAllTaskInfo()
@@ -493,13 +510,20 @@ public final class SqlStageExecution
                 // A task should only be in the aborted state if the STAGE is done (ABORTED or FAILED)
                 stateMachine.transitionToFailed(new PrestoException(GENERIC_INTERNAL_ERROR, "A task is in the ABORTED state but stage is " + stageState));
             }
+            else if (taskState == TaskState.FLUSHING) {
+                flushingTasks.add(taskStatus.getTaskId());
+            }
             else if (taskState == TaskState.FINISHED) {
                 finishedTasks.add(taskStatus.getTaskId());
+                flushingTasks.remove(taskStatus.getTaskId());
             }
 
-            if (stageState == StageState.SCHEDULED || stageState == StageState.RUNNING) {
+            if (stageState == StageState.SCHEDULED || stageState == StageState.RUNNING || stageState == StageState.FLUSHING) {
                 if (taskState == TaskState.RUNNING) {
                     stateMachine.transitionToRunning();
+                }
+                if (isFlushing()) {
+                    stateMachine.transitionToFlushing();
                 }
                 if (finishedTasks.containsAll(allTasks)) {
                     stateMachine.transitionToFinished();
@@ -510,6 +534,13 @@ public final class SqlStageExecution
             // after updating state, check if all tasks have final status information
             checkAllTaskFinal();
         }
+    }
+
+    private synchronized boolean isFlushing()
+    {
+        // to transition to flushing, there must be at least one flushing task, and all others must be flushing or finished.
+        return !flushingTasks.isEmpty()
+                && allTasks.stream().allMatch(taskId -> finishedTasks.contains(taskId) || flushingTasks.contains(taskId));
     }
 
     private synchronized void updateFinalTaskInfo(TaskInfo finalTaskInfo)
@@ -526,6 +557,18 @@ public final class SqlStageExecution
                     .collect(toImmutableList());
             stateMachine.setAllTasksFinal(finalTaskInfos);
         }
+    }
+
+    public List<TaskStatus> getTaskStatuses()
+    {
+        return getAllTasks().stream()
+                .map(RemoteTask::getTaskStatus)
+                .collect(toImmutableList());
+    }
+
+    public boolean isAnyTaskBlocked()
+    {
+        return getTaskStatuses().stream().anyMatch(TaskStatus::isOutputBufferOverutilized);
     }
 
     private ExecutionFailureInfo rewriteTransportFailure(ExecutionFailureInfo executionFailureInfo)

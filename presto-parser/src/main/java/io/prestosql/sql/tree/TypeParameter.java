@@ -73,4 +73,10 @@ public class TypeParameter
     {
         return Objects.hash(type);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

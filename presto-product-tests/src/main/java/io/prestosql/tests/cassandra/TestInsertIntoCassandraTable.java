@@ -25,7 +25,8 @@ import org.testng.annotations.Test;
 
 import java.sql.Date;
 import java.sql.Timestamp;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
@@ -34,6 +35,7 @@ import static io.prestosql.tempto.fulfillment.table.MutableTablesState.mutableTa
 import static io.prestosql.tempto.fulfillment.table.TableRequirements.mutableTable;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.CASSANDRA;
+import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.prestosql.tests.cassandra.DataTypesTableDefinition.CASSANDRA_ALL_TYPES;
 import static io.prestosql.tests.cassandra.TestConstants.CONNECTOR_NAME;
 import static io.prestosql.tests.cassandra.TestConstants.KEY_SPACE;
@@ -57,7 +59,7 @@ public class TestInsertIntoCassandraTable
         return mutableTable(CASSANDRA_ALL_TYPES, CASSANDRA_INSERT_TABLE, CREATED);
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testInsertIntoValuesToCassandraTableAllSimpleTypes()
     {
         TableName table = mutableTablesState().get(CASSANDRA_INSERT_TABLE).getTableName();
@@ -91,7 +93,7 @@ public class TestInsertIntoCassandraTable
                 "null, " +
                 "null, " +
                 "'text value', " +
-                "timestamp '9999-12-31 23:59:59'," +
+                "timestamp '9999-12-31 23:59:59Z'," +
                 "null, " +
                 "null, " +
                 "'varchar value'," +
@@ -116,7 +118,7 @@ public class TestInsertIntoCassandraTable
                         -32768,
                         "text value",
                         -128,
-                        Timestamp.valueOf(LocalDateTime.of(9999, 12, 31, 23, 59, 59)),
+                        Timestamp.from(OffsetDateTime.of(9999, 12, 31, 23, 59, 59, 0, ZoneOffset.UTC).toInstant()),
                         null,
                         null,
                         "varchar value",
@@ -139,7 +141,7 @@ public class TestInsertIntoCassandraTable
                 .failsWithMessage("Invalid null value in condition for column a");
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testInsertIntoValuesToCassandraMaterizedView()
     {
         TableName table = mutableTablesState().get(CASSANDRA_INSERT_TABLE).getTableName();

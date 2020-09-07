@@ -50,6 +50,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.union;
+import static io.prestosql.SystemSessionProperties.isOmitDateTimeTypePrecision;
 import static io.prestosql.connector.informationschema.InformationSchemaMetadata.defaultPrefixes;
 import static io.prestosql.connector.informationschema.InformationSchemaMetadata.isTablesEnumeratingTable;
 import static io.prestosql.metadata.MetadataListing.getViews;
@@ -60,6 +61,7 @@ import static io.prestosql.metadata.MetadataListing.listTables;
 import static io.prestosql.metadata.MetadataListing.listViews;
 import static io.prestosql.spi.security.PrincipalType.USER;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
+import static io.prestosql.type.TypeUtils.getDisplayLabel;
 import static java.util.Objects.requireNonNull;
 
 public class InformationSchemaPageSource
@@ -249,6 +251,7 @@ public class InformationSchemaPageSource
         for (Map.Entry<SchemaTableName, List<ColumnMetadata>> entry : listTableColumns(session, metadata, accessControl, prefix).entrySet()) {
             SchemaTableName tableName = entry.getKey();
             int ordinalPosition = 1;
+
             for (ColumnMetadata column : entry.getValue()) {
                 if (column.isHidden()) {
                     continue;
@@ -261,7 +264,7 @@ public class InformationSchemaPageSource
                         ordinalPosition,
                         null,
                         "YES",
-                        column.getType().getDisplayName(),
+                        getDisplayLabel(column.getType(), isOmitDateTimeTypePrecision(session)),
                         column.getComment(),
                         column.getExtraInfo(),
                         column.getComment());

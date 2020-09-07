@@ -49,7 +49,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.plugin.raptor.legacy.storage.organization.ShardOrganizerUtil.getOrganizationEligibleShards;
 import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.onDemandDao;
 import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
 import static java.util.concurrent.TimeUnit.SECONDS;
@@ -83,14 +83,12 @@ public class ShardCompactionManager
             NodeManager nodeManager,
             ShardManager shardManager,
             ShardOrganizer organizer,
-            TemporalFunction temporalFunction,
             StorageManagerConfig config)
     {
         this(dbi,
                 nodeManager.getCurrentNode().getNodeIdentifier(),
                 shardManager,
                 organizer,
-                temporalFunction,
                 config.getCompactionInterval(),
                 config.getMaxShardSize(),
                 config.getMaxShardRows(),
@@ -102,7 +100,6 @@ public class ShardCompactionManager
             String currentNodeIdentifier,
             ShardManager shardManager,
             ShardOrganizer organizer,
-            TemporalFunction temporalFunction,
             Duration compactionDiscoveryInterval,
             DataSize maxShardSize,
             long maxShardRows,
@@ -123,7 +120,7 @@ public class ShardCompactionManager
         this.maxShardRows = maxShardRows;
 
         this.compactionEnabled = compactionEnabled;
-        this.compactionSetCreator = new CompactionSetCreator(temporalFunction, maxShardSize, maxShardRows);
+        this.compactionSetCreator = new CompactionSetCreator(maxShardSize, maxShardRows);
     }
 
     @PostConstruct
@@ -216,7 +213,7 @@ public class ShardCompactionManager
 
     private static boolean isValidTemporalColumn(long tableId, Type type)
     {
-        if (!type.equals(DATE) && !type.equals(TIMESTAMP)) {
+        if (!type.equals(DATE) && !type.equals(TIMESTAMP_MILLIS)) {
             log.warn("Temporal column type of table ID %s set incorrectly to %s", tableId, type);
             return false;
         }

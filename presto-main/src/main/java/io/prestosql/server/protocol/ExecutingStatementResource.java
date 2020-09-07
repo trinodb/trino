@@ -27,6 +27,7 @@ import io.prestosql.memory.context.SimpleLocalMemoryContext;
 import io.prestosql.operator.ExchangeClient;
 import io.prestosql.operator.ExchangeClientSupplier;
 import io.prestosql.server.ForStatementResource;
+import io.prestosql.server.security.ResourceSecurity;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.block.BlockEncodingSerde;
 
@@ -72,6 +73,7 @@ import static io.prestosql.client.PrestoHeaders.PRESTO_SET_SESSION;
 import static io.prestosql.client.PrestoHeaders.PRESTO_STARTED_TRANSACTION_ID;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.server.protocol.Slug.Context.EXECUTING_QUERY;
+import static io.prestosql.server.security.ResourceSecurity.AccessType.PUBLIC;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -141,6 +143,7 @@ public class ExecutingStatementResource
         queryPurger.shutdownNow();
     }
 
+    @ResourceSecurity(PUBLIC)
     @GET
     @Path("{queryId}/{slug}/{token}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -261,6 +264,7 @@ public class ExecutingStatementResource
         return response.build();
     }
 
+    @ResourceSecurity(PUBLIC)
     @DELETE
     @Path("{queryId}/{slug}/{token}")
     @Produces(MediaType.APPLICATION_JSON)
@@ -291,6 +295,7 @@ public class ExecutingStatementResource
         }
     }
 
+    @ResourceSecurity(PUBLIC)
     @DELETE
     @Path("partialCancel/{queryId}/{stage}/{slug}/{token}")
     public void partialCancel(

@@ -13,7 +13,6 @@
  */
 package io.prestosql.pinot;
 
-import com.google.common.base.Preconditions;
 import io.airlift.http.client.Request;
 import io.airlift.http.client.StringResponseHandler.StringResponse;
 import org.weakref.jmx.Managed;
@@ -22,6 +21,7 @@ import org.weakref.jmx.Nested;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Function;
 
+import static com.google.common.base.Preconditions.checkState;
 import static java.net.HttpURLConnection.HTTP_MULT_CHOICE;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.util.Locale.ENGLISH;
@@ -121,7 +121,7 @@ public class PinotMetrics
     public static <T> T doWithRetries(int retries, Function<Integer, T> caller)
     {
         PinotException firstError = null;
-        Preconditions.checkState(retries > 0, "Invalid num of retries %d", retries);
+        checkState(retries > 0, "Invalid num of retries %d", retries);
         for (int i = 0; i < retries; ++i) {
             try {
                 return caller.apply(i);

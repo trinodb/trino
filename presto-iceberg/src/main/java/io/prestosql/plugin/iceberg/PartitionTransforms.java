@@ -19,7 +19,6 @@ import io.airlift.slice.Slices;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import org.apache.iceberg.PartitionField;
 import org.joda.time.DurationField;
@@ -34,8 +33,9 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 import static io.airlift.slice.SliceUtf8.offsetOfCodePoint;
+import static io.prestosql.plugin.iceberg.util.Timestamps.getTimestampTz;
+import static io.prestosql.plugin.iceberg.util.Timestamps.timestampTzToMicros;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.Decimals.encodeScaledValue;
 import static io.prestosql.spi.type.Decimals.encodeShortScaledValue;
@@ -43,16 +43,18 @@ import static io.prestosql.spi.type.Decimals.isLongDecimal;
 import static io.prestosql.spi.type.Decimals.isShortDecimal;
 import static io.prestosql.spi.type.Decimals.readBigDecimal;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimeType.TIME_MICROS;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Integer.parseInt;
+import static java.lang.Math.floorDiv;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.DAYS;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public final class PartitionTransforms
 {
@@ -78,10 +80,10 @@ public final class PartitionTransforms
                 if (type.equals(DATE)) {
                     return new ColumnTransform(INTEGER, PartitionTransforms::yearsFromDate);
                 }
-                if (type.equals(TIMESTAMP)) {
+                if (type.equals(TIMESTAMP_MICROS)) {
                     return new ColumnTransform(INTEGER, PartitionTransforms::yearsFromTimestamp);
                 }
-                if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+                if (type.equals(TIMESTAMP_TZ_MICROS)) {
                     return new ColumnTransform(INTEGER, PartitionTransforms::yearsFromTimestampWithTimeZone);
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'year': " + field);
@@ -89,10 +91,10 @@ public final class PartitionTransforms
                 if (type.equals(DATE)) {
                     return new ColumnTransform(INTEGER, PartitionTransforms::monthsFromDate);
                 }
-                if (type.equals(TIMESTAMP)) {
+                if (type.equals(TIMESTAMP_MICROS)) {
                     return new ColumnTransform(INTEGER, PartitionTransforms::monthsFromTimestamp);
                 }
-                if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+                if (type.equals(TIMESTAMP_TZ_MICROS)) {
                     return new ColumnTransform(INTEGER, PartitionTransforms::monthsFromTimestampWithTimeZone);
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'month': " + field);
@@ -100,18 +102,18 @@ public final class PartitionTransforms
                 if (type.equals(DATE)) {
                     return new ColumnTransform(INTEGER, PartitionTransforms::daysFromDate);
                 }
-                if (type.equals(TIMESTAMP)) {
+                if (type.equals(TIMESTAMP_MICROS)) {
                     return new ColumnTransform(INTEGER, PartitionTransforms::daysFromTimestamp);
                 }
-                if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+                if (type.equals(TIMESTAMP_TZ_MICROS)) {
                     return new ColumnTransform(INTEGER, PartitionTransforms::daysFromTimestampWithTimeZone);
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'day': " + field);
             case "hour":
-                if (type.equals(TIMESTAMP)) {
+                if (type.equals(TIMESTAMP_MICROS)) {
                     return new ColumnTransform(INTEGER, PartitionTransforms::hoursFromTimestamp);
                 }
-                if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+                if (type.equals(TIMESTAMP_TZ_MICROS)) {
                     return new ColumnTransform(INTEGER, PartitionTransforms::hoursFromTimestampWithTimeZone);
                 }
                 throw new UnsupportedOperationException("Unsupported type for 'hour': " + field);
@@ -137,13 +139,13 @@ public final class PartitionTransforms
             if (type.equals(DATE)) {
                 return new ColumnTransform(INTEGER, block -> bucketDate(block, count));
             }
-            if (type.equals(TIME)) {
+            if (type.equals(TIME_MICROS)) {
                 return new ColumnTransform(INTEGER, block -> bucketTime(block, count));
             }
-            if (type.equals(TIMESTAMP)) {
+            if (type.equals(TIMESTAMP_MICROS)) {
                 return new ColumnTransform(INTEGER, block -> bucketTimestamp(block, count));
             }
-            if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+            if (type.equals(TIMESTAMP_TZ_MICROS)) {
                 return new ColumnTransform(INTEGER, block -> bucketTimestampWithTimeZone(block, count));
             }
             if (isVarcharType(type)) {
@@ -151,9 +153,6 @@ public final class PartitionTransforms
             }
             if (type.equals(VARBINARY)) {
                 return new ColumnTransform(INTEGER, block -> bucketVarbinary(block, count));
-            }
-            if (type.getBaseName().equals(StandardTypes.UUID)) {
-                return new ColumnTransform(INTEGER, block -> bucketUuid(block, count));
             }
             throw new UnsupportedOperationException("Unsupported type for 'bucket': " + field);
         }
@@ -245,9 +244,10 @@ public final class PartitionTransforms
                 builder.appendNull();
                 continue;
             }
-            long value = TIMESTAMP.getLong(block, position);
-            value = function.applyAsLong(value);
-            INTEGER.writeLong(builder, value);
+            long epochMicros = TIMESTAMP_MICROS.getLong(block, position);
+            long epochMillis = floorDiv(epochMicros, MICROSECONDS_PER_MILLISECOND);
+            epochMillis = function.applyAsLong(epochMillis);
+            INTEGER.writeLong(builder, epochMillis);
         }
         return builder.build();
     }
@@ -280,9 +280,9 @@ public final class PartitionTransforms
                 builder.appendNull();
                 continue;
             }
-            long value = unpackMillisUtc(TIMESTAMP_WITH_TIME_ZONE.getLong(block, position));
-            value = function.applyAsLong(value);
-            INTEGER.writeLong(builder, value);
+            long epochMillis = getTimestampTz(block, position).getEpochMillis();
+            epochMillis = function.applyAsLong(epochMillis);
+            INTEGER.writeLong(builder, epochMillis);
         }
         return builder.build();
     }
@@ -323,25 +323,19 @@ public final class PartitionTransforms
     private static Block bucketTime(Block block, int count)
     {
         return bucketBlock(block, count, position -> {
-            long value = TIME.getLong(block, position);
-            return bucketHash(MILLISECONDS.toMicros(value));
+            long picos = TIME_MICROS.getLong(block, position);
+            return bucketHash(picos / PICOSECONDS_PER_MICROSECOND);
         });
     }
 
     private static Block bucketTimestamp(Block block, int count)
     {
-        return bucketBlock(block, count, position -> {
-            long value = TIMESTAMP.getLong(block, position);
-            return bucketHash(MILLISECONDS.toMicros(value));
-        });
+        return bucketBlock(block, count, position -> bucketHash(((Type) TIMESTAMP_MICROS).getLong(block, position)));
     }
 
     private static Block bucketTimestampWithTimeZone(Block block, int count)
     {
-        return bucketBlock(block, count, position -> {
-            long value = unpackMillisUtc(TIMESTAMP_WITH_TIME_ZONE.getLong(block, position));
-            return bucketHash(MILLISECONDS.toMicros(value));
-        });
+        return bucketBlock(block, count, position -> bucketHash(timestampTzToMicros(getTimestampTz(block, position))));
     }
 
     private static Block bucketVarchar(Block block, int count)
@@ -350,11 +344,6 @@ public final class PartitionTransforms
     }
 
     private static Block bucketVarbinary(Block block, int count)
-    {
-        return bucketBlock(block, count, position -> bucketHash(VARCHAR.getSlice(block, position)));
-    }
-
-    private static Block bucketUuid(Block block, int count)
     {
         return bucketBlock(block, count, position -> bucketHash(VARCHAR.getSlice(block, position)));
     }

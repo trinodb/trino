@@ -18,14 +18,13 @@ import com.google.common.collect.ImmutableList;
 import io.airlift.slice.Slice;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.metadata.Signature;
-import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.function.TypeParameter;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.sql.planner.FunctionCallBuilder;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.tree.Expression;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.QualifiedName;
@@ -47,17 +46,17 @@ public final class DynamicFilters
 {
     private DynamicFilters() {}
 
-    public static Expression createDynamicFilterExpression(Metadata metadata, String id, Type inputType, SymbolReference input)
+    public static Expression createDynamicFilterExpression(Metadata metadata, DynamicFilterId id, Type inputType, SymbolReference input)
     {
         return createDynamicFilterExpression(metadata, id, inputType, (Expression) input);
     }
 
     @VisibleForTesting
-    public static Expression createDynamicFilterExpression(Metadata metadata, String id, Type inputType, Expression input)
+    public static Expression createDynamicFilterExpression(Metadata metadata, DynamicFilterId id, Type inputType, Expression input)
     {
         return new FunctionCallBuilder(metadata)
                 .setName(QualifiedName.of(Function.NAME))
-                .addArgument(VarcharType.VARCHAR, new StringLiteral(id))
+                .addArgument(VarcharType.VARCHAR, new StringLiteral(id.toString()))
                 .addArgument(inputType, input)
                 .build();
     }
@@ -94,11 +93,7 @@ public final class DynamicFilters
         }
 
         FunctionCall functionCall = (FunctionCall) expression;
-        boolean isDynamicFilterFunction = ResolvedFunction.fromQualifiedName(functionCall.getName())
-                .map(ResolvedFunction::getSignature)
-                .map(Signature::getName)
-                .map(Function.NAME::equals)
-                .orElse(false);
+        boolean isDynamicFilterFunction = ResolvedFunction.extractFunctionName(functionCall.getName()).equals(Function.NAME);
         if (!isDynamicFilterFunction) {
             return Optional.empty();
         }
@@ -109,7 +104,7 @@ public final class DynamicFilters
         Expression firstArgument = arguments.get(0);
         checkArgument(firstArgument instanceof StringLiteral, "firstArgument is expected to be an instance of StringLiteral: %s", firstArgument.getClass().getSimpleName());
         String id = ((StringLiteral) firstArgument).getValue();
-        return Optional.of(new Descriptor(id, arguments.get(1)));
+        return Optional.of(new Descriptor(new DynamicFilterId(id), arguments.get(1)));
     }
 
     public static class ExtractResult
@@ -136,16 +131,16 @@ public final class DynamicFilters
 
     public static final class Descriptor
     {
-        private final String id;
+        private final DynamicFilterId id;
         private final Expression input;
 
-        public Descriptor(String id, Expression input)
+        public Descriptor(DynamicFilterId id, Expression input)
         {
             this.id = requireNonNull(id, "id is null");
             this.input = requireNonNull(input, "input is null");
         }
 
-        public String getId()
+        public DynamicFilterId getId()
         {
             return id;
         }
@@ -194,14 +189,7 @@ public final class DynamicFilters
 
         @TypeParameter("T")
         @SqlType(BOOLEAN)
-        public static boolean dynamicFilter(@SqlType(VARCHAR) Slice id, @SqlType("T") Block input)
-        {
-            throw new UnsupportedOperationException();
-        }
-
-        @TypeParameter("T")
-        @SqlType(BOOLEAN)
-        public static boolean dynamicFilter(@SqlType(VARCHAR) Slice id, @SqlType("T") Slice input)
+        public static boolean dynamicFilter(@SqlType(VARCHAR) Slice id, @SqlType("T") Object input)
         {
             throw new UnsupportedOperationException();
         }

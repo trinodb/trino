@@ -13,7 +13,6 @@
  */
 package io.prestosql.sql.query;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -110,6 +109,27 @@ public class TestUnwrapCastInComparison
                 for (Number to : Arrays.asList(null, Integer.MIN_VALUE - 1L, Integer.MIN_VALUE, 0, 0.1, 0.9, 1, Integer.MAX_VALUE, Integer.MAX_VALUE + 1L)) {
                     validate(operator, fromType, from, "DOUBLE", to);
                 }
+
+                for (Number to : Arrays.asList(null, Integer.MIN_VALUE - 1L, Integer.MIN_VALUE, -1L << 23 + 1, 0, 0.1, 0.9, 1, 1L << 23 - 1, Integer.MAX_VALUE, Integer.MAX_VALUE + 1L)) {
+                    validate(operator, fromType, from, "REAL", to);
+                }
+            }
+        }
+    }
+
+    @Test
+    public void testBigint()
+    {
+        for (Number from : Arrays.asList(null, Long.MIN_VALUE, 0, 1, Long.MAX_VALUE)) {
+            String fromType = "BIGINT";
+            for (String operator : Arrays.asList("=", "<>", ">=", ">", "<=", "<", "IS DISTINCT FROM")) {
+                for (Number to : Arrays.asList(null, Long.MIN_VALUE, Long.MIN_VALUE + 1, -1L << 53 + 1, 0, 0.1, 0.9, 1, 1L << 53 - 1, Long.MAX_VALUE - 1, Long.MAX_VALUE)) {
+                    validate(operator, fromType, from, "DOUBLE", to);
+                }
+
+                for (Number to : Arrays.asList(null, Long.MIN_VALUE, Long.MIN_VALUE + 1, -1L << 23 + 1, 0, 0.1, 0.9, 1, 1L << 23 - 1, Long.MAX_VALUE - 1, Long.MAX_VALUE)) {
+                    validate(operator, fromType, from, "REAL", to);
+                }
             }
         }
     }
@@ -186,8 +206,8 @@ public class TestUnwrapCastInComparison
 
         // type with no range
         for (String operator : Arrays.asList("=", "<>", ">=", ">", "<=", "<", "IS DISTINCT FROM")) {
-            for (String to : Arrays.asList("'" + Strings.repeat("a", 200) + "'", "'" + Strings.repeat("b", 200) + "'")) {
-                validate(operator, "VARCHAR(200)", "'" + Strings.repeat("a", 200) + "'", "VARCHAR(300)", to);
+            for (String to : Arrays.asList("'" + "a".repeat(200) + "'", "'" + "b".repeat(200) + "'")) {
+                validate(operator, "VARCHAR(200)", "'" + "a".repeat(200) + "'", "VARCHAR(300)", to);
             }
         }
     }

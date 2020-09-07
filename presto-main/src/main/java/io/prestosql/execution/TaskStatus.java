@@ -21,6 +21,7 @@ import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
 import io.prestosql.spi.predicate.Domain;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 
 import java.net.URI;
 import java.util.List;
@@ -74,7 +75,7 @@ public class TaskStatus
 
     private final List<ExecutionFailureInfo> failures;
 
-    private final Map<String, Domain> dynamicFilterDomains;
+    private final Map<DynamicFilterId, Domain> dynamicFilterDomains;
 
     @JsonCreator
     public TaskStatus(
@@ -95,7 +96,7 @@ public class TaskStatus
             @JsonProperty("revocableMemoryReservation") DataSize revocableMemoryReservation,
             @JsonProperty("fullGcCount") long fullGcCount,
             @JsonProperty("fullGcTime") Duration fullGcTime,
-            @JsonProperty("dynamicFilterDomains") Map<String, Domain> dynamicFilterDomains)
+            @JsonProperty("dynamicFilterDomains") Map<DynamicFilterId, Domain> dynamicFilterDomains)
     {
         this.taskId = requireNonNull(taskId, "taskId is null");
         this.taskInstanceId = requireNonNull(taskInstanceId, "taskInstanceId is null");
@@ -125,7 +126,7 @@ public class TaskStatus
         checkArgument(fullGcCount >= 0, "fullGcCount is negative");
         this.fullGcCount = fullGcCount;
         this.fullGcTime = requireNonNull(fullGcTime, "fullGcTime is null");
-        this.dynamicFilterDomains = requireNonNull(dynamicFilterDomains, "dynamicFilterDomains is null");
+        this.dynamicFilterDomains = ImmutableMap.copyOf(requireNonNull(dynamicFilterDomains, "dynamicFilterDomains is null"));
     }
 
     @JsonProperty
@@ -231,7 +232,7 @@ public class TaskStatus
     }
 
     @JsonProperty
-    public Map<String, Domain> getDynamicFilterDomains()
+    public Map<DynamicFilterId, Domain> getDynamicFilterDomains()
     {
         return dynamicFilterDomains;
     }

@@ -86,7 +86,7 @@ final class PluginDiscovery
             throws IOException
     {
         ImmutableList.Builder<String> list = ImmutableList.builder();
-        walkFileTree(base, new SimpleFileVisitor<Path>()
+        walkFileTree(base, new SimpleFileVisitor<>()
         {
             @Override
             public FileVisitResult visitFile(Path file, BasicFileAttributes attributes)

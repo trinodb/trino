@@ -14,6 +14,7 @@
 package io.prestosql.type;
 
 import io.prestosql.metadata.Metadata;
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeId;
@@ -58,8 +59,8 @@ public final class InternalTypeManager
     }
 
     @Override
-    public MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes)
+    public MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes, InvocationConvention invocationConvention)
     {
-        return metadata.getScalarFunctionInvoker(metadata.resolveOperator(operatorType, argumentTypes), Optional.empty()).getMethodHandle();
+        return metadata.getScalarFunctionInvoker(metadata.resolveOperator(operatorType, argumentTypes), Optional.of(invocationConvention)).getMethodHandle();
     }
 }

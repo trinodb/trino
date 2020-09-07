@@ -31,7 +31,7 @@ import javax.security.auth.login.AppConfigurationEntry;
 import javax.security.auth.login.Configuration;
 import javax.security.auth.login.LoginContext;
 import javax.security.auth.login.LoginException;
-import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.container.ContainerRequestContext;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
@@ -136,10 +136,10 @@ public class KerberosAuthenticator
     }
 
     @Override
-    public Identity authenticate(HttpServletRequest request)
+    public Identity authenticate(ContainerRequestContext request)
             throws AuthenticationException
     {
-        String header = request.getHeader(AUTHORIZATION);
+        String header = request.getHeaders().getFirst(AUTHORIZATION);
 
         String requestSpnegoToken = null;
 
@@ -152,14 +152,14 @@ public class KerberosAuthenticator
                     principal = authenticate(parts[1]).orElse(null);
                 }
                 catch (RuntimeException e) {
-                    throw new RuntimeException("Authentication error for token: " + parts[1], e);
+                    throw new RuntimeException("Invalid Token", e);
                 }
             }
         }
 
         if (principal == null) {
             if (requestSpnegoToken != null) {
-                throw new AuthenticationException("Authentication failed for token: " + requestSpnegoToken, NEGOTIATE_SCHEME);
+                throw new AuthenticationException("Invalid Token", NEGOTIATE_SCHEME);
             }
             throw new AuthenticationException(null, NEGOTIATE_SCHEME);
         }

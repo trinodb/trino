@@ -288,7 +288,8 @@ public class PruneUnreferencedOutputs
                     node.getSemiJoinOutput(),
                     node.getSourceHashSymbol(),
                     node.getFilteringSourceHashSymbol(),
-                    node.getDistributionType());
+                    node.getDistributionType(),
+                    node.getDynamicFilterId());
         }
 
         @Override
@@ -681,6 +682,7 @@ public class PruneUnreferencedOutputs
                     node.getFragmentSymbol(),
                     node.getColumns(),
                     node.getColumnNames(),
+                    node.getNotNullColumnSymbols(),
                     node.getPartitioningScheme(),
                     node.getStatisticsAggregation(),
                     node.getStatisticsAggregationDescriptor());

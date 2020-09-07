@@ -29,7 +29,6 @@ import io.prestosql.spi.type.StandardTypes;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
-import static com.google.common.base.Strings.repeat;
 import static io.prestosql.spi.StandardErrorCode.FUNCTION_NOT_FOUND;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.TOO_MANY_ARGUMENTS;
@@ -74,7 +73,7 @@ public class TestStringFunctions
 
     public static String padRight(String s, int n)
     {
-        return s + repeat(" ", n - s.codePointCount(0, s.length()));
+        return s + " ".repeat(n - s.codePointCount(0, s.length()));
     }
 
     @Test
@@ -186,11 +185,11 @@ public class TestStringFunctions
         assertInvalidFunction("LEVENSHTEIN_DISTANCE('hello wolrd', utf8(from_hex('3281')))", "Invalid UTF-8 encoding in characters: 2�");
 
         // Test for maximum length
-        assertFunction(format("LEVENSHTEIN_DISTANCE('hello', '%s')", repeat("e", 100_000)), BIGINT, 99999L);
-        assertFunction(format("LEVENSHTEIN_DISTANCE('%s', 'hello')", repeat("l", 100_000)), BIGINT, 99998L);
-        assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('%s', '%s')", repeat("x", 1001), repeat("x", 1001)), "The combined inputs for Levenshtein distance are too large");
-        assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('hello', '%s')", repeat("x", 500_000)), "The combined inputs for Levenshtein distance are too large");
-        assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('%s', 'hello')", repeat("x", 500_000)), "The combined inputs for Levenshtein distance are too large");
+        assertFunction(format("LEVENSHTEIN_DISTANCE('hello', '%s')", "e".repeat(100_000)), BIGINT, 99999L);
+        assertFunction(format("LEVENSHTEIN_DISTANCE('%s', 'hello')", "l".repeat(100_000)), BIGINT, 99998L);
+        assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('%s', '%s')", "x".repeat(1001), "x".repeat(1001)), "The combined inputs for Levenshtein distance are too large");
+        assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('hello', '%s')", "x".repeat(500_000)), "The combined inputs for Levenshtein distance are too large");
+        assertInvalidFunction(format("LEVENSHTEIN_DISTANCE('%s', 'hello')", "x".repeat(500_000)), "The combined inputs for Levenshtein distance are too large");
     }
 
     @Test
@@ -1042,8 +1041,36 @@ public class TestStringFunctions
 
         assertFunction("concat('hello na\u00EFve', cast(' world' as char(6)))", createCharType(17), "hello na\u00EFve world");
 
-        assertInvalidFunction("concat(cast('ab ' as char(40000)), cast('' as char(40000)))", "CHAR length scale must be in range [0, 65536]");
+        assertInvalidFunction("concat(cast('ab ' as char(40000)), cast('' as char(40000)))", "line 1:1: CHAR length scale must be in range [0, 65536]");
 
         assertFunction("concat(cast(null as char(1)), cast(' ' as char(1)))", createCharType(2), null);
+    }
+
+    @Test
+    public void testTranslate()
+    {
+        assertFunction("translate('abcd', '', '')", VARCHAR, "abcd");
+        assertFunction("translate('abcd', 'a', 'z')", VARCHAR, "zbcd");
+        assertFunction("translate('abcda', 'a', 'z')", VARCHAR, "zbcdz");
+
+        assertFunction("translate('áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ', 'áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ','aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU')", VARCHAR, "aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU");
+
+        assertFunction("translate('Goiânia', 'áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ','aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU')", VARCHAR, "Goiania");
+        assertFunction("translate('São Paulo', 'áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ','aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU')", VARCHAR, "Sao Paulo");
+        assertFunction("translate('Palhoça', 'ç','c')", VARCHAR, "Palhoca");
+        assertFunction("translate('Várzea Paulista', 'áéíóúÁÉÍÓÚäëïöüÄËÏÖÜâêîôûÂÊÎÔÛãẽĩõũÃẼĨÕŨ','aeiouAEIOUaeiouAEIOUaeiouAEIOUaeiouAEIOU')", VARCHAR, "Varzea Paulista");
+
+        // Test chars that don't fit in 16 bits - - U+20000 is written as "\uD840\uDC00"
+
+        assertFunction("translate('\uD840\uDC00bcd', '\uD840\uDC00', 'z')", VARCHAR, "zbcd");
+        assertFunction("translate('\uD840\uDC00bcd\uD840\uDC00', '\uD840\uDC00', 'z')", VARCHAR, "zbcdz");
+        assertFunction("translate('abcd', 'b', '\uD840\uDC00')", VARCHAR, "a\uD840\uDC00cd");
+
+        // Test that the to string can be shorter than the from string, and that we choose the first duplicate in the from string
+
+        assertFunction("translate('abcd', 'a', '')", VARCHAR, "bcd");
+        assertFunction("translate('abcd', 'a', 'zy')", VARCHAR, "zbcd");
+        assertFunction("translate('abcd', 'ac', 'z')", VARCHAR, "zbd");
+        assertFunction("translate('abcd', 'aac', 'zq')", VARCHAR, "zbd");
     }
 }

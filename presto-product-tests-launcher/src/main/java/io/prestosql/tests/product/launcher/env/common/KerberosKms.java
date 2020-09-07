@@ -15,49 +15,48 @@ package io.prestosql.tests.product.launcher.env.common;
 
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
+import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 
 import javax.inject.Inject;
 
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.util.Objects.requireNonNull;
-import static org.testcontainers.containers.BindMode.READ_ONLY;
+import static org.testcontainers.utility.MountableFile.forHostPath;
 
 public class KerberosKms
         implements EnvironmentExtender
 {
     private final DockerFiles dockerFiles;
 
-    private final String imagesVersion;
+    private final String hadoopImagesVersion;
 
     @Inject
-    public KerberosKms(DockerFiles dockerFiles, EnvironmentOptions environmentOptions)
+    public KerberosKms(DockerFiles dockerFiles, EnvironmentConfig environmentConfig)
     {
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
-        requireNonNull(environmentOptions, "environmentOptions is null");
-        imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
+        requireNonNull(environmentConfig, "environmentOptions is null");
+        hadoopImagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopImagesVersion();
     }
 
     @Override
     public void extendEnvironment(Environment.Builder builder)
     {
         // TODO (https://github.com/prestosql/presto/issues/1652) create images with HDP and KMS
-        String dockerImageName = "prestodev/cdh5.15-hive-kerberized-kms:" + imagesVersion;
+        String dockerImageName = "prestodev/cdh5.15-hive-kerberized-kms:" + hadoopImagesVersion;
 
         builder.configureContainer("hadoop-master", container -> {
             container.setDockerImageName(dockerImageName);
             container
-                    .withFileSystemBind(
-                            dockerFiles.getDockerFilesHostPath("common/kerberos-kms/kms-core-site.xml"),
-                            "/etc/hadoop-kms/conf/core-site.xml",
-                            READ_ONLY);
+                    .withCopyFileToContainer(
+                            forHostPath(dockerFiles.getDockerFilesHostPath("common/kerberos-kms/kms-core-site.xml")),
+                            "/etc/hadoop-kms/conf/core-site.xml");
         });
 
         builder.configureContainer("presto-master", container -> container.setDockerImageName(dockerImageName));
 
         builder.configureContainer("tests", container -> {
             container.setDockerImageName(dockerImageName);
-            container.withFileSystemBind(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-docker-kerberos-kms.yaml"), CONTAINER_TEMPTO_PROFILE_CONFIG, READ_ONLY);
+            container.withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-docker-kerberos-kms.yaml")), CONTAINER_TEMPTO_PROFILE_CONFIG);
         });
     }
 }

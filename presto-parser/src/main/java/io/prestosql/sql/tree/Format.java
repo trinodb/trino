@@ -81,4 +81,10 @@ public class Format
     {
         return Objects.hash(arguments);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

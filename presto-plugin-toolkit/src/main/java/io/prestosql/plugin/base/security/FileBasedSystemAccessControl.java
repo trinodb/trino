@@ -15,6 +15,8 @@ package io.prestosql.plugin.base.security;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.google.inject.Injector;
+import io.airlift.bootstrap.Bootstrap;
 import io.airlift.log.Logger;
 import io.airlift.units.Duration;
 import io.prestosql.plugin.base.security.CatalogAccessControlRule.AccessMode;
@@ -43,12 +45,11 @@ import java.util.Set;
 import java.util.function.Predicate;
 import java.util.regex.Pattern;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Suppliers.memoizeWithExpiration;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
+import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.prestosql.plugin.base.security.CatalogAccessControlRule.AccessMode.ALL;
 import static io.prestosql.plugin.base.security.CatalogAccessControlRule.AccessMode.READ_ONLY;
-import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SECURITY_CONFIG_FILE;
 import static io.prestosql.plugin.base.security.FileBasedAccessControlConfig.SECURITY_REFRESH_PERIOD;
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.DELETE;
 import static io.prestosql.plugin.base.security.TableAccessControlRule.TablePrivilege.INSERT;
@@ -58,6 +59,7 @@ import static io.prestosql.plugin.base.util.JsonUtils.parseJson;
 import static io.prestosql.spi.StandardErrorCode.CONFIGURATION_INVALID;
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCatalogAccess;
+import static io.prestosql.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateTable;
@@ -71,6 +73,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyDropView;
 import static io.prestosql.spi.security.AccessDeniedException.denyGrantTablePrivilege;
 import static io.prestosql.spi.security.AccessDeniedException.denyImpersonateUser;
 import static io.prestosql.spi.security.AccessDeniedException.denyInsertTable;
+import static io.prestosql.spi.security.AccessDeniedException.denyReadSystemInformationAccess;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyRenameTable;
@@ -83,6 +86,7 @@ import static io.prestosql.spi.security.AccessDeniedException.denyShowColumns;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyShowCreateTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyViewQuery;
+import static io.prestosql.spi.security.AccessDeniedException.denyWriteSystemInformationAccess;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -99,6 +103,7 @@ public class FileBasedSystemAccessControl
     private final Optional<List<QueryAccessRule>> queryAccessRules;
     private final Optional<List<ImpersonationRule>> impersonationRules;
     private final Optional<List<PrincipalUserMatchRule>> principalUserMatchRules;
+    private final Optional<List<SystemInformationRule>> systemInformationRules;
     private final Optional<List<SchemaAccessControlRule>> schemaRules;
     private final Optional<List<TableAccessControlRule>> tableRules;
 
@@ -107,6 +112,7 @@ public class FileBasedSystemAccessControl
             Optional<List<QueryAccessRule>> queryAccessRules,
             Optional<List<ImpersonationRule>> impersonationRules,
             Optional<List<PrincipalUserMatchRule>> principalUserMatchRules,
+            Optional<List<SystemInformationRule>> systemInformationRules,
             Optional<List<SchemaAccessControlRule>> schemaRules,
             Optional<List<TableAccessControlRule>> tableRules)
     {
@@ -114,6 +120,7 @@ public class FileBasedSystemAccessControl
         this.queryAccessRules = queryAccessRules;
         this.impersonationRules = impersonationRules;
         this.principalUserMatchRules = principalUserMatchRules;
+        this.systemInformationRules = systemInformationRules;
         this.schemaRules = schemaRules;
         this.tableRules = tableRules;
     }
@@ -132,13 +139,19 @@ public class FileBasedSystemAccessControl
         {
             requireNonNull(config, "config is null");
 
-            String configFileName = config.get(SECURITY_CONFIG_FILE);
-            checkState(configFileName != null, "Security configuration must contain the '%s' property", SECURITY_CONFIG_FILE);
+            Bootstrap bootstrap = new Bootstrap(
+                    binder -> configBinder(binder).bindConfig(FileBasedAccessControlConfig.class));
+            Injector injector = bootstrap.strictConfig()
+                    .doNotInitializeLogging()
+                    .setRequiredConfigurationProperties(config)
+                    .initialize();
+            FileBasedAccessControlConfig fileBasedAccessControlConfig = injector.getInstance(FileBasedAccessControlConfig.class);
+            String configFileName = fileBasedAccessControlConfig.getConfigFile();
 
             if (config.containsKey(SECURITY_REFRESH_PERIOD)) {
                 Duration refreshPeriod;
                 try {
-                    refreshPeriod = Duration.valueOf(config.get(SECURITY_REFRESH_PERIOD));
+                    refreshPeriod = fileBasedAccessControlConfig.getRefreshPeriod();
                 }
                 catch (IllegalArgumentException e) {
                     throw invalidRefreshPeriodException(config, configFileName);
@@ -184,6 +197,7 @@ public class FileBasedSystemAccessControl
                     rules.getQueryAccessRules(),
                     rules.getImpersonationRules(),
                     rules.getPrincipalUserMatchRules(),
+                    rules.getSystemInformationRules(),
                     rules.getSchemaRules(),
                     rules.getTableRules());
         }
@@ -296,6 +310,33 @@ public class FileBasedSystemAccessControl
                 if (accessMode.isPresent()) {
                     return accessMode.get().contains(requiredAccess);
                 }
+            }
+        }
+        return false;
+    }
+
+    @Override
+    public void checkCanReadSystemInformation(SystemSecurityContext context)
+    {
+        if (!checkCanSystemInformation(context.getIdentity(), SystemInformationRule.AccessMode.READ)) {
+            denyReadSystemInformationAccess();
+        }
+    }
+
+    @Override
+    public void checkCanWriteSystemInformation(SystemSecurityContext context)
+    {
+        if (!checkCanSystemInformation(context.getIdentity(), SystemInformationRule.AccessMode.WRITE)) {
+            denyWriteSystemInformationAccess();
+        }
+    }
+
+    private boolean checkCanSystemInformation(Identity identity, SystemInformationRule.AccessMode requiredAccess)
+    {
+        for (SystemInformationRule rule : systemInformationRules.orElseGet(ImmutableList::of)) {
+            Optional<Set<SystemInformationRule.AccessMode>> accessMode = rule.match(identity.getUser());
+            if (accessMode.isPresent()) {
+                return accessMode.get().contains(requiredAccess);
             }
         }
         return false;
@@ -461,6 +502,14 @@ public class FileBasedSystemAccessControl
 
         if (!checkTablePermission(context, table.getSchemaTableName(), OWNERSHIP)) {
             denyCommentTable(table.getSchemaTableName().getTableName());
+        }
+    }
+
+    @Override
+    public void checkCanSetColumnComment(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+        if (!canAccessCatalog(context.getIdentity(), table.getCatalogName(), ALL)) {
+            denyCommentColumn(table.toString());
         }
     }
 

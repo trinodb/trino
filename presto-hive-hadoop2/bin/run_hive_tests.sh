@@ -7,6 +7,9 @@ set -euo pipefail -x
 cleanup_hadoop_docker_containers
 start_hadoop_docker_containers
 
+# obtain Hive version
+TESTS_HIVE_VERSION_MAJOR=$(get_hive_major_version)
+
 # generate test data
 exec_in_hadoop_master_container sudo -Eu hive beeline -u jdbc:hive2://localhost:10000/default -n hive -f /docker/sql/create-test.sql
 exec_in_hadoop_master_container sudo -Eu hive beeline -u jdbc:hive2://localhost:10000/default -n hive -f "/docker/sql/create-test-hive-${TESTS_HIVE_VERSION_MAJOR}.sql"

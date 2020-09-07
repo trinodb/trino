@@ -22,8 +22,8 @@ import org.testng.annotations.Test;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.query.QueryExecutor.query;
-import static io.prestosql.tests.TestGroups.JDBC;
 import static io.prestosql.tests.TestGroups.MYSQL;
+import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.prestosql.tests.utils.QueryExecutors.onMySql;
 import static java.lang.String.format;
 
@@ -39,7 +39,7 @@ public class TestCreateTableAsSelect
         onMySql().executeQuery(format("DROP TABLE IF EXISTS %s", TABLE_NAME));
     }
 
-    @Test(groups = {JDBC, MYSQL})
+    @Test(groups = {MYSQL, PROFILE_SPECIFIC_TESTS})
     public void testCreateTableAsSelect()
     {
         QueryResult queryResult = query(format("CREATE TABLE mysql.%s AS SELECT * FROM tpch.tiny.nation", TABLE_NAME));

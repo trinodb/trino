@@ -137,18 +137,18 @@ public class TestSqlTask
     {
         SqlTask sqlTask = createInitialTask();
 
-        TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
+        assertEquals(sqlTask.getTaskStatus().getState(), TaskState.RUNNING);
+        sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
                 OptionalInt.empty());
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
-        taskInfo = sqlTask.getTaskInfo();
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+        TaskInfo taskInfo = sqlTask.getTaskInfo(TaskState.RUNNING).get(1, SECONDS);
+        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FLUSHING);
 
         BufferResult results = sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE)).get();
-        assertEquals(results.isBufferComplete(), false);
+        assertFalse(results.isBufferComplete());
         assertEquals(results.getSerializedPages().size(), 1);
         assertEquals(results.getSerializedPages().get(0).getPositionCount(), 1);
 
@@ -202,15 +202,15 @@ public class TestSqlTask
     {
         SqlTask sqlTask = createInitialTask();
 
-        TaskInfo taskInfo = sqlTask.updateTask(TEST_SESSION,
+        assertEquals(sqlTask.getTaskStatus().getState(), TaskState.RUNNING);
+        sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
                 OptionalInt.empty());
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
 
-        taskInfo = sqlTask.getTaskInfo();
-        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+        TaskInfo taskInfo = sqlTask.getTaskInfo(TaskState.RUNNING).get(1, SECONDS);
+        assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FLUSHING);
 
         sqlTask.abortTaskResults(OUT);
 

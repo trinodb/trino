@@ -3,7 +3,7 @@ JDBC Driver
 ===========
 
 Presto can be accessed from Java using the JDBC driver.
-Download :maven_download:`jdbc` and add it to the class path of your Java application.
+Download :maven_download:`jdbc` and add it to the classpath of your Java application.
 
 The driver is also available from Maven Central:
 
@@ -100,9 +100,13 @@ Name                                   Description
 ``SSLKeyStorePath``                    The location of the Java KeyStore file that contains the certificate
                                        and private key to use for authentication.
 ``SSLKeyStorePassword``                The password for the KeyStore.
+``SSLKeyStoreType``                    The type of the KeyStore. The default type is provided by the Java
+                                       ``keystore.type`` security property or ``jks`` if none exists.
 ``SSLTrustStorePath``                  The location of the Java TrustStore file to use.
                                        to validate HTTPS server certificates.
 ``SSLTrustStorePassword``              The password for the TrustStore.
+``SSLTrustStoreType``                  The type of the TrustStore. The default type is provided by the Java
+                                       ``keystore.type`` security property or ``jks`` if none exists.
 ``KerberosRemoteServiceName``          Presto coordinator Kerberos service name. This parameter is
                                        required for Kerberos authentication.
 ``KerberosPrincipal``                  The principal to use when authenticating to the Presto coordinator.
@@ -117,6 +121,9 @@ Name                                   Description
 ``KerberosConfigPath``                 Kerberos configuration file.
 ``KerberosKeytabPath``                 Kerberos keytab file.
 ``KerberosCredentialCachePath``        Kerberos credential cache.
+``useSessionTimeZone``                 Should dates and timestamps use the session time zone (default: false).
+                                       Note that this property only exists for backward compatibility with the
+                                       previous behavior and will be removed in the future.
 ``extraCredentials``                   Extra credentials for connecting to external services,
                                        specified as a list of key-value pairs. For example,
                                        ``foo:bar;abc:xyz`` creates the credential named ``abc``

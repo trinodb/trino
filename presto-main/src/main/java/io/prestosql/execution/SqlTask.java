@@ -37,6 +37,7 @@ import io.prestosql.operator.TaskContext;
 import io.prestosql.operator.TaskStats;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.sql.planner.PlanFragment;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import org.joda.time.DateTime;
 
@@ -82,7 +83,7 @@ public class SqlTask
     private final SqlTaskExecutionFactory sqlTaskExecutionFactory;
 
     private final AtomicReference<DateTime> lastHeartbeat = new AtomicReference<>(DateTime.now());
-    private final AtomicLong nextTaskInfoVersion = new AtomicLong(TaskStatus.STARTING_VERSION);
+    private final AtomicLong nextTaskStatusVersion = new AtomicLong(TaskStatus.STARTING_VERSION);
 
     private final AtomicReference<TaskHolder> taskHolderReference = new AtomicReference<>(new TaskHolder());
     private final AtomicBoolean needsPlan = new AtomicBoolean(true);
@@ -137,49 +138,44 @@ public class SqlTask
     {
         requireNonNull(onDone, "onDone is null");
         requireNonNull(failedTasks, "failedTasks is null");
-        taskStateMachine.addStateChangeListener(new StateChangeListener<TaskState>()
-        {
-            @Override
-            public void stateChanged(TaskState newState)
-            {
-                if (!newState.isDone()) {
+        taskStateMachine.addStateChangeListener(newState -> {
+            if (!newState.isDone()) {
+                return;
+            }
+
+            // Update failed tasks counter
+            if (newState == FAILED) {
+                failedTasks.update(1);
+            }
+
+            // store final task info
+            while (true) {
+                TaskHolder taskHolder = taskHolderReference.get();
+                if (taskHolder.isFinished()) {
+                    // another concurrent worker already set the final state
                     return;
                 }
 
-                // Update failed tasks counter
-                if (newState == FAILED) {
-                    failedTasks.update(1);
+                if (taskHolderReference.compareAndSet(taskHolder, new TaskHolder(createTaskInfo(taskHolder), taskHolder.getIoStats()))) {
+                    break;
                 }
+            }
 
-                // store final task info
-                while (true) {
-                    TaskHolder taskHolder = taskHolderReference.get();
-                    if (taskHolder.isFinished()) {
-                        // another concurrent worker already set the final state
-                        return;
-                    }
+            // make sure buffers are cleaned up
+            if (newState == FAILED || newState == ABORTED) {
+                // don't close buffers for a failed query
+                // closed buffers signal to upstream tasks that everything finished cleanly
+                outputBuffer.fail();
+            }
+            else {
+                outputBuffer.destroy();
+            }
 
-                    if (taskHolderReference.compareAndSet(taskHolder, new TaskHolder(createTaskInfo(taskHolder), taskHolder.getIoStats()))) {
-                        break;
-                    }
-                }
-
-                // make sure buffers are cleaned up
-                if (newState == FAILED || newState == ABORTED) {
-                    // don't close buffers for a failed query
-                    // closed buffers signal to upstream tasks that everything finished cleanly
-                    outputBuffer.fail();
-                }
-                else {
-                    outputBuffer.destroy();
-                }
-
-                try {
-                    onDone.apply(SqlTask.this);
-                }
-                catch (Exception e) {
-                    log.warn(e, "Error running task cleanup callback %s", SqlTask.this.taskId);
-                }
+            try {
+                onDone.apply(SqlTask.this);
+            }
+            catch (Exception e) {
+                log.warn(e, "Error running task cleanup callback %s", SqlTask.this.taskId);
             }
         });
     }
@@ -225,9 +221,9 @@ public class SqlTask
 
     private TaskStatus createTaskStatus(TaskHolder taskHolder)
     {
-        // Always return a new TaskInfo with a larger version number;
+        // Always return a new TaskStatus with a larger version number;
         // otherwise a client will not accept the update
-        long versionNumber = nextTaskInfoVersion.getAndIncrement();
+        long versionNumber = nextTaskStatusVersion.getAndIncrement();
 
         TaskState state = taskStateMachine.getState();
         List<ExecutionFailureInfo> failures = ImmutableList.of();
@@ -245,7 +241,7 @@ public class SqlTask
         Set<Lifespan> completedDriverGroups = ImmutableSet.of();
         long fullGcCount = 0;
         Duration fullGcTime = new Duration(0, MILLISECONDS);
-        Map<String, Domain> dynamicTupleDomains = ImmutableMap.of();
+        Map<DynamicFilterId, Domain> dynamicTupleDomains = ImmutableMap.of();
         if (taskHolder.getFinalTaskInfo() != null) {
             TaskInfo taskInfo = taskHolder.getFinalTaskInfo();
             TaskStats taskStats = taskInfo.getStats();
@@ -278,7 +274,7 @@ public class SqlTask
             dynamicTupleDomains = taskContext.getDynamicTupleDomains();
         }
         // Compact TupleDomain before reporting dynamic filters to coordinator to avoid bloating QueryInfo
-        Map<String, Domain> compactDynamicTupleDomains = dynamicTupleDomains.entrySet().stream()
+        Map<DynamicFilterId, Domain> compactDynamicTupleDomains = dynamicTupleDomains.entrySet().stream()
                 .collect(toImmutableMap(Map.Entry::getKey, entry -> entry.getValue().simplify()));
 
         return new TaskStatus(taskStateMachine.getTaskId(),

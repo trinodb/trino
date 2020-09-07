@@ -17,7 +17,7 @@ import com.google.common.collect.ImmutableList;
 import io.prestosql.spi.security.Identity;
 
 import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.container.ContainerRequestContext;
 
 import java.security.Principal;
 import java.security.cert.X509Certificate;
@@ -44,10 +44,10 @@ public class CertificateAuthenticator
     }
 
     @Override
-    public Identity authenticate(HttpServletRequest request)
+    public Identity authenticate(ContainerRequestContext request)
             throws AuthenticationException
     {
-        Object attribute = request.getAttribute(X509_ATTRIBUTE);
+        Object attribute = request.getProperty(X509_ATTRIBUTE);
         if (attribute == null) {
             throw new AuthenticationException(null);
         }

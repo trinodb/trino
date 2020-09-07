@@ -239,8 +239,8 @@ public class TestMathFunctions
     public void testTruncate()
     {
         // DOUBLE
-        final String maxDouble = Double.toString(Double.MAX_VALUE);
-        final String minDouble = Double.toString(-Double.MAX_VALUE);
+        String maxDouble = Double.toString(Double.MAX_VALUE);
+        String minDouble = Double.toString(-Double.MAX_VALUE);
         assertFunction("truncate(17.18E0)", DOUBLE, 17.0);
         assertFunction("truncate(-17.18E0)", DOUBLE, -17.0);
         assertFunction("truncate(17.88E0)", DOUBLE, 17.0);

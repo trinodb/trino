@@ -15,20 +15,35 @@ package io.prestosql.plugin.prometheus;
 
 import io.prestosql.spi.block.Block;
 
-import java.sql.Timestamp;
+import java.time.Instant;
 
 import static java.util.Objects.requireNonNull;
 
 public class PrometheusStandardizedRow
 {
-    protected final Block labels;
-    Timestamp timestamp;
-    Double value;
+    private final Block labels;
+    private final Instant timestamp;
+    private final Double value;
 
-    public PrometheusStandardizedRow(Block labels, Timestamp timestamp, Double value)
+    public PrometheusStandardizedRow(Block labels, Instant timestamp, Double value)
     {
         this.labels = requireNonNull(labels, "labels is null");
         this.timestamp = requireNonNull(timestamp, "timestamp is null");
         this.value = requireNonNull(value, "value is null");
+    }
+
+    public Block getLabels()
+    {
+        return labels;
+    }
+
+    public Instant getTimestamp()
+    {
+        return timestamp;
+    }
+
+    public Double getValue()
+    {
+        return value;
     }
 }

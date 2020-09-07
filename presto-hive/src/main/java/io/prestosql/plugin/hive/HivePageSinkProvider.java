@@ -34,6 +34,7 @@ import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.type.TypeManager;
+import org.joda.time.DateTimeZone;
 
 import javax.inject.Inject;
 
@@ -69,6 +70,7 @@ public class HivePageSinkProvider
     private final HiveSessionProperties hiveSessionProperties;
     private final HiveWriterStats hiveWriterStats;
     private final long perTransactionMetastoreCacheMaximumSize;
+    private final DateTimeZone parquetTimeZone;
 
     @Inject
     public HivePageSinkProvider(
@@ -104,6 +106,7 @@ public class HivePageSinkProvider
         this.hiveSessionProperties = requireNonNull(hiveSessionProperties, "hiveSessionProperties is null");
         this.hiveWriterStats = requireNonNull(hiveWriterStats, "stats is null");
         this.perTransactionMetastoreCacheMaximumSize = config.getPerTransactionMetastoreCacheMaximumSize();
+        this.parquetTimeZone = config.getParquetDateTimeZone();
     }
 
     @Override
@@ -135,6 +138,7 @@ public class HivePageSinkProvider
                 handle.getSchemaName(),
                 handle.getTableName(),
                 isCreateTable,
+                handle.isTransactional(),
                 handle.getInputColumns(),
                 handle.getTableStorageFormat(),
                 handle.getPartitionStorageFormat(),
@@ -154,6 +158,7 @@ public class HivePageSinkProvider
                 writerSortBufferSize,
                 maxOpenSortFiles,
                 immutablePartitions,
+                parquetTimeZone,
                 session,
                 nodeManager,
                 eventClient,

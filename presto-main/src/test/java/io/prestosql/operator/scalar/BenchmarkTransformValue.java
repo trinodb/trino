@@ -59,7 +59,6 @@ import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggre
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.spi.function.OperatorType.GREATER_THAN;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -130,17 +129,16 @@ public class BenchmarkTransformValue
                     throw new UnsupportedOperationException();
             }
             MapType mapType = mapType(elementType, elementType);
-            MapType returnType = mapType(elementType, BOOLEAN);
             ResolvedFunction resolvedFunction = metadata.resolveFunction(
                     QualifiedName.of(name),
                     fromTypes(mapType, new FunctionType(ImmutableList.of(elementType), elementType)));
             ResolvedFunction greaterThan = metadata.resolveOperator(GREATER_THAN, ImmutableList.of(elementType, elementType));
-            projectionsBuilder.add(call(resolvedFunction, returnType, ImmutableList.of(
+            projectionsBuilder.add(call(resolvedFunction, ImmutableList.of(
                     field(0, mapType),
                     new LambdaDefinitionExpression(
                             ImmutableList.of(elementType, elementType),
                             ImmutableList.of("x", "y"),
-                            call(greaterThan, BOOLEAN, ImmutableList.of(
+                            call(greaterThan, ImmutableList.of(
                                     new VariableReferenceExpression("y", elementType),
                                     constant(compareValue, elementType)))))));
             Block block = createChannel(POSITIONS, mapType, elementType);

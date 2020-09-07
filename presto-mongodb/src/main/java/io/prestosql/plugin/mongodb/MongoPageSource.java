@@ -62,10 +62,13 @@ import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static java.lang.Float.floatToIntBits;
+import static java.lang.Math.multiplyExact;
 import static java.lang.String.join;
 import static java.util.stream.Collectors.toList;
 
@@ -183,11 +186,12 @@ public class MongoPageSource
                     type.writeLong(output, TimeUnit.MILLISECONDS.toDays(utcMillis));
                 }
                 else if (type.equals(TIME)) {
-                    type.writeLong(output, UTC_CHRONOLOGY.millisOfDay().get(((Date) value).getTime()));
+                    long millis = UTC_CHRONOLOGY.millisOfDay().get(((Date) value).getTime());
+                    type.writeLong(output, multiplyExact(millis, PICOSECONDS_PER_MILLISECOND));
                 }
-                else if (type.equals(TIMESTAMP)) {
+                else if (type.equals(TIMESTAMP_MILLIS)) {
                     // TODO provide correct TIMESTAMP mapping, and respecting session.isLegacyTimestamp()
-                    type.writeLong(output, ((Date) value).getTime());
+                    type.writeLong(output, ((Date) value).getTime() * MICROSECONDS_PER_MILLISECOND);
                 }
                 else if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
                     type.writeLong(output, packDateTimeWithZone(((Date) value).getTime(), UTC_KEY));

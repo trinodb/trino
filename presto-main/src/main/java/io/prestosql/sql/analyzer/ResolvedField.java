@@ -37,6 +37,11 @@ public class ResolvedField
         this.local = local;
     }
 
+    public FieldId getFieldId()
+    {
+        return FieldId.from(this);
+    }
+
     public Type getType()
     {
         return field.getType();

@@ -50,8 +50,10 @@ final class ConnectionProperties
     public static final ConnectionProperty<Boolean> SSL = new Ssl();
     public static final ConnectionProperty<String> SSL_KEY_STORE_PATH = new SslKeyStorePath();
     public static final ConnectionProperty<String> SSL_KEY_STORE_PASSWORD = new SslKeyStorePassword();
+    public static final ConnectionProperty<String> SSL_KEY_STORE_TYPE = new SslKeyStoreType();
     public static final ConnectionProperty<String> SSL_TRUST_STORE_PATH = new SslTrustStorePath();
     public static final ConnectionProperty<String> SSL_TRUST_STORE_PASSWORD = new SslTrustStorePassword();
+    public static final ConnectionProperty<String> SSL_TRUST_STORE_TYPE = new SslTrustStoreType();
     public static final ConnectionProperty<String> KERBEROS_SERVICE_PRINCIPAL_PATTERN = new KerberosServicePrincipalPattern();
     public static final ConnectionProperty<String> KERBEROS_REMOTE_SERVICE_NAME = new KerberosRemoteServiceName();
     public static final ConnectionProperty<Boolean> KERBEROS_USE_CANONICAL_HOSTNAME = new KerberosUseCanonicalHostname();
@@ -64,6 +66,7 @@ final class ConnectionProperties
     public static final ConnectionProperty<String> CLIENT_INFO = new ClientInfo();
     public static final ConnectionProperty<String> CLIENT_TAGS = new ClientTags();
     public static final ConnectionProperty<String> TRACE_TOKEN = new TraceToken();
+    public static final ConnectionProperty<Boolean> USE_SESSION_TIMEZONE = new UseSessionTimeZone();
     public static final ConnectionProperty<Map<String, String>> SESSION_PROPERTIES = new SessionProperties();
 
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
@@ -76,8 +79,10 @@ final class ConnectionProperties
             .add(SSL)
             .add(SSL_KEY_STORE_PATH)
             .add(SSL_KEY_STORE_PASSWORD)
+            .add(SSL_KEY_STORE_TYPE)
             .add(SSL_TRUST_STORE_PATH)
             .add(SSL_TRUST_STORE_PASSWORD)
+            .add(SSL_TRUST_STORE_TYPE)
             .add(KERBEROS_REMOTE_SERVICE_NAME)
             .add(KERBEROS_SERVICE_PRINCIPAL_PATTERN)
             .add(KERBEROS_USE_CANONICAL_HOSTNAME)
@@ -90,6 +95,7 @@ final class ConnectionProperties
             .add(CLIENT_INFO)
             .add(CLIENT_TAGS)
             .add(TRACE_TOKEN)
+            .add(USE_SESSION_TIMEZONE)
             .add(SESSION_PROPERTIES)
             .build();
 
@@ -157,7 +163,7 @@ final class ConnectionProperties
         public static Map<String, ClientSelectedRole> parseRoles(String roles)
         {
             return new MapPropertyParser("roles").parse(roles).entrySet().stream()
-                    .collect(toImmutableMap(entry -> entry.getKey(), entry -> mapToClientSelectedRole(entry.getValue())));
+                    .collect(toImmutableMap(Map.Entry::getKey, entry -> mapToClientSelectedRole(entry.getValue())));
         }
 
         private static ClientSelectedRole mapToClientSelectedRole(String role)
@@ -266,6 +272,18 @@ final class ConnectionProperties
         }
     }
 
+    private static class SslKeyStoreType
+            extends AbstractConnectionProperty<String>
+    {
+        private static final Predicate<Properties> IF_KEY_STORE =
+                checkedPredicate(properties -> SSL_KEY_STORE_PATH.getValue(properties).isPresent());
+
+        public SslKeyStoreType()
+        {
+            super("SSLKeyStoreType", NOT_REQUIRED, IF_KEY_STORE, STRING_CONVERTER);
+        }
+    }
+
     private static class SslTrustStorePath
             extends AbstractConnectionProperty<String>
     {
@@ -287,6 +305,18 @@ final class ConnectionProperties
         public SslTrustStorePassword()
         {
             super("SSLTrustStorePassword", NOT_REQUIRED, IF_TRUST_STORE, STRING_CONVERTER);
+        }
+    }
+
+    private static class SslTrustStoreType
+            extends AbstractConnectionProperty<String>
+    {
+        private static final Predicate<Properties> IF_TRUST_STORE =
+                checkedPredicate(properties -> SSL_TRUST_STORE_PATH.getValue(properties).isPresent());
+
+        public SslTrustStoreType()
+        {
+            super("SSLTrustStoreType", NOT_REQUIRED, IF_TRUST_STORE, STRING_CONVERTER);
         }
     }
 
@@ -364,6 +394,15 @@ final class ConnectionProperties
         public AccessToken()
         {
             super("accessToken", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class UseSessionTimeZone
+            extends AbstractConnectionProperty<Boolean>
+    {
+        public UseSessionTimeZone()
+        {
+            super("useSessionTimeZone", NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 

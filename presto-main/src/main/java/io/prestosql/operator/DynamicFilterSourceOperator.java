@@ -25,6 +25,7 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeUtils;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 
 import javax.annotation.Nullable;
@@ -35,6 +36,7 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
+import static io.prestosql.spi.type.TypeUtils.isFloatingPointNaN;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toSet;
 
@@ -50,11 +52,11 @@ public class DynamicFilterSourceOperator
 
     public static class Channel
     {
-        private final String filterId;
+        private final DynamicFilterId filterId;
         private final Type type;
         private final int index;
 
-        public Channel(String filterId, Type type, int index)
+        public Channel(DynamicFilterId filterId, Type type, int index)
         {
             this.filterId = filterId;
             this.type = type;
@@ -67,7 +69,7 @@ public class DynamicFilterSourceOperator
     {
         private final int operatorId;
         private final PlanNodeId planNodeId;
-        private final Consumer<TupleDomain<String>> dynamicPredicateConsumer;
+        private final Consumer<TupleDomain<DynamicFilterId>> dynamicPredicateConsumer;
         private final List<Channel> channels;
         private final int maxFilterPositionsCount;
         private final DataSize maxFilterSize;
@@ -77,7 +79,7 @@ public class DynamicFilterSourceOperator
         public DynamicFilterSourceOperatorFactory(
                 int operatorId,
                 PlanNodeId planNodeId,
-                Consumer<TupleDomain<String>> dynamicPredicateConsumer,
+                Consumer<TupleDomain<DynamicFilterId>> dynamicPredicateConsumer,
                 List<Channel> channels,
                 int maxFilterPositionsCount,
                 DataSize maxFilterSize)
@@ -124,7 +126,7 @@ public class DynamicFilterSourceOperator
     private final OperatorContext context;
     private boolean finished;
     private Page current;
-    private final Consumer<TupleDomain<String>> dynamicPredicateConsumer;
+    private final Consumer<TupleDomain<DynamicFilterId>> dynamicPredicateConsumer;
     private final int maxFilterPositionsCount;
     private final long maxFilterSizeInBytes;
 
@@ -138,7 +140,7 @@ public class DynamicFilterSourceOperator
 
     private DynamicFilterSourceOperator(
             OperatorContext context,
-            Consumer<TupleDomain<String>> dynamicPredicateConsumer,
+            Consumer<TupleDomain<DynamicFilterId>> dynamicPredicateConsumer,
             List<Channel> channels,
             PlanNodeId planNodeId,
             int maxFilterPositionsCount,
@@ -235,7 +237,7 @@ public class DynamicFilterSourceOperator
             return; // the predicate became too large.
         }
 
-        ImmutableMap.Builder<String, Domain> domainsBuilder = new ImmutableMap.Builder<>();
+        ImmutableMap.Builder<DynamicFilterId, Domain> domainsBuilder = new ImmutableMap.Builder<>();
         for (int channelIndex = 0; channelIndex < channels.size(); ++channelIndex) {
             Block block = blockBuilders[channelIndex].build();
             Type type = channels.get(channelIndex).type;
@@ -252,9 +254,13 @@ public class DynamicFilterSourceOperator
         for (int position = 0; position < block.getPositionCount(); ++position) {
             Object value = TypeUtils.readNativeValue(type, block, position);
             if (value != null) {
-                values.add(value);
+                // join doesn't match rows with NaN values.
+                if (!isFloatingPointNaN(type, value)) {
+                    values.add(value);
+                }
             }
         }
+
         // Inner and right join doesn't match rows with null key column values.
         return Domain.create(ValueSet.copyOf(type, values.build()), false);
     }

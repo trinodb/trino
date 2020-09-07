@@ -33,8 +33,7 @@ import org.apache.iceberg.Table;
 import java.util.List;
 
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.util.Objects.requireNonNull;
 
@@ -51,7 +50,7 @@ public class SnapshotsTable
         this.icebergTable = requireNonNull(icebergTable, "icebergTable is null");
         tableMetadata = new ConnectorTableMetadata(requireNonNull(tableName, "tableName is null"),
                 ImmutableList.<ColumnMetadata>builder()
-                        .add(new ColumnMetadata("committed_at", TIMESTAMP_WITH_TIME_ZONE))
+                        .add(new ColumnMetadata("committed_at", TIMESTAMP_TZ_MILLIS))
                         .add(new ColumnMetadata("snapshot_id", BIGINT))
                         .add(new ColumnMetadata("parent_id", BIGINT))
                         .add(new ColumnMetadata("operation", VARCHAR))
@@ -85,7 +84,7 @@ public class SnapshotsTable
         TimeZoneKey timeZoneKey = session.getTimeZoneKey();
         icebergTable.snapshots().forEach(snapshot -> {
             pagesBuilder.beginRow();
-            pagesBuilder.appendTimestamp(packDateTimeWithZone(snapshot.timestampMillis(), timeZoneKey));
+            pagesBuilder.appendTimestampTzMillis(snapshot.timestampMillis(), timeZoneKey);
             pagesBuilder.appendBigint(snapshot.snapshotId());
             if (checkNonNull(snapshot.parentId(), pagesBuilder)) {
                 pagesBuilder.appendBigint(snapshot.parentId());

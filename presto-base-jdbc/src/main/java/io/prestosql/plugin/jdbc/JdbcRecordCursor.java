@@ -30,6 +30,7 @@ import java.util.List;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Verify.verify;
 import static io.prestosql.plugin.jdbc.JdbcErrorCode.JDBC_ERROR;
 import static java.util.Objects.requireNonNull;
 
@@ -69,8 +70,13 @@ public class JdbcRecordCursor
             connection = jdbcClient.getConnection(JdbcIdentity.from(session), split);
 
             for (int i = 0; i < this.columnHandles.length; i++) {
-                ColumnMapping columnMapping = jdbcClient.toPrestoType(session, connection, columnHandles.get(i).getJdbcTypeHandle())
+                JdbcColumnHandle columnHandle = columnHandles.get(i);
+                ColumnMapping columnMapping = jdbcClient.toPrestoType(session, connection, columnHandle.getJdbcTypeHandle())
                         .orElseThrow(() -> new VerifyException("Unsupported column type"));
+                verify(
+                        columnHandle.getColumnType().equals(columnMapping.getType()),
+                        "Type mismatch: column handle has type %s but %s is mapped to %s",
+                        columnHandle.getColumnType(), columnHandle.getJdbcTypeHandle(), columnMapping.getType());
                 Class<?> javaType = columnMapping.getType().getJavaType();
                 ReadFunction readFunction = columnMapping.getReadFunction();
                 readFunctions[i] = readFunction;

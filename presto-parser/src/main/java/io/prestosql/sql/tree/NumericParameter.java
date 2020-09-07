@@ -78,4 +78,14 @@ public class NumericParameter
     {
         return Objects.hash(value);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        return Objects.equals(value, ((NumericParameter) other).value);
+    }
 }

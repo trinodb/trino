@@ -24,10 +24,11 @@ import io.prestosql.parquet.RichColumnDescriptor;
 import io.prestosql.parquet.predicate.Predicate;
 import io.prestosql.parquet.reader.MetadataReader;
 import io.prestosql.parquet.reader.ParquetReader;
-import io.prestosql.plugin.hive.DeleteDeltaLocations;
+import io.prestosql.plugin.hive.AcidInfo;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
+import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
 import io.prestosql.plugin.hive.ReaderProjections;
 import io.prestosql.spi.PrestoException;
@@ -98,15 +99,17 @@ public class ParquetPageSourceFactory
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
     private final ParquetReaderOptions options;
+    private final DateTimeZone timeZone;
 
     @Inject
-    public ParquetPageSourceFactory(HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, ParquetReaderConfig config)
+    public ParquetPageSourceFactory(HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, ParquetReaderConfig config, HiveConfig hiveConfig)
     {
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
         requireNonNull(config, "config is null");
 
         options = config.toParquetReaderOptions();
+        timeZone = requireNonNull(hiveConfig, "hiveConfig is null").getParquetDateTimeZone();
     }
 
     @Override
@@ -120,14 +123,13 @@ public class ParquetPageSourceFactory
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            DateTimeZone hiveStorageTimeZone,
-            Optional<DeleteDeltaLocations> deleteDeltaLocations)
+            Optional<AcidInfo> acidInfo)
     {
         if (!PARQUET_SERDE_CLASS_NAMES.contains(getDeserializerClassName(schema))) {
             return Optional.empty();
         }
 
-        checkArgument(deleteDeltaLocations.isEmpty(), "Delete delta is not supported");
+        checkArgument(acidInfo.isEmpty(), "Acid is not supported");
 
         return Optional.of(createPageSource(
                 path,
@@ -140,6 +142,7 @@ public class ParquetPageSourceFactory
                 hdfsEnvironment,
                 configuration,
                 session.getUser(),
+                timeZone,
                 stats,
                 options.withFailOnCorruptedStatistics(isFailOnCorruptedParquetStatistics(session))
                         .withMaxReadBlockSize(getParquetMaxReadBlockSize(session))));
@@ -159,6 +162,7 @@ public class ParquetPageSourceFactory
             HdfsEnvironment hdfsEnvironment,
             Configuration configuration,
             String user,
+            DateTimeZone timeZone,
             FileFormatDataSourceStats stats,
             ParquetReaderOptions options)
     {
@@ -202,7 +206,7 @@ public class ParquetPageSourceFactory
             Map<List<String>, RichColumnDescriptor> descriptorsByPath = getDescriptors(fileSchema, requestedSchema);
             TupleDomain<ColumnDescriptor> parquetTupleDomain = getParquetTupleDomain(descriptorsByPath, effectivePredicate, fileSchema, useColumnNames);
 
-            Predicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath);
+            Predicate parquetPredicate = buildPredicate(requestedSchema, parquetTupleDomain, descriptorsByPath, timeZone);
             ImmutableList.Builder<BlockMetaData> blocks = ImmutableList.builder();
             for (BlockMetaData block : footerBlocks.build()) {
                 if (predicateMatches(parquetPredicate, block, dataSource, descriptorsByPath, parquetTupleDomain, options.isFailOnCorruptedStatistics())) {
@@ -214,6 +218,7 @@ public class ParquetPageSourceFactory
                     messageColumn,
                     blocks.build(),
                     dataSource,
+                    timeZone,
                     newSimpleAggregatedMemoryContext(),
                     options);
         }

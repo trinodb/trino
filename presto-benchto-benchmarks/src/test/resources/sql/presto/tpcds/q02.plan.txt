@@ -15,15 +15,15 @@ remote exchange (GATHER, SINGLE, [])
                                             remote exchange (REPLICATE, BROADCAST, [])
                                                 scan date_dim
                     local exchange (GATHER, SINGLE, [])
-                        remote exchange (REPARTITION, HASH, ["d_week_seq_83"])
+                        remote exchange (REPARTITION, HASH, ["d_week_seq_16"])
                             scan date_dim
                 local exchange (GATHER, SINGLE, [])
-                    remote exchange (REPARTITION, HASH, ["expr_395"])
+                    remote exchange (REPARTITION, HASH, ["expr_187"])
                         join (INNER, PARTITIONED):
-                            final aggregation over (d_week_seq_232)
+                            final aggregation over (d_week_seq_114)
                                 local exchange (GATHER, SINGLE, [])
-                                    remote exchange (REPARTITION, HASH, ["d_week_seq_232"])
-                                        partial aggregation over (d_week_seq_232)
+                                    remote exchange (REPARTITION, HASH, ["d_week_seq_114"])
+                                        partial aggregation over (d_week_seq_114)
                                             join (INNER, REPLICATED):
                                                 remote exchange (REPARTITION, ROUND_ROBIN, [])
                                                     scan web_sales
@@ -32,5 +32,5 @@ remote exchange (GATHER, SINGLE, [])
                                                     remote exchange (REPLICATE, BROADCAST, [])
                                                         scan date_dim
                             local exchange (GATHER, SINGLE, [])
-                                remote exchange (REPARTITION, HASH, ["d_week_seq_316"])
+                                remote exchange (REPARTITION, HASH, ["d_week_seq_157"])
                                     scan date_dim

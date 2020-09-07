@@ -18,6 +18,7 @@ import io.airlift.bootstrap.LifeCycleManager;
 import io.prestosql.plugin.kudu.properties.KuduTableProperties;
 import io.prestosql.spi.connector.Connector;
 import io.prestosql.spi.connector.ConnectorMetadata;
+import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
 import io.prestosql.spi.connector.ConnectorPageSinkProvider;
 import io.prestosql.spi.connector.ConnectorPageSourceProvider;
 import io.prestosql.spi.connector.ConnectorSplitManager;
@@ -45,6 +46,8 @@ public class KuduConnector
     private final KuduTableProperties tableProperties;
     private final ConnectorPageSinkProvider pageSinkProvider;
     private final Set<Procedure> procedures;
+    private final ConnectorNodePartitioningProvider nodePartitioningProvider;
+    private final List<PropertyMetadata<?>> sessionProperties;
 
     @Inject
     public KuduConnector(
@@ -54,7 +57,9 @@ public class KuduConnector
             KuduTableProperties tableProperties,
             ConnectorPageSourceProvider pageSourceProvider,
             ConnectorPageSinkProvider pageSinkProvider,
-            Set<Procedure> procedures)
+            Set<Procedure> procedures,
+            ConnectorNodePartitioningProvider nodePartitioningProvider,
+            KuduSessionProperties sessionProperties)
     {
         this.lifeCycleManager = requireNonNull(lifeCycleManager, "lifeCycleManager is null");
         this.metadata = requireNonNull(metadata, "metadata is null");
@@ -63,6 +68,8 @@ public class KuduConnector
         this.tableProperties = requireNonNull(tableProperties, "tableProperties is null");
         this.pageSinkProvider = requireNonNull(pageSinkProvider, "pageSinkProvider is null");
         this.procedures = ImmutableSet.copyOf(requireNonNull(procedures, "procedures is null"));
+        this.nodePartitioningProvider = requireNonNull(nodePartitioningProvider, "nodePartitioningProvider is null");
+        this.sessionProperties = requireNonNull(sessionProperties, "KuduSessionProperties is null").getSessionProperties();
     }
 
     @Override
@@ -112,6 +119,18 @@ public class KuduConnector
     public Set<Procedure> getProcedures()
     {
         return procedures;
+    }
+
+    @Override
+    public List<PropertyMetadata<?>> getSessionProperties()
+    {
+        return sessionProperties;
+    }
+
+    @Override
+    public ConnectorNodePartitioningProvider getNodePartitioningProvider()
+    {
+        return nodePartitioningProvider;
     }
 
     @Override

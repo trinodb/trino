@@ -42,7 +42,7 @@ import static io.prestosql.spi.connector.SystemTable.Distribution.SINGLE_COORDIN
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.StandardTypes.ARRAY;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
@@ -62,7 +62,7 @@ public class TransactionsSystemTable
                 .column("isolation_level", createUnboundedVarcharType())
                 .column("read_only", BOOLEAN)
                 .column("auto_commit_context", BOOLEAN)
-                .column("create_time", TIMESTAMP)
+                .column("create_time", TIMESTAMP_MILLIS)
                 .column("idle_time_secs", BIGINT)
                 .column("written_catalog", createUnboundedVarcharType())
                 .column("catalogs", metadata.getParameterizedType(ARRAY, ImmutableList.of(TypeSignatureParameter.typeParameter(createUnboundedVarcharType().getTypeSignature()))))

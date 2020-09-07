@@ -28,7 +28,7 @@ import javax.inject.Inject;
 
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
-import static org.testcontainers.containers.BindMode.READ_ONLY;
+import static org.testcontainers.utility.MountableFile.forHostPath;
 
 @TestsEnvironment
 public final class SinglenodeMysql
@@ -52,10 +52,9 @@ public final class SinglenodeMysql
     protected void extendEnvironment(Environment.Builder builder)
     {
         builder.configureContainer("presto-master", container -> container
-                .withFileSystemBind(
-                        dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-mysql/mysql.properties"),
-                        CONTAINER_PRESTO_ETC + "/catalog/mysql.properties",
-                        READ_ONLY));
+                .withCopyFileToContainer(
+                        forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-mysql/mysql.properties")),
+                        CONTAINER_PRESTO_ETC + "/catalog/mysql.properties"));
 
         builder.addContainer("mysql", createMySql());
     }

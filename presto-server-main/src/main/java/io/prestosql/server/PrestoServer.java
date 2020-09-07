@@ -13,7 +13,6 @@
  */
 package io.prestosql.server;
 
-import com.google.common.base.Splitter;
 import com.google.common.base.StandardSystemProperty;
 import com.google.common.primitives.Ints;
 
@@ -28,7 +27,7 @@ public final class PrestoServer
     public static void main(String[] args)
     {
         String javaVersion = nullToEmpty(StandardSystemProperty.JAVA_VERSION.value());
-        String majorVersion = Splitter.on('.').split(javaVersion).iterator().next();
+        String majorVersion = javaVersion.split("[^\\d]", 2)[0];
         Integer major = Ints.tryParse(majorVersion);
         if (major == null || major < 11) {
             System.err.println(format("ERROR: Presto requires Java 11+ (found %s)", javaVersion));

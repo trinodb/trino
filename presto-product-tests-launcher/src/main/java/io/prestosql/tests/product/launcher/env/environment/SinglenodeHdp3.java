@@ -16,7 +16,7 @@ package io.prestosql.tests.product.launcher.env.environment;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
+import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Standard;
@@ -26,7 +26,7 @@ import javax.inject.Inject;
 
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.util.Objects.requireNonNull;
-import static org.testcontainers.containers.BindMode.READ_ONLY;
+import static org.testcontainers.utility.MountableFile.forHostPath;
 
 // HDP 3.1 images (code) + HDP 3.1-like configuration.
 // See https://github.com/prestosql/presto/issues/1841 for more information.
@@ -35,20 +35,20 @@ public class SinglenodeHdp3
         extends AbstractEnvironmentProvider
 {
     private final DockerFiles dockerFiles;
-    private final String imagesVersion;
+    private final String hadoopImagesVersion;
 
     @Inject
-    protected SinglenodeHdp3(DockerFiles dockerFiles, Standard standard, Hadoop hadoop, EnvironmentOptions environmentOptions)
+    protected SinglenodeHdp3(DockerFiles dockerFiles, Standard standard, Hadoop hadoop, EnvironmentConfig environmentConfig)
     {
         super(ImmutableList.of(standard, hadoop));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
-        this.imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
+        this.hadoopImagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopImagesVersion();
     }
 
     @Override
     protected void extendEnvironment(Environment.Builder builder)
     {
-        String dockerImageName = "prestodev/hdp3.1-hive:" + imagesVersion;
+        String dockerImageName = "prestodev/hdp3.1-hive:" + hadoopImagesVersion;
 
         builder.configureContainer("hadoop-master", dockerContainer -> {
             dockerContainer.setDockerImageName(dockerImageName);
@@ -57,10 +57,9 @@ public class SinglenodeHdp3
         });
 
         builder.configureContainer("tests", dockerContainer -> {
-            dockerContainer.withFileSystemBind(
-                    dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-hive3.yaml"),
-                    CONTAINER_TEMPTO_PROFILE_CONFIG,
-                    READ_ONLY);
+            dockerContainer.withCopyFileToContainer(
+                    forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-hive3.yaml")),
+                    CONTAINER_TEMPTO_PROFILE_CONFIG);
         });
     }
 }

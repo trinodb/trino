@@ -222,7 +222,7 @@ public final class OracleDataTypes
 
     public static DataType<LocalDate> dateDataType()
     {
-        return dataType("DATE", TimestampType.TIMESTAMP,
+        return dataType("DATE", TimestampType.TIMESTAMP_MILLIS,
                 DateTimeFormatter.ofPattern("'DATE '''yyyy-MM-dd''")::format,
                 LocalDate::atStartOfDay);
     }

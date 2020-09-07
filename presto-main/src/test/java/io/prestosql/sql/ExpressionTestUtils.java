@@ -18,7 +18,6 @@ import io.prestosql.Session;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.metadata.Signature;
 import io.prestosql.security.AllowAllAccessControl;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.ExpressionAnalyzer;
@@ -37,7 +36,6 @@ import io.prestosql.sql.tree.ExpressionRewriter;
 import io.prestosql.sql.tree.ExpressionTreeRewriter;
 import io.prestosql.sql.tree.FunctionCall;
 import io.prestosql.sql.tree.NodeRef;
-import io.prestosql.sql.tree.QualifiedName;
 import io.prestosql.transaction.TestingTransactionManager;
 
 import java.util.Map;
@@ -59,15 +57,6 @@ public final class ExpressionTestUtils
     private static final SqlParser SQL_PARSER = new SqlParser();
 
     private ExpressionTestUtils() {}
-
-    public static QualifiedName getFunctionName(FunctionCall actual)
-    {
-        return ResolvedFunction.fromQualifiedName(actual.getName())
-                .map(ResolvedFunction::getSignature)
-                .map(Signature::getName)
-                .map(QualifiedName::of)
-                .orElse(actual.getName());
-    }
 
     public static void assertExpressionEquals(Expression actual, Expression expected)
     {
@@ -128,7 +117,7 @@ public final class ExpressionTestUtils
                 false);
         analyzer.analyze(expression, Scope.builder().build());
 
-        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<Void>()
+        return ExpressionTreeRewriter.rewriteWith(new ExpressionRewriter<>()
         {
             @Override
             public Expression rewriteFunctionCall(FunctionCall node, Void context, ExpressionTreeRewriter<Void> treeRewriter)

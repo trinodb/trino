@@ -99,4 +99,15 @@ public final class GroupingSets
                 .add("sets", sets)
                 .toString();
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        GroupingSets that = (GroupingSets) other;
+        return Objects.equals(sets, that.sets);
+    }
 }

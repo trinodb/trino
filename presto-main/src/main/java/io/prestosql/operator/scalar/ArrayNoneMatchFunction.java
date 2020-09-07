@@ -13,7 +13,6 @@
  */
 package io.prestosql.operator.scalar;
 
-import io.airlift.slice.Slice;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.Description;
 import io.prestosql.spi.function.ScalarFunction;
@@ -31,31 +30,15 @@ public final class ArrayNoneMatchFunction
     private ArrayNoneMatchFunction() {}
 
     @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = Block.class)
+    @TypeParameterSpecialization(name = "T", nativeContainerType = Object.class)
     @SqlType(StandardTypes.BOOLEAN)
     @SqlNullable
-    public static Boolean noneMatchBlock(
+    public static Boolean noneMatchObject(
             @TypeParameter("T") Type elementType,
             @SqlType("array(T)") Block arrayBlock,
-            @SqlType("function(T, boolean)") BlockToBooleanFunction function)
+            @SqlType("function(T, boolean)") ObjectToBooleanFunction function)
     {
-        Boolean anyMatchResult = ArrayAnyMatchFunction.anyMatchBlock(elementType, arrayBlock, function);
-        if (anyMatchResult == null) {
-            return null;
-        }
-        return !anyMatchResult;
-    }
-
-    @TypeParameter("T")
-    @TypeParameterSpecialization(name = "T", nativeContainerType = Slice.class)
-    @SqlType(StandardTypes.BOOLEAN)
-    @SqlNullable
-    public static Boolean noneMatchSlice(
-            @TypeParameter("T") Type elementType,
-            @SqlType("array(T)") Block arrayBlock,
-            @SqlType("function(T, boolean)") SliceToBooleanFunction function)
-    {
-        Boolean anyMatchResult = ArrayAnyMatchFunction.anyMatchSlice(elementType, arrayBlock, function);
+        Boolean anyMatchResult = ArrayAnyMatchFunction.anyMatchObject(elementType, arrayBlock, function);
         if (anyMatchResult == null) {
             return null;
         }

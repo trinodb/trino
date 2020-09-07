@@ -30,7 +30,7 @@ import io.prestosql.spi.security.Identity;
 
 import javax.crypto.spec.SecretKeySpec;
 import javax.inject.Inject;
-import javax.servlet.http.HttpServletRequest;
+import javax.ws.rs.container.ContainerRequestContext;
 
 import java.io.File;
 import java.io.IOException;
@@ -104,10 +104,10 @@ public class JsonWebTokenAuthenticator
     }
 
     @Override
-    public Identity authenticate(HttpServletRequest request)
+    public Identity authenticate(ContainerRequestContext request)
             throws AuthenticationException
     {
-        String header = nullToEmpty(request.getHeader(AUTHORIZATION));
+        String header = nullToEmpty(request.getHeaders().getFirst(AUTHORIZATION));
 
         int space = header.indexOf(' ');
         if ((space < 0) || !header.substring(0, space).equalsIgnoreCase("bearer")) {

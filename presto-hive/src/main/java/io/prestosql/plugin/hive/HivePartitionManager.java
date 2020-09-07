@@ -17,7 +17,6 @@ import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Sets;
-import io.airlift.slice.Slice;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.SemiTransactionalHiveMetastore;
 import io.prestosql.plugin.hive.metastore.Table;
@@ -32,78 +31,48 @@ import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.type.BigintType;
-import io.prestosql.spi.type.BooleanType;
-import io.prestosql.spi.type.CharType;
-import io.prestosql.spi.type.DateType;
-import io.prestosql.spi.type.DecimalType;
-import io.prestosql.spi.type.Decimals;
-import io.prestosql.spi.type.DoubleType;
-import io.prestosql.spi.type.IntegerType;
-import io.prestosql.spi.type.RealType;
-import io.prestosql.spi.type.SmallintType;
-import io.prestosql.spi.type.TimestampType;
-import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
-import io.prestosql.spi.type.VarcharType;
 import org.apache.hadoop.hive.common.FileUtils;
-import org.joda.time.DateTimeZone;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 
 import javax.inject.Inject;
 
-import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.TimeUnit;
 import java.util.function.Predicate;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_EXCEEDED_PARTITION_LIMIT;
+import static io.prestosql.plugin.hive.metastore.MetastoreUtil.computePartitionKeyFilter;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.toPartitionName;
 import static io.prestosql.plugin.hive.util.HiveBucketing.getHiveBucketFilter;
 import static io.prestosql.plugin.hive.util.HiveUtil.parsePartitionValue;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.predicate.TupleDomain.none;
-import static io.prestosql.spi.type.Chars.padSpaces;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
 public class HivePartitionManager
 {
-    private static final String PARTITION_VALUE_WILDCARD = "";
-
-    private final DateTimeZone timeZone;
     private final int maxPartitions;
-    private final boolean assumeCanonicalPartitionKeys;
     private final int domainCompactionThreshold;
 
     @Inject
     public HivePartitionManager(HiveConfig hiveConfig)
     {
         this(
-                hiveConfig.getDateTimeZone(),
                 hiveConfig.getMaxPartitionsPerScan(),
-                hiveConfig.isAssumeCanonicalPartitionKeys(),
                 hiveConfig.getDomainCompactionThreshold());
     }
 
     public HivePartitionManager(
-            DateTimeZone timeZone,
             int maxPartitions,
-            boolean assumeCanonicalPartitionKeys,
             int domainCompactionThreshold)
     {
-        this.timeZone = requireNonNull(timeZone, "timeZone is null");
         checkArgument(maxPartitions >= 1, "maxPartitions must be at least 1");
         this.maxPartitions = maxPartitions;
-        this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         checkArgument(domainCompactionThreshold >= 1, "domainCompactionThreshold must be at least 1");
         this.domainCompactionThreshold = domainCompactionThreshold;
     }
@@ -226,7 +195,7 @@ public class HivePartitionManager
                 handle.getAnalyzePartitionValues(),
                 handle.getAnalyzeColumnNames(),
                 Optionals.combine(handle.getConstraintColumns(), columns,
-                        (oldColumns, newColumns) -> Sets.union(oldColumns, newColumns)));
+                        Sets::union));
     }
 
     public List<HivePartition> getOrLoadPartitions(SemiTransactionalHiveMetastore metastore, HiveIdentity identity, HiveTableHandle table)
@@ -243,7 +212,7 @@ public class HivePartitionManager
             TupleDomain<ColumnHandle> constraintSummary,
             Predicate<Map<ColumnHandle, NullableValue>> constraint)
     {
-        HivePartition partition = parsePartition(tableName, partitionId, partitionColumns, partitionColumnTypes, timeZone);
+        HivePartition partition = parsePartition(tableName, partitionId, partitionColumns, partitionColumnTypes);
 
         if (partitionMatches(partitionColumns, constraintSummary, constraint, partition)) {
             return Optional.of(partition);
@@ -274,68 +243,12 @@ public class HivePartitionManager
 
     private List<String> getFilteredPartitionNames(SemiTransactionalHiveMetastore metastore, HiveIdentity identity, SchemaTableName tableName, List<HiveColumnHandle> partitionKeys, TupleDomain<ColumnHandle> effectivePredicate)
     {
-        checkArgument(effectivePredicate.getDomains().isPresent());
-
-        List<String> filter = new ArrayList<>();
-        for (HiveColumnHandle partitionKey : partitionKeys) {
-            Domain domain = effectivePredicate.getDomains().get().get(partitionKey);
-            if (domain != null && domain.isNullableSingleValue()) {
-                Object value = domain.getNullableSingleValue();
-                Type type = domain.getType();
-                if (value == null) {
-                    filter.add(HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION);
-                }
-                else if (type instanceof CharType) {
-                    Slice slice = (Slice) value;
-                    filter.add(padSpaces(slice, (CharType) type).toStringUtf8());
-                }
-                else if (type instanceof VarcharType) {
-                    Slice slice = (Slice) value;
-                    filter.add(slice.toStringUtf8());
-                }
-                // Types above this have only a single possible representation for each value.
-                // Types below this may have multiple representations for a single value.  For
-                // example, a boolean column may represent the false value as "0", "false" or "False".
-                // The metastore distinguishes between these representations, so we cannot prune partitions
-                // unless we know that all partition values use the canonical Java representation.
-                else if (!assumeCanonicalPartitionKeys) {
-                    filter.add(PARTITION_VALUE_WILDCARD);
-                }
-                else if (type instanceof DecimalType && !((DecimalType) type).isShort()) {
-                    Slice slice = (Slice) value;
-                    filter.add(Decimals.toString(slice, ((DecimalType) type).getScale()));
-                }
-                else if (type instanceof DecimalType && ((DecimalType) type).isShort()) {
-                    filter.add(Decimals.toString((long) value, ((DecimalType) type).getScale()));
-                }
-                else if (type instanceof DateType) {
-                    DateTimeFormatter dateTimeFormatter = ISODateTimeFormat.date().withZoneUTC();
-                    filter.add(dateTimeFormatter.print(TimeUnit.DAYS.toMillis((long) value)));
-                }
-                else if (type instanceof TimestampType) {
-                    // we don't have time zone info, so just add a wildcard
-                    filter.add(PARTITION_VALUE_WILDCARD);
-                }
-                else if (type instanceof TinyintType
-                        || type instanceof SmallintType
-                        || type instanceof IntegerType
-                        || type instanceof BigintType
-                        || type instanceof DoubleType
-                        || type instanceof RealType
-                        || type instanceof BooleanType) {
-                    filter.add(value.toString());
-                }
-                else {
-                    throw new PrestoException(NOT_SUPPORTED, format("Unsupported partition key type: %s", type.getDisplayName()));
-                }
-            }
-            else {
-                filter.add(PARTITION_VALUE_WILDCARD);
-            }
-        }
-
+        List<String> columnNames = partitionKeys.stream()
+                .map(HiveColumnHandle::getName)
+                .collect(toImmutableList());
+        TupleDomain<String> partitionKeysFilter = computePartitionKeyFilter(partitionKeys, effectivePredicate);
         // fetch the partition names
-        return metastore.getPartitionNamesByParts(identity, tableName.getSchemaName(), tableName.getTableName(), filter)
+        return metastore.getPartitionNamesByFilter(identity, tableName.getSchemaName(), tableName.getTableName(), columnNames, partitionKeysFilter)
                 .orElseThrow(() -> new TableNotFoundException(tableName));
     }
 
@@ -343,14 +256,13 @@ public class HivePartitionManager
             SchemaTableName tableName,
             String partitionName,
             List<HiveColumnHandle> partitionColumns,
-            List<Type> partitionColumnTypes,
-            DateTimeZone timeZone)
+            List<Type> partitionColumnTypes)
     {
         List<String> partitionValues = extractPartitionValues(partitionName);
         ImmutableMap.Builder<ColumnHandle, NullableValue> builder = ImmutableMap.builder();
         for (int i = 0; i < partitionColumns.size(); i++) {
             HiveColumnHandle column = partitionColumns.get(i);
-            NullableValue parsedValue = parsePartitionValue(partitionName, partitionValues.get(i), partitionColumnTypes.get(i), timeZone);
+            NullableValue parsedValue = parsePartitionValue(partitionName, partitionValues.get(i), partitionColumnTypes.get(i));
             builder.put(column, parsedValue);
         }
         Map<ColumnHandle, NullableValue> values = builder.build();

@@ -34,6 +34,7 @@ import io.prestosql.memory.QueryContextVisitor;
 import io.prestosql.memory.context.LocalMemoryContext;
 import io.prestosql.memory.context.MemoryTrackingContext;
 import io.prestosql.spi.predicate.Domain;
+import io.prestosql.sql.planner.plan.DynamicFilterId;
 import org.joda.time.DateTime;
 
 import javax.annotation.concurrent.GuardedBy;
@@ -106,7 +107,7 @@ public class TaskContext
     private final MemoryTrackingContext taskMemoryContext;
 
     @GuardedBy("this")
-    private Map<String, Domain> dynamicTupleDomains = new HashMap<>();
+    private final Map<DynamicFilterId, Domain> dynamicTupleDomains = new HashMap<>();
 
     public static TaskContext createTaskContext(
             QueryContext queryContext,
@@ -381,14 +382,14 @@ public class TaskContext
         return toIntExact(max(0, endFullGcCount - startFullGcCount));
     }
 
-    public synchronized void collectDynamicTupleDomain(Map<String, Domain> dynamicFilterDomains)
+    public synchronized void collectDynamicFilterDomains(Map<DynamicFilterId, Domain> dynamicFilterDomains)
     {
-        for (Map.Entry<String, Domain> entry : dynamicFilterDomains.entrySet()) {
+        for (Map.Entry<DynamicFilterId, Domain> entry : dynamicFilterDomains.entrySet()) {
             dynamicTupleDomains.merge(entry.getKey(), entry.getValue(), Domain::intersect);
         }
     }
 
-    public synchronized Map<String, Domain> getDynamicTupleDomains()
+    public synchronized Map<DynamicFilterId, Domain> getDynamicTupleDomains()
     {
         return ImmutableMap.copyOf(dynamicTupleDomains);
     }

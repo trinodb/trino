@@ -24,6 +24,7 @@ import io.prestosql.spi.statistics.TableStatistics;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.TimeType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.tpcds.Table;
@@ -38,7 +39,6 @@ import static io.prestosql.spi.type.Decimals.isLongDecimal;
 import static io.prestosql.spi.type.Decimals.isShortDecimal;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.spi.type.TimeType.TIME;
 import static java.lang.Double.parseDouble;
 
 public class TpcdsTableStatisticsFactory
@@ -82,7 +82,7 @@ public class TpcdsTableStatisticsFactory
 
     private static Optional<DoubleRange> toRange(Optional<Object> min, Optional<Object> max, Type columnType)
     {
-        if (columnType instanceof VarcharType || columnType instanceof CharType || columnType.equals(TIME)) {
+        if (columnType instanceof VarcharType || columnType instanceof CharType || columnType instanceof TimeType) {
             return Optional.empty();
         }
         if (min.isEmpty() || max.isEmpty()) {

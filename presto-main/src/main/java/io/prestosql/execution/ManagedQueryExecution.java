@@ -47,6 +47,8 @@ public interface ManagedQueryExecution
 
     QueryInfo getFullQueryInfo();
 
+    QueryState getState();
+
     boolean isDone();
 
     /**

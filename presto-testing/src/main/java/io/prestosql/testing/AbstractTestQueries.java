@@ -1169,7 +1169,7 @@ public abstract class AbstractTestQueries
 
         // multiple subquery output projections
         assertQueryFails(
-                "SELECT name FROM nation n WHERE 'AFRICA' = (SELECT 'bleh' FROM region WHERE regionkey > n.regionkey)",
+                "SELECT name FROM nation n WHERE 'bleh' = (SELECT 'bleh' FROM region WHERE regionkey > n.regionkey)",
                 subqueryReturnedTooManyRows);
         assertQueryFails(
                 "SELECT name FROM nation n WHERE 'AFRICA' = (SELECT name FROM region WHERE regionkey > n.regionkey)",

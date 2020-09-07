@@ -90,7 +90,7 @@ public class StatisticsEstimator
     {
         //unique values count can't be added between different partitions
         //for columns other than the partition column (because almost certainly there are duplicates)
-        return combine(leftStats.getDistinctValuesCount(), rightStats.getDistinctValuesCount(), (a, b) -> a + b)
+        return combine(leftStats.getDistinctValuesCount(), rightStats.getDistinctValuesCount(), Long::sum)
                 .filter(v -> columnName.equals(partitionColumn.getColumnName()));
     }
 

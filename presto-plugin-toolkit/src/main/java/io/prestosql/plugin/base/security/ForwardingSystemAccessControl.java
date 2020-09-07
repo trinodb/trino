@@ -65,6 +65,18 @@ public abstract class ForwardingSystemAccessControl
     }
 
     @Override
+    public void checkCanReadSystemInformation(SystemSecurityContext context)
+    {
+        delegate().checkCanReadSystemInformation(context);
+    }
+
+    @Override
+    public void checkCanWriteSystemInformation(SystemSecurityContext context)
+    {
+        delegate().checkCanWriteSystemInformation(context);
+    }
+
+    @Override
     public void checkCanExecuteQuery(SystemSecurityContext context)
     {
         delegate().checkCanExecuteQuery(context);
@@ -176,6 +188,12 @@ public abstract class ForwardingSystemAccessControl
     public void checkCanSetTableComment(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         delegate().checkCanSetTableComment(context, table);
+    }
+
+    @Override
+    public void checkCanSetColumnComment(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+        delegate().checkCanSetColumnComment(context, table);
     }
 
     @Override

@@ -6,11 +6,6 @@ The machine learning plugin provides machine learning functionality
 as an aggregation function. It enables you to train Support Vector Machine (SVM)
 based classifiers and regressors for the supervised learning problems.
 
-.. contents::
-    :local:
-    :backlinks: none
-    :depth: 1
-
 .. note::
 
   The machine learning functions are not optimized for distributed processing.

@@ -18,7 +18,7 @@ import com.google.common.io.Closer;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
+import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Kerberos;
@@ -41,8 +41,8 @@ import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
-import static org.testcontainers.containers.BindMode.READ_ONLY;
 import static org.testcontainers.containers.BindMode.READ_WRITE;
+import static org.testcontainers.utility.MountableFile.forHostPath;
 
 /**
  * Two pseudo-distributed, kerberized Hadoop installations running on side-by-side,
@@ -55,7 +55,7 @@ public final class TwoKerberosHives
     private final DockerFiles dockerFiles;
 
     private final String hadoopBaseImage;
-    private final String imagesVersion;
+    private final String hadoopImagesVersion;
 
     private final Closer closer = Closer.create();
 
@@ -65,12 +65,12 @@ public final class TwoKerberosHives
             Standard standard,
             Hadoop hadoop,
             Kerberos kerberos,
-            EnvironmentOptions environmentOptions)
+            EnvironmentConfig environmentConfig)
     {
         super(ImmutableList.of(standard, hadoop, kerberos));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
-        hadoopBaseImage = requireNonNull(environmentOptions.hadoopBaseImage, "environmentOptions.hadoopBaseImage is null");
-        imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
+        hadoopBaseImage = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopBaseImage();
+        hadoopImagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopImagesVersion();
     }
 
     @PreDestroy
@@ -89,30 +89,25 @@ public final class TwoKerberosHives
             container
                     .withFileSystemBind(keytabsHostDirectory, "/etc/presto/conf", READ_WRITE)
 
-                    .withFileSystemBind(
-                            dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/presto-krb5.conf"),
-                            "/etc/krb5.conf",
-                            READ_ONLY)
+                    .withCopyFileToContainer(
+                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/presto-krb5.conf")),
+                            "/etc/krb5.conf")
 
-                    .withFileSystemBind(
-                            dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/hive1.properties"),
-                            CONTAINER_PRESTO_ETC + "/catalog/hive1.properties",
-                            READ_ONLY)
+                    .withCopyFileToContainer(
+                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/hive1.properties")),
+                            CONTAINER_PRESTO_ETC + "/catalog/hive1.properties")
 
-                    .withFileSystemBind(
-                            dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/hive2.properties"),
-                            CONTAINER_PRESTO_ETC + "/catalog/hive2.properties",
-                            READ_ONLY)
+                    .withCopyFileToContainer(
+                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/hive2.properties")),
+                            CONTAINER_PRESTO_ETC + "/catalog/hive2.properties")
 
-                    .withFileSystemBind(
-                            dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/iceberg1.properties"),
-                            CONTAINER_PRESTO_ETC + "/catalog/iceberg1.properties",
-                            READ_ONLY)
+                    .withCopyFileToContainer(
+                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/iceberg1.properties")),
+                            CONTAINER_PRESTO_ETC + "/catalog/iceberg1.properties")
 
-                    .withFileSystemBind(
-                            dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/iceberg2.properties"),
-                            CONTAINER_PRESTO_ETC + "/catalog/iceberg2.properties",
-                            READ_ONLY);
+                    .withCopyFileToContainer(
+                            forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/two-kerberos-hives/iceberg2.properties")),
+                            CONTAINER_PRESTO_ETC + "/catalog/iceberg2.properties");
         });
 
         builder.configureContainer("hadoop-master", container -> {
@@ -141,8 +136,8 @@ public final class TwoKerberosHives
     @SuppressWarnings("resource")
     private DockerContainer createHadoopMaster2(String keytabsHostDirectory)
     {
-        DockerContainer container = new DockerContainer(hadoopBaseImage + "-kerberized-2:" + imagesVersion)
-                .withFileSystemBind(dockerFiles.getDockerFilesHostPath(), "/docker/presto-product-tests", READ_ONLY)
+        DockerContainer container = new DockerContainer(hadoopBaseImage + "-kerberized-2:" + hadoopImagesVersion)
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
                 .withFileSystemBind(keytabsHostDirectory, "/presto_keytabs", READ_WRITE)
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withEntrypoint(ImmutableList.of(
                         "/docker/presto-product-tests/conf/environment/two-kerberos-hives/hadoop-master-2-entrypoint.sh")))

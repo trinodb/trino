@@ -17,6 +17,8 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
+
 public class TestNumericalStability
 {
     private QueryAssertions assertions;
@@ -37,45 +39,45 @@ public class TestNumericalStability
     @Test
     public void testVariance()
     {
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT CAST(VAR_SAMP(x + exp(30))/VAR_SAMP(x) AS DECIMAL(3,2)) " +
-                        "FROM (VALUES 1.0, 2.0, 3.0, 4.0, 5.0) AS X(x)",
-                "VALUES 1.00");
+                        "FROM (VALUES 1.0, 2.0, 3.0, 4.0, 5.0) AS X(x)"))
+                .matches("VALUES 1.00");
     }
 
     @Test
     public void testCovariance()
     {
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT CAST(COVAR_SAMP(x + exp(30), x + exp(30))/VAR_SAMP(x) AS DECIMAL(3,2)) " +
-                        "FROM (VALUES 1.0, 2.0, 3.0, 4.0, 5.0) AS X(x)",
-                "VALUES 1.00");
+                        "FROM (VALUES 1.0, 2.0, 3.0, 4.0, 5.0) AS X(x)"))
+                .matches("VALUES 1.00");
     }
 
     @Test
     public void testCorrelation()
     {
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT CAST(CORR(x + exp(30), x + exp(30)) AS DECIMAL(3,2)) " +
-                        "FROM (VALUES 1.0, 2.0, 3.0, 4.0, 5.0) AS X(x)",
-                "VALUES 1.00");
+                        "FROM (VALUES 1.0, 2.0, 3.0, 4.0, 5.0) AS X(x)"))
+                .matches("VALUES 1.00");
     }
 
     @Test
     public void testRegressionSlope()
     {
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT CAST(REGR_SLOPE((x + exp(30)) * 5 + 8, x + exp(30)) AS DECIMAL(3,2)) " +
-                        "FROM (VALUES 1.0, 2.0, 3.0, 4.0, 5.0) AS X(x)",
-                "VALUES 5.00");
+                        "FROM (VALUES 1.0, 2.0, 3.0, 4.0, 5.0) AS X(x)"))
+                .matches("VALUES 5.00");
     }
 
     @Test
     public void testRegressionIntercept()
     {
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT CAST(REGR_INTERCEPT((x + exp(20)) * 5 + 8, x + exp(20)) AS DECIMAL(3,2)) " +
-                        "FROM (VALUES 1.0, 2.0, 3.0, 4.0, 5.0) AS X(x)",
-                "VALUES 8.00");
+                        "FROM (VALUES 1.0, 2.0, 3.0, 4.0, 5.0) AS X(x)"))
+                .matches("VALUES 8.00");
     }
 }

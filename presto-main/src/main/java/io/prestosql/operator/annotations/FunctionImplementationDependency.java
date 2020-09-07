@@ -13,9 +13,10 @@
  */
 package io.prestosql.operator.annotations;
 
-import io.prestosql.metadata.BoundVariables;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
+import io.prestosql.metadata.FunctionInvoker;
 import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.sql.tree.QualifiedName;
@@ -25,7 +26,6 @@ import java.util.Objects;
 import java.util.Optional;
 
 import static io.prestosql.metadata.SignatureBinder.applyBoundVariables;
-import static io.prestosql.sql.analyzer.TypeSignatureProvider.fromTypeSignatures;
 import static java.util.Objects.requireNonNull;
 
 public final class FunctionImplementationDependency
@@ -42,9 +42,16 @@ public final class FunctionImplementationDependency
     }
 
     @Override
-    protected ResolvedFunction getResolvedFunction(BoundVariables boundVariables, Metadata metadata)
+    public void declareDependencies(FunctionDependencyDeclarationBuilder builder)
     {
-        return metadata.resolveFunction(name, fromTypeSignatures(applyBoundVariables(argumentTypes, boundVariables)));
+        builder.addFunctionSignature(name, argumentTypes);
+    }
+
+    @Override
+    protected FunctionInvoker getInvoker(FunctionBinding functionBinding, FunctionDependencies functionDependencies, Optional<InvocationConvention> invocationConvention)
+    {
+        List<TypeSignature> types = applyBoundVariables(argumentTypes, functionBinding);
+        return functionDependencies.getFunctionSignatureInvoker(name, types, invocationConvention);
     }
 
     @Override

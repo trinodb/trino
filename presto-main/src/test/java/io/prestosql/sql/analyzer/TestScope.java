@@ -61,7 +61,7 @@ public class TestScope
         assertTrue(inner.tryResolveField(c1).isPresent());
         assertEquals(inner.tryResolveField(c1).get().getField(), outerColumn1);
         assertEquals(inner.tryResolveField(c1).get().isLocal(), false);
-        assertEquals(inner.tryResolveField(c1).get().getHierarchyFieldIndex(), 2);
+        assertEquals(inner.tryResolveField(c1).get().getHierarchyFieldIndex(), 0);
         assertEquals(inner.tryResolveField(c1).get().getRelationFieldIndex(), 0);
         assertTrue(inner.tryResolveField(c2).isPresent());
         assertEquals(inner.tryResolveField(c2).get().getField(), innerColumn2);

@@ -44,6 +44,6 @@ public class TestObjectIdFunctions
 
     private SqlTimestampWithTimeZone toTimestampWithTimeZone(ZonedDateTime zonedDateTime)
     {
-        return new SqlTimestampWithTimeZone(zonedDateTime.toInstant().toEpochMilli(), TimeZoneKey.getTimeZoneKey(zonedDateTime.getZone().getId()));
+        return SqlTimestampWithTimeZone.newInstance(3, zonedDateTime.toInstant().toEpochMilli(), 0, TimeZoneKey.getTimeZoneKey(zonedDateTime.getZone().getId()));
     }
 }

@@ -64,6 +64,7 @@ public class MockThriftMetastoreClient
     public static final List<RolePrincipalGrant> TEST_ROLE_GRANTS = ImmutableList.of(
             new RolePrincipalGrant("role1", "user", USER, false, 0, "grantor1", USER),
             new RolePrincipalGrant("role2", "role1", ROLE, true, 0, "grantor2", ROLE));
+    public static final List<String> PARTITION_COLUMN_NAMES = ImmutableList.of(TEST_COLUMN);
 
     private static final StorageDescriptor DEFAULT_STORAGE_DESCRIPTOR =
             new StorageDescriptor(ImmutableList.of(new FieldSchema(TEST_COLUMN, "bigint", "")), "", null, null, false, 0, new SerDeInfo(TEST_TABLE, null, ImmutableMap.of()), null, null, ImmutableMap.of());
@@ -242,13 +243,14 @@ public class MockThriftMetastoreClient
 
     @Override
     public List<String> getPartitionNames(String dbName, String tableName)
+            throws TException
     {
         accessCount.incrementAndGet();
         if (throwException) {
             throw new RuntimeException();
         }
         if (!dbName.equals(TEST_DATABASE) || !tableName.equals(TEST_TABLE)) {
-            return ImmutableList.of();
+            throw new NoSuchObjectException();
         }
         return ImmutableList.of(TEST_PARTITION1, TEST_PARTITION2);
     }

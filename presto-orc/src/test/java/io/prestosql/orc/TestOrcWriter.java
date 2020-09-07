@@ -15,6 +15,7 @@ package io.prestosql.orc;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
 import io.airlift.units.DataSize;
@@ -36,13 +37,13 @@ import org.testng.annotations.Test;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
 import static io.airlift.testing.Assertions.assertGreaterThanOrEqual;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
-import static io.prestosql.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static io.prestosql.orc.OrcTester.READER_OPTIONS;
 import static io.prestosql.orc.StripeReader.isIndexStream;
 import static io.prestosql.orc.TestingOrcPredicate.ORC_ROW_GROUP_SIZE;
@@ -76,10 +77,10 @@ public class TestOrcWriter
                             .withStripeMaxSize(DataSize.of(32, MEGABYTE))
                             .withStripeMaxRowCount(ORC_STRIPE_SIZE)
                             .withRowGroupMaxRowCount(ORC_ROW_GROUP_SIZE)
-                            .withDictionaryMaxMemory(DataSize.of(32, MEGABYTE)),
+                            .withDictionaryMaxMemory(DataSize.of(32, MEGABYTE))
+                            .withBloomFilterColumns(ImmutableSet.copyOf(columnNames)),
                     false,
                     ImmutableMap.of(),
-                    HIVE_STORAGE_TIME_ZONE,
                     true,
                     validationMode,
                     new OrcWriterStats());
@@ -112,7 +113,7 @@ public class TestOrcWriter
                 // read the footer
                 Slice tailBuffer = orcDataSource.readFully(stripe.getOffset() + stripe.getIndexLength() + stripe.getDataLength(), toIntExact(stripe.getFooterLength()));
                 try (InputStream inputStream = new OrcInputStream(OrcChunkLoader.create(orcDataSource.getId(), tailBuffer, Optional.empty(), newSimpleAggregatedMemoryContext()))) {
-                    StripeFooter stripeFooter = new OrcMetadataReader().readStripeFooter(footer.getTypes(), inputStream);
+                    StripeFooter stripeFooter = new OrcMetadataReader().readStripeFooter(footer.getTypes(), inputStream, ZoneId.of("UTC"));
 
                     int size = 0;
                     boolean dataStreamStarted = false;

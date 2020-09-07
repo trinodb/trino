@@ -23,6 +23,9 @@ import static io.prestosql.orc.metadata.statistics.AbstractStatisticsBuilderTest
 import static io.prestosql.orc.metadata.statistics.DateStatistics.DATE_VALUE_BYTES;
 import static java.lang.Integer.MAX_VALUE;
 import static java.lang.Integer.MIN_VALUE;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.fail;
 
 public class TestDateStatisticsBuilder
@@ -30,7 +33,7 @@ public class TestDateStatisticsBuilder
 {
     public TestDateStatisticsBuilder()
     {
-        super(DATE, DateStatisticsBuilder::new, DateStatisticsBuilder::addValue);
+        super(DATE, () -> new DateStatisticsBuilder(new NoOpBloomFilterBuilder()), DateStatisticsBuilder::addValue);
     }
 
     @Test
@@ -58,14 +61,14 @@ public class TestDateStatisticsBuilder
     public void testValueOutOfRange()
     {
         try {
-            new DateStatisticsBuilder().addValue(MAX_VALUE + 1L);
+            new DateStatisticsBuilder(new NoOpBloomFilterBuilder()).addValue(MAX_VALUE + 1L);
             fail("Expected ArithmeticException");
         }
         catch (ArithmeticException expected) {
         }
 
         try {
-            new DateStatisticsBuilder().addValue(MIN_VALUE - 1L);
+            new DateStatisticsBuilder(new NoOpBloomFilterBuilder()).addValue(MIN_VALUE - 1L);
             fail("Expected ArithmeticException");
         }
         catch (ArithmeticException expected) {
@@ -79,5 +82,20 @@ public class TestDateStatisticsBuilder
         assertMinAverageValueBytes(DATE_VALUE_BYTES, ImmutableList.of(42));
         assertMinAverageValueBytes(DATE_VALUE_BYTES, ImmutableList.of(0));
         assertMinAverageValueBytes(DATE_VALUE_BYTES, ImmutableList.of(0, 42, 42, 43));
+    }
+
+    @Test
+    public void testBloomFilter()
+    {
+        DateStatisticsBuilder statisticsBuilder = new DateStatisticsBuilder(new Utf8BloomFilterBuilder(3, 0.01));
+        statisticsBuilder.addValue(314);
+        statisticsBuilder.addValue(1011);
+        statisticsBuilder.addValue(4242);
+        BloomFilter bloomFilter = statisticsBuilder.buildColumnStatistics().getBloomFilter();
+        assertNotNull(bloomFilter);
+        assertTrue(bloomFilter.testLong(314));
+        assertTrue(bloomFilter.testLong(1011));
+        assertTrue(bloomFilter.testLong(4242));
+        assertFalse(bloomFilter.testLong(100));
     }
 }

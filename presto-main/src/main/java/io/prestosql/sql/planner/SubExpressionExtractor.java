@@ -29,6 +29,7 @@ public final class SubExpressionExtractor
     public static Set<Expression> extract(Expression expression)
     {
         return AstUtils.preOrder(expression)
+                .filter(Expression.class::isInstance)
                 .map(Expression.class::cast)
                 .collect(ImmutableSet.toImmutableSet());
     }

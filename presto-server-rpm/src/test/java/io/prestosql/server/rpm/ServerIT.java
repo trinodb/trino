@@ -13,10 +13,10 @@
  */
 package io.prestosql.server.rpm;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableSet;
 import org.testng.annotations.Parameters;
 import org.testng.annotations.Test;
 
@@ -72,6 +72,7 @@ public class ServerIT
 
         try (GenericContainer<?> container = new GenericContainer<>(baseImage)) {
             container.withExposedPorts(8080)
+                    // the RPM is hundreds MB and file system bind is much more efficient
                     .withFileSystemBind(rpmHostPath, rpm, BindMode.READ_ONLY)
                     .withCommand("sh", "-xeuc", command)
                     .waitingFor(forLogMessage(".*SERVER STARTED.*", 1).withStartupTimeout(Duration.ofMinutes(5)))
@@ -102,7 +103,7 @@ public class ServerIT
                     Statement statement = connection.createStatement()) {
                 try (ResultSet resultSet = statement.executeQuery(sql)) {
                     ImmutableSet.Builder<List<String>> rows = ImmutableSet.builder();
-                    final int columnCount = resultSet.getMetaData().getColumnCount();
+                    int columnCount = resultSet.getMetaData().getColumnCount();
                     while (resultSet.next()) {
                         ImmutableList.Builder<String> row = ImmutableList.builder();
                         for (int column = 1; column <= columnCount; column++) {

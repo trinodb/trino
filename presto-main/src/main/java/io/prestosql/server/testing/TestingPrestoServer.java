@@ -85,6 +85,7 @@ import io.prestosql.transaction.TransactionManager;
 import org.weakref.jmx.guice.MBeanModule;
 
 import javax.annotation.concurrent.GuardedBy;
+import javax.management.MBeanServer;
 
 import java.io.Closeable;
 import java.io.IOException;
@@ -152,6 +153,7 @@ public class TestingPrestoServer
     private final TaskManager taskManager;
     private final GracefulShutdownHandler gracefulShutdownHandler;
     private final ShutdownAction shutdownAction;
+    private final MBeanServer mBeanServer;
     private final boolean coordinator;
 
     public static class TestShutdownAction
@@ -311,6 +313,7 @@ public class TestingPrestoServer
         gracefulShutdownHandler = injector.getInstance(GracefulShutdownHandler.class);
         taskManager = injector.getInstance(TaskManager.class);
         shutdownAction = injector.getInstance(ShutdownAction.class);
+        mBeanServer = injector.getInstance(MBeanServer.class);
         announcer = injector.getInstance(Announcer.class);
 
         accessControl.loadSystemAccessControl(
@@ -359,6 +362,11 @@ public class TestingPrestoServer
     public Plan getQueryPlan(QueryId queryId)
     {
         return queryManager.getQueryPlan(queryId);
+    }
+
+    public QueryInfo getFullQueryInfo(QueryId queryId)
+    {
+        return queryManager.getFullQueryInfo(queryId);
     }
 
     public void addFinalQueryInfoListener(QueryId queryId, StateChangeListener<QueryInfo> stateChangeListener)
@@ -469,6 +477,11 @@ public class TestingPrestoServer
     {
         checkState(coordinator, "not a coordinator");
         return clusterMemoryManager;
+    }
+
+    public MBeanServer getMbeanServer()
+    {
+        return mBeanServer;
     }
 
     public GracefulShutdownHandler getGracefulShutdownHandler()

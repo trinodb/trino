@@ -25,7 +25,8 @@ import org.testng.annotations.Test;
 
 import java.sql.Date;
 import java.sql.Timestamp;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 import static io.prestosql.tempto.Requirements.compose;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
@@ -33,6 +34,7 @@ import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
 import static io.prestosql.tempto.fulfillment.table.TableRequirements.immutableTable;
 import static io.prestosql.tempto.query.QueryExecutor.query;
 import static io.prestosql.tests.TestGroups.CASSANDRA;
+import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.prestosql.tests.TpchTableResults.PRESTO_NATION_RESULT;
 import static io.prestosql.tests.cassandra.CassandraTpchTableDefinitions.CASSANDRA_NATION;
 import static io.prestosql.tests.cassandra.CassandraTpchTableDefinitions.CASSANDRA_SUPPLIER;
@@ -72,7 +74,7 @@ public class TestSelect
                 immutableTable(CASSANDRA_ALL_TYPES));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testSelectNation()
     {
         String sql = format(
@@ -86,7 +88,7 @@ public class TestSelect
         assertThat(queryResult).matches(PRESTO_NATION_RESULT);
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testSelectWithEqualityFilterOnPartitioningKey()
     {
         String sql = format(
@@ -100,7 +102,7 @@ public class TestSelect
         assertThat(queryResult).containsOnly(row(0));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testSelectWithFilterOnPartitioningKey()
     {
         String sql = format(
@@ -114,7 +116,7 @@ public class TestSelect
         assertThat(queryResult).containsOnly(row(24));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testSelectWithEqualityFilterOnNonPartitioningKey()
     {
         String sql = format(
@@ -128,7 +130,7 @@ public class TestSelect
         assertThat(queryResult).containsOnly(row("UNITED STATES"));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testSelectWithNonEqualityFilterOnNonPartitioningKey()
     {
         String sql = format(
@@ -142,7 +144,7 @@ public class TestSelect
         assertThat(queryResult).containsOnly(row("ALGERIA"), row("ARGENTINA"));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testSelectWithMorePartitioningKeysThanLimit()
     {
         String sql = format(
@@ -156,7 +158,7 @@ public class TestSelect
         assertThat(queryResult).containsOnly(row(10));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testSelectWithMorePartitioningKeysThanLimitNonPK()
     {
         String sql = format(
@@ -170,7 +172,7 @@ public class TestSelect
         assertThat(queryResult).containsOnly(row(10));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testAllDataTypes()
     {
         // NOTE: DECIMAL is treated like DOUBLE
@@ -183,22 +185,55 @@ public class TestSelect
                         INTEGER, VARCHAR, VARCHAR, VARCHAR, SMALLINT, VARCHAR, TINYINT, TIMESTAMP, VARCHAR, VARCHAR,
                         VARCHAR, VARCHAR)
                 .containsOnly(
-                        row("\0", Long.MIN_VALUE, Bytes.fromHexString("0x00").array(), false, 0f, Double.MIN_VALUE, Date.valueOf("1970-01-02"),
-                                Float.MIN_VALUE, "[0]", "0.0.0.0", Integer.MIN_VALUE, "[0]", "{\"\\u0000\":-2147483648,\"a\":0}",
-                                "[0]", Short.MIN_VALUE, "\0", Byte.MIN_VALUE, Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 0, 0)),
-                                "d2177dd0-eaa2-11de-a572-001b779c76e3", "01234567-0123-0123-0123-0123456789ab",
-                                "\0", String.valueOf(Long.MIN_VALUE)),
-                        row("the quick brown fox jumped over the lazy dog", 9223372036854775807L, "01234".getBytes(UTF_8),
-                                true, new Double("99999999999999999999999999999999999999"), Double.MAX_VALUE, Date.valueOf("9999-12-31"),
-                                Float.MAX_VALUE, "[4,5,6,7]", "255.255.255.255", Integer.MAX_VALUE, "[4,5,6]",
-                                "{\"a\":1,\"b\":2}", "[4,5,6]", Short.MAX_VALUE, "this is a text value", Byte.MAX_VALUE, Timestamp.valueOf(LocalDateTime.of(9999, 12, 31, 23, 59, 59)),
-                                "d2177dd0-eaa2-11de-a572-001b779c76e3", "01234567-0123-0123-0123-0123456789ab",
-                                "abc", String.valueOf(Long.MAX_VALUE)),
+                        row("\0",
+                                Long.MIN_VALUE,
+                                Bytes.fromHexString("0x00").array(),
+                                false,
+                                0f,
+                                Double.MIN_VALUE,
+                                Date.valueOf("1970-01-02"),
+                                Float.MIN_VALUE,
+                                "[0]",
+                                "0.0.0.0",
+                                Integer.MIN_VALUE,
+                                "[0]",
+                                "{\"\\u0000\":-2147483648,\"a\":0}",
+                                "[0]",
+                                Short.MIN_VALUE,
+                                "\0",
+                                Byte.MIN_VALUE,
+                                Timestamp.from(OffsetDateTime.of(1970, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC).toInstant()),
+                                "d2177dd0-eaa2-11de-a572-001b779c76e3",
+                                "01234567-0123-0123-0123-0123456789ab",
+                                "\0",
+                                String.valueOf(Long.MIN_VALUE)),
+                        row("the quick brown fox jumped over the lazy dog",
+                                9223372036854775807L,
+                                "01234".getBytes(UTF_8),
+                                true,
+                                Double.valueOf("99999999999999999999999999999999999999"),
+                                Double.MAX_VALUE,
+                                Date.valueOf("9999-12-31"),
+                                Float.MAX_VALUE,
+                                "[4,5,6,7]",
+                                "255.255.255.255",
+                                Integer.MAX_VALUE,
+                                "[4,5,6]",
+                                "{\"a\":1,\"b\":2}",
+                                "[4,5,6]",
+                                Short.MAX_VALUE,
+                                "this is a text value",
+                                Byte.MAX_VALUE,
+                                Timestamp.from(OffsetDateTime.of(9999, 12, 31, 23, 59, 59, 0, ZoneOffset.UTC).toInstant()),
+                                "d2177dd0-eaa2-11de-a572-001b779c76e3",
+                                "01234567-0123-0123-0123-0123456789ab",
+                                "abc",
+                                String.valueOf(Long.MAX_VALUE)),
                         row("def", null, null, null, null, null, null, null, null, null, null,
                                 null, null, null, null, null, null, null, null, null, null, null));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testNationJoinNation()
     {
         String tableName = format("%s.%s.%s", CONNECTOR_NAME, KEY_SPACE, CASSANDRA_NATION.getName());
@@ -219,7 +254,7 @@ public class TestSelect
                 row("CANADA", 3));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testNationJoinRegion()
     {
         String sql = format(
@@ -235,7 +270,7 @@ public class TestSelect
         assertThat(queryResult).containsOnly(row("CANADA", "AMERICA"));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testSelectAllTypePartitioningMaterializedView()
     {
         String materializedViewName = format("%s_partitioned_mv", CASSANDRA_ALL_TYPES.getName());
@@ -264,16 +299,33 @@ public class TestSelect
                         INTEGER, VARCHAR, VARCHAR, VARCHAR, SMALLINT, VARCHAR, TINYINT, TIMESTAMP, VARCHAR, VARCHAR,
                         VARCHAR, VARCHAR)
                 .containsOnly(
-                        row("\0", Long.MIN_VALUE, Bytes.fromHexString("0x00").array(), false, 0f, Double.MIN_VALUE, Date.valueOf("1970-01-02"),
-                                Float.MIN_VALUE, "[0]", "0.0.0.0", Integer.MIN_VALUE, "[0]", "{\"\\u0000\":-2147483648,\"a\":0}",
-                                "[0]", Short.MIN_VALUE, "\0", Byte.MIN_VALUE, Timestamp.valueOf(LocalDateTime.of(1970, 1, 1, 0, 0)),
-                                "d2177dd0-eaa2-11de-a572-001b779c76e3", "01234567-0123-0123-0123-0123456789ab",
-                                "\0", String.valueOf(Long.MIN_VALUE)));
+                        row("\0",
+                                Long.MIN_VALUE,
+                                Bytes.fromHexString("0x00").array(),
+                                false,
+                                0f,
+                                Double.MIN_VALUE,
+                                Date.valueOf("1970-01-02"),
+                                Float.MIN_VALUE,
+                                "[0]",
+                                "0.0.0.0",
+                                Integer.MIN_VALUE,
+                                "[0]",
+                                "{\"\\u0000\":-2147483648,\"a\":0}",
+                                "[0]",
+                                Short.MIN_VALUE,
+                                "\0",
+                                Byte.MIN_VALUE,
+                                Timestamp.from(OffsetDateTime.of(1970, 1, 1, 0, 0, 0, 0, ZoneOffset.UTC).toInstant()),
+                                "d2177dd0-eaa2-11de-a572-001b779c76e3",
+                                "01234567-0123-0123-0123-0123456789ab",
+                                "\0",
+                                String.valueOf(Long.MIN_VALUE)));
 
         onCassandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, materializedViewName));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testSelectClusteringMaterializedView()
     {
         String mvName = "clustering_mv";
@@ -314,7 +366,7 @@ public class TestSelect
         onCassandra(format("DROP MATERIALIZED VIEW IF EXISTS %s.%s", KEY_SPACE, mvName));
     }
 
-    @Test(groups = CASSANDRA)
+    @Test(groups = {CASSANDRA, PROFILE_SPECIFIC_TESTS})
     public void testProtocolVersion()
     {
         QueryResult queryResult = onPresto()

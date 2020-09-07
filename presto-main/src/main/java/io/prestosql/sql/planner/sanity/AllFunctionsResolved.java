@@ -51,7 +51,7 @@ public final class AllFunctionsResolved
         @Override
         protected Void visitFunctionCall(FunctionCall node, Builder<Symbol> context)
         {
-            checkArgument(ResolvedFunction.fromQualifiedName(node.getName()).isPresent(), "Function call has not been resolved: %s", node);
+            checkArgument(ResolvedFunction.isResolved(node.getName()), "Function call has not been resolved: %s", node);
             return super.visitFunctionCall(node, context);
         }
     }

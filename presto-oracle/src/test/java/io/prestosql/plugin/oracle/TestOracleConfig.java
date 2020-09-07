@@ -14,6 +14,7 @@
 package io.prestosql.plugin.oracle;
 
 import com.google.common.collect.ImmutableMap;
+import io.airlift.units.Duration;
 import org.testng.annotations.Test;
 
 import javax.validation.constraints.Max;
@@ -26,6 +27,7 @@ import static io.airlift.configuration.testing.ConfigAssertions.assertFullMappin
 import static io.airlift.configuration.testing.ConfigAssertions.assertRecordedDefaults;
 import static io.airlift.configuration.testing.ConfigAssertions.recordDefaults;
 import static io.airlift.testing.ValidationAssertions.assertFailsValidation;
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 public class TestOracleConfig
 {
@@ -35,7 +37,11 @@ public class TestOracleConfig
         assertRecordedDefaults(recordDefaults(OracleConfig.class)
                 .setSynonymsEnabled(false)
                 .setDefaultNumberScale(null)
-                .setNumberRoundingMode(RoundingMode.UNNECESSARY));
+                .setNumberRoundingMode(RoundingMode.UNNECESSARY)
+                .setConnectionPoolEnabled(true)
+                .setConnectionPoolMinSize(1)
+                .setConnectionPoolMaxSize(30)
+                .setInactiveConnectionTimeout(Duration.valueOf("20m")));
     }
 
     @Test
@@ -45,12 +51,20 @@ public class TestOracleConfig
                 .put("oracle.synonyms.enabled", "true")
                 .put("oracle.number.default-scale", "2")
                 .put("oracle.number.rounding-mode", "CEILING")
+                .put("oracle.connection-pool.enabled", "false")
+                .put("oracle.connection-pool.min-size", "10")
+                .put("oracle.connection-pool.max-size", "20")
+                .put("oracle.connection-pool.inactive-timeout", "30s")
                 .build();
 
         OracleConfig expected = new OracleConfig()
                 .setSynonymsEnabled(true)
                 .setDefaultNumberScale(2)
-                .setNumberRoundingMode(RoundingMode.CEILING);
+                .setNumberRoundingMode(RoundingMode.CEILING)
+                .setConnectionPoolEnabled(false)
+                .setConnectionPoolMinSize(10)
+                .setConnectionPoolMaxSize(20)
+                .setInactiveConnectionTimeout(new Duration(30, SECONDS));
 
         assertFullMapping(properties, expected);
     }
@@ -71,5 +85,19 @@ public class TestOracleConfig
                 "defaultNumberScale",
                 "must be less than or equal to 38",
                 Max.class);
+
+        assertFailsValidation(
+                new OracleConfig()
+                        .setConnectionPoolMinSize(-1),
+                "connectionPoolMinSize",
+                "must be greater than or equal to 0",
+                Min.class);
+
+        assertFailsValidation(
+                new OracleConfig()
+                        .setConnectionPoolMaxSize(0),
+                "connectionPoolMaxSize",
+                "must be greater than or equal to 1",
+                Min.class);
     }
 }

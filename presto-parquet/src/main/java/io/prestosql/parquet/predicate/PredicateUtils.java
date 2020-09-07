@@ -39,6 +39,7 @@ import org.apache.parquet.hadoop.metadata.BlockMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.schema.MessageType;
+import org.joda.time.DateTimeZone;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -49,7 +50,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
-import static com.google.common.base.Strings.repeat;
 import static com.google.common.base.Verify.verify;
 import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.prestosql.parquet.ParquetCompressionUtils.decompress;
@@ -99,15 +99,19 @@ public final class PredicateUtils
 
     private static BigDecimal minimalValue(DecimalType decimalType)
     {
-        return new BigDecimal(format("-%s.%s", repeat("9", decimalType.getPrecision() - decimalType.getScale()), repeat("9", decimalType.getScale())));
+        return new BigDecimal(format("-%s.%s", "9".repeat(decimalType.getPrecision() - decimalType.getScale()), "9".repeat(decimalType.getScale())));
     }
 
     private static BigDecimal maximalValue(DecimalType decimalType)
     {
-        return new BigDecimal(format("+%s.%s", repeat("9", decimalType.getPrecision() - decimalType.getScale()), repeat("9", decimalType.getScale())));
+        return new BigDecimal(format("+%s.%s", "9".repeat(decimalType.getPrecision() - decimalType.getScale()), "9".repeat(decimalType.getScale())));
     }
 
-    public static Predicate buildPredicate(MessageType requestedSchema, TupleDomain<ColumnDescriptor> parquetTupleDomain, Map<List<String>, RichColumnDescriptor> descriptorsByPath)
+    public static Predicate buildPredicate(
+            MessageType requestedSchema,
+            TupleDomain<ColumnDescriptor> parquetTupleDomain,
+            Map<List<String>, RichColumnDescriptor> descriptorsByPath,
+            DateTimeZone timeZone)
     {
         ImmutableList.Builder<RichColumnDescriptor> columnReferences = ImmutableList.builder();
         for (String[] paths : requestedSchema.getPaths()) {
@@ -116,7 +120,7 @@ public final class PredicateUtils
                 columnReferences.add(descriptor);
             }
         }
-        return new TupleDomainParquetPredicate(parquetTupleDomain, columnReferences.build());
+        return new TupleDomainParquetPredicate(parquetTupleDomain, columnReferences.build(), timeZone);
     }
 
     public static boolean predicateMatches(Predicate parquetPredicate, BlockMetaData block, ParquetDataSource dataSource, Map<List<String>, RichColumnDescriptor> descriptorsByPath, TupleDomain<ColumnDescriptor> parquetTupleDomain, boolean failOnCorruptedParquetStatistics)

@@ -244,7 +244,7 @@ public class TestHivePageSink
                 TYPE_MANAGER,
                 config,
                 HDFS_ENVIRONMENT,
-                getDefaultHivePageSourceFactories(HDFS_ENVIRONMENT),
+                getDefaultHivePageSourceFactories(HDFS_ENVIRONMENT, config),
                 getDefaultHiveRecordCursorProviders(config, HDFS_ENVIRONMENT),
                 new GenericHiveRecordCursorProvider(HDFS_ENVIRONMENT, config));
         return provider.createPageSource(transaction, getHiveSession(config), split, table, ImmutableList.copyOf(getColumnHandles()), TupleDomain.all());
@@ -267,6 +267,7 @@ public class TestHivePageSink
                 Optional.empty(),
                 "test",
                 ImmutableMap.of(),
+                false,
                 false);
         JsonCodec<PartitionUpdate> partitionUpdateCodec = JsonCodec.jsonCodec(PartitionUpdate.class);
         HivePageSinkProvider provider = new HivePageSinkProvider(

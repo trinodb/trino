@@ -84,4 +84,10 @@ public final class Lateral
         Lateral other = (Lateral) obj;
         return Objects.equals(this.query, other.query);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

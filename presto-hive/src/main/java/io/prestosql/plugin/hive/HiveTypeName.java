@@ -19,6 +19,7 @@ import org.openjdk.jol.info.ClassLayout;
 
 import java.util.Objects;
 
+import static io.airlift.slice.SizeOf.estimatedSizeOf;
 import static java.util.Objects.requireNonNull;
 
 public final class HiveTypeName
@@ -46,9 +47,9 @@ public final class HiveTypeName
         return HiveType.valueOf(value);
     }
 
-    public int getEstimatedSizeInBytes()
+    public long getEstimatedSizeInBytes()
     {
-        return INSTANCE_SIZE + value.length() * Character.BYTES;
+        return INSTANCE_SIZE + estimatedSizeOf(value);
     }
 
     @Override

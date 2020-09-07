@@ -15,11 +15,11 @@ package io.prestosql.tests.product.launcher.env;
 
 import com.github.dockerjava.api.DockerClient;
 import com.google.common.base.CaseFormat;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.reflect.ClassPath;
 import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
 import org.testcontainers.DockerClientFactory;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableMap;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -31,6 +31,7 @@ import static io.prestosql.tests.product.launcher.docker.ContainerUtil.removeNet
 import static io.prestosql.tests.product.launcher.env.Environment.PRODUCT_TEST_LAUNCHER_NETWORK;
 import static io.prestosql.tests.product.launcher.env.Environment.PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME;
 import static io.prestosql.tests.product.launcher.env.Environment.PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE;
+import static java.lang.reflect.Modifier.isAbstract;
 
 public final class Environments
 {
@@ -68,7 +69,27 @@ public final class Environments
         }
     }
 
+    public static List<Class<? extends EnvironmentConfig>> findConfigsByBasePackage(String packageName)
+    {
+        try {
+            return ClassPath.from(Environments.class.getClassLoader()).getTopLevelClassesRecursive(packageName).stream()
+                    .map(ClassPath.ClassInfo::load)
+                    .filter(clazz -> !isAbstract(clazz.getModifiers()))
+                    .filter(clazz -> EnvironmentConfig.class.isAssignableFrom(clazz))
+                    .map(clazz -> (Class<? extends EnvironmentConfig>) clazz.asSubclass(EnvironmentConfig.class))
+                    .collect(toImmutableList());
+        }
+        catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     public static String nameForClass(Class<? extends EnvironmentProvider> clazz)
+    {
+        return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_HYPHEN, clazz.getSimpleName());
+    }
+
+    public static String nameForConfigClass(Class<? extends EnvironmentConfig> clazz)
     {
         return CaseFormat.UPPER_CAMEL.to(CaseFormat.LOWER_HYPHEN, clazz.getSimpleName());
     }

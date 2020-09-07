@@ -51,6 +51,26 @@ public class AccessDeniedException
         throw new AccessDeniedException(format("Principal %s cannot become user %s%s", principal.orElse(null), userName, formatExtraInfo(extraInfo)));
     }
 
+    public static void denyReadSystemInformationAccess()
+    {
+        denyReadSystemInformationAccess(null);
+    }
+
+    public static void denyReadSystemInformationAccess(String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot read system information%s", formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyWriteSystemInformationAccess()
+    {
+        denyWriteSystemInformationAccess(null);
+    }
+
+    public static void denyWriteSystemInformationAccess(String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot write system information%s", formatExtraInfo(extraInfo)));
+    }
+
     public static void denyExecuteQuery()
     {
         denyExecuteQuery(null);
@@ -189,6 +209,16 @@ public class AccessDeniedException
     public static void denyCommentTable(String tableName, String extraInfo)
     {
         throw new AccessDeniedException(format("Cannot comment table to %s%s", tableName, formatExtraInfo(extraInfo)));
+    }
+
+    public static void denyCommentColumn(String tableName)
+    {
+        denyCommentColumn(tableName, null);
+    }
+
+    public static void denyCommentColumn(String tableName, String extraInfo)
+    {
+        throw new AccessDeniedException(format("Cannot comment column to %s%s", tableName, formatExtraInfo(extraInfo)));
     }
 
     public static void denyShowTables(String schemaName)

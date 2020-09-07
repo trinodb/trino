@@ -20,7 +20,7 @@ General Changes
 Security Changes
 ----------------
 
-* Add schema access rules to :ref:`file-based-system-access-control`. (:issue:`3766`)
+* Add schema access rules to :doc:`/security/file-system-access-control`. (:issue:`3766`)
 
 Web UI Changes
 --------------

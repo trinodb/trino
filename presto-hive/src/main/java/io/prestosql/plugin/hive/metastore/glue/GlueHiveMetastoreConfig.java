@@ -29,6 +29,7 @@ public class GlueHiveMetastoreConfig
     private Optional<String> glueRegion = Optional.empty();
     private Optional<String> glueEndpointUrl = Optional.empty();
     private boolean pinGlueClientToCurrentRegion;
+    private int maxGlueErrorRetries = 10;
     private int maxGlueConnections = 5;
     private Optional<String> defaultWarehouseDir = Optional.empty();
     private Optional<String> iamRole = Optional.empty();
@@ -39,6 +40,7 @@ public class GlueHiveMetastoreConfig
     private Optional<String> catalogId = Optional.empty();
     private int partitionSegments = 5;
     private int getPartitionThreads = 20;
+    private boolean assumeCanonicalPartitionKeys;
 
     public Optional<String> getGlueRegion()
     {
@@ -90,6 +92,19 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setMaxGlueConnections(int maxGlueConnections)
     {
         this.maxGlueConnections = maxGlueConnections;
+        return this;
+    }
+
+    @Min(0)
+    public int getMaxGlueErrorRetries()
+    {
+        return maxGlueErrorRetries;
+    }
+
+    @Config("hive.metastore.glue.max-error-retries")
+    public GlueHiveMetastoreConfig setMaxGlueErrorRetries(int maxGlueErrorRetries)
+    {
+        this.maxGlueErrorRetries = maxGlueErrorRetries;
         return this;
     }
 
@@ -210,6 +225,18 @@ public class GlueHiveMetastoreConfig
     public GlueHiveMetastoreConfig setGetPartitionThreads(int getPartitionThreads)
     {
         this.getPartitionThreads = getPartitionThreads;
+        return this;
+    }
+
+    public boolean isAssumeCanonicalPartitionKeys()
+    {
+        return assumeCanonicalPartitionKeys;
+    }
+
+    @Config("hive.metastore.glue.assume-canonical-partition-keys")
+    public GlueHiveMetastoreConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
+    {
+        this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
         return this;
     }
 }

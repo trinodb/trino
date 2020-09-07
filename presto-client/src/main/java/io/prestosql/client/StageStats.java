@@ -39,6 +39,7 @@ public class StageStats
     private final long wallTimeMillis;
     private final long processedRows;
     private final long processedBytes;
+    private final long physicalInputBytes;
     private final List<StageStats> subStages;
 
     @JsonCreator
@@ -55,6 +56,7 @@ public class StageStats
             @JsonProperty("wallTimeMillis") long wallTimeMillis,
             @JsonProperty("processedRows") long processedRows,
             @JsonProperty("processedBytes") long processedBytes,
+            @JsonProperty("physicalInputBytes") long physicalInputBytes,
             @JsonProperty("subStages") List<StageStats> subStages)
     {
         this.stageId = stageId;
@@ -69,6 +71,7 @@ public class StageStats
         this.wallTimeMillis = wallTimeMillis;
         this.processedRows = processedRows;
         this.processedBytes = processedBytes;
+        this.physicalInputBytes = physicalInputBytes;
         this.subStages = ImmutableList.copyOf(requireNonNull(subStages, "subStages is null"));
     }
 
@@ -145,6 +148,12 @@ public class StageStats
     }
 
     @JsonProperty
+    public long getPhysicalInputBytes()
+    {
+        return physicalInputBytes;
+    }
+
+    @JsonProperty
     public List<StageStats> getSubStages()
     {
         return subStages;
@@ -165,6 +174,7 @@ public class StageStats
                 .add("wallTimeMillis", wallTimeMillis)
                 .add("processedRows", processedRows)
                 .add("processedBytes", processedBytes)
+                .add("physicalInputBytes", physicalInputBytes)
                 .add("subStages", subStages)
                 .toString();
     }
@@ -188,6 +198,7 @@ public class StageStats
         private long wallTimeMillis;
         private long processedRows;
         private long processedBytes;
+        private long physicalInputBytes;
         private List<StageStats> subStages;
 
         private Builder() {}
@@ -264,6 +275,12 @@ public class StageStats
             return this;
         }
 
+        public Builder setPhysicalInputBytes(long physicalInputBytes)
+        {
+            this.physicalInputBytes = physicalInputBytes;
+            return this;
+        }
+
         public Builder setSubStages(List<StageStats> subStages)
         {
             this.subStages = ImmutableList.copyOf(requireNonNull(subStages, "subStages is null"));
@@ -285,6 +302,7 @@ public class StageStats
                     wallTimeMillis,
                     processedRows,
                     processedBytes,
+                    physicalInputBytes,
                     subStages);
         }
     }

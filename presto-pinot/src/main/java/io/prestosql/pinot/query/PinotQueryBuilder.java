@@ -15,9 +15,6 @@ package io.prestosql.pinot.query;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
-import io.airlift.json.JsonCodec;
-import io.airlift.json.JsonCodecFactory;
-import io.airlift.json.ObjectMapperProvider;
 import io.airlift.slice.Slice;
 import io.prestosql.pinot.PinotColumnHandle;
 import io.prestosql.pinot.PinotTableHandle;
@@ -31,8 +28,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 
-import static com.fasterxml.jackson.databind.DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES;
-import static com.fasterxml.jackson.databind.SerializationFeature.FAIL_ON_EMPTY_BEANS;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.Iterables.getOnlyElement;
@@ -42,15 +37,11 @@ import static java.util.stream.Collectors.joining;
 
 public final class PinotQueryBuilder
 {
-    public static final JsonCodec<DynamicTable> CODEC = new JsonCodecFactory(
-            () -> new ObjectMapperProvider().get().enable(FAIL_ON_UNKNOWN_PROPERTIES).disable(FAIL_ON_EMPTY_BEANS))
-            .jsonCodec(DynamicTable.class);
-
     private PinotQueryBuilder()
     {
     }
 
-    public static String generatePql(PinotTableHandle tableHandle, List<PinotColumnHandle> columnHandles, Optional<String> tableNameSuffix, Optional<String> timePredicate)
+    public static String generatePql(PinotTableHandle tableHandle, List<PinotColumnHandle> columnHandles, Optional<String> tableNameSuffix, Optional<String> timePredicate, int limitForSegmentQueries)
     {
         requireNonNull(tableHandle, "tableHandle is null");
         StringBuilder pqlBuilder = new StringBuilder();
@@ -71,15 +62,13 @@ public final class PinotQueryBuilder
                 .append(getTableName(tableHandle, tableNameSuffix))
                 .append(" ");
         generateFilterPql(pqlBuilder, tableHandle, timePredicate, columnHandles);
-        OptionalLong limit = tableHandle.getLimit();
-        if (limit.isPresent()) {
-            pqlBuilder.append(" LIMIT ")
-                    .append(limit.getAsLong());
+        OptionalLong appliedLimit = tableHandle.getLimit();
+        long limit = limitForSegmentQueries + 1;
+        if (appliedLimit.isPresent()) {
+            limit = Math.min(limit, appliedLimit.getAsLong());
         }
-        else {
-            pqlBuilder.append(" LIMIT ")
-                    .append(Integer.MAX_VALUE);
-        }
+        pqlBuilder.append(" LIMIT ")
+                .append(limit);
         return pqlBuilder.toString();
     }
 
@@ -105,7 +94,7 @@ public final class PinotQueryBuilder
     public static Optional<String> getFilterClause(TupleDomain<ColumnHandle> tupleDomain, Optional<String> timePredicate, List<PinotColumnHandle> columnHandles)
     {
         ImmutableList.Builder<String> conjunctsBuilder = ImmutableList.builder();
-        timePredicate.ifPresent(predicate -> conjunctsBuilder.add(predicate));
+        timePredicate.ifPresent(conjunctsBuilder::add);
         if (!tupleDomain.equals(TupleDomain.all())) {
             for (PinotColumnHandle columnHandle : columnHandles) {
                 Domain domain = tupleDomain.getDomains().get().get(columnHandle);
@@ -188,7 +177,7 @@ public final class PinotQueryBuilder
     private static String inClauseValues(String columnName, List<Object> singleValues)
     {
         return format("%s IN (%s)", columnName, singleValues.stream()
-                .map(value -> singleQuote(value))
+                .map(PinotQueryBuilder::singleQuote)
                 .collect(joining(", ")));
     }
 

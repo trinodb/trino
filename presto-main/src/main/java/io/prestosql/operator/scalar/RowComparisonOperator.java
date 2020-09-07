@@ -1,4 +1,3 @@
-package io.prestosql.operator.scalar;
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -12,10 +11,12 @@ package io.prestosql.operator.scalar;
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionDependencyDeclaration;
+import io.prestosql.metadata.FunctionDependencyDeclaration.FunctionDependencyDeclarationBuilder;
 import io.prestosql.metadata.SqlOperator;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.OperatorType;
@@ -47,12 +48,20 @@ public abstract class RowComparisonOperator
                 false);
     }
 
-    protected List<MethodHandle> getMethodHandles(RowType type, Metadata metadata, OperatorType operatorType)
+    protected FunctionDependencyDeclaration getFunctionDependencies(RowType type, OperatorType operatorType)
+    {
+        FunctionDependencyDeclarationBuilder builder = FunctionDependencyDeclaration.builder();
+        for (Type parameterType : type.getTypeParameters()) {
+            builder.addOperator(operatorType, ImmutableList.of(parameterType, parameterType));
+        }
+        return builder.build();
+    }
+
+    protected List<MethodHandle> getMethodHandles(RowType type, FunctionDependencies functionDependencies, OperatorType operatorType)
     {
         ImmutableList.Builder<MethodHandle> argumentMethods = ImmutableList.builder();
         for (Type parameterType : type.getTypeParameters()) {
-            ResolvedFunction resolvedFunction = metadata.resolveOperator(operatorType, ImmutableList.of(parameterType, parameterType));
-            argumentMethods.add(metadata.getScalarFunctionInvoker(resolvedFunction, Optional.empty()).getMethodHandle());
+            argumentMethods.add(functionDependencies.getOperatorInvoker(operatorType, ImmutableList.of(parameterType, parameterType), Optional.empty()).getMethodHandle());
         }
         return argumentMethods.build();
     }

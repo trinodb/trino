@@ -26,7 +26,6 @@ import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.SmallintType;
-import io.prestosql.spi.type.TimestampType;
 import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
@@ -40,6 +39,8 @@ import java.math.BigInteger;
 
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.Decimals.decodeUnscaledValue;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.Timestamps.truncateEpochMicrosToMillis;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
 
@@ -52,7 +53,7 @@ public final class TypeHelper
         if (type instanceof VarcharType) {
             return org.apache.kudu.Type.STRING;
         }
-        if (type.equals(TimestampType.TIMESTAMP)) {
+        if (type.equals(TIMESTAMP_MILLIS)) {
             return org.apache.kudu.Type.UNIXTIME_MICROS;
         }
         if (type == BigintType.BIGINT) {
@@ -102,7 +103,7 @@ public final class TypeHelper
             case STRING:
                 return VarcharType.VARCHAR;
             case UNIXTIME_MICROS:
-                return TimestampType.TIMESTAMP;
+                return TIMESTAMP_MILLIS;
             case INT64:
                 return BigintType.BIGINT;
             case INT32:
@@ -131,8 +132,9 @@ public final class TypeHelper
         if (type instanceof VarcharType) {
             return ((Slice) nativeValue).toStringUtf8();
         }
-        if (type.equals(TimestampType.TIMESTAMP)) {
-            return ((Long) nativeValue) * 1000;
+        if (type.equals(TIMESTAMP_MILLIS)) {
+            // Kudu's native format is in microseconds
+            return nativeValue;
         }
         if (type == BigintType.BIGINT) {
             return nativeValue;
@@ -177,8 +179,8 @@ public final class TypeHelper
         if (type instanceof VarcharType) {
             return row.getString(field);
         }
-        if (type.equals(TimestampType.TIMESTAMP)) {
-            return row.getLong(field) / 1000;
+        if (type.equals(TIMESTAMP_MILLIS)) {
+            return truncateEpochMicrosToMillis(row.getLong(field));
         }
         if (type == BigintType.BIGINT) {
             return row.getLong(field);
@@ -212,8 +214,8 @@ public final class TypeHelper
 
     public static long getLong(Type type, RowResult row, int field)
     {
-        if (type.equals(TimestampType.TIMESTAMP)) {
-            return row.getLong(field) / 1000;
+        if (type.equals(TIMESTAMP_MILLIS)) {
+            return truncateEpochMicrosToMillis(row.getLong(field));
         }
         if (type == BigintType.BIGINT) {
             return row.getLong(field);

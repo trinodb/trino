@@ -30,6 +30,7 @@ import java.util.Set;
 
 import static io.prestosql.spi.security.AccessDeniedException.denyAddColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCatalogAccess;
+import static io.prestosql.spi.security.AccessDeniedException.denyCommentColumn;
 import static io.prestosql.spi.security.AccessDeniedException.denyCommentTable;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateSchema;
 import static io.prestosql.spi.security.AccessDeniedException.denyCreateTable;
@@ -132,6 +133,29 @@ public interface SystemAccessControl
     }
 
     /**
+     * Check if identity is allowed to read system information such as statistics,
+     * service registry, thread stacks, etc.  This is typically allowed for administrators
+     * and management tools.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanReadSystemInformation(SystemSecurityContext context)
+    {
+        AccessDeniedException.denyReadSystemInformationAccess();
+    }
+
+    /**
+     * Check if identity is allowed to write system information such as marking nodes
+     * offline, or changing runtime flags.  This is typically allowed for administrators.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanWriteSystemInformation(SystemSecurityContext context)
+    {
+        AccessDeniedException.denyReadSystemInformationAccess();
+    }
+
+    /**
      * Check if identity is allowed to set the specified system property.
      *
      * @throws AccessDeniedException if not allowed
@@ -229,7 +253,7 @@ public interface SystemAccessControl
     }
 
     /**
-     * Check if identity is allowed to execute SHOW CREATE TABLE or SHOW CREATE VIEW.
+     * Check if identity is allowed to execute SHOW CREATE TABLE, SHOW CREATE VIEW or SHOW CREATE MATERIALIZED VIEW
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */
@@ -276,6 +300,16 @@ public interface SystemAccessControl
     default void checkCanSetTableComment(SystemSecurityContext context, CatalogSchemaTableName table)
     {
         denyCommentTable(table.toString());
+    }
+
+    /**
+     * Check if identity is allowed to set comment to column in the specified table in a catalog.
+     *
+     * @throws AccessDeniedException if not allowed
+     */
+    default void checkCanSetColumnComment(SystemSecurityContext context, CatalogSchemaTableName table)
+    {
+        denyCommentColumn(table.toString());
     }
 
     /**

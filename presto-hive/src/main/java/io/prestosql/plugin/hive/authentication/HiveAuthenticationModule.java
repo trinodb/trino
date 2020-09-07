@@ -17,11 +17,9 @@ import com.google.inject.Binder;
 import com.google.inject.Module;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig.HdfsAuthenticationType;
-import io.prestosql.plugin.hive.rubix.RubixEnabledConfig;
 
 import java.util.function.Predicate;
 
-import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.prestosql.plugin.hive.authentication.AuthenticationModules.kerberosHdfsAuthenticationModule;
 import static io.prestosql.plugin.hive.authentication.AuthenticationModules.kerberosImpersonatingHdfsAuthenticationModule;
@@ -49,10 +47,6 @@ public class HiveAuthenticationModule
         bindAuthenticationModule(
                 config -> kerberosHdfsAuth(config) && config.isHdfsImpersonationEnabled(),
                 kerberosImpersonatingHdfsAuthenticationModule());
-
-        checkArgument(
-                !buildConfigObject(HiveAuthenticationConfig.class).isHdfsImpersonationEnabled() || !buildConfigObject(RubixEnabledConfig.class).isCacheEnabled(),
-                "Hdfs impersonation is not compatible with Hive caching");
     }
 
     private void bindAuthenticationModule(Predicate<HiveAuthenticationConfig> predicate, Module module)

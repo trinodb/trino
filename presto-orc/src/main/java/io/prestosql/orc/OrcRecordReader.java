@@ -132,7 +132,7 @@ public class OrcRecordReader
             ColumnMetadata<OrcType> orcTypes,
             Optional<OrcDecompressor> decompressor,
             OptionalInt rowsInRowGroup,
-            DateTimeZone hiveStorageTimeZone,
+            DateTimeZone legacyFileTimeZone,
             HiveWriterVersion hiveWriterVersion,
             MetadataReader metadataReader,
             OrcReaderOptions options,
@@ -155,7 +155,7 @@ public class OrcRecordReader
         requireNonNull(orcDataSource, "orcDataSource is null");
         requireNonNull(orcTypes, "types is null");
         requireNonNull(decompressor, "decompressor is null");
-        requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
+        requireNonNull(legacyFileTimeZone, "legacyFileTimeZone is null");
         requireNonNull(userMetadata, "userMetadata is null");
         requireNonNull(systemMemoryUsage, "systemMemoryUsage is null");
         requireNonNull(exceptionTransform, "exceptionTransform is null");
@@ -224,7 +224,7 @@ public class OrcRecordReader
 
         stripeReader = new StripeReader(
                 orcDataSource,
-                hiveStorageTimeZone.toTimeZone().toZoneId(),
+                legacyFileTimeZone.toTimeZone().toZoneId(),
                 decompressor,
                 orcTypes,
                 ImmutableSet.copyOf(readColumns),
@@ -508,10 +508,9 @@ public class OrcRecordReader
             InputStreamSources dictionaryStreamSources = stripe.getDictionaryStreamSources();
             ColumnMetadata<ColumnEncoding> columnEncodings = stripe.getColumnEncodings();
             ZoneId fileTimeZone = stripe.getFileTimeZone();
-            ZoneId storageTimeZone = stripe.getStorageTimeZone();
             for (ColumnReader column : columnReaders) {
                 if (column != null) {
-                    column.startStripe(fileTimeZone, storageTimeZone, dictionaryStreamSources, columnEncodings);
+                    column.startStripe(fileTimeZone, dictionaryStreamSources, columnEncodings);
                 }
             }
 
@@ -543,7 +542,7 @@ public class OrcRecordReader
         }
     }
 
-    private ColumnReader[] createColumnReaders(
+    private static ColumnReader[] createColumnReaders(
             List<OrcColumn> columns,
             List<Type> readTypes,
             List<OrcReader.ProjectedLayout> readLayouts,

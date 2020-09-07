@@ -13,6 +13,7 @@
  */
 package io.prestosql.spi.type;
 
+import io.prestosql.spi.function.InvocationConvention;
 import io.prestosql.spi.function.OperatorType;
 
 import java.lang.invoke.MethodHandle;
@@ -47,5 +48,5 @@ public interface TypeManager
         return getType(new TypeSignature(baseTypeName, typeParameters));
     }
 
-    MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes);
+    MethodHandle resolveOperator(OperatorType operatorType, List<? extends Type> argumentTypes, InvocationConvention invocationConvention);
 }

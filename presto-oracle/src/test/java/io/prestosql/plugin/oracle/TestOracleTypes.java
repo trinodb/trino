@@ -16,7 +16,6 @@ package io.prestosql.plugin.oracle;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
-import io.prestosql.SystemSessionProperties;
 import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.testing.AbstractTestQueryFramework;
@@ -27,8 +26,8 @@ import io.prestosql.testing.datatype.CreateAsSelectDataSetup;
 import io.prestosql.testing.datatype.DataSetup;
 import io.prestosql.testing.datatype.DataType;
 import io.prestosql.testing.datatype.DataTypeTest;
-import io.prestosql.testing.sql.JdbcSqlExecutor;
 import io.prestosql.testing.sql.PrestoSqlExecutor;
+import io.prestosql.testing.sql.SqlExecutor;
 import io.prestosql.testing.sql.TestTable;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
@@ -44,7 +43,6 @@ import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.function.IntFunction;
@@ -87,8 +85,6 @@ import static io.prestosql.plugin.oracle.OracleDataTypes.varchar2DataType;
 import static io.prestosql.plugin.oracle.OracleQueryRunner.createOracleQueryRunner;
 import static io.prestosql.plugin.oracle.OracleSessionProperties.NUMBER_DEFAULT_SCALE;
 import static io.prestosql.plugin.oracle.OracleSessionProperties.NUMBER_ROUNDING_MODE;
-import static io.prestosql.plugin.oracle.TestingOracleServer.TEST_PASS;
-import static io.prestosql.plugin.oracle.TestingOracleServer.TEST_USER;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.testing.datatype.DataType.timestampDataType;
@@ -135,7 +131,7 @@ public class TestOracleTypes
             throws Exception
     {
         this.oracleServer = new TestingOracleServer();
-        return createOracleQueryRunner(oracleServer);
+        return createOracleQueryRunner(oracleServer, ImmutableList.of());
     }
 
     @BeforeClass
@@ -636,18 +632,18 @@ public class TestOracleTypes
     }
 
     @Test
-    public void testNonLegacyDateMapping()
+    public void testDateMapping()
     {
-        nonLegacyDateTests(zone -> prestoCreateAsSelect("nl_date_" + zone));
+        DateTests(zone -> prestoCreateAsSelect("nl_date_" + zone));
     }
 
     @Test
-    public void testNonLegacyDateReadMapping()
+    public void testDateReadMapping()
     {
-        nonLegacyDateTests(zone -> oracleCreateAndInsert("nl_read_date_" + zone));
+        DateTests(zone -> oracleCreateAndInsert("nl_read_date_" + zone));
     }
 
-    void nonLegacyDateTests(Function<String, DataSetup> dataSetup)
+    private void DateTests(Function<String, DataSetup> dataSetup)
     {
         Map<String, TimeZoneKey> zonesBySqlName = ImmutableMap.of(
                 "UTC", UTC_KEY,
@@ -655,14 +651,14 @@ public class TestOracleTypes
                 "other", getTimeZoneKey(ZoneId.of("Europe/Vilnius").getId()));
 
         for (Map.Entry<String, TimeZoneKey> zone : zonesBySqlName.entrySet()) {
-            runNonLegacyTimestampTestInZone(
+            runTimestampTestInZone(
                     dataSetup.apply(zone.getKey()),
                     zone.getValue().getId(),
-                    nonLegacyDateTests());
+                    DateTests());
         }
     }
 
-    private DataTypeTest nonLegacyDateTests()
+    private DataTypeTest DateTests()
     {
         // Note: these test cases are duplicates of those for PostgreSQL and MySQL.
 
@@ -708,7 +704,7 @@ public class TestOracleTypes
     }
 
     @Test(dataProvider = "testTimestampDataProvider")
-    public void testTimestamp(boolean legacyTimestamp, boolean insertWithPresto, ZoneId sessionZone)
+    public void testTimestamp(boolean insertWithPresto, ZoneId sessionZone)
     {
         // using two non-JVM zones so that we don't need to worry what Oracle system zone is
         DataTypeTest tests = DataTypeTest.create()
@@ -717,15 +713,14 @@ public class TestOracleTypes
                 .addRoundTrip(timestampDataType(), timeDoubledInJvmZone)
                 .addRoundTrip(timestampDataType(), timeDoubledInVilnius);
 
-        addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, epoch); // epoch also is a gap in JVM zone
-        addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInJvmZone1);
-        addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInJvmZone2);
-        addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInVilnius);
-        addTimestampTestIfSupported(tests, legacyTimestamp, sessionZone, timeGapInKathmandu);
+        addTimestampTestIfSupported(tests, epoch); // epoch also is a gap in JVM zone
+        addTimestampTestIfSupported(tests, timeGapInJvmZone1);
+        addTimestampTestIfSupported(tests, timeGapInJvmZone2);
+        addTimestampTestIfSupported(tests, timeGapInVilnius);
+        addTimestampTestIfSupported(tests, timeGapInKathmandu);
 
         Session session = Session.builder(getQueryRunner().getDefaultSession())
-                .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
-                .setSystemProperty("legacy_timestamp", Boolean.toString(legacyTimestamp))
+                .setTimeZoneKey(getTimeZoneKey(sessionZone.getId()))
                 .build();
 
         if (insertWithPresto) {
@@ -736,13 +731,8 @@ public class TestOracleTypes
         }
     }
 
-    private void addTimestampTestIfSupported(DataTypeTest tests, boolean legacyTimestamp, ZoneId sessionZone, LocalDateTime dateTime)
+    private static void addTimestampTestIfSupported(DataTypeTest tests, LocalDateTime dateTime)
     {
-        if (legacyTimestamp && isGap(sessionZone, dateTime)) {
-            // in legacy timestamp semantics we cannot represent this dateTime
-            return;
-        }
-
         tests.addRoundTrip(timestampDataType(), dateTime);
     }
 
@@ -750,31 +740,21 @@ public class TestOracleTypes
     public Object[][] testTimestampDataProvider()
     {
         return new Object[][] {
-                {true, true, ZoneOffset.UTC},
-                {false, true, ZoneOffset.UTC},
-                {true, false, ZoneOffset.UTC},
-                {false, false, ZoneOffset.UTC},
+                {true, UTC},
+                {false, UTC},
 
-                {true, true, jvmZone},
-                {false, true, jvmZone},
-                {true, false, jvmZone},
-                {false, false, jvmZone},
+                {true, jvmZone},
+                {false, jvmZone},
 
                 // using two non-JVM zones so that we don't need to worry what Oracle system zone is
-                {true, true, vilnius},
-                {false, true, vilnius},
-                {true, false, vilnius},
-                {false, false, vilnius},
+                {true, vilnius},
+                {false, vilnius},
 
-                {true, true, kathmandu},
-                {false, true, kathmandu},
-                {true, false, kathmandu},
-                {false, false, kathmandu},
+                {true, kathmandu},
+                {false, kathmandu},
 
-                {true, true, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
-                {false, true, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
-                {true, false, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
-                {false, false, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+                {true, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
+                {false, ZoneId.of(TestingSession.DEFAULT_TIME_ZONE_KEY.getId())},
         };
     }
 
@@ -853,7 +833,7 @@ public class TestOracleTypes
     /**
      * Check that unsupported data types are ignored
      */
-    protected void testUnsupportedOracleType(String dataTypeName)
+    private void testUnsupportedOracleType(String dataTypeName)
     {
         try (TestTable table = new TestTable(getSqlExecutor(), "unsupported_type", format("(unsupported_type %s)", dataTypeName))) {
             assertQueryFails("SELECT * FROM " + table.getName(), NO_SUPPORTED_COLUMNS);
@@ -907,22 +887,18 @@ public class TestOracleTypes
      * <p>
      * If the given time zone is {@code null}, use the default session time zone.
      */
-    private void runNonLegacyTimestampTestInZone(DataSetup dataSetup, String zone, DataTypeTest test)
+    private void runTimestampTestInZone(DataSetup dataSetup, String zone, DataTypeTest test)
     {
-        Session.SessionBuilder session = Session.builder(getQueryRunner().getDefaultSession())
-                .setSystemProperty(SystemSessionProperties.LEGACY_TIMESTAMP, "false");
+        Session.SessionBuilder session = Session.builder(getQueryRunner().getDefaultSession());
         if (zone != null) {
             session.setTimeZoneKey(getTimeZoneKey(zone));
         }
         test.execute(getQueryRunner(), session.build(), dataSetup);
     }
 
-    private JdbcSqlExecutor getSqlExecutor()
+    private SqlExecutor getSqlExecutor()
     {
-        Properties properties = new Properties();
-        properties.setProperty("user", TEST_USER);
-        properties.setProperty("password", TEST_PASS);
-        return new JdbcSqlExecutor(oracleServer.getJdbcUrl(), properties);
+        return sql -> oracleServer.execute(sql);
     }
 
     private static ToIntFunction<String> codePoints()

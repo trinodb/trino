@@ -42,7 +42,8 @@ public class TestPinotConfig
                         .setFetchRetryCount(2)
                         .setForbidSegmentQueries(false)
                         .setNonAggregateLimitForBrokerQueries(25_000)
-                        .setRequestTimeout(new Duration(30, TimeUnit.SECONDS)));
+                        .setRequestTimeout(new Duration(30, TimeUnit.SECONDS))
+                        .setMaxRowsPerSplitForSegmentQueries(50_000));
     }
 
     @Test
@@ -64,6 +65,7 @@ public class TestPinotConfig
                 .put("pinot.non-aggregate-limit-for-broker-queries", "10")
                 .put("pinot.forbid-segment-queries", "true")
                 .put("pinot.request-timeout", "1m")
+                .put("pinot.max-rows-per-split-for-segment-queries", "10")
                 .build();
 
         PinotConfig expected = new PinotConfig()
@@ -81,7 +83,8 @@ public class TestPinotConfig
                 .setFetchRetryCount(3)
                 .setNonAggregateLimitForBrokerQueries(10)
                 .setForbidSegmentQueries(true)
-                .setRequestTimeout(new Duration(1, TimeUnit.MINUTES));
+                .setRequestTimeout(new Duration(1, TimeUnit.MINUTES))
+                .setMaxRowsPerSplitForSegmentQueries(10);
 
         ConfigAssertions.assertFullMapping(properties, expected);
     }

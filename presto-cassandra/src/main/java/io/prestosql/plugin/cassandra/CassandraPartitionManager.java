@@ -154,7 +154,7 @@ public class CassandraPartitionManager
                         return columnValues.build();
                     },
                     discreteValues -> {
-                        if (discreteValues.isWhiteList()) {
+                        if (discreteValues.isInclusive()) {
                             return ImmutableSet.copyOf(discreteValues.getValues());
                         }
                         return ImmutableSet.of();

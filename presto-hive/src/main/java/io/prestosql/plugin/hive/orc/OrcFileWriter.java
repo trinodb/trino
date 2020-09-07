@@ -30,7 +30,6 @@ import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.block.RunLengthEncodedBlock;
 import io.prestosql.spi.type.Type;
-import org.joda.time.DateTimeZone;
 import org.openjdk.jol.info.ClassLayout;
 
 import java.io.IOException;
@@ -55,7 +54,7 @@ public class OrcFileWriter
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(OrcFileWriter.class).instanceSize();
     private static final ThreadMXBean THREAD_MX_BEAN = ManagementFactory.getThreadMXBean();
 
-    private final OrcWriter orcWriter;
+    protected final OrcWriter orcWriter;
     private final Callable<Void> rollbackAction;
     private final int[] fileInputColumnIndexes;
     private final List<Block> nullBlocks;
@@ -74,7 +73,6 @@ public class OrcFileWriter
             boolean writeLegacyVersion,
             int[] fileInputColumnIndexes,
             Map<String, String> metadata,
-            DateTimeZone hiveStorageTimeZone,
             Optional<Supplier<OrcDataSource>> validationInputFactory,
             OrcWriteValidationMode validationMode,
             OrcWriterStats stats)
@@ -90,7 +88,6 @@ public class OrcFileWriter
                 options,
                 writeLegacyVersion,
                 metadata,
-                hiveStorageTimeZone,
                 validationInputFactory.isPresent(),
                 validationMode,
                 stats);

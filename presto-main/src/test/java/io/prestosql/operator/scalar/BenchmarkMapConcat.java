@@ -140,7 +140,6 @@ public class BenchmarkMapConcat
 
             projectionsBuilder.add(new CallExpression(
                     metadata.resolveFunction(QualifiedName.of(name), fromTypes(mapType, mapType)),
-                    mapType,
                     ImmutableList.of(field(0, mapType), field(1, mapType))));
 
             ImmutableList<RowExpression> projections = projectionsBuilder.build();

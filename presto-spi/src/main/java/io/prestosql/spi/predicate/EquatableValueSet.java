@@ -42,20 +42,20 @@ import static java.util.stream.Collectors.toUnmodifiableList;
 
 /**
  * A set containing values that are uniquely identifiable.
- * Assumes an infinite number of possible values. The values may be collectively included (aka whitelist)
- * or collectively excluded (aka !whitelist).
+ * Assumes an infinite number of possible values. The values may be collectively included
+ * or collectively excluded.
  */
 public class EquatableValueSet
         implements ValueSet
 {
     private final Type type;
-    private final boolean whiteList;
+    private final boolean inclusive;
     private final Set<ValueEntry> entries;
 
     @JsonCreator
     public EquatableValueSet(
             @JsonProperty("type") Type type,
-            @JsonProperty("whiteList") boolean whiteList,
+            @JsonProperty("inclusive") boolean inclusive,
             @JsonProperty("entries") Set<ValueEntry> entries)
     {
         requireNonNull(type, "type is null");
@@ -68,7 +68,7 @@ public class EquatableValueSet
             throw new IllegalArgumentException("Use SortedRangeSet instead");
         }
         this.type = type;
-        this.whiteList = whiteList;
+        this.inclusive = inclusive;
         this.entries = unmodifiableSet(new LinkedHashSet<>(entries));
     }
 
@@ -107,9 +107,9 @@ public class EquatableValueSet
     }
 
     @JsonProperty
-    public boolean isWhiteList()
+    public boolean inclusive()
     {
-        return whiteList;
+        return inclusive;
     }
 
     @JsonProperty
@@ -133,19 +133,19 @@ public class EquatableValueSet
     @Override
     public boolean isNone()
     {
-        return whiteList && entries.isEmpty();
+        return inclusive && entries.isEmpty();
     }
 
     @Override
     public boolean isAll()
     {
-        return !whiteList && entries.isEmpty();
+        return !inclusive && entries.isEmpty();
     }
 
     @Override
     public boolean isSingleValue()
     {
-        return whiteList && entries.size() == 1;
+        return inclusive && entries.size() == 1;
     }
 
     @Override
@@ -160,7 +160,7 @@ public class EquatableValueSet
     @Override
     public boolean isDiscreteSet()
     {
-        return whiteList && !entries.isEmpty();
+        return inclusive && !entries.isEmpty();
     }
 
     @Override
@@ -177,7 +177,7 @@ public class EquatableValueSet
     @Override
     public boolean containsValue(Object value)
     {
-        return whiteList == entries.contains(ValueEntry.create(type, value));
+        return inclusive == entries.contains(ValueEntry.create(type, value));
     }
 
     @Override
@@ -186,9 +186,9 @@ public class EquatableValueSet
         return new DiscreteValues()
         {
             @Override
-            public boolean isWhiteList()
+            public boolean isInclusive()
             {
-                return EquatableValueSet.this.isWhiteList();
+                return EquatableValueSet.this.inclusive();
             }
 
             @Override
@@ -229,13 +229,13 @@ public class EquatableValueSet
     {
         EquatableValueSet otherValueSet = checkCompatibility(other);
 
-        if (whiteList && otherValueSet.isWhiteList()) {
+        if (inclusive && otherValueSet.inclusive()) {
             return new EquatableValueSet(type, true, intersect(entries, otherValueSet.entries));
         }
-        else if (whiteList) {
+        else if (inclusive) {
             return new EquatableValueSet(type, true, subtract(entries, otherValueSet.entries));
         }
-        else if (otherValueSet.isWhiteList()) {
+        else if (otherValueSet.inclusive()) {
             return new EquatableValueSet(type, true, subtract(otherValueSet.entries, entries));
         }
         else {
@@ -248,13 +248,13 @@ public class EquatableValueSet
     {
         EquatableValueSet otherValueSet = checkCompatibility(other);
 
-        if (whiteList && otherValueSet.isWhiteList()) {
+        if (inclusive && otherValueSet.inclusive()) {
             return setsOverlap(entries, otherValueSet.entries);
         }
-        else if (whiteList) {
+        else if (inclusive) {
             return !otherValueSet.entries.containsAll(entries);
         }
-        else if (otherValueSet.isWhiteList()) {
+        else if (otherValueSet.inclusive()) {
             return !entries.containsAll(otherValueSet.entries);
         }
         else {
@@ -267,13 +267,13 @@ public class EquatableValueSet
     {
         EquatableValueSet otherValueSet = checkCompatibility(other);
 
-        if (whiteList && otherValueSet.isWhiteList()) {
+        if (inclusive && otherValueSet.inclusive()) {
             return new EquatableValueSet(type, true, union(entries, otherValueSet.entries));
         }
-        else if (whiteList) {
+        else if (inclusive) {
             return new EquatableValueSet(type, false, subtract(otherValueSet.entries, entries));
         }
-        else if (otherValueSet.isWhiteList()) {
+        else if (otherValueSet.inclusive()) {
             return new EquatableValueSet(type, false, subtract(entries, otherValueSet.entries));
         }
         else {
@@ -284,7 +284,7 @@ public class EquatableValueSet
     @Override
     public EquatableValueSet complement()
     {
-        return new EquatableValueSet(type, !whiteList, entries);
+        return new EquatableValueSet(type, !inclusive, entries);
     }
 
     @Override
@@ -292,14 +292,14 @@ public class EquatableValueSet
     {
         return format(
                 "%s[... (%d elements) ...]",
-                whiteList ? "" : "EXCLUDES",
+                inclusive ? "" : "EXCLUDES",
                 entries.size());
     }
 
     @Override
     public String toString(ConnectorSession session)
     {
-        return (whiteList ? "[ " : "EXCLUDES[ ") + entries.stream()
+        return (inclusive ? "[ " : "EXCLUDES[ ") + entries.stream()
                 .map(entry -> type.getObjectValue(session, entry.getBlock(), 0).toString())
                 .collect(Collectors.joining(", ")) + " ]";
     }
@@ -354,7 +354,7 @@ public class EquatableValueSet
     @Override
     public int hashCode()
     {
-        return Objects.hash(type, whiteList, entries);
+        return Objects.hash(type, inclusive, entries);
     }
 
     @Override
@@ -366,9 +366,9 @@ public class EquatableValueSet
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final EquatableValueSet other = (EquatableValueSet) obj;
+        EquatableValueSet other = (EquatableValueSet) obj;
         return Objects.equals(this.type, other.type)
-                && this.whiteList == other.whiteList
+                && this.inclusive == other.inclusive
                 && Objects.equals(this.entries, other.entries);
     }
 
@@ -427,7 +427,7 @@ public class EquatableValueSet
             if (obj == null || getClass() != obj.getClass()) {
                 return false;
             }
-            final ValueEntry other = (ValueEntry) obj;
+            ValueEntry other = (ValueEntry) obj;
             return Objects.equals(this.type, other.type)
                     && type.equalTo(this.block, 0, other.block, 0);
         }

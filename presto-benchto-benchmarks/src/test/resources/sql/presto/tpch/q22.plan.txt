@@ -16,8 +16,8 @@ remote exchange (GATHER, SINGLE, [])
                                                         remote exchange (GATHER, SINGLE, [])
                                                             partial aggregation over ()
                                                                 scan customer
-                                final aggregation over (custkey_13)
+                                final aggregation over (custkey_9)
                                     local exchange (GATHER, SINGLE, [])
-                                        remote exchange (REPARTITION, HASH, ["custkey_13"])
-                                            partial aggregation over (custkey_13)
+                                        remote exchange (REPARTITION, HASH, ["custkey_9"])
+                                            partial aggregation over (custkey_9)
                                                 scan orders

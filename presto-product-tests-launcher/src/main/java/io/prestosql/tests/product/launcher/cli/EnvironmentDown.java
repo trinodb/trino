@@ -13,15 +13,23 @@
  */
 package io.prestosql.tests.product.launcher.cli;
 
-import io.airlift.airline.Command;
 import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.env.Environments;
+import picocli.CommandLine.Option;
 
-@Command(name = "down", description = "shutdown environment created by Launcher")
+import static picocli.CommandLine.Command;
+
+@Command(
+        name = "down",
+        description = "Shutdown environment created by launcher",
+        usageHelpAutoWidth = true)
 public final class EnvironmentDown
         implements Runnable
 {
     private static final Logger log = Logger.get(EnvironmentDown.class);
+
+    @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
+    public boolean usageHelpRequested;
 
     @Override
     public void run()

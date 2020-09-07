@@ -17,7 +17,6 @@ import io.airlift.slice.Slice;
 import io.airlift.slice.XxHash64;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.BlockIndex;
 import io.prestosql.spi.function.BlockPosition;
 import io.prestosql.spi.function.IsNull;
@@ -28,9 +27,6 @@ import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.AbstractIntType;
 import io.prestosql.spi.type.StandardTypes;
-import org.joda.time.chrono.ISOChronology;
-
-import java.util.concurrent.TimeUnit;
 
 import static io.airlift.slice.SliceUtf8.trim;
 import static io.airlift.slice.Slices.utf8Slice;
@@ -46,11 +42,9 @@ import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.util.DateTimeUtils.parseDate;
 import static io.prestosql.util.DateTimeUtils.printDate;
-import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 
 public final class DateOperators
 {
@@ -98,19 +92,6 @@ public final class DateOperators
     public static boolean greaterThanOrEqual(@SqlType(StandardTypes.DATE) long left, @SqlType(StandardTypes.DATE) long right)
     {
         return left >= right;
-    }
-
-    @ScalarOperator(CAST)
-    @SqlType(StandardTypes.TIMESTAMP_WITH_TIME_ZONE)
-    public static long castToTimestampWithTimeZone(ConnectorSession session, @SqlType(StandardTypes.DATE) long value)
-    {
-        long utcMillis = TimeUnit.DAYS.toMillis(value);
-
-        // date is encoded as milliseconds at midnight in UTC
-        // convert to midnight in the session timezone
-        ISOChronology chronology = getChronology(session.getTimeZoneKey());
-        long millis = utcMillis - chronology.getZone().getOffset(utcMillis);
-        return packDateTimeWithZone(millis, session.getTimeZoneKey());
     }
 
     @ScalarOperator(CAST)

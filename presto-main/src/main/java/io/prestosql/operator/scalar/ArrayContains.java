@@ -13,7 +13,6 @@
  */
 package io.prestosql.operator.scalar;
 
-import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.function.Convention;
@@ -24,11 +23,11 @@ import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.function.TypeParameter;
 import io.prestosql.spi.type.StandardTypes;
-import io.prestosql.spi.type.Type;
 
 import java.lang.invoke.MethodHandle;
 
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
+import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.BLOCK_POSITION;
 import static io.prestosql.spi.function.InvocationConvention.InvocationArgumentConvention.NEVER_NULL;
 import static io.prestosql.spi.function.InvocationConvention.InvocationReturnConvention.NULLABLE_RETURN;
 import static io.prestosql.spi.function.OperatorType.EQUAL;
@@ -44,14 +43,13 @@ public final class ArrayContains
     @SqlType(StandardTypes.BOOLEAN)
     @SqlNullable
     public static Boolean contains(
-            @TypeParameter("T") Type elementType,
             @OperatorDependency(
                     operator = EQUAL,
                     argumentTypes = {"T", "T"},
-                    convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
+                    convention = @Convention(arguments = {BLOCK_POSITION, NEVER_NULL}, result = NULLABLE_RETURN))
                     MethodHandle equals,
             @SqlType("array(T)") Block arrayBlock,
-            @SqlType("T") Block value)
+            @SqlType("T") Object value)
     {
         boolean foundNull = false;
         for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
@@ -60,7 +58,7 @@ public final class ArrayContains
                 continue;
             }
             try {
-                Boolean result = (Boolean) equals.invokeExact((Block) elementType.getObject(arrayBlock, i), value);
+                Boolean result = (Boolean) equals.invoke(arrayBlock, i, value);
                 checkNotIndeterminate(result);
                 if (result) {
                     return true;
@@ -80,47 +78,10 @@ public final class ArrayContains
     @SqlType(StandardTypes.BOOLEAN)
     @SqlNullable
     public static Boolean contains(
-            @TypeParameter("T") Type elementType,
             @OperatorDependency(
                     operator = EQUAL,
                     argumentTypes = {"T", "T"},
-                    convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
-                    MethodHandle equals,
-            @SqlType("array(T)") Block arrayBlock,
-            @SqlType("T") Slice value)
-    {
-        boolean foundNull = false;
-        for (int i = 0; i < arrayBlock.getPositionCount(); i++) {
-            if (arrayBlock.isNull(i)) {
-                foundNull = true;
-                continue;
-            }
-            try {
-                Boolean result = (Boolean) equals.invokeExact(elementType.getSlice(arrayBlock, i), value);
-                checkNotIndeterminate(result);
-                if (result) {
-                    return true;
-                }
-            }
-            catch (Throwable t) {
-                throw internalError(t);
-            }
-        }
-        if (foundNull) {
-            return null;
-        }
-        return false;
-    }
-
-    @TypeParameter("T")
-    @SqlType(StandardTypes.BOOLEAN)
-    @SqlNullable
-    public static Boolean contains(
-            @TypeParameter("T") Type elementType,
-            @OperatorDependency(
-                    operator = EQUAL,
-                    argumentTypes = {"T", "T"},
-                    convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
+                    convention = @Convention(arguments = {BLOCK_POSITION, NEVER_NULL}, result = NULLABLE_RETURN))
                     MethodHandle equals,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("T") long value)
@@ -132,7 +93,7 @@ public final class ArrayContains
                 continue;
             }
             try {
-                Boolean result = (Boolean) equals.invokeExact(elementType.getLong(arrayBlock, i), value);
+                Boolean result = (Boolean) equals.invokeExact(arrayBlock, i, value);
                 checkNotIndeterminate(result);
                 if (result) {
                     return true;
@@ -152,11 +113,10 @@ public final class ArrayContains
     @SqlType(StandardTypes.BOOLEAN)
     @SqlNullable
     public static Boolean contains(
-            @TypeParameter("T") Type elementType,
             @OperatorDependency(
                     operator = EQUAL,
                     argumentTypes = {"T", "T"},
-                    convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
+                    convention = @Convention(arguments = {BLOCK_POSITION, NEVER_NULL}, result = NULLABLE_RETURN))
                     MethodHandle equals,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("T") boolean value)
@@ -168,7 +128,7 @@ public final class ArrayContains
                 continue;
             }
             try {
-                Boolean result = (Boolean) equals.invokeExact(elementType.getBoolean(arrayBlock, i), value);
+                Boolean result = (Boolean) equals.invokeExact(arrayBlock, i, value);
                 checkNotIndeterminate(result);
                 if (result) {
                     return true;
@@ -188,11 +148,10 @@ public final class ArrayContains
     @SqlType(StandardTypes.BOOLEAN)
     @SqlNullable
     public static Boolean contains(
-            @TypeParameter("T") Type elementType,
             @OperatorDependency(
                     operator = EQUAL,
                     argumentTypes = {"T", "T"},
-                    convention = @Convention(arguments = {NEVER_NULL, NEVER_NULL}, result = NULLABLE_RETURN))
+                    convention = @Convention(arguments = {BLOCK_POSITION, NEVER_NULL}, result = NULLABLE_RETURN))
                     MethodHandle equals,
             @SqlType("array(T)") Block arrayBlock,
             @SqlType("T") double value)
@@ -204,7 +163,7 @@ public final class ArrayContains
                 continue;
             }
             try {
-                Boolean result = (Boolean) equals.invokeExact(elementType.getDouble(arrayBlock, i), value);
+                Boolean result = (Boolean) equals.invokeExact(arrayBlock, i, value);
                 checkNotIndeterminate(result);
                 if (result) {
                     return true;

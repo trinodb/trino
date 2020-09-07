@@ -100,4 +100,10 @@ public class IfExpression
     {
         return Objects.hash(condition, trueValue, falseValue);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        return sameClass(this, other);
+    }
 }

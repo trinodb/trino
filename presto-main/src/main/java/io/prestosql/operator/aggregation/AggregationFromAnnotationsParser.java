@@ -22,7 +22,6 @@ import io.prestosql.operator.ParametricImplementationsGroup;
 import io.prestosql.operator.annotations.FunctionsParserHelper;
 import io.prestosql.spi.function.AccumulatorState;
 import io.prestosql.spi.function.AggregationFunction;
-import io.prestosql.spi.function.AggregationStateSerializerFactory;
 import io.prestosql.spi.function.CombineFunction;
 import io.prestosql.spi.function.InputFunction;
 import io.prestosql.spi.function.OutputFunction;
@@ -77,12 +76,11 @@ public final class AggregationFromAnnotationsParser
 
         for (Class<?> stateClass : getStateClasses(aggregationDefinition)) {
             Method combineFunction = getCombineFunction(aggregationDefinition, stateClass);
-            Optional<Method> aggregationStateSerializerFactory = getAggregationStateSerializerFactory(aggregationDefinition, stateClass);
             for (Method outputFunction : getOutputFunctions(aggregationDefinition, stateClass)) {
                 for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
                     Optional<Method> removeInputFunction = getRemoveInputFunction(aggregationDefinition, inputFunction);
                     for (AggregationHeader header : parseHeaders(aggregationDefinition, outputFunction)) {
-                        AggregationImplementation onlyImplementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, removeInputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
+                        AggregationImplementation onlyImplementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, removeInputFunction, outputFunction, combineFunction);
                         ParametricImplementationsGroup<AggregationImplementation> implementations = ParametricImplementationsGroup.of(onlyImplementation);
                         builder.add(new ParametricAggregation(implementations.getSignature(), header, implementations, deprecated));
                     }
@@ -101,37 +99,16 @@ public final class AggregationFromAnnotationsParser
 
         for (Class<?> stateClass : getStateClasses(aggregationDefinition)) {
             Method combineFunction = getCombineFunction(aggregationDefinition, stateClass);
-            Optional<Method> aggregationStateSerializerFactory = getAggregationStateSerializerFactory(aggregationDefinition, stateClass);
             Method outputFunction = getOnlyElement(getOutputFunctions(aggregationDefinition, stateClass));
             for (Method inputFunction : getInputFunctions(aggregationDefinition, stateClass)) {
                 Optional<Method> removeInputFunction = getRemoveInputFunction(aggregationDefinition, inputFunction);
-                AggregationImplementation implementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, removeInputFunction, outputFunction, combineFunction, aggregationStateSerializerFactory);
+                AggregationImplementation implementation = parseImplementation(aggregationDefinition, header, stateClass, inputFunction, removeInputFunction, outputFunction, combineFunction);
                 implementationsBuilder.addImplementation(implementation);
             }
         }
 
         ParametricImplementationsGroup<AggregationImplementation> implementations = implementationsBuilder.build();
         return new ParametricAggregation(implementations.getSignature(), header, implementations, deprecated);
-    }
-
-    private static Optional<Method> getAggregationStateSerializerFactory(Class<?> aggregationDefinition, Class<?> stateClass)
-    {
-        // Only include methods that match this state class
-        List<Method> stateSerializerFactories = FunctionsParserHelper.findPublicStaticMethodsWithAnnotation(aggregationDefinition, AggregationStateSerializerFactory.class).stream()
-                .filter(method -> ((AggregationStateSerializerFactory) method.getAnnotation(AggregationStateSerializerFactory.class)).value().equals(stateClass))
-                .collect(toImmutableList());
-
-        if (stateSerializerFactories.isEmpty()) {
-            return Optional.empty();
-        }
-
-        checkArgument(
-                stateSerializerFactories.size() == 1,
-                "Expect at most 1 @AggregationStateSerializerFactory(%s.class) annotation, found %s in %s",
-                stateClass.toGenericString(),
-                stateSerializerFactories.size(),
-                aggregationDefinition.toGenericString());
-        return Optional.of(getOnlyElement(stateSerializerFactories));
     }
 
     private static AggregationHeader parseHeader(AnnotatedElement aggregationDefinition)

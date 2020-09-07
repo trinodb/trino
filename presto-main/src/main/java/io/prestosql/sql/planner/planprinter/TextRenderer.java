@@ -13,7 +13,6 @@
  */
 package io.prestosql.sql.planner.planprinter;
 
-import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.units.DataSize;
 import io.prestosql.cost.PlanCostEstimate;
@@ -327,7 +326,7 @@ public class TextRenderer
 
     static String indentString(int indent)
     {
-        return Strings.repeat("    ", indent);
+        return "    ".repeat(indent);
     }
 
     private static String indentMultilineString(String string, String indent)
@@ -395,7 +394,7 @@ public class TextRenderer
         {
             checkArgument(text.length() <= length, "text is longer that length");
 
-            return text + Strings.repeat(" ", length - text.length());
+            return text + " ".repeat(length - text.length());
         }
     }
 }

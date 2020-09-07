@@ -15,43 +15,40 @@ package io.prestosql.operator.scalar.timestamp;
 
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestamp;
-import io.prestosql.spi.type.LongTimestampType;
-import io.prestosql.spi.type.ShortTimestampType;
 import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TimestampType;
 
 import static io.prestosql.operator.scalar.SequenceFunction.checkMaxEntry;
 import static io.prestosql.operator.scalar.SequenceFunction.checkValidStep;
 import static io.prestosql.spi.type.TimestampType.MAX_SHORT_PRECISION;
-import static io.prestosql.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.prestosql.spi.type.TimestampType.createTimestampType;
+import static io.prestosql.spi.type.TimestampTypes.writeLongTimestamp;
+import static io.prestosql.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.Math.multiplyExact;
 import static java.lang.Math.toIntExact;
 
 @ScalarFunction("sequence")
-public class SequenceIntervalDayToSecond
+public final class SequenceIntervalDayToSecond
 {
     // We need these because it's currently not possible to inject the fully-bound type into the methods that require them below
-    private static final ShortTimestampType SHORT_TYPE = new ShortTimestampType(0);
-    private static final LongTimestampType LONG_TYPE = new LongTimestampType(MAX_SHORT_PRECISION + 1);
+    private static final TimestampType SHORT_TYPE = createTimestampType(0);
+    private static final TimestampType LONG_TYPE = createTimestampType(MAX_SHORT_PRECISION + 1);
 
     private SequenceIntervalDayToSecond() {}
 
     @LiteralParameters("p")
     @SqlType("array(timestamp(p))")
     public static Block sequence(
-            @LiteralParameter("p") long precision,
             @SqlType("timestamp(p)") long start,
             @SqlType("timestamp(p)") long stop,
             @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long step)
     {
-        if (precision > 3) {
-            // scale to micros
-            step = multiplyExact(step, MICROSECONDS_PER_MILLISECOND);
-        }
+        // scale to micros
+        step = multiplyExact(step, MICROSECONDS_PER_MILLISECOND);
 
         checkValidStep(start, stop, step);
 
@@ -83,7 +80,7 @@ public class SequenceIntervalDayToSecond
 
         BlockBuilder blockBuilder = LONG_TYPE.createBlockBuilder(null, length);
         for (long i = 0, epochMicros = startMicros; i < length; ++i, epochMicros += step) {
-            LONG_TYPE.write(blockBuilder, epochMicros, start.getPicosOfMicro());
+            writeLongTimestamp(blockBuilder, epochMicros, start.getPicosOfMicro());
         }
         return blockBuilder.build();
     }

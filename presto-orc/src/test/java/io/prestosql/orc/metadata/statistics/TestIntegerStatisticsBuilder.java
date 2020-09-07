@@ -28,14 +28,17 @@ import static io.prestosql.orc.metadata.statistics.IntegerStatistics.INTEGER_VAL
 import static java.lang.Long.MAX_VALUE;
 import static java.lang.Long.MIN_VALUE;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
 public class TestIntegerStatisticsBuilder
         extends AbstractStatisticsBuilderTest<IntegerStatisticsBuilder, Long>
 {
     public TestIntegerStatisticsBuilder()
     {
-        super(INTEGER, IntegerStatisticsBuilder::new, IntegerStatisticsBuilder::addValue);
+        super(INTEGER, () -> new IntegerStatisticsBuilder(new NoOpBloomFilterBuilder()), IntegerStatisticsBuilder::addValue);
     }
 
     @Test
@@ -73,7 +76,7 @@ public class TestIntegerStatisticsBuilder
     {
         int values = 0;
         long expectedSum = 0;
-        IntegerStatisticsBuilder integerStatisticsBuilder = new IntegerStatisticsBuilder();
+        IntegerStatisticsBuilder integerStatisticsBuilder = new IntegerStatisticsBuilder(new NoOpBloomFilterBuilder());
         for (int value = -100_000; value < 500_000; value++) {
             values++;
             expectedSum += value;
@@ -85,7 +88,7 @@ public class TestIntegerStatisticsBuilder
     @Test
     public void testSumOverflow()
     {
-        IntegerStatisticsBuilder integerStatisticsBuilder = new IntegerStatisticsBuilder();
+        IntegerStatisticsBuilder integerStatisticsBuilder = new IntegerStatisticsBuilder(new NoOpBloomFilterBuilder());
 
         integerStatisticsBuilder.addValue(MAX_VALUE);
         assertIntegerStatistics(integerStatisticsBuilder.buildColumnStatistics(), 1, MAX_VALUE);
@@ -97,7 +100,7 @@ public class TestIntegerStatisticsBuilder
     @Test
     public void testSumUnderflow()
     {
-        IntegerStatisticsBuilder integerStatisticsBuilder = new IntegerStatisticsBuilder();
+        IntegerStatisticsBuilder integerStatisticsBuilder = new IntegerStatisticsBuilder(new NoOpBloomFilterBuilder());
 
         integerStatisticsBuilder.addValue(MIN_VALUE);
         assertIntegerStatistics(integerStatisticsBuilder.buildColumnStatistics(), 1, MIN_VALUE);
@@ -111,7 +114,7 @@ public class TestIntegerStatisticsBuilder
     {
         List<ColumnStatistics> statisticsList = new ArrayList<>();
 
-        IntegerStatisticsBuilder statisticsBuilder = new IntegerStatisticsBuilder();
+        IntegerStatisticsBuilder statisticsBuilder = new IntegerStatisticsBuilder(new NoOpBloomFilterBuilder());
         statisticsList.add(statisticsBuilder.buildColumnStatistics());
         assertMergedIntegerStatistics(statisticsList, 0, 0L);
 
@@ -137,7 +140,7 @@ public class TestIntegerStatisticsBuilder
     {
         List<ColumnStatistics> statisticsList = new ArrayList<>();
 
-        statisticsList.add(new IntegerStatisticsBuilder().buildColumnStatistics());
+        statisticsList.add(new IntegerStatisticsBuilder(new NoOpBloomFilterBuilder()).buildColumnStatistics());
         assertMergedIntegerStatistics(statisticsList, 0, 0L);
 
         statisticsList.add(singleValueIntegerStatistics(MAX_VALUE));
@@ -149,7 +152,7 @@ public class TestIntegerStatisticsBuilder
 
     private static ColumnStatistics singleValueIntegerStatistics(long value)
     {
-        IntegerStatisticsBuilder statisticsBuilder = new IntegerStatisticsBuilder();
+        IntegerStatisticsBuilder statisticsBuilder = new IntegerStatisticsBuilder(new NoOpBloomFilterBuilder());
         statisticsBuilder.addValue(value);
         return statisticsBuilder.buildColumnStatistics();
     }
@@ -173,5 +176,20 @@ public class TestIntegerStatisticsBuilder
             assertNull(columnStatistics.getIntegerStatistics());
             assertEquals(columnStatistics.getNumberOfValues(), 0);
         }
+    }
+
+    @Test
+    public void testBloomFilter()
+    {
+        IntegerStatisticsBuilder statisticsBuilder = new IntegerStatisticsBuilder(new Utf8BloomFilterBuilder(3, 0.01));
+        statisticsBuilder.addValue(314);
+        statisticsBuilder.addValue(1011);
+        statisticsBuilder.addValue(4242);
+        BloomFilter bloomFilter = statisticsBuilder.buildColumnStatistics().getBloomFilter();
+        assertNotNull(bloomFilter);
+        assertTrue(bloomFilter.testLong(314));
+        assertTrue(bloomFilter.testLong(1011));
+        assertTrue(bloomFilter.testLong(4242));
+        assertFalse(bloomFilter.testLong(100));
     }
 }

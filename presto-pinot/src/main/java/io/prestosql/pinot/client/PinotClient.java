@@ -96,7 +96,7 @@ public class PinotClient
     private final List<String> controllerUrls;
     private final PinotMetrics metrics;
     private final HttpClient httpClient;
-
+    private final PinotHostMapper pinotHostMapper;
     private final Ticker ticker = Ticker.systemTicker();
 
     private final LoadingCache<String, List<String>> brokersForTableCache;
@@ -110,6 +110,7 @@ public class PinotClient
     @Inject
     public PinotClient(
             PinotConfig config,
+            PinotHostMapper pinotHostMapper,
             PinotMetrics metrics,
             @ForPinot HttpClient httpClient,
             JsonCodec<GetTables> tablesJsonCodec,
@@ -127,6 +128,7 @@ public class PinotClient
         if (config.getControllerUrls() == null || config.getControllerUrls().isEmpty()) {
             throw new PinotException(PINOT_INVALID_CONFIGURATION, Optional.empty(), "No pinot controllers specified");
         }
+        this.pinotHostMapper = requireNonNull(pinotHostMapper, "pinotHostMapper is null");
 
         this.controllerUrls = config.getControllerUrls();
         this.metrics = requireNonNull(metrics, "metrics is null");
@@ -272,7 +274,7 @@ public class PinotClient
                 .map(brokerToParse -> {
                     Matcher matcher = BROKER_PATTERN.matcher(brokerToParse);
                     if (matcher.matches() && matcher.groupCount() == 2) {
-                        return matcher.group(1) + ":" + matcher.group(2);
+                        return pinotHostMapper.getBrokerHost(matcher.group(1), matcher.group(2));
                     }
                     else {
                         throw new PinotException(
@@ -281,7 +283,7 @@ public class PinotClient
                                 format("Cannot parse %s in the broker instance", brokerToParse));
                     }
                 })
-                .collect(Collectors.toCollection(() -> new ArrayList<>()));
+                .collect(Collectors.toCollection(ArrayList::new));
         Collections.shuffle(brokers);
         return ImmutableList.copyOf(brokers);
     }
@@ -308,9 +310,7 @@ public class PinotClient
 
     public Map<String, Map<String, List<String>>> getRoutingTableForTable(String tableName)
     {
-        LOG.info("Trying to get routingTable for %s from broker", tableName);
         Map<String, Map<String, List<String>>> routingTable = sendHttpGetToBrokerJson(tableName, format(ROUTING_TABLE_API_TEMPLATE, tableName), ROUTING_TABLE_CODEC);
-        LOG.info("Got routingTable for %s from broker: %s", tableName, routingTable);
         ImmutableMap.Builder<String, Map<String, List<String>>> routingTableMap = ImmutableMap.builder();
         for (Map.Entry<String, Map<String, List<String>>> entry : routingTable.entrySet()) {
             String tablenameWithType = entry.getKey();
@@ -428,11 +428,11 @@ public class PinotClient
         }
     }
 
-    private Map<String, Integer> getColumnIndices(List<PinotColumnHandle> columnHandles)
+    private static Map<String, Integer> getColumnIndices(String[] columnNames)
     {
         ImmutableMap.Builder<String, Integer> columnIndicesBuilder = ImmutableMap.builder();
-        for (int index = 0; index < columnHandles.size(); index++) {
-            columnIndicesBuilder.put(columnHandles.get(index).getColumnName(), index);
+        for (int index = 0; index < columnNames.length; index++) {
+            columnIndicesBuilder.put(columnNames[index], index);
         }
         return columnIndicesBuilder.build();
     }
@@ -479,12 +479,19 @@ public class PinotClient
     public Iterator<BrokerResultRow> createResultIterator(ConnectorSession session, PinotQuery query, List<PinotColumnHandle> columnHandles)
     {
         BrokerResponseNative response = submitBrokerQueryJson(session, query);
-        Map<String, Integer> columnIndices = getColumnIndices(columnHandles);
-        ResultTable resultTable = response.getResultTable();
+        return fromResultTable(response.getResultTable(), columnHandles);
+    }
+
+    @VisibleForTesting
+    public static ResultsIterator fromResultTable(ResultTable resultTable, List<PinotColumnHandle> columnHandles)
+    {
+        requireNonNull(resultTable, "resultTable is null");
+        requireNonNull(columnHandles, "columnHandles is null");
         String[] columnNames = resultTable.getDataSchema().getColumnNames();
+        Map<String, Integer> columnIndices = getColumnIndices(columnNames);
         int[] indices = new int[columnNames.length];
-        for (int i = 0; i < columnNames.length; i++) {
-            indices[i] = columnIndices.getOrDefault(columnNames[i], -1);
+        for (int i = 0; i < columnHandles.size(); i++) {
+            indices[i] = columnIndices.get(columnHandles.get(i).getColumnName());
         }
         return new ResultsIterator(resultTable, indices);
     }

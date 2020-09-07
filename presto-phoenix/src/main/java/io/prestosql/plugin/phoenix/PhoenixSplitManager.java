@@ -39,7 +39,6 @@ import org.apache.phoenix.jdbc.PhoenixConnection;
 import org.apache.phoenix.jdbc.PhoenixPreparedStatement;
 import org.apache.phoenix.mapreduce.PhoenixInputSplit;
 import org.apache.phoenix.query.KeyRange;
-import org.apache.phoenix.util.SchemaUtil;
 
 import javax.inject.Inject;
 
@@ -78,13 +77,11 @@ public class PhoenixSplitManager
             List<JdbcColumnHandle> columns = tableHandle.getColumns()
                     .map(columnSet -> columnSet.stream().map(JdbcColumnHandle.class::cast).collect(toList()))
                     .orElseGet(() -> phoenixClient.getColumns(session, tableHandle));
-            PhoenixPreparedStatement inputQuery = (PhoenixPreparedStatement) new QueryBuilder(SchemaUtil.ESCAPE_CHARACTER).buildSql(
-                    phoenixClient,
+            PhoenixPreparedStatement inputQuery = (PhoenixPreparedStatement) new QueryBuilder(phoenixClient).buildSql(
                     session,
                     connection,
-                    tableHandle.getCatalogName(),
-                    tableHandle.getSchemaName(),
-                    tableHandle.getTableName(),
+                    tableHandle.getRemoteTableName(),
+                    tableHandle.getGroupingSets(),
                     columns,
                     tableHandle.getConstraint(),
                     Optional.empty(),

@@ -14,6 +14,7 @@
 package io.prestosql.pinot;
 
 import com.google.common.collect.ImmutableMap;
+import com.google.inject.Module;
 import io.airlift.log.Logger;
 import io.airlift.log.Logging;
 import io.prestosql.Session;
@@ -21,6 +22,7 @@ import io.prestosql.metadata.SessionPropertyManager;
 import io.prestosql.testing.DistributedQueryRunner;
 
 import java.util.Map;
+import java.util.Optional;
 
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
@@ -30,14 +32,14 @@ public class PinotQueryRunner
     {
     }
 
-    public static DistributedQueryRunner createPinotQueryRunner(Map<String, String> extraProperties, Map<String, String> extraPinotProperties)
+    public static DistributedQueryRunner createPinotQueryRunner(Map<String, String> extraProperties, Map<String, String> extraPinotProperties, Optional<Module> extension)
             throws Exception
     {
         DistributedQueryRunner queryRunner = DistributedQueryRunner.builder(createSession("default"))
                 .setNodeCount(2)
                 .setExtraProperties(extraProperties)
                 .build();
-        queryRunner.installPlugin(new PinotPlugin());
+        queryRunner.installPlugin(new PinotPlugin(extension));
         queryRunner.createCatalog("pinot", "pinot", extraPinotProperties);
         return queryRunner;
     }
@@ -61,7 +63,7 @@ public class PinotQueryRunner
                 .put("pinot.segments-per-split", "10")
                 .put("pinot.request-timeout", "3m")
                 .build();
-        DistributedQueryRunner queryRunner = createPinotQueryRunner(properties, pinotProperties);
+        DistributedQueryRunner queryRunner = createPinotQueryRunner(properties, pinotProperties, Optional.empty());
         Thread.sleep(10);
         Logger log = Logger.get(PinotQueryRunner.class);
         log.info("======== SERVER STARTED ========");

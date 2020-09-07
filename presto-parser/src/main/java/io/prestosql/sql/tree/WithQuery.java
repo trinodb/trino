@@ -105,4 +105,15 @@ public class WithQuery
                 Objects.equals(query, o.query) &&
                 Objects.equals(columnNames, o.columnNames);
     }
+
+    @Override
+    public boolean shallowEquals(Node other)
+    {
+        if (!sameClass(this, other)) {
+            return false;
+        }
+
+        WithQuery otherRelation = (WithQuery) other;
+        return name.equals(otherRelation.name) && Objects.equals(columnNames, otherRelation.columnNames);
+    }
 }

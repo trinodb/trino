@@ -33,7 +33,7 @@ import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
-import static io.prestosql.jdbc.PrestoResultSet.resultsException;
+import static io.prestosql.jdbc.AbstractPrestoResultSet.resultsException;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
@@ -246,7 +246,7 @@ public class PrestoStatement
             executingClient.set(client);
             WarningsManager warningsManager = new WarningsManager();
             currentWarningsManager.set(Optional.of(warningsManager));
-            resultSet = new PrestoResultSet(client, maxRows.get(), progressConsumer, warningsManager);
+            resultSet = PrestoResultSet.create(this, client, maxRows.get(), progressConsumer, warningsManager);
 
             // check if this is a query
             if (client.currentStatusInfo().getUpdateType() == null) {

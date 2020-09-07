@@ -28,9 +28,8 @@ import org.joda.time.format.DateTimeFormat;
 
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
-import static io.prestosql.type.Timestamps.round;
-import static io.prestosql.type.Timestamps.scaleEpochMicrosToMillis;
-import static io.prestosql.util.DateTimeZoneIndex.getChronology;
+import static io.prestosql.type.DateTimes.round;
+import static io.prestosql.type.DateTimes.scaleEpochMicrosToMillis;
 
 @Description("Formats the given time by the given format")
 @ScalarFunction("format_datetime")
@@ -40,24 +39,16 @@ public class FormatDateTime
 
     @LiteralParameters({"x", "p"})
     @SqlType(StandardTypes.VARCHAR)
-    public static Slice format(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") long timestamp, @SqlType("varchar(x)") Slice formatString)
+    public static Slice format(ConnectorSession session, @SqlType("timestamp(p)") long timestamp, @SqlType("varchar(x)") Slice formatString)
     {
         // TODO: currently, date formatting only supports up to millis, so we round to that unit
-        if (precision > 3) {
-            timestamp = scaleEpochMicrosToMillis(round(timestamp, 3));
-        }
+        timestamp = scaleEpochMicrosToMillis(round(timestamp, 3));
 
-        ISOChronology chronology;
-        if (session.isLegacyTimestamp()) {
-            chronology = getChronology(session.getTimeZoneKey());
+        if (datetimeFormatSpecifiesZone(formatString)) {
+            // Timezone is unknown for TIMESTAMP w/o TZ so it cannot be printed out.
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "format_datetime for TIMESTAMP type, cannot use 'Z' nor 'z' in format, as this type does not contain TZ information");
         }
-        else {
-            if (datetimeFormatSpecifiesZone(formatString)) {
-                // Timezone is unknown for TIMESTAMP w/o TZ so it cannot be printed out.
-                throw new PrestoException(INVALID_FUNCTION_ARGUMENT, "format_datetime for TIMESTAMP type, cannot use 'Z' nor 'z' in format, as this type does not contain TZ information");
-            }
-            chronology = ISOChronology.getInstanceUTC();
-        }
+        ISOChronology chronology = ISOChronology.getInstanceUTC();
 
         try {
             return utf8Slice(DateTimeFormat.forPattern(formatString.toStringUtf8())
@@ -75,7 +66,7 @@ public class FormatDateTime
     public static Slice formatDatetime(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("timestamp(p)") LongTimestamp timestamp, @SqlType("varchar(x)") Slice formatString)
     {
         // Currently, date formatting only supports up to millis, so anything in the microsecond fraction is irrelevant
-        return format(6, session, timestamp.getEpochMicros(), formatString);
+        return format(session, timestamp.getEpochMicros(), formatString);
     }
 
     /**

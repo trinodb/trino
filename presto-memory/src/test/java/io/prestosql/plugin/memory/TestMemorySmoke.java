@@ -18,6 +18,7 @@ import io.prestosql.Session;
 import io.prestosql.execution.QueryStats;
 import io.prestosql.metadata.QualifiedObjectName;
 import io.prestosql.operator.OperatorStats;
+import io.prestosql.spi.QueryId;
 import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.testing.AbstractTestQueryFramework;
 import io.prestosql.testing.DistributedQueryRunner;
@@ -32,7 +33,6 @@ import java.util.List;
 import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.prestosql.SystemSessionProperties.ENABLE_DYNAMIC_FILTERING;
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
@@ -43,6 +43,10 @@ import static org.testng.Assert.assertTrue;
 public class TestMemorySmoke
         extends AbstractTestQueryFramework
 {
+    private static final long LINEITEM_COUNT = 60175;
+    private static final long ORDERS_COUNT = 15000;
+    private static final long PART_COUNT = 2000;
+
     @Override
     protected QueryRunner createQueryRunner()
             throws Exception
@@ -86,56 +90,110 @@ public class TestMemorySmoke
     @Test
     public void testJoinDynamicFilteringNone()
     {
-        final long buildSideRowsCount = 15_000L;
-        assertQueryResult("SELECT COUNT() FROM orders", buildSideRowsCount);
-        assertQueryResult("SELECT COUNT() FROM orders WHERE totalprice < 0", 0L);
-
         Session session = Session.builder(getSession())
-                .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
                 .build();
         DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(session, "SELECT * FROM lineitem JOIN orders " +
-                "ON lineitem.orderkey = orders.orderkey AND orders.totalprice < 0");
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+                session,
+                "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice < 0");
         assertEquals(result.getResult().getRowCount(), 0);
 
         // Probe-side is not scanned at all, due to dynamic filtering:
-        QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(result.getQueryId()).getQueryStats();
-        Set<Long> rowsRead = stats.getOperatorSummaries()
-                .stream()
-                .filter(summary -> summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
-                .map(OperatorStats::getInputPositions)
-                .collect(toImmutableSet());
-        assertEquals(rowsRead, ImmutableSet.of(0L, buildSideRowsCount));
+        Set<Long> rowsRead = getOperatorRowsRead(runner, result.getQueryId());
+        assertEquals(rowsRead, ImmutableSet.of(0L, ORDERS_COUNT));
+    }
+
+    @Test
+    public void testJoinLargeBuildSideNoDynamicFiltering()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
+                .build();
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+                session,
+                "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey");
+        assertEquals(result.getResult().getRowCount(), LINEITEM_COUNT);
+
+        // Probe-side is fully scanned because the build-side is too large for dynamic filtering:
+        Set<Long> rowsRead = getOperatorRowsRead(runner, result.getQueryId());
+        assertEquals(rowsRead, ImmutableSet.of(LINEITEM_COUNT, ORDERS_COUNT));
+    }
+
+    @Test
+    public void testPartitionedJoinNoDynamicFiltering()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.PARTITIONED.name())
+                .build();
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+                session,
+                "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.totalprice < 0");
+        assertEquals(result.getResult().getRowCount(), 0);
+
+        // Probe-side is fully scanned, because local dynamic filtering does not work for partitioned joins:
+        Set<Long> rowsRead = getOperatorRowsRead(runner, result.getQueryId());
+        assertEquals(rowsRead, ImmutableSet.of(LINEITEM_COUNT, ORDERS_COUNT));
     }
 
     @Test
     public void testJoinDynamicFilteringSingleValue()
     {
-        final long buildSideRowsCount = 15_000L;
-
-        assertQueryResult("SELECT COUNT() FROM orders", buildSideRowsCount);
-        assertQueryResult("SELECT COUNT() FROM orders WHERE comment = 'nstructions sleep furiously among '", 1L);
         assertQueryResult("SELECT orderkey FROM orders WHERE comment = 'nstructions sleep furiously among '", 1L);
         assertQueryResult("SELECT COUNT() FROM lineitem WHERE orderkey = 1", 6L);
 
+        assertQueryResult("SELECT partkey FROM part WHERE comment = 'onic deposits'", 1552L);
+        assertQueryResult("SELECT COUNT() FROM lineitem WHERE partkey = 1552", 39L);
+
         Session session = Session.builder(getSession())
-                .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
                 .build();
         DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
-        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(session, "SELECT * FROM lineitem JOIN orders " +
-                "ON lineitem.orderkey = orders.orderkey AND orders.comment = 'nstructions sleep furiously among '");
-        assertEquals(result.getResult().getRowCount(), 6);
 
-        // Probe-side is dynamically filtered:
-        QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(result.getQueryId()).getQueryStats();
-        Set<Long> rowsRead = stats.getOperatorSummaries()
+        // Join lineitem with a single row of orders
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+                session,
+                "SELECT * FROM lineitem JOIN orders ON lineitem.orderkey = orders.orderkey AND orders.comment = 'nstructions sleep furiously among '");
+        assertEquals(result.getResult().getRowCount(), 6);
+        assertEquals(getOperatorRowsRead(runner, result.getQueryId()), ImmutableSet.of(6L, ORDERS_COUNT));
+
+        // Join lineitem with a single row of part
+        result = runner.executeWithQueryId(
+                session,
+                "SELECT l.comment FROM  lineitem l, part p WHERE p.partkey = l.partkey AND p.comment = 'onic deposits'");
+        assertEquals(result.getResult().getRowCount(), 39);
+        assertEquals(getOperatorRowsRead(runner, result.getQueryId()), ImmutableSet.of(39L, PART_COUNT));
+    }
+
+    @Test
+    public void testJoinDynamicFilteringBlockProbeSide()
+    {
+        Session session = Session.builder(getSession())
+                .setSystemProperty(JOIN_REORDERING_STRATEGY, FeaturesConfig.JoinReorderingStrategy.NONE.name())
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
+                .build();
+        DistributedQueryRunner runner = (DistributedQueryRunner) getQueryRunner();
+        // Wait for both build sides to finish before starting the scan of 'lineitem' table (should be very selective given the dynamic filters).
+        ResultWithQueryId<MaterializedResult> result = runner.executeWithQueryId(
+                session,
+                "SELECT l.comment" +
+                        " FROM  lineitem l, part p, orders o" +
+                        " WHERE l.orderkey = o.orderkey AND o.comment = 'nstructions sleep furiously among '" +
+                        " AND p.partkey = l.partkey AND p.comment = 'onic deposits'");
+        assertEquals(result.getResult().getRowCount(), 1);
+        assertEquals(getOperatorRowsRead(runner, result.getQueryId()), ImmutableSet.of(1L, ORDERS_COUNT, PART_COUNT));
+    }
+
+    private static Set<Long> getOperatorRowsRead(DistributedQueryRunner runner, QueryId queryId)
+    {
+        QueryStats stats = runner.getCoordinator().getQueryManager().getFullQueryInfo(queryId).getQueryStats();
+        return stats.getOperatorSummaries()
                 .stream()
                 .filter(summary -> summary.getOperatorType().equals("ScanFilterAndProjectOperator"))
                 .map(OperatorStats::getInputPositions)
                 .collect(toImmutableSet());
-        assertEquals(rowsRead, ImmutableSet.of(6L, buildSideRowsCount));
     }
 
     @Test
@@ -150,7 +208,6 @@ public class TestMemorySmoke
 
         String query = "SELECT k0, k1, k2 FROM t0, t1, t2 WHERE (k0 = k1) AND (k0 = k2) AND (v0 + v1 = v2)";
         Session session = Session.builder(getSession())
-                .setSystemProperty(ENABLE_DYNAMIC_FILTERING, "true")
                 .setSystemProperty(JOIN_DISTRIBUTION_TYPE, FeaturesConfig.JoinDistributionType.BROADCAST.name())
                 .setSystemProperty(JOIN_REORDERING_STRATEGY, FeaturesConfig.JoinReorderingStrategy.NONE.name())
                 .build();

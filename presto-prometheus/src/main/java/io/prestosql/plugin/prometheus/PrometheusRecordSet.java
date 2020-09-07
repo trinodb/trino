@@ -15,17 +15,12 @@ package io.prestosql.plugin.prometheus;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.io.ByteSource;
-import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordSet;
 import io.prestosql.spi.type.Type;
 
-import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URISyntaxException;
 import java.util.List;
 
-import static io.prestosql.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_UNKNOWN_ERROR;
 import static java.util.Objects.requireNonNull;
 
 public class PrometheusRecordSet
@@ -33,10 +28,11 @@ public class PrometheusRecordSet
 {
     private final List<PrometheusColumnHandle> columnHandles;
     private final List<Type> columnTypes;
-    private ByteSource byteSource;
+    private final ByteSource byteSource;
 
-    public PrometheusRecordSet(PrometheusSplit split, List<PrometheusColumnHandle> columnHandles)
+    public PrometheusRecordSet(PrometheusClient prometheusClient, PrometheusSplit split, List<PrometheusColumnHandle> columnHandles)
     {
+        requireNonNull(prometheusClient, "prometheusClient is null");
         requireNonNull(split, "split is null");
 
         this.columnHandles = requireNonNull(columnHandles, "column handles is null");
@@ -46,18 +42,7 @@ public class PrometheusRecordSet
         }
         this.columnTypes = types.build();
 
-        try {
-            byteSource = ByteSource.wrap(PrometheusClient.getHttpResponse(split.getUri()).bytes());
-        }
-        catch (MalformedURLException e) {
-            throw new PrestoException(PROMETHEUS_UNKNOWN_ERROR, "split URL to use with Prometheus has an error: " + e.getMessage());
-        }
-        catch (IOException e) {
-            throw new PrestoException(PROMETHEUS_UNKNOWN_ERROR, "error with Prometheus response: " + e.getMessage());
-        }
-        catch (URISyntaxException e) {
-            throw new PrestoException(PROMETHEUS_UNKNOWN_ERROR, "error with Prometheus response: " + e.getMessage());
-        }
+        this.byteSource = ByteSource.wrap(prometheusClient.fetchUri(split.getUri()));
     }
 
     @Override

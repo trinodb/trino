@@ -90,8 +90,7 @@ public class RowExpressionCompiler
                     cachedInstanceBinder,
                     metadata);
 
-            return new FunctionCallCodeGenerator()
-                    .generateExpression(call.getResolvedFunction(), generatorContext, call.getType(), call.getArguments());
+            return generatorContext.generateFullCall(call.getResolvedFunction(), call.getArguments());
         }
 
         @Override
@@ -102,44 +101,44 @@ public class RowExpressionCompiler
             switch (specialForm.getForm()) {
                 // lazy evaluation
                 case IF:
-                    generator = new IfCodeGenerator();
+                    generator = new IfCodeGenerator(specialForm);
                     break;
                 case NULL_IF:
-                    generator = new NullIfCodeGenerator();
+                    generator = new NullIfCodeGenerator(specialForm);
                     break;
                 case SWITCH:
                     // (SWITCH <expr> (WHEN <expr> <expr>) (WHEN <expr> <expr>) <expr>)
-                    generator = new SwitchCodeGenerator();
+                    generator = new SwitchCodeGenerator(specialForm);
                     break;
                 case BETWEEN:
-                    generator = new BetweenCodeGenerator();
+                    generator = new BetweenCodeGenerator(specialForm);
                     break;
                 // functions that take null as input
                 case IS_NULL:
-                    generator = new IsNullCodeGenerator();
+                    generator = new IsNullCodeGenerator(specialForm);
                     break;
                 case COALESCE:
-                    generator = new CoalesceCodeGenerator();
+                    generator = new CoalesceCodeGenerator(specialForm);
                     break;
                 // functions that require varargs and/or complex types (e.g., lists)
                 case IN:
-                    generator = new InCodeGenerator(metadata);
+                    generator = new InCodeGenerator(specialForm);
                     break;
                 // optimized implementations (shortcircuiting behavior)
                 case AND:
-                    generator = new AndCodeGenerator();
+                    generator = new AndCodeGenerator(specialForm);
                     break;
                 case OR:
-                    generator = new OrCodeGenerator();
+                    generator = new OrCodeGenerator(specialForm);
                     break;
                 case DEREFERENCE:
-                    generator = new DereferenceCodeGenerator();
+                    generator = new DereferenceCodeGenerator(specialForm);
                     break;
                 case ROW_CONSTRUCTOR:
-                    generator = new RowConstructorCodeGenerator();
+                    generator = new RowConstructorCodeGenerator(specialForm);
                     break;
                 case BIND:
-                    generator = new BindCodeGenerator(compiledLambdaMap, context.getLambdaInterface().get());
+                    generator = new BindCodeGenerator(specialForm, compiledLambdaMap, context.getLambdaInterface().get());
                     break;
                 default:
                     throw new IllegalStateException("Cannot compile special form: " + specialForm.getForm());
@@ -152,7 +151,7 @@ public class RowExpressionCompiler
                     cachedInstanceBinder,
                     metadata);
 
-            return generator.generateExpression(null, generatorContext, specialForm.getType(), specialForm.getArguments());
+            return generator.generateExpression(generatorContext);
         }
 
         @Override

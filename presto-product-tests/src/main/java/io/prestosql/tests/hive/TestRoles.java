@@ -31,6 +31,7 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
+import static io.prestosql.tempto.assertions.QueryAssert.anyOf;
 import static io.prestosql.tests.TestGroups.AUTHORIZATION;
 import static io.prestosql.tests.TestGroups.PROFILE_SPECIFIC_TESTS;
 import static io.prestosql.tests.TestGroups.ROLES;
@@ -179,7 +180,7 @@ public class TestRoles
     public void testAdminRoleIsGrantedToHdfs()
     {
         QueryAssert.assertThat(onPresto().executeQuery("SELECT * FROM hive.information_schema.applicable_roles"))
-                .contains(row(userName, "USER", "admin", "YES"));
+                .contains(row(userName, "USER", "admin", anyOf("YES", "NO")));
     }
 
     @Test(groups = {ROLES, AUTHORIZATION, PROFILE_SPECIFIC_TESTS})

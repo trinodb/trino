@@ -15,6 +15,7 @@ package io.prestosql.plugin.iceberg;
 
 import com.fasterxml.jackson.core.JsonFactory;
 import com.fasterxml.jackson.core.JsonGenerator;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.iceberg.StructLike;
@@ -34,7 +35,8 @@ public class PartitionData
 {
     private static final String PARTITION_VALUES_FIELD = "partitionValues";
     private static final JsonFactory FACTORY = new JsonFactory();
-    private static final ObjectMapper MAPPER = new ObjectMapper(FACTORY);
+    private static final ObjectMapper MAPPER = new ObjectMapper(FACTORY)
+            .configure(DeserializationFeature.USE_BIG_DECIMAL_FOR_FLOATS, true);
 
     private final Object[] partitionValues;
 
@@ -131,13 +133,13 @@ public class PartitionData
                 return partitionValue.asInt();
             case LONG:
             case TIMESTAMP:
+            case TIME:
                 return partitionValue.asLong();
             case FLOAT:
                 return partitionValue.floatValue();
             case DOUBLE:
                 return partitionValue.doubleValue();
             case STRING:
-            case UUID:
                 return partitionValue.asText();
             case FIXED:
             case BINARY:

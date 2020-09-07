@@ -15,11 +15,17 @@ package io.prestosql.sql.relational;
 
 import com.google.common.base.Joiner;
 import com.google.common.collect.ImmutableList;
+import io.prestosql.metadata.BoundSignature;
+import io.prestosql.metadata.ResolvedFunction;
+import io.prestosql.metadata.Signature;
+import io.prestosql.spi.function.OperatorType;
 import io.prestosql.spi.type.Type;
 
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 
+import static io.prestosql.spi.function.OperatorType.CAST;
 import static java.util.Objects.requireNonNull;
 
 public class SpecialForm
@@ -28,6 +34,7 @@ public class SpecialForm
     private final Form form;
     private final Type returnType;
     private final List<RowExpression> arguments;
+    private final List<ResolvedFunction> functionDependencies;
 
     public SpecialForm(Form form, Type returnType, RowExpression... arguments)
     {
@@ -36,14 +43,50 @@ public class SpecialForm
 
     public SpecialForm(Form form, Type returnType, List<RowExpression> arguments)
     {
+        this(form, returnType, arguments, ImmutableList.of());
+    }
+
+    public SpecialForm(Form form, Type returnType, List<RowExpression> arguments, List<ResolvedFunction> functionDependencies)
+    {
         this.form = requireNonNull(form, "form is null");
         this.returnType = requireNonNull(returnType, "returnType is null");
         this.arguments = requireNonNull(arguments, "arguments is null");
+        this.functionDependencies = ImmutableList.copyOf(requireNonNull(functionDependencies, "functionDependencies is null"));
     }
 
     public Form getForm()
     {
         return form;
+    }
+
+    public List<ResolvedFunction> getFunctionDependencies()
+    {
+        return functionDependencies;
+    }
+
+    public ResolvedFunction getOperatorDependency(OperatorType operator)
+    {
+        String mangleOperatorName = Signature.mangleOperatorName(operator);
+        for (ResolvedFunction function : functionDependencies) {
+            if (function.getSignature().getName().equals(mangleOperatorName)) {
+                return function;
+            }
+        }
+        throw new IllegalArgumentException("Expected operator: " + operator);
+    }
+
+    public Optional<ResolvedFunction> getCastDependency(Type fromType, Type toType)
+    {
+        if (fromType.equals(toType)) {
+            return Optional.empty();
+        }
+        BoundSignature boundSignature = new BoundSignature(Signature.mangleOperatorName(CAST), toType, ImmutableList.of(fromType));
+        for (ResolvedFunction function : functionDependencies) {
+            if (function.getSignature().equals(boundSignature)) {
+                return Optional.of(function);
+            }
+        }
+        throw new IllegalArgumentException("Expected cast: " + boundSignature);
     }
 
     @Override
@@ -75,13 +118,14 @@ public class SpecialForm
         SpecialForm that = (SpecialForm) o;
         return form == that.form &&
                 Objects.equals(returnType, that.returnType) &&
-                Objects.equals(arguments, that.arguments);
+                Objects.equals(arguments, that.arguments) &&
+                Objects.equals(functionDependencies, that.functionDependencies);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(form, returnType, arguments);
+        return Objects.hash(form, returnType, arguments, functionDependencies);
     }
 
     @Override

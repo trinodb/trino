@@ -440,12 +440,16 @@ public final class UnscaledDecimal128Arithmetic
         long l0 = toUnsignedLong(getInt(left, 0));
         long l1 = toUnsignedLong(getInt(left, 1));
         long l2 = toUnsignedLong(getInt(left, 2));
-        long l3 = toUnsignedLong(getInt(left, 3));
+        int l3raw = getRawInt(left, 3);
+        boolean leftNegative = isNegative(l3raw);
+        long l3 = toUnsignedLong(unpackUnsignedInt(l3raw));
 
         long r0 = toUnsignedLong(getInt(right, 0));
         long r1 = toUnsignedLong(getInt(right, 1));
         long r2 = toUnsignedLong(getInt(right, 2));
-        long r3 = toUnsignedLong(getInt(right, 3));
+        int r3raw = getRawInt(right, 3);
+        boolean rightNegative = isNegative(r3raw);
+        long r3 = toUnsignedLong(unpackUnsignedInt(r3raw));
 
         // the combinations below definitely result in an overflow
         if (((r3 != 0 && (l3 | l2 | l1) != 0) || (r2 != 0 && (l3 | l2) != 0) || (r1 != 0 && l3 != 0))) {
@@ -511,7 +515,7 @@ public final class UnscaledDecimal128Arithmetic
             }
         }
 
-        pack(result, (int) z0, (int) z1, (int) z2, (int) z3, isNegative(left) != isNegative(right));
+        pack(result, (int) z0, (int) z1, (int) z2, (int) z3, leftNegative != rightNegative);
     }
 
     public static void multiply256(Slice left, Slice right, Slice result)
@@ -726,6 +730,11 @@ public final class UnscaledDecimal128Arithmetic
     public static boolean isStrictlyNegative(long rawLow, long rawHigh)
     {
         return isNegative(rawLow, rawHigh) && (rawLow != 0 || unpackUnsignedLong(rawHigh) != 0);
+    }
+
+    private static boolean isNegative(int lastRawHigh)
+    {
+        return (lastRawHigh & SIGN_INT_MASK) != 0;
     }
 
     public static boolean isNegative(Slice decimal)
@@ -1696,6 +1705,11 @@ public final class UnscaledDecimal128Arithmetic
         for (int i = 0; i < NUMBER_OF_LONGS; i++) {
             setRawLong(decimal, i, 0);
         }
+    }
+
+    private static int unpackUnsignedInt(int value)
+    {
+        return value & ~SIGN_INT_MASK;
     }
 
     private static long unpackUnsignedLong(long value)

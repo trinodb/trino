@@ -45,6 +45,7 @@ import static io.prestosql.spi.function.OperatorType.LESS_THAN_OR_EQUAL;
 import static io.prestosql.spi.function.OperatorType.NOT_EQUAL;
 import static io.prestosql.spi.function.OperatorType.XX_HASH_64;
 import static io.prestosql.type.UuidType.UUID;
+import static java.lang.Long.reverseBytes;
 import static java.util.UUID.randomUUID;
 
 public final class UuidOperators
@@ -126,7 +127,9 @@ public final class UuidOperators
         try {
             java.util.UUID uuid = java.util.UUID.fromString(slice.toStringUtf8());
             if (slice.length() == 36) {
-                return wrappedLongArray(uuid.getMostSignificantBits(), uuid.getLeastSignificantBits());
+                return wrappedLongArray(
+                        reverseBytes(uuid.getMostSignificantBits()),
+                        reverseBytes(uuid.getLeastSignificantBits()));
             }
             throw new PrestoException(INVALID_CAST_ARGUMENT, "Invalid UUID string length: " + slice.length());
         }
@@ -139,7 +142,9 @@ public final class UuidOperators
     @SqlType(StandardTypes.VARCHAR)
     public static Slice castFromUuidToVarchar(@SqlType(StandardTypes.UUID) Slice slice)
     {
-        return utf8Slice(new java.util.UUID(slice.getLong(0), slice.getLong(SIZE_OF_LONG)).toString());
+        long high = reverseBytes(slice.getLong(0));
+        long low = reverseBytes(slice.getLong(SIZE_OF_LONG));
+        return utf8Slice(new java.util.UUID(high, low).toString());
     }
 
     @ScalarOperator(CAST)

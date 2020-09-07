@@ -20,6 +20,7 @@ import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.FixedWidthType;
 import io.prestosql.spi.type.IntegerType;
+import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.Type;
 
 import java.util.Optional;
@@ -65,6 +66,9 @@ public class DecoderFactory
         if (type instanceof FixedWidthType) {
             if (type instanceof DoubleType) {
                 return new DoubleDecoder();
+            }
+            else if (type instanceof RealType) {
+                return new RealDecoder();
             }
             else if (type instanceof BigintType) {
                 return new BigintDecoder();

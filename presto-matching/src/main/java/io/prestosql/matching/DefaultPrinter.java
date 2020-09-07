@@ -19,7 +19,6 @@ import io.prestosql.matching.pattern.FilterPattern;
 import io.prestosql.matching.pattern.TypeOfPattern;
 import io.prestosql.matching.pattern.WithPattern;
 
-import static com.google.common.base.Strings.repeat;
 import static java.lang.String.format;
 
 public class DefaultPrinter
@@ -73,6 +72,6 @@ public class DefaultPrinter
 
     private void appendLine(String template, Object... arguments)
     {
-        result.append(repeat("\t", level)).append(format(template + "\n", arguments));
+        result.append("\t".repeat(level)).append(format(template + "\n", arguments));
     }
 }

@@ -48,6 +48,13 @@ public class KuduSplitManager
 
         List<KuduSplit> splits = clientSession.buildKuduSplits(handle);
 
-        return new FixedSplitSource(splits);
+        switch (splitSchedulingStrategy) {
+            case UNGROUPED_SCHEDULING:
+                return new FixedSplitSource(splits);
+            case GROUPED_SCHEDULING:
+                return new KuduBucketedSplitSource(splits);
+            default:
+                throw new IllegalArgumentException("Unknown splitSchedulingStrategy: " + splitSchedulingStrategy);
+        }
     }
 }

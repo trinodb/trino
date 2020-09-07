@@ -27,6 +27,10 @@ import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.DateType;
 import io.prestosql.spi.type.DecimalType;
+import io.prestosql.spi.type.LongTimestamp;
+import io.prestosql.spi.type.LongTimestampWithTimeZone;
+import io.prestosql.spi.type.TimeType;
+import io.prestosql.spi.type.Timestamps;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
@@ -42,6 +46,8 @@ import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.Chars.isCharType;
 import static io.prestosql.spi.type.Chars.truncateToLengthAndTrimSpaces;
+import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.Decimals.encodeUnscaledValue;
 import static io.prestosql.spi.type.Decimals.isLongDecimal;
@@ -51,11 +57,19 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_NANOS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.Float.intBitsToFloat;
+import static java.lang.Math.floorDiv;
 import static java.util.Objects.requireNonNull;
 
 public class TupleDomainOrcPredicate
@@ -151,7 +165,7 @@ public class TupleDomainOrcPredicate
     @VisibleForTesting
     public static boolean checkInBloomFilter(BloomFilter bloomFilter, Object predicateValue, Type sqlType)
     {
-        if (sqlType == TINYINT || sqlType == SMALLINT || sqlType == INTEGER || sqlType == BIGINT || sqlType == DATE || sqlType.equals(TIMESTAMP)) {
+        if (sqlType == TINYINT || sqlType == SMALLINT || sqlType == INTEGER || sqlType == BIGINT || sqlType == DATE) {
             return bloomFilter.testLong(((Number) predicateValue).longValue());
         }
 
@@ -165,6 +179,23 @@ public class TupleDomainOrcPredicate
 
         if (sqlType instanceof VarcharType || sqlType instanceof VarbinaryType) {
             return bloomFilter.testSlice(((Slice) predicateValue));
+        }
+
+        // Bloom filters for timestamps are truncated to millis
+        if (sqlType.equals(TIMESTAMP_MILLIS)) {
+            return bloomFilter.testLong(((Number) predicateValue).longValue());
+        }
+        if (sqlType.equals(TIMESTAMP_MICROS)) {
+            return bloomFilter.testLong(floorDiv(((Number) predicateValue).longValue(), MICROSECONDS_PER_MILLISECOND));
+        }
+        if (sqlType.equals(TIMESTAMP_NANOS)) {
+            return bloomFilter.testLong(floorDiv(((LongTimestamp) predicateValue).getEpochMicros(), MICROSECONDS_PER_MILLISECOND));
+        }
+        if (sqlType.equals(TIMESTAMP_TZ_MILLIS)) {
+            return bloomFilter.testLong(unpackMillisUtc(((Number) predicateValue).longValue()));
+        }
+        if (sqlType.equals(TIMESTAMP_TZ_MICROS) || sqlType.equals(TIMESTAMP_TZ_NANOS)) {
+            return bloomFilter.testLong(((LongTimestampWithTimeZone) predicateValue).getEpochMillis());
         }
 
         // todo support DECIMAL, and CHAR
@@ -188,6 +219,10 @@ public class TupleDomainOrcPredicate
 
         boolean hasNullValue = columnStatistics.getNumberOfValues() != rowCount;
 
+        if (type instanceof TimeType && columnStatistics.getIntegerStatistics() != null) {
+            // This is the representation of TIME used by Iceberg
+            return createDomain(type, hasNullValue, columnStatistics.getIntegerStatistics(), value -> ((long) value) * Timestamps.PICOSECONDS_PER_MICROSECOND);
+        }
         if (type.getJavaType() == boolean.class && columnStatistics.getBooleanStatistics() != null) {
             BooleanStatistics booleanStatistics = columnStatistics.getBooleanStatistics();
 
@@ -218,6 +253,41 @@ public class TupleDomainOrcPredicate
         else if (type instanceof DateType && columnStatistics.getDateStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getDateStatistics(), value -> (long) value);
         }
+        else if ((type.equals(TIMESTAMP_MILLIS) || type.equals(TIMESTAMP_MICROS)) && columnStatistics.getTimestampStatistics() != null) {
+            return createDomain(
+                    type,
+                    hasNullValue,
+                    columnStatistics.getTimestampStatistics(),
+                    min -> min * MICROSECONDS_PER_MILLISECOND,
+                    max -> (max * MICROSECONDS_PER_MILLISECOND) + 999);
+        }
+        else if (type.equals(TIMESTAMP_NANOS) && columnStatistics.getTimestampStatistics() != null) {
+            return createDomain(
+                    type,
+                    hasNullValue,
+                    columnStatistics.getTimestampStatistics(),
+                    min -> new LongTimestamp(min * MICROSECONDS_PER_MILLISECOND, 0),
+                    max -> new LongTimestamp((max * MICROSECONDS_PER_MILLISECOND) + 999, 999_000));
+        }
+        else if (type.equals(TIMESTAMP_TZ_MILLIS) && columnStatistics.getTimestampStatistics() != null) {
+            return createDomain(type, hasNullValue, columnStatistics.getTimestampStatistics(), value -> packDateTimeWithZone(value, UTC_KEY));
+        }
+        else if (type.equals(TIMESTAMP_TZ_MICROS) && (columnStatistics.getTimestampStatistics() != null)) {
+            return createDomain(
+                    type,
+                    hasNullValue,
+                    columnStatistics.getTimestampStatistics(),
+                    min -> LongTimestampWithTimeZone.fromEpochMillisAndFraction(min, 0, UTC_KEY),
+                    max -> LongTimestampWithTimeZone.fromEpochMillisAndFraction(max, 999_000_000, UTC_KEY));
+        }
+        else if (type.equals(TIMESTAMP_TZ_NANOS) && columnStatistics.getTimestampStatistics() != null) {
+            return createDomain(
+                    type,
+                    hasNullValue,
+                    columnStatistics.getTimestampStatistics(),
+                    min -> LongTimestampWithTimeZone.fromEpochMillisAndFraction(min, 0, UTC_KEY),
+                    max -> LongTimestampWithTimeZone.fromEpochMillisAndFraction(max, 999_999_000, UTC_KEY));
+        }
         else if (type.getJavaType() == long.class && columnStatistics.getIntegerStatistics() != null) {
             return createDomain(type, hasNullValue, columnStatistics.getIntegerStatistics());
         }
@@ -237,17 +307,22 @@ public class TupleDomainOrcPredicate
 
     private static <F, T extends Comparable<T>> Domain createDomain(Type type, boolean hasNullValue, RangeStatistics<F> rangeStatistics, Function<F, T> function)
     {
+        return createDomain(type, hasNullValue, rangeStatistics, function, function);
+    }
+
+    private static <F, T extends Comparable<T>> Domain createDomain(Type type, boolean hasNullValue, RangeStatistics<F> rangeStatistics, Function<F, T> minFunction, Function<F, T> maxFunction)
+    {
         F min = rangeStatistics.getMin();
         F max = rangeStatistics.getMax();
 
         if (min != null && max != null) {
-            return Domain.create(ValueSet.ofRanges(Range.range(type, function.apply(min), true, function.apply(max), true)), hasNullValue);
+            return Domain.create(ValueSet.ofRanges(Range.range(type, minFunction.apply(min), true, maxFunction.apply(max), true)), hasNullValue);
         }
         if (max != null) {
-            return Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(type, function.apply(max))), hasNullValue);
+            return Domain.create(ValueSet.ofRanges(Range.lessThanOrEqual(type, maxFunction.apply(max))), hasNullValue);
         }
         if (min != null) {
-            return Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(type, function.apply(min))), hasNullValue);
+            return Domain.create(ValueSet.ofRanges(Range.greaterThanOrEqual(type, minFunction.apply(min))), hasNullValue);
         }
         return Domain.create(ValueSet.all(type), hasNullValue);
     }

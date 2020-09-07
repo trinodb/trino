@@ -53,7 +53,7 @@ public class TpchScaledTable
         if (obj == null || getClass() != obj.getClass()) {
             return false;
         }
-        final TpchScaledTable other = (TpchScaledTable) obj;
+        TpchScaledTable other = (TpchScaledTable) obj;
         return Objects.equals(this.tableName, other.tableName) && Objects.equals(this.scaleFactor, other.scaleFactor);
     }
 }

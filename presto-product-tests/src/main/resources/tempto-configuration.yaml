@@ -21,8 +21,7 @@ databases:
     warehouse_directory_path: /user/hive/warehouse
     inject_stats_for_immutable_tables: true
     inject_stats_for_mutable_tables: true
-    major_version: ${TESTS_HIVE_VERSION_MAJOR}
-    minor_version: ${TESTS_HIVE_VERSION_MINOR}
+    enforce_non_transactional_tables: false
     metastore:
       host: ${databases.hive.host}
       port: 9083
@@ -122,6 +121,18 @@ databases:
     jdbc_user: sa
     jdbc_password: SQLServerPass1
     jdbc_pooling: true
+    table_manager_type: jdbc
+
+  spark:
+    host: spark
+    jdbc_driver_class: org.apache.hive.jdbc.HiveDriver
+    jdbc_url: jdbc:hive2://${databases.spark.host}:10213
+    jdbc_user: hive
+    jdbc_password: na
+    jdbc_pooling: false
+    schema: default
+    prepare_statement:
+      - USE ${databases.spark.schema}
     table_manager_type: jdbc
 
   kafka:

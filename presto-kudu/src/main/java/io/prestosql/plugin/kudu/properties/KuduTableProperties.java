@@ -14,7 +14,9 @@
 package io.prestosql.plugin.kudu.properties;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.Iterators;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.spi.type.ArrayType;
@@ -27,8 +29,6 @@ import org.apache.kudu.client.LocatedTablet;
 import org.apache.kudu.client.PartialRow;
 import org.apache.kudu.client.Partition;
 import org.apache.kudu.client.PartitionSchema;
-import org.apache.kudu.shaded.com.google.common.base.Predicates;
-import org.apache.kudu.shaded.com.google.common.collect.Iterators;
 import org.joda.time.DateTimeZone;
 import org.joda.time.format.ISODateTimeFormat;
 
@@ -372,7 +372,7 @@ public final class KuduTableProperties
             PartitionSchema.RangeSchema rangeSchema = partitionSchema.getRangeSchema();
             List<Integer> rangeColumns = rangeSchema.getColumns();
 
-            final int numColumns = rangeColumns.size();
+            int numColumns = rangeColumns.size();
 
             PartialRow bound = KeyEncoderAccessor.decodeRangePartitionKey(schema, partitionSchema, rangeKey);
 

@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<configuration>
+    <!-- extra properties needed to match hadoop cluster config -->
+    <property>
+        <name>dfs.data.transfer.protection</name>
+        <value>privacy</value>
+    </property>
+
+    <property>
+        <name>hadoop.rpc.protection</name>
+        <value>privacy</value>
+    </property>
+</configuration>

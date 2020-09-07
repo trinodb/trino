@@ -1,12 +1,16 @@
 name: ci
 
 on:
-  - push
-  - pull_request
+  push:
+    branches:
+      - master
+  pull_request:
 
 env:
+  # An envar that signals to tests we are executing in the CI environment
+  CONTINUOUS_INTEGRATION: true
   # maven.wagon.rto is in millis, defaults to 30m
-  MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
+  MAVEN_OPTS: "-Xmx512M -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000 -DLogTestDurationListener.enabled=true"
   MAVEN_INSTALL_OPTS: "-Xmx2G -XX:+ExitOnOutOfMemoryError -Dmaven.wagon.rto=60000"
   MAVEN_FAST_INSTALL: "-B -V --quiet -T C1 -DskipTests -Dair.check.skip-all"
 
@@ -66,6 +70,20 @@ jobs:
       - name: Web UI Checks
         run: presto-main/bin/check_webui.sh
 
+  test-jdbc-compatibility:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 11
+      - name: Maven Install
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!presto-test-jdbc-compatibility,!presto-docs,!presto-server,!presto-server-rpm'
+      - name: Test JDBC clients
+        run: presto-test-jdbc-compatibility/bin/run_tests.sh
+
   hive-tests:
     runs-on: ubuntu-latest
     strategy:
@@ -90,8 +108,8 @@ jobs:
             presto-hive-hadoop2/bin/run_hive_tests.sh
       - name: Run Hive S3 Tests
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AwsAccessKey }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AwsSecretKey }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESSKEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRETKEY }}
           S3_BUCKET: "presto-ci-test"
           S3_BUCKET_ENDPOINT: "s3.us-east-2.amazonaws.com"
         run: |
@@ -101,12 +119,46 @@ jobs:
           fi
       - name: Run Hive Glue Tests
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AwsAccessKey }}
-          AWS_SECRET_ACCESS_KEY: ${{ secrets.AwsSecretKey }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESSKEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRETKEY }}
           AWS_REGION: us-east-2
         run: |
           if [ "${AWS_ACCESS_KEY_ID}" != "" ]; then
             ./mvnw test -B -Dair.check.skip-all -pl presto-hive -P test-hive-glue
+          fi
+      - name: Run Hive Azure ABFS Tests
+        if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
+        env:
+          ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
+          ABFS_ACCOUNT: ${{ secrets.AZURE_ABFS_ACCOUNT }}
+          ABFS_ACCESS_KEY: ${{ secrets.AZURE_ABFS_ACCESSKEY }}
+        run: |
+          if [ "${ABFS_CONTAINER}" != "" ]; then
+            source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+              presto-hive-hadoop2/bin/run_hive_abfs_tests.sh
+          fi
+      - name: Run Hive Azure WASB Tests
+        if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
+        env:
+          WASB_CONTAINER: ${{ secrets.AZURE_WASB_CONTAINER }}
+          WASB_ACCOUNT: ${{ secrets.AZURE_WASB_ACCOUNT }}
+          WASB_ACCESS_KEY: ${{ secrets.AZURE_WASB_ACCESSKEY }}
+        run: |
+          if [ "${WASB_CONTAINER}" != "" ]; then
+            source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+              presto-hive-hadoop2/bin/run_hive_wasb_tests.sh
+          fi
+      - name: Run Hive Azure ADL Tests
+        if: matrix.config != 'config-empty' # Hive 1.x does not support Azure storage
+        env:
+          ADL_NAME: ${{ secrets.AZURE_ADL_NAME }}
+          ADL_CLIENT_ID: ${{ secrets.AZURE_ADL_CLIENTID }}
+          ADL_CREDENTIAL: ${{ secrets.AZURE_ADL_CREDENTIAL }}
+          ADL_REFRESH_URL: ${{ secrets.AZURE_ADL_REFRESHURL }}
+        run: |
+          if [ "${ADL_NAME}" != "" ]; then
+            source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
+              presto-hive-hadoop2/bin/run_hive_adl_tests.sh
           fi
       - name: Run Hive Alluxio Tests
         run: |
@@ -126,7 +178,7 @@ jobs:
           ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -pl '!presto-docs,!presto-server,!presto-server-rpm'
       - name: Maven Tests
         run: |
-          ./mvnw test -B -Dair.check.skip-all -pl '
+          ./mvnw test -B -fae -Dair.check.skip-all -pl '
             !presto-main,
             !presto-tests,
             !presto-raptor-legacy,
@@ -135,10 +187,10 @@ jobs:
             !presto-hive,!presto-orc,!presto-parquet,
             !presto-mongodb,!presto-kafka,!presto-elasticsearch,
             !presto-redis,
-            !presto-sqlserver,!presto-postgresql,!presto-mysql,
+            !presto-sqlserver,!presto-postgresql,!presto-mysql,!presto-memsql,
             !presto-oracle,
             !presto-kudu,
-            !presto-phoenix,!presto-iceberg,
+            !presto-phoenix,!presto-iceberg,!presto-druid,
             !presto-docs,!presto-server,!presto-server-rpm'
 
   test:
@@ -160,7 +212,7 @@ jobs:
           - "presto-sqlserver,presto-postgresql,presto-mysql"
           - "presto-oracle"
           - "presto-kudu"
-          - "presto-phoenix,presto-iceberg"
+          - "presto-phoenix,presto-iceberg,presto-druid"
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-java@v1
@@ -171,7 +223,28 @@ jobs:
           export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
           ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl $(echo '${{ matrix.modules }}' | cut -d' ' -f1)
       - name: Maven Tests
-        run: ./mvnw test -B -Dair.check.skip-all -pl ${{ matrix.modules }}
+        run: ./mvnw test -B -fae -Dair.check.skip-all -pl ${{ matrix.modules }}
+
+  test-memsql:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-java@v1
+        with:
+          java-version: 11
+      - name: Maven Install
+        run: |
+          export MAVEN_OPTS="${MAVEN_INSTALL_OPTS}"
+          ./bin/retry ./mvnw install ${MAVEN_FAST_INSTALL} -am -pl presto-memsql
+      - name: Memsql Tests
+        env:
+          MEMSQL_LICENSE: ${{ secrets.MEMSQL_LICENSE }}
+        run: |
+          if [ "${MEMSQL_LICENSE}" != "" ]; then
+            ./mvnw test -B -fae -Dair.check.skip-all -pl presto-memsql -Dmemsql.license=${MEMSQL_LICENSE}
+          fi
 
   pt:
     runs-on: ubuntu-latest
@@ -179,7 +252,7 @@ jobs:
       fail-fast: false
       matrix:
         config:
-          - config-empty
+          - config-default
           - config-hdp3
           - config-cdh5
         suite:
@@ -191,6 +264,7 @@ jobs:
           - suite-6-non-generic
           - suite-7-non-generic
           - suite-8-non-generic
+          - suite-tpcds
         exclude:
           - config: config-hdp3
             suite: suite-6-non-generic
@@ -198,12 +272,16 @@ jobs:
             suite: suite-7-non-generic
           - config: config-hdp3
             suite: suite-8-non-generic
+          - config: config-hdp3
+            suite: suite-tpcds
           - config: config-cdh5
             suite: suite-6-non-generic
           - config: config-cdh5
             suite: suite-7-non-generic
           - config: config-cdh5
             suite: suite-8-non-generic
+          - config: config-cdh5
+            suite: suite-tpcds
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-java@v1
@@ -220,6 +298,5 @@ jobs:
           rm -rf ~/.m2/repository
       - name: Product Tests
         run: |
-          export PTL_BIND_PORTS=false &&
-          source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&
-            presto-product-tests/bin/product-tests-${{ matrix.suite }}.sh
+          presto-product-tests-launcher/bin/run-launcher suite run --suite ${{ matrix.suite }} --config ${{ matrix.config }} --no-bind
+

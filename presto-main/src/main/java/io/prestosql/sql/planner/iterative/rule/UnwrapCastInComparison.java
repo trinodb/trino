@@ -46,6 +46,7 @@ import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
+import static io.prestosql.spi.type.TypeUtils.isFloatingPointNaN;
 import static io.prestosql.sql.ExpressionUtils.and;
 import static io.prestosql.sql.ExpressionUtils.or;
 import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
@@ -182,13 +183,13 @@ public class UnwrapCastInComparison
             Type sourceType = typeAnalyzer.getType(session, types, cast.getExpression());
             Type targetType = typeAnalyzer.getType(session, types, expression.getRight());
 
-            if (!hasInjectiveImplicitCoercion(sourceType, targetType)) {
+            if (!hasInjectiveImplicitCoercion(sourceType, targetType, right)) {
                 return expression;
             }
 
             // Handle comparison against NaN.
             // It must be done before source type range bounds are compared to target value.
-            if ((targetType instanceof DoubleType && Double.isNaN((double) right)) || (targetType instanceof RealType && Float.isNaN(intBitsToFloat(toIntExact((long) right))))) {
+            if (isFloatingPointNaN(targetType, right)) {
                 switch (operator) {
                     case EQUAL:
                     case GREATER_THAN:
@@ -382,14 +383,27 @@ public class UnwrapCastInComparison
             return new ComparisonExpression(operator, cast.getExpression(), literalEncoder.toExpression(literalInSourceType, sourceType));
         }
 
-        private boolean hasInjectiveImplicitCoercion(Type source, Type target)
+        private boolean hasInjectiveImplicitCoercion(Type source, Type target, Object value)
         {
             if ((source.equals(BIGINT) && target.equals(DOUBLE)) ||
                     (source.equals(BIGINT) && target.equals(REAL)) ||
                     (source.equals(INTEGER) && target.equals(REAL))) {
                 // Not every BIGINT fits in DOUBLE/REAL due to 64 bit vs 53-bit/23-bit mantissa. Similarly,
                 // not every INTEGER fits in a REAL (32-bit vs 23-bit mantissa)
-                return false;
+                if (target.equals(DOUBLE)) {
+                    double doubleValue = (double) value;
+                    return doubleValue > Long.MAX_VALUE ||
+                            doubleValue < Long.MIN_VALUE ||
+                            Double.isNaN(doubleValue) ||
+                            (doubleValue > -1L << 53 && doubleValue < 1L << 53); // in (-2^53, 2^53), bigint follows an injective implicit coercion w.r.t double
+                }
+                else {
+                    float realValue = intBitsToFloat(toIntExact((long) value));
+                    return (source.equals(BIGINT) && (realValue > Long.MAX_VALUE || realValue < Long.MIN_VALUE)) ||
+                            (source.equals(INTEGER) && (realValue > Integer.MAX_VALUE || realValue < Integer.MIN_VALUE)) ||
+                            Float.isNaN(realValue) ||
+                            (realValue > -1L << 23 && realValue < 1L << 23); // in (-2^23, 2^23), bigint (and integer) follows an injective implicit coercion w.r.t real
+                }
             }
 
             if (source instanceof DecimalType) {

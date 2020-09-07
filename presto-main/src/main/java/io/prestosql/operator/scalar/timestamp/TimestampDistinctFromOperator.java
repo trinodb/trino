@@ -21,20 +21,20 @@ import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestamp;
-import io.prestosql.spi.type.LongTimestampType;
-import io.prestosql.spi.type.ShortTimestampType;
 import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TimestampType;
 
 import static io.prestosql.operator.scalar.timestamp.TimestampOperators.NotEqual.notEqual;
 import static io.prestosql.spi.function.OperatorType.IS_DISTINCT_FROM;
 import static io.prestosql.spi.type.TimestampType.MAX_SHORT_PRECISION;
+import static io.prestosql.spi.type.TimestampType.createTimestampType;
 
 @ScalarOperator(IS_DISTINCT_FROM)
 public final class TimestampDistinctFromOperator
 {
     // We need these because it's currently not possible to inject the fully-bound type into the methods that require them below
-    private static final ShortTimestampType SHORT_TYPE = new ShortTimestampType(0);
-    private static final LongTimestampType LONG_TYPE = new LongTimestampType(MAX_SHORT_PRECISION + 1);
+    private static final TimestampType SHORT_TYPE = createTimestampType(0);
+    private static final TimestampType LONG_TYPE = createTimestampType(MAX_SHORT_PRECISION + 1);
 
     private TimestampDistinctFromOperator() {}
 

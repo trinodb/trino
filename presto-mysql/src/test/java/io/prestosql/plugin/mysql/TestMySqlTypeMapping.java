@@ -17,8 +17,11 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.Session;
 import io.prestosql.plugin.jdbc.UnsupportedTypeHandling;
+import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.DoubleType;
+import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.RealType;
+import io.prestosql.spi.type.SmallintType;
 import io.prestosql.spi.type.TimeZoneKey;
 import io.prestosql.spi.type.VarcharType;
 import io.prestosql.testing.AbstractTestQueryFramework;
@@ -39,10 +42,10 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.ZoneId;
+import java.util.Objects;
 import java.util.function.Function;
 
 import static com.google.common.base.Preconditions.checkState;
-import static com.google.common.base.Strings.repeat;
 import static com.google.common.base.Verify.verify;
 import static io.prestosql.plugin.jdbc.DecimalConfig.DecimalMapping.ALLOW_OVERFLOW;
 import static io.prestosql.plugin.jdbc.DecimalConfig.DecimalMapping.STRICT;
@@ -52,6 +55,7 @@ import static io.prestosql.plugin.jdbc.DecimalSessionSessionProperties.DECIMAL_R
 import static io.prestosql.plugin.jdbc.TypeHandlingJdbcSessionProperties.UNSUPPORTED_TYPE_HANDLING;
 import static io.prestosql.plugin.jdbc.UnsupportedTypeHandling.CONVERT_TO_VARCHAR;
 import static io.prestosql.plugin.mysql.MySqlQueryRunner.createMySqlQueryRunner;
+import static io.prestosql.spi.type.DecimalType.createDecimalType;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
@@ -176,7 +180,7 @@ public class TestMySqlTypeMapping
                 .addRoundTrip(charDataType(1), "a")
                 .addRoundTrip(charDataType(8), "abc")
                 .addRoundTrip(charDataType(8), "12345678")
-                .addRoundTrip(charDataType(255), repeat("a", 255));
+                .addRoundTrip(charDataType(255), "a".repeat(255));
     }
 
     @Test
@@ -482,6 +486,24 @@ public class TestMySqlTypeMapping
                 .execute(getQueryRunner(), prestoCreateAsSelect("presto_test_double"));
         doublePrecisionFloatinPointTests(mysqlDoubleDataType())
                 .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_double"));
+    }
+
+    @Test
+    public void testUnsignedTypes()
+    {
+        DataType<Short> mysqlUnsignedTinyInt = DataType.dataType("TINYINT UNSIGNED", SmallintType.SMALLINT, Objects::toString);
+        DataType<Integer> mysqlUnsignedSmallInt = DataType.dataType("SMALLINT UNSIGNED", IntegerType.INTEGER, Objects::toString);
+        DataType<Long> mysqlUnsignedInt = DataType.dataType("INT UNSIGNED", BigintType.BIGINT, Objects::toString);
+        DataType<Long> mysqlUnsignedInteger = DataType.dataType("INTEGER UNSIGNED", BigintType.BIGINT, Objects::toString);
+        DataType<BigDecimal> mysqlUnsignedBigint = DataType.dataType("BIGINT UNSIGNED", createDecimalType(20), Objects::toString);
+
+        DataTypeTest.create()
+                .addRoundTrip(mysqlUnsignedTinyInt, (short) 255)
+                .addRoundTrip(mysqlUnsignedSmallInt, 65_535)
+                .addRoundTrip(mysqlUnsignedInt, 4_294_967_295L)
+                .addRoundTrip(mysqlUnsignedInteger, 4_294_967_295L)
+                .addRoundTrip(mysqlUnsignedBigint, new BigDecimal("18446744073709551615"))
+                .execute(getQueryRunner(), mysqlCreateAndInsert("tpch.mysql_test_unsigned"));
     }
 
     private static DataTypeTest singlePrecisionFloatingPointTests(DataType<Float> floatType)

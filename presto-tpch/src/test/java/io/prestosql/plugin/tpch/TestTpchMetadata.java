@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.tpch;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.prestosql.plugin.tpch.util.PredicateUtils;
@@ -41,6 +40,7 @@ import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.tpch.TpchMetadata.getPrestoType;
 import static io.prestosql.plugin.tpch.util.PredicateUtils.filterOutColumnFromPredicate;
@@ -335,7 +335,7 @@ public class TestTpchMetadata
 
     private Predicate<Map<ColumnHandle, NullableValue>> convertToPredicate(TupleDomain<ColumnHandle> domain, TpchColumn<?>... columns)
     {
-        Preconditions.checkArgument(columns.length > 0, "No columns given");
+        checkArgument(columns.length > 0, "No columns given");
         return bindings -> {
             for (TpchColumn<?> column : columns) {
                 ColumnHandle columnHandle = tpchMetadata.toColumnHandle(column);

@@ -24,6 +24,7 @@ import io.airlift.http.client.Request;
 import io.airlift.http.client.jetty.JettyHttpClient;
 import io.airlift.units.Duration;
 import io.prestosql.client.ClientSession;
+import io.prestosql.client.PrestoHeaders;
 import io.prestosql.client.QueryData;
 import io.prestosql.client.QueryError;
 import io.prestosql.client.StatementClient;
@@ -69,7 +70,7 @@ public class BenchmarkQueryRunner
 
     private int failures;
 
-    public BenchmarkQueryRunner(int warm, int runs, boolean debug, int maxFailures, URI serverUri, Optional<HostAndPort> socksProxy)
+    public BenchmarkQueryRunner(int warm, int runs, boolean debug, int maxFailures, URI serverUri, Optional<HostAndPort> socksProxy, String user)
     {
         checkArgument(warm >= 0, "warm is negative");
         this.warm = warm;
@@ -95,7 +96,7 @@ public class BenchmarkQueryRunner
         setupSocksProxy(builder, socksProxy);
         this.okHttpClient = builder.build();
 
-        nodes = getAllNodes(requireNonNull(serverUri, "serverUri is null"));
+        nodes = getAllNodes(requireNonNull(serverUri, "serverUri is null"), requireNonNull(user, "user is null"));
     }
 
     @SuppressWarnings("AssignmentToForLoopParameter")
@@ -271,9 +272,9 @@ public class BenchmarkQueryRunner
         return TimeUnit.NANOSECONDS.toNanos(totalCpuTime);
     }
 
-    private List<URI> getAllNodes(URI server)
+    private List<URI> getAllNodes(URI server, String user)
     {
-        Request request = prepareGet().setUri(uriBuilderFrom(server).replacePath("/v1/service/presto").build()).build();
+        Request request = prepareGet().setHeader(PrestoHeaders.PRESTO_USER, user).setUri(uriBuilderFrom(server).replacePath("/v1/service/presto").build()).build();
         JsonResponseHandler<ServiceDescriptorsRepresentation> responseHandler = createJsonResponseHandler(jsonCodec(ServiceDescriptorsRepresentation.class));
         ServiceDescriptorsRepresentation serviceDescriptors = httpClient.execute(request, responseHandler);
 

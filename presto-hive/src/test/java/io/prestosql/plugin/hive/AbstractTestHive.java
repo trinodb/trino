@@ -84,6 +84,7 @@ import io.prestosql.spi.connector.ConnectorViewDefinition.ViewColumn;
 import io.prestosql.spi.connector.Constraint;
 import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.DiscretePredicates;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.RecordPageSource;
@@ -121,7 +122,6 @@ import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.metastore.TableType;
 import org.joda.time.DateTime;
-import org.joda.time.DateTimeZone;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -129,6 +129,7 @@ import org.testng.annotations.Test;
 import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -140,7 +141,6 @@ import java.util.OptionalDouble;
 import java.util.OptionalInt;
 import java.util.OptionalLong;
 import java.util.Set;
-import java.util.TimeZone;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
@@ -194,6 +194,8 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_SCHEMA_MISMA
 import static io.prestosql.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.prestosql.plugin.hive.HiveMetadata.PRESTO_VERSION_NAME;
 import static io.prestosql.plugin.hive.HiveMetadata.convertToPredicate;
+import static io.prestosql.plugin.hive.HiveSessionProperties.getTemporaryStagingDirectoryPath;
+import static io.prestosql.plugin.hive.HiveSessionProperties.isTemporaryStagingDirectoryEnabled;
 import static io.prestosql.plugin.hive.HiveStorageFormat.AVRO;
 import static io.prestosql.plugin.hive.HiveStorageFormat.CSV;
 import static io.prestosql.plugin.hive.HiveStorageFormat.JSON;
@@ -254,8 +256,7 @@ import static io.prestosql.spi.type.HyperLogLogType.HYPER_LOG_LOG;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
@@ -472,7 +473,7 @@ public abstract class AbstractTestHive
             .add(new ColumnMetadata("t_char", createCharType(5)))
             .add(new ColumnMetadata("t_varbinary", VARBINARY))
             .add(new ColumnMetadata("t_date", DATE))
-            .add(new ColumnMetadata("t_timestamp", TIMESTAMP))
+            .add(new ColumnMetadata("t_timestamp", TIMESTAMP_MILLIS))
             .add(new ColumnMetadata("t_short_decimal", createDecimalType(5, 2)))
             .add(new ColumnMetadata("t_long_decimal", createDecimalType(20, 3)))
             .build();
@@ -594,8 +595,6 @@ public abstract class AbstractTestHive
     protected List<HivePartition> tablePartitionFormatPartitions;
     protected List<HivePartition> tableUnpartitionedPartitions;
 
-    protected DateTimeZone timeZone;
-
     protected HdfsEnvironment hdfsEnvironment;
     protected LocationService locationService;
 
@@ -629,7 +628,7 @@ public abstract class AbstractTestHive
         }
     }
 
-    protected void setupHive(String databaseName, String timeZoneId)
+    protected void setupHive(String databaseName)
     {
         database = databaseName;
         tablePartitionFormat = new SchemaTableName(database, "presto_test_partition_format");
@@ -712,13 +711,13 @@ public abstract class AbstractTestHive
                                 dummyColumn, Domain.create(ValueSet.ofRanges(Range.equal(INTEGER, 4L)), false)))))),
                 ImmutableList.of());
         tableUnpartitionedProperties = new ConnectorTableProperties();
-        timeZone = DateTimeZone.forTimeZone(TimeZone.getTimeZone(timeZoneId));
     }
 
     protected final void setup(String host, int port, String databaseName, String timeZone)
     {
-        HiveConfig hiveConfig = getHiveConfig();
-        hiveConfig.setTimeZone(timeZone);
+        HiveConfig hiveConfig = getHiveConfig()
+                .setParquetTimeZone(timeZone)
+                .setRcfileTimeZone(timeZone);
 
         Optional<HostAndPort> proxy = Optional.ofNullable(System.getProperty("hive.metastore.thrift.client.socks-proxy"))
                 .map(HostAndPort::fromString);
@@ -727,7 +726,7 @@ public abstract class AbstractTestHive
 
         hdfsEnvironment = new HdfsEnvironment(createTestHdfsConfiguration(), new HdfsConfig(), new NoHdfsAuthentication());
         HiveMetastore metastore = cachingHiveMetastore(
-                new BridgingHiveMetastore(new ThriftHiveMetastore(metastoreLocator, new HiveConfig(), new ThriftMetastoreConfig(), hdfsEnvironment, false)),
+                new BridgingHiveMetastore(new ThriftHiveMetastore(metastoreLocator, hiveConfig, new ThriftMetastoreConfig(), hdfsEnvironment, false)),
                 executor,
                 Duration.valueOf("1m"),
                 Optional.of(Duration.valueOf("15s")),
@@ -738,7 +737,7 @@ public abstract class AbstractTestHive
 
     protected final void setup(String databaseName, HiveConfig hiveConfig, HiveMetastore hiveMetastore, HdfsEnvironment hdfsConfiguration)
     {
-        setupHive(databaseName, hiveConfig.getTimeZone());
+        setupHive(databaseName);
 
         metastoreClient = hiveMetastore;
         hdfsEnvironment = hdfsConfiguration;
@@ -750,10 +749,8 @@ public abstract class AbstractTestHive
                 metastoreClient,
                 hdfsEnvironment,
                 partitionManager,
-                timeZone,
                 10,
                 10,
-                true,
                 false,
                 false,
                 false,
@@ -766,18 +763,16 @@ public abstract class AbstractTestHive
                 partitionUpdateCodec,
                 newFixedThreadPool(2),
                 heartbeatService,
-                new HiveTypeTranslator(),
                 TEST_SERVER_VERSION,
-                (metastore) -> new SqlStandardAccessControlMetadata(metastore));
+                SqlStandardAccessControlMetadata::new);
         transactionManager = new HiveTransactionManager();
         splitManager = new HiveSplitManager(
                 transactionHandle -> ((HiveMetadata) transactionManager.get(transactionHandle)).getMetastore(),
                 partitionManager,
                 new NamenodeStats(),
                 hdfsEnvironment,
-                new CachingDirectoryLister(new HiveConfig()),
+                new CachingDirectoryLister(hiveConfig),
                 directExecutor(),
-                new HiveCoercionPolicy(TYPE_MANAGER),
                 new CounterStat(),
                 100,
                 hiveConfig.getMaxOutstandingSplitsSize(),
@@ -806,7 +801,7 @@ public abstract class AbstractTestHive
                 TYPE_MANAGER,
                 hiveConfig,
                 hdfsEnvironment,
-                getDefaultHivePageSourceFactories(hdfsEnvironment),
+                getDefaultHivePageSourceFactories(hdfsEnvironment, hiveConfig),
                 getDefaultHiveRecordCursorProviders(hiveConfig, hdfsEnvironment),
                 new GenericHiveRecordCursorProvider(hdfsEnvironment, hiveConfig));
     }
@@ -815,7 +810,10 @@ public abstract class AbstractTestHive
     {
         return new HiveHdfsConfiguration(
                 new HdfsConfigurationInitializer(
-                        new HdfsConfig(),
+                        new HdfsConfig()
+                                .setSocksProxy(Optional.ofNullable(System.getProperty("hive.hdfs.socks-proxy"))
+                                        .map(HostAndPort::fromString)
+                                        .orElse(null)),
                         ImmutableSet.of(
                                 new PrestoS3ConfigurationInitializer(new HiveS3Config()),
                                 new GoogleGcsConfigurationInitializer(new HiveGcsConfig()),
@@ -1108,10 +1106,9 @@ public abstract class AbstractTestHive
             ConnectorSession session = newSession();
             PrincipalPrivileges principalPrivileges = testingPrincipalPrivilege(session);
             Table oldTable = transaction.getMetastore().getTable(new HiveIdentity(session), schemaName, tableName).get();
-            HiveTypeTranslator hiveTypeTranslator = new HiveTypeTranslator();
             List<Column> dataColumns = tableAfter.stream()
                     .filter(columnMetadata -> !columnMetadata.getName().equals("ds"))
-                    .map(columnMetadata -> new Column(columnMetadata.getName(), toHiveType(hiveTypeTranslator, columnMetadata.getType()), Optional.empty()))
+                    .map(columnMetadata -> new Column(columnMetadata.getName(), toHiveType(columnMetadata.getType()), Optional.empty()))
                     .collect(toList());
             Table.Builder newTable = Table.builder(oldTable)
                     .setDataColumns(dataColumns);
@@ -1374,7 +1371,7 @@ public abstract class AbstractTestHive
             metadata.beginQuery(session);
 
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tablePartitionFormat);
-            ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle, UNGROUPED_SCHEDULING);
+            ConnectorSplitSource splitSource = getSplits(splitManager, transaction, session, tableHandle);
 
             assertEquals(getSplitCount(splitSource), tablePartitionFormatPartitions.size());
         }
@@ -1389,7 +1386,7 @@ public abstract class AbstractTestHive
             metadata.beginQuery(session);
 
             ConnectorTableHandle tableHandle = getTableHandle(metadata, tableUnpartitioned);
-            ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle, UNGROUPED_SCHEDULING);
+            ConnectorSplitSource splitSource = getSplits(splitManager, transaction, session, tableHandle);
 
             assertEquals(getSplitCount(splitSource), 1);
         }
@@ -1399,7 +1396,7 @@ public abstract class AbstractTestHive
     public void testGetPartitionSplitsBatchInvalidTable()
     {
         try (Transaction transaction = newTransaction()) {
-            splitManager.getSplits(transaction.getTransactionHandle(), newSession(), invalidTableHandle, UNGROUPED_SCHEDULING);
+            getSplits(splitManager, transaction, newSession(), invalidTableHandle);
         }
     }
 
@@ -1437,7 +1434,7 @@ public abstract class AbstractTestHive
             tableHandle = applyFilter(metadata, tableHandle, new Constraint(tupleDomain));
 
             try {
-                getSplitCount(splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle, UNGROUPED_SCHEDULING));
+                getSplitCount(getSplits(splitManager, transaction, session, tableHandle));
                 fail("Expected PartitionOfflineException");
             }
             catch (PartitionOfflineException e) {
@@ -1458,7 +1455,7 @@ public abstract class AbstractTestHive
             assertNotNull(tableHandle);
 
             try {
-                getSplitCount(splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle, UNGROUPED_SCHEDULING));
+                getSplitCount(getSplits(splitManager, transaction, session, tableHandle));
                 fail("Expected HiveNotReadableException");
             }
             catch (HiveNotReadableException e) {
@@ -1945,7 +1942,7 @@ public abstract class AbstractTestHive
             HivePartition partition = getOnlyElement(((HiveTableHandle) table).getPartitions().orElseThrow(AssertionError::new));
             assertEquals(getPartitionId(partition), "t_boolean=0");
 
-            ConnectorSplitSource splitSource = splitManager.getSplits(transaction.getTransactionHandle(), session, table, UNGROUPED_SCHEDULING);
+            ConnectorSplitSource splitSource = getSplits(splitManager, transaction, session, table);
             ConnectorSplit split = getOnlyElement(getAllSplits(splitSource));
 
             ImmutableList<ColumnHandle> columnHandles = ImmutableList.of(column);
@@ -2340,9 +2337,17 @@ public abstract class AbstractTestHive
                 sink.appendPage(builder.build().toPage());
             }
 
-            // verify we have enough temporary files per bucket to require multiple passes
-            Path stagingPathRoot = getStagingPathRoot(outputHandle);
             HdfsContext context = new HdfsContext(session, table.getSchemaName(), table.getTableName());
+            // verify we have enough temporary files per bucket to require multiple passes
+            Path stagingPathRoot;
+            if (isTemporaryStagingDirectoryEnabled(session)) {
+                stagingPathRoot = new Path(getTemporaryStagingDirectoryPath(session)
+                        .replace("${USER}", context.getIdentity().getUser()));
+            }
+            else {
+                stagingPathRoot = getStagingPathRoot(outputHandle);
+            }
+
             assertThat(listAllDataFiles(context, stagingPathRoot))
                     .filteredOn(file -> file.contains(".tmp-sort."))
                     .size().isGreaterThan(bucketCount * getHiveConfig().getMaxOpenSortFiles() * 2);
@@ -3011,7 +3016,7 @@ public abstract class AbstractTestHive
             // Create variables for the emulated symbols
             Map<String, Variable> symbolVariableMapping = columnHandlesWithSymbols.entrySet().stream()
                     .collect(toImmutableMap(
-                            e -> e.getKey(),
+                            Map.Entry::getKey,
                             e -> new Variable(
                                     e.getKey(),
                                     ((HiveColumnHandle) e.getValue()).getBaseType())));
@@ -3930,7 +3935,7 @@ public abstract class AbstractTestHive
                 .map(Column::getName)
                 .collect(toImmutableList());
         if (!table.getPartitionColumns().isEmpty()) {
-            List<String> partitionNames = metastoreClient.getPartitionNames(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName())
+            List<String> partitionNames = metastoreClient.getPartitionNamesByFilter(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionColumns, TupleDomain.all())
                     .orElse(ImmutableList.of());
             List<Partition> partitions = metastoreClient
                     .getPartitionsByNames(identity, table, partitionNames)
@@ -4200,7 +4205,7 @@ public abstract class AbstractTestHive
                         assertNull(row.getField(index));
                     }
                     else {
-                        SqlTimestamp expected = sqlTimestampOf(3, 2011, 5, 6, 7, 8, 9, 123, timeZone, UTC_KEY, SESSION);
+                        SqlTimestamp expected = sqlTimestampOf(3, 2011, 5, 6, 7, 8, 9, 123);
                         assertEquals(row.getField(index), expected);
                     }
                 }
@@ -4281,6 +4286,18 @@ public abstract class AbstractTestHive
                     }
                     else {
                         assertEquals(row.getField(index), ImmutableList.of("abc", "xyz", "data"));
+                    }
+                }
+
+                // ARRAY<TIMESTAMP>
+                index = columnIndex.get("t_array_timestamp");
+                if (index != null) {
+                    if ((rowNumber % 43) == 0) {
+                        assertNull(row.getField(index));
+                    }
+                    else {
+                        SqlTimestamp expected = sqlTimestampOf(3, LocalDateTime.of(2011, 5, 6, 7, 8, 9, 123_000_000));
+                        assertEquals(row.getField(index), ImmutableList.of(expected));
                     }
                 }
 
@@ -4391,7 +4408,7 @@ public abstract class AbstractTestHive
             throws Exception
     {
         tableHandle = applyFilter(transaction.getMetadata(), tableHandle, new Constraint(tupleDomain));
-        List<ConnectorSplit> splits = getAllSplits(splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle, UNGROUPED_SCHEDULING));
+        List<ConnectorSplit> splits = getAllSplits(getSplits(splitManager, transaction, session, tableHandle));
         if (expectedSplitCount.isPresent()) {
             assertEquals(splits.size(), expectedSplitCount.getAsInt());
         }
@@ -4428,7 +4445,7 @@ public abstract class AbstractTestHive
 
     private List<ConnectorSplit> getAllSplits(ConnectorTableHandle tableHandle, Transaction transaction, ConnectorSession session)
     {
-        return getAllSplits(splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle, UNGROUPED_SCHEDULING));
+        return getAllSplits(getSplits(splitManager, transaction, session, tableHandle));
     }
 
     protected static List<ConnectorSplit> getAllSplits(ConnectorSplitSource splitSource)
@@ -4438,6 +4455,11 @@ public abstract class AbstractTestHive
             splits.addAll(getFutureValue(splitSource.getNextBatch(NOT_PARTITIONED, 1000)).getSplits());
         }
         return splits.build();
+    }
+
+    protected static ConnectorSplitSource getSplits(ConnectorSplitManager splitManager, Transaction transaction, ConnectorSession session, ConnectorTableHandle tableHandle)
+    {
+        return splitManager.getSplits(transaction.getTransactionHandle(), session, tableHandle, UNGROUPED_SCHEDULING, DynamicFilter.EMPTY);
     }
 
     protected String getPartitionId(Object partition)
@@ -4516,7 +4538,7 @@ public abstract class AbstractTestHive
                 else if (VARBINARY.equals(column.getType())) {
                     assertInstanceOf(value, SqlVarbinary.class);
                 }
-                else if (TIMESTAMP.equals(column.getType())) {
+                else if (TIMESTAMP_MILLIS.equals(column.getType())) {
                     assertInstanceOf(value, SqlTimestamp.class);
                 }
                 else if (TIMESTAMP_WITH_TIME_ZONE.equals(column.getType())) {

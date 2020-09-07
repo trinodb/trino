@@ -17,6 +17,9 @@ import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 public class TestOrderedAggregation
 {
     private QueryAssertions assertions;
@@ -37,110 +40,110 @@ public class TestOrderedAggregation
     @Test
     public void testAggregationWithOrderBy()
     {
-        assertions.assertQuery(
-                "SELECT sum(x ORDER BY y) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
-                "VALUES (BIGINT '8')");
-        assertions.assertQuery(
-                "SELECT array_agg(x ORDER BY y) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
-                "VALUES ARRAY[4, 1, 3]");
+        assertThat(assertions.query(
+                "SELECT sum(x ORDER BY y) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)"))
+                .matches("VALUES (BIGINT '8')");
+        assertThat(assertions.query(
+                "SELECT array_agg(x ORDER BY y) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)"))
+                .matches("VALUES ARRAY[4, 1, 3]");
 
-        assertions.assertQuery(
-                "SELECT array_agg(x ORDER BY y DESC) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
-                "VALUES ARRAY[3, 1, 4]");
+        assertThat(assertions.query(
+                "SELECT array_agg(x ORDER BY y DESC) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)"))
+                .matches("VALUES ARRAY[3, 1, 4]");
 
-        assertions.assertQuery(
-                "SELECT array_agg(x ORDER BY x DESC) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
-                "VALUES ARRAY[4, 3, 1]");
+        assertThat(assertions.query(
+                "SELECT array_agg(x ORDER BY x DESC) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)"))
+                .matches("VALUES ARRAY[4, 3, 1]");
 
-        assertions.assertQuery(
-                "SELECT array_agg(x ORDER BY x) FROM (VALUES ('a', 2), ('bcd', 5), ('abcd', 1)) t(x, y)",
-                "VALUES ARRAY['a', 'abcd', 'bcd']");
+        assertThat(assertions.query(
+                "SELECT array_agg(x ORDER BY x) FROM (VALUES ('a', 2), ('bcd', 5), ('abcd', 1)) t(x, y)"))
+                .matches("VALUES ARRAY['a', 'abcd', 'bcd']");
 
-        assertions.assertQuery(
-                "SELECT array_agg(y ORDER BY x) FROM (VALUES ('a', 2), ('bcd', 5), ('abcd', 1)) t(x, y)",
-                "VALUES ARRAY[2, 1, 5]");
+        assertThat(assertions.query(
+                "SELECT array_agg(y ORDER BY x) FROM (VALUES ('a', 2), ('bcd', 5), ('abcd', 1)) t(x, y)"))
+                .matches("VALUES ARRAY[2, 1, 5]");
 
-        assertions.assertQuery(
-                "SELECT array_agg(y ORDER BY x) FROM (VALUES ((1, 2), 2), ((3, 4), 5), ((1, 1), 1)) t(x, y)",
-                "VALUES ARRAY[1, 2, 5]");
+        assertThat(assertions.query(
+                "SELECT array_agg(y ORDER BY x) FROM (VALUES ((1, 2), 2), ((3, 4), 5), ((1, 1), 1)) t(x, y)"))
+                .matches("VALUES ARRAY[1, 2, 5]");
 
-        assertions.assertQuery(
-                "SELECT array_agg(z ORDER BY x, y DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (1, 1, 1)) t(x, y, z)",
-                "VALUES ARRAY[2, 1, 5, 3, 4]");
+        assertThat(assertions.query(
+                "SELECT array_agg(z ORDER BY x, y DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (1, 1, 1)) t(x, y, z)"))
+                .matches("VALUES ARRAY[2, 1, 5, 3, 4]");
 
-        assertions.assertQuery(
-                "SELECT x, array_agg(z ORDER BY y + z DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (3, 2, 1), (1, 1, 1)) t(x, y, z) GROUP BY x",
-                "VALUES (1, ARRAY[2, 1]), (2, ARRAY[5, 3]), (3, ARRAY[4, 1])");
+        assertThat(assertions.query(
+                "SELECT x, array_agg(z ORDER BY y + z DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (3, 2, 1), (1, 1, 1)) t(x, y, z) GROUP BY x"))
+                .matches("VALUES (1, ARRAY[2, 1]), (2, ARRAY[5, 3]), (3, ARRAY[4, 1])");
 
-        assertions.assertQuery(
-                "SELECT array_agg(y ORDER BY x.a DESC) FROM (VALUES (CAST(ROW(1) AS ROW(a BIGINT)), 1), (CAST(ROW(2) AS ROW(a BIGINT)), 2)) t(x, y)",
-                "VALUES ARRAY[2, 1]");
+        assertThat(assertions.query(
+                "SELECT array_agg(y ORDER BY x.a DESC) FROM (VALUES (CAST(ROW(1) AS ROW(a BIGINT)), 1), (CAST(ROW(2) AS ROW(a BIGINT)), 2)) t(x, y)"))
+                .matches("VALUES ARRAY[2, 1]");
 
-        assertions.assertQuery(
-                "SELECT x, y, array_agg(z ORDER BY z DESC NULLS FIRST) FROM (VALUES (1, 2, NULL), (1, 2, 1), (1, 2, 2), (2, 1, 3), (2, 1, 4), (2, 1, NULL)) t(x, y, z) GROUP BY x, y",
-                "VALUES (1, 2, ARRAY[NULL, 2, 1]), (2, 1, ARRAY[NULL, 4, 3])");
+        assertThat(assertions.query(
+                "SELECT x, y, array_agg(z ORDER BY z DESC NULLS FIRST) FROM (VALUES (1, 2, NULL), (1, 2, 1), (1, 2, 2), (2, 1, 3), (2, 1, 4), (2, 1, NULL)) t(x, y, z) GROUP BY x, y"))
+                .matches("VALUES (1, 2, ARRAY[NULL, 2, 1]), (2, 1, ARRAY[NULL, 4, 3])");
 
-        assertions.assertQuery(
-                "SELECT x, y, array_agg(z ORDER BY z DESC NULLS LAST) FROM (VALUES (1, 2, 3), (1, 2, 1), (1, 2, 2), (2, 1, 3), (2, 1, 4), (2, 1, NULL)) t(x, y, z) GROUP BY GROUPING SETS ((x), (x, y))",
-                "VALUES (1, 2, ARRAY[3, 2, 1]), (1, NULL, ARRAY[3, 2, 1]), (2, 1, ARRAY[4, 3, NULL]), (2, NULL, ARRAY[4, 3, NULL])");
+        assertThat(assertions.query(
+                "SELECT x, y, array_agg(z ORDER BY z DESC NULLS LAST) FROM (VALUES (1, 2, 3), (1, 2, 1), (1, 2, 2), (2, 1, 3), (2, 1, 4), (2, 1, NULL)) t(x, y, z) GROUP BY GROUPING SETS ((x), (x, y))"))
+                .matches("VALUES (1, 2, ARRAY[3, 2, 1]), (1, NULL, ARRAY[3, 2, 1]), (2, 1, ARRAY[4, 3, NULL]), (2, NULL, ARRAY[4, 3, NULL])");
 
-        assertions.assertQuery(
-                "SELECT x, y, array_agg(z ORDER BY z DESC NULLS LAST) FROM (VALUES (1, 2, 3), (1, 2, 1), (1, 2, 2), (2, 1, 3), (2, 1, 4), (2, 1, NULL)) t(x, y, z) GROUP BY GROUPING SETS ((x), (x, y))",
-                "VALUES (1, 2, ARRAY[3, 2, 1]), (1, NULL, ARRAY[3, 2, 1]), (2, 1, ARRAY[4, 3, NULL]), (2, NULL, ARRAY[4, 3, NULL])");
+        assertThat(assertions.query(
+                "SELECT x, y, array_agg(z ORDER BY z DESC NULLS LAST) FROM (VALUES (1, 2, 3), (1, 2, 1), (1, 2, 2), (2, 1, 3), (2, 1, 4), (2, 1, NULL)) t(x, y, z) GROUP BY GROUPING SETS ((x), (x, y))"))
+                .matches("VALUES (1, 2, ARRAY[3, 2, 1]), (1, NULL, ARRAY[3, 2, 1]), (2, 1, ARRAY[4, 3, NULL]), (2, NULL, ARRAY[4, 3, NULL])");
 
-        assertions.assertQuery(
-                "SELECT x, array_agg(DISTINCT z + y ORDER BY z + y DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (3, 2, 1), (1, 1, 1)) t(x, y, z) GROUP BY x",
-                "VALUES (1, ARRAY[4, 2]), (2, ARRAY[9, 5]), (3, ARRAY[8, 3])");
+        assertThat(assertions.query(
+                "SELECT x, array_agg(DISTINCT z + y ORDER BY z + y DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (3, 2, 1), (1, 1, 1)) t(x, y, z) GROUP BY x"))
+                .matches("VALUES (1, ARRAY[4, 2]), (2, ARRAY[9, 5]), (3, ARRAY[8, 3])");
 
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT x, sum(cast(x AS double))\n" +
                         "FROM (VALUES '1.0') t(x)\n" +
                         "GROUP BY x\n" +
-                        "ORDER BY sum(cast(t.x AS double) ORDER BY t.x)",
-                "VALUES ('1.0', 1e0)");
+                        "ORDER BY sum(cast(t.x AS double) ORDER BY t.x)"))
+                .matches("VALUES ('1.0', 1e0)");
 
-        assertions.assertQuery(
-                "SELECT x, y, array_agg(z ORDER BY z) FROM (VALUES (1, 2, 3), (1, 2, 1), (2, 1, 3), (2, 1, 4)) t(x, y, z) GROUP BY GROUPING SETS ((x), (x, y))",
-                "VALUES (1, NULL, ARRAY[1, 3]), (2, NULL, ARRAY[3, 4]), (1, 2, ARRAY[1, 3]), (2, 1, ARRAY[3, 4])");
+        assertThat(assertions.query(
+                "SELECT x, y, array_agg(z ORDER BY z) FROM (VALUES (1, 2, 3), (1, 2, 1), (2, 1, 3), (2, 1, 4)) t(x, y, z) GROUP BY GROUPING SETS ((x), (x, y))"))
+                .matches("VALUES (1, NULL, ARRAY[1, 3]), (2, NULL, ARRAY[3, 4]), (1, 2, ARRAY[1, 3]), (2, 1, ARRAY[3, 4])");
 
-        assertions.assertFails(
-                "SELECT array_agg(z ORDER BY z) OVER (PARTITION BY x) FROM (VALUES (1, 2, 3), (1, 2, 1), (2, 1, 3), (2, 1, 4)) t(x, y, z) GROUP BY x, z",
-                ".* Window function with ORDER BY is not supported");
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT array_agg(z ORDER BY z) OVER (PARTITION BY x) FROM (VALUES (1, 2, 3), (1, 2, 1), (2, 1, 3), (2, 1, 4)) t(x, y, z) GROUP BY x, z"))
+                .hasMessageMatching(".* Window function with ORDER BY is not supported");
 
-        assertions.assertFails(
-                "SELECT array_agg(DISTINCT x ORDER BY y) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
-                ".* For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT array_agg(DISTINCT x ORDER BY y) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)"))
+                .hasMessageMatching(".* For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
 
-        assertions.assertFails(
-                "SELECT array_agg(DISTINCT x+y ORDER BY y) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)",
-                ".* For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT array_agg(DISTINCT x+y ORDER BY y) FROM (VALUES (1, 2), (3, 5), (4, 1)) t(x, y)"))
+                .hasMessageMatching(".* For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
 
-        assertions.assertFails(
-                "SELECT x, array_agg(DISTINCT y ORDER BY z + y DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (3, 2, 1), (1, 1, 1)) t(x, y, z) GROUP BY x",
-                ".* For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
+        assertThatThrownBy(() -> assertions.query(
+                "SELECT x, array_agg(DISTINCT y ORDER BY z + y DESC) FROM (VALUES (1, 2, 2), (2, 2, 3), (2, 4, 5), (3, 4, 4), (3, 2, 1), (1, 1, 1)) t(x, y, z) GROUP BY x"))
+                .hasMessageMatching(".* For aggregate function with DISTINCT, ORDER BY expressions must appear in arguments");
 
-        assertions.assertQuery(
-                "SELECT multimap_agg(x, y ORDER BY z) FROM (VALUES (1, 2, 2), (1, 5, 5), (2, 1, 5), (3, 4, 4), (2, 5, 1), (1, 1, 1)) t(x, y, z)",
-                "VALUES map_from_entries(ARRAY[row(1, ARRAY[1, 2, 5]), row(2, ARRAY[5, 1]), row(3, ARRAY[4])])");
+        assertThat(assertions.query(
+                "SELECT multimap_agg(x, y ORDER BY z) FROM (VALUES (1, 2, 2), (1, 5, 5), (2, 1, 5), (3, 4, 4), (2, 5, 1), (1, 1, 1)) t(x, y, z)"))
+                .matches("VALUES map_from_entries(ARRAY[row(1, ARRAY[1, 2, 5]), row(2, ARRAY[5, 1]), row(3, ARRAY[4])])");
     }
 
     @Test
     public void testGroupingSets()
     {
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT x, array_agg(y ORDER BY y), array_agg(y ORDER BY y) FILTER (WHERE y > 1), count(*) FROM (" +
                         "VALUES " +
                         "   (1, 3), " +
                         "   (1, 1), " +
                         "   (2, 3), " +
                         "   (2, 4)) t(x, y) " +
-                        "GROUP BY GROUPING SETS ((), (x))",
-                "VALUES " +
+                        "GROUP BY GROUPING SETS ((), (x))"))
+                .matches("VALUES " +
                         "   (1, ARRAY[1, 3], ARRAY[3], BIGINT '2'), " +
                         "   (2, ARRAY[3, 4], ARRAY[3, 4], BIGINT '2'), " +
                         "   (NULL, ARRAY[1, 3, 3, 4], ARRAY[3, 3, 4], BIGINT '4')");
 
-        assertions.assertQuery(
+        assertThat(assertions.query(
                 "SELECT x, array_agg(DISTINCT y ORDER BY y), count(*) FROM (" +
                         "VALUES " +
                         "   (1, 3), " +
@@ -148,8 +151,8 @@ public class TestOrderedAggregation
                         "   (1, 3), " +
                         "   (2, 3), " +
                         "   (2, 4)) t(x, y) " +
-                        "GROUP BY GROUPING SETS ((), (x))",
-                "VALUES " +
+                        "GROUP BY GROUPING SETS ((), (x))"))
+                .matches("VALUES " +
                         "   (1, ARRAY[1, 3], BIGINT '3'), " +
                         "   (2, ARRAY[3, 4], BIGINT '2'), " +
                         "   (NULL, ARRAY[1, 3, 4], BIGINT '5')");

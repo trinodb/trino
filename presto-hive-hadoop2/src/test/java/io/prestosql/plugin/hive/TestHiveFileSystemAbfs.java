@@ -47,27 +47,31 @@ public class TestHiveFileSystemAbfs
     private String container;
     private String account;
     private String accessKey;
+    private String testDirectory;
 
     @Parameters({
             "hive.hadoop2.metastoreHost",
             "hive.hadoop2.metastorePort",
             "hive.hadoop2.databaseName",
-            "hive.hadoop2.wasb-container",
-            "hive.hadoop2.wasb-account",
-            "hive.hadoop2.wasb-access-key"
+            "hive.hadoop2.abfs.container",
+            "hive.hadoop2.abfs.account",
+            "hive.hadoop2.abfs.accessKey",
+            "hive.hadoop2.abfs.testDirectory",
     })
     @BeforeClass
-    public void setup(String host, int port, String databaseName, String container, String account, String accessKey)
+    public void setup(String host, int port, String databaseName, String container, String account, String accessKey, String testDirectory)
     {
         checkArgument(!isNullOrEmpty(host), "expected non empty host");
         checkArgument(!isNullOrEmpty(databaseName), "Expected non empty databaseName");
         checkArgument(!isNullOrEmpty(container), "expected non empty container");
         checkArgument(!isNullOrEmpty(account), "expected non empty account");
         checkArgument(!isNullOrEmpty(accessKey), "expected non empty accessKey");
+        checkArgument(!isNullOrEmpty(testDirectory), "expected non empty testDirectory");
 
         this.container = container;
         this.account = account;
         this.accessKey = accessKey;
+        this.testDirectory = testDirectory;
 
         super.setup(host, port, databaseName, false, createHdfsConfiguration());
     }
@@ -75,7 +79,7 @@ public class TestHiveFileSystemAbfs
     @Override
     protected void onSetupComplete()
     {
-        ensureTableExists(table, "presto_test_external_fs_v2", ImmutableMap.of());
+        ensureTableExists(table, "presto_test_external_fs", ImmutableMap.of());
 
         ensureTableExists(tableWithHeader, "presto_test_external_fs_with_header", ImmutableMap.of(SKIP_HEADER_LINE_COUNT, 1));
         ensureTableExists(tableWithHeaderAndFooter, "presto_test_external_fs_with_header_and_footer", ImmutableMap.of(SKIP_HEADER_LINE_COUNT, 2, SKIP_FOOTER_LINE_COUNT, 2));
@@ -113,6 +117,6 @@ public class TestHiveFileSystemAbfs
     @Override
     protected Path getBasePath()
     {
-        return new Path(format("abfs://%s@%s.dfs.core.windows.net/", container, account));
+        return new Path(format("abfs://%s@%s.dfs.core.windows.net/%s/", container, account, testDirectory));
     }
 }

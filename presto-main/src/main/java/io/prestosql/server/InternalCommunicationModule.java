@@ -28,6 +28,7 @@ public class InternalCommunicationModule
     {
         InternalCommunicationConfig internalCommunicationConfig = buildConfigObject(InternalCommunicationConfig.class);
         configBinder(binder).bindConfigGlobalDefaults(HttpClientConfig.class, config -> {
+            config.setHttp2Enabled(internalCommunicationConfig.isHttp2Enabled());
             config.setKeyStorePath(internalCommunicationConfig.getKeyStorePath());
             config.setKeyStorePassword(internalCommunicationConfig.getKeyStorePassword());
             config.setTrustStorePath(internalCommunicationConfig.getTrustStorePath());

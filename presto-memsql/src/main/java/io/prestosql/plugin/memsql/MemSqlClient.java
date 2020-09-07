@@ -47,7 +47,7 @@ public class MemSqlClient
             while (resultSet.next()) {
                 String schemaName = resultSet.getString("TABLE_CAT");
                 // skip internal schemas
-                if (!schemaName.equalsIgnoreCase("information_schema") && !schemaName.equalsIgnoreCase("memsql")) {
+                if (filterSchema(schemaName)) {
                     schemaNames.add(schemaName);
                 }
             }
@@ -56,6 +56,15 @@ public class MemSqlClient
         catch (SQLException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    @Override
+    protected boolean filterSchema(String schemaName)
+    {
+        if (schemaName.equalsIgnoreCase("memsql")) {
+            return false;
+        }
+        return super.filterSchema(schemaName);
     }
 
     @Override
