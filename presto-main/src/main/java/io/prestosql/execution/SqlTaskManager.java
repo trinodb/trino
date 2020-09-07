@@ -324,14 +324,13 @@ public class SqlTaskManager
     }
 
     @Override
-    public ListenableFuture<TaskInfo> getTaskInfo(TaskId taskId, TaskState currentState)
+    public ListenableFuture<TaskInfo> getTaskInfo(TaskId taskId, long currentVersion)
     {
         requireNonNull(taskId, "taskId is null");
-        requireNonNull(currentState, "currentState is null");
 
         SqlTask sqlTask = tasks.getUnchecked(taskId);
         sqlTask.recordHeartbeat();
-        return sqlTask.getTaskInfo(currentState);
+        return sqlTask.getTaskInfo(currentVersion);
     }
 
     @Override
@@ -343,14 +342,13 @@ public class SqlTaskManager
     }
 
     @Override
-    public ListenableFuture<TaskStatus> getTaskStatus(TaskId taskId, TaskState currentState)
+    public ListenableFuture<TaskStatus> getTaskStatus(TaskId taskId, long currentVersion)
     {
         requireNonNull(taskId, "taskId is null");
-        requireNonNull(currentState, "currentState is null");
 
         SqlTask sqlTask = tasks.getUnchecked(taskId);
         sqlTask.recordHeartbeat();
-        return sqlTask.getTaskStatus(currentState);
+        return sqlTask.getTaskStatus(currentVersion);
     }
 
     @Override

@@ -47,6 +47,7 @@ import static io.airlift.units.DataSize.Unit.GIGABYTE;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.execution.SqlTask.createSqlTask;
+import static io.prestosql.execution.TaskStatus.STARTING_VERSION;
 import static io.prestosql.execution.TaskTestUtils.EMPTY_SOURCES;
 import static io.prestosql.execution.TaskTestUtils.PLAN_FRAGMENT;
 import static io.prestosql.execution.TaskTestUtils.SPLIT;
@@ -103,8 +104,9 @@ public class TestSqlTask
         driverYieldExecutor.shutdown();
     }
 
-    @Test
+    @Test(timeOut = 30_000)
     public void testEmptyQuery()
+            throws Exception
     {
         SqlTask sqlTask = createInitialTask();
 
@@ -115,9 +117,11 @@ public class TestSqlTask
                         .withNoMoreBufferIds(),
                 OptionalInt.empty());
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+        assertEquals(taskInfo.getTaskStatus().getVersion(), STARTING_VERSION);
 
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.RUNNING);
+        assertEquals(taskInfo.getTaskStatus().getVersion(), STARTING_VERSION);
 
         taskInfo = sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
@@ -127,25 +131,31 @@ public class TestSqlTask
                 OptionalInt.empty());
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
 
-        taskInfo = sqlTask.getTaskInfo();
+        taskInfo = sqlTask.getTaskInfo(STARTING_VERSION).get();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
+        assertEquals(taskInfo.getTaskStatus().getVersion(), STARTING_VERSION + 1);
     }
 
-    @Test
+    @Test(timeOut = 30_000)
     public void testSimpleQuery()
             throws Exception
     {
         SqlTask sqlTask = createInitialTask();
 
         assertEquals(sqlTask.getTaskStatus().getState(), TaskState.RUNNING);
+        assertEquals(sqlTask.getTaskStatus().getVersion(), STARTING_VERSION);
         sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
                 OptionalInt.empty());
 
-        TaskInfo taskInfo = sqlTask.getTaskInfo(TaskState.RUNNING).get(1, SECONDS);
+        TaskInfo taskInfo = sqlTask.getTaskInfo(STARTING_VERSION).get();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FLUSHING);
+        assertEquals(taskInfo.getTaskStatus().getVersion(), STARTING_VERSION + 1);
+
+        // completed future should be returned immediately when old caller's version is used
+        assertTrue(sqlTask.getTaskInfo(STARTING_VERSION).isDone());
 
         BufferResult results = sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE)).get();
         assertFalse(results.isBufferComplete());
@@ -161,8 +171,12 @@ public class TestSqlTask
         TaskInfo info = sqlTask.abortTaskResults(OUT);
         assertEquals(info.getOutputBuffers().getState(), BufferState.FINISHED);
 
-        taskInfo = sqlTask.getTaskInfo(taskInfo.getTaskStatus().getState()).get(1, SECONDS);
+        taskInfo = sqlTask.getTaskInfo(info.getTaskStatus().getVersion()).get();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
+        assertEquals(taskInfo.getTaskStatus().getVersion(), STARTING_VERSION + 2);
+
+        // completed future should be returned immediately when task is finished
+        assertTrue(sqlTask.getTaskInfo(STARTING_VERSION + 2).isDone());
 
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
@@ -196,26 +210,29 @@ public class TestSqlTask
         assertNotNull(taskInfo.getStats().getEndTime());
     }
 
-    @Test
+    @Test(timeOut = 30_000)
     public void testAbort()
             throws Exception
     {
         SqlTask sqlTask = createInitialTask();
 
         assertEquals(sqlTask.getTaskStatus().getState(), TaskState.RUNNING);
+        assertEquals(sqlTask.getTaskStatus().getVersion(), STARTING_VERSION);
         sqlTask.updateTask(TEST_SESSION,
                 Optional.of(PLAN_FRAGMENT),
                 ImmutableList.of(new TaskSource(TABLE_SCAN_NODE_ID, ImmutableSet.of(SPLIT), true)),
                 createInitialEmptyOutputBuffers(PARTITIONED).withBuffer(OUT, 0).withNoMoreBufferIds(),
                 OptionalInt.empty());
 
-        TaskInfo taskInfo = sqlTask.getTaskInfo(TaskState.RUNNING).get(1, SECONDS);
+        TaskInfo taskInfo = sqlTask.getTaskInfo(STARTING_VERSION).get();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FLUSHING);
+        assertEquals(taskInfo.getTaskStatus().getVersion(), STARTING_VERSION + 1);
 
         sqlTask.abortTaskResults(OUT);
 
-        taskInfo = sqlTask.getTaskInfo(taskInfo.getTaskStatus().getState()).get(1, SECONDS);
+        taskInfo = sqlTask.getTaskInfo(taskInfo.getTaskStatus().getVersion()).get();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
+        assertEquals(taskInfo.getTaskStatus().getVersion(), STARTING_VERSION + 2);
 
         taskInfo = sqlTask.getTaskInfo();
         assertEquals(taskInfo.getTaskStatus().getState(), TaskState.FINISHED);
@@ -270,7 +287,7 @@ public class TestSqlTask
         assertTrue(bufferResult.get().isBufferComplete());
     }
 
-    @Test
+    @Test(timeOut = 30_000)
     public void testBufferNotCloseOnFail()
             throws Exception
     {
@@ -281,9 +298,9 @@ public class TestSqlTask
         ListenableFuture<BufferResult> bufferResult = sqlTask.getTaskResults(OUT, 0, DataSize.of(1, MEGABYTE));
         assertFalse(bufferResult.isDone());
 
-        TaskState taskState = sqlTask.getTaskInfo().getTaskStatus().getState();
+        long taskStatusVersion = sqlTask.getTaskInfo().getTaskStatus().getVersion();
         sqlTask.failed(new Exception("test"));
-        assertEquals(sqlTask.getTaskInfo(taskState).get(1, SECONDS).getTaskStatus().getState(), TaskState.FAILED);
+        assertEquals(sqlTask.getTaskInfo(taskStatusVersion).get().getTaskStatus().getState(), TaskState.FAILED);
 
         // buffer will not be closed by fail event.  event is async so wait a bit for event to fire
         try {

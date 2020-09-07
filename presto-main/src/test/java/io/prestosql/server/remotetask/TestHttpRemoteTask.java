@@ -83,7 +83,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 import static io.airlift.json.JsonBinder.jsonBinder;
 import static io.airlift.json.JsonCodecBinder.jsonCodecBinder;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
-import static io.prestosql.client.PrestoHeaders.PRESTO_CURRENT_STATE;
+import static io.prestosql.client.PrestoHeaders.PRESTO_CURRENT_VERSION;
 import static io.prestosql.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static io.prestosql.execution.TaskTestUtils.TABLE_SCAN_NODE_ID;
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
@@ -338,7 +338,7 @@ public class TestHttpRemoteTask
         @Produces(MediaType.APPLICATION_JSON)
         public synchronized TaskInfo getTaskInfo(
                 @PathParam("taskId") TaskId taskId,
-                @HeaderParam(PRESTO_CURRENT_STATE) TaskState currentState,
+                @HeaderParam(PRESTO_CURRENT_VERSION) Long currentVersion,
                 @HeaderParam(PRESTO_MAX_WAIT) Duration maxWait,
                 @Context UriInfo uriInfo)
         {
@@ -378,7 +378,7 @@ public class TestHttpRemoteTask
         @Produces(MediaType.APPLICATION_JSON)
         public synchronized TaskStatus getTaskStatus(
                 @PathParam("taskId") TaskId taskId,
-                @HeaderParam(PRESTO_CURRENT_STATE) TaskState currentState,
+                @HeaderParam(PRESTO_CURRENT_VERSION) Long currentVersion,
                 @HeaderParam(PRESTO_MAX_WAIT) Duration maxWait,
                 @Context UriInfo uriInfo)
                 throws InterruptedException
