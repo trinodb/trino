@@ -31,6 +31,7 @@ import java.io.File;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
 import static io.prestosql.tests.product.launcher.env.Environments.nameForConfigClass;
 import static java.util.Objects.requireNonNull;
+import static java.util.Objects.requireNonNullElse;
 
 public final class EnvironmentModule
         implements Module
@@ -82,6 +83,7 @@ public final class EnvironmentModule
     @ServerPackage
     public File provideServerPackage(EnvironmentOptions options)
     {
-        return options.serverPackage;
+        // fallback to dummy - nonNull to prevent injection errors when listing environments
+        return requireNonNullElse(options.serverPackage, new File("dummy.tar.gz"));
     }
 }
