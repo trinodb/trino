@@ -65,6 +65,7 @@ public class TestHiveS3Config
                 .setPinS3ClientToCurrentRegion(false)
                 .setS3UserAgentPrefix("")
                 .setS3AclType(PrestoS3AclType.PRIVATE)
+                .setS3CsvComments("\uFDD0")
                 .setSkipGlacierObjects(false)
                 .setRequesterPaysEnabled(false));
     }
@@ -104,6 +105,7 @@ public class TestHiveS3Config
                 .put("hive.s3.pin-client-to-current-region", "true")
                 .put("hive.s3.user-agent-prefix", "user-agent-prefix")
                 .put("hive.s3.upload-acl-type", "PUBLIC_READ")
+                .put("hive.s3.csv-comments", "#")
                 .put("hive.s3.skip-glacier-objects", "true")
                 .put("hive.s3.requester-pays.enabled", "true")
                 .build();
@@ -137,6 +139,7 @@ public class TestHiveS3Config
                 .setPinS3ClientToCurrentRegion(true)
                 .setS3UserAgentPrefix("user-agent-prefix")
                 .setS3AclType(PrestoS3AclType.PUBLIC_READ)
+                .setS3CsvComments("#")
                 .setSkipGlacierObjects(true)
                 .setRequesterPaysEnabled(true);
 
