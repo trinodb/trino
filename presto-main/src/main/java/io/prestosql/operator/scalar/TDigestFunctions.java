@@ -21,10 +21,14 @@ import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
 
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
+import static io.prestosql.util.Failures.checkCondition;
 
 public final class TDigestFunctions
 {
+    public static final double DEFAULT_WEIGHT = 1.0;
+
     private TDigestFunctions() {}
 
     @ScalarFunction("value_at_quantile")
@@ -45,5 +49,11 @@ public final class TDigestFunctions
             DOUBLE.writeDouble(output, input.valueAt(DOUBLE.getDouble(percentilesArrayBlock, i)));
         }
         return output.build();
+    }
+
+    public static double verifyWeight(double weight)
+    {
+        checkCondition(weight >= 1, INVALID_FUNCTION_ARGUMENT, "weight must be >= 1, was %s", weight);
+        return weight;
     }
 }
