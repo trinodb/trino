@@ -102,6 +102,7 @@ public class GlueHiveMetastoreConfig
     }
 
     @Config("hive.metastore.glue.max-error-retries")
+    @ConfigDescription("Maximum number of error retries for the Glue client")
     public GlueHiveMetastoreConfig setMaxGlueErrorRetries(int maxGlueErrorRetries)
     {
         this.maxGlueErrorRetries = maxGlueErrorRetries;
@@ -193,6 +194,7 @@ public class GlueHiveMetastoreConfig
     }
 
     @Config("hive.metastore.glue.aws-credentials-provider")
+    @ConfigDescription("Fully qualified name of the Java class to use for obtaining AWS credentials")
     public GlueHiveMetastoreConfig setAwsCredentialsProvider(String awsCredentialsProvider)
     {
         this.awsCredentialsProvider = Optional.ofNullable(awsCredentialsProvider);
@@ -234,6 +236,7 @@ public class GlueHiveMetastoreConfig
     }
 
     @Config("hive.metastore.glue.assume-canonical-partition-keys")
+    @ConfigDescription("Allow conversion of non-char types (eg BIGINT, timestamp) to canonical string formats")
     public GlueHiveMetastoreConfig setAssumeCanonicalPartitionKeys(boolean assumeCanonicalPartitionKeys)
     {
         this.assumeCanonicalPartitionKeys = assumeCanonicalPartitionKeys;
