@@ -43,7 +43,7 @@ public final class PrestoHeaders
     public static final String PRESTO_RESOURCE_ESTIMATE = "X-Presto-Resource-Estimate";
     public static final String PRESTO_EXTRA_CREDENTIAL = "X-Presto-Extra-Credential";
 
-    public static final String PRESTO_CURRENT_STATE = "X-Presto-Current-State";
+    public static final String PRESTO_CURRENT_VERSION = "X-Presto-Current-Version";
     public static final String PRESTO_MAX_WAIT = "X-Presto-Max-Wait";
     public static final String PRESTO_MAX_SIZE = "X-Presto-Max-Size";
     public static final String PRESTO_TASK_INSTANCE_ID = "X-Presto-Task-Instance-Id";

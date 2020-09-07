@@ -25,7 +25,6 @@ import io.prestosql.Session;
 import io.prestosql.execution.TaskId;
 import io.prestosql.execution.TaskInfo;
 import io.prestosql.execution.TaskManager;
-import io.prestosql.execution.TaskState;
 import io.prestosql.execution.TaskStatus;
 import io.prestosql.execution.buffer.BufferResult;
 import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
@@ -67,7 +66,7 @@ import static io.airlift.concurrent.MoreFutures.addTimeout;
 import static io.airlift.jaxrs.AsyncResponseHandler.bindAsyncResponse;
 import static io.prestosql.PrestoMediaTypes.PRESTO_PAGES;
 import static io.prestosql.client.PrestoHeaders.PRESTO_BUFFER_COMPLETE;
-import static io.prestosql.client.PrestoHeaders.PRESTO_CURRENT_STATE;
+import static io.prestosql.client.PrestoHeaders.PRESTO_CURRENT_VERSION;
 import static io.prestosql.client.PrestoHeaders.PRESTO_MAX_SIZE;
 import static io.prestosql.client.PrestoHeaders.PRESTO_MAX_WAIT;
 import static io.prestosql.client.PrestoHeaders.PRESTO_PAGE_NEXT_TOKEN;
@@ -149,14 +148,14 @@ public class TaskResource
     @Produces(MediaType.APPLICATION_JSON)
     public void getTaskInfo(
             @PathParam("taskId") TaskId taskId,
-            @HeaderParam(PRESTO_CURRENT_STATE) TaskState currentState,
+            @HeaderParam(PRESTO_CURRENT_VERSION) Long currentVersion,
             @HeaderParam(PRESTO_MAX_WAIT) Duration maxWait,
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
 
-        if (currentState == null || maxWait == null) {
+        if (currentVersion == null || maxWait == null) {
             TaskInfo taskInfo = taskManager.getTaskInfo(taskId);
             if (shouldSummarize(uriInfo)) {
                 taskInfo = taskInfo.summarize();
@@ -167,7 +166,7 @@ public class TaskResource
 
         Duration waitTime = randomizeWaitTime(maxWait);
         ListenableFuture<TaskInfo> futureTaskInfo = addTimeout(
-                taskManager.getTaskInfo(taskId, currentState),
+                taskManager.getTaskInfo(taskId, currentVersion),
                 () -> taskManager.getTaskInfo(taskId),
                 waitTime,
                 timeoutExecutor);
@@ -188,14 +187,14 @@ public class TaskResource
     @Produces(MediaType.APPLICATION_JSON)
     public void getTaskStatus(
             @PathParam("taskId") TaskId taskId,
-            @HeaderParam(PRESTO_CURRENT_STATE) TaskState currentState,
+            @HeaderParam(PRESTO_CURRENT_VERSION) Long currentVersion,
             @HeaderParam(PRESTO_MAX_WAIT) Duration maxWait,
             @Context UriInfo uriInfo,
             @Suspended AsyncResponse asyncResponse)
     {
         requireNonNull(taskId, "taskId is null");
 
-        if (currentState == null || maxWait == null) {
+        if (currentVersion == null || maxWait == null) {
             TaskStatus taskStatus = taskManager.getTaskStatus(taskId);
             asyncResponse.resume(taskStatus);
             return;
@@ -206,7 +205,7 @@ public class TaskResource
         // leading to a slight delay of approx 1 second, which is not a major issue for any query that are heavy weight enough
         // to justify group-by-group execution. In order to fix this, REST endpoint /v1/{task}/status will need change.
         ListenableFuture<TaskStatus> futureTaskStatus = addTimeout(
-                taskManager.getTaskStatus(taskId, currentState),
+                taskManager.getTaskStatus(taskId, currentVersion),
                 () -> taskManager.getTaskStatus(taskId),
                 waitTime,
                 timeoutExecutor);
