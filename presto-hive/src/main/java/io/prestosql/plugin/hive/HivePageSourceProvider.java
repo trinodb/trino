@@ -70,7 +70,6 @@ public class HivePageSourceProvider
     @Inject
     public HivePageSourceProvider(
             TypeManager typeManager,
-            HiveConfig hiveConfig,
             HdfsEnvironment hdfsEnvironment,
             Set<HivePageSourceFactory> pageSourceFactories,
             Set<HiveRecordCursorProvider> cursorProviders,
