@@ -11,7 +11,6 @@ information, in the following sections:
     :maxdepth: 1
 
     installation/deployment
-    installation/verifier
     installation/benchmark-driver
 
 Once you have a completed the deployment, or if you have access to a running
