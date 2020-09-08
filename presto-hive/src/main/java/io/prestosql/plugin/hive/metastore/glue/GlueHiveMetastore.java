@@ -147,7 +147,6 @@ public class GlueHiveMetastore
 
     private static final String PUBLIC_ROLE_NAME = "public";
     private static final String DEFAULT_METASTORE_USER = "presto";
-    private static final String WILDCARD_EXPRESSION = "";
     private static final int BATCH_GET_PARTITION_MAX_PAGE_SIZE = 1000;
     private static final int BATCH_CREATE_PARTITION_MAX_PAGE_SIZE = 100;
     private static final int AWS_GLUE_GET_PARTITIONS_MAX_RESULTS = 1000;
