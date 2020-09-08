@@ -5,7 +5,7 @@ JDBC Driver
 The Presto JDBC (Java Database Connectivity) driver allows users to access 
 Presto using Java-based applications. Both desktop and server-side 
 applications, such as those used for reporting and database development, use 
-the JDBC driver. 
+the JDBC driver.
 
 Requirements
 ------------
@@ -28,8 +28,8 @@ The driver is also available from Maven Central:
         <version>\ |version|\ </version>
     </dependency>
 
-You should be using the same version of the JDBC driver as your Presto 
-installation. If you are not on the latest release shown above, a list of all 
+You should be using the same version of the JDBC driver as your Presto
+installation. If you are not on the latest release shown above, a list of all
 currently available versions can be found `here <https://repo1.maven.org/maven2/io/prestosql/presto-jdbc>`__.
 
 Once downloaded, you must add the JAR file to the classpath of your Java 
