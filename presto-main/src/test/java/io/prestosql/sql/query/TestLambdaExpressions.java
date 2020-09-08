@@ -64,6 +64,20 @@ public class TestLambdaExpressions
     }
 
     @Test
+    public void testParameterName()
+    {
+        // lambda may be using parameter which is not valid identifier in Java
+        assertThat(assertions.query("" +
+                "WITH t AS ( " +
+                "    SELECT count(*) AS \"a.b c; d\" FROM (VALUES (42)) " +
+                "    UNION ALL " +
+                "    SELECT * FROM (VALUES (77)) v(\"a.b c; d\") " +
+                ") " +
+                "SELECT transform(ARRAY[1], x -> x + \"a.b c; d\") FROM t"))
+                .matches("VALUES ARRAY[BIGINT '2'], ARRAY[BIGINT '78']");
+    }
+
+    @Test
     public void testNestedLambda()
     {
         // same argument name

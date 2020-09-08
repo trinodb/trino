@@ -55,6 +55,14 @@ public class TestLambdaExpression
     }
 
     @Test
+    public void testParameterName()
+    {
+        // parameter which is not valid identifier in Java
+        String nonLetters = "a.b c; d ' \n \\n \"";
+        assertFunction("apply(5, " + quote(nonLetters) + " -> " + quote(nonLetters) + " * 2)", INTEGER, 10);
+    }
+
+    @Test
     public void testNull()
     {
         assertFunction("apply(3, x -> x + 1)", INTEGER, 4);
@@ -157,5 +165,10 @@ public class TestLambdaExpression
         assertFunction("apply(ARRAY['abc', NULL, '123'], x -> x[2] IS NULL)", BOOLEAN, true);
         assertFunction("apply(ARRAY['abc', NULL, '123'], x -> x[2])", createVarcharType(3), null);
         assertFunction("apply(MAP(ARRAY['abc', 'def'], ARRAY[123, 456]), x -> map_keys(x))", new ArrayType(createVarcharType(3)), ImmutableList.of("abc", "def"));
+    }
+
+    private static String quote(String identifier)
+    {
+        return "\"" + identifier.replace("\"", "\"\"") + "\"";
     }
 }
