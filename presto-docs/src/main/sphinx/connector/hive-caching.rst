@@ -190,10 +190,3 @@ The following example query returns the average cache hit ratio for the ``hive``
   FROM jmx.current."rubix:catalog=hive,name=stats"
   WHERE NOT is_nan(cache_hit);
 
-Limitations
------------
-
-Caching does not support user impersonation. It does not take any user-specific
-access rights to the object storage into account. The cached objects are simply
-transparent binary blobs to the caching system and full access to all content is
-available.
