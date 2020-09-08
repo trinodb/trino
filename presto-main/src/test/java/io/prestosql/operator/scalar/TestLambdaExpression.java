@@ -15,7 +15,6 @@ package io.prestosql.operator.scalar;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import io.prestosql.Session;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.RowType;
 import org.testng.annotations.BeforeClass;
@@ -39,12 +38,7 @@ public class TestLambdaExpression
 {
     public TestLambdaExpression()
     {
-        this(testSessionBuilder().setTimeZoneKey(getTimeZoneKey("Pacific/Kiritimati")).build());
-    }
-
-    private TestLambdaExpression(Session session)
-    {
-        super(session);
+        super(testSessionBuilder().setTimeZoneKey(getTimeZoneKey("Pacific/Kiritimati")).build());
     }
 
     @BeforeClass
