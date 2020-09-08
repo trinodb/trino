@@ -33,7 +33,7 @@ import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.window;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 
-public class TestRecursiveCTE
+public class TestRecursiveCte
         extends BasePlanTest
 {
     @Override
