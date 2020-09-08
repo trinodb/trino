@@ -198,7 +198,7 @@ public final class HiveSessionProperties
                         orcWriterConfig.getValidationPercentage(),
                         false,
                         value -> {
-                            double doubleValue = ((Number) value).doubleValue();
+                            double doubleValue = (double) value;
                             if (doubleValue < 0.0 || doubleValue > 100.0) {
                                 throw new PrestoException(
                                         INVALID_SESSION_PROPERTY,

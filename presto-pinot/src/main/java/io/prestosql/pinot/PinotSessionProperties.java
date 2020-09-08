@@ -116,9 +116,9 @@ public class PinotSessionProperties
                         pinotConfig.getSegmentsPerSplit(),
                         false,
                         value -> {
-                            int ret = ((Number) value).intValue();
-                            checkArgument(ret > 0, "Number of segments per split must be more than zero");
-                            return ret;
+                            int intValue = (int) value;
+                            checkArgument(intValue > 0, "Number of segments per split must be more than zero");
+                            return intValue;
                         },
                         object -> object));
     }
