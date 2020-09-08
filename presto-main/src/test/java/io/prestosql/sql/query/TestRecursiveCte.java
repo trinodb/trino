@@ -21,7 +21,7 @@ import static io.prestosql.SystemSessionProperties.getMaxRecursionDepth;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestRecursiveCTE
+public class TestRecursiveCte
 {
     private QueryAssertions assertions;
 
