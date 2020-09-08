@@ -284,17 +284,6 @@ Approximate Aggregate Functions
     count for the value ``x`` in the percentile set. The value of ``percentage`` must be
     between zero and one and must be constant for all input rows.
 
-.. function:: approx_percentile(x, w, percentage, accuracy) -> [same as x]
-    :noindex:
-
-    Returns the approximate weighed percentile for all input values of ``x``
-    using the per-item weight ``w`` at the percentage ``percentage``, with a maximum rank
-    error of ``accuracy``. Weights must be strictly positive. Integer-value
-    weights can be thought of as a replication count for the value ``x`` in the
-    percentile set. The value of ``percentage`` must be between zero and one and must be
-    constant for all input rows. ``accuracy`` must be a value greater than zero
-    and less than one, and it must be constant for all input rows.
-
 .. function:: approx_percentile(x, w, percentages) -> array<[same as x]>
     :noindex:
 
@@ -319,6 +308,11 @@ Approximate Aggregate Functions
     :noindex:
 
     See :doc:`qdigest`.
+
+.. function:: merge(tdigest) -> tdigest
+    :noindex:
+
+    See :doc:`tdigest`.
 
 .. function:: numeric_histogram(buckets, value) -> map<double, double>
     :noindex:
@@ -354,6 +348,16 @@ Approximate Aggregate Functions
     :noindex:
 
     See :doc:`qdigest`.
+
+.. function:: tdigest_agg(x) -> tdigest
+    :noindex:
+
+    See :doc:`tdigest`.
+
+.. function:: tdigest_agg(x, w) -> tdigest
+    :noindex:
+
+    See :doc:`tdigest`.
 
 Statistical Aggregate Functions
 -------------------------------

@@ -2,11 +2,6 @@
 Quantile Digest Functions
 =========================
 
-Presto implements the ``approx_percentile``  function with the quantile digest
-data structure.  The underlying data structure, :ref:`qdigest <qdigest_type>`,
-is exposed as a data type in Presto, and can be created, queried and stored
-separately from ``approx_percentile``.
-
 Data Structures
 ---------------
 

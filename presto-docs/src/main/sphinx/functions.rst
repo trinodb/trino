@@ -36,6 +36,7 @@ and the :doc:`SQL statement and syntax reference</sql>`.
     Geospatial          <functions/geospatial>
     HyperLogLog         <functions/hyperloglog>
     Quantile Digest     <functions/qdigest>
+    T-Digest            <functions/tdigest>
     UUID                <functions/uuid>
     Color               <functions/color>
     Session             <functions/session>
