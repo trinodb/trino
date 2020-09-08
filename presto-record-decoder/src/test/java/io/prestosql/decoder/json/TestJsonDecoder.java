@@ -146,7 +146,10 @@ public class TestJsonDecoder
         singleColumnDecoder(createUnboundedVarcharType(), null);
         singleColumnDecoder(createVarcharType(100), null);
 
-        for (String dataFormat : ImmutableSet.of("iso8601", "custom-date-time", "rfc2822")) {
+        singleColumnDecoder(TIMESTAMP_MILLIS, "rfc2822");
+        singleColumnDecoder(TIMESTAMP_WITH_TIME_ZONE, "rfc2822");
+
+        for (String dataFormat : ImmutableSet.of("iso8601", "custom-date-time")) {
             singleColumnDecoder(DATE, dataFormat);
             singleColumnDecoder(TIME, dataFormat);
             singleColumnDecoder(TIME_WITH_TIME_ZONE, dataFormat);
