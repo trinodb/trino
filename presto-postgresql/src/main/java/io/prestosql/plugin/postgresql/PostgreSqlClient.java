@@ -60,8 +60,10 @@ import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
+import io.prestosql.spi.type.LongTimestampWithTimeZone;
 import io.prestosql.spi.type.MapType;
 import io.prestosql.spi.type.StandardTypes;
+import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
@@ -81,7 +83,9 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
@@ -131,7 +135,10 @@ import static io.prestosql.spi.type.StandardTypes.JSON;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
+import static io.prestosql.spi.type.Timestamps.MILLISECONDS_PER_SECOND;
+import static io.prestosql.spi.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
 import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -150,6 +157,7 @@ public class PostgreSqlClient
      */
     private static final int ARRAY_RESULT_SET_VALUE_COLUMN = 2;
     private static final String DUPLICATE_TABLE_SQLSTATE = "42P07";
+    private static final int MAX_SUPPORTED_TIMESTAMP_PRECISION = 6;
 
     private final Type jsonType;
     private final Type uuidType;
@@ -338,7 +346,7 @@ public class PostgreSqlClient
                 return Optional.of(jsonColumnMapping());
             case "timestamptz":
                 // PostgreSQL's "timestamp with time zone" is reported as Types.TIMESTAMP rather than Types.TIMESTAMP_WITH_TIMEZONE
-                return Optional.of(timestampWithTimeZoneColumnMapping());
+                return Optional.of(timestampWithTimeZoneColumnMapping(typeHandle.getDecimalDigits()));
             case "hstore":
                 return Optional.of(hstoreColumnMapping(session));
         }
@@ -434,8 +442,15 @@ public class PostgreSqlClient
         if (TIMESTAMP_MILLIS.equals(type)) {
             return WriteMapping.longMapping("timestamp", timestampWriteFunction());
         }
-        if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
-            return WriteMapping.longMapping("timestamptz", timestampWithTimeZoneWriteFunction());
+        if (type instanceof TimestampWithTimeZoneType && ((TimestampWithTimeZoneType) type).getPrecision() <= MAX_SUPPORTED_TIMESTAMP_PRECISION) {
+            int precision = ((TimestampWithTimeZoneType) type).getPrecision();
+            String postgresType = format("timestamptz(%d)", precision);
+            if (precision <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
+                return WriteMapping.longMapping(postgresType, shortTimestampWithTimeZoneWriteFunction());
+            }
+            else {
+                return WriteMapping.objectMapping(postgresType, longTimestampWithTimeZoneWriteFunction());
+            }
         }
         if (TinyintType.TINYINT.equals(type)) {
             return WriteMapping.longMapping("smallint", tinyintWriteFunction());
@@ -489,15 +504,26 @@ public class PostgreSqlClient
         };
     }
 
-    private static ColumnMapping timestampWithTimeZoneColumnMapping()
+    private static ColumnMapping timestampWithTimeZoneColumnMapping(int precision)
     {
-        return ColumnMapping.longMapping(
-                TIMESTAMP_WITH_TIME_ZONE,
-                timeStampWithTimeZoneReadFunction(),
-                timestampWithTimeZoneWriteFunction());
+        // PosgreSQL supports timestamptz precision up to microseconds
+        checkArgument(precision <= MAX_SUPPORTED_TIMESTAMP_PRECISION, "unsupported precision value %d", precision);
+        TimestampWithTimeZoneType prestoType = createTimestampWithTimeZoneType(precision);
+        if (precision <= TimestampWithTimeZoneType.MAX_SHORT_PRECISION) {
+            return ColumnMapping.longMapping(
+                    prestoType,
+                    shortTimestampWithTimeZoneReadFunction(),
+                    shortTimestampWithTimeZoneWriteFunction());
+        }
+        else {
+            return ColumnMapping.objectMapping(
+                    prestoType,
+                    longTimestampWithTimeZoneReadFunction(),
+                    longTimestampWithTimeZoneWriteFunction());
+        }
     }
 
-    private static LongReadFunction timeStampWithTimeZoneReadFunction()
+    private static LongReadFunction shortTimestampWithTimeZoneReadFunction()
     {
         return (resultSet, columnIndex) -> {
             // PostgreSQL does not store zone information in "timestamp with time zone" data type
@@ -506,13 +532,39 @@ public class PostgreSqlClient
         };
     }
 
-    private static LongWriteFunction timestampWithTimeZoneWriteFunction()
+    private static LongWriteFunction shortTimestampWithTimeZoneWriteFunction()
     {
         return (statement, index, value) -> {
             // PostgreSQL does not store zone information in "timestamp with time zone" data type
             long millisUtc = unpackMillisUtc(value);
             statement.setTimestamp(index, new Timestamp(millisUtc));
         };
+    }
+
+    private static ObjectReadFunction longTimestampWithTimeZoneReadFunction()
+    {
+        return ObjectReadFunction.of(
+                LongTimestampWithTimeZone.class,
+                (resultSet, columnIndex) -> {
+                    // PostgreSQL does not store zone information in "timestamp with time zone" data type
+                    OffsetDateTime offsetDateTime = resultSet.getObject(columnIndex, OffsetDateTime.class);
+                    return LongTimestampWithTimeZone.fromEpochSecondsAndFraction(
+                            offsetDateTime.toEpochSecond(),
+                            (long) offsetDateTime.getNano() * PICOSECONDS_PER_NANOSECOND,
+                            UTC_KEY);
+                });
+    }
+
+    private static ObjectWriteFunction longTimestampWithTimeZoneWriteFunction()
+    {
+        return ObjectWriteFunction.of(
+                LongTimestampWithTimeZone.class,
+                (statement, index, value) -> {
+                    // PostgreSQL does not store zone information in "timestamp with time zone" data type
+                    long epochSeconds = value.getEpochMillis() / MILLISECONDS_PER_SECOND;
+                    long nanosOfSecond = value.getEpochMillis() % MILLISECONDS_PER_SECOND * NANOSECONDS_PER_MILLISECOND + value.getPicosOfMilli() / PICOSECONDS_PER_NANOSECOND;
+                    statement.setObject(index, OffsetDateTime.ofInstant(Instant.ofEpochSecond(epochSeconds, nanosOfSecond), UTC_KEY.getZoneId()));
+                });
     }
 
     private ColumnMapping hstoreColumnMapping(ConnectorSession session)
