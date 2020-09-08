@@ -64,6 +64,38 @@ public class TestLocalDynamicFiltersCollector
     }
 
     @Test
+    public void testDynamicFilterCancellation()
+    {
+        LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector();
+        DynamicFilterId filterId = new DynamicFilterId("filter");
+        collector.register(ImmutableSet.of(filterId));
+
+        Symbol symbol = new Symbol("symbol");
+        ColumnHandle column = new TestingColumnHandle("column");
+        DynamicFilter filter = collector.createDynamicFilter(
+                ImmutableList.of(new DynamicFilters.Descriptor(filterId, symbol.toSymbolReference())),
+                ImmutableMap.of(symbol, column));
+
+        // Filter is blocked and not completed.
+        CompletableFuture<?> isBlocked = filter.isBlocked();
+        assertFalse(filter.isComplete());
+        assertFalse(isBlocked.isDone());
+        assertEquals(filter.getCurrentPredicate(), TupleDomain.all());
+        // DynamicFilter future cancellation should not affect LocalDynamicFiltersCollector
+        assertFalse(isBlocked.cancel(false));
+        assertFalse(isBlocked.isDone());
+        assertFalse(filter.isComplete());
+
+        Domain domain = Domain.singleValue(BIGINT, 7L);
+        collector.collectDynamicFilterDomains(ImmutableMap.of(filterId, domain));
+
+        // Unblocked and completed.
+        assertTrue(filter.isComplete());
+        assertTrue(isBlocked.isDone());
+        assertEquals(filter.getCurrentPredicate(), TupleDomain.withColumnDomains(ImmutableMap.of(column, domain)));
+    }
+
+    @Test
     public void testMultipleProbeColumns()
     {
         LocalDynamicFiltersCollector collector = new LocalDynamicFiltersCollector();
