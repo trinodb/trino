@@ -122,7 +122,7 @@ public class OrcDeletedRows
         private int positionCount;
         @Nullable
         private int[] validPositions;
-        private OptionalLong startRowId;
+        private final OptionalLong startRowId;
 
         public MaskDeletedRows(Page sourcePage, OptionalLong startRowId)
         {
