@@ -15,11 +15,13 @@ package io.prestosql.server.ui;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.common.hash.Hashing;
+import io.airlift.log.Logger;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.SignatureAlgorithm;
 import io.prestosql.server.security.AuthenticationException;
 import io.prestosql.server.security.Authenticator;
+import io.prestosql.server.security.RedirectAuthenticationException;
 import io.prestosql.spi.security.Identity;
 
 import javax.inject.Inject;
@@ -42,8 +44,10 @@ import java.util.function.Function;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.emptyToNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
+import static io.prestosql.server.ServletSecurityUtils.sendRedirect;
 import static io.prestosql.server.ServletSecurityUtils.sendWwwAuthenticate;
 import static io.prestosql.server.ServletSecurityUtils.setAuthenticatedIdentity;
+import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.NANOSECONDS;
@@ -51,6 +55,8 @@ import static java.util.concurrent.TimeUnit.NANOSECONDS;
 public class FormWebUiAuthenticationFilter
         implements WebUiAuthenticationFilter
 {
+    private static final Logger LOG = Logger.get(FormWebUiAuthenticationFilter.class);
+
     private static final String PRESTO_UI_AUDIENCE = "presto-ui";
     private static final String PRESTO_UI_COOKIE = "Presto-UI-Token";
     static final String LOGIN_FORM = "/ui/login.html";
@@ -172,6 +178,11 @@ public class FormWebUiAuthenticationFilter
         Identity authenticatedIdentity;
         try {
             authenticatedIdentity = authenticator.authenticate(request);
+        }
+        catch (RedirectAuthenticationException e) {
+            sendRedirect(request, e.getLocation());
+            LOG.debug(format("Authentication was redirected to: %s, reason: %s", e.getLocation(), e.getMessage()));
+            return;
         }
         catch (AuthenticationException e) {
             // authentication failed

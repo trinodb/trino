@@ -27,7 +27,9 @@ import java.util.Collection;
 
 import static com.google.common.net.MediaType.PLAIN_TEXT_UTF_8;
 import static io.prestosql.server.HttpRequestSessionContext.AUTHENTICATED_IDENTITY;
+import static javax.ws.rs.core.HttpHeaders.LOCATION;
 import static javax.ws.rs.core.HttpHeaders.WWW_AUTHENTICATE;
+import static javax.ws.rs.core.Response.Status.FOUND;
 import static javax.ws.rs.core.Response.Status.UNAUTHORIZED;
 
 public final class ServletSecurityUtils
@@ -42,6 +44,11 @@ public final class ServletSecurityUtils
     public static void sendWwwAuthenticate(ContainerRequestContext request, String errorMessage, Collection<String> authenticateHeaders)
     {
         request.abortWith(authenticateResponse(errorMessage, authenticateHeaders).build());
+    }
+
+    public static void sendRedirect(ContainerRequestContext request, String location)
+    {
+        request.abortWith(Response.status(FOUND).header(LOCATION, location).build());
     }
 
     private static ResponseBuilder authenticateResponse(String errorMessage, Collection<String> authenticateHeaders)
