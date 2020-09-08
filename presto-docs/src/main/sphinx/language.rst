@@ -12,7 +12,7 @@ operations on the connected data source.
 This chapter provides a reference to the supported SQL data types and other
 general characteristics of the SQL support of Presto.
 
-A :doc:`full SQL statement and syntax reference</sql>` is
+A :doc:`full SQL statement and syntax reference<sql>` is
 available in a separate chapter.
 
 Presto also provides :doc:`numerous SQL functions and operators<functions>`.
