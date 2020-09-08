@@ -192,12 +192,10 @@ public class TestKafkaIntegrationSmokeTest
                 "\"j_timestamp_rfc2822\"                    : \"Fri Feb 09 13:15:19 Z 2018\"     ," +
                 "\"j_timestamp_custom\"                     : \"02/2018/09 13:15:20\"            ," +
                 "\"j_date_iso8601\"                         : \"2018-02-11\"                     ," +
-                "\"j_date_rfc2822\"                         : \"Mon Feb 12 13:15:16 Z 2018\"     ," +
                 "\"j_date_custom\"                          : \"2018/13/02\"                     ," +
                 "\"j_time_milliseconds_since_epoch\"        : \"47716000\"                       ," +
                 "\"j_time_seconds_since_epoch\"             : \"47717\"                          ," +
                 "\"j_time_iso8601\"                         : \"13:15:18\"                       ," +
-                "\"j_time_rfc2822\"                         : \"Thu Jan 01 13:15:19 Z 1970\"     ," +
                 "\"j_time_custom\"                          : \"15:13:20\"                       ," +
                 "\"j_timestamptz_milliseconds_since_epoch\" : \"1518182116000\"                  ," +
                 "\"j_timestamptz_seconds_since_epoch\"      : \"1518182117\"                     ," +
@@ -207,7 +205,6 @@ public class TestKafkaIntegrationSmokeTest
                 "\"j_timetz_milliseconds_since_epoch\"      : \"47716000\"                       ," +
                 "\"j_timetz_seconds_since_epoch\"           : \"47717\"                          ," +
                 "\"j_timetz_iso8601\"                       : \"13:15:18+00:00\"                 ," +
-                "\"j_timetz_rfc2822\"                       : \"Thu Jan 01 13:15:19 Z 1970\"     ," +
                 "\"j_timetz_custom\"                        : \"15:13:20\"                       }";
 
         insertData("read_test.all_datatypes_json", json.getBytes(UTF_8));
@@ -226,12 +223,10 @@ public class TestKafkaIntegrationSmokeTest
                         ", c_timestamp_rfc2822 " +
                         ", c_timestamp_custom " +
                         ", c_date_iso8601 " +
-                        ", c_date_rfc2822 " +
                         ", c_date_custom " +
                         ", c_time_milliseconds_since_epoch " +
                         ", c_time_seconds_since_epoch " +
                         ", c_time_iso8601 " +
-                        ", c_time_rfc2822 " +
                         ", c_time_custom " +
                         // H2 does not support TIMESTAMP WITH TIME ZONE so cast to VARCHAR
                         ", cast(c_timestamptz_milliseconds_since_epoch as VARCHAR) " +
@@ -243,7 +238,6 @@ public class TestKafkaIntegrationSmokeTest
                         ", cast(c_timetz_milliseconds_since_epoch as VARCHAR) " +
                         ", cast(c_timetz_seconds_since_epoch as VARCHAR) " +
                         ", cast(c_timetz_iso8601 as VARCHAR) " +
-                        ", cast(c_timetz_rfc2822 as VARCHAR) " +
                         ", cast(c_timetz_custom as VARCHAR) " +
                         "FROM read_test.all_datatypes_json ",
                 "VALUES (" +
@@ -260,12 +254,10 @@ public class TestKafkaIntegrationSmokeTest
                         ", TIMESTAMP '2018-02-09 13:15:19'" +
                         ", TIMESTAMP '2018-02-09 13:15:20'" +
                         ", DATE '2018-02-11'" +
-                        ", DATE '2018-02-12'" +
                         ", DATE '2018-02-13'" +
                         ", TIME '13:15:16'" +
                         ", TIME '13:15:17'" +
                         ", TIME '13:15:18'" +
-                        ", TIME '13:15:19'" +
                         ", TIME '13:15:20'" +
                         ", '2018-02-09 13:15:16.000 UTC'" +
                         ", '2018-02-09 13:15:17.000 UTC'" +
@@ -275,7 +267,6 @@ public class TestKafkaIntegrationSmokeTest
                         ", '13:15:16.000+00:00'" +
                         ", '13:15:17.000+00:00'" +
                         ", '13:15:18.000+00:00'" +
-                        ", '13:15:19.000+00:00'" +
                         ", '13:15:20.000+00:00'" +
                         ")");
     }
