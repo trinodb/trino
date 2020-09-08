@@ -361,3 +361,23 @@ can be reused.  For example, one may be interested in a daily reading of the 99t
 percentile values that are read over the course of a week.  Instead of calculating
 the past week of data with ``approx_percentile``, ``qdigest``\ s could be stored
 daily, and quickly merged to retrieve the 99th percentile value.
+
+T-Digest
+---------------
+
+.. _tdigest_type:
+
+``TDigest``
+^^^^^^^^^^^
+
+A T-digest (tdigest) is a summary structure which, similarly to qdigest, captures the
+approximate distribution of data for a given input set. It can be queried to retrieve
+approximate quantile values from the distribution.
+
+TDigest has the following advantages compared to QDigest:
+
+* higher performance
+* lower memory usage
+* higher accuracy at high and low percentiles
+
+T-digests are additive, meaning they can be merged together.
