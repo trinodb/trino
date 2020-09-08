@@ -258,7 +258,7 @@ public class OrcDeletedRows
             return new Path(directory, fileName.substring(0, fileName.lastIndexOf("_")));
         }
 
-        if (acidInfo != null && acidInfo.getOriginalFiles().size() > 0) {
+        if (acidInfo.getOriginalFiles().size() > 0) {
             // Original file format is different from delete delta, construct delete delta file path from bucket ID of original file.
             return AcidUtils.createBucketFile(directory, acidInfo.getBucketId());
         }
