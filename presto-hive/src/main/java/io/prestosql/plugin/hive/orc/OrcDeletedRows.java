@@ -44,7 +44,6 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_BAD_DATA;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_CURSOR_ERROR;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static java.util.Objects.requireNonNull;
-import static org.apache.hadoop.hive.ql.io.AcidUtils.deleteDeltaSubdir;
 
 @NotThreadSafe
 public class OrcDeletedRows
@@ -243,14 +242,7 @@ public class OrcDeletedRows
 
     private static Path createPath(AcidInfo acidInfo, AcidInfo.DeleteDeltaInfo deleteDeltaInfo, String fileName)
     {
-        String deleteDeltaSubdir;
-        if (deleteDeltaInfo.getStatementId().isPresent()) {
-            deleteDeltaSubdir = deleteDeltaSubdir(deleteDeltaInfo.getMinWriteId(), deleteDeltaInfo.getMaxWriteId(), deleteDeltaInfo.getStatementId().getAsInt());
-        }
-        else {
-            deleteDeltaSubdir = deleteDeltaSubdir(deleteDeltaInfo.getMinWriteId(), deleteDeltaInfo.getMaxWriteId());
-        }
-        Path directory = new Path(acidInfo.getPartitionLocation(), deleteDeltaSubdir);
+        Path directory = new Path(acidInfo.getPartitionLocation(), deleteDeltaInfo.getDirectoryName());
 
         // When direct insert is enabled base and delta directories contain bucket_[id]_[attemptId] files
         // but delete delta directories contain bucket files without attemptId so we have to remove it from filename.
