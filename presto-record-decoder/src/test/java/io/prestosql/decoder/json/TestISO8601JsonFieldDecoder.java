@@ -47,6 +47,8 @@ public class TestISO8601JsonFieldDecoder
         tester.assertDecodedAs("\"2018-02-19T12:20:11+03:00\"", TIMESTAMP_WITH_TIME_ZONE, packDateTimeWithZone(1519032011000L, "+03:00"));
         tester.assertDecodedAs("\"13:15:18Z\"", TIME_WITH_TIME_ZONE, packTimeWithTimeZone(47_718_000_000_000L, 0));
         tester.assertDecodedAs("\"13:15:18+10:00\"", TIME_WITH_TIME_ZONE, packTimeWithTimeZone(47_718_000_000_000L, 10 * 60));
+        tester.assertDecodedAs("\"15:13:18.123-04:00\"", TIME_WITH_TIME_ZONE, packTimeWithTimeZone(54_798_123_000_000L, -4 * 60));
+        tester.assertDecodedAs("\"15:13:18.123+08:00\"", TIME_WITH_TIME_ZONE, packTimeWithTimeZone(54_798_123_000_000L, 8 * 60));
     }
 
     @Test
