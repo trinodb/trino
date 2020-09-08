@@ -40,7 +40,6 @@ import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
 import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
-import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static java.lang.Math.min;
 import static java.lang.String.format;
@@ -195,7 +194,7 @@ public final class SystemSessionProperties
                 new PropertyMetadata<>(
                         TASK_WRITER_COUNT,
                         "Default number of local parallel table writer jobs per worker",
-                        BIGINT,
+                        INTEGER,
                         Integer.class,
                         taskManagerConfig.getWriterCount(),
                         false,
@@ -229,7 +228,7 @@ public final class SystemSessionProperties
                 new PropertyMetadata<>(
                         TASK_CONCURRENCY,
                         "Default number of local parallel jobs per worker",
-                        BIGINT,
+                        INTEGER,
                         Integer.class,
                         taskManagerConfig.getTaskConcurrency(),
                         false,
@@ -319,7 +318,7 @@ public final class SystemSessionProperties
                 new PropertyMetadata<>(
                         MAX_REORDERED_JOINS,
                         "The maximum number of joins to reorder as one group in cost-based join reordering",
-                        BIGINT,
+                        INTEGER,
                         Integer.class,
                         featuresConfig.getMaxReorderedJoins(),
                         false,
