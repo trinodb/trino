@@ -67,6 +67,7 @@ import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.difference;
 import static io.airlift.concurrent.MoreFutures.toCompletableFuture;
+import static io.airlift.concurrent.MoreFutures.unmodifiableFuture;
 import static io.airlift.concurrent.MoreFutures.whenAnyComplete;
 import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.spi.connector.DynamicFilter.EMPTY;
@@ -217,7 +218,7 @@ public class DynamicFilterService
                     return NOT_BLOCKED;
                 }
 
-                return toCompletableFuture(whenAnyComplete(undoneFutures));
+                return unmodifiableFuture(toCompletableFuture(whenAnyComplete(undoneFutures)));
             }
 
             @Override
