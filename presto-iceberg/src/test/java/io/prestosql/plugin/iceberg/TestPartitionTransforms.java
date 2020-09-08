@@ -19,6 +19,12 @@ import org.apache.iceberg.types.Types.StringType;
 import org.apache.iceberg.types.Types.TimestampType;
 import org.testng.annotations.Test;
 
+import java.time.LocalDateTime;
+import java.time.ZoneOffset;
+import java.util.concurrent.TimeUnit;
+
+import static io.prestosql.plugin.iceberg.PartitionTransforms.epochMonth;
+import static io.prestosql.plugin.iceberg.PartitionTransforms.epochYear;
 import static org.testng.Assert.assertEquals;
 
 public class TestPartitionTransforms
@@ -33,5 +39,38 @@ public class TestPartitionTransforms
         assertEquals(Transforms.month(DateType.get()).toString(), "month");
         assertEquals(Transforms.day(DateType.get()).toString(), "day");
         assertEquals(Transforms.hour(TimestampType.withoutZone()).toString(), "hour");
+    }
+
+    @Test
+    public void testEpochYear()
+    {
+        assertEquals(epochYear(dateMillis(1965, 1, 1)), -5);
+        assertEquals(epochYear(dateMillis(1965, 6, 3)), -5);
+        assertEquals(epochYear(dateMillis(1965, 12, 31)), -5);
+        assertEquals(epochYear(dateMillis(1969, 1, 1)), -1);
+        assertEquals(epochYear(dateMillis(1969, 7, 20)), -1);
+        assertEquals(epochYear(dateMillis(1969, 12, 31)), -1);
+        assertEquals(epochYear(dateMillis(1970, 1, 1)), 0);
+        assertEquals(epochYear(dateMillis(1970, 12, 31)), 0);
+        assertEquals(epochYear(dateMillis(2012, 8, 20)), 42);
+    }
+
+    @Test
+    public void testEpochMonth()
+    {
+        assertEquals(epochMonth(dateMillis(1965, 1, 1)), -60);
+        assertEquals(epochMonth(dateMillis(1965, 6, 3)), -55);
+        assertEquals(epochMonth(dateMillis(1965, 12, 31)), -49);
+        assertEquals(epochMonth(dateMillis(1969, 1, 1)), -12);
+        assertEquals(epochMonth(dateMillis(1969, 7, 20)), -6);
+        assertEquals(epochMonth(dateMillis(1969, 12, 31)), -1);
+        assertEquals(epochMonth(dateMillis(1970, 1, 1)), 0);
+        assertEquals(epochMonth(dateMillis(1970, 12, 31)), 11);
+        assertEquals(epochMonth(dateMillis(2012, 8, 20)), 511);
+    }
+
+    private static long dateMillis(int year, int month, int day)
+    {
+        return TimeUnit.SECONDS.toMillis(LocalDateTime.of(year, month, day, 0, 0, 0).toEpochSecond(ZoneOffset.UTC));
     }
 }

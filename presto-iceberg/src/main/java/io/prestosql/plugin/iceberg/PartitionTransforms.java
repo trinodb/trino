@@ -13,6 +13,7 @@
  */
 package io.prestosql.plugin.iceberg;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Murmur3Hash32;
 import io.airlift.slice.Slice;
 import io.airlift.slice.Slices;
@@ -21,7 +22,7 @@ import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Type;
 import org.apache.iceberg.PartitionField;
-import org.joda.time.DurationField;
+import org.joda.time.DateTimeField;
 import org.joda.time.chrono.ISOChronology;
 
 import java.math.BigDecimal;
@@ -47,6 +48,8 @@ import static io.prestosql.spi.type.TimeType.TIME_MICROS;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MICROS;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
 import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
+import static io.prestosql.spi.type.Timestamps.MILLISECONDS_PER_DAY;
+import static io.prestosql.spi.type.Timestamps.MILLISECONDS_PER_HOUR;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -61,11 +64,8 @@ public final class PartitionTransforms
     private static final Pattern BUCKET_PATTERN = Pattern.compile("bucket\\[(\\d+)]");
     private static final Pattern TRUNCATE_PATTERN = Pattern.compile("truncate\\[(\\d+)]");
 
-    private static final ISOChronology UTC_CHRONOLOGY = ISOChronology.getInstanceUTC();
-    private static final DurationField YEARS_DURATION = UTC_CHRONOLOGY.years();
-    private static final DurationField MONTHS_DURATION = UTC_CHRONOLOGY.months();
-    private static final DurationField DAYS_DURATION = UTC_CHRONOLOGY.days();
-    private static final DurationField HOURS_DURATION = UTC_CHRONOLOGY.hours();
+    private static final DateTimeField YEAR_FIELD = ISOChronology.getInstanceUTC().year();
+    private static final DateTimeField MONTH_FIELD = ISOChronology.getInstanceUTC().monthOfYear();
 
     private PartitionTransforms() {}
 
@@ -188,12 +188,12 @@ public final class PartitionTransforms
 
     private static Block yearsFromDate(Block block)
     {
-        return extractDate(block, value -> YEARS_DURATION.getValueAsLong(DAYS.toMillis(value)));
+        return extractDate(block, value -> epochYear(DAYS.toMillis(value)));
     }
 
     private static Block monthsFromDate(Block block)
     {
-        return extractDate(block, value -> MONTHS_DURATION.getValueAsLong(DAYS.toMillis(value)));
+        return extractDate(block, value -> epochMonth(DAYS.toMillis(value)));
     }
 
     private static Block daysFromDate(Block block)
@@ -218,22 +218,22 @@ public final class PartitionTransforms
 
     private static Block yearsFromTimestamp(Block block)
     {
-        return extractTimestamp(block, YEARS_DURATION::getValueAsLong);
+        return extractTimestamp(block, PartitionTransforms::epochYear);
     }
 
     private static Block monthsFromTimestamp(Block block)
     {
-        return extractTimestamp(block, MONTHS_DURATION::getValueAsLong);
+        return extractTimestamp(block, PartitionTransforms::epochMonth);
     }
 
     private static Block daysFromTimestamp(Block block)
     {
-        return extractTimestamp(block, DAYS_DURATION::getValueAsLong);
+        return extractTimestamp(block, PartitionTransforms::epochDay);
     }
 
     private static Block hoursFromTimestamp(Block block)
     {
-        return extractTimestamp(block, HOURS_DURATION::getValueAsLong);
+        return extractTimestamp(block, PartitionTransforms::epochHour);
     }
 
     private static Block extractTimestamp(Block block, LongUnaryOperator function)
@@ -254,22 +254,22 @@ public final class PartitionTransforms
 
     private static Block yearsFromTimestampWithTimeZone(Block block)
     {
-        return extractTimestampWithTimeZone(block, YEARS_DURATION::getValueAsLong);
+        return extractTimestampWithTimeZone(block, PartitionTransforms::epochYear);
     }
 
     private static Block monthsFromTimestampWithTimeZone(Block block)
     {
-        return extractTimestampWithTimeZone(block, MONTHS_DURATION::getValueAsLong);
+        return extractTimestampWithTimeZone(block, PartitionTransforms::epochMonth);
     }
 
     private static Block daysFromTimestampWithTimeZone(Block block)
     {
-        return extractTimestampWithTimeZone(block, DAYS_DURATION::getValueAsLong);
+        return extractTimestampWithTimeZone(block, PartitionTransforms::epochDay);
     }
 
     private static Block hoursFromTimestampWithTimeZone(Block block)
     {
-        return extractTimestampWithTimeZone(block, HOURS_DURATION::getValueAsLong);
+        return extractTimestampWithTimeZone(block, PartitionTransforms::epochHour);
     }
 
     private static Block extractTimestampWithTimeZone(Block block, LongUnaryOperator function)
@@ -490,6 +490,30 @@ public final class PartitionTransforms
             VARBINARY.writeSlice(builder, value);
         }
         return builder.build();
+    }
+
+    @VisibleForTesting
+    static long epochYear(long epochMillis)
+    {
+        return YEAR_FIELD.get(epochMillis) - 1970;
+    }
+
+    @VisibleForTesting
+    static long epochMonth(long epochMilli)
+    {
+        long year = epochYear(epochMilli);
+        int month = MONTH_FIELD.get(epochMilli) - 1;
+        return (year * 12) + month;
+    }
+
+    private static long epochDay(long epochMilli)
+    {
+        return floorDiv(epochMilli, MILLISECONDS_PER_DAY);
+    }
+
+    private static long epochHour(long epochMilli)
+    {
+        return floorDiv(epochMilli, MILLISECONDS_PER_HOUR);
     }
 
     public static class ColumnTransform
