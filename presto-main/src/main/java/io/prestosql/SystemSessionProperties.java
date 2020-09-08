@@ -43,7 +43,6 @@ import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static java.lang.Math.min;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public final class SystemSessionProperties
 {
@@ -323,7 +322,7 @@ public final class SystemSessionProperties
                         featuresConfig.getMaxReorderedJoins(),
                         false,
                         value -> {
-                            int intValue = ((Number) requireNonNull(value, "value is null")).intValue();
+                            int intValue = (int) value;
                             if (intValue < 2) {
                                 throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must be greater than or equal to 2: %s", MAX_REORDERED_JOINS, intValue));
                             }
@@ -901,7 +900,7 @@ public final class SystemSessionProperties
 
     private static int validateValueIsPowerOfTwo(Object value, String property)
     {
-        int intValue = ((Number) requireNonNull(value, "value is null")).intValue();
+        int intValue = (int) value;
         if (Integer.bitCount(intValue) != 1) {
             throw new PrestoException(
                     INVALID_SESSION_PROPERTY,
@@ -925,7 +924,7 @@ public final class SystemSessionProperties
             return null;
         }
 
-        int intValue = ((Number) value).intValue();
+        int intValue = (int) value;
         if (intValue < lowerBoundIncluded) {
             throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must be equal or greater than %s", property, lowerBoundIncluded));
         }
