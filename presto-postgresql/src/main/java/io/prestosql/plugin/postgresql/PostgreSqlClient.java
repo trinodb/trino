@@ -493,12 +493,17 @@ public class PostgreSqlClient
     {
         return ColumnMapping.longMapping(
                 TIMESTAMP_WITH_TIME_ZONE,
-                (resultSet, columnIndex) -> {
-                    // PostgreSQL does not store zone information in "timestamp with time zone" data type
-                    long millisUtc = resultSet.getTimestamp(columnIndex).getTime();
-                    return packDateTimeWithZone(millisUtc, UTC_KEY);
-                },
+                timeStampWithTimeZoneReadFunction(),
                 timestampWithTimeZoneWriteFunction());
+    }
+
+    private static LongReadFunction timeStampWithTimeZoneReadFunction()
+    {
+        return (resultSet, columnIndex) -> {
+            // PostgreSQL does not store zone information in "timestamp with time zone" data type
+            long millisUtc = resultSet.getTimestamp(columnIndex).getTime();
+            return packDateTimeWithZone(millisUtc, UTC_KEY);
+        };
     }
 
     private static LongWriteFunction timestampWithTimeZoneWriteFunction()
