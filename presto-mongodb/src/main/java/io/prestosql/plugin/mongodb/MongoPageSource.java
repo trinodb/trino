@@ -63,7 +63,7 @@ import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
 import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
@@ -193,7 +193,7 @@ public class MongoPageSource
                     // TODO provide correct TIMESTAMP mapping, and respecting session.isLegacyTimestamp()
                     type.writeLong(output, ((Date) value).getTime() * MICROSECONDS_PER_MILLISECOND);
                 }
-                else if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+                else if (type.equals(TIMESTAMP_TZ_MILLIS)) {
                     type.writeLong(output, packDateTimeWithZone(((Date) value).getTime(), UTC_KEY));
                 }
                 else {

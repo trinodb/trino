@@ -33,7 +33,7 @@ import java.util.function.IntFunction;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.io.BaseEncoding.base16;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.datatype.DataType.stringDataType;
@@ -231,7 +231,7 @@ public final class OracleDataTypes
     {
         return dataType(
                 "timestamp with time zone",
-                TIMESTAMP_WITH_TIME_ZONE,
+                TIMESTAMP_TZ_MILLIS,
                 DateTimeFormatter.ofPattern("'TIMESTAMP '''yyyy-MM-dd HH:mm:ss.SSS VV''")::format,
                 OracleDataTypes::normalizeForOracleStorage);
     }
@@ -241,7 +241,7 @@ public final class OracleDataTypes
     {
         return dataType(
                 "TIMESTAMP(3) WITH TIME ZONE",
-                TIMESTAMP_WITH_TIME_ZONE,
+                TIMESTAMP_TZ_MILLIS,
                 zonedDateTime -> {
                     String zoneId = zonedDateTime.getZone().getId();
                     if (zoneId.equals("Z")) {
