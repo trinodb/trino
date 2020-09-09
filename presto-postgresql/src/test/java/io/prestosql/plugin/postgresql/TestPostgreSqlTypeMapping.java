@@ -1045,24 +1045,18 @@ public class TestPostgreSqlTypeMapping
                 .addRoundTrip(dataType, asList(beforeEpoch))
                 .addRoundTrip(dataType, asList(afterEpoch))
                 .addRoundTrip(dataType, asList(timeDoubledInJvmZone))
-                .addRoundTrip(dataType, asList(timeDoubledInVilnius));
-
-        addArrayTimestampTestIfSupported(tests, dataType, epoch);
-        addArrayTimestampTestIfSupported(tests, dataType, timeGapInJvmZone1);
-        addArrayTimestampTestIfSupported(tests, dataType, timeGapInJvmZone2);
-        addArrayTimestampTestIfSupported(tests, dataType, timeGapInVilnius);
-        addArrayTimestampTestIfSupported(tests, dataType, timeGapInKathmandu);
+                .addRoundTrip(dataType, asList(timeDoubledInVilnius))
+                .addRoundTrip(dataType, asList(epoch))
+                .addRoundTrip(dataType, asList(timeGapInJvmZone1))
+                .addRoundTrip(dataType, asList(timeGapInJvmZone2))
+                .addRoundTrip(dataType, asList(timeGapInVilnius))
+                .addRoundTrip(dataType, asList(timeGapInKathmandu));
 
         Session session = Session.builder(sessionWithArrayAsArray())
                 .setTimeZoneKey(TimeZoneKey.getTimeZoneKey(sessionZone.getId()))
                 .build();
 
         tests.execute(getQueryRunner(), session, dataSetup);
-    }
-
-    private void addArrayTimestampTestIfSupported(DataTypeTest tests, DataType<List<LocalDateTime>> dataType, LocalDateTime dateTime)
-    {
-        tests.addRoundTrip(dataType, asList(dateTime));
     }
 
     @DataProvider
