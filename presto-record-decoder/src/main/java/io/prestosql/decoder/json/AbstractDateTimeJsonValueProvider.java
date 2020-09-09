@@ -84,7 +84,7 @@ public abstract class AbstractDateTimeJsonValueProvider
             return packTimeWithTimeZone(millis * NANOSECONDS_PER_MILLISECOND, 0);
         }
 
-        return millis;
+        throw new IllegalStateException("Unsupported type: " + type);
     }
 
     /**
