@@ -28,6 +28,7 @@ import static io.prestosql.plugin.cassandra.CassandraQueryRunner.createCassandra
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.assertions.Assert.assertEquals;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 public class TestCassandraDistributedQueries
         extends AbstractTestDistributedQueries
@@ -85,27 +86,21 @@ public class TestCassandraDistributedQueries
     }
 
     @Override
-    public void testInsert()
-    {
-        // TODO test inserts
-    }
-
-    @Override
     public void testInsertWithCoercion()
     {
-        // TODO test inserts
-    }
-
-    @Override
-    public void testInsertUnicode()
-    {
-        // TODO test inserts
+        // TODO
+        assertThatThrownBy(super::testInsertWithCoercion)
+                .hasMessage("unsupported type: decimal(5,3)");
+        throw new SkipException("TODO change test to use supported types");
     }
 
     @Override
     public void testInsertArray()
     {
-        // TODO test inserts
+        // TODO
+        assertThatThrownBy(super::testInsertArray)
+                .hasMessage("unsupported type: array(double)");
+        throw new SkipException("Unsupported");
     }
 
     @Override
@@ -132,12 +127,6 @@ public class TestCassandraDistributedQueries
                 .build();
 
         assertEquals(actual, expectedParametrizedVarchar);
-    }
-
-    @Override
-    public void testWrittenStats()
-    {
-        // TODO Cassandra connector supports CTAS and inserts, but the test would fail
     }
 
     @Override
