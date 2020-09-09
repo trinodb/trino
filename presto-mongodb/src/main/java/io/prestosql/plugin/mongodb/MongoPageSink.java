@@ -174,7 +174,7 @@ public class MongoPageSink
             long millisUtc = floorDiv(type.getLong(block, position), MICROSECONDS_PER_MILLISECOND);
             return new Date(millisUtc);
         }
-        if (type.equals(TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE)) {
+        if (type.equals(TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS)) {
             long millisUtc = unpackMillisUtc(type.getLong(block, position));
             return new Date(millisUtc);
         }

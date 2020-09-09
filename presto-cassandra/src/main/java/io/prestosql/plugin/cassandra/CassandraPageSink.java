@@ -54,7 +54,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
@@ -158,7 +158,7 @@ public class CassandraPageSink
         else if (DATE.equals(type)) {
             values.add(toCassandraDate.apply(type.getLong(block, position)));
         }
-        else if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
+        else if (TIMESTAMP_TZ_MILLIS.equals(type)) {
             values.add(new Timestamp(unpackMillisUtc(type.getLong(block, position))));
         }
         else if (isVarcharType(type)) {
