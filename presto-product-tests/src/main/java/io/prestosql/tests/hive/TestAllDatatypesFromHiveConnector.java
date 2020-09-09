@@ -276,7 +276,7 @@ public class TestAllDatatypesFromHiveConnector
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
-                        isHiveWithBrokenAvroParquetTimestamps()
+                        isHiveWithBrokenAvroTimestamps()
                                 // TODO (https://github.com/prestosql/presto/issues/1218) requires https://issues.apache.org/jira/browse/HIVE-21002
                                 ? Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 18, 0, 35, 123_000_000))
                                 : Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000)),
@@ -398,10 +398,7 @@ public class TestAllDatatypesFromHiveConnector
                         234.567,
                         new BigDecimal("346"),
                         new BigDecimal("345.67800"),
-                        isHiveWithBrokenAvroParquetTimestamps()
-                                // TODO (https://github.com/prestosql/presto/issues/1218) requires https://issues.apache.org/jira/browse/HIVE-21002
-                                ? Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 18, 0, 35, 123_000_000))
-                                : Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000)),
+                        Timestamp.valueOf(LocalDateTime.of(2015, 5, 10, 12, 15, 35, 123_000_000)),
                         "ala ma kota",
                         "ala ma kot",
                         "ala ma    ",
@@ -409,11 +406,12 @@ public class TestAllDatatypesFromHiveConnector
                         "kot binarny".getBytes(UTF_8)));
     }
 
-    private boolean isHiveWithBrokenAvroParquetTimestamps()
+    private boolean isHiveWithBrokenAvroTimestamps()
     {
         // In 3.1.0 timestamp semantics in hive changed in backward incompatible way,
-        // which was fixed for Parquet and Avro in 3.1.2
-        // https://issues.apache.org/jira/browse/HIVE-21002
+        // which was fixed for Parquet and Avro in 3.1.2 (https://issues.apache.org/jira/browse/HIVE-21002)
+        // we do have a work-around for Parquet, but still need this for Avro until
+        // https://github.com/prestosql/presto/issues/5144 is addressed
         return getHiveVersionMajor() == 3 &&
                 getHiveVersionMinor() == 1 &&
                 (getHiveVersionPatch() == 0 || getHiveVersionPatch() == 1);
