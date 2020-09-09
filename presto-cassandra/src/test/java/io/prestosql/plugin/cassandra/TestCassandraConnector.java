@@ -29,6 +29,7 @@ import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
 import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.connector.SchemaNotFoundException;
 import io.prestosql.spi.connector.SchemaTableName;
@@ -159,7 +160,7 @@ public class TestCassandraConnector
 
         tableHandle = metadata.applyFilter(SESSION, tableHandle, Constraint.alwaysTrue()).get().getHandle();
 
-        List<ConnectorSplit> splits = getAllSplits(splitManager.getSplits(transaction, SESSION, tableHandle, UNGROUPED_SCHEDULING));
+        List<ConnectorSplit> splits = getAllSplits(splitManager.getSplits(transaction, SESSION, tableHandle, UNGROUPED_SCHEDULING, DynamicFilter.EMPTY));
 
         long rowNumber = 0;
         for (ConnectorSplit split : splits) {
