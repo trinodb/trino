@@ -98,7 +98,7 @@ import static java.nio.charset.StandardCharsets.UTF_16LE;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.time.ZoneOffset.UTC;
 
-public class TestOracleTypes
+public class TestOracleTypeMapping
         extends AbstractTestQueryFramework
 {
     private static final String NO_SUPPORTED_COLUMNS = "Table '.*' has no supported columns \\(all \\d+ columns are not supported\\)";
