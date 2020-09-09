@@ -36,7 +36,7 @@ import java.util.Set;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.util.Objects.requireNonNull;
 
 public class HistoryTable
@@ -46,7 +46,7 @@ public class HistoryTable
     private final Table icebergTable;
 
     private static final List<ColumnMetadata> COLUMNS = ImmutableList.<ColumnMetadata>builder()
-            .add(new ColumnMetadata("made_current_at", TIMESTAMP_WITH_TIME_ZONE))
+            .add(new ColumnMetadata("made_current_at", TIMESTAMP_TZ_MILLIS))
             .add(new ColumnMetadata("snapshot_id", BIGINT))
             .add(new ColumnMetadata("parent_id", BIGINT))
             .add(new ColumnMetadata("is_current_ancestor", BOOLEAN))

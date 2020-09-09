@@ -63,7 +63,7 @@ import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.TimeWithTimeZoneType.TIME_WITH_TIME_ZONE;
 import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -168,7 +168,7 @@ public class BigQueryResultPageSource
                 else if (type.equals(TIME_WITH_TIME_ZONE)) {
                     type.writeLong(output, DateTimeEncoding.packDateTimeWithZone(((Long) value).longValue() / 1000, TimeZoneKey.UTC_KEY));
                 }
-                else if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
+                else if (type.equals(TIMESTAMP_TZ_MILLIS)) {
                     type.writeLong(output, DateTimeEncoding.packDateTimeWithZone(((Long) value).longValue() / 1000, TimeZoneKey.UTC_KEY));
                 }
                 else {

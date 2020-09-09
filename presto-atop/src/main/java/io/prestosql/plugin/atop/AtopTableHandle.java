@@ -20,7 +20,7 @@ import io.prestosql.spi.predicate.Domain;
 
 import java.util.Objects;
 
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
 import static java.util.Objects.requireNonNull;
 
 public class AtopTableHandle
@@ -33,7 +33,7 @@ public class AtopTableHandle
 
     public AtopTableHandle(String schema, AtopTable table)
     {
-        this(schema, table, Domain.all(TIMESTAMP_WITH_TIME_ZONE), Domain.all(TIMESTAMP_WITH_TIME_ZONE));
+        this(schema, table, Domain.all(TIMESTAMP_TZ_MILLIS), Domain.all(TIMESTAMP_TZ_MILLIS));
     }
 
     @JsonCreator
