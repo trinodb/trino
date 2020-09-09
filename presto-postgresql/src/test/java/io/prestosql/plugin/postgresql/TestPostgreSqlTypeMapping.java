@@ -1090,14 +1090,6 @@ public class TestPostgreSqlTypeMapping
     @Test(dataProvider = "trueFalse", dataProviderClass = TestngUtils.class)
     public void testTimestampWithTimeZone(boolean insertWithPresto)
     {
-        DataSetup dataSetup;
-        if (insertWithPresto) {
-            dataSetup = prestoCreateAsSelect("test_timestamp_with_time_zone");
-        }
-        else {
-            dataSetup = postgresCreateAndInsert("tpch.test_timestamp_with_time_zone");
-        }
-
         DataTypeTest tests = DataTypeTest.create(true);
         for (int precision : List.of(3, 6)) {
             // test all standard cases with precision 3 and 6 to make sure the long and short TIMESTAMP WITH TIME ZONE
@@ -1141,7 +1133,12 @@ public class TestPostgreSqlTypeMapping
         tests.addRoundTrip(timestampWithTimeZoneDataType(5, insertWithPresto), ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 123_450_000, kathmandu));
         tests.addRoundTrip(timestampWithTimeZoneDataType(6, insertWithPresto), ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 123_456_000, kathmandu));
 
-        tests.execute(getQueryRunner(), dataSetup);
+        if (insertWithPresto) {
+            tests.execute(getQueryRunner(), prestoCreateAsSelect("test_timestamp_with_time_zone"));
+        }
+        else {
+            tests.execute(getQueryRunner(), postgresCreateAndInsert("tpch.test_timestamp_with_time_zone"));
+        }
     }
 
     @Test
@@ -1156,14 +1153,6 @@ public class TestPostgreSqlTypeMapping
     @Test(dataProvider = "trueFalse", dataProviderClass = TestngUtils.class)
     public void testArrayTimestampWithTimeZone(boolean insertWithPresto)
     {
-        DataSetup dataSetup;
-        if (insertWithPresto) {
-            dataSetup = prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_timestamp_with_time_zone");
-        }
-        else {
-            dataSetup = postgresCreateAndInsert("tpch.test_array_timestamp_with_time_zone");
-        }
-
         DataTypeTest tests = DataTypeTest.create();
         for (int precision : List.of(3, 6)) {
             // test all standard cases with precision 3 and 6 to make sure the long and short TIMESTAMP WITH TIME ZONE
@@ -1196,7 +1185,12 @@ public class TestPostgreSqlTypeMapping
         tests.addRoundTrip(arrayOfTimestampWithTimeZoneDataType(5, insertWithPresto), asList(ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 123_450_000, kathmandu)));
         tests.addRoundTrip(arrayOfTimestampWithTimeZoneDataType(6, insertWithPresto), asList(ZonedDateTime.of(2012, 1, 2, 3, 4, 5, 123_456_000, kathmandu)));
 
-        tests.execute(getQueryRunner(), sessionWithArrayAsArray(), dataSetup);
+        if (insertWithPresto) {
+            tests.execute(getQueryRunner(), sessionWithArrayAsArray(), prestoCreateAsSelect(sessionWithArrayAsArray(), "test_array_timestamp_with_time_zone"));
+        }
+        else {
+            tests.execute(getQueryRunner(), sessionWithArrayAsArray(), postgresCreateAndInsert("tpch.test_array_timestamp_with_time_zone"));
+        }
     }
 
     @Test
