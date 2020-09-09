@@ -9,14 +9,14 @@
  */
 package com.starburstdata.presto.plugin.snowflake;
 
-import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.AbstractDynamicFilteringTests;
+import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.AbstractDynamicFilteringTest;
 import io.prestosql.testing.QueryRunner;
 
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.distributedBuilder;
 import static com.starburstdata.presto.plugin.snowflake.SnowflakeQueryRunner.impersonationDisabled;
 
 public class TestDynamicFiltering
-        extends AbstractDynamicFilteringTests
+        extends AbstractDynamicFilteringTest
 {
     @Override
     protected QueryRunner createQueryRunner()
