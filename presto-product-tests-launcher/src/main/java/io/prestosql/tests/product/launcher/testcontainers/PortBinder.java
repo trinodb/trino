@@ -14,8 +14,8 @@
 package io.prestosql.tests.product.launcher.testcontainers;
 
 import io.prestosql.tests.product.launcher.docker.ContainerUtil;
-import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
+import org.testcontainers.containers.GenericContainer;
 
 import javax.inject.Inject;
 
@@ -31,7 +31,12 @@ public class PortBinder
         this.bindPorts = requireNonNull(environmentOptions, "environmentOptions is null").bindPorts;
     }
 
-    public void exposePort(DockerContainer container, int port)
+    public PortBinder(boolean bindPorts)
+    {
+        this.bindPorts = bindPorts;
+    }
+
+    public void exposePort(GenericContainer container, int port)
     {
         if (bindPorts) {
             ContainerUtil.exposePort(container, port);

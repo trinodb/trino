@@ -20,8 +20,9 @@ import com.github.dockerjava.api.exception.ConflictException;
 import com.github.dockerjava.api.exception.NotFoundException;
 import com.github.dockerjava.api.model.Container;
 import com.github.dockerjava.api.model.Network;
-import io.prestosql.tests.product.launcher.env.DockerContainer;
+import com.google.common.collect.ImmutableList;
 import org.testcontainers.DockerClientFactory;
+import org.testcontainers.containers.GenericContainer;
 
 import java.util.List;
 import java.util.function.Function;
@@ -75,9 +76,9 @@ public final class ContainerUtil
                 .exec();
     }
 
-    public static void exposePort(DockerContainer container, int port)
+    public static void exposePort(GenericContainer container, int port)
     {
         container.addExposedPort(port);
-        container.withFixedExposedPort(port, port);
+        container.setPortBindings(ImmutableList.builder().addAll(container.getPortBindings()).add(String.format("%d:%d/tcp", port, port)).build());
     }
 }
