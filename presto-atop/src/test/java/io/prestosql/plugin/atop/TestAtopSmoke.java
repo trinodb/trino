@@ -52,6 +52,7 @@ public class TestAtopSmoke
     public void testPredicatePushdown()
     {
         assertThatQueryReturnsValue("SELECT device_name FROM disks WHERE start_time < current_timestamp LIMIT 1", "sda");
+        assertThatQueryReturnsValue("SELECT device_name FROM disks WHERE start_time > current_timestamp - INTERVAL '2' DAY LIMIT 1", "sda");
     }
 
     @Test
