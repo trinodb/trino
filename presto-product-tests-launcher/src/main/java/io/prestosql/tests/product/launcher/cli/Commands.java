@@ -31,7 +31,8 @@ final class Commands
                 ImmutableList.<Module>builder()
                         .addAll(modules)
                         .add(binder -> binder.bind(commandExecution))
-                        .build());
+                        .build())
+                .doNotInitializeLogging();
 
         Injector injector = app
                 .strictConfig()

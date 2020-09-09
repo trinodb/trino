@@ -101,6 +101,7 @@ public class Launcher
                     EnvironmentUp.class,
                     EnvironmentDown.class,
                     EnvironmentList.class,
+                    EnvironmentCli.class
             })
     public static class EnvironmentCommand
     {
