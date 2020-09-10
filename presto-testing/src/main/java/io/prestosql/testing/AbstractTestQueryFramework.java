@@ -23,6 +23,7 @@ import io.prestosql.cost.CostCalculatorUsingExchanges;
 import io.prestosql.cost.CostCalculatorWithEstimatedExchanges;
 import io.prestosql.cost.CostComparator;
 import io.prestosql.cost.TaskCountEstimator;
+import io.prestosql.execution.QueryInfo;
 import io.prestosql.execution.QueryManagerConfig;
 import io.prestosql.execution.TaskManagerConfig;
 import io.prestosql.execution.warnings.WarningCollector;
@@ -61,6 +62,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.OptionalLong;
 import java.util.function.Consumer;
+import java.util.function.Supplier;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
@@ -71,9 +73,11 @@ import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
 import static io.prestosql.sql.ParsingUtil.createParsingOptions;
 import static io.prestosql.sql.SqlFormatter.formatSql;
+import static io.prestosql.testing.assertions.Assert.assertEventually;
 import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.lang.String.format;
 import static java.util.Collections.emptyList;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.fail;
@@ -446,9 +450,13 @@ public abstract class AbstractTestQueryFramework
                 })
                 .findOnlyElement()
                 .getId();
-        return runner.getCoordinator()
+
+        Supplier<QueryInfo> queryInfoSupplier = () -> runner.getCoordinator()
                 .getQueryManager()
-                .getFullQueryInfo(queryId)
+                .getFullQueryInfo(queryId);
+        assertEventually(new Duration(5, SECONDS), () -> assertThat(queryInfoSupplier.get().isFinalQueryInfo()));
+
+        return queryInfoSupplier.get()
                 .getQueryStats()
                 .getOperatorSummaries()
                 .stream()
