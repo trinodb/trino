@@ -564,8 +564,8 @@ public class TestOracleTypeMapping
     @Test
     public void testSpecialNumberFormats()
     {
-        oracleServer.execute("CREATE TABLE test (num1 number)");
-        oracleServer.execute("INSERT INTO test VALUES (12345678901234567890.12345678901234567890123456789012345678)");
+        getOracleSqlExecutor().execute("CREATE TABLE test (num1 number)");
+        getOracleSqlExecutor().execute("INSERT INTO test VALUES (12345678901234567890.12345678901234567890123456789012345678)");
         assertQuery(number(HALF_UP, 10), "SELECT * FROM test", "VALUES (12345678901234567890.1234567890)");
     }
 
