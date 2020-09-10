@@ -75,6 +75,7 @@ import io.prestosql.plugin.hive.metastore.Database;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
 import io.prestosql.plugin.hive.metastore.HivePrincipal;
 import io.prestosql.plugin.hive.metastore.HivePrivilegeInfo;
+import io.prestosql.plugin.hive.metastore.MetastoreUtil;
 import io.prestosql.plugin.hive.metastore.Partition;
 import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
 import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
@@ -122,9 +123,7 @@ import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_METASTORE_ERROR;
 import static io.prestosql.plugin.hive.HiveErrorCode.HIVE_PARTITION_DROPPED_DURING_QUERY;
 import static io.prestosql.plugin.hive.aws.AwsCurrentRegionHolder.getCurrentRegionFromEC2Metadata;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.makePartitionName;
-import static io.prestosql.plugin.hive.metastore.MetastoreUtil.partitionKeyFilterToStringList;
 import static io.prestosql.plugin.hive.metastore.MetastoreUtil.verifyCanDropColumn;
-import static io.prestosql.plugin.hive.metastore.glue.GlueExpressionUtil.buildGlueExpression;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.getHiveBasicStatistics;
 import static io.prestosql.plugin.hive.metastore.thrift.ThriftMetastoreUtil.updateStatisticsParameters;
 import static io.prestosql.plugin.hive.util.HiveUtil.toPartitionValues;
@@ -709,14 +708,12 @@ public class GlueHiveMetastore
         if (partitionKeysFilter.isNone()) {
             return Optional.of(ImmutableList.of());
         }
-
-        Optional<List<String>> parts = partitionKeyFilterToStringList(columnNames, partitionKeysFilter, assumeCanonicalPartitionKeys);
-        if (parts.isEmpty()) {
+        if (MetastoreUtil.isPartitionKeyFilterFalse(partitionKeysFilter)) {
             return Optional.of(ImmutableList.of());
         }
 
         Table table = getExistingTable(identity, databaseName, tableName);
-        String expression = buildGlueExpression(table.getPartitionColumns(), parts.get());
+        String expression = GlueExpressionUtil.buildGlueExpression(columnNames, partitionKeysFilter, assumeCanonicalPartitionKeys);
         List<Partition> partitions = getPartitions(table, expression);
         return Optional.of(buildPartitionNames(table.getPartitionColumns(), partitions));
     }
