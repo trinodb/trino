@@ -28,7 +28,7 @@ Formatting
 .. function:: format(format, args...) -> varchar
 
     Returns a formatted string using the specified `format string
-    <https://docs.oracle.com/javase/8/docs/api/java/util/Formatter.html#syntax>`_
+    <https://docs.oracle.com/en/java/javase/11/docs/api/java.base/java/util/Formatter.html#syntax>`_
     and arguments::
 
         SELECT format('%s%%', 123);

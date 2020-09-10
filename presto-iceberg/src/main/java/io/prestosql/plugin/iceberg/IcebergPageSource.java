@@ -39,19 +39,20 @@ import static com.google.common.base.Throwables.throwIfInstanceOf;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_BAD_DATA;
 import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_INVALID_PARTITION_VALUE;
+import static io.prestosql.plugin.iceberg.util.Timestamps.timestampTzFromMicros;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.BooleanType.BOOLEAN;
-import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateType.DATE;
 import static io.prestosql.spi.type.Decimals.isLongDecimal;
 import static io.prestosql.spi.type.Decimals.isShortDecimal;
 import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
-import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimeType.TIME_MICROS;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Double.parseDouble;
 import static java.lang.Float.floatToRawIntBits;
@@ -59,7 +60,6 @@ import static java.lang.Float.parseFloat;
 import static java.lang.Long.parseLong;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MICROSECONDS;
 
 public class IcebergPageSource
         implements ConnectorPageSource
@@ -212,14 +212,14 @@ public class IcebergPageSource
             if (type.equals(DATE)) {
                 return parseLong(valueString);
             }
-            if (type.equals(TIME)) {
+            if (type.equals(TIME_MICROS)) {
+                return parseLong(valueString) * PICOSECONDS_PER_MICROSECOND;
+            }
+            if (type.equals(TIMESTAMP_MICROS)) {
                 return parseLong(valueString);
             }
-            if (type.equals(TIMESTAMP)) {
-                return MICROSECONDS.toMillis(parseLong(valueString));
-            }
-            if (type.equals(TIMESTAMP_WITH_TIME_ZONE)) {
-                return packDateTimeWithZone(parseLong(valueString), timeZoneKey);
+            if (type.equals(TIMESTAMP_TZ_MICROS)) {
+                return timestampTzFromMicros(parseLong(valueString), timeZoneKey);
             }
             if (isVarcharType(type)) {
                 Slice value = utf8Slice(valueString);

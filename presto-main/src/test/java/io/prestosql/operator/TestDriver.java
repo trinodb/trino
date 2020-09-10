@@ -31,8 +31,8 @@ import io.prestosql.spi.Page;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.FixedPageSource;
-import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.split.PageSourceProvider;
 import io.prestosql.sql.planner.plan.PlanNodeId;
@@ -173,7 +173,7 @@ public class TestDriver
                         .build()),
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                TupleDomain::all);
+                DynamicFilter.EMPTY);
 
         PageConsumerOperator sink = createSinkOperator(types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
@@ -448,7 +448,7 @@ public class TestDriver
                 TableHandle table,
                 Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, table, columns, TupleDomain::all);
+            super(operatorContext, planNodeId, pageSourceProvider, table, columns, DynamicFilter.EMPTY);
         }
 
         @Override
@@ -473,7 +473,7 @@ public class TestDriver
                 TableHandle table,
                 Iterable<ColumnHandle> columns)
         {
-            super(operatorContext, planNodeId, pageSourceProvider, table, columns, TupleDomain::all);
+            super(operatorContext, planNodeId, pageSourceProvider, table, columns, DynamicFilter.EMPTY);
         }
 
         @Override

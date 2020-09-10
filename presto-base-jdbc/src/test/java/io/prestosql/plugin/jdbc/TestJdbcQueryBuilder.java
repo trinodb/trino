@@ -19,7 +19,6 @@ import com.google.common.collect.ImmutableMultiset;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Multiset;
 import io.prestosql.spi.connector.ColumnHandle;
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Range;
 import io.prestosql.spi.predicate.SortedRangeSet;
@@ -27,8 +26,6 @@ import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.predicate.ValueSet;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.SqlTime;
-import io.prestosql.spi.type.SqlTimestamp;
-import io.prestosql.testing.DateTimeTestingUtils;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -71,23 +68,25 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimeOf;
+import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
+import static io.prestosql.type.DateTimes.MICROSECONDS_PER_MILLISECOND;
 import static java.lang.Float.floatToRawIntBits;
 import static java.lang.String.format;
 import static java.time.temporal.ChronoUnit.DAYS;
 import static java.util.function.Function.identity;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 
 @Test(singleThreaded = true)
 public class TestJdbcQueryBuilder
 {
+    private static final RemoteTableName TEST_TABLE = new RemoteTableName(Optional.empty(), Optional.empty(), "test_table");
+
     private TestingDatabase database;
     private JdbcClient jdbcClient;
 
@@ -128,7 +127,7 @@ public class TestJdbcQueryBuilder
                 new JdbcColumnHandle("col_3", JDBC_VARCHAR, VARCHAR),
                 new JdbcColumnHandle("col_4", JDBC_DATE, DATE),
                 new JdbcColumnHandle("col_5", JDBC_TIME, TIME),
-                new JdbcColumnHandle("col_6", JDBC_TIMESTAMP, TIMESTAMP),
+                new JdbcColumnHandle("col_6", JDBC_TIMESTAMP, TIMESTAMP_MILLIS),
                 new JdbcColumnHandle("col_7", JDBC_TINYINT, TINYINT),
                 new JdbcColumnHandle("col_8", JDBC_SMALLINT, SMALLINT),
                 new JdbcColumnHandle("col_9", JDBC_INTEGER, INTEGER),
@@ -233,7 +232,7 @@ public class TestJdbcQueryBuilder
                 .build());
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, SESSION, connection, "", "", "test_table", Optional.empty(), columns, tupleDomain, Optional.empty(), identity());
+        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity());
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<Long> builder = ImmutableSet.builder();
             while (resultSet.next()) {
@@ -256,7 +255,7 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, SESSION, connection, "", "", "test_table", Optional.empty(), columns, tupleDomain, Optional.empty(), identity());
+        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity());
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<Long> longBuilder = ImmutableSet.builder();
             ImmutableSet.Builder<Float> floatBuilder = ImmutableSet.builder();
@@ -282,7 +281,7 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, SESSION, connection, "", "", "test_table", Optional.empty(), columns, tupleDomain, Optional.empty(), identity());
+        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity());
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<String> builder = ImmutableSet.builder();
             while (resultSet.next()) {
@@ -310,7 +309,7 @@ public class TestJdbcQueryBuilder
                         false)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, SESSION, connection, "", "", "test_table", Optional.empty(), columns, tupleDomain, Optional.empty(), identity());
+        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity());
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<String> builder = ImmutableSet.builder();
             while (resultSet.next()) {
@@ -337,13 +336,13 @@ public class TestJdbcQueryBuilder
                         false),
                 columns.get(5), Domain.create(SortedRangeSet.copyOf(TIME,
                         ImmutableList.of(
-                                Range.range(TIME, toTimeRepresentation(SESSION, 6, 12, 23), false, toTimeRepresentation(SESSION, 8, 23, 37), true),
-                                Range.equal(TIME, toTimeRepresentation(SESSION, 2, 3, 4)),
-                                Range.equal(TIME, toTimeRepresentation(SESSION, 20, 23, 37)))),
+                                Range.range(TIME, toTimeRepresentation(6, 12, 23), false, toTimeRepresentation(8, 23, 37), true),
+                                Range.equal(TIME, toTimeRepresentation(2, 3, 4)),
+                                Range.equal(TIME, toTimeRepresentation(20, 23, 37)))),
                         false)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, SESSION, connection, "", "", "test_table", Optional.empty(), columns, tupleDomain, Optional.empty(), identity());
+        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity());
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<Date> dateBuilder = ImmutableSet.builder();
             ImmutableSet.Builder<Time> timeBuilder = ImmutableSet.builder();
@@ -368,15 +367,15 @@ public class TestJdbcQueryBuilder
             throws SQLException
     {
         TupleDomain<ColumnHandle> tupleDomain = TupleDomain.withColumnDomains(ImmutableMap.of(
-                columns.get(6), Domain.create(SortedRangeSet.copyOf(TIMESTAMP,
+                columns.get(6), Domain.create(SortedRangeSet.copyOf(TIMESTAMP_MILLIS,
                         ImmutableList.of(
-                                Range.equal(TIMESTAMP, toPrestoTimestamp(2016, 6, 3, 0, 23, 37)),
-                                Range.equal(TIMESTAMP, toPrestoTimestamp(2016, 10, 19, 16, 23, 37)),
-                                Range.range(TIMESTAMP, toPrestoTimestamp(2016, 6, 7, 8, 23, 37), false, toPrestoTimestamp(2016, 6, 9, 12, 23, 37), true))),
+                                Range.equal(TIMESTAMP_MILLIS, toPrestoTimestamp(2016, 6, 3, 0, 23, 37)),
+                                Range.equal(TIMESTAMP_MILLIS, toPrestoTimestamp(2016, 10, 19, 16, 23, 37)),
+                                Range.range(TIMESTAMP_MILLIS, toPrestoTimestamp(2016, 6, 7, 8, 23, 37), false, toPrestoTimestamp(2016, 6, 9, 12, 23, 37), true))),
                         false)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, SESSION, connection, "", "", "test_table", Optional.empty(), columns, tupleDomain, Optional.empty(), identity());
+        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity());
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             ImmutableSet.Builder<Timestamp> builder = ImmutableSet.builder();
             while (resultSet.next()) {
@@ -400,7 +399,7 @@ public class TestJdbcQueryBuilder
     {
         Connection connection = database.getConnection();
         Function<String, String> function = sql -> sql + " LIMIT 10";
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, SESSION, connection, "", "", "test_table", Optional.empty(), columns, TupleDomain.all(), Optional.empty(), function);
+        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, TupleDomain.all(), Optional.empty(), function);
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             long count = 0;
             while (resultSet.next()) {
@@ -419,7 +418,7 @@ public class TestJdbcQueryBuilder
                 columns.get(1), Domain.onlyNull(DOUBLE)));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(jdbcClient, SESSION, connection, "", "", "test_table", Optional.empty(), columns, tupleDomain, Optional.empty(), identity());
+        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(SESSION, connection, TEST_TABLE, Optional.empty(), columns, tupleDomain, Optional.empty(), identity());
                 ResultSet resultSet = preparedStatement.executeQuery()) {
             assertEquals(resultSet.next(), false);
         }
@@ -440,13 +439,10 @@ public class TestJdbcQueryBuilder
                         Optional.empty()));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(
-                jdbcClient,
+        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(
                 SESSION,
                 connection,
-                "",
-                "",
-                "test_table",
+                TEST_TABLE,
                 Optional.of(ImmutableList.of(ImmutableList.of(this.columns.get(2)))),
                 projectedColumns,
                 TupleDomain.all(),
@@ -486,13 +482,10 @@ public class TestJdbcQueryBuilder
                         Optional.empty()));
 
         Connection connection = database.getConnection();
-        try (PreparedStatement preparedStatement = new QueryBuilder("\"").buildSql(
-                jdbcClient,
+        try (PreparedStatement preparedStatement = new QueryBuilder(jdbcClient).buildSql(
                 SESSION,
                 connection,
-                "",
-                "",
-                "test_table",
+                TEST_TABLE,
                 Optional.of(ImmutableList.of(ImmutableList.of(this.columns.get(2)))),
                 projectedColumns,
                 tupleDomain,
@@ -517,11 +510,7 @@ public class TestJdbcQueryBuilder
 
     private static long toPrestoTimestamp(int year, int month, int day, int hour, int minute, int second)
     {
-        SqlTimestamp sqlTimestamp = DateTimeTestingUtils.sqlTimestampOf(3, year, month, day, hour, minute, second, 0, UTC, UTC_KEY, SESSION);
-        if (SESSION.isLegacyTimestamp()) {
-            return sqlTimestamp.getMillisUtc();
-        }
-        return sqlTimestamp.getMillis();
+        return sqlTimestampOf(3, year, month, day, hour, minute, second, 0).getMillis() * MICROSECONDS_PER_MILLISECOND;
     }
 
     private static Timestamp toTimestamp(int year, int month, int day, int hour, int minute, int second)
@@ -544,13 +533,10 @@ public class TestJdbcQueryBuilder
         return Time.valueOf(LocalTime.of(hour, minute, second));
     }
 
-    private static long toTimeRepresentation(ConnectorSession session, int hour, int minute, int second)
+    private static long toTimeRepresentation(int hour, int minute, int second)
     {
-        SqlTime time = sqlTimeOf(hour, minute, second, 0, session);
-        if (session.isLegacyTimestamp()) {
-            return time.getMillisUtc();
-        }
-        return time.getMillis();
+        SqlTime time = sqlTimeOf(hour, minute, second, 0);
+        return time.getPicos();
     }
 
     private static Multiset<List<Object>> read(ResultSet resultSet)

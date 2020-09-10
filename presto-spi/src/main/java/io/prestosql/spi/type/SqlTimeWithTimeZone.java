@@ -15,82 +15,84 @@ package io.prestosql.spi.type;
 
 import com.fasterxml.jackson.annotation.JsonValue;
 
-import java.time.Instant;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
 import java.util.Objects;
-import java.util.TimeZone;
 
-import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
+import static io.prestosql.spi.type.TimeType.MAX_PRECISION;
+import static io.prestosql.spi.type.TimeWithTimezoneTypes.normalizePicos;
+import static io.prestosql.spi.type.Timestamps.MINUTES_PER_HOUR;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_HOUR;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MINUTE;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_SECOND;
+import static io.prestosql.spi.type.Timestamps.POWERS_OF_TEN;
+import static io.prestosql.spi.type.Timestamps.SECONDS_PER_MINUTE;
+import static java.lang.String.format;
 
 public final class SqlTimeWithTimeZone
 {
-    // This needs to be Locale-independent, Java Time's DateTimeFormatter compatible and should never change, as it defines the external API data format.
-    // TODO when support for political time zones is removed, change the pattern to "HH:mm:ss.SSS XXX" and reuse in TestingPrestoClient
-    private static final DateTimeFormatter JSON_FORMATTER = DateTimeFormatter.ofPattern("HH:mm:ss.SSS VV");
+    private final int precision;
+    private final long picos;
+    private final int offsetMinutes;
 
-    private final long millisUtc;
-    private final TimeZoneKey timeZoneKey;
-
-    public SqlTimeWithTimeZone(long timeWithTimeZone)
+    public static SqlTimeWithTimeZone newInstance(int precision, long picoseconds, int offsetMinutes)
     {
-        millisUtc = unpackMillisUtc(timeWithTimeZone);
-        timeZoneKey = unpackZoneKey(timeWithTimeZone);
+        return new SqlTimeWithTimeZone(precision, picoseconds, offsetMinutes);
     }
 
-    public SqlTimeWithTimeZone(long millisUtc, TimeZoneKey timeZoneKey)
+    private SqlTimeWithTimeZone(int precision, long picos, int offsetMinutes)
     {
-        this.millisUtc = millisUtc;
-        this.timeZoneKey = timeZoneKey;
+        this.precision = precision;
+        this.picos = picos;
+        this.offsetMinutes = offsetMinutes;
     }
 
-    /**
-     * @deprecated Use {@link #SqlTimeWithTimeZone(long, TimeZoneKey)} instead.
-     */
-    @Deprecated
-    public SqlTimeWithTimeZone(long millisUtc, TimeZone timeZone)
+    public long getPicos()
     {
-        this.millisUtc = millisUtc;
-        this.timeZoneKey = TimeZoneKey.getTimeZoneKey(timeZone.getID());
+        return picos;
     }
 
-    public long getMillisUtc()
+    public int getOffsetMinutes()
     {
-        return millisUtc;
+        return offsetMinutes;
     }
 
-    public TimeZoneKey getTimeZoneKey()
+    @Override
+    public boolean equals(Object o)
     {
-        return timeZoneKey;
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        SqlTimeWithTimeZone other = (SqlTimeWithTimeZone) o;
+        return precision == other.precision && normalizePicos(picos, offsetMinutes) == normalizePicos(other.picos, offsetMinutes);
     }
 
     @Override
     public int hashCode()
     {
-        return Objects.hash(millisUtc, timeZoneKey);
-    }
-
-    @Override
-    public boolean equals(Object obj)
-    {
-        if (this == obj) {
-            return true;
-        }
-        if (obj == null || getClass() != obj.getClass()) {
-            return false;
-        }
-        SqlTimeWithTimeZone other = (SqlTimeWithTimeZone) obj;
-        return this.millisUtc == other.millisUtc &&
-                this.timeZoneKey == other.timeZoneKey;
+        return Objects.hash(precision, normalizePicos(picos, offsetMinutes));
     }
 
     @JsonValue
     @Override
     public String toString()
     {
-        return Instant.ofEpochMilli(millisUtc)
-                .atZone(ZoneId.of(timeZoneKey.getId()))
-                .format(JSON_FORMATTER);
+        StringBuilder builder = new StringBuilder();
+        builder.append(format(
+                "%02d:%02d:%02d",
+                picos / PICOSECONDS_PER_HOUR,
+                (picos / PICOSECONDS_PER_MINUTE) % MINUTES_PER_HOUR,
+                (picos / PICOSECONDS_PER_SECOND) % SECONDS_PER_MINUTE));
+
+        if (precision > 0) {
+            long scaledFraction = (picos % PICOSECONDS_PER_SECOND) / POWERS_OF_TEN[MAX_PRECISION - precision];
+            builder.append(".");
+            builder.append(format("%0" + precision + "d", scaledFraction));
+        }
+        builder.append(format("%+03d:%02d", offsetMinutes / 60, offsetMinutes % 60));
+
+        return builder.toString();
     }
 }

@@ -38,6 +38,7 @@ import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.PrincipalType;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
@@ -67,7 +68,6 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
@@ -568,20 +568,45 @@ public class SemiTransactionalHiveMetastore
 
     public synchronized Optional<List<String>> getPartitionNames(HiveIdentity identity, String databaseName, String tableName)
     {
-        return doGetPartitionNames(identity, databaseName, tableName, Optional.empty());
+        Optional<Table> table = getTable(identity, databaseName, tableName);
+
+        if (table.isEmpty()) {
+            return Optional.empty();
+        }
+
+        List<String> columnNames = table.get().getPartitionColumns().stream()
+                .map(Column::getName)
+                .collect(toImmutableList());
+
+        return doGetPartitionNames(identity, databaseName, tableName, columnNames, TupleDomain.all());
     }
 
-    public synchronized Optional<List<String>> getPartitionNamesByParts(HiveIdentity identity, String databaseName, String tableName, List<String> parts)
+    public synchronized Optional<List<String>> getPartitionNamesByFilter(
+            HiveIdentity identity,
+            String databaseName,
+            String tableName,
+            List<String> columnNames,
+            TupleDomain<String> partitionKeysFilter)
     {
-        return doGetPartitionNames(identity, databaseName, tableName, Optional.of(parts));
+        return doGetPartitionNames(identity, databaseName, tableName, columnNames, partitionKeysFilter);
     }
 
     @GuardedBy("this")
-    private Optional<List<String>> doGetPartitionNames(HiveIdentity identity, String databaseName, String tableName, Optional<List<String>> parts)
+    private Optional<List<String>> doGetPartitionNames(
+            HiveIdentity identity,
+            String databaseName,
+            String tableName,
+            List<String> columnNames,
+            TupleDomain<String> partitionKeysFilter)
     {
         checkHoldsLock();
 
         checkReadable();
+
+        if (partitionKeysFilter.isNone()) {
+            return Optional.of(ImmutableList.of());
+        }
+
         Optional<Table> table = getTable(identity, databaseName, tableName);
         if (table.isEmpty()) {
             return Optional.empty();
@@ -593,13 +618,7 @@ public class SemiTransactionalHiveMetastore
                 partitionNames = ImmutableList.of();
                 break;
             case PRE_EXISTING_TABLE:
-                Optional<List<String>> partitionNameResult;
-                if (parts.isPresent()) {
-                    partitionNameResult = delegate.getPartitionNamesByParts(identity, databaseName, tableName, parts.get());
-                }
-                else {
-                    partitionNameResult = delegate.getPartitionNames(identity, databaseName, tableName);
-                }
+                Optional<List<String>> partitionNameResult = delegate.getPartitionNamesByFilter(identity, databaseName, tableName, columnNames, partitionKeysFilter);
                 if (partitionNameResult.isEmpty()) {
                     throw new PrestoException(TRANSACTION_CONFLICT, format("Table '%s.%s' was dropped by another transaction", databaseName, tableName));
                 }
@@ -633,34 +652,16 @@ public class SemiTransactionalHiveMetastore
                     throw new IllegalStateException("Unknown action type");
             }
         }
-        // add newly-added partitions to the results from underlying metastore
+        // add newly-added partitions to the results from underlying metastore.
         if (!partitionActionsOfTable.isEmpty()) {
-            List<String> columnNames = table.get().getPartitionColumns().stream().map(Column::getName).collect(Collectors.toList());
             for (Action<PartitionAndMore> partitionAction : partitionActionsOfTable.values()) {
                 if (partitionAction.getType() == ActionType.ADD) {
                     List<String> values = partitionAction.getData().getPartition().getValues();
-                    if (parts.isEmpty() || partitionValuesMatch(values, parts.get())) {
-                        resultBuilder.add(makePartName(columnNames, values));
-                    }
+                    resultBuilder.add(makePartName(columnNames, values));
                 }
             }
         }
         return Optional.of(resultBuilder.build());
-    }
-
-    private static boolean partitionValuesMatch(List<String> values, List<String> pattern)
-    {
-        checkArgument(values.size() == pattern.size());
-        for (int i = 0; i < values.size(); i++) {
-            if (pattern.get(i).isEmpty()) {
-                // empty string match everything
-                continue;
-            }
-            if (values.get(i).equals(pattern.get(i))) {
-                return false;
-            }
-        }
-        return true;
     }
 
     public synchronized Map<String, Optional<Partition>> getPartitionsByNames(HiveIdentity identity, String databaseName, String tableName, List<String> partitionNames)
@@ -1768,8 +1769,13 @@ public class SemiTransactionalHiveMetastore
                     Optional<Table> table = delegate.getTable(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName());
                     if (table.isPresent()) {
                         // check every existing partition that is outside for the base directory
-                        if (!table.get().getPartitionColumns().isEmpty()) {
-                            List<String> partitionNames = delegate.getPartitionNames(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName())
+                        List<Column> partitionColumns = table.get().getPartitionColumns();
+                        if (!partitionColumns.isEmpty()) {
+                            List<String> partitionColumnNames = partitionColumns.stream()
+                                    .map(Column::getName)
+                                    .collect(toImmutableList());
+                            List<String> partitionNames = delegate.getPartitionNamesByFilter(
+                                    identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionColumnNames, TupleDomain.all())
                                     .orElse(ImmutableList.of());
                             for (List<String> partitionNameBatch : Iterables.partition(partitionNames, 10)) {
                                 Collection<Optional<Partition>> partitions = delegate.getPartitionsByNames(identity, schemaTableName.getSchemaName(), schemaTableName.getTableName(), partitionNameBatch).values();

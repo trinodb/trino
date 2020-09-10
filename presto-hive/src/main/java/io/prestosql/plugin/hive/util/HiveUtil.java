@@ -43,7 +43,6 @@ import io.prestosql.spi.connector.RecordCursor;
 import io.prestosql.spi.predicate.NullableValue;
 import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.CharType;
-import io.prestosql.spi.type.DateTimeEncoding;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.Decimals;
 import io.prestosql.spi.type.MapType;
@@ -81,7 +80,6 @@ import org.apache.hadoop.mapred.RecordReader;
 import org.apache.hadoop.mapred.Reporter;
 import org.apache.hadoop.mapred.TextInputFormat;
 import org.apache.hadoop.util.ReflectionUtils;
-import org.joda.time.DateTimeZone;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.DateTimeFormatterBuilder;
@@ -140,7 +138,7 @@ import static io.prestosql.plugin.hive.HiveTableProperties.ORC_BLOOM_FILTER_FPP;
 import static io.prestosql.plugin.hive.HiveType.toHiveTypes;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.copy;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
-import static io.prestosql.plugin.hive.util.HiveBucketing.containsTimestampBucketedV2;
+import static io.prestosql.plugin.hive.util.HiveBucketing.bucketedOnTimestamp;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -153,8 +151,8 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
-import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Byte.parseByte;
@@ -256,7 +254,8 @@ public final class HiveUtil
             RecordReader<WritableComparable, Writable> recordReader = (RecordReader<WritableComparable, Writable>) inputFormat.getRecordReader(fileSplit, jobConf, Reporter.NULL);
 
             int headerCount = getHeaderCount(schema);
-            if (headerCount > 0) {
+            //  Only skip header rows when the split is at the beginning of the file
+            if (start == 0 && headerCount > 0) {
                 Utilities.skipHeader(recordReader, headerCount, recordReader.createKey(), recordReader.createValue());
             }
 
@@ -369,9 +368,9 @@ public final class HiveUtil
         return TimeUnit.MILLISECONDS.toDays(millis);
     }
 
-    public static long parseHiveTimestamp(String value, DateTimeZone timeZone)
+    public static long parseHiveTimestamp(String value)
     {
-        return HIVE_TIMESTAMP_PARSER.withZone(timeZone).parseMillis(value);
+        return HIVE_TIMESTAMP_PARSER.parseMillis(value) * MICROSECONDS_PER_MILLISECOND;
     }
 
     public static boolean isSplittable(InputFormat<?, ?> inputFormat, FileSystem fileSystem, Path path)
@@ -519,12 +518,12 @@ public final class HiveUtil
                 REAL.equals(type) ||
                 DOUBLE.equals(type) ||
                 DATE.equals(type) ||
-                TIMESTAMP.equals(type) ||
+                TIMESTAMP_MILLIS.equals(type) ||
                 isVarcharType(type) ||
                 isCharType(type);
     }
 
-    public static NullableValue parsePartitionValue(String partitionName, String value, Type type, DateTimeZone timeZone)
+    public static NullableValue parsePartitionValue(String partitionName, String value, Type type)
     {
         verifyPartitionTypeSupported(partitionName, type);
 
@@ -606,18 +605,11 @@ public final class HiveUtil
             return NullableValue.of(DATE, datePartitionKey(value, partitionName));
         }
 
-        if (TIMESTAMP.equals(type)) {
+        if (TIMESTAMP_MILLIS.equals(type)) {
             if (isNull) {
-                return NullableValue.asNull(TIMESTAMP);
+                return NullableValue.asNull(TIMESTAMP_MILLIS);
             }
-            return NullableValue.of(TIMESTAMP, timestampPartitionKey(value, timeZone, partitionName, false));
-        }
-
-        if (TIMESTAMP_WITH_TIME_ZONE.equals(type)) {
-            if (isNull) {
-                return NullableValue.asNull(TIMESTAMP_WITH_TIME_ZONE);
-            }
-            return NullableValue.of(TIMESTAMP_WITH_TIME_ZONE, timestampPartitionKey(value, timeZone, partitionName, true));
+            return NullableValue.of(TIMESTAMP_MILLIS, timestampPartitionKey(value, partitionName));
         }
 
         if (REAL.equals(type)) {
@@ -826,11 +818,10 @@ public final class HiveUtil
         }
     }
 
-    public static long timestampPartitionKey(String value, DateTimeZone zone, String name, boolean shouldPackWithTimeZone)
+    public static long timestampPartitionKey(String value, String name)
     {
         try {
-            long millis = parseHiveTimestamp(value, zone);
-            return shouldPackWithTimeZone ? DateTimeEncoding.packDateTimeWithZone(millis, zone.getID()) : millis;
+            return parseHiveTimestamp(value);
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(HIVE_INVALID_PARTITION_VALUE, format("Invalid partition value '%s' for TIMESTAMP partition key: %s", value, name));
@@ -899,8 +890,7 @@ public final class HiveUtil
         // add hidden columns
         columns.add(pathColumnHandle());
         if (table.getStorage().getBucketProperty().isPresent()) {
-            // TODO (https://github.com/prestosql/presto/issues/1706): support bucketing v2 for timestamp
-            if (!containsTimestampBucketedV2(table.getStorage().getBucketProperty().get(), table)) {
+            if (!bucketedOnTimestamp(table.getStorage().getBucketProperty().get(), table)) {
                 columns.add(bucketColumnHandle());
             }
         }
@@ -989,7 +979,6 @@ public final class HiveUtil
             OptionalInt bucketNumber,
             long fileSize,
             long fileModifiedTime,
-            DateTimeZone hiveStorageTimeZone,
             String partitionName)
     {
         if (partitionKey != null) {
@@ -1005,7 +994,7 @@ public final class HiveUtil
             return String.valueOf(fileSize);
         }
         if (isFileModifiedTimeColumnHandle(columnHandle)) {
-            return HIVE_TIMESTAMP_PARSER.withZone(hiveStorageTimeZone).print(fileModifiedTime);
+            return HIVE_TIMESTAMP_PARSER.print(fileModifiedTime);
         }
         if (isPartitionColumnHandle(columnHandle)) {
             return partitionName;

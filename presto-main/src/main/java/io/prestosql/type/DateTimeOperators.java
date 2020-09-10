@@ -14,7 +14,6 @@
 package io.prestosql.type;
 
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.StandardTypes;
@@ -26,10 +25,6 @@ import java.util.concurrent.TimeUnit;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.ADD;
 import static io.prestosql.spi.function.OperatorType.SUBTRACT;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
-import static io.prestosql.spi.type.DateTimeEncoding.updateMillisUtc;
-import static io.prestosql.util.DateTimeZoneIndex.getChronology;
-import static io.prestosql.util.DateTimeZoneIndex.unpackChronology;
 
 public final class DateTimeOperators
 {
@@ -58,34 +53,6 @@ public final class DateTimeOperators
     }
 
     @ScalarOperator(ADD)
-    @SqlType(StandardTypes.TIME)
-    public static long timePlusIntervalDayToSecond(ConnectorSession session, @SqlType(StandardTypes.TIME) long time, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
-    {
-        return modulo24Hour(getChronology(session.getTimeZoneKey()), time + interval);
-    }
-
-    @ScalarOperator(ADD)
-    @SqlType(StandardTypes.TIME)
-    public static long intervalDayToSecondPlusTime(ConnectorSession session, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval, @SqlType(StandardTypes.TIME) long time)
-    {
-        return timePlusIntervalDayToSecond(session, time, interval);
-    }
-
-    @ScalarOperator(ADD)
-    @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
-    public static long timeWithTimeZonePlusIntervalDayToSecond(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long time, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
-    {
-        return updateMillisUtc((long) modulo24Hour(unpackChronology(time), unpackMillisUtc(time) + interval), time);
-    }
-
-    @ScalarOperator(ADD)
-    @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
-    public static long intervalDayToSecondPlusTimeWithTimeZone(@SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval, @SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long time)
-    {
-        return timeWithTimeZonePlusIntervalDayToSecond(time, interval);
-    }
-
-    @ScalarOperator(ADD)
     @SqlType(StandardTypes.DATE)
     public static long datePlusIntervalYearToMonth(@SqlType(StandardTypes.DATE) long date, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
     {
@@ -111,33 +78,9 @@ public final class DateTimeOperators
     }
 
     @ScalarOperator(SUBTRACT)
-    @SqlType(StandardTypes.TIME)
-    public static long timeMinusIntervalDayToSecond(ConnectorSession session, @SqlType(StandardTypes.TIME) long time, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
-    {
-        return timePlusIntervalDayToSecond(session, time, -interval);
-    }
-
-    @ScalarOperator(SUBTRACT)
-    @SqlType(StandardTypes.TIME_WITH_TIME_ZONE)
-    public static long timeWithTimeZoneMinusIntervalDayToSecond(@SqlType(StandardTypes.TIME_WITH_TIME_ZONE) long time, @SqlType(StandardTypes.INTERVAL_DAY_TO_SECOND) long interval)
-    {
-        return timeWithTimeZonePlusIntervalDayToSecond(time, -interval);
-    }
-
-    @ScalarOperator(SUBTRACT)
     @SqlType(StandardTypes.DATE)
     public static long dateMinusIntervalYearToMonth(@SqlType(StandardTypes.DATE) long date, @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long interval)
     {
         return datePlusIntervalYearToMonth(date, -interval);
-    }
-
-    public static int modulo24Hour(ISOChronology chronology, long millis)
-    {
-        return chronology.millisOfDay().get(millis) - chronology.getZone().getOffset(millis);
-    }
-
-    public static long modulo24Hour(long millis)
-    {
-        return MILLIS_OF_DAY.get(millis);
     }
 }

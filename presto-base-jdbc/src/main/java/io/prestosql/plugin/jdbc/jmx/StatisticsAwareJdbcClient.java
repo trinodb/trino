@@ -22,6 +22,7 @@ import io.prestosql.plugin.jdbc.JdbcOutputTableHandle;
 import io.prestosql.plugin.jdbc.JdbcSplit;
 import io.prestosql.plugin.jdbc.JdbcTableHandle;
 import io.prestosql.plugin.jdbc.JdbcTypeHandle;
+import io.prestosql.plugin.jdbc.RemoteTableName;
 import io.prestosql.plugin.jdbc.WriteMapping;
 import io.prestosql.spi.connector.AggregateFunction;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -104,6 +105,12 @@ public final class StatisticsAwareJdbcClient
     public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         return stats.getToPrestoType().wrap(() -> delegate().toPrestoType(session, connection, typeHandle));
+    }
+
+    @Override
+    public List<ColumnMapping> getColumnMappings(ConnectorSession session, List<JdbcTypeHandle> typeHandles)
+    {
+        return stats.getGetColumnMappings().wrap(() -> delegate.getColumnMappings(session, typeHandles));
     }
 
     @Override
@@ -271,5 +278,23 @@ public final class StatisticsAwareJdbcClient
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         return delegate().getSystemTable(session, tableName);
+    }
+
+    @Override
+    public String quoted(String name)
+    {
+        return delegate().quoted(name);
+    }
+
+    @Override
+    public String quoted(RemoteTableName remoteTableName)
+    {
+        return delegate().quoted(remoteTableName);
+    }
+
+    @Override
+    public Map<String, Object> getTableProperties(JdbcIdentity identity, JdbcTableHandle tableHandle)
+    {
+        return delegate().getTableProperties(identity, tableHandle);
     }
 }

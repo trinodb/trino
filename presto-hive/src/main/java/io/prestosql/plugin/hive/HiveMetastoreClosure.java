@@ -25,6 +25,7 @@ import io.prestosql.plugin.hive.metastore.PrincipalPrivileges;
 import io.prestosql.plugin.hive.metastore.Table;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
@@ -185,14 +186,14 @@ public class HiveMetastoreClosure
                 .flatMap(table -> delegate.getPartition(identity, table, partitionValues));
     }
 
-    public Optional<List<String>> getPartitionNames(HiveIdentity identity, String databaseName, String tableName)
+    public Optional<List<String>> getPartitionNamesByFilter(
+            HiveIdentity identity,
+            String databaseName,
+            String tableName,
+            List<String> columnNames,
+            TupleDomain<String> partitionKeysFilter)
     {
-        return delegate.getPartitionNames(identity, databaseName, tableName);
-    }
-
-    public Optional<List<String>> getPartitionNamesByParts(HiveIdentity identity, String databaseName, String tableName, List<String> parts)
-    {
-        return delegate.getPartitionNamesByParts(identity, databaseName, tableName, parts);
+        return delegate.getPartitionNamesByFilter(identity, databaseName, tableName, columnNames, partitionKeysFilter);
     }
 
     private List<Partition> getExistingPartitionsByNames(HiveIdentity identity, Table table, List<String> partitionNames)

@@ -108,7 +108,7 @@ public class TestMapTransformKeysFunction
         assertFunction(
                 "transform_keys(map(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '2010-05-10 12:34:56.123456789'], ARRAY[1, 2]), (k, v) -> date_add('year', 1, k))",
                 mapType(createTimestampType(9), INTEGER),
-                ImmutableMap.of(legacyTimestamp(9, "2021-05-10 12:34:56.123456789"), 1, legacyTimestamp(9, "2011-05-10 12:34:56.123456789"), 2));
+                ImmutableMap.of(timestamp(9, "2021-05-10 12:34:56.123456789"), 1, timestamp(9, "2011-05-10 12:34:56.123456789"), 2));
 
         Map<String, Integer> expectedStringIntMap = new HashMap<>();
         expectedStringIntMap.put("a1", 1);

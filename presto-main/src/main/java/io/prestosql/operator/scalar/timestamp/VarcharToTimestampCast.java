@@ -13,21 +13,17 @@
  */
 package io.prestosql.operator.scalar.timestamp;
 
+import com.google.common.annotations.VisibleForTesting;
 import io.airlift.slice.Slice;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestamp;
-import io.prestosql.spi.type.TimeZoneKey;
-import io.prestosql.type.Timestamps;
+import io.prestosql.type.DateTimes;
 
-import java.time.ZoneId;
-import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.function.Function;
 import java.util.regex.Matcher;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -36,11 +32,11 @@ import static io.prestosql.spi.StandardErrorCode.INVALID_CAST_ARGUMENT;
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.TimestampType.MAX_PRECISION;
 import static io.prestosql.spi.type.TimestampType.MAX_SHORT_PRECISION;
-import static io.prestosql.type.Timestamps.MICROSECONDS_PER_SECOND;
-import static io.prestosql.type.Timestamps.MILLISECONDS_PER_SECOND;
-import static io.prestosql.type.Timestamps.longTimestamp;
-import static io.prestosql.type.Timestamps.rescale;
-import static io.prestosql.type.Timestamps.round;
+import static io.prestosql.type.DateTimes.MICROSECONDS_PER_SECOND;
+import static io.prestosql.type.DateTimes.longTimestamp;
+import static io.prestosql.type.DateTimes.rescale;
+import static io.prestosql.type.DateTimes.round;
+import static java.time.ZoneOffset.UTC;
 
 @ScalarOperator(CAST)
 public final class VarcharToTimestampCast
@@ -49,20 +45,10 @@ public final class VarcharToTimestampCast
 
     @LiteralParameters({"x", "p"})
     @SqlType("timestamp(p)")
-    public static long castToShort(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("varchar(x)") Slice value)
+    public static long castToShort(@LiteralParameter("p") long precision, @SqlType("varchar(x)") Slice value)
     {
-        // This accepts value with or without time zone
-        if (session.isLegacyTimestamp()) {
-            try {
-                return castToLegacyShortTimestamp((int) precision, session.getTimeZoneKey(), trim(value).toStringUtf8());
-            }
-            catch (IllegalArgumentException e) {
-                throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8(), e);
-            }
-        }
-
         try {
-            return castToShortTimestamp((int) precision, trim(value).toStringUtf8(), timezone -> ZoneOffset.UTC);
+            return castToShortTimestamp((int) precision, trim(value).toStringUtf8());
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8(), e);
@@ -71,51 +57,22 @@ public final class VarcharToTimestampCast
 
     @LiteralParameters({"x", "p"})
     @SqlType("timestamp(p)")
-    public static LongTimestamp castToLong(@LiteralParameter("p") long precision, ConnectorSession session, @SqlType("varchar(x)") Slice value)
+    public static LongTimestamp castToLong(@LiteralParameter("p") long precision, @SqlType("varchar(x)") Slice value)
     {
-        // This accepts value with or without time zone
-        if (session.isLegacyTimestamp()) {
-            try {
-                return castToLegacyLongTimestamp((int) precision, session.getTimeZoneKey(), trim(value).toStringUtf8());
-            }
-            catch (IllegalArgumentException e) {
-                throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8(), e);
-            }
-        }
-
         try {
-            return castToLongTimestamp((int) precision, trim(value).toStringUtf8(), timezone -> ZoneOffset.UTC);
+            return castToLongTimestamp((int) precision, trim(value).toStringUtf8());
         }
         catch (IllegalArgumentException e) {
             throw new PrestoException(INVALID_CAST_ARGUMENT, "Value cannot be cast to timestamp: " + value.toStringUtf8(), e);
         }
     }
 
-    public static long castToLegacyShortTimestamp(int precision, TimeZoneKey timeZoneKey, String value)
-    {
-        return castToShortTimestamp(precision, value, timezone -> {
-            if (timezone == null) {
-                return timeZoneKey.getZoneId();
-            }
-            return ZoneId.of(timezone);
-        });
-    }
-
-    private static LongTimestamp castToLegacyLongTimestamp(int precision, TimeZoneKey timeZoneKey, String value)
-    {
-        return castToLongTimestamp(precision, value, timezone -> {
-            if (timezone == null) {
-                return timeZoneKey.getZoneId();
-            }
-            return ZoneId.of(timezone);
-        });
-    }
-
-    private static long castToShortTimestamp(int precision, String value, Function<String, ZoneId> zoneId)
+    @VisibleForTesting
+    public static long castToShortTimestamp(int precision, String value)
     {
         checkArgument(precision <= MAX_SHORT_PRECISION, "precision must be less than max short timestamp precision");
 
-        Matcher matcher = Timestamps.DATETIME_PATTERN.matcher(value);
+        Matcher matcher = DateTimes.DATETIME_PATTERN.matcher(value);
         if (!matcher.matches()) {
             throw new IllegalArgumentException("Invalid timestamp: " + value);
         }
@@ -127,7 +84,6 @@ public final class VarcharToTimestampCast
         String minute = matcher.group("minute");
         String second = matcher.group("second");
         String fraction = matcher.group("fraction");
-        String timezone = matcher.group("timezone");
 
         long epochSecond = ZonedDateTime.of(
                 Integer.parseInt(year),
@@ -137,7 +93,7 @@ public final class VarcharToTimestampCast
                 minute == null ? 0 : Integer.parseInt(minute),
                 second == null ? 0 : Integer.parseInt(second),
                 0,
-                zoneId.apply(timezone))
+                UTC)
                 .toEpochSecond();
 
         int actualPrecision = 0;
@@ -151,19 +107,16 @@ public final class VarcharToTimestampCast
             fractionValue = round(fractionValue, actualPrecision - precision);
         }
 
-        if (precision <= 3) {
-            return epochSecond * MILLISECONDS_PER_SECOND + rescale(fractionValue, actualPrecision, 3);
-        }
-
         // scale to micros
         return epochSecond * MICROSECONDS_PER_SECOND + rescale(fractionValue, actualPrecision, 6);
     }
 
-    private static LongTimestamp castToLongTimestamp(int precision, String value, Function<String, ZoneId> zoneId)
+    @VisibleForTesting
+    public static LongTimestamp castToLongTimestamp(int precision, String value)
     {
         checkArgument(precision > MAX_SHORT_PRECISION && precision <= MAX_PRECISION, "precision out of range");
 
-        Matcher matcher = Timestamps.DATETIME_PATTERN.matcher(value);
+        Matcher matcher = DateTimes.DATETIME_PATTERN.matcher(value);
         if (!matcher.matches()) {
             throw new IllegalArgumentException("Invalid timestamp: " + value);
         }
@@ -175,7 +128,6 @@ public final class VarcharToTimestampCast
         String minute = matcher.group("minute");
         String second = matcher.group("second");
         String fraction = matcher.group("fraction");
-        String timezone = matcher.group("timezone");
 
         long epochSecond = ZonedDateTime.of(
                 Integer.parseInt(year),
@@ -185,7 +137,7 @@ public final class VarcharToTimestampCast
                 minute == null ? 0 : Integer.parseInt(minute),
                 second == null ? 0 : Integer.parseInt(second),
                 0,
-                zoneId.apply(timezone))
+                UTC)
                 .toEpochSecond();
 
         int actualPrecision = 0;

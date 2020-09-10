@@ -180,9 +180,7 @@ public class TestJdbcRecordSetProvider
     {
         jdbcTableHandle = new JdbcTableHandle(
                 jdbcTableHandle.getSchemaTableName(),
-                jdbcTableHandle.getCatalogName(),
-                jdbcTableHandle.getSchemaName(),
-                jdbcTableHandle.getTableName(),
+                jdbcTableHandle.getRemoteTableName(),
                 domain,
                 Optional.empty(),
                 OptionalLong.empty(),

@@ -66,7 +66,10 @@ public class AddColumnTask
         QualifiedObjectName tableName = createQualifiedObjectName(session, statement, statement.getName());
         Optional<TableHandle> tableHandle = metadata.getTableHandle(session, tableName);
         if (tableHandle.isEmpty()) {
-            throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
+            if (!statement.isTableExists()) {
+                throw semanticException(TABLE_NOT_FOUND, statement, "Table '%s' does not exist", tableName);
+            }
+            return immediateFuture(null);
         }
 
         CatalogName catalogName = metadata.getCatalogHandle(session, tableName.getCatalogName())
@@ -88,7 +91,10 @@ public class AddColumnTask
             throw semanticException(COLUMN_TYPE_UNKNOWN, element, "Unknown type '%s' for column '%s'", element.getType(), element.getName());
         }
         if (columnHandles.containsKey(element.getName().getValue().toLowerCase(ENGLISH))) {
-            throw semanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", element.getName());
+            if (!statement.isColumnNotExists()) {
+                throw semanticException(COLUMN_ALREADY_EXISTS, statement, "Column '%s' already exists", element.getName());
+            }
+            return immediateFuture(null);
         }
         if (!element.isNullable() && !metadata.getConnectorCapabilities(session, catalogName).contains(NOT_NULL_COLUMN_CONSTRAINT)) {
             throw semanticException(NOT_SUPPORTED, element, "Catalog '%s' does not support NOT NULL for column '%s'", catalogName.getCatalogName(), element.getName());

@@ -252,4 +252,40 @@ public class TestExtract
         assertThat(assertions.expression("year_of_week(TIMESTAMP '2020-05-10 12:34:56.12345678901 Asia/Kathmandu')")).matches("BIGINT '2020'");
         assertThat(assertions.expression("year_of_week(TIMESTAMP '2020-05-10 12:34:56.123456789012 Asia/Kathmandu')")).matches("BIGINT '2020'");
     }
+
+    @Test
+    public void testTimeZoneHour()
+    {
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56 +08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56.1 +08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56.12 +08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56.123 +08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56.1234 +08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56.12345 +08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56.123456 +08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56.1234567 +08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56.12345678 +08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56.123456789 +08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56.1234567891 +08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56.12345678912 +08:35')")).matches("BIGINT '8'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_HOUR FROM TIMESTAMP '2020-05-10 12:34:56.123456789123 +08:35')")).matches("BIGINT '8'");
+    }
+
+    @Test
+    public void testTimeZoneMinute()
+    {
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56 +08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.1 +08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.12 +08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.123 +08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.1234 +08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.12345 +08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.123456 +08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.1234567 +08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.12345678 +08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.123456789 +08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.1234567891 +08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.12345678912 +08:35')")).matches("BIGINT '35'");
+        assertThat(assertions.expression("EXTRACT(TIMEZONE_MINUTE FROM TIMESTAMP '2020-05-10 12:34:56.123456789123 +08:35')")).matches("BIGINT '35'");
+    }
 }

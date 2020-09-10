@@ -246,7 +246,7 @@ public class PrestoStatement
             executingClient.set(client);
             WarningsManager warningsManager = new WarningsManager();
             currentWarningsManager.set(Optional.of(warningsManager));
-            resultSet = PrestoResultSet.create(client, maxRows.get(), progressConsumer, warningsManager);
+            resultSet = PrestoResultSet.create(this, client, maxRows.get(), progressConsumer, warningsManager);
 
             // check if this is a query
             if (client.currentStatusInfo().getUpdateType() == null) {

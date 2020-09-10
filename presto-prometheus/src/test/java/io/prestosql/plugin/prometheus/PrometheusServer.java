@@ -13,21 +13,21 @@
  */
 package io.prestosql.plugin.prometheus;
 
-import com.google.common.net.HostAndPort;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 
 import java.io.Closeable;
+import java.net.URI;
 import java.time.Duration;
 
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.fail;
 
 public class PrometheusServer
         implements Closeable
 {
     private static final int PROMETHEUS_PORT = 9090;
     private static final String PROMETHEUS_DOCKER_IMAGE = "prom/prometheus:v2.15.1";
-    private static final Integer MAX_TRIES = 60;
+    private static final Integer MAX_TRIES = 120;
     private static final Integer TIME_BETWEEN_TRIES_MILLIS = 1000;
 
     private final GenericContainer<?> dockerContainer;
@@ -41,27 +41,22 @@ public class PrometheusServer
         this.dockerContainer.start();
     }
 
-    protected boolean checkServerReady(PrometheusClient client)
+    protected static void checkServerReady(PrometheusClient client)
             throws Exception
     {
-        int tries = 0;
         // ensure Prometheus available and ready to answer metrics list query
-        while (tries < MAX_TRIES) {
+        for (int tries = 0; tries < MAX_TRIES; tries++) {
             if (client.getTableNames("default").contains("up")) {
-                return true;
+                return;
             }
+            Thread.sleep(TIME_BETWEEN_TRIES_MILLIS);
         }
-        Thread.sleep(TIME_BETWEEN_TRIES_MILLIS);
-        tries++;
-        if (tries == MAX_TRIES) {
-            assertTrue(false, "Prometheus container not available for metrics query in " + MAX_TRIES * TIME_BETWEEN_TRIES_MILLIS + " milliseconds.");
-        }
-        return false;
+        fail("Prometheus container not available for metrics query in " + MAX_TRIES * TIME_BETWEEN_TRIES_MILLIS + " milliseconds.");
     }
 
-    public HostAndPort getAddress()
+    public URI getUri()
     {
-        return HostAndPort.fromParts(dockerContainer.getContainerIpAddress(), dockerContainer.getMappedPort(PROMETHEUS_PORT));
+        return URI.create("http://" + dockerContainer.getContainerIpAddress() + ":" + dockerContainer.getMappedPort(PROMETHEUS_PORT) + "/");
     }
 
     @Override

@@ -24,6 +24,7 @@ import io.airlift.configuration.AbstractConfigurationAwareModule;
 import io.airlift.discovery.server.DynamicAnnouncementResource;
 import io.airlift.discovery.server.ServiceResource;
 import io.airlift.discovery.store.StoreResource;
+import io.airlift.http.server.HttpServer.ClientCertificate;
 import io.airlift.http.server.HttpServerConfig;
 import io.airlift.jmx.MBeanResource;
 
@@ -33,8 +34,10 @@ import java.util.Map;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.inject.multibindings.MapBinder.newMapBinder;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConditionalModule.installModuleIf;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.http.server.HttpServer.ClientCertificate.REQUESTED;
 import static io.airlift.jaxrs.JaxrsBinder.jaxrsBinder;
 import static io.prestosql.server.security.ResourceSecurityBinder.resourceSecurityBinder;
 import static java.util.Locale.ENGLISH;
@@ -61,11 +64,16 @@ public class ServerSecurityModule
 
         authenticatorBinder(binder); // create empty map binder
 
-        installAuthenticator("certificate", CertificateAuthenticator.class, CertificateConfig.class);
+        install(authenticatorModule("certificate", CertificateAuthenticator.class, certificateBinder -> {
+            newOptionalBinder(certificateBinder, ClientCertificate.class).setBinding().toInstance(REQUESTED);
+            configBinder(certificateBinder).bindConfig(CertificateConfig.class);
+        }));
         installAuthenticator("kerberos", KerberosAuthenticator.class, KerberosConfig.class);
         installAuthenticator("password", PasswordAuthenticator.class, PasswordAuthenticatorConfig.class);
         installAuthenticator("jwt", JsonWebTokenAuthenticator.class, JsonWebTokenConfig.class);
 
+        configBinder(binder).bindConfig(InsecureAuthenticatorConfig.class);
+        binder.bind(InsecureAuthenticator.class).in(Scopes.SINGLETON);
         install(authenticatorModule("insecure", InsecureAuthenticator.class, unused -> {}));
     }
 

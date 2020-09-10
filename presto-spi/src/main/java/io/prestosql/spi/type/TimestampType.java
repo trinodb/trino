@@ -19,9 +19,7 @@ import static io.prestosql.spi.StandardErrorCode.NUMERIC_VALUE_OUT_OF_RANGE;
 import static java.lang.String.format;
 
 /**
- * A timestamp is stored as milliseconds from 1970-01-01T00:00:00 UTC and is to be interpreted as date-time in UTC.
- * In legacy timestamp semantics, timestamp is stored as milliseconds from 1970-01-01T00:00:00 UTC and is to be
- * interpreted in session time zone.
+ * A timestamp is encoded as milliseconds from 1970-01-01T00:00:00 UTC and is to be interpreted as local date time without regards to any time zone.
  */
 public abstract class TimestampType
         extends AbstractType
@@ -32,27 +30,34 @@ public abstract class TimestampType
     public static final int MAX_SHORT_PRECISION = 6;
     public static final int DEFAULT_PRECISION = 3; // TODO: should be 6 per SQL spec
 
+    private static final TimestampType[] TYPES = new TimestampType[MAX_PRECISION + 1];
+
+    static {
+        for (int precision = 0; precision <= MAX_PRECISION; precision++) {
+            TYPES[precision] = (precision <= MAX_SHORT_PRECISION) ? new ShortTimestampType(precision) : new LongTimestampType(precision);
+        }
+    }
+
+    public static final TimestampType TIMESTAMP_SECONDS = createTimestampType(0);
+    public static final TimestampType TIMESTAMP_MILLIS = createTimestampType(3);
+    public static final TimestampType TIMESTAMP_MICROS = createTimestampType(6);
+    public static final TimestampType TIMESTAMP_NANOS = createTimestampType(9);
+    public static final TimestampType TIMESTAMP_PICOS = createTimestampType(12);
+
+    /**
+     * @deprecated use {@link #TIMESTAMP_MILLIS} instead
+     */
     @Deprecated
-    public static final TimestampType TIMESTAMP = new ShortTimestampType(DEFAULT_PRECISION);
+    public static final TimestampType TIMESTAMP = TIMESTAMP_MILLIS;
 
     private final int precision;
 
     public static TimestampType createTimestampType(int precision)
     {
-        if (precision == DEFAULT_PRECISION) {
-            // Use singleton for backwards compatibility with code checking `type == TIMESTAMP`
-            return TIMESTAMP;
-        }
-
         if (precision < 0 || precision > MAX_PRECISION) {
             throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("TIMESTAMP precision must be in range [0, %s]", MAX_PRECISION));
         }
-
-        if (precision <= MAX_SHORT_PRECISION) {
-            return new ShortTimestampType(precision);
-        }
-
-        return new LongTimestampType(precision);
+        return TYPES[precision];
     }
 
     TimestampType(int precision, Class<?> javaType)

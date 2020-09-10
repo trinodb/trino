@@ -13,11 +13,69 @@
  */
 package io.prestosql.operator.scalar.timestamptz;
 
+import io.prestosql.Session;
+import io.prestosql.sql.query.QueryAssertions;
+import org.testng.annotations.AfterClass;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
+
+import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
+import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static org.assertj.core.api.Assertions.assertThat;
+
 public class TestAtTimeZone
-        extends BaseTestAtTimeZone
 {
-    protected TestAtTimeZone()
+    private QueryAssertions assertions;
+
+    @BeforeClass
+    public void init()
     {
-        super(false);
+        Session session = testSessionBuilder()
+                .setTimeZoneKey(getTimeZoneKey("Pacific/Apia"))
+                .build();
+        assertions = new QueryAssertions(session);
+    }
+
+    @AfterClass(alwaysRun = true)
+    public void teardown()
+    {
+        assertions.close();
+        assertions = null;
+    }
+
+    @Test
+    public void testAtTimeZone()
+    {
+        assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56 +07:09', 'America/Los_Angeles')")).matches("TIMESTAMP '2020-04-30 22:25:56 America/Los_Angeles'");
+        assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.1 +07:09', 'America/Los_Angeles')")).matches("TIMESTAMP '2020-04-30 22:25:56.1 America/Los_Angeles'");
+        assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.12 +07:09', 'America/Los_Angeles')")).matches("TIMESTAMP '2020-04-30 22:25:56.12 America/Los_Angeles'");
+        assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.123 +07:09', 'America/Los_Angeles')")).matches("TIMESTAMP '2020-04-30 22:25:56.123 America/Los_Angeles'");
+        assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.1234 +07:09', 'America/Los_Angeles')")).matches("TIMESTAMP '2020-04-30 22:25:56.1234 America/Los_Angeles'");
+        assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.12345 +07:09', 'America/Los_Angeles')")).matches("TIMESTAMP '2020-04-30 22:25:56.12345 America/Los_Angeles'");
+        assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.123456 +07:09', 'America/Los_Angeles')")).matches("TIMESTAMP '2020-04-30 22:25:56.123456 America/Los_Angeles'");
+        assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.1234567 +07:09', 'America/Los_Angeles')")).matches("TIMESTAMP '2020-04-30 22:25:56.1234567 America/Los_Angeles'");
+        assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.12345678 +07:09', 'America/Los_Angeles')")).matches("TIMESTAMP '2020-04-30 22:25:56.12345678 America/Los_Angeles'");
+        assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.123456789 +07:09', 'America/Los_Angeles')")).matches("TIMESTAMP '2020-04-30 22:25:56.123456789 America/Los_Angeles'");
+        assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.1234567891 +07:09', 'America/Los_Angeles')")).matches("TIMESTAMP '2020-04-30 22:25:56.1234567891 America/Los_Angeles'");
+        assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.12345678912 +07:09', 'America/Los_Angeles')")).matches("TIMESTAMP '2020-04-30 22:25:56.12345678912 America/Los_Angeles'");
+        assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.123456789123 +07:09', 'America/Los_Angeles')")).matches("TIMESTAMP '2020-04-30 22:25:56.123456789123 America/Los_Angeles'");
+    }
+
+    @Test
+    public void testAtTimeZoneWithOffset()
+    {
+        assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56 +07:09', INTERVAL '03:04' HOUR TO MINUTE)")).matches("TIMESTAMP '2020-05-01 08:29:56 +03:04'");
+        assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.1 +07:09', INTERVAL '03:04' HOUR TO MINUTE)")).matches("TIMESTAMP '2020-05-01 08:29:56.1 +03:04'");
+        assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.12 +07:09', INTERVAL '03:04' HOUR TO MINUTE)")).matches("TIMESTAMP '2020-05-01 08:29:56.12 +03:04'");
+        assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.123 +07:09', INTERVAL '03:04' HOUR TO MINUTE)")).matches("TIMESTAMP '2020-05-01 08:29:56.123 +03:04'");
+        assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.1234 +07:09', INTERVAL '03:04' HOUR TO MINUTE)")).matches("TIMESTAMP '2020-05-01 08:29:56.1234 +03:04'");
+        assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.12345 +07:09', INTERVAL '03:04' HOUR TO MINUTE)")).matches("TIMESTAMP '2020-05-01 08:29:56.12345 +03:04'");
+        assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.123456 +07:09', INTERVAL '03:04' HOUR TO MINUTE)")).matches("TIMESTAMP '2020-05-01 08:29:56.123456 +03:04'");
+        assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.1234567 +07:09', INTERVAL '03:04' HOUR TO MINUTE)")).matches("TIMESTAMP '2020-05-01 08:29:56.1234567 +03:04'");
+        assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.12345678 +07:09', INTERVAL '03:04' HOUR TO MINUTE)")).matches("TIMESTAMP '2020-05-01 08:29:56.12345678 +03:04'");
+        assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.123456789 +07:09', INTERVAL '03:04' HOUR TO MINUTE)")).matches("TIMESTAMP '2020-05-01 08:29:56.123456789 +03:04'");
+        assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.1234567891 +07:09', INTERVAL '03:04' HOUR TO MINUTE)")).matches("TIMESTAMP '2020-05-01 08:29:56.1234567891 +03:04'");
+        assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.12345678912 +07:09', INTERVAL '03:04' HOUR TO MINUTE)")).matches("TIMESTAMP '2020-05-01 08:29:56.12345678912 +03:04'");
+        assertThat(assertions.expression("at_timezone(TIMESTAMP '2020-05-01 12:34:56.123456789123 +07:09', INTERVAL '03:04' HOUR TO MINUTE)")).matches("TIMESTAMP '2020-05-01 08:29:56.123456789123 +03:04'");
     }
 }

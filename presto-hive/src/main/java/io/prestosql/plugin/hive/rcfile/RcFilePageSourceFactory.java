@@ -22,6 +22,7 @@ import io.prestosql.plugin.hive.AcidInfo;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HiveColumnHandle;
+import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HivePageSourceFactory;
 import io.prestosql.plugin.hive.ReaderProjections;
 import io.prestosql.rcfile.AircompressorCodecFactory;
@@ -85,13 +86,15 @@ public class RcFilePageSourceFactory
     private final TypeManager typeManager;
     private final HdfsEnvironment hdfsEnvironment;
     private final FileFormatDataSourceStats stats;
+    private final DateTimeZone timeZone;
 
     @Inject
-    public RcFilePageSourceFactory(TypeManager typeManager, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats)
+    public RcFilePageSourceFactory(TypeManager typeManager, HdfsEnvironment hdfsEnvironment, FileFormatDataSourceStats stats, HiveConfig hiveConfig)
     {
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.stats = requireNonNull(stats, "stats is null");
+        this.timeZone = requireNonNull(hiveConfig, "hiveConfig is null").getRcfileDateTimeZone();
     }
 
     @Override
@@ -105,16 +108,15 @@ public class RcFilePageSourceFactory
             Properties schema,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
-            DateTimeZone hiveStorageTimeZone,
             Optional<AcidInfo> acidInfo)
     {
         RcFileEncoding rcFileEncoding;
         String deserializerClassName = getDeserializerClassName(schema);
         if (deserializerClassName.equals(LazyBinaryColumnarSerDe.class.getName())) {
-            rcFileEncoding = new BinaryRcFileEncoding();
+            rcFileEncoding = new BinaryRcFileEncoding(timeZone);
         }
         else if (deserializerClassName.equals(ColumnarSerDe.class.getName())) {
-            rcFileEncoding = createTextVectorEncoding(schema, hiveStorageTimeZone);
+            rcFileEncoding = createTextVectorEncoding(schema);
         }
         else {
             return Optional.empty();
@@ -188,7 +190,7 @@ public class RcFilePageSourceFactory
         return format("Error opening Hive split %s (offset=%s, length=%s): %s", path, start, length, t.getMessage());
     }
 
-    public static TextRcFileEncoding createTextVectorEncoding(Properties schema, DateTimeZone hiveStorageTimeZone)
+    public static TextRcFileEncoding createTextVectorEncoding(Properties schema)
     {
         // separators
         int nestingLevels;
@@ -229,7 +231,6 @@ public class RcFilePageSourceFactory
         }
 
         return new TextRcFileEncoding(
-                hiveStorageTimeZone,
                 nullSequence,
                 separators,
                 escapeByte,

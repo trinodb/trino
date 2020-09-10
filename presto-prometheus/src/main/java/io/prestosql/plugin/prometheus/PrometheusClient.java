@@ -13,75 +13,76 @@
  */
 package io.prestosql.plugin.prometheus;
 
-import com.google.common.base.Supplier;
 import com.google.common.base.Suppliers;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.common.io.Files;
 import io.airlift.json.JsonCodec;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.type.DoubleType;
-import io.prestosql.spi.type.MapType;
-import io.prestosql.spi.type.TimestampType;
+import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import okhttp3.OkHttpClient;
+import okhttp3.OkHttpClient.Builder;
 import okhttp3.Request;
 import okhttp3.Response;
-import okhttp3.ResponseBody;
-import org.apache.http.client.utils.URIBuilder;
 
 import javax.inject.Inject;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 
 import static io.prestosql.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_TABLES_METRICS_RETRIEVE_ERROR;
 import static io.prestosql.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_UNKNOWN_ERROR;
-import static io.prestosql.spi.StandardErrorCode.NOT_FOUND;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.createTimestampWithTimeZoneType;
 import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static java.nio.charset.StandardCharsets.UTF_8;
+import static java.nio.file.Files.readString;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class PrometheusClient
 {
-    private PrometheusConnectorConfig config;
+    static final Type TIMESTAMP_COLUMN_TYPE = createTimestampWithTimeZoneType(3);
     static final String METRICS_ENDPOINT = "/api/v1/label/__name__/values";
-    private static final OkHttpClient httpClient = new OkHttpClient.Builder().build();
+    private static final OkHttpClient httpClient = new Builder().build();
+
+    private final Optional<File> bearerTokenFile;
     private final Supplier<Map<String, Object>> tableSupplier;
-    private final TypeManager typeManager;
+    private final Type varcharMapType;
 
     @Inject
     public PrometheusClient(PrometheusConnectorConfig config, JsonCodec<Map<String, Object>> metricCodec, TypeManager typeManager)
-            throws URISyntaxException
     {
         requireNonNull(config, "config is null");
         requireNonNull(metricCodec, "metricCodec is null");
         requireNonNull(typeManager, "typeManager is null");
 
-        tableSupplier = Suppliers.memoizeWithExpiration(metricsSupplier(metricCodec, getPrometheusMetricsURI(config)),
-                (long) config.getCacheDuration().getValue(), config.getCacheDuration().getUnit());
-        this.typeManager = typeManager;
-        this.config = config;
+        bearerTokenFile = config.getBearerTokenFile();
+        URI prometheusMetricsUri = getPrometheusMetricsURI(config.getPrometheusURI());
+        tableSupplier = Suppliers.memoizeWithExpiration(
+                () -> fetchMetrics(metricCodec, prometheusMetricsUri),
+                config.getCacheDuration().toMillis(),
+                MILLISECONDS);
+        varcharMapType = typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
     }
 
-    private URI getPrometheusMetricsURI(PrometheusConnectorConfig config)
-            throws URISyntaxException
+    private static URI getPrometheusMetricsURI(URI prometheusUri)
     {
-        // endpoint to retrieve metric names from Prometheus
-        URI uri = config.getPrometheusURI();
-        return new URIBuilder()
-                .setScheme(uri.getScheme())
-                .setHost(uri.getAuthority())
-                .setPath(uri.getPath().concat(METRICS_ENDPOINT))
-                .build();
+        try {
+            // endpoint to retrieve metric names from Prometheus
+            return new URI(prometheusUri.getScheme(), prometheusUri.getAuthority(), prometheusUri.getPath() + METRICS_ENDPOINT, null, null);
+        }
+        catch (URISyntaxException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     public Set<String> getTableNames(String schema)
@@ -106,72 +107,58 @@ public class PrometheusClient
     {
         requireNonNull(schema, "schema is null");
         requireNonNull(tableName, "tableName is null");
-        if (schema.equals("default")) {
-            List<String> tableNames = (List<String>) tableSupplier.get().get("data");
-            if (tableNames == null) {
-                return null;
-            }
-            if (!tableNames.contains(tableName)) {
-                return null;
-            }
-            MapType varcharMapType = (MapType) typeManager.getType(mapType(VARCHAR.getTypeSignature(), VARCHAR.getTypeSignature()));
-            PrometheusTable table = new PrometheusTable(
-                    tableName,
-                    ImmutableList.of(
-                            new PrometheusColumn("labels", varcharMapType),
-                            new PrometheusColumn("timestamp", TimestampType.TIMESTAMP),
-                            new PrometheusColumn("value", DoubleType.DOUBLE)));
-            PrometheusTableHandle tableHandle = new PrometheusTableHandle(schema, tableName);
-            return table;
+        if (!schema.equals("default")) {
+            return null;
         }
-        return null;
+
+        List<String> tableNames = (List<String>) tableSupplier.get().get("data");
+        if (tableNames == null) {
+            return null;
+        }
+        if (!tableNames.contains(tableName)) {
+            return null;
+        }
+        return new PrometheusTable(
+                tableName,
+                ImmutableList.of(
+                        new PrometheusColumn("labels", varcharMapType),
+                        new PrometheusColumn("timestamp", TIMESTAMP_COLUMN_TYPE),
+                        new PrometheusColumn("value", DoubleType.DOUBLE)));
     }
 
-    private static Supplier<Map<String, Object>> metricsSupplier(final JsonCodec<Map<String, Object>> metricsCodec, final URI metadataUri)
+    private Map<String, Object> fetchMetrics(JsonCodec<Map<String, Object>> metricsCodec, URI metadataUri)
     {
-        return () -> {
+        return metricsCodec.fromJson(fetchUri(metadataUri));
+    }
+
+    public byte[] fetchUri(URI uri)
+    {
+        Request.Builder requestBuilder = new Request.Builder().url(uri.toString());
+        getBearerAuthInfoFromFile().map(bearerToken -> requestBuilder.header("Authorization", "Bearer " + bearerToken));
+
+        Response response;
+        try {
+            response = httpClient.newCall(requestBuilder.build()).execute();
+            if (response.isSuccessful() && response.body() != null) {
+                return response.body().bytes();
+            }
+        }
+        catch (IOException e) {
+            throw new PrestoException(PROMETHEUS_UNKNOWN_ERROR, "Error reading metrics", e);
+        }
+
+        throw new PrestoException(PROMETHEUS_UNKNOWN_ERROR, "Bad response " + response.code() + response.message());
+    }
+
+    private Optional<String> getBearerAuthInfoFromFile()
+    {
+        return bearerTokenFile.map(tokenFileName -> {
             try {
-                byte[] json = getHttpResponse(metadataUri).bytes();
-                Map<String, Object> metrics = metricsCodec.fromJson(json);
-                return metrics;
+                return readString(tokenFileName.toPath(), UTF_8);
             }
-            catch (IOException | URISyntaxException e) {
-                throw new UncheckedIOException((IOException) e);
+            catch (IOException e) {
+                throw new PrestoException(PROMETHEUS_UNKNOWN_ERROR, "Failed to read bearer token file: " + tokenFileName, e);
             }
-        };
-    }
-
-    static ResponseBody getHttpResponse(URI uri)
-            throws IOException, URISyntaxException
-    {
-        Request.Builder requestBuilder = new Request.Builder();
-        if (new PrometheusConnectorConfig() != null) {
-            getBearerAuthInfoFromFile().map(bearerToken ->
-                    requestBuilder.header("Authorization", "Bearer " + bearerToken));
-        }
-        requestBuilder.url(uri.toURL());
-        Request request = requestBuilder.build();
-        Response response = httpClient.newCall(request).execute();
-        if (response.isSuccessful()) {
-            return response.body();
-        }
-        else {
-            throw new PrestoException(PROMETHEUS_UNKNOWN_ERROR, "Bad response " + response.code() + response.message());
-        }
-    }
-
-    static Optional<String> getBearerAuthInfoFromFile()
-            throws URISyntaxException
-    {
-        return new PrometheusConnectorConfig().getBearerTokenFile()
-                .map(tokenFileName -> {
-                    try {
-                        File tokenFile = tokenFileName;
-                        return Optional.of(Files.toString(tokenFile, UTF_8));
-                    }
-                    catch (Exception e) {
-                        throw new PrestoException(NOT_FOUND, "Failed to find/read file: " + tokenFileName, e);
-                    }
-                }).orElse(Optional.empty());
+        });
     }
 }

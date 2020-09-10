@@ -46,7 +46,6 @@ import java.util.TimeZone;
 import static com.google.common.base.Strings.repeat;
 import static com.google.common.primitives.Ints.asList;
 import static io.prestosql.client.ClientTypeSignature.VARCHAR_UNBOUNDED_LENGTH;
-import static io.prestosql.jdbc.TestPrestoDriver.closeQuietly;
 import static io.prestosql.jdbc.TestPrestoDriver.waitForNodeRefresh;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
@@ -78,8 +77,9 @@ public class TestJdbcPreparedStatement
 
     @AfterClass(alwaysRun = true)
     public void tearDown()
+            throws Exception
     {
-        closeQuietly(server);
+        server.close();
     }
 
     @Test

@@ -13,51 +13,58 @@
  */
 package io.prestosql.operator.scalar.timestamptz;
 
-import io.prestosql.spi.connector.ConnectorSession;
+import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestampWithTimeZone;
-import io.prestosql.spi.type.StandardTypes;
-import org.joda.time.chrono.ISOChronology;
 
-import static io.prestosql.operator.scalar.DateTimeFunctions.valueToSessionTimeZoneOffsetDiff;
+import java.time.Instant;
+import java.time.ZoneId;
+
 import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
+import static io.prestosql.spi.type.TimeType.MAX_PRECISION;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.type.Timestamps.roundToEpochMillis;
-import static io.prestosql.util.DateTimeZoneIndex.getChronology;
-import static io.prestosql.util.DateTimeZoneIndex.getDateTimeZone;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_DAY;
+import static io.prestosql.type.DateTimes.rescale;
+import static io.prestosql.type.DateTimes.round;
 
 @ScalarOperator(CAST)
 public final class TimestampWithTimeZoneToTimeCast
 {
     private TimestampWithTimeZoneToTimeCast() {}
 
-    @LiteralParameters("p")
-    @SqlType(StandardTypes.TIME)
-    public static long cast(ConnectorSession session, @SqlType("timestamp(p) with time zone") long packedEpochMillis)
+    @LiteralParameters({"sourcePrecision", "targetPrecision"})
+    @SqlType("time(targetPrecision)")
+    public static long cast(
+            @LiteralParameter("targetPrecision") long targetPrecision,
+            @SqlType("timestamp(sourcePrecision) with time zone") long packedEpochMillis)
     {
-        return convert(session, getChronology(unpackZoneKey(packedEpochMillis)), unpackMillisUtc(packedEpochMillis));
+        long epochMillis = unpackMillisUtc(packedEpochMillis);
+        ZoneId zoneId = unpackZoneKey(packedEpochMillis).getZoneId();
+        return convert(targetPrecision, epochMillis, 0, zoneId);
     }
 
-    @LiteralParameters("p")
-    @SqlType(StandardTypes.TIME)
-    public static long cast(ConnectorSession session, @SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp)
+    @LiteralParameters({"sourcePrecision", "targetPrecision"})
+    @SqlType("time(targetPrecision)")
+    public static long cast(
+            @LiteralParameter("targetPrecision") long targetPrecision,
+            @SqlType("timestamp(sourcePrecision) with time zone") LongTimestampWithTimeZone timestamp)
     {
-        return convert(session, getChronology(getTimeZoneKey(timestamp.getTimeZoneKey())), roundToEpochMillis(timestamp));
+        return convert(targetPrecision, timestamp.getEpochMillis(), timestamp.getPicosOfMilli(), getTimeZoneKey(timestamp.getTimeZoneKey()).getZoneId());
     }
 
-    private static long convert(ConnectorSession session, ISOChronology chronology, long epochMillis)
+    private static long convert(long targetPrecision, long epochMillis, long picosOfMilli, ZoneId zoneId)
     {
-        if (session.isLegacyTimestamp()) {
-            int millis = chronology.millisOfDay().get(epochMillis) - chronology.getZone().getOffset(epochMillis);
-            millis -= valueToSessionTimeZoneOffsetDiff(epochMillis, getDateTimeZone(session.getTimeZoneKey()));
-            return millis;
-        }
+        long nanoOfDay = Instant.ofEpochMilli(epochMillis)
+                .atZone(zoneId)
+                .toLocalDateTime()
+                .toLocalTime()
+                .toNanoOfDay();
 
-        long millis = chronology.getZone().convertUTCToLocal(epochMillis);
-        return ISOChronology.getInstanceUTC().millisOfDay().get(millis);
+        long picoOfDay = rescale(nanoOfDay, 9, 12) + picosOfMilli;
+        return round(picoOfDay, (int) (MAX_PRECISION - targetPrecision)) % PICOSECONDS_PER_DAY;
     }
 }

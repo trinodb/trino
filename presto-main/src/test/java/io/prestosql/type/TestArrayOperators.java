@@ -43,7 +43,6 @@ import java.util.List;
 import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.block.BlockSerdeUtil.writeBlock;
 import static io.prestosql.operator.aggregation.TypedSet.MAX_FUNCTION_MEMORY;
 import static io.prestosql.spi.StandardErrorCode.AMBIGUOUS_FUNCTION_CALL;
@@ -68,8 +67,8 @@ import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
+import static io.prestosql.type.DateTimes.parseTimestamp;
 import static io.prestosql.type.JsonType.JSON;
-import static io.prestosql.type.Timestamps.parseLegacyTimestamp;
 import static io.prestosql.type.UnknownType.UNKNOWN;
 import static io.prestosql.util.StructuralTestUtil.appendToBlockBuilder;
 import static io.prestosql.util.StructuralTestUtil.arrayBlockOf;
@@ -206,7 +205,7 @@ public class TestArrayOperators
         assertFunction(
                 "CAST(ARRAY[TIMESTAMP '1970-01-01 00:00:01', null] AS JSON)",
                 JSON,
-                format("[\"%s\",null]", sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0, TEST_SESSION)));
+                format("[\"%s\",null]", sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0)));
         assertFunction(
                 "CAST(ARRAY[DATE '2001-08-22', DATE '2001-08-23', null] AS JSON)",
                 JSON,
@@ -370,8 +369,8 @@ public class TestArrayOperators
                 "ARRAY [TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1973-07-08 22:00:01']",
                 new ArrayType(createTimestampType(0)),
                 ImmutableList.of(
-                        sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0, TEST_SESSION),
-                        sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0, TEST_SESSION)));
+                        sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0),
+                        sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0)));
         assertFunction("ARRAY [sqrt(-1)]", new ArrayType(DOUBLE), ImmutableList.of(NaN));
         assertFunction("ARRAY [pow(infinity(), 2)]", new ArrayType(DOUBLE), ImmutableList.of(POSITIVE_INFINITY));
         assertFunction("ARRAY [pow(-infinity(), 1)]", new ArrayType(DOUBLE), ImmutableList.of(NEGATIVE_INFINITY));
@@ -406,8 +405,8 @@ public class TestArrayOperators
         assertFunction("ARRAY [TRUE] || ARRAY [FALSE]", new ArrayType(BOOLEAN), ImmutableList.of(true, false));
         assertFunction("concat(ARRAY [1] , ARRAY[2,3])", new ArrayType(INTEGER), ImmutableList.of(1, 2, 3));
         assertFunction("ARRAY [TIMESTAMP '1970-01-01 00:00:01'] || ARRAY[TIMESTAMP '1973-07-08 22:00:01']", new ArrayType(createTimestampType(0)), ImmutableList.of(
-                sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0, TEST_SESSION),
-                sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0, TEST_SESSION)));
+                sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0),
+                sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0)));
         assertFunction("ARRAY [ARRAY[ARRAY[1]]] || ARRAY [ARRAY[ARRAY[2]]]",
                 new ArrayType(new ArrayType(new ArrayType(INTEGER))),
                 asList(singletonList(Ints.asList(1)), singletonList(Ints.asList(2))));
@@ -468,11 +467,11 @@ public class TestArrayOperators
         assertFunction("'puppies' || ARRAY ['kittens']", new ArrayType(createVarcharType(7)), Lists.newArrayList("puppies", "kittens"));
         assertFunction("ARRAY ['kittens'] || 'puppies'", new ArrayType(createVarcharType(7)), Lists.newArrayList("kittens", "puppies"));
         assertFunction("ARRAY [TIMESTAMP '1970-01-01 00:00:01'] || TIMESTAMP '1973-07-08 22:00:01'", new ArrayType(createTimestampType(0)), ImmutableList.of(
-                sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0, TEST_SESSION),
-                sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0, TEST_SESSION)));
+                sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0),
+                sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0)));
         assertFunction("TIMESTAMP '1973-07-08 22:00:01' || ARRAY [TIMESTAMP '1970-01-01 00:00:01']", new ArrayType(createTimestampType(0)), ImmutableList.of(
-                sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0, TEST_SESSION),
-                sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0, TEST_SESSION)));
+                sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0),
+                sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0)));
         assertFunction("ARRAY [2, 8] || ARRAY[ARRAY[3, 6], ARRAY[4]]", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(2, 8), ImmutableList.of(3, 6), ImmutableList.of(4)));
         assertFunction("ARRAY [ARRAY [1], ARRAY [2, 8]] || ARRAY [3, 6]", new ArrayType(new ArrayType(INTEGER)), ImmutableList.of(ImmutableList.of(1), ImmutableList.of(2, 8), ImmutableList.of(3, 6)));
         assertFunction(
@@ -557,19 +556,19 @@ public class TestArrayOperators
         assertFunction("ARRAY_JOIN(ARRAY [JSON '\"a\"', JSON 'null'], ',', 'N/A')", VARCHAR, "a,N/A");
         assertFunction("ARRAY_JOIN(ARRAY [TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1973-07-08 22:00:01'], '|')", VARCHAR, format(
                 "%s|%s",
-                sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0, TEST_SESSION),
-                sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0, TEST_SESSION)));
+                sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0),
+                sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0)));
         assertFunction("ARRAY_JOIN(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789'], '|')",
                 VARCHAR,
                 "2020-05-10 12:34:56.123456789|1111-05-10 12:34:56.123456789");
         assertFunction(
                 "ARRAY_JOIN(ARRAY [null, TIMESTAMP '1970-01-01 00:00:01'], '|')",
                 VARCHAR,
-                sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0, TEST_SESSION).toString());
+                sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0).toString());
         assertFunction(
                 "ARRAY_JOIN(ARRAY [null, TIMESTAMP '1970-01-01 00:00:01'], '|', 'XYZ')",
                 VARCHAR,
-                "XYZ|" + sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0, TEST_SESSION).toString());
+                "XYZ|" + sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0).toString());
         assertFunction("ARRAY_JOIN(ARRAY [1.0, 2.1, 3.3], 'x')", VARCHAR, "1.0x2.1x3.3");
         assertFunction("ARRAY_JOIN(ARRAY [1.0, 2.100, 3.3], 'x')", VARCHAR, "1.000x2.100x3.300");
         assertFunction("ARRAY_JOIN(ARRAY [1.0, 2.100, NULL], 'x', 'N/A')", VARCHAR, "1.000x2.100xN/A");
@@ -622,7 +621,7 @@ public class TestArrayOperators
         assertFunction("ARRAY_MIN(ARRAY [NULL, FALSE])", BOOLEAN, null);
         assertFunction("ARRAY_MIN(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '2222-05-10 12:34:56.123456789'])",
                 createTimestampType(9),
-                legacyTimestamp(9, "2020-05-10 12:34:56.123456789"));
+                timestamp(9, "2020-05-10 12:34:56.123456789"));
         assertDecimalFunction("ARRAY_MIN(ARRAY [2.1, 2.2, 2.3])", decimal("2.1"));
         assertDecimalFunction("ARRAY_MIN(ARRAY [2.111111222111111114111, 2.22222222222222222, 2.222222222222223])", decimal("2.111111222111111114111"));
         assertDecimalFunction("ARRAY_MIN(ARRAY [1.9, 2, 2.3])", decimal("0000000001.9"));
@@ -655,7 +654,7 @@ public class TestArrayOperators
         assertFunction("ARRAY_MAX(ARRAY [NULL, FALSE])", BOOLEAN, null);
         assertFunction("ARRAY_MAX(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789'])",
                 createTimestampType(9),
-                legacyTimestamp(9, "2020-05-10 12:34:56.123456789"));
+                timestamp(9, "2020-05-10 12:34:56.123456789"));
         assertDecimalFunction("ARRAY_MAX(ARRAY [2.1, 2.2, 2.3])", decimal("2.3"));
         assertDecimalFunction("ARRAY_MAX(ARRAY [2.111111222111111114111, 2.22222222222222222, 2.222222222222223])", decimal("2.222222222222223000000"));
         assertDecimalFunction("ARRAY_MAX(ARRAY [1.9, 2, 2.3])", decimal("0000000002.3"));
@@ -721,10 +720,10 @@ public class TestArrayOperators
         assertFunction(
                 "ARRAY [TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1973-07-08 22:00:01'][1]",
                 createTimestampType(0),
-                sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0, TEST_SESSION));
+                sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0));
         assertFunction("ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789'][2]",
                 createTimestampType(9),
-                legacyTimestamp(9, "1111-05-10 12:34:56.123456789"));
+                timestamp(9, "1111-05-10 12:34:56.123456789"));
         assertFunction("ARRAY [infinity()][1]", DOUBLE, POSITIVE_INFINITY);
         assertFunction("ARRAY [-infinity()][1]", DOUBLE, NEGATIVE_INFINITY);
         assertFunction("ARRAY [sqrt(-1)][1]", DOUBLE, NaN);
@@ -776,11 +775,11 @@ public class TestArrayOperators
         assertFunction(
                 "ELEMENT_AT(ARRAY [TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1973-07-08 22:00:01'], 1)",
                 createTimestampType(0),
-                sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0, TEST_SESSION));
+                sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0));
         assertFunction(
                 "ELEMENT_AT(ARRAY [TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1973-07-08 22:00:01'], -2)",
                 createTimestampType(0),
-                sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0, TEST_SESSION));
+                sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0));
         assertFunction("ELEMENT_AT(ARRAY [infinity()], 1)", DOUBLE, POSITIVE_INFINITY);
         assertFunction("ELEMENT_AT(ARRAY [infinity()], -1)", DOUBLE, POSITIVE_INFINITY);
         assertFunction("ELEMENT_AT(ARRAY [-infinity()], 1)", DOUBLE, NEGATIVE_INFINITY);
@@ -790,7 +789,7 @@ public class TestArrayOperators
         assertFunction(
                 "ELEMENT_AT(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789'], 2)",
                 createTimestampType(9),
-                legacyTimestamp(9, "1111-05-10 12:34:56.123456789"));
+                timestamp(9, "1111-05-10 12:34:56.123456789"));
         assertDecimalFunction("ELEMENT_AT(ARRAY [2.1, 2.2, 2.3], 3)", decimal("2.3"));
         assertDecimalFunction("ELEMENT_AT(ARRAY [2.111111222111111114111, 2.22222222222222222, 2.222222222222223], 3)", decimal("2.222222222222223000000"));
         assertDecimalFunction("ELEMENT_AT(ARRAY [1.9, 2, 2.3], -1)", decimal("0000000002.3"));
@@ -825,9 +824,9 @@ public class TestArrayOperators
                 "ARRAY_SORT(ARRAY [TIMESTAMP '1973-07-08 22:00:01', TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1989-02-06 12:00:00'])",
                 new ArrayType(createTimestampType(0)),
                 ImmutableList.of(
-                        sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0, TEST_SESSION),
-                        sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0, TEST_SESSION),
-                        sqlTimestampOf(0, 1989, 2, 6, 12, 0, 0, 0, TEST_SESSION)));
+                        sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0),
+                        sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0),
+                        sqlTimestampOf(0, 1989, 2, 6, 12, 0, 0, 0)));
         assertFunction("ARRAY_SORT(ARRAY [ARRAY [1], ARRAY [2]])",
                 new ArrayType(new ArrayType(INTEGER)),
                 ImmutableList.of(ImmutableList.of(1), ImmutableList.of(2)));
@@ -908,9 +907,9 @@ public class TestArrayOperators
                 asList(
                         null,
                         null,
-                        sqlTimestampOf(0, 1989, 2, 6, 12, 0, 0, 0, TEST_SESSION),
-                        sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0, TEST_SESSION),
-                        sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0, TEST_SESSION)));
+                        sqlTimestampOf(0, 1989, 2, 6, 12, 0, 0, 0),
+                        sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0),
+                        sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0)));
         assertFunction(
                 "ARRAY_SORT(ARRAY[ARRAY[2, 3, 1], null, ARRAY[4, null, 2, 1, 4], ARRAY[1, 2], null], (x, y) -> CASE " +
                         "WHEN x IS NULL THEN -1 " +
@@ -934,7 +933,7 @@ public class TestArrayOperators
                         "WHEN month(x) > month(y) THEN 1 " +
                         "ELSE -1 END)",
                 new ArrayType(createTimestampType(9)),
-                ImmutableList.of(legacyTimestamp(9, "2020-05-10 12:34:56.123456789"), legacyTimestamp(9, "1111-06-10 12:34:56.123456789")));
+                ImmutableList.of(timestamp(9, "2020-05-10 12:34:56.123456789"), timestamp(9, "1111-06-10 12:34:56.123456789")));
 
         // with null in the array, should be in nulls-last order
         List<Integer> expected = asList(-1, 0, 1, null, null);
@@ -995,8 +994,8 @@ public class TestArrayOperators
                 "ARRAY_DISTINCT(ARRAY [TIMESTAMP '1973-07-08 22:00:01', TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1973-07-08 22:00:01'])",
                 new ArrayType(createTimestampType(0)),
                 ImmutableList.of(
-                        sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0, TEST_SESSION),
-                        sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0, TEST_SESSION)));
+                        sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0),
+                        sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0)));
         assertFunction("ARRAY_DISTINCT(ARRAY ['2', '3', '2'])", new ArrayType(createVarcharType(1)), ImmutableList.of("2", "3"));
         assertFunction("ARRAY_DISTINCT(ARRAY ['BB', 'CCC', 'BB'])", new ArrayType(createVarcharType(3)), ImmutableList.of("BB", "CCC"));
         assertFunction(
@@ -1267,8 +1266,8 @@ public class TestArrayOperators
         assertFunction("ARRAY [1.1E0, 2.2E0, 3.3E0, 4.4E0] != ARRAY [1.1E0, 2.2E0, 3.3E0, 4.4E0]", BOOLEAN, false);
         assertFunction("ARRAY ['puppies', 'kittens'] = ARRAY ['puppies', 'kittens']", BOOLEAN, true);
         assertFunction("ARRAY ['puppies', 'kittens'] != ARRAY ['puppies', 'kittens']", BOOLEAN, false);
-        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] = ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", BOOLEAN, true);
-        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] != ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", BOOLEAN, false);
+        assertFunction("ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00'] = ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00']", BOOLEAN, true);
+        assertFunction("ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00'] != ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00']", BOOLEAN, false);
         assertFunction("ARRAY [timestamp '2012-10-31 08:00 UTC'] = ARRAY [timestamp '2012-10-31 01:00 America/Los_Angeles']", BOOLEAN, true);
         assertFunction("ARRAY [timestamp '2012-10-31 08:00 UTC'] != ARRAY [timestamp '2012-10-31 01:00 America/Los_Angeles']", BOOLEAN, false);
         assertFunction("ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]] = ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]]", BOOLEAN, true);
@@ -1315,10 +1314,10 @@ public class TestArrayOperators
         assertFunction("ARRAY ['puppies', 'kittens', 'lizards'] = ARRAY ['puppies', 'kittens']", BOOLEAN, false);
         assertFunction("ARRAY ['puppies', 'kittens'] != ARRAY ['z', 'f', 's', 'd', 'g']", BOOLEAN, true);
         assertFunction("ARRAY ['puppies', 'kittens'] = ARRAY ['z', 'f', 's', 'd', 'g']", BOOLEAN, false);
-        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] != ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", BOOLEAN, true);
-        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] = ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", BOOLEAN, false);
-        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] != ARRAY [TIME '04:05:06.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", BOOLEAN, true);
-        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] = ARRAY [TIME '04:05:06.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", BOOLEAN, false);
+        assertFunction("ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00', TIME '10:20:30.456-08:00'] != ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00']", BOOLEAN, true);
+        assertFunction("ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00', TIME '10:20:30.456-08:00'] = ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00']", BOOLEAN, false);
+        assertFunction("ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00'] != ARRAY [TIME '04:05:06.456-08:00', TIME '10:20:30.456-08:00']", BOOLEAN, true);
+        assertFunction("ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00'] = ARRAY [TIME '04:05:06.456-08:00', TIME '10:20:30.456-08:00']", BOOLEAN, false);
         assertFunction("ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]] != ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5, 6]]", BOOLEAN, true);
         assertFunction("ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]] = ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5, 6]]", BOOLEAN, false);
         assertFunction("ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]] != ARRAY [ARRAY [1, 2, 3], ARRAY [4, 5]]", BOOLEAN, true);
@@ -1355,12 +1354,12 @@ public class TestArrayOperators
         assertFunction("ARRAY ['puppies', 'kittens', 'lizards'] >= ARRAY ['puppies', 'lizards']", BOOLEAN, false);
         assertFunction("ARRAY ['puppies', 'kittens'] < ARRAY ['puppies', 'kittens', 'lizards']", BOOLEAN, true);
         assertFunction("ARRAY ['puppies', 'kittens'] >= ARRAY ['puppies', 'kittens', 'lizards']", BOOLEAN, false);
-        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] < ARRAY [TIME '04:05:06.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", BOOLEAN, true);
-        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] >= ARRAY [TIME '04:05:06.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", BOOLEAN, false);
-        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] < ARRAY [TIME '04:05:06.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", BOOLEAN, true);
-        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] >= ARRAY [TIME '04:05:06.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", BOOLEAN, false);
-        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] < ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", BOOLEAN, true);
-        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] >= ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", BOOLEAN, false);
+        assertFunction("ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00'] < ARRAY [TIME '04:05:06.456-08:00', TIME '10:20:30.456-08:00']", BOOLEAN, true);
+        assertFunction("ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00'] >= ARRAY [TIME '04:05:06.456-08:00', TIME '10:20:30.456-08:00']", BOOLEAN, false);
+        assertFunction("ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00', TIME '10:20:30.456-08:00'] < ARRAY [TIME '04:05:06.456-08:00', TIME '10:20:30.456-08:00']", BOOLEAN, true);
+        assertFunction("ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00', TIME '10:20:30.456-08:00'] >= ARRAY [TIME '04:05:06.456-08:00', TIME '10:20:30.456-08:00']", BOOLEAN, false);
+        assertFunction("ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00'] < ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00', TIME '10:20:30.456-08:00']", BOOLEAN, true);
+        assertFunction("ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00'] >= ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00', TIME '10:20:30.456-08:00']", BOOLEAN, false);
         assertFunction("ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]] < ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5, 6]]", BOOLEAN, true);
         assertFunction("ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]] >= ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5, 6]]", BOOLEAN, false);
         assertFunction("ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]] < ARRAY [ARRAY [1, 2], ARRAY [3, 5, 6]]", BOOLEAN, true);
@@ -1398,10 +1397,10 @@ public class TestArrayOperators
         assertFunction("ARRAY ['puppies', 'kittens', 'lizards'] <= ARRAY ['puppies', 'kittens', 'kittens']", BOOLEAN, false);
         assertFunction("ARRAY ['puppies', 'kittens', 'lizards'] > ARRAY ['puppies', 'kittens']", BOOLEAN, true);
         assertFunction("ARRAY ['puppies', 'kittens', 'lizards'] <= ARRAY ['puppies', 'kittens']", BOOLEAN, false);
-        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] > ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", BOOLEAN, true);
-        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] <= ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", BOOLEAN, false);
-        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] > ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:20.456 America/Los_Angeles']", BOOLEAN, true);
-        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] <= ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:20.456 America/Los_Angeles']", BOOLEAN, false);
+        assertFunction("ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00', TIME '10:20:30.456-08:00'] > ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00']", BOOLEAN, true);
+        assertFunction("ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00', TIME '10:20:30.456-08:00'] <= ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00']", BOOLEAN, false);
+        assertFunction("ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00'] > ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:20.456-08:00']", BOOLEAN, true);
+        assertFunction("ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00'] <= ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:20.456-08:00']", BOOLEAN, false);
         assertFunction("ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]] > ARRAY [ARRAY [1, 2], ARRAY [3, 4]]", BOOLEAN, true);
         assertFunction("ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]] <= ARRAY [ARRAY [1, 2], ARRAY [3, 4]]", BOOLEAN, false);
         assertFunction("ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]] > ARRAY [ARRAY [1, 2], ARRAY [3, 3, 4]]", BOOLEAN, true);
@@ -1423,10 +1422,10 @@ public class TestArrayOperators
         assertFunction("ARRAY ['puppies', 'kittens', 'lizards'] > ARRAY ['puppies', 'lizards']", BOOLEAN, false);
         assertFunction("ARRAY ['puppies', 'kittens'] <= ARRAY ['puppies', 'kittens']", BOOLEAN, true);
         assertFunction("ARRAY ['puppies', 'kittens'] > ARRAY ['puppies', 'kittens']", BOOLEAN, false);
-        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] <= ARRAY [TIME '04:05:06.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", BOOLEAN, true);
-        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] > ARRAY [TIME '04:05:06.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", BOOLEAN, false);
-        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] <= ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", BOOLEAN, true);
-        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] > ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", BOOLEAN, false);
+        assertFunction("ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00'] <= ARRAY [TIME '04:05:06.456-08:00', TIME '10:20:30.456-08:00']", BOOLEAN, true);
+        assertFunction("ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00'] > ARRAY [TIME '04:05:06.456-08:00', TIME '10:20:30.456-08:00']", BOOLEAN, false);
+        assertFunction("ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00'] <= ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00']", BOOLEAN, true);
+        assertFunction("ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00'] > ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00']", BOOLEAN, false);
         assertFunction("ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]] <= ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]]", BOOLEAN, true);
         assertFunction("ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]] > ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]]", BOOLEAN, false);
         assertFunction("ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]] <= ARRAY [ARRAY [1, 2], ARRAY [3, 5, 6]]", BOOLEAN, true);
@@ -1446,8 +1445,8 @@ public class TestArrayOperators
         assertFunction("ARRAY ['puppies', 'kittens', 'lizards'] < ARRAY ['puppies', 'kittens', 'kittens']", BOOLEAN, false);
         assertFunction("ARRAY ['puppies', 'kittens'] >= ARRAY ['puppies', 'kittens']", BOOLEAN, true);
         assertFunction("ARRAY ['puppies', 'kittens'] < ARRAY ['puppies', 'kittens']", BOOLEAN, false);
-        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] >= ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", BOOLEAN, true);
-        assertFunction("ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles'] < ARRAY [TIME '01:02:03.456 America/Los_Angeles', TIME '10:20:30.456 America/Los_Angeles']", BOOLEAN, false);
+        assertFunction("ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00', TIME '10:20:30.456-08:00'] >= ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00']", BOOLEAN, true);
+        assertFunction("ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00', TIME '10:20:30.456-08:00'] < ARRAY [TIME '01:02:03.456-08:00', TIME '10:20:30.456-08:00']", BOOLEAN, false);
         assertFunction("ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]] >= ARRAY [ARRAY [1, 2], ARRAY [3, 4]]", BOOLEAN, true);
         assertFunction("ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]] < ARRAY [ARRAY [1, 2], ARRAY [3, 4]]", BOOLEAN, false);
         assertFunction("ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]] >= ARRAY [ARRAY [1, 2], ARRAY [3, 4, 5]]", BOOLEAN, true);
@@ -1669,46 +1668,46 @@ public class TestArrayOperators
                 "SEQUENCE(timestamp '2016-04-16 01:00:10', timestamp '2016-04-16 01:07:00', interval '3' minute)",
                 new ArrayType(createTimestampType(0)),
                 ImmutableList.of(
-                        sqlTimestampOf(0, 2016, 4, 16, 1, 0, 10, 0, TEST_SESSION),
-                        sqlTimestampOf(0, 2016, 4, 16, 1, 3, 10, 0, TEST_SESSION),
-                        sqlTimestampOf(0, 2016, 4, 16, 1, 6, 10, 0, TEST_SESSION)));
+                        sqlTimestampOf(0, 2016, 4, 16, 1, 0, 10, 0),
+                        sqlTimestampOf(0, 2016, 4, 16, 1, 3, 10, 0),
+                        sqlTimestampOf(0, 2016, 4, 16, 1, 6, 10, 0)));
         assertFunction(
                 "SEQUENCE(timestamp '2016-04-16 01:10:10', timestamp '2016-04-16 01:03:00', interval '-3' minute)",
                 new ArrayType(createTimestampType(0)),
                 ImmutableList.of(
-                        sqlTimestampOf(0, 2016, 4, 16, 1, 10, 10, 0, TEST_SESSION),
-                        sqlTimestampOf(0, 2016, 4, 16, 1, 7, 10, 0, TEST_SESSION),
-                        sqlTimestampOf(0, 2016, 4, 16, 1, 4, 10, 0, TEST_SESSION)));
+                        sqlTimestampOf(0, 2016, 4, 16, 1, 10, 10, 0),
+                        sqlTimestampOf(0, 2016, 4, 16, 1, 7, 10, 0),
+                        sqlTimestampOf(0, 2016, 4, 16, 1, 4, 10, 0)));
 
         assertFunction(
                 "SEQUENCE(timestamp '2016-04-16 01:00:10', timestamp '2016-04-16 01:01:00', interval '20' second)",
                 new ArrayType(createTimestampType(0)),
                 ImmutableList.of(
-                        sqlTimestampOf(0, 2016, 4, 16, 1, 0, 10, 0, TEST_SESSION),
-                        sqlTimestampOf(0, 2016, 4, 16, 1, 0, 30, 0, TEST_SESSION),
-                        sqlTimestampOf(0, 2016, 4, 16, 1, 0, 50, 0, TEST_SESSION)));
+                        sqlTimestampOf(0, 2016, 4, 16, 1, 0, 10, 0),
+                        sqlTimestampOf(0, 2016, 4, 16, 1, 0, 30, 0),
+                        sqlTimestampOf(0, 2016, 4, 16, 1, 0, 50, 0)));
         assertFunction(
                 "SEQUENCE(timestamp '2016-04-16 01:01:10', timestamp '2016-04-16 01:00:20', interval '-20' second)",
                 new ArrayType(createTimestampType(0)),
                 ImmutableList.of(
-                        sqlTimestampOf(0, 2016, 4, 16, 1, 1, 10, 0, TEST_SESSION),
-                        sqlTimestampOf(0, 2016, 4, 16, 1, 0, 50, 0, TEST_SESSION),
-                        sqlTimestampOf(0, 2016, 4, 16, 1, 0, 30, 0, TEST_SESSION)));
+                        sqlTimestampOf(0, 2016, 4, 16, 1, 1, 10, 0),
+                        sqlTimestampOf(0, 2016, 4, 16, 1, 0, 50, 0),
+                        sqlTimestampOf(0, 2016, 4, 16, 1, 0, 30, 0)));
 
         assertFunction(
                 "SEQUENCE(timestamp '2016-04-16 01:00:10', timestamp '2016-04-18 01:01:00', interval '19' hour)",
                 new ArrayType(createTimestampType(0)),
                 ImmutableList.of(
-                        sqlTimestampOf(0, 2016, 4, 16, 1, 0, 10, 0, TEST_SESSION),
-                        sqlTimestampOf(0, 2016, 4, 16, 20, 0, 10, 0, TEST_SESSION),
-                        sqlTimestampOf(0, 2016, 4, 17, 15, 0, 10, 0, TEST_SESSION)));
+                        sqlTimestampOf(0, 2016, 4, 16, 1, 0, 10, 0),
+                        sqlTimestampOf(0, 2016, 4, 16, 20, 0, 10, 0),
+                        sqlTimestampOf(0, 2016, 4, 17, 15, 0, 10, 0)));
         assertFunction(
                 "SEQUENCE(timestamp '2016-04-16 01:00:10', timestamp '2016-04-14 01:00:20', interval '-19' hour)",
                 new ArrayType(createTimestampType(0)),
                 ImmutableList.of(
-                        sqlTimestampOf(0, 2016, 4, 16, 1, 0, 10, 0, TEST_SESSION),
-                        sqlTimestampOf(0, 2016, 4, 15, 6, 0, 10, 0, TEST_SESSION),
-                        sqlTimestampOf(0, 2016, 4, 14, 11, 0, 10, 0, TEST_SESSION)));
+                        sqlTimestampOf(0, 2016, 4, 16, 1, 0, 10, 0),
+                        sqlTimestampOf(0, 2016, 4, 15, 6, 0, 10, 0),
+                        sqlTimestampOf(0, 2016, 4, 14, 11, 0, 10, 0)));
 
         // failure modes
         assertInvalidFunction(
@@ -1776,31 +1775,31 @@ public class TestArrayOperators
                 "SEQUENCE(timestamp '2016-04-16 01:00:10', timestamp '2016-09-16 01:10:00', interval '2' month)",
                 new ArrayType(createTimestampType(0)),
                 ImmutableList.of(
-                        sqlTimestampOf(0, 2016, 4, 16, 1, 0, 10, 0, TEST_SESSION),
-                        sqlTimestampOf(0, 2016, 6, 16, 1, 0, 10, 0, TEST_SESSION),
-                        sqlTimestampOf(0, 2016, 8, 16, 1, 0, 10, 0, TEST_SESSION)));
+                        sqlTimestampOf(0, 2016, 4, 16, 1, 0, 10, 0),
+                        sqlTimestampOf(0, 2016, 6, 16, 1, 0, 10, 0),
+                        sqlTimestampOf(0, 2016, 8, 16, 1, 0, 10, 0)));
         assertFunction(
                 "SEQUENCE(timestamp '2016-09-16 01:10:10', timestamp '2016-04-16 01:00:00', interval '-2' month)",
                 new ArrayType(createTimestampType(0)),
                 ImmutableList.of(
-                        sqlTimestampOf(0, 2016, 9, 16, 1, 10, 10, 0, TEST_SESSION),
-                        sqlTimestampOf(0, 2016, 7, 16, 1, 10, 10, 0, TEST_SESSION),
-                        sqlTimestampOf(0, 2016, 5, 16, 1, 10, 10, 0, TEST_SESSION)));
+                        sqlTimestampOf(0, 2016, 9, 16, 1, 10, 10, 0),
+                        sqlTimestampOf(0, 2016, 7, 16, 1, 10, 10, 0),
+                        sqlTimestampOf(0, 2016, 5, 16, 1, 10, 10, 0)));
 
         assertFunction(
                 "SEQUENCE(timestamp '2016-04-16 01:00:10', timestamp '2021-04-16 01:01:00', interval '2' year)",
                 new ArrayType(createTimestampType(0)),
                 ImmutableList.of(
-                        sqlTimestampOf(0, 2016, 4, 16, 1, 0, 10, 0, TEST_SESSION),
-                        sqlTimestampOf(0, 2018, 4, 16, 1, 0, 10, 0, TEST_SESSION),
-                        sqlTimestampOf(0, 2020, 4, 16, 1, 0, 10, 0, TEST_SESSION)));
+                        sqlTimestampOf(0, 2016, 4, 16, 1, 0, 10, 0),
+                        sqlTimestampOf(0, 2018, 4, 16, 1, 0, 10, 0),
+                        sqlTimestampOf(0, 2020, 4, 16, 1, 0, 10, 0)));
         assertFunction(
                 "SEQUENCE(timestamp '2016-04-16 01:01:10', timestamp '2011-04-16 01:00:00', interval '-2' year)",
                 new ArrayType(createTimestampType(0)),
                 ImmutableList.of(
-                        sqlTimestampOf(0, 2016, 4, 16, 1, 1, 10, 0, TEST_SESSION),
-                        sqlTimestampOf(0, 2014, 4, 16, 1, 1, 10, 0, TEST_SESSION),
-                        sqlTimestampOf(0, 2012, 4, 16, 1, 1, 10, 0, TEST_SESSION)));
+                        sqlTimestampOf(0, 2016, 4, 16, 1, 1, 10, 0),
+                        sqlTimestampOf(0, 2014, 4, 16, 1, 1, 10, 0),
+                        sqlTimestampOf(0, 2012, 4, 16, 1, 1, 10, 0)));
 
         // failure modes
         assertInvalidFunction(
@@ -1880,8 +1879,8 @@ public class TestArrayOperators
         assertArrayHashOperator("ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '1111-05-10 12:34:56.123456789']",
                 createTimestampType(9),
                 ImmutableList.of(
-                        parseLegacyTimestamp(9, TEST_SESSION.getTimeZoneKey(), "2020-05-10 12:34:56.123456789"),
-                        parseLegacyTimestamp(9, TEST_SESSION.getTimeZoneKey(), "1111-05-10 12:34:56.123456789")));
+                        parseTimestamp(9, "2020-05-10 12:34:56.123456789"),
+                        parseTimestamp(9, "1111-05-10 12:34:56.123456789")));
 
         // test with ARRAY[ MAP( ARRAY[1], ARRAY[2] ) ]
         MapType mapType = mapType(INTEGER, INTEGER);

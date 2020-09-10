@@ -31,6 +31,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
+import static io.prestosql.SystemSessionProperties.getJoinDistributionType;
 import static io.prestosql.spi.predicate.Domain.singleValue;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROADCAST;
@@ -41,6 +42,7 @@ public abstract class AbstractCoordinatorDynamicFilteringTest
     private static final TestingMetadata.TestingColumnHandle SUPP_KEY_HANDLE = new TestingMetadata.TestingColumnHandle("suppkey", 2, BIGINT);
 
     private final Map<String, TupleDomain<ColumnHandle>> expectedDynamicFilter = new ConcurrentHashMap<>();
+    private final Map<String, Boolean> expectedLazyDynamicFilter = new ConcurrentHashMap<>();
     private final AtomicInteger dynamicFilterCounter = new AtomicInteger();
 
     @Test(timeOut = 30_000)
@@ -58,6 +60,23 @@ public abstract class AbstractCoordinatorDynamicFilteringTest
                 withBroadcastJoin(),
                 "SELECT * FROM lineitem JOIN tpch.tiny.supplier ON lineitem.suppkey = supplier.suppkey AND supplier.name = 'abc'",
                 TupleDomain.none());
+    }
+
+    @Test(timeOut = 30_000)
+    public void testJoinWithLargeBuildSide()
+    {
+        assertQueryDynamicFilters(
+                "SELECT * FROM lineitem JOIN tpch.tiny.orders ON lineitem.orderkey = orders.orderkey",
+                TupleDomain.all());
+    }
+
+    @Test(timeOut = 30_000)
+    public void testBroadcastJoinWithLargeBuildSide()
+    {
+        assertQueryDynamicFilters(
+                withBroadcastJoin(),
+                "SELECT * FROM lineitem JOIN tpch.tiny.orders ON lineitem.orderkey = orders.orderkey",
+                TupleDomain.all());
     }
 
     @Test(timeOut = 30_000)
@@ -105,9 +124,93 @@ public abstract class AbstractCoordinatorDynamicFilteringTest
                         singleValue(BIGINT, 2L))));
     }
 
+    @Test(timeOut = 30_000)
+    public void testSemiJoinWithEmptyBuildSide()
+    {
+        assertQueryDynamicFilters(
+                "SELECT * FROM lineitem WHERE lineitem.suppkey IN (SELECT supplier.suppkey FROM tpch.tiny.supplier WHERE supplier.name = 'abc')",
+                TupleDomain.none());
+    }
+
+    @Test(timeOut = 30_000)
+    public void testBroadcastSemiJoinWithEmptyBuildSide()
+    {
+        assertQueryDynamicFilters(
+                withBroadcastJoin(),
+                "SELECT * FROM lineitem WHERE lineitem.suppkey IN (SELECT supplier.suppkey FROM tpch.tiny.supplier WHERE supplier.name = 'abc')",
+                TupleDomain.none());
+    }
+
+    @Test(timeOut = 30_000)
+    public void testSemiJoinWithLargeBuildSide()
+    {
+        assertQueryDynamicFilters(
+                "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM tpch.tiny.orders)",
+                TupleDomain.all());
+    }
+
+    @Test(timeOut = 30_000)
+    public void testBroadcastSemiJoinWithLargeBuildSide()
+    {
+        assertQueryDynamicFilters(
+                withBroadcastJoin(),
+                "SELECT * FROM lineitem WHERE lineitem.orderkey IN (SELECT orders.orderkey FROM tpch.tiny.orders)",
+                TupleDomain.all());
+    }
+
+    @Test(timeOut = 30_000)
+    public void testSemiJoinWithSelectiveBuildSide()
+    {
+        assertQueryDynamicFilters(
+                "SELECT * FROM lineitem WHERE lineitem.suppkey IN (SELECT supplier.suppkey FROM tpch.tiny.supplier WHERE supplier.name = 'Supplier#000000001')",
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SUPP_KEY_HANDLE,
+                        singleValue(BIGINT, 1L))));
+    }
+
+    @Test(timeOut = 30_000)
+    public void testBroadcastSemiJoinWithSelectiveBuildSide()
+    {
+        assertQueryDynamicFilters(
+                withBroadcastJoin(),
+                "SELECT * FROM lineitem WHERE lineitem.suppkey IN (SELECT supplier.suppkey FROM tpch.tiny.supplier WHERE supplier.name = 'Supplier#000000001')",
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SUPP_KEY_HANDLE,
+                        singleValue(BIGINT, 1L))));
+    }
+
+    @Test(timeOut = 30_000)
+    public void testSemiJoinWithNonSelectiveBuildSide()
+    {
+        assertQueryDynamicFilters(
+                "SELECT * FROM lineitem WHERE lineitem.suppkey IN (SELECT supplier.suppkey FROM tpch.tiny.supplier)",
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SUPP_KEY_HANDLE,
+                        Domain.create(ValueSet.ofRanges(Range.range(BIGINT, 1L, true, 100L, true)), false))));
+    }
+
+    @Test(timeOut = 30_000)
+    public void testSemiJoinWithMultipleDynamicFiltersOnProbe()
+    {
+        // supplier names Supplier#000000001 and Supplier#000000002 match suppkey 1 and 2
+        assertQueryDynamicFilters(
+                "SELECT * FROM (" +
+                        "SELECT lineitem.suppkey FROM lineitem WHERE lineitem.suppkey IN " +
+                        "(SELECT supplier.suppkey FROM tpch.tiny.supplier WHERE supplier.name IN ('Supplier#000000001', 'Supplier#000000002'))) t " +
+                        "WHERE t.suppkey IN (SELECT partsupp.suppkey FROM tpch.tiny.partsupp WHERE partsupp.suppkey IN (2, 3))",
+                TupleDomain.withColumnDomains(ImmutableMap.of(
+                        SUPP_KEY_HANDLE,
+                        singleValue(BIGINT, 2L))));
+    }
+
     protected TupleDomain<ColumnHandle> getExpectedDynamicFilter(ConnectorSession session)
     {
         return expectedDynamicFilter.get(session.getSource().get());
+    }
+
+    protected boolean isExpectedDynamicFilterLazy(ConnectorSession session)
+    {
+        return expectedLazyDynamicFilter.get(session.getSource().get());
     }
 
     private Session withBroadcastJoin()
@@ -129,6 +232,7 @@ public abstract class AbstractCoordinatorDynamicFilteringTest
         // Therefore expected dynamic filter needs to be passed in thread-safe way.
         String dynamicFilterNumber = String.valueOf(dynamicFilterCounter.getAndIncrement());
         expectedDynamicFilter.put(dynamicFilterNumber, expectedTupleDomain);
+        expectedLazyDynamicFilter.put(dynamicFilterNumber, getJoinDistributionType(session) != BROADCAST);
         computeActual(
                 Session.builder(session)
                         .setSource(dynamicFilterNumber)

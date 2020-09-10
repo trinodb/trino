@@ -18,6 +18,7 @@ import com.google.inject.Key;
 import com.google.inject.Module;
 import com.google.inject.util.Modules;
 import io.airlift.configuration.AbstractConfigurationAwareModule;
+import io.airlift.http.server.HttpServer.ClientCertificate;
 import io.prestosql.server.security.Authenticator;
 import io.prestosql.server.security.CertificateAuthenticator;
 import io.prestosql.server.security.CertificateConfig;
@@ -34,6 +35,7 @@ import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.inject.Scopes.SINGLETON;
 import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.configuration.ConfigBinder.configBinder;
+import static io.airlift.http.server.HttpServer.ClientCertificate.REQUESTED;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
@@ -49,7 +51,10 @@ public class WebUiAuthenticationModule
         installWebUiAuthenticator("form", new FormUiAuthenticatorModule(true));
         installWebUiAuthenticator("fixed", new FixedUiAuthenticatorModule());
 
-        installWebUiAuthenticator("certificate", CertificateAuthenticator.class, CertificateConfig.class);
+        install(webUiAuthenticator("certificate", CertificateAuthenticator.class, certificateBinder -> {
+            newOptionalBinder(certificateBinder, ClientCertificate.class).setBinding().toInstance(REQUESTED);
+            configBinder(certificateBinder).bindConfig(CertificateConfig.class);
+        }));
         installWebUiAuthenticator("kerberos", KerberosAuthenticator.class, KerberosConfig.class);
         installWebUiAuthenticator("jwt", JsonWebTokenAuthenticator.class, JsonWebTokenConfig.class);
     }

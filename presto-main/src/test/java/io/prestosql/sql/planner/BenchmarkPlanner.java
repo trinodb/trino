@@ -38,6 +38,7 @@ import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.VerboseMode;
 import org.openjdk.jmh.runner.options.WarmupMode;
+import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.net.URL;
@@ -51,6 +52,7 @@ import static io.prestosql.plugin.tpch.TpchConnectorFactory.TPCH_COLUMN_NAMING_P
 import static io.prestosql.sql.planner.LogicalPlanner.Stage.OPTIMIZED;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.lang.String.format;
+import static org.testng.Assert.assertEquals;
 
 @SuppressWarnings("MethodMayBeStatic")
 @State(Scope.Benchmark)
@@ -88,7 +90,7 @@ public class BenchmarkPlanner
             queries = IntStream.rangeClosed(1, 22)
                     .boxed()
                     .filter(i -> i != 15) // q15 has two queries in it
-                    .map(i -> readResource(format("/io/airlift/tpch/queries/q%d.sql", i)))
+                    .map(i -> readResource(format("/io/prestosql/tpch/queries/q%d.sql", i)))
                     .collect(toImmutableList());
         }
 
@@ -120,6 +122,15 @@ public class BenchmarkPlanner
                     .map(query -> benchmarkData.queryRunner.createPlan(transactionSession, query, stage, false, WarningCollector.NOOP))
                     .collect(toImmutableList());
         });
+    }
+
+    @Test
+    public void verify()
+    {
+        BenchmarkData data = new BenchmarkData();
+        data.setup();
+        BenchmarkPlanner benchmark = new BenchmarkPlanner();
+        assertEquals(benchmark.planQueries(data).size(), 21);
     }
 
     public static void main(String[] args)

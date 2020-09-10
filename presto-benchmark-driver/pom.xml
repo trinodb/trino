@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>339-SNAPSHOT</version>
+        <version>342-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-benchmark-driver</artifactId>
@@ -20,11 +20,6 @@
         <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-client</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>airline</artifactId>
         </dependency>
 
         <dependency>
@@ -44,12 +39,12 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>units</artifactId>
+            <artifactId>log-manager</artifactId>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>log-manager</artifactId>
+            <artifactId>units</artifactId>
         </dependency>
 
         <dependency>
@@ -58,23 +53,23 @@
         </dependency>
 
         <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>org.apache.commons</groupId>
-            <artifactId>commons-math3</artifactId>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp</artifactId>
+            <groupId>info.picocli</groupId>
+            <artifactId>picocli</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-math3</artifactId>
         </dependency>
 
         <!-- for testing -->

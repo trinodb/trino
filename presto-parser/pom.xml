@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>339-SNAPSHOT</version>
+        <version>342-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-parser</artifactId>
@@ -18,8 +18,13 @@
 
     <dependencies>
         <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
+            <groupId>io.airlift</groupId>
+            <artifactId>log</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>slice</artifactId>
         </dependency>
 
         <dependency>
@@ -29,13 +34,13 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>slice</artifactId>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
         </dependency>
 
         <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
+            <groupId>javax.inject</groupId>
+            <artifactId>javax.inject</artifactId>
         </dependency>
 
         <dependency>
@@ -43,22 +48,17 @@
             <artifactId>antlr4-runtime</artifactId>
         </dependency>
 
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log</artifactId>
-        </dependency>
-
         <!-- for testing -->
-        <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
-            <scope>test</scope>
-        </dependency>
-
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
             <version>3.13.2</version>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

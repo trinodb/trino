@@ -103,8 +103,10 @@ import static io.prestosql.server.protocol.Slug.Context.EXECUTING_QUERY;
 import static io.prestosql.spi.StandardErrorCode.GENERIC_INTERNAL_ERROR;
 import static io.prestosql.spi.StandardErrorCode.SERIALIZATION_ERROR;
 import static io.prestosql.spi.type.StandardTypes.ROW;
+import static io.prestosql.spi.type.StandardTypes.TIME;
 import static io.prestosql.spi.type.StandardTypes.TIMESTAMP;
 import static io.prestosql.spi.type.StandardTypes.TIMESTAMP_WITH_TIME_ZONE;
+import static io.prestosql.spi.type.StandardTypes.TIME_WITH_TIME_ZONE;
 import static io.prestosql.util.Failures.toFailure;
 import static io.prestosql.util.MoreLists.mappedCopy;
 import static java.lang.String.format;
@@ -613,12 +615,18 @@ class Query
     {
         if (type instanceof DateTimeDataType) {
             DateTimeDataType dataTimeType = (DateTimeDataType) type;
-            if (dataTimeType.getType() == DateTimeDataType.Type.TIMESTAMP && !supportsParametricDateTime) {
-                if (dataTimeType.isWithTimeZone()) {
+            if (!supportsParametricDateTime) {
+                if (dataTimeType.getType() == DateTimeDataType.Type.TIMESTAMP && dataTimeType.isWithTimeZone()) {
                     return TIMESTAMP_WITH_TIME_ZONE;
                 }
-                else {
+                if (dataTimeType.getType() == DateTimeDataType.Type.TIMESTAMP && !dataTimeType.isWithTimeZone()) {
                     return TIMESTAMP;
+                }
+                else if (dataTimeType.getType() == DateTimeDataType.Type.TIME && !dataTimeType.isWithTimeZone()) {
+                    return TIME;
+                }
+                else if (dataTimeType.getType() == DateTimeDataType.Type.TIME && dataTimeType.isWithTimeZone()) {
+                    return TIMESTAMP_WITH_TIME_ZONE;
                 }
             }
 
@@ -664,6 +672,12 @@ class Query
             else if (signature.getBase().equalsIgnoreCase(TIMESTAMP_WITH_TIME_ZONE)) {
                 return new ClientTypeSignature(TIMESTAMP_WITH_TIME_ZONE);
             }
+            else if (signature.getBase().equalsIgnoreCase(TIME)) {
+                return new ClientTypeSignature(TIME);
+            }
+            else if (signature.getBase().equalsIgnoreCase(TIME_WITH_TIME_ZONE)) {
+                return new ClientTypeSignature(TIME_WITH_TIME_ZONE);
+            }
         }
 
         return new ClientTypeSignature(signature.getBase(), signature.getParameters().stream()
@@ -707,6 +721,7 @@ class Query
                 .setElapsedTimeMillis(queryStats.getElapsedTime().toMillis())
                 .setProcessedRows(queryStats.getRawInputPositions())
                 .setProcessedBytes(queryStats.getRawInputDataSize().toBytes())
+                .setPhysicalInputBytes(queryStats.getPhysicalInputDataSize().toBytes())
                 .setPeakMemoryBytes(queryStats.getPeakUserMemoryReservation().toBytes())
                 .setSpilledBytes(queryStats.getSpilledDataSize().toBytes())
                 .setRootStage(toStageStats(outputStage))
@@ -746,6 +761,7 @@ class Query
                 .setWallTimeMillis(stageStats.getTotalScheduledTime().toMillis())
                 .setProcessedRows(stageStats.getRawInputPositions())
                 .setProcessedBytes(stageStats.getRawInputDataSize().toBytes())
+                .setPhysicalInputBytes(stageStats.getPhysicalInputDataSize().toBytes())
                 .setSubStages(subStages.build())
                 .build();
     }

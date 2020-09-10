@@ -14,7 +14,6 @@
 package io.prestosql.tests.jdbc;
 
 import io.prestosql.jdbc.PrestoConnection;
-import io.prestosql.sql.analyzer.FeaturesConfig;
 import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.Requirement;
 import io.prestosql.tempto.RequirementsProvider;
@@ -173,7 +172,7 @@ public class TestJdbc
             throws SQLException
     {
         String joinDistributionType = "join_distribution_type";
-        String defaultValue = new FeaturesConfig().getJoinDistributionType().name();
+        String defaultValue = "AUTOMATIC";
 
         assertThat(getSessionProperty(connection(), joinDistributionType)).isEqualTo(defaultValue);
         setSessionProperty(connection(), joinDistributionType, "BROADCAST");

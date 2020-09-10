@@ -13,8 +13,6 @@
  */
 package io.prestosql.testing;
 
-import com.google.common.base.Preconditions;
-
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.nio.ByteBuffer;
@@ -26,6 +24,7 @@ import java.util.Map.Entry;
 import java.util.Objects;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.common.base.Preconditions.checkElementIndex;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
 
@@ -96,7 +95,7 @@ public class MaterializedRow
 
     public Object getField(int field)
     {
-        Preconditions.checkElementIndex(field, values.size());
+        checkElementIndex(field, values.size());
         return processField(values.get(field));
     }
 

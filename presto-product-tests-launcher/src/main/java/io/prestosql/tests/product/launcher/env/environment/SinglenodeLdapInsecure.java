@@ -16,7 +16,7 @@ package io.prestosql.tests.product.launcher.env.environment;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
+import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.env.common.TestsEnvironment;
@@ -33,9 +33,9 @@ public class SinglenodeLdapInsecure
     private final PortBinder portBinder;
 
     @Inject
-    public SinglenodeLdapInsecure(Standard standard, Hadoop hadoop, DockerFiles dockerFiles, PortBinder portBinder, EnvironmentOptions environmentOptions)
+    public SinglenodeLdapInsecure(Standard standard, Hadoop hadoop, DockerFiles dockerFiles, PortBinder portBinder, EnvironmentConfig config)
     {
-        super(ImmutableList.of(standard, hadoop), dockerFiles, portBinder, environmentOptions);
+        super(ImmutableList.of(standard, hadoop), dockerFiles, portBinder, config);
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
     }
 

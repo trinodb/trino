@@ -36,6 +36,7 @@ import static io.prestosql.sql.analyzer.FeaturesConfig.JoinDistributionType.BROA
 import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static io.prestosql.sql.analyzer.RegexLibrary.JONI;
 import static io.prestosql.sql.analyzer.RegexLibrary.RE2J;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
 import static java.util.concurrent.TimeUnit.MINUTES;
 import static java.util.concurrent.TimeUnit.SECONDS;
 
@@ -89,7 +90,6 @@ public class TestFeaturesConfig
                 .setEnableForcedExchangeBelowGroupId(true)
                 .setExchangeCompressionEnabled(false)
                 .setExchangeDataIntegrityVerification(DataIntegrityVerification.ABORT)
-                .setLegacyTimestamp(true)
                 .setEnableIntermediateAggregations(false)
                 .setPushAggregationThroughOuterJoin(true)
                 .setPushPartialAggregationThoughJoin(false)
@@ -105,6 +105,7 @@ public class TestFeaturesConfig
                 .setArrayAggGroupImplementation(ArrayAggGroupImplementation.NEW)
                 .setMultimapAggGroupImplementation(MultimapAggGroupImplementation.NEW)
                 .setDistributedSortEnabled(true)
+                .setMaxRecursionDepth(10)
                 .setMaxGroupingSets(2048)
                 .setLateMaterializationEnabled(false)
                 .setSkipRedundantSort(true)
@@ -112,6 +113,7 @@ public class TestFeaturesConfig
                 .setEnableDynamicFiltering(true)
                 .setDynamicFilteringMaxPerDriverRowCount(100)
                 .setDynamicFilteringMaxPerDriverSize(DataSize.of(10, KILOBYTE))
+                .setDynamicFilteringRefreshInterval(new Duration(200, MILLISECONDS))
                 .setIgnoreDownstreamPreferences(false)
                 .setOmitDateTimeTypePrecision(false)
                 .setIterativeRuleBasedColumnPruning(true));
@@ -167,7 +169,6 @@ public class TestFeaturesConfig
                 .put("memory-revoking-target", "0.8")
                 .put("exchange.compression-enabled", "true")
                 .put("exchange.data-integrity-verification", "RETRY")
-                .put("deprecated.legacy-timestamp", "false")
                 .put("optimizer.enable-intermediate-aggregations", "true")
                 .put("parse-decimal-literals-as-double", "true")
                 .put("optimizer.force-single-node-output", "false")
@@ -181,6 +182,7 @@ public class TestFeaturesConfig
                 .put("optimizer.prefer-partial-aggregation", "false")
                 .put("optimizer.optimize-top-n-row-number", "false")
                 .put("distributed-sort", "false")
+                .put("max-recursion-depth", "8")
                 .put("analyzer.max-grouping-sets", "2047")
                 .put("experimental.late-materialization.enabled", "true")
                 .put("optimizer.skip-redundant-sort", "false")
@@ -188,6 +190,7 @@ public class TestFeaturesConfig
                 .put("enable-dynamic-filtering", "false")
                 .put("dynamic-filtering-max-per-driver-row-count", "256")
                 .put("dynamic-filtering-max-per-driver-size", "64kB")
+                .put("experimental.dynamic-filtering-refresh-interval", "300ms")
                 .put("optimizer.ignore-downstream-preferences", "true")
                 .put("deprecated.omit-datetime-type-precision", "true")
                 .put("optimizer.iterative-rule-based-column-pruning", "false")
@@ -239,7 +242,6 @@ public class TestFeaturesConfig
                 .setMemoryRevokingTarget(0.8)
                 .setExchangeCompressionEnabled(true)
                 .setExchangeDataIntegrityVerification(DataIntegrityVerification.RETRY)
-                .setLegacyTimestamp(false)
                 .setEnableIntermediateAggregations(true)
                 .setParseDecimalLiteralsAsDouble(true)
                 .setForceSingleNodeOutput(false)
@@ -253,6 +255,7 @@ public class TestFeaturesConfig
                 .setArrayAggGroupImplementation(ArrayAggGroupImplementation.LEGACY)
                 .setMultimapAggGroupImplementation(MultimapAggGroupImplementation.LEGACY)
                 .setDistributedSortEnabled(false)
+                .setMaxRecursionDepth(8)
                 .setMaxGroupingSets(2047)
                 .setDefaultFilterFactorEnabled(true)
                 .setLateMaterializationEnabled(true)
@@ -261,6 +264,7 @@ public class TestFeaturesConfig
                 .setEnableDynamicFiltering(false)
                 .setDynamicFilteringMaxPerDriverRowCount(256)
                 .setDynamicFilteringMaxPerDriverSize(DataSize.of(64, KILOBYTE))
+                .setDynamicFilteringRefreshInterval(new Duration(300, MILLISECONDS))
                 .setIgnoreDownstreamPreferences(true)
                 .setOmitDateTimeTypePrecision(true)
                 .setIterativeRuleBasedColumnPruning(false);

@@ -196,10 +196,10 @@ public class TestColumnMask
                 new ViewExpression(VIEW_OWNER, Optional.empty(), Optional.empty(), "reverse(name)"));
 
         assertThat(assertions.query(
-                "SELECT name FROM mock.default.nation_view WHERE nationkey = 1",
                 Session.builder(SESSION)
                         .setIdentity(Identity.forUser(RUN_AS_USER).build())
-                        .build()))
+                        .build(),
+                "SELECT name FROM mock.default.nation_view WHERE nationkey = 1"))
                 .matches("VALUES CAST('ANITNEGRA' AS VARCHAR(25))");
 
         // mask on the underlying table for view owner when running as themselves
@@ -211,10 +211,10 @@ public class TestColumnMask
                 new ViewExpression(VIEW_OWNER, Optional.of(CATALOG), Optional.of("tiny"), "reverse(name)"));
 
         assertThat(assertions.query(
-                "SELECT name FROM mock.default.nation_view WHERE nationkey = 1",
                 Session.builder(SESSION)
                         .setIdentity(Identity.forUser(VIEW_OWNER).build())
-                        .build()))
+                        .build(),
+                "SELECT name FROM mock.default.nation_view WHERE nationkey = 1"))
                 .matches("VALUES CAST('ANITNEGRA' AS VARCHAR(25))");
 
         // mask on the underlying table for user running the query (different from view owner) should not be applied
@@ -226,10 +226,10 @@ public class TestColumnMask
                 new ViewExpression(RUN_AS_USER, Optional.of(CATALOG), Optional.of("tiny"), "reverse(name)"));
 
         assertThat(assertions.query(
-                "SELECT name FROM mock.default.nation_view WHERE nationkey = 1",
                 Session.builder(SESSION)
                         .setIdentity(Identity.forUser(RUN_AS_USER).build())
-                        .build()))
+                        .build(),
+                "SELECT name FROM mock.default.nation_view WHERE nationkey = 1"))
                 .matches("VALUES CAST('ARGENTINA' AS VARCHAR(25))");
 
         // mask on the view

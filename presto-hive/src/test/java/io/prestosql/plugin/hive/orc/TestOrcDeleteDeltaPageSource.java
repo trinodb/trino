@@ -29,7 +29,6 @@ import java.io.File;
 import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.prestosql.plugin.hive.HiveTestUtils.SESSION;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static org.testng.Assert.assertEquals;
 
 public class TestOrcDeleteDeltaPageSource
@@ -47,9 +46,9 @@ public class TestOrcDeleteDeltaPageSource
                 new FileFormatDataSourceStats());
 
         OrcDeleteDeltaPageSource pageSource = pageSourceFactory.createPageSource(new Path(deleteDeltaFile.toURI()), deleteDeltaFile.length());
-        MaterializedResult materializedRows = MaterializedResult.materializeSourceDataStream(SESSION, pageSource, ImmutableList.of(BIGINT, INTEGER, BIGINT));
+        MaterializedResult materializedRows = MaterializedResult.materializeSourceDataStream(SESSION, pageSource, ImmutableList.of(BIGINT, BIGINT));
 
         assertEquals(materializedRows.getRowCount(), 1);
-        assertEquals(materializedRows.getMaterializedRows().get(0), new MaterializedRow(5, 2L, 536870912, 0L));
+        assertEquals(materializedRows.getMaterializedRows().get(0), new MaterializedRow(5, 2L, 0L));
     }
 }

@@ -15,12 +15,13 @@ package io.prestosql.tests.product.launcher.cli;
 
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
-import io.airlift.airline.Command;
 import io.prestosql.tests.product.launcher.Extensions;
 import io.prestosql.tests.product.launcher.LauncherModule;
+import io.prestosql.tests.product.launcher.env.EnvironmentConfigFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
+import picocli.CommandLine.Option;
 
 import javax.inject.Inject;
 
@@ -32,15 +33,19 @@ import java.nio.charset.Charset;
 
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static java.util.Objects.requireNonNull;
+import static picocli.CommandLine.Command;
 
-@Command(name = "list", description = "lists environments")
+@Command(
+        name = "list",
+        description = "List environments",
+        usageHelpAutoWidth = true)
 public final class EnvironmentList
         implements Runnable
 {
-    private final Module additionalEnvironments;
+    @Option(names = {"-h", "--help"}, usageHelp = true, description = "Show this help message and exit")
+    public boolean usageHelpRequested;
 
-    @Inject
-    public EnvironmentOptions environmentOptions = new EnvironmentOptions();
+    private final Module additionalEnvironments;
 
     public EnvironmentList(Extensions extensions)
     {
@@ -53,8 +58,7 @@ public final class EnvironmentList
         runCommand(
                 ImmutableList.<Module>builder()
                         .add(new LauncherModule())
-                        .add(new EnvironmentModule(additionalEnvironments))
-                        .add(environmentOptions.toModule())
+                        .add(new EnvironmentModule(EnvironmentOptions.empty(), additionalEnvironments))
                         .build(),
                 EnvironmentList.Execution.class);
     }
@@ -64,11 +68,13 @@ public final class EnvironmentList
     {
         private final PrintStream out;
         private final EnvironmentFactory factory;
+        private final EnvironmentConfigFactory configFactory;
 
         @Inject
-        public Execution(EnvironmentFactory factory)
+        public Execution(EnvironmentFactory factory, EnvironmentConfigFactory configFactory)
         {
             this.factory = requireNonNull(factory, "factory is null");
+            this.configFactory = requireNonNull(configFactory, "configFactory is null");
 
             try {
                 this.out = new PrintStream(new FileOutputStream(FileDescriptor.out), true, Charset.defaultCharset().name());
@@ -82,8 +88,10 @@ public final class EnvironmentList
         public void run()
         {
             out.println("Available environments: ");
-
             this.factory.list().forEach(out::println);
+
+            out.println("\nAvailable environment configs: ");
+            this.configFactory.listConfigs().forEach(out::println);
         }
     }
 }

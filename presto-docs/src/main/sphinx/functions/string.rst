@@ -81,6 +81,11 @@ String Functions
 
     Removes leading whitespace from ``string``.
 
+.. function:: luhn_check(string) -> boolean
+
+    Tests whether a ``string`` of digits is valid according to the
+    `Luhn algorithm <https://en.wikipedia.org/wiki/Luhn_algorithm>`_.
+
 .. function:: position(substring IN string) -> bigint
 
     Returns the starting position of the first instance of ``substring`` in

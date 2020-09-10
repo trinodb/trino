@@ -137,7 +137,7 @@ public interface ConnectorAccessControl
     }
 
     /**
-     * Check if identity is allowed to execute SHOW CREATE TABLE or SHOW CREATE VIEW.
+     * Check if identity is allowed to execute SHOW CREATE TABLE, SHOW CREATE VIEW or SHOW CREATE MATERIALIZED VIEW
      *
      * @throws io.prestosql.spi.security.AccessDeniedException if not allowed
      */

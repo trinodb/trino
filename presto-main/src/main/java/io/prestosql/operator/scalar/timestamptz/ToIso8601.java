@@ -21,7 +21,7 @@ import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestampWithTimeZone;
 import io.prestosql.type.Constraint;
-import io.prestosql.type.Timestamps;
+import io.prestosql.type.DateTimes;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
@@ -34,8 +34,8 @@ import static io.prestosql.spi.StandardErrorCode.INVALID_ARGUMENTS;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
-import static io.prestosql.type.Timestamps.getMillisOfSecond;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MILLISECOND;
+import static io.prestosql.type.DateTimes.getMillisOfSecond;
 
 @ScalarFunction("to_iso8601")
 public final class ToIso8601
@@ -81,6 +81,6 @@ public final class ToIso8601
             throw new PrestoException(INVALID_ARGUMENTS, String.format("Timezone with non-zero seconds offset cannot be rendered as ISO8601: %s", offset.getId()));
         }
 
-        return Timestamps.formatTimestamp(precision, dateTime, picoFraction, ISO8601_FORMATTER, builder -> builder.append(offset));
+        return DateTimes.formatTimestamp(precision, dateTime, picoFraction, ISO8601_FORMATTER, builder -> builder.append(offset));
     }
 }

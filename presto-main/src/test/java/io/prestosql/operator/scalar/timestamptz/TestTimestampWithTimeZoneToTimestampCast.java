@@ -31,7 +31,6 @@ public class TestTimestampWithTimeZoneToTimestampCast
     public void init()
     {
         Session session = testSessionBuilder()
-                .setSystemProperty("legacy_timestamp", "false")
                 .setTimeZoneKey(getTimeZoneKey("Pacific/Apia"))
                 .build();
         assertions = new QueryAssertions(session);

@@ -28,7 +28,7 @@ import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 public final class PostgreSqlSessionProperties
         implements SessionPropertiesProvider
 {
-    private static final String ARRAY_MAPPING = "array_mapping";
+    public static final String ARRAY_MAPPING = "array_mapping";
 
     private final List<PropertyMetadata<?>> sessionProperties;
 

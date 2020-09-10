@@ -73,6 +73,11 @@ public class Scope
         this.namedQueries = ImmutableMap.copyOf(requireNonNull(namedQueries, "namedQueries is null"));
     }
 
+    public Scope withRelationType(RelationType relationType)
+    {
+        return new Scope(parent, queryBoundary, relationId, relationType, namedQueries);
+    }
+
     public Scope getQueryBoundaryScope()
     {
         Scope scope = this;

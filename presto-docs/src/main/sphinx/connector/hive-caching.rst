@@ -158,7 +158,6 @@ Object storage systems
 The following object storage systems are tested:
 
 * HDFS
-* HDFS secured by Kerberos access
 * :doc:`Amazon S3 and S3-compatible systems <hive-s3>`
 * :doc:`Azure storage systems <hive-azure>`
 * Google Cloud Storage
@@ -177,21 +176,23 @@ The implementation of the cache exposes a `number of metrics
 :doc:`inspect these and other metrics directly in Presto with the JMX connector
 or in external tools </admin/jmx>`.
 
-The following example query returns the total amount of data fetched by the
-BookKeeper on the coordinator and all the separate nodes on the workers in the
-default async mode:
+Basic caching statistics for the catalog are available in the
+``jmx.current."rubix:catalog=<catalog_name>,name=stats"`` table.
+The table ``jmx.current."rubix:catalog=<catalog_name>,name=stats``
+contains more detailed statistics.
+
+The following example query returns the average cache hit ratio for the ``hive`` catalog:
 
 .. code-block:: sql
 
-  SELECT fs.readfromremote + async_downloaded_mb.count
-  FROM jmx.current."rubix:catalog=hive,name=stats" fs,
-       jmx.current."metrics:name=rubix.bookkeeper.count.async_downloaded_mb" async_downloaded_mb
-  WHERE fs.node = async_downloaded_mb.node;
+  SELECT avg(cache_hit)
+  FROM jmx.current."rubix:catalog=hive,name=stats"
+  WHERE NOT is_nan(cache_hit);
 
 Limitations
 -----------
 
-Caching does support user impersonation. It does not take any user-specific
-access rights to the object storage into account. The cached objects are simply
-transparent binary blobs to the caching system and full access to all content is
-available.
+Caching does not support user impersonation and cannot be used with HDFS secured by Kerberos.
+It does not take any user-specific access rights to the object storage into account.
+The cached objects are simply transparent binary blobs to the caching system and full
+access to all content is available.

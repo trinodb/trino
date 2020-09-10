@@ -26,6 +26,7 @@ import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.spi.PrestoException;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
@@ -47,7 +48,6 @@ import java.util.function.Supplier;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
-import static io.airlift.json.JsonCodec.jsonCodec;
 import static io.prestosql.plugin.hive.metastore.HivePartitionName.hivePartitionName;
 import static io.prestosql.plugin.hive.metastore.HiveTableName.hiveTableName;
 import static io.prestosql.plugin.hive.metastore.PartitionFilter.partitionFilter;
@@ -59,9 +59,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class RecordingHiveMetastore
         implements HiveMetastore
 {
-    private static final JsonCodec<Recording> RECORDING_CODEC = jsonCodec(Recording.class);
-
     private final HiveMetastore delegate;
+    private final JsonCodec<Recording> recordingCodec;
     private final Path recordingPath;
     private final boolean replay;
 
@@ -85,10 +84,11 @@ public class RecordingHiveMetastore
     private final Cache<String, Set<RoleGrant>> grantedPrincipalsCache;
 
     @Inject
-    public RecordingHiveMetastore(@ForRecordingHiveMetastore HiveMetastore delegate, HiveConfig hiveConfig)
+    public RecordingHiveMetastore(@ForRecordingHiveMetastore HiveMetastore delegate, HiveConfig hiveConfig, JsonCodec<RecordingHiveMetastore.Recording> recordingCodec)
             throws IOException
     {
         this.delegate = requireNonNull(delegate, "delegate is null");
+        this.recordingCodec = recordingCodec;
         requireNonNull(hiveConfig, "hiveConfig is null");
         this.recordingPath = Paths.get(requireNonNull(hiveConfig.getRecordingPath(), "recordingPath is null"));
         this.replay = hiveConfig.isReplay();
@@ -118,7 +118,7 @@ public class RecordingHiveMetastore
     void loadRecording()
             throws IOException
     {
-        Recording recording = RECORDING_CODEC.fromJson(readAllBytes(recordingPath));
+        Recording recording = recordingCodec.fromJson(readAllBytes(recordingPath));
 
         allDatabases = recording.getAllDatabases();
         allRoles = recording.getAllRoles();
@@ -178,7 +178,7 @@ public class RecordingHiveMetastore
                 toPairs(roleGrantsCache),
                 toPairs(grantedPrincipalsCache));
 
-        Files.write(recordingPath, RECORDING_CODEC.toJsonBytes(recording));
+        Files.write(recordingPath, recordingCodec.toJsonBytes(recording));
     }
 
     private static <K, V> Map<K, V> toMap(List<Pair<K, V>> pairs)
@@ -378,21 +378,12 @@ public class RecordingHiveMetastore
     }
 
     @Override
-    public Optional<List<String>> getPartitionNames(HiveIdentity identity, String databaseName, String tableName)
-    {
-        return loadValue(
-                partitionNamesCache,
-                hiveTableName(databaseName, tableName),
-                () -> delegate.getPartitionNames(identity, databaseName, tableName));
-    }
-
-    @Override
-    public Optional<List<String>> getPartitionNamesByParts(HiveIdentity identity, String databaseName, String tableName, List<String> parts)
+    public Optional<List<String>> getPartitionNamesByFilter(HiveIdentity identity, String databaseName, String tableName, List<String> columnNames, TupleDomain<String> partitionKeysFilter)
     {
         return loadValue(
                 partitionNamesByPartsCache,
-                partitionFilter(databaseName, tableName, parts),
-                () -> delegate.getPartitionNamesByParts(identity, databaseName, tableName, parts));
+                partitionFilter(databaseName, tableName, columnNames, partitionKeysFilter),
+                () -> delegate.getPartitionNamesByFilter(identity, databaseName, tableName, columnNames, partitionKeysFilter));
     }
 
     @Override

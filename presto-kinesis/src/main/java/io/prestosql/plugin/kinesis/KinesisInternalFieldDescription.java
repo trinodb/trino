@@ -39,7 +39,7 @@ public enum KinesisInternalFieldDescription
     SEGMENT_COUNT_FIELD("_segment_count", BigintType.BIGINT, "Running message count per segment"),
     MESSAGE_VALID_FIELD("_message_valid", BooleanType.BOOLEAN, "Message data is valid"),
     MESSAGE_FIELD("_message", VarcharType.VARCHAR, "Message text"),
-    MESSAGE_TIMESTAMP("_message_timestamp", TimestampType.TIMESTAMP, "Approximate message arrival timestamp"),
+    MESSAGE_TIMESTAMP("_message_timestamp", TimestampType.TIMESTAMP_MILLIS, "Approximate message arrival timestamp"),
     MESSAGE_LENGTH_FIELD("_message_length", BigintType.BIGINT, "Total number of message bytes"),
     PARTITION_KEY_FIELD("_partition_key", VarcharType.VARCHAR, "Key text");
 

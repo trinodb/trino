@@ -16,10 +16,10 @@ package io.prestosql.execution.scheduler;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Iterables;
+import io.airlift.units.Duration;
 import io.prestosql.client.NodeVersion;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.cost.StatsAndCosts;
-import io.prestosql.execution.LocationFactory;
 import io.prestosql.execution.MockRemoteTaskFactory;
 import io.prestosql.execution.MockRemoteTaskFactory.MockRemoteTask;
 import io.prestosql.execution.NodeTaskMap;
@@ -27,7 +27,6 @@ import io.prestosql.execution.RemoteTask;
 import io.prestosql.execution.SqlStageExecution;
 import io.prestosql.execution.StageId;
 import io.prestosql.execution.TableInfo;
-import io.prestosql.execution.TestSqlTaskManager.MockLocationFactory;
 import io.prestosql.execution.buffer.OutputBuffers.OutputBufferId;
 import io.prestosql.failuredetector.NoOpFailureDetector;
 import io.prestosql.metadata.InMemoryNodeManager;
@@ -74,6 +73,7 @@ import static io.airlift.concurrent.Threads.daemonThreadsNamed;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.execution.buffer.OutputBuffers.BufferType.PARTITIONED;
 import static io.prestosql.execution.buffer.OutputBuffers.createInitialEmptyOutputBuffers;
+import static io.prestosql.execution.scheduler.ScheduleResult.BlockedReason.SPLIT_QUEUES_FULL;
 import static io.prestosql.execution.scheduler.SourcePartitionedScheduler.newSourcePartitionedSchedulerAsStageScheduler;
 import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.prestosql.spi.StandardErrorCode.NO_NODES_AVAILABLE;
@@ -89,6 +89,7 @@ import static java.lang.Integer.min;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 import static java.util.concurrent.Executors.newScheduledThreadPool;
+import static java.util.concurrent.TimeUnit.SECONDS;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -100,7 +101,6 @@ public class TestSourcePartitionedScheduler
 
     private final ExecutorService queryExecutor = newCachedThreadPool(daemonThreadsNamed("stageExecutor-%s"));
     private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("stageScheduledExecutor-%s"));
-    private final LocationFactory locationFactory = new MockLocationFactory();
     private final InMemoryNodeManager nodeManager = new InMemoryNodeManager();
     private final FinalizerService finalizerService = new FinalizerService();
 
@@ -318,7 +318,8 @@ public class TestSourcePartitionedScheduler
                     Iterables.getOnlyElement(plan.getSplitSources().keySet()),
                     Iterables.getOnlyElement(plan.getSplitSources().values()),
                     new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(Optional.of(CONNECTOR_ID)), stage::getAllTasks),
-                    2);
+                    2,
+                    () -> false);
             scheduler.schedule();
         }).hasErrorCode(NO_NODES_AVAILABLE);
     }
@@ -370,40 +371,79 @@ public class TestSourcePartitionedScheduler
     }
 
     @Test
-    public void testBlockCausesFullSchedule()
+    public void testNewTaskScheduledWhenChildStageBufferIsUnderutilized()
     {
         NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        // use private node manager so we can add a node later
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        nodeManager.addNode(CONNECTOR_ID,
+                new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
+                new InternalNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
+                new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
+        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap, new Duration(0, SECONDS)));
 
-        // Schedule 60 splits - filling up all nodes
-        StageExecutionPlan firstPlan = createPlan(createFixedSplitSource(60, TestingSplit::createRemoteSplit));
-        SqlStageExecution firstStage = createSqlStageExecution(firstPlan, nodeTaskMap);
-        StageScheduler firstScheduler = getSourcePartitionedScheduler(firstPlan, firstStage, nodeManager, nodeTaskMap, 200);
+        StageExecutionPlan plan = createPlan(createFixedSplitSource(500, TestingSplit::createRemoteSplit));
+        SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
 
-        ScheduleResult scheduleResult = firstScheduler.schedule();
-        assertEffectivelyFinished(scheduleResult, firstScheduler);
-        assertTrue(scheduleResult.getBlocked().isDone());
+        // setting under utilized child output buffer
+        StageScheduler scheduler = newSourcePartitionedSchedulerAsStageScheduler(
+                stage,
+                Iterables.getOnlyElement(plan.getSplitSources().keySet()),
+                Iterables.getOnlyElement(plan.getSplitSources().values()),
+                new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(Optional.of(CONNECTOR_ID)), stage::getAllTasks),
+                500,
+                () -> false);
+
+        // the queues of 3 running nodes should be full
+        ScheduleResult scheduleResult = scheduler.schedule();
+        assertEquals(scheduleResult.getBlockedReason().get(), SPLIT_QUEUES_FULL);
         assertEquals(scheduleResult.getNewTasks().size(), 3);
-        assertEquals(firstStage.getAllTasks().size(), 3);
-        for (RemoteTask remoteTask : firstStage.getAllTasks()) {
-            assertEquals(remoteTask.getPartitionedSplitCount(), 20);
-        }
+        assertEquals(scheduleResult.getSplitsScheduled(), 300);
 
-        // Schedule more splits in another query, which will block since all nodes are full
-        StageExecutionPlan secondPlan = createPlan(createFixedSplitSource(5, TestingSplit::createRemoteSplit));
-        SqlStageExecution secondStage = createSqlStageExecution(secondPlan, nodeTaskMap);
-        StageScheduler secondScheduler = getSourcePartitionedScheduler(secondPlan, secondStage, nodeManager, nodeTaskMap, 200);
+        // new node added - the pending splits should go to it since the child tasks are not blocked
+        nodeManager.addNode(CONNECTOR_ID, new InternalNode("other4", URI.create("http://127.0.0.4:14"), NodeVersion.UNKNOWN, false));
+        scheduleResult = scheduler.schedule();
+        assertEquals(scheduleResult.getBlockedReason().get(), SPLIT_QUEUES_FULL); // split queue is full but still the source task creation isn't blocked
+        assertEquals(scheduleResult.getNewTasks().size(), 1);
+        assertEquals(scheduleResult.getSplitsScheduled(), 100);
+    }
 
-        scheduleResult = secondScheduler.schedule();
-        assertFalse(scheduleResult.isFinished());
-        assertTrue(scheduleResult.getBlocked().isDone());
+    @Test
+    public void testNoNewTaskScheduledWhenChildStageBufferIsOverutilized()
+    {
+        NodeTaskMap nodeTaskMap = new NodeTaskMap(finalizerService);
+        // use private node manager so we can add a node later
+        InMemoryNodeManager nodeManager = new InMemoryNodeManager();
+        nodeManager.addNode(CONNECTOR_ID,
+                new InternalNode("other1", URI.create("http://127.0.0.1:11"), NodeVersion.UNKNOWN, false),
+                new InternalNode("other2", URI.create("http://127.0.0.1:12"), NodeVersion.UNKNOWN, false),
+                new InternalNode("other3", URI.create("http://127.0.0.1:13"), NodeVersion.UNKNOWN, false));
+        NodeScheduler nodeScheduler = new NodeScheduler(new UniformNodeSelectorFactory(nodeManager, new NodeSchedulerConfig().setIncludeCoordinator(false), nodeTaskMap, new Duration(0, SECONDS)));
+
+        StageExecutionPlan plan = createPlan(createFixedSplitSource(400, TestingSplit::createRemoteSplit));
+        SqlStageExecution stage = createSqlStageExecution(plan, nodeTaskMap);
+
+        // setting over utilized child output buffer
+        StageScheduler scheduler = newSourcePartitionedSchedulerAsStageScheduler(
+                stage,
+                Iterables.getOnlyElement(plan.getSplitSources().keySet()),
+                Iterables.getOnlyElement(plan.getSplitSources().values()),
+                new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(Optional.of(CONNECTOR_ID)), stage::getAllTasks),
+                400,
+                () -> true);
+
+        // the queues of 3 running nodes should be full
+        ScheduleResult scheduleResult = scheduler.schedule();
+        assertEquals(scheduleResult.getBlockedReason().get(), SPLIT_QUEUES_FULL);
         assertEquals(scheduleResult.getNewTasks().size(), 3);
-        assertEquals(secondStage.getAllTasks().size(), 3);
-        for (RemoteTask remoteTask : secondStage.getAllTasks()) {
-            assertEquals(remoteTask.getPartitionedSplitCount(), 0);
-        }
+        assertEquals(scheduleResult.getSplitsScheduled(), 300);
 
-        firstStage.abort();
-        secondStage.abort();
+        // new node added but 1 child's output buffer is overutilized - so lockdown the tasks
+        nodeManager.addNode(CONNECTOR_ID, new InternalNode("other4", URI.create("http://127.0.0.4:14"), NodeVersion.UNKNOWN, false));
+        scheduleResult = scheduler.schedule();
+        assertEquals(scheduleResult.getBlockedReason().get(), SPLIT_QUEUES_FULL);
+        assertEquals(scheduleResult.getNewTasks().size(), 0);
+        assertEquals(scheduleResult.getSplitsScheduled(), 0);
     }
 
     private static void assertPartitionedSplitCount(SqlStageExecution stage, int expectedPartitionedSplitCount)
@@ -442,7 +482,7 @@ public class TestSourcePartitionedScheduler
         PlanNodeId sourceNode = Iterables.getOnlyElement(plan.getSplitSources().keySet());
         SplitSource splitSource = Iterables.getOnlyElement(plan.getSplitSources().values());
         SplitPlacementPolicy placementPolicy = new DynamicSplitPlacementPolicy(nodeScheduler.createNodeSelector(Optional.of(splitSource.getCatalogName())), stage::getAllTasks);
-        return newSourcePartitionedSchedulerAsStageScheduler(stage, sourceNode, splitSource, placementPolicy, splitBatchSize);
+        return newSourcePartitionedSchedulerAsStageScheduler(stage, sourceNode, splitSource, placementPolicy, splitBatchSize, () -> false);
     }
 
     private static StageExecutionPlan createPlan(ConnectorSplitSource splitSource)

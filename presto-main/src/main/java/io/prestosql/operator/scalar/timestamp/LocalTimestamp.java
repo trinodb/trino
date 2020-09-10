@@ -20,17 +20,16 @@ import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestamp;
-import io.prestosql.type.Timestamps;
+import io.prestosql.type.DateTimes;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
 
 import static io.prestosql.spi.type.TimestampType.MAX_SHORT_PRECISION;
-import static io.prestosql.type.Timestamps.PICOSECONDS_PER_NANOSECOND;
-import static io.prestosql.type.Timestamps.epochSecondToMicrosWithRounding;
-import static io.prestosql.type.Timestamps.round;
-import static io.prestosql.type.Timestamps.scaleEpochMicrosToMillis;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_NANOSECOND;
+import static io.prestosql.type.DateTimes.epochSecondToMicrosWithRounding;
+import static io.prestosql.type.DateTimes.round;
 
 @ScalarFunction(value = "$localtimestamp", hidden = true)
 public final class LocalTimestamp
@@ -44,21 +43,11 @@ public final class LocalTimestamp
             ConnectorSession session,
             @SqlNullable @SqlType("timestamp(p)") Long dummy) // need a dummy value since the type inferencer can't bind type arguments exclusively from return type
     {
-        Instant start = session.getStart();
-
-        if (!session.isLegacyTimestamp()) {
-            start = LocalDateTime.ofInstant(session.getStart(), session.getTimeZoneKey().getZoneId())
-                    .toInstant(ZoneOffset.UTC);
-        }
+        Instant start = LocalDateTime.ofInstant(session.getStart(), session.getTimeZoneKey().getZoneId())
+                .toInstant(ZoneOffset.UTC);
 
         long epochMicros = epochSecondToMicrosWithRounding(start.getEpochSecond(), ((long) start.getNano()) * PICOSECONDS_PER_NANOSECOND);
-        epochMicros = round(epochMicros, (int) (MAX_SHORT_PRECISION - precision));
-
-        if (precision <= 3) {
-            epochMicros = scaleEpochMicrosToMillis(epochMicros);
-        }
-
-        return epochMicros;
+        return round(epochMicros, (int) (MAX_SHORT_PRECISION - precision));
     }
 
     @LiteralParameters("p")
@@ -68,13 +57,9 @@ public final class LocalTimestamp
             ConnectorSession session,
             @SqlNullable @SqlType("timestamp(p)") LongTimestamp dummy) // need a dummy value since the type inferencer can't bind type arguments exclusively from return type
     {
-        Instant start = session.getStart();
+        Instant start = LocalDateTime.ofInstant(session.getStart(), session.getTimeZoneKey().getZoneId())
+                .toInstant(ZoneOffset.UTC);
 
-        if (!session.isLegacyTimestamp()) {
-            start = LocalDateTime.ofInstant(session.getStart(), session.getTimeZoneKey().getZoneId())
-                    .toInstant(ZoneOffset.UTC);
-        }
-
-        return Timestamps.longTimestamp(precision, start);
+        return DateTimes.longTimestamp(precision, start);
     }
 }

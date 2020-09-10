@@ -13,56 +13,31 @@
  */
 package io.prestosql.tests.product.launcher.env;
 
-import com.google.inject.Module;
-import io.airlift.airline.Option;
-
 import java.io.File;
-import java.util.Locale;
 
-import static com.google.common.base.MoreObjects.firstNonNull;
-import static java.util.Objects.requireNonNull;
+import static picocli.CommandLine.Option;
 
 public final class EnvironmentOptions
 {
-    private static final String DOCKER_IMAGES_VERSION = "30";
+    private static final String DEFAULT_VALUE = "(default: ${DEFAULT-VALUE})";
 
-    @Option(name = "--hadoop-base-image", title = "image", description = "Hadoop base image")
-    public String hadoopBaseImage = System.getenv().getOrDefault("HADOOP_BASE_IMAGE", "prestodev/hdp2.6-hive");
+    @Option(names = "--config", paramLabel = "<config>", description = "Environment config to use")
+    public String config = "config-default";
 
-    @Option(name = "--image-version", title = "version", description = "docker images version")
-    public String imagesVersion = System.getenv().getOrDefault("DOCKER_IMAGES_VERSION", DOCKER_IMAGES_VERSION);
+    @Option(names = "--server-package", paramLabel = "<package>", description = "Path to Presto server package " + DEFAULT_VALUE, defaultValue = "${server.module}/target/${server.name}-${project.version}.tar.gz")
+    public File serverPackage;
 
-    @Option(name = "--hadoop-image-version", title = "version", description = "docker images version")
-    public String hadoopImagesVersion = System.getenv().getOrDefault("HADOOP_IMAGES_VERSION", System.getenv().getOrDefault("DOCKER_IMAGES_VERSION", DOCKER_IMAGES_VERSION));
-
-    @Option(name = "--server-package", title = "server-package", description = "path to Presto server package")
-    public File serverPackage = new File("presto-server/target/presto-server-${project.version}.tar.gz");
-
-    @Option(name = "--without-presto", title = "without Presto", description = "do not start presto-master")
+    @Option(names = "--without-presto", description = "Do not start presto-master")
     public boolean withoutPrestoMaster;
 
-    @Option(name = "--bind", description = "bind ports on localhost")
-    public boolean bindPorts = toBoolean(firstNonNull(System.getenv("PTL_BIND_PORTS"), "true"));
+    @Option(names = "--no-bind", description = "Bind ports on localhost", negatable = true)
+    public boolean bindPorts = true;
 
-    @Option(name = "--debug", description = "open Java debug ports")
+    @Option(names = "--debug", description = "Open Java debug ports")
     public boolean debug;
 
-    public Module toModule()
+    public static EnvironmentOptions empty()
     {
-        return binder -> {
-            binder.bind(EnvironmentOptions.class).toInstance(this);
-        };
-    }
-
-    private static boolean toBoolean(String value)
-    {
-        requireNonNull(value, "value is null");
-        switch (value.toLowerCase(Locale.ENGLISH)) {
-            case "true":
-                return true;
-            case "false":
-                return false;
-        }
-        throw new IllegalArgumentException("Cannot convert to boolean: " + value);
+        return new EnvironmentOptions();
     }
 }

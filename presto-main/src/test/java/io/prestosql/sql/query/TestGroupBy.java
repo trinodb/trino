@@ -75,4 +75,84 @@ public class TestGroupBy
                         "GROUP BY CAST(row(x) AS row(\"A\" bigint))"))
                 .hasMessage("line 1:8: 'CAST(ROW (x) AS ROW(\"a\" bigint))' must be an aggregate expression or appear in GROUP BY clause");
     }
+
+    @Test
+    public void testDuplicateComplexExpressions()
+    {
+        assertThat(assertions.query(
+                "SELECT a + 1, a + 1 " +
+                        "FROM (VALUES 1) t(a) " +
+                        "GROUP BY 1, 2"))
+                .matches("VALUES (2, 2)");
+
+        assertThat(assertions.query(
+                "SELECT 1 " +
+                        "FROM (VALUES 1) t(a) " +
+                        "GROUP BY a + 1, a + 1"))
+                .matches("VALUES 1");
+
+        assertThat(assertions.query(
+                "SELECT 1 " +
+                        "FROM (VALUES 1) t(a) " +
+                        "GROUP BY t.a + 1, a + 1"))
+                .matches("VALUES 1");
+
+        assertThat(assertions.query(
+                "SELECT 1 " +
+                        "FROM (VALUES 1) t(a) " +
+                        "GROUP BY A + 1, a + 1"))
+                .matches("VALUES 1");
+
+        assertThat(assertions.query(
+                "SELECT 1 " +
+                        "FROM (VALUES 1) t(a) " +
+                        "GROUP BY t.A + 1, a + 1"))
+                .matches("VALUES 1");
+
+        assertThat(assertions.query(
+                "SELECT a + 1 " +
+                        "FROM (VALUES 1) t(a) " +
+                        "GROUP BY t.A + 1, 1"))
+                .matches("VALUES 2");
+    }
+
+    @Test
+    public void testReferenceWithMixedStyle()
+    {
+        assertThat(assertions.query(
+                "SELECT a + 1 " +
+                        "FROM (VALUES 1) t(a) " +
+                        "GROUP BY A + 1"))
+                .matches("VALUES 2");
+
+        assertThat(assertions.query(
+                "SELECT a + 1 " +
+                        "FROM (VALUES 1) t(a) " +
+                        "GROUP BY t.a + 1"))
+                .matches("VALUES 2");
+
+        assertThat(assertions.query(
+                "SELECT a + 1 " +
+                        "FROM (VALUES 1) t(a) " +
+                        "GROUP BY t.A + 1"))
+                .matches("VALUES 2");
+
+        assertThat(assertions.query(
+                "SELECT t.a + 1 " +
+                        "FROM (VALUES 1) t(a) " +
+                        "GROUP BY a + 1"))
+                .matches("VALUES 2");
+
+        assertThat(assertions.query(
+                "SELECT t.a + 1 " +
+                        "FROM (VALUES 1) t(a) " +
+                        "GROUP BY A + 1"))
+                .matches("VALUES 2");
+
+        assertThat(assertions.query(
+                "SELECT t.a + 1 " +
+                        "FROM (VALUES 1) t(a) " +
+                        "GROUP BY t.A + 1"))
+                .matches("VALUES 2");
+    }
 }

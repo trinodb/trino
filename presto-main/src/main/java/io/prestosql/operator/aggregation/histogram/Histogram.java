@@ -15,10 +15,9 @@ package io.prestosql.operator.aggregation.histogram;
 
 import com.google.common.collect.ImmutableList;
 import io.airlift.bytecode.DynamicClassLoader;
-import io.prestosql.metadata.BoundVariables;
 import io.prestosql.metadata.FunctionArgumentDefinition;
+import io.prestosql.metadata.FunctionBinding;
 import io.prestosql.metadata.FunctionMetadata;
-import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.AccumulatorCompiler;
@@ -28,10 +27,8 @@ import io.prestosql.operator.aggregation.GenericAccumulatorFactoryBinder;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
-import io.prestosql.spi.type.StandardTypes;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
-import io.prestosql.spi.type.TypeSignatureParameter;
 
 import java.lang.invoke.MethodHandle;
 import java.util.List;
@@ -84,12 +81,18 @@ public class Histogram
     }
 
     @Override
-    public InternalAggregationFunction specialize(BoundVariables boundVariables, int arity, Metadata metadata)
+    public List<TypeSignature> getIntermediateTypes(FunctionBinding functionBinding)
     {
-        Type keyType = boundVariables.getTypeVariable("K");
-        Type outputType = metadata.getParameterizedType(StandardTypes.MAP, ImmutableList.of(
-                TypeSignatureParameter.typeParameter(keyType.getTypeSignature()),
-                TypeSignatureParameter.typeParameter(BIGINT.getTypeSignature())));
+        Type keyType = functionBinding.getTypeVariable("K");
+        Type outputType = functionBinding.getBoundSignature().getReturnType();
+        return ImmutableList.of(new HistogramStateSerializer(keyType, outputType).getSerializedType().getTypeSignature());
+    }
+
+    @Override
+    public InternalAggregationFunction specialize(FunctionBinding functionBinding)
+    {
+        Type keyType = functionBinding.getTypeVariable("K");
+        Type outputType = functionBinding.getBoundSignature().getReturnType();
         return generateAggregation(NAME, keyType, outputType, groupMode);
     }
 
@@ -120,7 +123,7 @@ public class Histogram
                 outputType);
 
         GenericAccumulatorFactoryBinder factory = AccumulatorCompiler.generateAccumulatorFactoryBinder(metadata, classLoader);
-        return new InternalAggregationFunction(functionName, inputTypes, ImmutableList.of(intermediateType), outputType, true, false, factory);
+        return new InternalAggregationFunction(functionName, inputTypes, ImmutableList.of(intermediateType), outputType, factory);
     }
 
     private static List<ParameterMetadata> createInputParameterMetadata(Type keyType)

@@ -70,7 +70,6 @@ public class PinotMetadata
 
     private final LoadingCache<String, List<PinotColumn>> pinotTableColumnCache;
     private final LoadingCache<Object, List<String>> allTablesCache;
-    private final PinotConfig pinotConfig;
 
     @Inject
     public PinotMetadata(
@@ -78,8 +77,8 @@ public class PinotMetadata
             PinotConfig pinotConfig,
             @ForPinot Executor executor)
     {
-        this.pinotConfig = requireNonNull(pinotConfig, "pinot config");
-        long metadataCacheExpiryMillis = this.pinotConfig.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS);
+        requireNonNull(pinotConfig, "pinot config");
+        long metadataCacheExpiryMillis = pinotConfig.getMetadataCacheExpiry().roundTo(TimeUnit.MILLISECONDS);
         this.allTablesCache = CacheBuilder.newBuilder()
                 .refreshAfterWrite(metadataCacheExpiryMillis, TimeUnit.MILLISECONDS)
                 .build(asyncReloading(CacheLoader.from(pinotClient::getAllTables), executor));

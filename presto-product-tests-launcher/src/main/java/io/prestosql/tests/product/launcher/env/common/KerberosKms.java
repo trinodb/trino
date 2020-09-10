@@ -15,7 +15,7 @@ package io.prestosql.tests.product.launcher.env.common;
 
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
+import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 
 import javax.inject.Inject;
 
@@ -31,11 +31,11 @@ public class KerberosKms
     private final String hadoopImagesVersion;
 
     @Inject
-    public KerberosKms(DockerFiles dockerFiles, EnvironmentOptions environmentOptions)
+    public KerberosKms(DockerFiles dockerFiles, EnvironmentConfig environmentConfig)
     {
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
-        requireNonNull(environmentOptions, "environmentOptions is null");
-        hadoopImagesVersion = requireNonNull(environmentOptions.hadoopImagesVersion, "environmentOptions.hadoopImagesVersion is null");
+        requireNonNull(environmentConfig, "environmentOptions is null");
+        hadoopImagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopImagesVersion();
     }
 
     @Override

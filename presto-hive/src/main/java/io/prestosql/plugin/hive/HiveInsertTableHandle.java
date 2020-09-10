@@ -44,6 +44,7 @@ public class HiveInsertTableHandle
                 locationHandle,
                 bucketProperty,
                 tableStorageFormat,
-                partitionStorageFormat);
+                partitionStorageFormat,
+                false);
     }
 }

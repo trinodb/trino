@@ -13,7 +13,6 @@
  */
 package io.prestosql.plugin.iceberg;
 
-import com.google.common.base.VerifyException;
 import com.google.common.collect.ImmutableList;
 import io.airlift.json.JsonCodec;
 import io.airlift.slice.Slice;
@@ -35,8 +34,6 @@ import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.IntegerType;
 import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.SmallintType;
-import io.prestosql.spi.type.TimestampType;
-import io.prestosql.spi.type.TimestampWithTimeZoneType;
 import io.prestosql.spi.type.TinyintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
@@ -44,13 +41,9 @@ import io.prestosql.spi.type.VarcharType;
 import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.iceberg.FileFormat;
-import org.apache.iceberg.Metrics;
-import org.apache.iceberg.MetricsConfig;
 import org.apache.iceberg.PartitionField;
 import org.apache.iceberg.PartitionSpec;
 import org.apache.iceberg.Schema;
-import org.apache.iceberg.hadoop.HadoopInputFile;
-import org.apache.iceberg.parquet.ParquetUtil;
 import org.apache.iceberg.transforms.Transform;
 
 import java.util.ArrayList;
@@ -69,16 +62,19 @@ import static io.airlift.slice.Slices.wrappedBuffer;
 import static io.prestosql.plugin.hive.util.ConfigurationUtils.toJobConf;
 import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_TOO_MANY_OPEN_PARTITIONS;
 import static io.prestosql.plugin.iceberg.PartitionTransforms.getColumnTransform;
-import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
-import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static io.prestosql.plugin.iceberg.util.Timestamps.getTimestampTz;
+import static io.prestosql.plugin.iceberg.util.Timestamps.timestampTzToMicros;
 import static io.prestosql.spi.type.Decimals.readBigDecimal;
+import static io.prestosql.spi.type.TimeType.TIME_MICROS;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.prestosql.spi.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
 import static java.lang.Float.intBitsToFloat;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
 import static java.util.concurrent.CompletableFuture.completedFuture;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class IcebergPageSink
         implements ConnectorPageSink
@@ -92,8 +88,8 @@ public class IcebergPageSink
     private final String outputPath;
     private final IcebergFileWriterFactory fileWriterFactory;
     private final HdfsEnvironment hdfsEnvironment;
+    private final HdfsContext hdfsContext;
     private final JobConf jobConf;
-    private final List<IcebergColumnHandle> inputColumns;
     private final JsonCodec<CommitTaskData> jsonCodec;
     private final ConnectorSession session;
     private final FileFormat fileFormat;
@@ -124,12 +120,11 @@ public class IcebergPageSink
         this.outputPath = requireNonNull(outputPath, "outputPath is null");
         this.fileWriterFactory = requireNonNull(fileWriterFactory, "fileWriterFactory is null");
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
-        requireNonNull(hdfsContext, "hdfsContext is null");
+        this.hdfsContext = requireNonNull(hdfsContext, "hdfsContext is null");
         this.jobConf = toJobConf(hdfsEnvironment.getConfiguration(hdfsContext, new Path(outputPath)));
         this.jsonCodec = requireNonNull(jsonCodec, "jsonCodec is null");
         this.session = requireNonNull(session, "session is null");
         this.fileFormat = requireNonNull(fileFormat, "fileFormat is null");
-        this.inputColumns = ImmutableList.copyOf(inputColumns);
         this.pagePartitioner = new PagePartitioner(pageIndexerFactory, toPartitionColumns(inputColumns, partitionSpec));
     }
 
@@ -169,7 +164,7 @@ public class IcebergPageSink
 
             CommitTaskData task = new CommitTaskData(
                     context.getPath().toString(),
-                    new MetricsWrapper(getMetrics(context)),
+                    new MetricsWrapper(context.writer.getMetrics()),
                     context.getPartitionData().map(PartitionData::toJson));
 
             commitTasks.add(wrappedBuffer(jsonCodec.toJsonBytes(task)));
@@ -314,24 +309,12 @@ public class IcebergPageSink
         IcebergFileWriter writer = fileWriterFactory.createFileWriter(
                 outputPath,
                 outputSchema,
-                inputColumns,
                 jobConf,
                 session,
+                hdfsContext,
                 fileFormat);
 
         return new WriteContext(writer, outputPath, partitionData);
-    }
-
-    private Metrics getMetrics(WriteContext writeContext)
-    {
-        switch (fileFormat) {
-            case PARQUET:
-                return ParquetUtil.fileMetrics(HadoopInputFile.fromPath(writeContext.getPath(), jobConf), MetricsConfig.getDefault());
-            case ORC:
-                return writeContext.getWriter().getMetrics()
-                        .orElseThrow(() -> new VerifyException("Iceberg ORC file writers should return Iceberg metrics"));
-        }
-        throw new PrestoException(NOT_SUPPORTED, "File format not supported for Iceberg: " + fileFormat);
     }
 
     private static Optional<PartitionData> getPartitionData(List<PartitionColumn> columns, Page page, int position)
@@ -380,11 +363,14 @@ public class IcebergPageSink
         if (type instanceof DoubleType) {
             return type.getDouble(block, position);
         }
-        if (type instanceof TimestampType) {
-            return MILLISECONDS.toMicros(type.getLong(block, position));
+        if (type.equals(TIME_MICROS)) {
+            return type.getLong(block, position) / PICOSECONDS_PER_MICROSECOND;
         }
-        if (type instanceof TimestampWithTimeZoneType) {
-            return MILLISECONDS.toMicros(unpackMillisUtc(type.getLong(block, position)));
+        if (type.equals(TIMESTAMP_MICROS)) {
+            return type.getLong(block, position);
+        }
+        if (type.equals(TIMESTAMP_TZ_MICROS)) {
+            return timestampTzToMicros(getTimestampTz(block, position));
         }
         if (type instanceof VarbinaryType) {
             return type.getSlice(block, position).getBytes();

@@ -52,7 +52,7 @@ import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.metadataError;
 import static io.prestosql.plugin.raptor.legacy.util.DatabaseUtil.onDemandDao;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static java.lang.String.format;
@@ -83,8 +83,8 @@ public class ShardMetadataRecordCursor
                     new ColumnMetadata("compressed_size", BIGINT),
                     new ColumnMetadata("row_count", BIGINT),
                     new ColumnMetadata(XXHASH64, createVarcharType(16)),
-                    new ColumnMetadata(MIN_TIMESTAMP, TIMESTAMP),
-                    new ColumnMetadata(MAX_TIMESTAMP, TIMESTAMP),
+                    new ColumnMetadata(MIN_TIMESTAMP, TIMESTAMP_MILLIS),
+                    new ColumnMetadata(MAX_TIMESTAMP, TIMESTAMP_MILLIS),
                     new ColumnMetadata(MIN_DATE, DATE),
                     new ColumnMetadata(MAX_DATE, DATE)));
 
@@ -278,7 +278,7 @@ public class ShardMetadataRecordCursor
             if (temporalType.equals(DATE)) {
                 columnNames = getMappedColumnNames("null", "null", minColumn(columnId), maxColumn(columnId));
             }
-            else if (temporalType.equals(TIMESTAMP)) {
+            else if (temporalType.equals(TIMESTAMP_MILLIS)) {
                 columnNames = getMappedColumnNames(minColumn(columnId), maxColumn(columnId), "null", "null");
             }
             else {

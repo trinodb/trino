@@ -185,7 +185,8 @@ public class TableWriterNode
     @JsonSubTypes({
             @JsonSubTypes.Type(value = CreateTarget.class, name = "CreateTarget"),
             @JsonSubTypes.Type(value = InsertTarget.class, name = "InsertTarget"),
-            @JsonSubTypes.Type(value = DeleteTarget.class, name = "DeleteTarget")})
+            @JsonSubTypes.Type(value = DeleteTarget.class, name = "DeleteTarget"),
+            @JsonSubTypes.Type(value = RefreshMaterializedViewTarget.class, name = "RefreshMaterializedViewTarget")})
     @SuppressWarnings({"EmptyClass", "ClassMayBeInterface"})
     public abstract static class WriterTarget
     {
@@ -319,6 +320,85 @@ public class TableWriterNode
         public SchemaTableName getSchemaTableName()
         {
             return schemaTableName;
+        }
+
+        @Override
+        public String toString()
+        {
+            return handle.toString();
+        }
+    }
+
+    public static class RefreshMaterializedViewReference
+            extends WriterTarget
+    {
+        private final TableHandle materializedViewHandle;
+        private final TableHandle storageTableHandle;
+        private final List<TableHandle> sourceTableHandles;
+
+        public RefreshMaterializedViewReference(TableHandle materializedViewHandle, TableHandle storageTableHandle, List<TableHandle> sourceTableHandles)
+        {
+            this.materializedViewHandle = requireNonNull(materializedViewHandle, "Materialized view handle is null");
+            this.storageTableHandle = requireNonNull(storageTableHandle, "Storage table handle is null");
+            this.sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
+        }
+
+        public TableHandle getMaterializedViewHandle()
+        {
+            return materializedViewHandle;
+        }
+
+        public TableHandle getStorageTableHandle()
+        {
+            return storageTableHandle;
+        }
+
+        public List<TableHandle> getSourceTableHandles()
+        {
+            return sourceTableHandles;
+        }
+
+        @Override
+        public String toString()
+        {
+            return materializedViewHandle.toString();
+        }
+    }
+
+    public static class RefreshMaterializedViewTarget
+            extends WriterTarget
+    {
+        private final InsertTableHandle handle;
+        private final SchemaTableName schemaTableName;
+        private final List<TableHandle> sourceTableHandles;
+
+        @JsonCreator
+        public RefreshMaterializedViewTarget(
+                @JsonProperty("handle") InsertTableHandle handle,
+                @JsonProperty("schemaTableName") SchemaTableName schemaTableName,
+                @JsonProperty("sourceTableHandles") List<TableHandle> sourceTableHandles)
+        {
+            this.handle = requireNonNull(handle, "handle is null");
+            this.schemaTableName = requireNonNull(schemaTableName, "schemaTableName is null");
+            this.sourceTableHandles = ImmutableList.copyOf(sourceTableHandles);
+        }
+
+        @JsonProperty
+        public InsertTableHandle getHandle()
+        {
+            return handle;
+        }
+
+        @JsonProperty
+        public SchemaTableName getSchemaTableName()
+        {
+            return schemaTableName;
+        }
+
+        @JsonProperty
+        public List<TableHandle> getSourceTableHandles()
+        {
+            return sourceTableHandles;
         }
 
         @Override

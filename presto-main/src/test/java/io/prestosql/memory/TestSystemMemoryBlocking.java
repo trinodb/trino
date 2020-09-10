@@ -30,8 +30,8 @@ import io.prestosql.operator.TaskContext;
 import io.prestosql.spi.HostAddress;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.connector.ConnectorSplit;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.FixedPageSource;
-import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.plan.PlanNodeId;
 import io.prestosql.testing.MaterializedResult;
@@ -107,7 +107,7 @@ public class TestSystemMemoryBlocking
                         .build()),
                 TEST_TABLE_HANDLE,
                 ImmutableList.of(),
-                TupleDomain::all);
+                DynamicFilter.EMPTY);
         PageConsumerOperator sink = createSinkOperator(types);
         Driver driver = Driver.createDriver(driverContext, source, sink);
         assertSame(driver.getDriverContext(), driverContext);

@@ -19,7 +19,6 @@ import io.prestosql.operator.scalar.timestamp.TimestampOperators.TimestampPlusIn
 import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.BlockBuilder;
 import io.prestosql.spi.connector.ConnectorSession;
-import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
@@ -47,22 +46,20 @@ public final class SequenceIntervalYearToMonth
     @LiteralParameters("p")
     @SqlType("array(timestamp(p))")
     public static Block sequence(
-            @LiteralParameter("p") long precision,
-            ConnectorSession session,
             @SqlType("timestamp(p)") long start,
             @SqlType("timestamp(p)") long stop,
             @SqlType(StandardTypes.INTERVAL_YEAR_TO_MONTH) long step)
     {
         checkValidStep(start, stop, step);
 
-        int length = toIntExact(DateDiff.diff(precision, session, MONTH, start, stop) / step + 1);
+        int length = toIntExact(DateDiff.diff(MONTH, start, stop) / step + 1);
         checkMaxEntry(length);
 
         BlockBuilder blockBuilder = SHORT_TYPE.createBlockBuilder(null, length);
 
         int offset = 0;
         for (int i = 0; i < length; ++i) {
-            long value = TimestampPlusIntervalYearToMonth.add(precision, session, start, offset);
+            long value = TimestampPlusIntervalYearToMonth.add(start, offset);
             SHORT_TYPE.writeLong(blockBuilder, value);
             offset += step;
         }
@@ -80,14 +77,14 @@ public final class SequenceIntervalYearToMonth
     {
         checkValidStep(start.getEpochMicros(), stop.getEpochMicros(), step);
 
-        int length = toIntExact(DateDiff.diff(session, MONTH, start, stop) / step + 1);
+        int length = toIntExact(DateDiff.diff(MONTH, start, stop) / step + 1);
         checkMaxEntry(length);
 
         BlockBuilder blockBuilder = LONG_TYPE.createBlockBuilder(null, length);
 
         int offset = 0;
         for (int i = 0; i < length; ++i) {
-            LongTimestamp value = TimestampPlusIntervalYearToMonth.add(session, start, offset);
+            LongTimestamp value = TimestampPlusIntervalYearToMonth.add(start, offset);
             LONG_TYPE.writeObject(blockBuilder, value);
             offset += step;
         }

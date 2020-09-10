@@ -181,6 +181,8 @@ The properties that apply to Hive connector security are listed in the
 :doc:`/connector/hive-security` section for a more detailed discussion of the
 security options in the Hive connector.
 
+.. _hive_configuration_properties:
+
 Hive Configuration Properties
 -----------------------------
 
@@ -262,6 +264,29 @@ Property Name                                      Description                  
 
 ``hive.file-status-cache-expire-time``             How long a cached directory listing should be considered     ``1m``
                                                    valid.
+
+``hive.parquet.time-zone``                         Adjusts timestamp values to a specific time zone.     	JVM default
+                                                   For Hive 3.1+, this should be set to UTC.
+
+``hive.rcfile.time-zone``                          Adjusts binary encoded timestamp values to a specific	JVM default
+                                                   time zone. For Hive 3.1+, this should be set to UTC.
+
+``hive.orc.time-zone``                             Sets the default time zone for legacy ORC files that did	JVM default
+                                                   not declare a time zone.
+
+``hive.temporary-staging-directory-enabled``       Controls whether the temporary staging directory configured  ``true``
+                                                   at ``hive.temporary-staging-directory-path`` should be
+                                                   used for write operations. Temporary staging directory is
+                                                   never used for writes to non-sorted tables on S3,
+                                                   encrypted HDFS or external location. Writes to sorted tables
+                                                   will utilize this path for staging temporary files
+                                                   during sorting operation. When disabled, the target storage
+                                                   will be used for staging while writing sorted tables which
+                                                   can be inefficient when writing to object stores like S3.
+
+``hive.temporary-staging-directory-path``          Controls the location of temporary staging directory that    ``/tmp/${USER}``
+                                                   is used for write operations. The ``${USER}`` placeholder
+                                                   can be used to use a different location for each user.
 ================================================== ============================================================ ============
 
 Metastore Configuration Properties
@@ -289,50 +314,54 @@ Property Name                                      Description                  
                                         subsequent accesses to see fresh data.
 
 ``hive.metastore-refresh-max-threads``  Maximum threads used to refresh cached metastore data.        100
+
+``hive.metastore-timeout``              Timeout for Hive metastore requests.                         ``10s``
 ======================================= ============================================================ ============
 
 Thrift Metastore Configuration Properties
 -----------------------------------------
 
-============================================================= ============================================================ ============
-Property Name                                                 Description                                                  Default
-============================================================= ============================================================ ============
-``hive.metastore.uri``                                        The URI(s) of the Hive metastore to connect to using the
-                                                              Thrift protocol. If multiple URIs are provided, the first
-                                                              URI is used by default, and the rest of the URIs are
-                                                              fallback metastores. This property is required.
-                                                              Example: ``thrift://192.0.2.3:9083`` or
-                                                              ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
+=============================================================== ============================================================ ============
+Property Name                                                   Description                                                  Default
+=============================================================== ============================================================ ============
+``hive.metastore.uri``                                          The URI(s) of the Hive metastore to connect to using the
+                                                                Thrift protocol. If multiple URIs are provided, the first
+                                                                URI is used by default, and the rest of the URIs are
+                                                                fallback metastores. This property is required.
+                                                                Example: ``thrift://192.0.2.3:9083`` or
+                                                                ``thrift://192.0.2.3:9083,thrift://192.0.2.4:9083``
 
-``hive.metastore.username``                                   The username Presto uses to access the Hive metastore.
+``hive.metastore.username``                                     The username Presto uses to access the Hive metastore.
 
-``hive.metastore.authentication.type``                        Hive metastore authentication type.
-                                                              Possible values are ``NONE`` or ``KERBEROS``
-                                                              (defaults to ``NONE``).
+``hive.metastore.authentication.type``                          Hive metastore authentication type.
+                                                                Possible values are ``NONE`` or ``KERBEROS``
+                                                                (defaults to ``NONE``).
 
-``hive.metastore.thrift.impersonation.enabled``               Enable Hive metastore end user impersonation.
+``hive.metastore.thrift.impersonation.enabled``                 Enable Hive metastore end user impersonation.
 
-``hive.metastore.thrift.delegation-token.cache-ttl``          Time to live delegation token cache for metastore.           ``1h``
+``hive.metastore.thrift.delegation-token.cache-ttl``            Time to live delegation token cache for metastore.           ``1h``
 
-``hive.metastore.thrift.delegation-token.cache-maximum-size`` Delegation token cache maximum size.                         1,000
+``hive.metastore.thrift.delegation-token.cache-maximum-size``   Delegation token cache maximum size.                         1,000
 
-``hive.metastore.thrift.client.ssl.enabled``                  Use SSL when connecting to metastore.                        ``false``
+``hive.metastore.thrift.client.ssl.enabled``                    Use SSL when connecting to metastore.                        ``false``
 
-``hive.metastore.thrift.client.ssl.key``                      Path to PEM private key and client certificate (key store).
+``hive.metastore.thrift.client.ssl.key``                        Path to private key and client certificate (key store).
 
-``hive.metastore.thrift.client.ssl.key-password``             Password for the PEM private key.
+``hive.metastore.thrift.client.ssl.key-password``               Password for the private key.
 
-``hive.metastore.thrift.client.ssl.trust-certificate``        Path to the PEM server certificate chain (trust store).
-                                                              Required when SSL is enabled.
+``hive.metastore.thrift.client.ssl.trust-certificate``          Path to the server certificate chain (trust store).
+                                                                Required when SSL is enabled.
 
-``hive.metastore.service.principal``                          The Kerberos principal of the Hive metastore service.
+``hive.metastore.thrift.client.ssl.trust-certificate-password`` Password for the trust store
 
-``hive.metastore.client.principal``                           The Kerberos principal that Presto uses when connecting
-                                                              to the Hive metastore service.
+``hive.metastore.service.principal``                            The Kerberos principal of the Hive metastore service.
 
-``hive.metastore.client.keytab``                              Hive metastore client keytab location.
+``hive.metastore.client.principal``                             The Kerberos principal that Presto uses when connecting
+                                                                to the Hive metastore service.
 
-============================================================= ============================================================ ============
+``hive.metastore.client.keytab``                                Hive metastore client keytab location.
+
+=============================================================== ============================================================ ============
 
 AWS Glue Catalog Configuration Properties
 -----------------------------------------
@@ -357,10 +386,11 @@ Property Name                                        Description
 ``hive.metastore.glue.max-connections``              Max number of concurrent connections to Glue,
                                                      defaults to ``5``.
 
+``hive.metastore.glue.max-error-retries``            Maximum number of error retries for the Glue client,
+                                                     defaults to ``10``.
+
 ``hive.metastore.glue.default-warehouse-dir``        Default warehouse directory for schemas created without an
                                                      explicit ``location`` property.
-
-``hive.metastore.glue.catalogid``                    Glue Catalog ID (optional).
 
 ``hive.metastore.glue.aws-credentials-provider``     Fully qualified name of the Java class to use for obtaining
                                                      AWS credentials. Can be used to supply a custom credentials
@@ -589,6 +619,9 @@ Procedures
 
   Registers existing location as a new partition in the metastore for the specified table.
 
+  When the ``location`` argument is omitted, the partition location is
+  constructed using ``partition_columns`` and ``partition_values``.
+
   Due to security reasons, the procedure is enabled only when ``hive.allow-register-partition-procedure``
   is set to ``true``.
 
@@ -735,11 +768,25 @@ Hive 3 Related Limitations
 ^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 * For security reasons, the ``sys`` system catalog is not accessible.
+
 * Hive's ``timestamp with local zone`` data type is not supported.
   It is possible to read from a table with a column of this type, but the column
   data is not accessible. Writing to such a table is not supported.
+
 * Due to Hive issues `HIVE-21002 <https://issues.apache.org/jira/browse/HIVE-21002>`_
   and `HIVE-22167 <https://issues.apache.org/jira/browse/HIVE-22167>`_, Presto does
   not correctly read ``timestamp`` values from Parquet, RCBinary, or Avro
   file formats created by Hive 3.1 or later. When reading from these file formats,
   Presto returns different results than Hive.
+
+* :doc:`/sql/create-table-as` can be used to create transactional tables in ORC format like this::
+
+      CREATE TABLE <name>
+      WITH (
+          format='ORC',
+          transactional=true,
+      )
+      AS <query>
+
+  Presto does not support gathering table statistics for Hive transactional tables.
+  You need to use Hive to gather table statistics with ``ANALYZE TABLE COMPUTE STATISTICS`` after table creation.

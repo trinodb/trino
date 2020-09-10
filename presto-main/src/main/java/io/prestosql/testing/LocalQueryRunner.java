@@ -143,6 +143,7 @@ import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.PlanFragmenter;
 import io.prestosql.sql.planner.PlanNodeIdAllocator;
 import io.prestosql.sql.planner.PlanOptimizers;
+import io.prestosql.sql.planner.RuleStatsRecorder;
 import io.prestosql.sql.planner.SubPlan;
 import io.prestosql.sql.planner.TypeAnalyzer;
 import io.prestosql.sql.planner.optimizations.PlanOptimizer;
@@ -833,7 +834,8 @@ public class LocalQueryRunner
                 costCalculator,
                 estimatedExchangesCostCalculator,
                 new CostComparator(featuresConfig),
-                taskCountEstimator).get();
+                taskCountEstimator,
+                new RuleStatsRecorder()).get();
     }
 
     public Plan createPlan(Session session, @Language("SQL") String sql, List<PlanOptimizer> optimizers, WarningCollector warningCollector)

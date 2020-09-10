@@ -17,14 +17,15 @@ import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.ContiguousSet;
 import com.google.common.collect.DiscreteDomain;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Range;
 import io.prestosql.spi.type.CharType;
 import io.prestosql.spi.type.DecimalType;
 import io.prestosql.spi.type.SqlDate;
 import io.prestosql.spi.type.SqlDecimal;
 import io.prestosql.spi.type.SqlTimestamp;
+import io.prestosql.spi.type.SqlTimestampWithTimeZone;
 import io.prestosql.spi.type.SqlVarbinary;
-import io.prestosql.spi.type.TimeZoneKey;
 import org.joda.time.DateTimeZone;
 import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
@@ -34,6 +35,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 
 import static com.google.common.collect.Iterables.concat;
@@ -50,12 +52,17 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimeZoneKey.UTC_KEY;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MICROS;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_NANOS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MICROS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_MILLIS;
+import static io.prestosql.spi.type.TimestampWithTimeZoneType.TIMESTAMP_TZ_NANOS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.DateTimeTestingUtils.sqlTimestampOf;
-import static io.prestosql.testing.TestingConnectorSession.SESSION;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Collections.nCopies;
 import static java.util.stream.Collectors.toList;
@@ -191,9 +198,9 @@ public abstract class AbstractTestOrcReader
                         .collect(toList()));
 
         tester.testRoundTrip(
-                TIMESTAMP,
+                TIMESTAMP_MILLIS,
                 writeValues.stream()
-                        .map(timestamp -> sqlTimestampOf(timestamp, SESSION))
+                        .map(timestamp -> sqlTimestampOf(3, timestamp))
                         .collect(toList()));
     }
 
@@ -290,17 +297,105 @@ public abstract class AbstractTestOrcReader
     }
 
     @Test
-    public void testLegacyTimestamp()
+    public void testTimestampMillis()
             throws Exception
     {
-        @SuppressWarnings("deprecation")
-        List<SqlTimestamp> values = ImmutableList.of(
-                SqlTimestamp.legacyFromMillis(3, 0, TimeZoneKey.UTC_KEY),
-                SqlTimestamp.legacyFromMillis(3, 10, TimeZoneKey.UTC_KEY),
-                SqlTimestamp.legacyFromMillis(3, 1123456789L, TimeZoneKey.UTC_KEY), // 1970-01-14T00:04:16.789Z
-                SqlTimestamp.legacyFromMillis(3, 1000123456789L, TimeZoneKey.UTC_KEY), // 2001-09-10T12:04:16.789Z
-                SqlTimestamp.legacyFromMillis(3, 1575553299564L, TimeZoneKey.UTC_KEY)); // 2019-12-05T13:41:39.564Z
-        tester.testRoundTrip(TIMESTAMP, newArrayList(limit(cycle(values), 30_000)));
+        Map<String, SqlTimestamp> map = ImmutableMap.<String, SqlTimestamp>builder()
+                .put("1970-01-01 00:00:00.000", SqlTimestamp.fromMillis(3, 0))
+                .put("1970-01-01 00:00:00.010", SqlTimestamp.fromMillis(3, 10))
+                .put("1969-12-20 13:39:05.679", SqlTimestamp.fromMillis(3, -987654321L))
+                .put("1969-12-18 23:55:43.211", SqlTimestamp.fromMillis(3, -1123456789L))
+                .put("1970-01-14 00:04:16.789", SqlTimestamp.fromMillis(3, 1123456789L))
+                .put("2001-09-10 12:04:16.789", SqlTimestamp.fromMillis(3, 1000123456789L))
+                .put("2019-12-05 13:41:39.564", SqlTimestamp.fromMillis(3, 1575553299564L))
+                .build();
+        map.forEach((expected, value) -> assertEquals(value.toString(), expected));
+        tester.testRoundTrip(TIMESTAMP_MILLIS, newArrayList(limit(cycle(map.values()), 30_000)));
+    }
+
+    @Test
+    public void testTimestampMicros()
+            throws Exception
+    {
+        Map<String, SqlTimestamp> map = ImmutableMap.<String, SqlTimestamp>builder()
+                .put("1970-01-01 00:00:00.000000", SqlTimestamp.newInstance(6, 0, 0))
+                .put("1970-01-01 00:00:00.010222", SqlTimestamp.newInstance(6, 10222, 0))
+                .put("1969-12-20 13:39:05.678544", SqlTimestamp.newInstance(6, -987654321456L, 0))
+                .put("1969-12-18 23:55:43.210235", SqlTimestamp.newInstance(6, -1123456789765L, 0))
+                .put("1970-01-14 00:04:16.789123", SqlTimestamp.newInstance(6, 1123456789123L, 0))
+                .put("2001-09-10 12:04:16.789123", SqlTimestamp.newInstance(6, 1000123456789123L, 0))
+                .put("2019-12-05 13:41:39.564321", SqlTimestamp.newInstance(6, 1575553299564321L, 0))
+                .build();
+        map.forEach((expected, value) -> assertEquals(value.toString(), expected));
+        tester.testRoundTrip(TIMESTAMP_MICROS, newArrayList(limit(cycle(map.values()), 30_000)));
+    }
+
+    @Test
+    public void testTimestampNanos()
+            throws Exception
+    {
+        Map<String, SqlTimestamp> map = ImmutableMap.<String, SqlTimestamp>builder()
+                .put("1970-01-01 00:00:00.000000000", SqlTimestamp.newInstance(9, 0, 0))
+                .put("1970-01-01 00:00:00.010222333", SqlTimestamp.newInstance(9, 10222, 333_000))
+                .put("1969-12-20 13:39:05.678544123", SqlTimestamp.newInstance(9, -987654321456L, 123_000))
+                .put("1969-12-18 23:55:43.210235123", SqlTimestamp.newInstance(9, -1123456789765L, 123_000))
+                .put("1970-01-14 00:04:16.789123456", SqlTimestamp.newInstance(9, 1123456789123L, 456_000))
+                .put("2001-09-10 12:04:16.789123456", SqlTimestamp.newInstance(9, 1000123456789123L, 456_000))
+                .put("2019-12-05 13:41:39.564321789", SqlTimestamp.newInstance(9, 1575553299564321L, 789_000))
+                .build();
+        map.forEach((expected, value) -> assertEquals(value.toString(), expected));
+        tester.testRoundTrip(TIMESTAMP_NANOS, newArrayList(limit(cycle(map.values()), 30_000)));
+    }
+
+    @Test
+    public void testInstantMillis()
+            throws Exception
+    {
+        Map<String, SqlTimestampWithTimeZone> map = ImmutableMap.<String, SqlTimestampWithTimeZone>builder()
+                .put("1970-01-01 00:00:00.000 UTC", SqlTimestampWithTimeZone.newInstance(3, 0L, 0, UTC_KEY))
+                .put("1970-01-01 00:00:00.010 UTC", SqlTimestampWithTimeZone.newInstance(3, 10, 0, UTC_KEY))
+                .put("1969-12-20 13:39:05.679 UTC", SqlTimestampWithTimeZone.newInstance(3, -987654321L, 0, UTC_KEY))
+                .put("1969-12-18 23:55:43.211 UTC", SqlTimestampWithTimeZone.newInstance(3, -1123456789L, 0, UTC_KEY))
+                .put("1970-01-14 00:04:16.789 UTC", SqlTimestampWithTimeZone.newInstance(3, 1123456789L, 0, UTC_KEY))
+                .put("2001-09-10 12:04:16.789 UTC", SqlTimestampWithTimeZone.newInstance(3, 1000123456789L, 0, UTC_KEY))
+                .put("2019-12-05 13:41:39.564 UTC", SqlTimestampWithTimeZone.newInstance(3, 1575553299564L, 0, UTC_KEY))
+                .build();
+        map.forEach((expected, value) -> assertEquals(value.toString(), expected));
+        tester.testRoundTrip(TIMESTAMP_TZ_MILLIS, newArrayList(limit(cycle(map.values()), 30_000)));
+    }
+
+    @Test
+    public void testInstantMicros()
+            throws Exception
+    {
+        Map<String, SqlTimestampWithTimeZone> map = ImmutableMap.<String, SqlTimestampWithTimeZone>builder()
+                .put("1970-01-01 00:00:00.000000 UTC", SqlTimestampWithTimeZone.newInstance(6, 0, 0, UTC_KEY))
+                .put("1970-01-01 00:00:00.010222 UTC", SqlTimestampWithTimeZone.newInstance(6, 10, 222_000_000, UTC_KEY))
+                .put("1969-12-20 13:39:05.679456 UTC", SqlTimestampWithTimeZone.newInstance(6, -987654321L, 456_000_000, UTC_KEY))
+                .put("1969-12-18 23:55:43.211765 UTC", SqlTimestampWithTimeZone.newInstance(6, -1123456789L, 765_000_000, UTC_KEY))
+                .put("1970-01-14 00:04:16.789123 UTC", SqlTimestampWithTimeZone.newInstance(6, 1123456789L, 123_000_000, UTC_KEY))
+                .put("2001-09-10 12:04:16.789123 UTC", SqlTimestampWithTimeZone.newInstance(6, 1000123456789L, 123_000_000, UTC_KEY))
+                .put("2019-12-05 13:41:39.564321 UTC", SqlTimestampWithTimeZone.newInstance(6, 1575553299564L, 321_000_000, UTC_KEY))
+                .build();
+        map.forEach((expected, value) -> assertEquals(value.toString(), expected));
+        tester.testRoundTrip(TIMESTAMP_TZ_MICROS, newArrayList(limit(cycle(map.values()), 30_000)));
+    }
+
+    @Test
+    public void testInstantNanos()
+            throws Exception
+    {
+        Map<String, SqlTimestampWithTimeZone> map = ImmutableMap.<String, SqlTimestampWithTimeZone>builder()
+                .put("1970-01-01 00:00:00.000000000 UTC", SqlTimestampWithTimeZone.newInstance(9, 0, 0, UTC_KEY))
+                .put("1970-01-01 00:00:00.010222333 UTC", SqlTimestampWithTimeZone.newInstance(9, 10, 222_333_000, UTC_KEY))
+                .put("1969-12-20 13:39:05.679456123 UTC", SqlTimestampWithTimeZone.newInstance(9, -987654321L, 456_123_000, UTC_KEY))
+                .put("1969-12-18 23:55:43.211765123 UTC", SqlTimestampWithTimeZone.newInstance(9, -1123456789L, 765_123_000, UTC_KEY))
+                .put("1970-01-14 00:04:16.789123456 UTC", SqlTimestampWithTimeZone.newInstance(9, 1123456789L, 123_456_000, UTC_KEY))
+                .put("2001-09-10 12:04:16.789123456 UTC", SqlTimestampWithTimeZone.newInstance(9, 1000123456789L, 123_456_000, UTC_KEY))
+                .put("2019-12-05 13:41:39.564321789 UTC", SqlTimestampWithTimeZone.newInstance(9, 1575553299564L, 321_789_000, UTC_KEY))
+                .build();
+        map.forEach((expected, value) -> assertEquals(value.toString(), expected));
+        tester.testRoundTrip(TIMESTAMP_TZ_NANOS, newArrayList(limit(cycle(map.values()), 30_000)));
     }
 
     @Test

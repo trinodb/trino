@@ -21,6 +21,7 @@ import io.airlift.slice.SliceOutput;
 import io.airlift.units.DataSize;
 import io.prestosql.rcfile.binary.BinaryRcFileEncoding;
 import io.prestosql.spi.block.Block;
+import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -237,7 +238,7 @@ public class TestRcFileReaderManual
 
         RcFileReader reader = new RcFileReader(
                 new SliceRcFileDataSource(data),
-                new BinaryRcFileEncoding(),
+                new BinaryRcFileEncoding(DateTimeZone.UTC),
                 ImmutableMap.of(0, SMALLINT),
                 new BogusRcFileCodecFactory(),
                 offset,

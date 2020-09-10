@@ -37,7 +37,6 @@ import java.util.Map;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
-import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.spi.StandardErrorCode.TYPE_MISMATCH;
 import static io.prestosql.spi.function.OperatorType.HASH_CODE;
 import static io.prestosql.spi.function.OperatorType.INDETERMINATE;
@@ -104,16 +103,16 @@ public class TestMapOperators
                 mapType(createVarcharType(3), createTimestampType(0)),
                 ImmutableMap.of(
                         "1",
-                        sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0, TEST_SESSION),
+                        sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0),
                         "100",
-                        sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0, TEST_SESSION)));
+                        sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0)));
         assertFunction(
                 "MAP(ARRAY[TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1973-07-08 22:00:01'], ARRAY[1.0E0, 100.0E0])",
                 mapType(createTimestampType(0), DOUBLE),
                 ImmutableMap.of(
-                        sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0, TEST_SESSION),
+                        sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0),
                         1.0,
-                        sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0, TEST_SESSION),
+                        sqlTimestampOf(0, 1973, 7, 8, 22, 0, 1, 0),
                         100.0));
 
         assertInvalidFunction("MAP(ARRAY [1], ARRAY [2, 4])", "Key and value arrays must be the same length");
@@ -246,7 +245,7 @@ public class TestMapOperators
         assertFunction(
                 "CAST(MAP(ARRAY[1, 2], ARRAY[TIMESTAMP '1970-01-01 00:00:01', null]) AS JSON)",
                 JSON,
-                format("{\"1\":\"%s\",\"2\":null}", sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0, TEST_SESSION).toString()));
+                format("{\"1\":\"%s\",\"2\":null}", sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0).toString()));
         assertFunction(
                 "CAST(MAP(ARRAY[2, 5, 3], ARRAY[DATE '2001-08-22', DATE '2001-08-23', null]) AS JSON)",
                 JSON,
@@ -518,7 +517,7 @@ public class TestMapOperators
         assertFunction(
                 "element_at(MAP(ARRAY ['1', '100'], ARRAY [TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '2005-09-10 13:00:00']), '1')",
                 createTimestampType(0),
-                sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0, TEST_SESSION));
+                sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0));
         assertFunction("element_at(MAP(ARRAY [from_unixtime(1), from_unixtime(100)], ARRAY [1.0E0, 100.0E0]), from_unixtime(1))", DOUBLE, 1.0);
         assertFunction("element_at(MAP(ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '2222-05-10 12:34:56.123456789'], ARRAY [1, 2]), TIMESTAMP '2222-05-10 12:34:56.123456789')", INTEGER, 2);
     }
@@ -544,7 +543,7 @@ public class TestMapOperators
         assertFunction(
                 "MAP(ARRAY['1', '100'], ARRAY[TIMESTAMP '1970-01-01 00:00:01', TIMESTAMP '1973-07-08 22:00:01'])['1']",
                 createTimestampType(0),
-                sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0, TEST_SESSION));
+                sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0));
         assertFunction("MAP(ARRAY[from_unixtime(1), from_unixtime(100)], ARRAY[1.0E0, 100.0E0])[from_unixtime(1)]", DOUBLE, 1.0);
         assertInvalidFunction("MAP(ARRAY [BIGINT '1'], ARRAY [BIGINT '2'])[3]", "Key not present in map: 3");
         assertInvalidFunction("MAP(ARRAY ['hi'], ARRAY [2])['missing']", "Key not present in map: missing");
@@ -565,7 +564,7 @@ public class TestMapOperators
         assertFunction(
                 "MAP_KEYS(MAP(ARRAY[TIMESTAMP '1970-01-01 00:00:01'], ARRAY[1.0E0]))",
                 new ArrayType(createTimestampType(0)),
-                ImmutableList.of(sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0, TEST_SESSION)));
+                ImmutableList.of(sqlTimestampOf(0, 1970, 1, 1, 0, 0, 1, 0)));
         assertFunction("MAP_KEYS(MAP(ARRAY[CAST('puppies' as varbinary)], ARRAY['kittens']))", new ArrayType(VARBINARY), ImmutableList.of(sqlVarbinary("puppies")));
         assertFunction("MAP_KEYS(MAP(ARRAY[1,2],  ARRAY[ARRAY[1, 2], ARRAY[3]]))", new ArrayType(INTEGER), ImmutableList.of(1, 2));
         assertFunction("MAP_KEYS(MAP(ARRAY[1,4], ARRAY[MAP(ARRAY[2], ARRAY[3]), MAP(ARRAY[5], ARRAY[6])]))", new ArrayType(INTEGER), ImmutableList.of(1, 4));

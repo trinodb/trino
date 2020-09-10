@@ -24,7 +24,10 @@ import com.google.inject.Module;
 import com.google.inject.Scopes;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.pinot.client.IdentityPinotHostMapper;
 import io.prestosql.pinot.client.PinotClient;
+import io.prestosql.pinot.client.PinotHostMapper;
+import io.prestosql.pinot.client.PinotQueryClient;
 import io.prestosql.plugin.base.jmx.RebindSafeMBeanServer;
 import io.prestosql.spi.NodeManager;
 import io.prestosql.spi.connector.ConnectorNodePartitioningProvider;
@@ -40,6 +43,7 @@ import java.io.IOException;
 import java.util.concurrent.Executor;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static com.google.inject.multibindings.OptionalBinder.newOptionalBinder;
 import static io.airlift.concurrent.Threads.threadsNamed;
 import static io.airlift.configuration.ConfigBinder.configBinder;
 import static io.airlift.http.client.HttpClientBinder.httpClientBinder;
@@ -77,6 +81,7 @@ public class PinotModule
         binder.bind(PinotSplitManager.class).in(Scopes.SINGLETON);
         binder.bind(PinotPageSourceProvider.class).in(Scopes.SINGLETON);
         binder.bind(PinotClient.class).in(Scopes.SINGLETON);
+        binder.bind(PinotQueryClient.class).in(Scopes.SINGLETON);
         binder.bind(Executor.class).annotatedWith(ForPinot.class)
                 .toInstance(newCachedThreadPool(threadsNamed("pinot-metadata-fetcher-" + catalogName)));
 
@@ -103,6 +108,7 @@ public class PinotModule
         binder.bind(PinotMetrics.class).in(Scopes.SINGLETON);
         newExporter(binder).export(PinotMetrics.class).as(generatedNameOf(PinotMetrics.class, catalogName));
         binder.bind(ConnectorNodePartitioningProvider.class).to(PinotNodePartitioningProvider.class).in(Scopes.SINGLETON);
+        newOptionalBinder(binder, PinotHostMapper.class).setDefault().to(IdentityPinotHostMapper.class).in(Scopes.SINGLETON);
     }
 
     @SuppressWarnings("serial")

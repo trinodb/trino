@@ -26,6 +26,8 @@ import java.util.concurrent.LinkedBlockingQueue;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
+import static io.prestosql.execution.TaskState.FLUSHING;
+import static io.prestosql.execution.TaskState.RUNNING;
 import static io.prestosql.execution.TaskState.TERMINAL_TASK_STATES;
 import static java.util.Objects.requireNonNull;
 
@@ -78,6 +80,11 @@ public class TaskStateMachine
     public LinkedBlockingQueue<Throwable> getFailureCauses()
     {
         return failureCauses;
+    }
+
+    public void transitionToFlushing()
+    {
+        taskState.setIf(FLUSHING, currentState -> currentState == RUNNING);
     }
 
     public void finished()

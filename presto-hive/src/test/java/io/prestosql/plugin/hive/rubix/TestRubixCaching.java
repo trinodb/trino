@@ -35,9 +35,11 @@ import io.prestosql.plugin.hive.HdfsEnvironment;
 import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveHdfsConfiguration;
+import io.prestosql.plugin.hive.authentication.HiveAuthenticationConfig;
 import io.prestosql.plugin.hive.authentication.NoHdfsAuthentication;
 import io.prestosql.plugin.hive.orc.OrcReaderConfig;
 import io.prestosql.plugin.hive.rubix.RubixConfig.ReadMode;
+import io.prestosql.plugin.hive.rubix.RubixModule.DefaultRubixHdfsInitializer;
 import io.prestosql.spi.Node;
 import io.prestosql.spi.session.PropertyMetadata;
 import io.prestosql.testing.TestingConnectorSession;
@@ -52,6 +54,7 @@ import org.apache.hadoop.fs.Path;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -63,7 +66,6 @@ import java.lang.management.ManagementFactory;
 import java.net.URI;
 import java.util.Arrays;
 import java.util.List;
-import java.util.Optional;
 import java.util.Random;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -104,7 +106,6 @@ public class TestRubixCaching
     private java.nio.file.Path tempDirectory;
     private Path cacheStoragePath;
     private HdfsConfig config;
-    private List<PropertyMetadata<?>> hiveSessionProperties;
     private HdfsContext context;
     private RubixInitializer rubixInitializer;
     private RubixConfigurationInitializer rubixConfigInitializer;
@@ -117,7 +118,7 @@ public class TestRubixCaching
     {
         cacheStoragePath = getStoragePath("/");
         config = new HdfsConfig();
-        hiveSessionProperties = getHiveSessionProperties(
+        List<PropertyMetadata<?>> hiveSessionProperties = getHiveSessionProperties(
                 new HiveConfig(),
                 new RubixEnabledConfig().setCacheEnabled(true),
                 new OrcReaderConfig()).getSessionProperties();
@@ -128,6 +129,14 @@ public class TestRubixCaching
                 "test");
 
         nonCachingFileSystem = getNonCachingFileSystem();
+    }
+
+    @AfterMethod
+    @BeforeMethod
+    public void deinitializeRubix()
+    {
+        // revert static rubix initialization done by other tests
+        CachingFileSystem.deinitialize();
     }
 
     private FileSystem getNonCachingFileSystem()
@@ -187,7 +196,7 @@ public class TestRubixCaching
                 nodeManager,
                 new CatalogName("catalog"),
                 configurationInitializer,
-                Optional.empty());
+                new DefaultRubixHdfsInitializer(new HiveAuthenticationConfig()));
         rubixConfigInitializer = new RubixConfigurationInitializer(rubixInitializer);
         rubixInitializer.initializeRubix();
         retry().run("wait for rubix to startup", () -> {
@@ -244,8 +253,6 @@ public class TestRubixCaching
             });
             closer.register(() -> {
                 if (cachingFileSystem != null) {
-                    // reset cluster manager
-                    unwrapCachingFileSystem(cachingFileSystem).setClusterManager(null);
                     cachingFileSystem.close();
                     cachingFileSystem = null;
                 }
@@ -267,17 +274,6 @@ public class TestRubixCaching
                 }
             });
         }
-    }
-
-    private static CachingFileSystem<?> unwrapCachingFileSystem(FileSystem fileSystem)
-    {
-        if (fileSystem instanceof CachingFileSystem) {
-            return (CachingFileSystem<?>) fileSystem;
-        }
-        if (fileSystem instanceof FilterFileSystem) {
-            return unwrapCachingFileSystem(((FilterFileSystem) fileSystem).getRawFileSystem());
-        }
-        throw new IllegalStateException();
     }
 
     @DataProvider
@@ -303,7 +299,7 @@ public class TestRubixCaching
                 new TestingNodeManager(ImmutableList.of(workerNode)),
                 new CatalogName("catalog"),
                 configurationInitializer,
-                Optional.empty());
+                new DefaultRubixHdfsInitializer(new HiveAuthenticationConfig()));
         assertThatThrownBy(rubixInitializer::initializeRubix)
                 .hasMessage("No coordinator node available");
     }
@@ -554,7 +550,9 @@ public class TestRubixCaching
     private long getRemoteReadsCount()
     {
         try {
-            return (long) BEAN_SERVER.getAttribute(new ObjectName("rubix:name=stats,catalog=catalog"), "RemoteReads");
+            long directRemoteReads = (long) BEAN_SERVER.getAttribute(new ObjectName("rubix:name=stats,type=detailed,catalog=catalog"), "Direct_rrc_requests");
+            long remoteReads = (long) BEAN_SERVER.getAttribute(new ObjectName("rubix:name=stats,type=detailed,catalog=catalog"), "Remote_rrc_requests");
+            return directRemoteReads + remoteReads;
         }
         catch (Exception exception) {
             throw new RuntimeException(exception);
@@ -564,7 +562,7 @@ public class TestRubixCaching
     private long getCachedReadsCount()
     {
         try {
-            return (long) BEAN_SERVER.getAttribute(new ObjectName("rubix:name=stats,catalog=catalog"), "CachedReads");
+            return (long) BEAN_SERVER.getAttribute(new ObjectName("rubix:name=stats,type=detailed,catalog=catalog"), "Cached_rrc_requests");
         }
         catch (Exception exception) {
             throw new RuntimeException(exception);

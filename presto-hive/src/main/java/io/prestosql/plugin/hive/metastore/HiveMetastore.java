@@ -18,6 +18,7 @@ import io.prestosql.plugin.hive.HiveType;
 import io.prestosql.plugin.hive.PartitionStatistics;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.spi.connector.SchemaTableName;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
@@ -85,9 +86,17 @@ public interface HiveMetastore
 
     Optional<Partition> getPartition(HiveIdentity identity, Table table, List<String> partitionValues);
 
-    Optional<List<String>> getPartitionNames(HiveIdentity identity, String databaseName, String tableName);
-
-    Optional<List<String>> getPartitionNamesByParts(HiveIdentity identity, String databaseName, String tableName, List<String> parts);
+    /**
+     * return a list of partition names where partitionKeysFilter is used as a hint to each implementation.
+     *
+     * @param databaseName the name of the database
+     * @param tableName the name of the table
+     * @param columnNames the list of partition column names
+     * @param partitionKeysFilter map of filters (Domain) for each partition column
+     * @return optionally, a list of strings where each entry is in the form of {key}={value}
+     * @see TupleDomain
+     */
+    Optional<List<String>> getPartitionNamesByFilter(HiveIdentity identity, String databaseName, String tableName, List<String> columnNames, TupleDomain<String> partitionKeysFilter);
 
     Map<String, Optional<Partition>> getPartitionsByNames(HiveIdentity identity, Table table, List<String> partitionNames);
 

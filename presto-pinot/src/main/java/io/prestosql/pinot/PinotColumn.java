@@ -20,6 +20,7 @@ import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.BooleanType;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.IntegerType;
+import io.prestosql.spi.type.RealType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.VarbinaryType;
 import io.prestosql.spi.type.VarcharType;
@@ -115,6 +116,7 @@ public class PinotColumn
             case BOOLEAN:
                 return BooleanType.BOOLEAN;
             case FLOAT:
+                return RealType.REAL;
             case DOUBLE:
                 return DoubleType.DOUBLE;
             case INT:

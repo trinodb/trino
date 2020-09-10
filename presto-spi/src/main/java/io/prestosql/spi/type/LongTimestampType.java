@@ -143,12 +143,7 @@ class LongTimestampType
         long epochMicros = getEpochMicros(block, position);
         int fraction = getFraction(block, position);
 
-        if (session.isLegacyTimestamp()) {
-            return SqlTimestamp.newLegacyInstance(getPrecision(), epochMicros, fraction, session.getTimeZoneKey());
-        }
-        else {
-            return SqlTimestamp.newInstance(getPrecision(), epochMicros, fraction);
-        }
+        return SqlTimestamp.newInstance(getPrecision(), epochMicros, fraction);
     }
 
     private static long getEpochMicros(Block block, int position)

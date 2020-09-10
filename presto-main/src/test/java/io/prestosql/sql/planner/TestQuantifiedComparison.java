@@ -36,11 +36,11 @@ public class TestQuantifiedComparison
     {
         String query = "SELECT orderkey, custkey FROM orders WHERE orderkey = ANY (VALUES ROW(CAST(5 as BIGINT)), ROW(CAST(3 as BIGINT)))";
         assertPlan(query, anyTree(
-                filter("S",
-                        project(
-                                semiJoin("X", "Y", "S",
-                                        anyTree(tableScan("orders", ImmutableMap.of("X", "orderkey"))),
-                                        anyTree(values(ImmutableMap.of("Y", 0))))))));
+                    filter("S",
+                            project(
+                                    semiJoin("X", "Y", "S",
+                                            anyTree(tableScan("orders", ImmutableMap.of("X", "orderkey"))),
+                                            anyTree(values(ImmutableMap.of("Y", 0))))))));
     }
 
     @Test

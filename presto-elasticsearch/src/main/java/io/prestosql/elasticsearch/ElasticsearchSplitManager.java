@@ -20,6 +20,7 @@ import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.FixedSplitSource;
 
 import javax.inject.Inject;
@@ -43,7 +44,12 @@ public class ElasticsearchSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableHandle table, SplitSchedulingStrategy splitSchedulingStrategy)
+    public ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            DynamicFilter dynamicFilter)
     {
         ElasticsearchTableHandle tableHandle = (ElasticsearchTableHandle) table;
 

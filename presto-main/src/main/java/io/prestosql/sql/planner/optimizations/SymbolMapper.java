@@ -19,6 +19,7 @@ import io.prestosql.spi.block.SortOrder;
 import io.prestosql.sql.planner.OrderingScheme;
 import io.prestosql.sql.planner.PartitioningScheme;
 import io.prestosql.sql.planner.Symbol;
+import io.prestosql.sql.planner.SymbolAllocator;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.DistinctLimitNode;
@@ -45,6 +46,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 import java.util.Set;
+import java.util.function.Function;
 
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
@@ -54,25 +56,46 @@ import static java.util.Objects.requireNonNull;
 
 public class SymbolMapper
 {
-    private final Map<Symbol, Symbol> mapping;
+    private final Function<Symbol, Symbol> mappingFunction;
 
-    public SymbolMapper(Map<Symbol, Symbol> mapping)
+    private SymbolMapper(Function<Symbol, Symbol> mappingFunction)
     {
-        this.mapping = ImmutableMap.copyOf(requireNonNull(mapping, "mapping is null"));
+        this.mappingFunction = requireNonNull(mappingFunction, "mappingFunction is null");
     }
 
-    public Map<Symbol, Symbol> getMapping()
+    public static SymbolMapper symbolMapper(Map<Symbol, Symbol> mapping)
     {
-        return mapping;
+        return new SymbolMapper(symbol -> {
+            while (mapping.containsKey(symbol) && !mapping.get(symbol).equals(symbol)) {
+                symbol = mapping.get(symbol);
+            }
+            return symbol;
+        });
+    }
+
+    public static SymbolMapper symbolReallocator(Map<Symbol, Symbol> mapping, SymbolAllocator symbolAllocator)
+    {
+        return new SymbolMapper(symbol -> {
+            if (mapping.containsKey(symbol)) {
+                while (mapping.containsKey(symbol) && !mapping.get(symbol).equals(symbol)) {
+                    symbol = mapping.get(symbol);
+                }
+                // do not remap the symbol further
+                mapping.put(symbol, symbol);
+                return symbol;
+            }
+            Symbol newSymbol = symbolAllocator.newSymbol(symbol);
+            mapping.put(symbol, newSymbol);
+            // do not remap the symbol further
+            mapping.put(newSymbol, newSymbol);
+            return newSymbol;
+        });
     }
 
     // Return the canonical mapping for the symbol.
     public Symbol map(Symbol symbol)
     {
-        while (mapping.containsKey(symbol) && !mapping.get(symbol).equals(symbol)) {
-            symbol = mapping.get(symbol);
-        }
-        return symbol;
+        return mappingFunction.apply(symbol);
     }
 
     public List<Symbol> map(List<Symbol> symbols)
@@ -363,7 +386,7 @@ public class SymbolMapper
 
         public SymbolMapper build()
         {
-            return new SymbolMapper(mappings.build());
+            return SymbolMapper.symbolMapper(mappings.build());
         }
     }
 }

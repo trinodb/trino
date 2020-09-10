@@ -13,7 +13,6 @@
  */
 package io.prestosql.sql.planner;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicate;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
@@ -52,6 +51,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Predicates.not;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static io.prestosql.spi.type.BigintType.BIGINT;
@@ -452,9 +452,9 @@ public class TestEqualityInference
 
     private static Set<Expression> equalityAsSet(Expression expression)
     {
-        Preconditions.checkArgument(expression instanceof ComparisonExpression);
+        checkArgument(expression instanceof ComparisonExpression);
         ComparisonExpression comparisonExpression = (ComparisonExpression) expression;
-        Preconditions.checkArgument(comparisonExpression.getOperator() == EQUAL);
+        checkArgument(comparisonExpression.getOperator() == EQUAL);
         return ImmutableSet.of(comparisonExpression.getLeft(), comparisonExpression.getRight());
     }
 

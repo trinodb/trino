@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>339-SNAPSHOT</version>
+        <version>342-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-plugin-toolkit</artifactId>
@@ -18,13 +18,8 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-        </dependency>
-
-        <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>json</artifactId>
+            <artifactId>bootstrap</artifactId>
         </dependency>
 
         <dependency>
@@ -34,32 +29,7 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>parameternames</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.weakref</groupId>
-            <artifactId>jmxutils</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>javax.validation</groupId>
-            <artifactId>validation-api</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-databind</artifactId>
+            <artifactId>json</artifactId>
         </dependency>
 
         <dependency>
@@ -69,19 +39,7 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>units</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-            <optional>true</optional>
-        </dependency>
-
-        <!-- Presto SPI -->
-        <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-spi</artifactId>
+            <artifactId>parameternames</artifactId>
         </dependency>
 
         <dependency>
@@ -90,14 +48,68 @@
         </dependency>
 
         <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>units</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.code.findbugs</groupId>
+            <artifactId>jsr305</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.inject</groupId>
+            <artifactId>javax.inject</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.validation</groupId>
+            <artifactId>validation-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.weakref</groupId>
+            <artifactId>jmxutils</artifactId>
+        </dependency>
+
+        <!-- Presto SPI -->
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-spi</artifactId>
+            <scope>provided</scope>
+        </dependency>
+
         <!-- for testing -->
         <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-spi</artifactId>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 
@@ -108,15 +120,14 @@
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-spi</artifactId>
-            <type>test-jar</type>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>org.assertj</groupId>
-            <artifactId>assertj-core</artifactId>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

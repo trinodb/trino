@@ -28,7 +28,6 @@ import io.prestosql.spi.type.SqlDecimal;
 import io.prestosql.spi.type.SqlTimestamp;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.FeaturesConfig;
-import io.prestosql.type.Timestamps;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.BeforeClass;
 
@@ -40,6 +39,7 @@ import java.util.Map;
 import static io.airlift.testing.Closeables.closeAllRuntimeException;
 import static io.prestosql.SessionTestUtils.TEST_SESSION;
 import static io.prestosql.metadata.Signature.mangleOperatorName;
+import static io.prestosql.operator.scalar.timestamp.VarcharToTimestampCast.castToLongTimestamp;
 import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static io.prestosql.spi.type.DecimalType.createDecimalType;
@@ -197,14 +197,10 @@ public abstract class AbstractTestFunctions
         return new SqlDecimal(unscaledValue, parseResult.getType().getPrecision(), parseResult.getType().getScale());
     }
 
-    protected static SqlTimestamp legacyTimestamp(int precision, String legacyTimestampValue)
+    protected static SqlTimestamp timestamp(int precision, String timestampValue)
     {
-        Object timestamp = Timestamps.parseLegacyTimestamp(precision, TEST_SESSION.getTimeZoneKey(), legacyTimestampValue);
-        if (timestamp instanceof LongTimestamp) {
-            LongTimestamp longTimestamp = (LongTimestamp) timestamp;
-            return SqlTimestamp.newLegacyInstance(precision, longTimestamp.getEpochMicros(), longTimestamp.getPicosOfMicro(), TEST_SESSION.getTimeZoneKey());
-        }
-        return SqlTimestamp.legacyFromMillis(precision, (Long) timestamp, TEST_SESSION.getTimeZoneKey());
+        LongTimestamp longTimestamp = castToLongTimestamp(precision, timestampValue);
+        return SqlTimestamp.newInstance(precision, longTimestamp.getEpochMicros(), longTimestamp.getPicosOfMicro());
     }
 
     protected static SqlDecimal maxPrecisionDecimal(long value)

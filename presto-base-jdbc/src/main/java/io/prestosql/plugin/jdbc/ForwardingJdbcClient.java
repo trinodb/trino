@@ -45,7 +45,7 @@ public abstract class ForwardingJdbcClient
         return new ForwardingJdbcClient()
         {
             @Override
-            protected JdbcClient delegate()
+            public JdbcClient delegate()
             {
                 return requireNonNull(jdbcClientSupplier.get(), "jdbcClientSupplier.get() is null");
             }
@@ -88,6 +88,12 @@ public abstract class ForwardingJdbcClient
     public Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle)
     {
         return delegate().toPrestoType(session, connection, typeHandle);
+    }
+
+    @Override
+    public List<ColumnMapping> getColumnMappings(ConnectorSession session, List<JdbcTypeHandle> typeHandles)
+    {
+        return delegate().getColumnMappings(session, typeHandles);
     }
 
     @Override
@@ -255,5 +261,23 @@ public abstract class ForwardingJdbcClient
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         return delegate().getSystemTable(session, tableName);
+    }
+
+    @Override
+    public String quoted(String name)
+    {
+        return delegate().quoted(name);
+    }
+
+    @Override
+    public String quoted(RemoteTableName remoteTableName)
+    {
+        return delegate().quoted(remoteTableName);
+    }
+
+    @Override
+    public Map<String, Object> getTableProperties(JdbcIdentity identity, JdbcTableHandle tableHandle)
+    {
+        return delegate().getTableProperties(identity, tableHandle);
     }
 }

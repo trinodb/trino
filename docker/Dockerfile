@@ -17,8 +17,9 @@ LABEL maintainer="Presto community <https://prestosql.io/community.html>"
 ENV JAVA_HOME /usr/lib/jvm/java-11
 RUN \
     set -xeu && \
+    yum -y -q install https://cdn.azul.com/zulu/bin/zulu-repo-1.0.0-1.noarch.rpm && \
     yum -y -q update && \
-    yum -y -q install java-11-openjdk-devel less && \
+    yum -y -q install zulu11 less && \
     yum -q clean all && \
     rm -rf /var/cache/yum && \
     rm -rf /tmp/* /var/tmp/* && \

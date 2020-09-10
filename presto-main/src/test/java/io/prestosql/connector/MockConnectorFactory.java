@@ -43,6 +43,8 @@ import io.prestosql.spi.connector.ConnectorViewDefinition;
 import io.prestosql.spi.connector.ProjectionApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
+import io.prestosql.spi.connector.SortItem;
+import io.prestosql.spi.connector.TopNApplicationResult;
 import io.prestosql.spi.eventlistener.EventListener;
 import io.prestosql.spi.expression.ConnectorExpression;
 import io.prestosql.spi.security.PrestoPrincipal;
@@ -75,6 +77,7 @@ public class MockConnectorFactory
     private final BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle;
     private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
     private final ApplyProjection applyProjection;
+    private final ApplyTopN applyTopN;
     private final BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout;
     private final BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout;
     private final Supplier<Iterable<EventListener>> eventListeners;
@@ -87,6 +90,7 @@ public class MockConnectorFactory
             BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle,
             Function<SchemaTableName, List<ColumnMetadata>> getColumns,
             ApplyProjection applyProjection,
+            ApplyTopN applyTopN,
             BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout,
             BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout,
             Supplier<Iterable<EventListener>> eventListeners,
@@ -98,6 +102,7 @@ public class MockConnectorFactory
         this.getTableHandle = requireNonNull(getTableHandle, "getTableHandle is null");
         this.getColumns = getColumns;
         this.applyProjection = applyProjection;
+        this.applyTopN = requireNonNull(applyTopN, "applyTopN is null");
         this.getInsertLayout = requireNonNull(getInsertLayout, "getInsertLayout is null");
         this.getNewTableLayout = requireNonNull(getNewTableLayout, "getNewTableLayout is null");
         this.eventListeners = requireNonNull(eventListeners, "eventListeners is null");
@@ -119,7 +124,7 @@ public class MockConnectorFactory
     @Override
     public Connector create(String catalogName, Map<String, String> config, ConnectorContext context)
     {
-        return new MockConnector(context, listSchemaNames, listTables, getViews, getTableHandle, getColumns, applyProjection, getInsertLayout, getNewTableLayout, eventListeners, roleGrants);
+        return new MockConnector(context, listSchemaNames, listTables, getViews, getTableHandle, getColumns, applyProjection, applyTopN, getInsertLayout, getNewTableLayout, eventListeners, roleGrants);
     }
 
     public static Builder builder()
@@ -131,6 +136,12 @@ public class MockConnectorFactory
     public interface ApplyProjection
     {
         Optional<ProjectionApplicationResult<ConnectorTableHandle>> apply(ConnectorSession session, ConnectorTableHandle handle, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments);
+    }
+
+    @FunctionalInterface
+    public interface ApplyTopN
+    {
+        Optional<TopNApplicationResult<ConnectorTableHandle>> apply(ConnectorSession session, ConnectorTableHandle handle, long topNCount, List<SortItem> sortItems, Map<String, ColumnHandle> assignments);
     }
 
     @FunctionalInterface
@@ -149,6 +160,7 @@ public class MockConnectorFactory
         private final BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle;
         private final Function<SchemaTableName, List<ColumnMetadata>> getColumns;
         private final ApplyProjection applyProjection;
+        private final ApplyTopN applyTopN;
         private final BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout;
         private final BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout;
         private final Supplier<Iterable<EventListener>> eventListeners;
@@ -162,6 +174,7 @@ public class MockConnectorFactory
                 BiFunction<ConnectorSession, SchemaTableName, ConnectorTableHandle> getTableHandle,
                 Function<SchemaTableName, List<ColumnMetadata>> getColumns,
                 ApplyProjection applyProjection,
+                ApplyTopN applyTopN,
                 BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout,
                 BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout,
                 Supplier<Iterable<EventListener>> eventListeners,
@@ -174,6 +187,7 @@ public class MockConnectorFactory
             this.getTableHandle = requireNonNull(getTableHandle, "getTableHandle is null");
             this.getColumns = requireNonNull(getColumns, "getColumns is null");
             this.applyProjection = requireNonNull(applyProjection, "applyProjection is null");
+            this.applyTopN = requireNonNull(applyTopN, "applyTopN is null");
             this.getInsertLayout = requireNonNull(getInsertLayout, "getInsertLayout is null");
             this.getNewTableLayout = requireNonNull(getNewTableLayout, "getNewTableLayout is null");
             this.eventListeners = requireNonNull(eventListeners, "eventListeners is null");
@@ -217,6 +231,12 @@ public class MockConnectorFactory
             public Optional<ProjectionApplicationResult<ConnectorTableHandle>> applyProjection(ConnectorSession session, ConnectorTableHandle handle, List<ConnectorExpression> projections, Map<String, ColumnHandle> assignments)
             {
                 return applyProjection.apply(session, handle, projections, assignments);
+            }
+
+            @Override
+            public Optional<TopNApplicationResult<ConnectorTableHandle>> applyTopN(ConnectorSession session, ConnectorTableHandle handle, long topNCount, List<SortItem> sortItems, Map<String, ColumnHandle> assignments)
+            {
+                return applyTopN.apply(session, handle, topNCount, sortItems, assignments);
             }
 
             @Override
@@ -414,6 +434,7 @@ public class MockConnectorFactory
         private BiFunction<ConnectorSession, ConnectorTableMetadata, Optional<ConnectorNewTableLayout>> getNewTableLayout = defaultGetNewTableLayout();
         private Supplier<Iterable<EventListener>> eventListeners = ImmutableList::of;
         private ListRoleGrants roleGrants = defaultRoleAuthorizations();
+        private ApplyTopN applyTopN = (session, handle, topNCount, sortItems, assignments) -> Optional.empty();
 
         public Builder withListSchemaNames(Function<ConnectorSession, List<String>> listSchemaNames)
         {
@@ -457,6 +478,12 @@ public class MockConnectorFactory
             return this;
         }
 
+        public Builder withApplyTopN(ApplyTopN applyTopN)
+        {
+            this.applyTopN = applyTopN;
+            return this;
+        }
+
         public Builder withGetInsertLayout(BiFunction<ConnectorSession, SchemaTableName, Optional<ConnectorNewTableLayout>> getInsertLayout)
         {
             this.getInsertLayout = requireNonNull(getInsertLayout, "getInsertLayout is null");
@@ -487,7 +514,7 @@ public class MockConnectorFactory
 
         public MockConnectorFactory build()
         {
-            return new MockConnectorFactory(listSchemaNames, listTables, getViews, getTableHandle, getColumns, applyProjection, getInsertLayout, getNewTableLayout, eventListeners, roleGrants);
+            return new MockConnectorFactory(listSchemaNames, listTables, getViews, getTableHandle, getColumns, applyProjection, applyTopN, getInsertLayout, getNewTableLayout, eventListeners, roleGrants);
         }
 
         public static Function<ConnectorSession, List<String>> defaultListSchemaNames()

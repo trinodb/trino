@@ -40,13 +40,9 @@ import static io.prestosql.spi.session.PropertyMetadata.booleanProperty;
 import static io.prestosql.spi.session.PropertyMetadata.enumProperty;
 import static io.prestosql.spi.session.PropertyMetadata.integerProperty;
 import static io.prestosql.spi.session.PropertyMetadata.stringProperty;
-import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
-import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.ELIMINATE_CROSS_JOINS;
-import static io.prestosql.sql.analyzer.FeaturesConfig.JoinReorderingStrategy.NONE;
 import static java.lang.Math.min;
 import static java.lang.String.format;
-import static java.util.Objects.requireNonNull;
 
 public final class SystemSessionProperties
 {
@@ -81,7 +77,6 @@ public final class SystemSessionProperties
     public static final String SPATIAL_PARTITIONING_TABLE_NAME = "spatial_partitioning_table_name";
     public static final String COLOCATED_JOIN = "colocated_join";
     public static final String CONCURRENT_LIFESPANS_PER_NODE = "concurrent_lifespans_per_task";
-    public static final String REORDER_JOINS = "reorder_joins";
     public static final String JOIN_REORDERING_STRATEGY = "join_reordering_strategy";
     public static final String MAX_REORDERED_JOINS = "max_reordered_joins";
     public static final String INITIAL_SPLITS_PER_NODE = "initial_splits_per_node";
@@ -97,7 +92,6 @@ public final class SystemSessionProperties
     public static final String ITERATIVE_OPTIMIZER_TIMEOUT = "iterative_optimizer_timeout";
     public static final String ENABLE_FORCED_EXCHANGE_BELOW_GROUP_ID = "enable_forced_exchange_below_group_id";
     public static final String EXCHANGE_COMPRESSION = "exchange_compression";
-    public static final String LEGACY_TIMESTAMP = "legacy_timestamp";
     public static final String ENABLE_INTERMEDIATE_AGGREGATIONS = "enable_intermediate_aggregations";
     public static final String PUSH_AGGREGATION_THROUGH_OUTER_JOIN = "push_aggregation_through_outer_join";
     public static final String PUSH_PARTIAL_AGGREGATION_THROUGH_JOIN = "push_partial_aggregation_through_join";
@@ -106,6 +100,7 @@ public final class SystemSessionProperties
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_SIZE = "filter_and_project_min_output_page_size";
     public static final String FILTER_AND_PROJECT_MIN_OUTPUT_PAGE_ROW_COUNT = "filter_and_project_min_output_page_row_count";
     public static final String DISTRIBUTED_SORT = "distributed_sort";
+    public static final String MAX_RECURSION_DEPTH = "max_recursion_depth";
     public static final String USE_MARK_DISTINCT = "use_mark_distinct";
     public static final String PREFER_PARTIAL_AGGREGATION = "prefer_partial_aggregation";
     public static final String OPTIMIZE_TOP_N_ROW_NUMBER = "optimize_top_n_row_number";
@@ -118,6 +113,7 @@ public final class SystemSessionProperties
     public static final String DEFAULT_FILTER_FACTOR_ENABLED = "default_filter_factor_enabled";
     public static final String UNWRAP_CASTS = "unwrap_casts";
     public static final String SKIP_REDUNDANT_SORT = "skip_redundant_sort";
+    public static final String ALLOW_PUSHDOWN_INTO_CONNECTORS = "allow_pushdown_into_connectors";
     public static final String PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES = "predicate_pushdown_use_table_properties";
     public static final String LATE_MATERIALIZATION = "late_materialization";
     public static final String ENABLE_DYNAMIC_FILTERING = "enable_dynamic_filtering";
@@ -197,7 +193,7 @@ public final class SystemSessionProperties
                 new PropertyMetadata<>(
                         TASK_WRITER_COUNT,
                         "Default number of local parallel table writer jobs per worker",
-                        BIGINT,
+                        INTEGER,
                         Integer.class,
                         taskManagerConfig.getWriterCount(),
                         false,
@@ -231,7 +227,7 @@ public final class SystemSessionProperties
                 new PropertyMetadata<>(
                         TASK_CONCURRENCY,
                         "Default number of local parallel jobs per worker",
-                        BIGINT,
+                        INTEGER,
                         Integer.class,
                         taskManagerConfig.getTaskConcurrency(),
                         false,
@@ -312,11 +308,6 @@ public final class SystemSessionProperties
                         "Experimental: Adapt plan to pre-partitioned tables",
                         true,
                         false),
-                booleanProperty(
-                        REORDER_JOINS,
-                        "(DEPRECATED) Reorder joins to remove unnecessary cross joins. If this is set, join_reordering_strategy will be ignored",
-                        null,
-                        false),
                 enumProperty(
                         JOIN_REORDERING_STRATEGY,
                         "Join reordering strategy",
@@ -326,12 +317,12 @@ public final class SystemSessionProperties
                 new PropertyMetadata<>(
                         MAX_REORDERED_JOINS,
                         "The maximum number of joins to reorder as one group in cost-based join reordering",
-                        BIGINT,
+                        INTEGER,
                         Integer.class,
                         featuresConfig.getMaxReorderedJoins(),
                         false,
                         value -> {
-                            int intValue = ((Number) requireNonNull(value, "value is null")).intValue();
+                            int intValue = (int) value;
                             if (intValue < 2) {
                                 throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must be greater than or equal to 2: %s", MAX_REORDERED_JOINS, intValue));
                             }
@@ -404,11 +395,6 @@ public final class SystemSessionProperties
                         featuresConfig.isExchangeCompressionEnabled(),
                         false),
                 booleanProperty(
-                        LEGACY_TIMESTAMP,
-                        "Use legacy TIME & TIMESTAMP semantics (warning: this will be removed)",
-                        featuresConfig.isLegacyTimestamp(),
-                        true),
-                booleanProperty(
                         ENABLE_INTERMEDIATE_AGGREGATIONS,
                         "Enable the use of intermediate aggregations",
                         featuresConfig.isEnableIntermediateAggregations(),
@@ -448,6 +434,15 @@ public final class SystemSessionProperties
                         "Parallelize sort across multiple nodes",
                         featuresConfig.isDistributedSortEnabled(),
                         false),
+                new PropertyMetadata<>(
+                        MAX_RECURSION_DEPTH,
+                        "Maximum recursion depth for recursive common table expression",
+                        INTEGER,
+                        Integer.class,
+                        featuresConfig.getMaxRecursionDepth(),
+                        false,
+                        value -> validateIntegerValue(value, MAX_RECURSION_DEPTH, 1, false),
+                        object -> object),
                 booleanProperty(
                         USE_MARK_DISTINCT,
                         "Implement DISTINCT aggregations using MarkDistinct",
@@ -512,6 +507,12 @@ public final class SystemSessionProperties
                         "Skip redundant sort operations",
                         featuresConfig.isSkipRedundantSort(),
                         false),
+                booleanProperty(
+                        ALLOW_PUSHDOWN_INTO_CONNECTORS,
+                        "Allow pushdown into connectors",
+                        // This is a diagnostic property
+                        true,
+                        true),
                 booleanProperty(
                         PREDICATE_PUSHDOWN_USE_TABLE_PROPERTIES,
                         "Use table properties in predicate pushdown",
@@ -721,13 +722,6 @@ public final class SystemSessionProperties
 
     public static JoinReorderingStrategy getJoinReorderingStrategy(Session session)
     {
-        Boolean reorderJoins = session.getSystemProperty(REORDER_JOINS, Boolean.class);
-        if (reorderJoins != null) {
-            if (!reorderJoins) {
-                return NONE;
-            }
-            return ELIMINATE_CROSS_JOINS;
-        }
         return session.getSystemProperty(JOIN_REORDERING_STRATEGY, JoinReorderingStrategy.class);
     }
 
@@ -815,11 +809,6 @@ public final class SystemSessionProperties
         return session.getSystemProperty(OPTIMIZE_DISTINCT_AGGREGATIONS, Boolean.class);
     }
 
-    public static boolean isLegacyTimestamp(Session session)
-    {
-        return session.getSystemProperty(LEGACY_TIMESTAMP, Boolean.class);
-    }
-
     public static Duration getOptimizerTimeout(Session session)
     {
         return session.getSystemProperty(ITERATIVE_OPTIMIZER_TIMEOUT, Duration.class);
@@ -890,6 +879,11 @@ public final class SystemSessionProperties
         return session.getSystemProperty(DISTRIBUTED_SORT, Boolean.class);
     }
 
+    public static int getMaxRecursionDepth(Session session)
+    {
+        return session.getSystemProperty(MAX_RECURSION_DEPTH, Integer.class);
+    }
+
     public static int getMaxGroupingSets(Session session)
     {
         return session.getSystemProperty(MAX_GROUPING_SETS, Integer.class);
@@ -906,7 +900,7 @@ public final class SystemSessionProperties
 
     private static int validateValueIsPowerOfTwo(Object value, String property)
     {
-        int intValue = ((Number) requireNonNull(value, "value is null")).intValue();
+        int intValue = (int) value;
         if (Integer.bitCount(intValue) != 1) {
             throw new PrestoException(
                     INVALID_SESSION_PROPERTY,
@@ -930,7 +924,7 @@ public final class SystemSessionProperties
             return null;
         }
 
-        int intValue = ((Number) value).intValue();
+        int intValue = (int) value;
         if (intValue < lowerBoundIncluded) {
             throw new PrestoException(INVALID_SESSION_PROPERTY, format("%s must be equal or greater than %s", property, lowerBoundIncluded));
         }
@@ -970,6 +964,11 @@ public final class SystemSessionProperties
     public static boolean isSkipRedundantSort(Session session)
     {
         return session.getSystemProperty(SKIP_REDUNDANT_SORT, Boolean.class);
+    }
+
+    public static boolean isAllowPushdownIntoConnectors(Session session)
+    {
+        return session.getSystemProperty(ALLOW_PUSHDOWN_INTO_CONNECTORS, Boolean.class);
     }
 
     public static boolean isPredicatePushdownUseTableProperties(Session session)

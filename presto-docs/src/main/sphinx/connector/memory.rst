@@ -42,8 +42,8 @@ Drop table::
     DROP TABLE memory.default.nation;
 
 
-Memory Connector Limitations
-----------------------------
+Limitations
+-----------
 
 * After ``DROP TABLE`` memory is not released immediately. It is
   released after the next write access to memory connector.

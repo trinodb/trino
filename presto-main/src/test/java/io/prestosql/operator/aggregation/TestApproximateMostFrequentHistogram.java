@@ -80,6 +80,36 @@ public class TestApproximateMostFrequentHistogram
     }
 
     @Test
+    public void testLongMergeOverMaxbuckets()
+    {
+        ApproximateMostFrequentHistogram<Long> histogram1 = new ApproximateMostFrequentHistogram<Long>(3, 15, LongApproximateMostFrequentStateSerializer::serializeBucket, LongApproximateMostFrequentStateSerializer::deserializeBucket);
+
+        histogram1.add(1L);
+        histogram1.add(1L);
+        histogram1.add(2L);
+        histogram1.add(2L);
+        histogram1.add(3L);
+        histogram1.add(3L);
+        histogram1.add(3L);
+        histogram1.add(4L);
+
+        ApproximateMostFrequentHistogram<Long> histogram2 = new ApproximateMostFrequentHistogram<Long>(3, 15, LongApproximateMostFrequentStateSerializer::serializeBucket, LongApproximateMostFrequentStateSerializer::deserializeBucket);
+        histogram2.add(1L);
+        histogram2.add(1L);
+        histogram2.add(2L);
+        histogram2.add(2L);
+        histogram2.add(3L);
+        histogram2.add(4L);
+        histogram2.add(4L);
+
+        histogram1.merge(histogram2);
+        Map<Long, Long> buckets = histogram1.getBuckets();
+
+        assertEquals(buckets.size(), 3);
+        assertEquals(buckets, ImmutableMap.of(1L, 4L, 2L, 4L, 3L, 4L));
+    }
+
+    @Test
     public void testStringHistogram()
     {
         ApproximateMostFrequentHistogram<Slice> histogram = new ApproximateMostFrequentHistogram<Slice>(3, 15, StringApproximateMostFrequentStateSerializer::serializeBucket, StringApproximateMostFrequentStateSerializer::deserializeBucket);
@@ -112,5 +142,35 @@ public class TestApproximateMostFrequentHistogram
         ApproximateMostFrequentHistogram<Slice> deserialized = new ApproximateMostFrequentHistogram<Slice>(serialized, StringApproximateMostFrequentStateSerializer::serializeBucket, StringApproximateMostFrequentStateSerializer::deserializeBucket);
 
         assertEquals(deserialized.getBuckets(), original.getBuckets());
+    }
+
+    @Test
+    public void testStringMergeOverMaxbuckets()
+    {
+        ApproximateMostFrequentHistogram<Slice> histogram1 = new ApproximateMostFrequentHistogram<Slice>(3, 15, StringApproximateMostFrequentStateSerializer::serializeBucket, StringApproximateMostFrequentStateSerializer::deserializeBucket);
+
+        histogram1.add(Slices.utf8Slice("A"));
+        histogram1.add(Slices.utf8Slice("A"));
+        histogram1.add(Slices.utf8Slice("B"));
+        histogram1.add(Slices.utf8Slice("B"));
+        histogram1.add(Slices.utf8Slice("C"));
+        histogram1.add(Slices.utf8Slice("C"));
+        histogram1.add(Slices.utf8Slice("C"));
+        histogram1.add(Slices.utf8Slice("D"));
+
+        ApproximateMostFrequentHistogram<Slice> histogram2 = new ApproximateMostFrequentHistogram<Slice>(3, 15, StringApproximateMostFrequentStateSerializer::serializeBucket, StringApproximateMostFrequentStateSerializer::deserializeBucket);
+        histogram2.add(Slices.utf8Slice("A"));
+        histogram2.add(Slices.utf8Slice("A"));
+        histogram2.add(Slices.utf8Slice("B"));
+        histogram2.add(Slices.utf8Slice("B"));
+        histogram2.add(Slices.utf8Slice("C"));
+        histogram2.add(Slices.utf8Slice("D"));
+        histogram2.add(Slices.utf8Slice("D"));
+
+        histogram1.merge(histogram2);
+        Map<Slice, Long> buckets = histogram1.getBuckets();
+
+        assertEquals(buckets.size(), 3);
+        assertEquals(buckets, ImmutableMap.of(Slices.utf8Slice("A"), 4L, Slices.utf8Slice("B"), 4L, Slices.utf8Slice("C"), 4L));
     }
 }

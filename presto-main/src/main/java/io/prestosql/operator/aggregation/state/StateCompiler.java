@@ -124,6 +124,28 @@ public final class StateCompiler
         return ObjectBigArray.class;
     }
 
+    public static Type getSerializedType(Class<?> clazz)
+    {
+        return getSerializedType(clazz, ImmutableMap.of());
+    }
+
+    public static Type getSerializedType(Class<?> clazz, Map<String, Type> fieldTypes)
+    {
+        AccumulatorStateMetadata metadata = getMetadataAnnotation(clazz);
+        if (metadata != null && metadata.stateSerializerClass() != void.class) {
+            try {
+                AccumulatorStateSerializer<?> stateSerializer = (AccumulatorStateSerializer<?>) metadata.stateSerializerClass().getConstructor().newInstance();
+                return stateSerializer.getSerializedType();
+            }
+            catch (InstantiationException | IllegalAccessException | NoSuchMethodException | InvocationTargetException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        List<StateField> fields = enumerateFields(clazz, fieldTypes);
+        return getSerializedType(fields);
+    }
+
     public static <T> AccumulatorStateSerializer<T> generateStateSerializer(Class<T> clazz)
     {
         return generateStateSerializer(clazz, new DynamicClassLoader(clazz.getClassLoader()));
@@ -175,21 +197,23 @@ public final class StateCompiler
     {
         BytecodeBlock body = definition.declareMethod(a(PUBLIC), "getSerializedType", type(Type.class)).getBody();
 
-        Type type;
-        if (fields.size() > 1) {
-            List<Type> types = fields.stream().map(StateField::getSqlType).collect(toImmutableList());
-            type = RowType.anonymous(types);
-        }
-        else if (fields.size() == 1) {
-            type = getOnlyElement(fields).getSqlType();
-        }
-        else {
-            type = UNKNOWN;
-        }
+        Type type = getSerializedType(fields);
 
         body.comment("return %s", type.getTypeSignature())
                 .append(constantType(callSiteBinder, type))
                 .retObject();
+    }
+
+    private static Type getSerializedType(List<StateField> fields)
+    {
+        if (fields.size() > 1) {
+            List<Type> types = fields.stream().map(StateField::getSqlType).collect(toImmutableList());
+            return RowType.anonymous(types);
+        }
+        if (fields.size() == 1) {
+            return getOnlyElement(fields).getSqlType();
+        }
+        return UNKNOWN;
     }
 
     private static <T> AccumulatorStateMetadata getMetadataAnnotation(Class<T> clazz)

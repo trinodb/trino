@@ -25,7 +25,8 @@ import org.testng.annotations.Test;
 
 import java.sql.Date;
 import java.sql.Timestamp;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 
 import static io.prestosql.tempto.assertions.QueryAssert.Row.row;
 import static io.prestosql.tempto.assertions.QueryAssert.assertThat;
@@ -92,7 +93,7 @@ public class TestInsertIntoCassandraTable
                 "null, " +
                 "null, " +
                 "'text value', " +
-                "timestamp '9999-12-31 23:59:59'," +
+                "timestamp '9999-12-31 23:59:59Z'," +
                 "null, " +
                 "null, " +
                 "'varchar value'," +
@@ -117,7 +118,7 @@ public class TestInsertIntoCassandraTable
                         -32768,
                         "text value",
                         -128,
-                        Timestamp.valueOf(LocalDateTime.of(9999, 12, 31, 23, 59, 59)),
+                        Timestamp.from(OffsetDateTime.of(9999, 12, 31, 23, 59, 59, 0, ZoneOffset.UTC).toInstant()),
                         null,
                         null,
                         "varchar value",

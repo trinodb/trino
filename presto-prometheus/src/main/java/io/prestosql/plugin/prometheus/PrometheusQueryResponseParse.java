@@ -24,34 +24,24 @@ import io.prestosql.spi.PrestoException;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
 import static io.prestosql.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_PARSE_ERROR;
+import static java.util.Collections.singletonList;
 
 public class PrometheusQueryResponseParse
 {
-    private final InputStream response;
     private boolean status;
 
     private String error;
     private String errorType;
-    private List<String> warnings; //TODO not parsing warnings for now
     private String resultType;
     private String result;
     private List<PrometheusMetricResult> results;
-    private PrometheusTimeSeriesValue stringOrScalarResult;
 
     public PrometheusQueryResponseParse(InputStream response)
-            throws IOException
-    {
-        this.response = response;
-        parse();
-    }
-
-    private boolean parse()
             throws IOException
     {
         ObjectMapper mapper = new ObjectMapper();
@@ -105,14 +95,13 @@ public class PrometheusQueryResponseParse
                     break;
                 case "scalar":
                 case "string":
-                    stringOrScalarResult = mapper.readValue(result, new TypeReference<PrometheusTimeSeriesValue>() {});
+                    PrometheusTimeSeriesValue stringOrScalarResult = mapper.readValue(result, new TypeReference<PrometheusTimeSeriesValue>() {});
                     Map<String, String> madeUpMetricHeader = new HashMap<>();
                     madeUpMetricHeader.put("__name__", resultType);
-                    PrometheusTimeSeriesValueArray timeSeriesValues = new PrometheusTimeSeriesValueArray(Arrays.asList(stringOrScalarResult));
-                    results = Arrays.asList(new PrometheusMetricResult(madeUpMetricHeader, timeSeriesValues));
+                    PrometheusTimeSeriesValueArray timeSeriesValues = new PrometheusTimeSeriesValueArray(singletonList(stringOrScalarResult));
+                    results = singletonList(new PrometheusMetricResult(madeUpMetricHeader, timeSeriesValues));
             }
         }
-        return true;
     }
 
     public String getError()

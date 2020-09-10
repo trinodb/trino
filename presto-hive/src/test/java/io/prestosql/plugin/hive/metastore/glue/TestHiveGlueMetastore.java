@@ -18,6 +18,7 @@ import io.airlift.concurrent.BoundedExecutor;
 import io.prestosql.plugin.hive.AbstractTestHiveLocal;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.plugin.hive.metastore.HiveMetastore;
+import io.prestosql.spi.predicate.TupleDomain;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -108,7 +109,12 @@ public class TestHiveGlueMetastore
     {
         try {
             createDummyPartitionedTable(tablePartitionFormat, CREATE_TABLE_COLUMNS_PARTITIONED);
-            Optional<List<String>> partitionNames = getMetastoreClient().getPartitionNames(HIVE_CONTEXT, tablePartitionFormat.getSchemaName(), tablePartitionFormat.getTableName());
+            HiveMetastore metastoreClient = getMetastoreClient();
+            Optional<List<String>> partitionNames = metastoreClient.getPartitionNamesByFilter(
+                    HIVE_CONTEXT,
+                    tablePartitionFormat.getSchemaName(),
+                    tablePartitionFormat.getTableName(),
+                    ImmutableList.of("ds"), TupleDomain.all());
             assertTrue(partitionNames.isPresent());
             assertEquals(partitionNames.get(), ImmutableList.of("ds=2016-01-01", "ds=2016-01-02"));
         }

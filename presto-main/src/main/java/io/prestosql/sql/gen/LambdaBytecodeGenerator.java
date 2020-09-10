@@ -122,7 +122,7 @@ public final class LambdaBytecodeGenerator
         for (int i = 0; i < lambdaExpression.getArguments().size(); i++) {
             Class<?> type = Primitives.wrap(lambdaExpression.getArgumentTypes().get(i).getJavaType());
             String argumentName = lambdaExpression.getArguments().get(i);
-            Parameter arg = arg("lambda_" + argumentName, type);
+            Parameter arg = arg("lambda_" + i + "_" + BytecodeUtils.sanitizeName(argumentName), type);
             parameters.add(arg);
             parameterMapBuilder.put(argumentName, new ParameterAndType(arg, type));
         }

@@ -27,6 +27,7 @@ import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.FixedSplitSource;
 import org.apache.hadoop.hbase.HRegionLocation;
 import org.apache.hadoop.hbase.TableName;
@@ -39,7 +40,6 @@ import org.apache.phoenix.jdbc.PhoenixConnection;
 import org.apache.phoenix.jdbc.PhoenixPreparedStatement;
 import org.apache.phoenix.mapreduce.PhoenixInputSplit;
 import org.apache.phoenix.query.KeyRange;
-import org.apache.phoenix.util.SchemaUtil;
 
 import javax.inject.Inject;
 
@@ -71,20 +71,22 @@ public class PhoenixSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableHandle table, SplitSchedulingStrategy splitSchedulingStrategy)
+    public ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transaction,
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            DynamicFilter dynamicFilter)
     {
         JdbcTableHandle tableHandle = (JdbcTableHandle) table;
         try (PhoenixConnection connection = phoenixClient.getConnection(JdbcIdentity.from(session))) {
             List<JdbcColumnHandle> columns = tableHandle.getColumns()
                     .map(columnSet -> columnSet.stream().map(JdbcColumnHandle.class::cast).collect(toList()))
                     .orElseGet(() -> phoenixClient.getColumns(session, tableHandle));
-            PhoenixPreparedStatement inputQuery = (PhoenixPreparedStatement) new QueryBuilder(SchemaUtil.ESCAPE_CHARACTER).buildSql(
-                    phoenixClient,
+            PhoenixPreparedStatement inputQuery = (PhoenixPreparedStatement) new QueryBuilder(phoenixClient).buildSql(
                     session,
                     connection,
-                    tableHandle.getCatalogName(),
-                    tableHandle.getSchemaName(),
-                    tableHandle.getTableName(),
+                    tableHandle.getRemoteTableName(),
                     tableHandle.getGroupingSets(),
                     columns,
                     tableHandle.getConstraint(),

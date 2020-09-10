@@ -32,8 +32,6 @@ import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.testing.MaterializedResult.resultBuilder;
 import static io.prestosql.testing.sql.TestTable.randomTableSuffix;
 import static java.lang.String.format;
-import static java.util.stream.Collectors.joining;
-import static java.util.stream.IntStream.range;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -122,27 +120,6 @@ public class TestOracleDistributedQueries
                         "col_default decimal(20,0) DEFAULT 43," +
                         "col_nonnull_default decimal(20,0) DEFAULT 42 NOT NULL ," +
                         "col_required2 decimal(20,0) NOT NULL)");
-    }
-
-    @Test
-    @Override
-    public void testLargeIn()
-    {
-        int numberOfElements = 1000;
-        String longValues = range(0, numberOfElements)
-                .mapToObj(Integer::toString)
-                .collect(joining(", "));
-        assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (" + longValues + ")");
-        assertQuery("SELECT orderkey FROM orders WHERE orderkey NOT IN (" + longValues + ")");
-
-        assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (mod(1000, orderkey), " + longValues + ")");
-        assertQuery("SELECT orderkey FROM orders WHERE orderkey NOT IN (mod(1000, orderkey), " + longValues + ")");
-
-        String arrayValues = range(0, numberOfElements)
-                .mapToObj(i -> format("ARRAY[%s, %s, %s]", i, i + 1, i + 2))
-                .collect(joining(", "));
-        assertQuery("SELECT ARRAY[0, 0, 0] in (ARRAY[0, 0, 0], " + arrayValues + ")", "values true");
-        assertQuery("SELECT ARRAY[0, 0, 0] in (" + arrayValues + ")", "values false");
     }
 
     @Test

@@ -16,10 +16,8 @@ package io.prestosql.plugin.iceberg;
 import io.prestosql.plugin.hive.FileWriter;
 import org.apache.iceberg.Metrics;
 
-import java.util.Optional;
-
 public interface IcebergFileWriter
         extends FileWriter
 {
-    Optional<Metrics> getMetrics();
+    Metrics getMetrics();
 }

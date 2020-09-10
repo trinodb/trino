@@ -19,6 +19,7 @@ import io.prestosql.tempto.ProductTest;
 import io.prestosql.tempto.assertions.QueryAssert.Row;
 import io.prestosql.tempto.query.QueryExecutor.QueryParam;
 import io.prestosql.tempto.query.QueryResult;
+import io.prestosql.testng.services.Flaky;
 import io.prestosql.tests.utils.JdbcDriverUtils;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -157,6 +158,7 @@ public class TestHiveStorageFormats
     }
 
     @Test(dataProvider = "storage_formats", groups = STORAGE_FORMATS)
+    @Flaky(issue = "https://github.com/prestosql/presto/issues/2390", match = "File .* could only be written to 0 of the 1 minReplication nodes")
     public void testInsertIntoPartitionedTable(StorageFormat storageFormat)
     {
         // only admin user is allowed to change session properties

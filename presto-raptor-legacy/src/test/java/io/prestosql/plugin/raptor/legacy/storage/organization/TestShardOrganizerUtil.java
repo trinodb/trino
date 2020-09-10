@@ -55,7 +55,7 @@ import static io.prestosql.plugin.raptor.legacy.metadata.TestDatabaseShardManage
 import static io.prestosql.plugin.raptor.legacy.storage.organization.ShardOrganizerUtil.getOrganizationEligibleShards;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.DateType.DATE;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
 import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static io.prestosql.testing.TestingConnectorSession.SESSION;
@@ -65,7 +65,7 @@ import static org.testng.Assert.assertEquals;
 public class TestShardOrganizerUtil
 {
     private static final List<ColumnInfo> COLUMNS = ImmutableList.of(
-            new ColumnInfo(1, TIMESTAMP),
+            new ColumnInfo(1, TIMESTAMP_MILLIS),
             new ColumnInfo(2, BIGINT),
             new ColumnInfo(3, VARCHAR));
 

@@ -18,6 +18,7 @@ import io.prestosql.orc.metadata.statistics.BloomFilter;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.time.ZoneId;
 import java.util.List;
 
 public interface MetadataReader
@@ -31,7 +32,7 @@ public interface MetadataReader
     Footer readFooter(HiveWriterVersion hiveWriterVersion, InputStream inputStream)
             throws IOException;
 
-    StripeFooter readStripeFooter(ColumnMetadata<OrcType> types, InputStream inputStream)
+    StripeFooter readStripeFooter(ColumnMetadata<OrcType> types, InputStream inputStream, ZoneId legacyFileTimeZone)
             throws IOException;
 
     List<RowGroupIndex> readRowIndexes(HiveWriterVersion hiveWriterVersion, InputStream inputStream)

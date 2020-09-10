@@ -51,6 +51,7 @@ import java.util.Set;
 
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Sets.intersection;
+import static io.prestosql.SystemSessionProperties.isAllowPushdownIntoConnectors;
 import static io.prestosql.matching.Capture.newCapture;
 import static io.prestosql.metadata.TableLayoutResult.computeEnforced;
 import static io.prestosql.sql.ExpressionUtils.combineConjuncts;
@@ -89,6 +90,12 @@ public class PushPredicateIntoTableScan
     public Pattern<FilterNode> getPattern()
     {
         return PATTERN;
+    }
+
+    @Override
+    public boolean isEnabled(Session session)
+    {
+        return isAllowPushdownIntoConnectors(session);
     }
 
     @Override

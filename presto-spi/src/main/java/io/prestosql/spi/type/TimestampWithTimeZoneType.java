@@ -27,27 +27,34 @@ public abstract class TimestampWithTimeZoneType
     public static final int MAX_SHORT_PRECISION = 3;
     public static final int DEFAULT_PRECISION = 3; // TODO: should be 6 per SQL spec
 
+    private static final TimestampWithTimeZoneType[] TYPES = new TimestampWithTimeZoneType[MAX_PRECISION + 1];
+
+    static {
+        for (int precision = 0; precision <= MAX_PRECISION; precision++) {
+            TYPES[precision] = (precision <= MAX_SHORT_PRECISION) ? new ShortTimestampWithTimeZoneType(precision) : new LongTimestampWithTimeZoneType(precision);
+        }
+    }
+
+    public static final TimestampWithTimeZoneType TIMESTAMP_TZ_SECONDS = createTimestampWithTimeZoneType(0);
+    public static final TimestampWithTimeZoneType TIMESTAMP_TZ_MILLIS = createTimestampWithTimeZoneType(3);
+    public static final TimestampWithTimeZoneType TIMESTAMP_TZ_MICROS = createTimestampWithTimeZoneType(6);
+    public static final TimestampWithTimeZoneType TIMESTAMP_TZ_NANOS = createTimestampWithTimeZoneType(9);
+    public static final TimestampWithTimeZoneType TIMESTAMP_TZ_PICOS = createTimestampWithTimeZoneType(12);
+
+    /**
+     * @deprecated use {@link #TIMESTAMP_TZ_MILLIS} instead
+     */
     @Deprecated
-    public static final TimestampWithTimeZoneType TIMESTAMP_WITH_TIME_ZONE = new ShortTimestampWithTimeZoneType(DEFAULT_PRECISION);
+    public static final TimestampWithTimeZoneType TIMESTAMP_WITH_TIME_ZONE = TIMESTAMP_TZ_MILLIS;
 
     private final int precision;
 
     public static TimestampWithTimeZoneType createTimestampWithTimeZoneType(int precision)
     {
-        if (precision == DEFAULT_PRECISION) {
-            // Use singleton for backwards compatibility with code checking `type == TIMESTAMP_WITH_TIME_ZONE`
-            return TIMESTAMP_WITH_TIME_ZONE;
+        if (precision < 0 || precision > MAX_PRECISION) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("TIMESTAMP WITH TIME ZONE precision must be in range [0, %s]", MAX_PRECISION));
         }
-
-        if (precision <= MAX_SHORT_PRECISION) {
-            return new ShortTimestampWithTimeZoneType(precision);
-        }
-
-        if (precision <= MAX_PRECISION) {
-            return new LongTimestampWithTimeZoneType(precision);
-        }
-
-        throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, format("TIMESTAMP WITH TIME ZONE precision must be in range [0, %s]", MAX_PRECISION));
+        return TYPES[precision];
     }
 
     TimestampWithTimeZoneType(int precision, Class<?> javaType)

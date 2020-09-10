@@ -47,7 +47,7 @@ import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetad
 import static io.prestosql.security.AccessControlUtil.filterQueries;
 import static io.prestosql.spi.connector.SystemTable.Distribution.ALL_COORDINATORS;
 import static io.prestosql.spi.type.BigintType.BIGINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
 import static java.util.Objects.requireNonNull;
 
@@ -68,10 +68,10 @@ public class QuerySystemTable
             .column("analysis_time_ms", BIGINT)
             .column("planning_time_ms", BIGINT)
 
-            .column("created", TIMESTAMP)
-            .column("started", TIMESTAMP)
-            .column("last_heartbeat", TIMESTAMP)
-            .column("end", TIMESTAMP)
+            .column("created", TIMESTAMP_MILLIS)
+            .column("started", TIMESTAMP_MILLIS)
+            .column("last_heartbeat", TIMESTAMP_MILLIS)
+            .column("end", TIMESTAMP_MILLIS)
 
             .column("error_type", createUnboundedVarcharType())
             .column("error_code", createUnboundedVarcharType())

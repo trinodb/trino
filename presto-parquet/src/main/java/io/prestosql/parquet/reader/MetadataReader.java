@@ -20,7 +20,6 @@ import org.apache.parquet.CorruptStatistics;
 import org.apache.parquet.column.statistics.BinaryStatistics;
 import org.apache.parquet.format.ColumnChunk;
 import org.apache.parquet.format.ColumnMetaData;
-import org.apache.parquet.format.ConvertedType;
 import org.apache.parquet.format.Encoding;
 import org.apache.parquet.format.FileMetaData;
 import org.apache.parquet.format.KeyValue;
@@ -34,8 +33,8 @@ import org.apache.parquet.hadoop.metadata.ColumnChunkMetaData;
 import org.apache.parquet.hadoop.metadata.ColumnPath;
 import org.apache.parquet.hadoop.metadata.CompressionCodecName;
 import org.apache.parquet.hadoop.metadata.ParquetMetadata;
+import org.apache.parquet.schema.LogicalTypeAnnotation;
 import org.apache.parquet.schema.MessageType;
-import org.apache.parquet.schema.OriginalType;
 import org.apache.parquet.schema.PrimitiveType;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
 import org.apache.parquet.schema.Type.Repetition;
@@ -58,8 +57,11 @@ import java.util.Optional;
 import java.util.Set;
 
 import static io.prestosql.parquet.ParquetValidationUtils.validateParquet;
+import static java.lang.Boolean.FALSE;
+import static java.lang.Boolean.TRUE;
 import static java.nio.charset.StandardCharsets.US_ASCII;
 import static org.apache.parquet.format.Util.readFileMetaData;
+import static org.apache.parquet.format.converter.ParquetMetadataConverterUtil.getLogicalTypeAnnotation;
 
 public final class MetadataReader
 {
@@ -194,7 +196,7 @@ public final class MetadataReader
             }
 
             if (element.isSetConverted_type()) {
-                typeBuilder.as(getOriginalType(element.converted_type));
+                typeBuilder.as(getLogicalTypeAnnotation(new ParquetMetadataConverter(), element.converted_type, element));
             }
             if (element.isSetField_id()) {
                 typeBuilder.id(element.field_id);
@@ -208,7 +210,7 @@ public final class MetadataReader
         Statistics statistics = statisticsFromFile.orElse(null);
         org.apache.parquet.column.statistics.Statistics<?> columnStatistics = new ParquetMetadataConverter().fromParquetStatistics(fileCreatedBy.orElse(null), statistics, type);
 
-        if (type.getOriginalType() == OriginalType.UTF8
+        if (isStringType(type)
                 && statistics != null
                 && !statistics.isSetMin_value() && !statistics.isSetMax_value() // the min,max fields used for UTF8 since Parquet PARQUET-1025
                 && statistics.isSetMin() && statistics.isSetMax()  // the min,max fields used for UTF8 before Parquet PARQUET-1025
@@ -218,6 +220,24 @@ public final class MetadataReader
         }
 
         return columnStatistics;
+    }
+
+    private static boolean isStringType(PrimitiveType type)
+    {
+        if (type.getLogicalTypeAnnotation() == null) {
+            return false;
+        }
+
+        return type.getLogicalTypeAnnotation()
+                .accept(new LogicalTypeAnnotation.LogicalTypeAnnotationVisitor<Boolean>()
+                {
+                    @Override
+                    public Optional<Boolean> visit(LogicalTypeAnnotation.StringLogicalTypeAnnotation stringLogicalType)
+                    {
+                        return Optional.of(TRUE);
+                    }
+                })
+                .orElse(FALSE);
     }
 
     private static void tryReadOldUtf8Stats(Statistics statistics, BinaryStatistics columnStatistics)
@@ -308,58 +328,6 @@ public final class MetadataReader
                 return PrimitiveTypeName.FIXED_LEN_BYTE_ARRAY;
             default:
                 throw new IllegalArgumentException("Unknown type " + type);
-        }
-    }
-
-    private static OriginalType getOriginalType(ConvertedType type)
-    {
-        switch (type) {
-            case UTF8:
-                return OriginalType.UTF8;
-            case MAP:
-                return OriginalType.MAP;
-            case MAP_KEY_VALUE:
-                return OriginalType.MAP_KEY_VALUE;
-            case LIST:
-                return OriginalType.LIST;
-            case ENUM:
-                return OriginalType.ENUM;
-            case DECIMAL:
-                return OriginalType.DECIMAL;
-            case DATE:
-                return OriginalType.DATE;
-            case TIME_MILLIS:
-                return OriginalType.TIME_MILLIS;
-            case TIMESTAMP_MILLIS:
-                return OriginalType.TIMESTAMP_MILLIS;
-            case INTERVAL:
-                return OriginalType.INTERVAL;
-            case INT_8:
-                return OriginalType.INT_8;
-            case INT_16:
-                return OriginalType.INT_16;
-            case INT_32:
-                return OriginalType.INT_32;
-            case INT_64:
-                return OriginalType.INT_64;
-            case UINT_8:
-                return OriginalType.UINT_8;
-            case UINT_16:
-                return OriginalType.UINT_16;
-            case UINT_32:
-                return OriginalType.UINT_32;
-            case UINT_64:
-                return OriginalType.UINT_64;
-            case JSON:
-                return OriginalType.JSON;
-            case BSON:
-                return OriginalType.BSON;
-            case TIMESTAMP_MICROS:
-                return OriginalType.TIMESTAMP_MICROS;
-            case TIME_MICROS:
-                return OriginalType.TIME_MICROS;
-            default:
-                throw new IllegalArgumentException("Unknown converted type " + type);
         }
     }
 

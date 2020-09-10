@@ -13,7 +13,6 @@
  */
 package io.prestosql.sql.planner;
 
-import com.google.common.base.Preconditions;
 import com.google.common.base.Predicates;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableListMultimap;
@@ -23,11 +22,11 @@ import com.google.common.collect.Maps;
 import io.prestosql.Session;
 import io.prestosql.connector.CatalogName;
 import io.prestosql.metadata.AbstractMockMetadata;
+import io.prestosql.metadata.BoundSignature;
 import io.prestosql.metadata.FunctionInvoker;
 import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.Metadata;
 import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.metadata.Signature;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.metadata.TableProperties;
 import io.prestosql.security.AllowAllAccessControl;
@@ -94,6 +93,7 @@ import java.util.Set;
 import java.util.UUID;
 import java.util.stream.IntStream;
 
+import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.metadata.FunctionId.toFunctionId;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
@@ -1101,6 +1101,7 @@ public class TestEffectivePredicateExtractor
                 A, B, C,
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.empty());
 
         Expression effectivePredicate = effectivePredicateExtractor.extract(SESSION, node, TypeProvider.empty(), typeAnalyzer);
@@ -1171,8 +1172,8 @@ public class TestEffectivePredicateExtractor
 
     private static ResolvedFunction fakeFunction(String name)
     {
-        Signature boundSignature = new Signature(name, UNKNOWN.getTypeSignature(), ImmutableList.of());
-        return new ResolvedFunction(boundSignature, toFunctionId(boundSignature));
+        BoundSignature boundSignature = new BoundSignature(name, UNKNOWN, ImmutableList.of());
+        return new ResolvedFunction(boundSignature, toFunctionId(boundSignature.toSignature()), ImmutableMap.of(), ImmutableSet.of());
     }
 
     private Set<Expression> normalizeConjuncts(Expression... conjuncts)
@@ -1198,7 +1199,7 @@ public class TestEffectivePredicateExtractor
         Set<Expression> rewrittenSet = new HashSet<>();
         for (Expression expression : EqualityInference.nonInferrableConjuncts(metadata, predicate)) {
             Expression rewritten = inference.rewrite(expression, scope);
-            Preconditions.checkState(rewritten != null, "Rewrite with full symbol scope should always be possible");
+            checkState(rewritten != null, "Rewrite with full symbol scope should always be possible");
             rewrittenSet.add(rewritten);
         }
         rewrittenSet.addAll(inference.generateEqualitiesPartitionedBy(scope).getScopeEqualities());

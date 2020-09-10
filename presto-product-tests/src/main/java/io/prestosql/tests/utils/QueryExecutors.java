@@ -44,5 +44,10 @@ public final class QueryExecutors
         return testContext().getDependency(QueryExecutor.class, "mysql");
     }
 
+    public static QueryExecutor onSpark()
+    {
+        return testContext().getDependency(QueryExecutor.class, "spark");
+    }
+
     private QueryExecutors() {}
 }

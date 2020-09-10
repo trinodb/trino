@@ -82,6 +82,7 @@ import io.prestosql.spi.security.SelectedRole;
 import io.prestosql.sql.analyzer.QueryExplainer;
 import io.prestosql.sql.planner.PlanFragmenter;
 import io.prestosql.sql.planner.PlanOptimizers;
+import io.prestosql.sql.planner.RuleStatsRecorder;
 import io.prestosql.transaction.ForTransactionManager;
 import io.prestosql.transaction.InMemoryTransactionManager;
 import io.prestosql.transaction.TransactionManager;
@@ -209,6 +210,9 @@ public class CoordinatorModule
         // planner
         binder.bind(PlanFragmenter.class).in(Scopes.SINGLETON);
         binder.bind(PlanOptimizers.class).in(Scopes.SINGLETON);
+
+        // Rule Stats Recorder
+        binder.bind(RuleStatsRecorder.class).in(Scopes.SINGLETON);
 
         // query explainer
         binder.bind(QueryExplainer.class).in(Scopes.SINGLETON);

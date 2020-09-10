@@ -63,8 +63,7 @@ public class TestPredicatePushdown
                                         project(
                                                 filter(
                                                         "CAST('x' AS varchar(4)) = CAST(u_v AS varchar(4))",
-                                                        tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name"))))),
-                                metadata)));
+                                                        tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name"))))))));
 
         // values have different types (varchar(4) vs varchar(5)) in each table
         assertPlan(
@@ -83,7 +82,6 @@ public class TestPredicatePushdown
                                         project(
                                                 filter(
                                                         "CAST('x' AS varchar(5)) = CAST(u_v AS varchar(5))",
-                                                        tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name"))))),
-                                metadata)));
+                                                        tableScan("nation", ImmutableMap.of("u_k", "nationkey", "u_v", "name"))))))));
     }
 }

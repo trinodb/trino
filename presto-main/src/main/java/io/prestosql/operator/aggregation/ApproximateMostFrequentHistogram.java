@@ -15,6 +15,7 @@ package io.prestosql.operator.aggregation;
 
 import com.clearspring.analytics.stream.Counter;
 import com.clearspring.analytics.stream.StreamSummary;
+import com.clearspring.analytics.util.ListNode2;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.slice.DynamicSliceOutput;
@@ -41,6 +42,9 @@ public class ApproximateMostFrequentHistogram<K>
 {
     private static final byte FORMAT_TAG = 0;
     private static final int INSTANCE_SIZE = ClassLayout.parseClass(ApproximateMostFrequentHistogram.class).instanceSize();
+    private static final int STREAM_SUMMARY_SIZE = ClassLayout.parseClass(StreamSummary.class).instanceSize();
+    private static final int LIST_NODE2_SIZE = ClassLayout.parseClass(ListNode2.class).instanceSize();
+    private static final int COUNTER_SIZE = ClassLayout.parseClass(Counter.class).instanceSize();
 
     private final StreamSummary<K> streamSummary;
     private final int maxBuckets;
@@ -123,7 +127,7 @@ public class ApproximateMostFrequentHistogram<K>
 
     public void merge(ApproximateMostFrequentHistogram<K> other)
     {
-        List<Counter<K>> counters = other.streamSummary.topK(maxBuckets);
+        List<Counter<K>> counters = other.streamSummary.topK(capacity);
         for (Counter<K> counter : counters) {
             add(counter.getItem(), counter.getCount());
         }
@@ -148,6 +152,9 @@ public class ApproximateMostFrequentHistogram<K>
 
     public long estimatedInMemorySize()
     {
-        return INSTANCE_SIZE;
+        // imperfect estimate of the size of the underlying StreamSummary. TODO: reimplement StreamSummary with flat structures and proper size accounting
+        return INSTANCE_SIZE +
+                STREAM_SUMMARY_SIZE +
+                streamSummary.size() * (LIST_NODE2_SIZE + COUNTER_SIZE + Long.BYTES); // Long.BYTES as a proxy for the size of K
     }
 }

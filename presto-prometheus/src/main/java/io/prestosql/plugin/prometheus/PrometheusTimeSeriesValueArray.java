@@ -14,23 +14,21 @@
 package io.prestosql.plugin.prometheus;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.util.List;
 
 public class PrometheusTimeSeriesValueArray
 {
-    public List<PrometheusTimeSeriesValue> getValues()
-    {
-        return values;
-    }
-
     private final List<PrometheusTimeSeriesValue> values;
 
     @JsonCreator
-    public PrometheusTimeSeriesValueArray(
-            @JsonProperty List<PrometheusTimeSeriesValue> values)
+    public PrometheusTimeSeriesValueArray(List<PrometheusTimeSeriesValue> values)
     {
         this.values = values;
+    }
+
+    public List<PrometheusTimeSeriesValue> getValues()
+    {
+        return values;
     }
 }

@@ -25,7 +25,6 @@ import io.prestosql.orc.metadata.CompressionKind;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.FileWriter;
 import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.HiveConfig;
 import io.prestosql.plugin.hive.HiveFileWriterFactory;
 import io.prestosql.plugin.hive.NodeVersion;
 import io.prestosql.plugin.hive.metastore.StorageFormat;
@@ -38,7 +37,6 @@ import org.apache.hadoop.fs.Path;
 import org.apache.hadoop.hive.ql.io.orc.OrcOutputFormat;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.orc.OrcConf;
-import org.joda.time.DateTimeZone;
 import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
@@ -74,7 +72,6 @@ import static java.util.stream.Collectors.toList;
 public class OrcFileWriterFactory
         implements HiveFileWriterFactory
 {
-    private final DateTimeZone hiveStorageTimeZone;
     private final HdfsEnvironment hdfsEnvironment;
     private final TypeManager typeManager;
     private final NodeVersion nodeVersion;
@@ -88,7 +85,6 @@ public class OrcFileWriterFactory
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             NodeVersion nodeVersion,
-            HiveConfig hiveConfig,
             OrcWriterConfig orcWriterConfig,
             FileFormatDataSourceStats readStats,
             OrcWriterConfig config)
@@ -97,7 +93,6 @@ public class OrcFileWriterFactory
                 hdfsEnvironment,
                 typeManager,
                 nodeVersion,
-                requireNonNull(hiveConfig, "hiveConfig is null").getDateTimeZone(),
                 requireNonNull(orcWriterConfig, "orcWriterConfig is null").isUseLegacyVersion(),
                 readStats,
                 requireNonNull(config, "config is null").toOrcWriterOptions());
@@ -107,7 +102,6 @@ public class OrcFileWriterFactory
             HdfsEnvironment hdfsEnvironment,
             TypeManager typeManager,
             NodeVersion nodeVersion,
-            DateTimeZone hiveStorageTimeZone,
             boolean writeLegacyVersion,
             FileFormatDataSourceStats readStats,
             OrcWriterOptions orcWriterOptions)
@@ -115,7 +109,6 @@ public class OrcFileWriterFactory
         this.hdfsEnvironment = requireNonNull(hdfsEnvironment, "hdfsEnvironment is null");
         this.typeManager = requireNonNull(typeManager, "typeManager is null");
         this.nodeVersion = requireNonNull(nodeVersion, "nodeVersion is null");
-        this.hiveStorageTimeZone = requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null");
         this.writeLegacyVersion = writeLegacyVersion;
         this.readStats = requireNonNull(readStats, "stats is null");
         this.orcWriterOptions = requireNonNull(orcWriterOptions, "orcWriterOptions is null");
@@ -199,7 +192,6 @@ public class OrcFileWriterFactory
                             .put(PRESTO_VERSION_NAME, nodeVersion.toString())
                             .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
                             .build(),
-                    hiveStorageTimeZone,
                     validationInputFactory,
                     getOrcOptimizedWriterValidateMode(session),
                     stats));

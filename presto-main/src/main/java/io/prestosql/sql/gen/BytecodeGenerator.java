@@ -14,13 +14,8 @@
 package io.prestosql.sql.gen;
 
 import io.airlift.bytecode.BytecodeNode;
-import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.spi.type.Type;
-import io.prestosql.sql.relational.RowExpression;
-
-import java.util.List;
 
 public interface BytecodeGenerator
 {
-    BytecodeNode generateExpression(ResolvedFunction resolvedFunction, BytecodeGeneratorContext context, Type returnType, List<RowExpression> arguments);
+    BytecodeNode generateExpression(BytecodeGeneratorContext context);
 }

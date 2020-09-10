@@ -109,11 +109,16 @@ public class LongColumnWriter
         // record values
         for (int position = 0; position < block.getPositionCount(); position++) {
             if (!block.isNull(position)) {
-                long value = type.getLong(block, position);
+                long value = transformValue(type.getLong(block, position));
                 dataStream.writeLong(value);
                 statisticsBuilder.addValue(value);
             }
         }
+    }
+
+    protected long transformValue(long value)
+    {
+        return value;
     }
 
     @Override

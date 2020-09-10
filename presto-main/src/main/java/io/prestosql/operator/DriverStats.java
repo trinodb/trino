@@ -15,7 +15,6 @@ package io.prestosql.operator;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import io.airlift.units.DataSize;
@@ -29,6 +28,7 @@ import javax.annotation.concurrent.Immutable;
 import java.util.List;
 import java.util.Set;
 
+import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -180,26 +180,26 @@ public class DriverStats
         this.blockedReasons = ImmutableSet.copyOf(requireNonNull(blockedReasons, "blockedReasons is null"));
 
         this.physicalInputDataSize = requireNonNull(physicalInputDataSize, "physicalInputDataSize is null");
-        Preconditions.checkArgument(physicalInputPositions >= 0, "physicalInputPositions is negative");
+        checkArgument(physicalInputPositions >= 0, "physicalInputPositions is negative");
         this.physicalInputPositions = physicalInputPositions;
         this.physicalInputReadTime = requireNonNull(physicalInputReadTime, "physicalInputReadTime is null");
 
         this.internalNetworkInputDataSize = requireNonNull(internalNetworkInputDataSize, "internalNetworkInputDataSize is null");
-        Preconditions.checkArgument(internalNetworkInputPositions >= 0, "internalNetworkInputPositions is negative");
+        checkArgument(internalNetworkInputPositions >= 0, "internalNetworkInputPositions is negative");
         this.internalNetworkInputPositions = internalNetworkInputPositions;
         this.internalNetworkInputReadTime = requireNonNull(internalNetworkInputReadTime, "internalNetworkInputReadTime is null");
 
         this.rawInputDataSize = requireNonNull(rawInputDataSize, "rawInputDataSize is null");
-        Preconditions.checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
+        checkArgument(rawInputPositions >= 0, "rawInputPositions is negative");
         this.rawInputPositions = rawInputPositions;
         this.rawInputReadTime = requireNonNull(rawInputReadTime, "rawInputReadTime is null");
 
         this.processedInputDataSize = requireNonNull(processedInputDataSize, "processedInputDataSize is null");
-        Preconditions.checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
+        checkArgument(processedInputPositions >= 0, "processedInputPositions is negative");
         this.processedInputPositions = processedInputPositions;
 
         this.outputDataSize = requireNonNull(outputDataSize, "outputDataSize is null");
-        Preconditions.checkArgument(outputPositions >= 0, "outputPositions is negative");
+        checkArgument(outputPositions >= 0, "outputPositions is negative");
         this.outputPositions = outputPositions;
 
         this.physicalWrittenDataSize = requireNonNull(physicalWrittenDataSize, "writtenDataSize is null");

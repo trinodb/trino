@@ -141,7 +141,7 @@ JSON value type, which can be a JSON object, a JSON array, a JSON number, a JSON
 Date and Time
 -------------
 
-See also :doc:`/functions/datetime` and :doc:`/language/timestamp`
+See also :doc:`/functions/datetime`
 
 ``DATE``
 ^^^^^^^^

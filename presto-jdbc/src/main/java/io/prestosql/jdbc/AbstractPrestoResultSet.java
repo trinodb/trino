@@ -22,10 +22,9 @@ import io.prestosql.client.QueryError;
 import io.prestosql.client.QueryStatusInfo;
 import io.prestosql.jdbc.ColumnInfo.Nullable;
 import org.joda.time.DateTimeZone;
+import org.joda.time.LocalDate;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.DateTimeFormatterBuilder;
-import org.joda.time.format.DateTimeParser;
 import org.joda.time.format.ISODateTimeFormat;
 
 import java.io.InputStream;
@@ -51,11 +50,15 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZonedDateTime;
 import java.util.Calendar;
+import java.util.GregorianCalendar;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
+import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
@@ -69,6 +72,8 @@ import static java.lang.String.format;
 import static java.math.BigDecimal.ROUND_HALF_UP;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.SECONDS;
+import static org.joda.time.DateTimeZone.UTC;
 
 abstract class AbstractPrestoResultSet
         implements ResultSet
@@ -77,6 +82,11 @@ abstract class AbstractPrestoResultSet
             "(?<year>[-+]?\\d{4,})-(?<month>\\d{1,2})-(?<day>\\d{1,2})" +
             "(?: (?<hour>\\d{1,2}):(?<minute>\\d{1,2})(?::(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?)?)?" +
             "\\s*(?<timezone>.+)?");
+
+    private static final Pattern TIME_PATTERN = Pattern.compile("(?<hour>\\d{1,2}):(?<minute>\\d{1,2}):(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?");
+    private static final Pattern TIME_WITH_TIME_ZONE_PATTERN = Pattern.compile("" +
+            "(?<hour>\\d{1,2}):(?<minute>\\d{1,2}):(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?" +
+            "(?<offsetHour>[+-]\\d\\d):(?<offsetMinute>\\d\\d)");
 
     private static final long[] POWERS_OF_TEN = {
             1L,
@@ -94,29 +104,20 @@ abstract class AbstractPrestoResultSet
             1000_000_000_000L
     };
 
+    private static final int MAX_DATETIME_PRECISION = 12;
+
+    private static final int MILLISECONDS_PER_SECOND = 1000;
+    private static final int MILLISECONDS_PER_MINUTE = 60 * MILLISECONDS_PER_SECOND;
+
     static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date();
     static final DateTimeFormatter TIME_FORMATTER = DateTimeFormat.forPattern("HH:mm:ss.SSS");
-    static final DateTimeFormatter TIME_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
-            .append(DateTimeFormat.forPattern("HH:mm:ss.SSS ZZZ").getPrinter(),
-                    new DateTimeParser[] {
-                            DateTimeFormat.forPattern("HH:mm:ss.SSS Z").getParser(),
-                            DateTimeFormat.forPattern("HH:mm:ss.SSS ZZZ").getParser(),
-                    })
-            .toFormatter()
-            .withOffsetParsed();
-
     static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
 
-    static final DateTimeFormatter TIMESTAMP_WITH_TIME_ZONE_FORMATTER = new DateTimeFormatterBuilder()
-            .append(DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ").getPrinter(),
-                    new DateTimeParser[] {
-                            DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS Z").getParser(),
-                            DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS ZZZ").getParser(),
-                    })
-            .toFormatter()
-            .withOffsetParsed();
+    // Before 1900, Java Time and Joda Time are not consistent with java.sql.Date and java.util.Calendar
+    // Since January 1, 1900 UTC is still December 31, 1899 in other zones, we are adding a 1 year margin.
+    private static final long START_OF_MODERN_ERA = new LocalDate(1901, 1, 1).toDateTimeAtStartOfDay(UTC).getMillis();
 
-    private final DateTimeZone sessionTimeZone;
+    private final DateTimeZone resultTimeZone;
     protected final Iterator<List<Object>> results;
     private final Map<String, Integer> fieldMap;
     private final List<ColumnInfo> columnInfoList;
@@ -124,11 +125,12 @@ abstract class AbstractPrestoResultSet
     private final AtomicReference<List<Object>> row = new AtomicReference<>();
     private final AtomicBoolean wasNull = new AtomicBoolean();
     protected final AtomicBoolean closed = new AtomicBoolean();
+    private final Optional<Statement> statement;
 
-    AbstractPrestoResultSet(ZoneId sessionTimeZone, List<Column> columns, Iterator<List<Object>> results)
+    AbstractPrestoResultSet(Optional<Statement> statement, ZoneId resultTimeZone, List<Column> columns, Iterator<List<Object>> results)
     {
-        requireNonNull(sessionTimeZone, "sessionTimeZone is null");
-        this.sessionTimeZone = DateTimeZone.forID(requireNonNull(sessionTimeZone, "sessionTimeZone is null").getId());
+        this.statement = requireNonNull(statement, "statement is null");
+        this.resultTimeZone = DateTimeZone.forID(requireNonNull(resultTimeZone, "resultTimeZone is null").getId());
 
         requireNonNull(columns, "columns is null");
         this.fieldMap = getFieldMap(columns);
@@ -246,7 +248,7 @@ abstract class AbstractPrestoResultSet
     public Date getDate(int columnIndex)
             throws SQLException
     {
-        return getDate(columnIndex, sessionTimeZone);
+        return getDate(columnIndex, resultTimeZone);
     }
 
     private Date getDate(int columnIndex, DateTimeZone localTimeZone)
@@ -258,7 +260,23 @@ abstract class AbstractPrestoResultSet
         }
 
         try {
-            return new Date(DATE_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value)));
+            long millis = DATE_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value));
+            if (millis >= START_OF_MODERN_ERA) {
+                return new Date(millis);
+            }
+
+            // The chronology used by default by Joda is not historically accurate for dates
+            // preceding the introduction of the Gregorian calendar and is not consistent with
+            // java.sql.Date (the same millisecond value represents a different year/month/day)
+            // before the 20th century. For such dates we are falling back to using the more
+            // expensive GregorianCalendar; note that Joda also has a chronology that works for
+            // older dates, but it uses a slightly different algorithm and yields results that
+            // are not compatible with java.sql.Date.
+            LocalDate localDate = DATE_FORMATTER.parseLocalDate(String.valueOf(value));
+            Calendar calendar = new GregorianCalendar(localDate.getYear(), localDate.getMonthOfYear() - 1, localDate.getDayOfMonth());
+            calendar.setTimeZone(TimeZone.getTimeZone(localTimeZone.getID()));
+
+            return new Date(calendar.getTimeInMillis());
         }
         catch (IllegalArgumentException e) {
             throw new SQLException("Invalid date from server: " + value, e);
@@ -269,7 +287,7 @@ abstract class AbstractPrestoResultSet
     public Time getTime(int columnIndex)
             throws SQLException
     {
-        return getTime(columnIndex, sessionTimeZone);
+        return getTime(columnIndex, resultTimeZone);
     }
 
     private Time getTime(int columnIndex, DateTimeZone localTimeZone)
@@ -281,18 +299,18 @@ abstract class AbstractPrestoResultSet
         }
 
         ColumnInfo columnInfo = columnInfo(columnIndex);
-        if (columnInfo.getColumnTypeName().equalsIgnoreCase("time")) {
+        if (columnInfo.getColumnTypeSignature().getRawType().equalsIgnoreCase("time")) {
             try {
-                return new Time(TIME_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value)));
+                return parseTime(String.valueOf(value), ZoneId.of(localTimeZone.getID()));
             }
             catch (IllegalArgumentException e) {
                 throw new SQLException("Invalid time from server: " + value, e);
             }
         }
 
-        if (columnInfo.getColumnTypeName().equalsIgnoreCase("time with time zone")) {
+        if (columnInfo.getColumnTypeSignature().getRawType().equalsIgnoreCase("time with time zone")) {
             try {
-                return new Time(TIME_WITH_TIME_ZONE_FORMATTER.parseMillis(String.valueOf(value)));
+                return parseTimeWithTimeZone(String.valueOf(value));
             }
             catch (IllegalArgumentException e) {
                 throw new SQLException("Invalid time from server: " + value, e);
@@ -306,7 +324,7 @@ abstract class AbstractPrestoResultSet
     public Timestamp getTimestamp(int columnIndex)
             throws SQLException
     {
-        return getTimestamp(columnIndex, sessionTimeZone);
+        return getTimestamp(columnIndex, resultTimeZone);
     }
 
     private Timestamp getTimestamp(int columnIndex, DateTimeZone localTimeZone)
@@ -1083,7 +1101,11 @@ abstract class AbstractPrestoResultSet
     public Statement getStatement()
             throws SQLException
     {
-        throw new NotImplementedException("ResultSet", "getStatement");
+        if (statement.isPresent()) {
+            return statement.get();
+        }
+
+        throw new SQLException("Statement not available");
     }
 
     @Override
@@ -1617,7 +1639,15 @@ abstract class AbstractPrestoResultSet
     public <T> T getObject(int columnIndex, Class<T> type)
             throws SQLException
     {
-        throw new SQLFeatureNotSupportedException("getObject");
+        if (type == null) {
+            throw new SQLException("type is null");
+        }
+        Object object = getObject(columnIndex);
+        if (object == null || type.isInstance(object)) {
+            //noinspection unchecked
+            return (T) object;
+        }
+        throw new SQLException(format("Cannot convert an instance of %s to %s", object.getClass(), type));
     }
 
     @Override
@@ -1788,10 +1818,87 @@ abstract class AbstractPrestoResultSet
         long epochSecond = LocalDateTime.of(year, month, day, hour, minute, second, 0)
                 .atZone(zoneId)
                 .toEpochSecond();
+        long epochMillis = SECONDS.toMillis(epochSecond);
 
-        Timestamp timestamp = new Timestamp(epochSecond * 1000);
+        Timestamp timestamp;
+        if (epochMillis >= START_OF_MODERN_ERA) {
+            timestamp = new Timestamp(epochMillis);
+        }
+        else {
+            // slower path, but accurate for historical dates
+            GregorianCalendar calendar = new GregorianCalendar(year, month - 1, day, hour, minute, second);
+            calendar.setTimeZone(TimeZone.getTimeZone(zoneId));
+            timestamp = new Timestamp(calendar.getTimeInMillis());
+        }
         timestamp.setNanos((int) rescale(fractionValue, precision, 9));
         return timestamp;
+    }
+
+    private static Time parseTime(String value, ZoneId localTimeZone)
+    {
+        Matcher matcher = TIME_PATTERN.matcher(value);
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException("Invalid time: " + value);
+        }
+
+        int hour = Integer.parseInt(matcher.group("hour"));
+        int minute = Integer.parseInt(matcher.group("minute"));
+        int second = matcher.group("second") == null ? 0 : Integer.parseInt(matcher.group("second"));
+
+        if (hour > 23 || minute > 59 || second > 59) {
+            throw new IllegalArgumentException("Invalid time: " + value);
+        }
+
+        int precision = 0;
+        String fraction = matcher.group("fraction");
+        long fractionValue = 0;
+        if (fraction != null) {
+            precision = fraction.length();
+            fractionValue = Long.parseLong(fraction);
+        }
+
+        long epochMilli = ZonedDateTime.of(1970, 1, 1, hour, minute, second, (int) rescale(fractionValue, precision, 9), localTimeZone)
+                .toInstant()
+                .toEpochMilli();
+
+        return new Time(epochMilli);
+    }
+
+    private static Time parseTimeWithTimeZone(String value)
+    {
+        Matcher matcher = TIME_WITH_TIME_ZONE_PATTERN.matcher(value);
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException("Invalid time: " + value);
+        }
+
+        int hour = Integer.parseInt(matcher.group("hour"));
+        int minute = Integer.parseInt(matcher.group("minute"));
+        int second = matcher.group("second") == null ? 0 : Integer.parseInt(matcher.group("second"));
+        int offsetHour = Integer.parseInt((matcher.group("offsetHour")));
+        int offsetMinute = Integer.parseInt((matcher.group("offsetMinute")));
+
+        if (hour > 23 || minute > 59 || second > 59 || !isValidOffset(offsetHour, offsetMinute)) {
+            throw new IllegalArgumentException("Invalid time with time zone: " + value);
+        }
+
+        int precision = 0;
+        String fraction = matcher.group("fraction");
+
+        long fractionValue = 0;
+        if (fraction != null) {
+            precision = fraction.length();
+
+            if (precision > MAX_DATETIME_PRECISION) {
+                throw new IllegalArgumentException(format("Precision must be <= %s: %s", MAX_DATETIME_PRECISION, value));
+            }
+
+            fractionValue = Long.parseLong(fraction);
+        }
+
+        long epochMilli = (hour * 3600 + minute * 60 + second) * MILLISECONDS_PER_SECOND + rescale(fractionValue, precision, 3);
+        epochMilli -= (offsetHour * 60 + offsetMinute) * MILLISECONDS_PER_MINUTE;
+
+        return new Time(epochMilli);
     }
 
     private static long rescale(long value, int fromPrecision, int toPrecision)
@@ -1828,5 +1935,10 @@ abstract class AbstractPrestoResultSet
         }
 
         return (value - (factor / 2)) / factor;
+    }
+
+    private static boolean isValidOffset(int hour, int minute)
+    {
+        return (hour == 14 && minute == 0 || hour < 14) && (hour == -14 && minute == 0 || hour > -14) && minute >= 0 && minute <= 59;
     }
 }

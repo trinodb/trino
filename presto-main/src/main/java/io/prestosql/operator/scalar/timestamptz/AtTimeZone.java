@@ -14,14 +14,18 @@
 package io.prestosql.operator.scalar.timestamptz;
 
 import io.airlift.slice.Slice;
+import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestampWithTimeZone;
+import io.prestosql.spi.type.TimeZoneNotSupportedException;
 
+import static io.prestosql.spi.StandardErrorCode.INVALID_FUNCTION_ARGUMENT;
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
+import static java.lang.String.format;
 
 @ScalarFunction("at_timezone")
 public class AtTimeZone
@@ -32,13 +36,23 @@ public class AtTimeZone
     @SqlType("timestamp(p) with time zone")
     public static long atTimeZone(@SqlType("timestamp(p) with time zone") long packedEpochMillis, @SqlType("varchar(x)") Slice zoneId)
     {
-        return packDateTimeWithZone(unpackMillisUtc(packedEpochMillis), zoneId.toStringUtf8());
+        try {
+            return packDateTimeWithZone(unpackMillisUtc(packedEpochMillis), zoneId.toStringUtf8());
+        }
+        catch (TimeZoneNotSupportedException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("'%s' is not a valid time zone", zoneId.toStringUtf8()));
+        }
     }
 
     @LiteralParameters({"x", "p"})
     @SqlType("timestamp(p) with time zone")
     public static LongTimestampWithTimeZone atTimeZone(@SqlType("timestamp(p) with time zone") LongTimestampWithTimeZone timestamp, @SqlType("varchar(x)") Slice zoneId)
     {
-        return LongTimestampWithTimeZone.fromEpochMillisAndFraction(timestamp.getEpochMillis(), timestamp.getPicosOfMilli(), getTimeZoneKey(zoneId.toStringUtf8()));
+        try {
+            return LongTimestampWithTimeZone.fromEpochMillisAndFraction(timestamp.getEpochMillis(), timestamp.getPicosOfMilli(), getTimeZoneKey(zoneId.toStringUtf8()));
+        }
+        catch (TimeZoneNotSupportedException e) {
+            throw new PrestoException(INVALID_FUNCTION_ARGUMENT, format("'%s' is not a valid time zone", zoneId.toStringUtf8()));
+        }
     }
 }

@@ -38,6 +38,7 @@ import java.util.concurrent.Executor;
 import static com.google.common.util.concurrent.Futures.immediateFuture;
 import static io.prestosql.execution.QueryState.FAILED;
 import static io.prestosql.memory.LocalMemoryManager.GENERAL_POOL;
+import static io.prestosql.server.DynamicFilterService.DynamicFiltersStats;
 import static io.prestosql.util.Failures.toFailure;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -235,7 +236,8 @@ public class FailedDispatchQuery
                 ImmutableList.of(),
                 ImmutableList.of(),
                 true,
-                resourceGroupId);
+                resourceGroupId,
+                Optional.empty());
 
         return queryInfo;
     }
@@ -294,6 +296,7 @@ public class FailedDispatchQuery
                 0,
                 DataSize.ofBytes(0),
                 ImmutableList.of(),
+                DynamicFiltersStats.EMPTY,
                 ImmutableList.of());
     }
 }

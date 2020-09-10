@@ -21,9 +21,10 @@ import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.orc.OrcWriterOptions;
 import io.prestosql.orc.OrcWriterStats;
 import io.prestosql.orc.OutputStreamOrcDataSink;
+import io.prestosql.parquet.writer.ParquetWriterOptions;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.plugin.hive.HdfsEnvironment;
-import io.prestosql.plugin.hive.HiveStorageFormat;
+import io.prestosql.plugin.hive.HdfsEnvironment.HdfsContext;
 import io.prestosql.plugin.hive.NodeVersion;
 import io.prestosql.plugin.hive.orc.HdfsOrcDataSource;
 import io.prestosql.plugin.hive.orc.OrcWriterConfig;
@@ -33,13 +34,10 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeManager;
 import org.apache.hadoop.fs.FileSystem;
 import org.apache.hadoop.fs.Path;
-import org.apache.hadoop.hive.ql.io.IOConstants;
 import org.apache.hadoop.mapred.JobConf;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.Schema;
 import org.apache.iceberg.types.Types;
-import org.apache.parquet.hadoop.ParquetOutputFormat;
-import org.weakref.jmx.Flatten;
 import org.weakref.jmx.Managed;
 
 import javax.inject.Inject;
@@ -47,7 +45,6 @@ import javax.inject.Inject;
 import java.io.IOException;
 import java.util.List;
 import java.util.Optional;
-import java.util.Properties;
 import java.util.concurrent.Callable;
 import java.util.function.Supplier;
 import java.util.stream.IntStream;
@@ -56,8 +53,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.HiveMetadata.PRESTO_QUERY_ID_NAME;
 import static io.prestosql.plugin.hive.HiveMetadata.PRESTO_VERSION_NAME;
-import static io.prestosql.plugin.hive.metastore.StorageFormat.fromHiveStorageFormat;
-import static io.prestosql.plugin.hive.util.ParquetRecordWriterUtil.setParquetSchema;
 import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITER_OPEN_ERROR;
 import static io.prestosql.plugin.iceberg.IcebergErrorCode.ICEBERG_WRITE_VALIDATION_FAILED;
 import static io.prestosql.plugin.iceberg.IcebergSessionProperties.getCompressionCodec;
@@ -67,15 +62,15 @@ import static io.prestosql.plugin.iceberg.IcebergSessionProperties.getOrcWriterM
 import static io.prestosql.plugin.iceberg.IcebergSessionProperties.getOrcWriterMaxStripeSize;
 import static io.prestosql.plugin.iceberg.IcebergSessionProperties.getOrcWriterMinStripeSize;
 import static io.prestosql.plugin.iceberg.IcebergSessionProperties.getOrcWriterValidateMode;
+import static io.prestosql.plugin.iceberg.IcebergSessionProperties.getParquetWriterBlockSize;
+import static io.prestosql.plugin.iceberg.IcebergSessionProperties.getParquetWriterPageSize;
 import static io.prestosql.plugin.iceberg.IcebergSessionProperties.isOrcWriterValidate;
-import static io.prestosql.plugin.iceberg.TypeConverter.toHiveType;
 import static io.prestosql.plugin.iceberg.TypeConverter.toOrcType;
 import static io.prestosql.plugin.iceberg.TypeConverter.toPrestoType;
+import static io.prestosql.plugin.iceberg.util.PrimitiveTypeMapBuilder.makeTypeMap;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
 import static java.util.Objects.requireNonNull;
-import static java.util.stream.Collectors.joining;
 import static org.apache.iceberg.parquet.ParquetSchemaUtil.convert;
-import static org.joda.time.DateTimeZone.UTC;
 
 public class IcebergFileWriterFactory
 {
@@ -103,7 +98,6 @@ public class IcebergFileWriterFactory
     }
 
     @Managed
-    @Flatten
     public OrcWriterStats getOrcWriterStats()
     {
         return orcWriterStats;
@@ -112,14 +106,14 @@ public class IcebergFileWriterFactory
     public IcebergFileWriter createFileWriter(
             Path outputPath,
             Schema icebergSchema,
-            List<IcebergColumnHandle> columns,
             JobConf jobConf,
             ConnectorSession session,
+            HdfsContext hdfsContext,
             FileFormat fileFormat)
     {
         switch (fileFormat) {
             case PARQUET:
-                return createParquetWriter(outputPath, icebergSchema, columns, jobConf, session);
+                return createParquetWriter(outputPath, icebergSchema, jobConf, session, hdfsContext);
             case ORC:
                 return createOrcWriter(outputPath, icebergSchema, jobConf, session);
         }
@@ -129,32 +123,46 @@ public class IcebergFileWriterFactory
     private IcebergFileWriter createParquetWriter(
             Path outputPath,
             Schema icebergSchema,
-            List<IcebergColumnHandle> columns,
             JobConf jobConf,
-            ConnectorSession session)
+            ConnectorSession session,
+            HdfsContext hdfsContext)
     {
-        Properties properties = new Properties();
-        properties.setProperty(IOConstants.COLUMNS, columns.stream()
-                .map(IcebergColumnHandle::getName)
-                .collect(joining(",")));
-        properties.setProperty(IOConstants.COLUMNS_TYPES, columns.stream()
-                .map(column -> toHiveType(column.getType()).getHiveTypeName().toString())
-                .collect(joining(":")));
+        List<String> fileColumnNames = icebergSchema.columns().stream()
+                .map(Types.NestedField::name)
+                .collect(toImmutableList());
+        List<Type> fileColumnTypes = icebergSchema.columns().stream()
+                .map(column -> toPrestoType(column.type(), typeManager))
+                .collect(toImmutableList());
 
-        setParquetSchema(jobConf, convert(icebergSchema, "table"));
-        jobConf.set(ParquetOutputFormat.COMPRESSION, getCompressionCodec(session).getParquetCompressionCodec().name());
+        try {
+            FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), outputPath, jobConf);
 
-        return new IcebergRecordFileWriter(
-                outputPath,
-                columns.stream()
-                        .map(IcebergColumnHandle::getName)
-                        .collect(toImmutableList()),
-                fromHiveStorageFormat(HiveStorageFormat.PARQUET),
-                properties,
-                HiveStorageFormat.PARQUET.getEstimatedWriterSystemMemoryUsage(),
-                jobConf,
-                typeManager,
-                session);
+            Callable<Void> rollbackAction = () -> {
+                fileSystem.delete(outputPath, false);
+                return null;
+            };
+
+            ParquetWriterOptions parquetWriterOptions = ParquetWriterOptions.builder()
+                    .setMaxPageSize(getParquetWriterPageSize(session))
+                    .setMaxPageSize(getParquetWriterBlockSize(session))
+                    .build();
+
+            return new IcebergParquetFileWriter(
+                    hdfsEnvironment.doAs(session.getUser(), () -> fileSystem.create(outputPath)),
+                    rollbackAction,
+                    fileColumnTypes,
+                    convert(icebergSchema, "table"),
+                    makeTypeMap(fileColumnTypes, fileColumnNames),
+                    parquetWriterOptions,
+                    IntStream.range(0, fileColumnNames.size()).toArray(),
+                    getCompressionCodec(session).getParquetCompressionCodec(),
+                    outputPath,
+                    hdfsEnvironment,
+                    hdfsContext);
+        }
+        catch (IOException e) {
+            throw new PrestoException(ICEBERG_WRITER_OPEN_ERROR, "Error creating Parquet file", e);
+        }
     }
 
     private IcebergFileWriter createOrcWriter(
@@ -165,9 +173,9 @@ public class IcebergFileWriterFactory
     {
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), outputPath, jobConf);
-            OrcDataSink orcDataSink = new OutputStreamOrcDataSink(fileSystem.create(outputPath));
+            OrcDataSink orcDataSink = hdfsEnvironment.doAs(session.getUser(), () -> new OutputStreamOrcDataSink(fileSystem.create(outputPath)));
             Callable<Void> rollbackAction = () -> {
-                fileSystem.delete(outputPath, false);
+                hdfsEnvironment.doAs(session.getUser(), () -> fileSystem.delete(outputPath, false));
                 return null;
             };
 
@@ -186,9 +194,9 @@ public class IcebergFileWriterFactory
                     try {
                         return new HdfsOrcDataSource(
                                 new OrcDataSourceId(outputPath.toString()),
-                                fileSystem.getFileStatus(outputPath).getLen(),
+                                hdfsEnvironment.doAs(session.getUser(), () -> fileSystem.getFileStatus(outputPath).getLen()),
                                 new OrcReaderOptions(),
-                                fileSystem.open(outputPath),
+                                hdfsEnvironment.doAs(session.getUser(), () -> fileSystem.open(outputPath)),
                                 readStats);
                     }
                     catch (IOException e) {
@@ -217,7 +225,6 @@ public class IcebergFileWriterFactory
                             .put(PRESTO_VERSION_NAME, nodeVersion.toString())
                             .put(PRESTO_QUERY_ID_NAME, session.getQueryId())
                             .build(),
-                    UTC,
                     validationInputFactory,
                     getOrcWriterValidateMode(session),
                     orcWriterStats);

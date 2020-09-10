@@ -53,6 +53,13 @@ Binary Functions
     negative starting position is interpreted as being relative to the end of
     the string.
 
+.. _function_reverse_varbinary:
+
+.. function:: reverse(binary) -> varbinary
+    :noindex:
+
+    Returns ``binary`` with the bytes in reverse order.
+
 Base64 Encoding Functions
 -------------------------
 

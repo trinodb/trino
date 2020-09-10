@@ -131,7 +131,7 @@ public final class IcebergSessionProperties
                         orcWriterConfig.getValidationPercentage(),
                         false,
                         value -> {
-                            double doubleValue = ((Number) value).doubleValue();
+                            double doubleValue = (double) value;
                             if (doubleValue < 0.0 || doubleValue > 100.0) {
                                 throw new PrestoException(INVALID_SESSION_PROPERTY, format(
                                         "%s must be between 0.0 and 100.0 inclusive: %s",
@@ -290,5 +290,15 @@ public final class IcebergSessionProperties
     public static DataSize getParquetMaxReadBlockSize(ConnectorSession session)
     {
         return session.getProperty(PARQUET_MAX_READ_BLOCK_SIZE, DataSize.class);
+    }
+
+    public static DataSize getParquetWriterPageSize(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_WRITER_PAGE_SIZE, DataSize.class);
+    }
+
+    public static DataSize getParquetWriterBlockSize(ConnectorSession session)
+    {
+        return session.getProperty(PARQUET_WRITER_PAGE_SIZE, DataSize.class);
     }
 }

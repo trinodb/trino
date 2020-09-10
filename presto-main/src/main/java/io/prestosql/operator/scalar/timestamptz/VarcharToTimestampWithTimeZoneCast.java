@@ -21,7 +21,7 @@ import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarOperator;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestampWithTimeZone;
-import io.prestosql.type.Timestamps;
+import io.prestosql.type.DateTimes;
 
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
@@ -36,10 +36,10 @@ import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.MAX_PRECISION;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.MAX_SHORT_PRECISION;
-import static io.prestosql.type.Timestamps.MILLISECONDS_PER_SECOND;
-import static io.prestosql.type.Timestamps.longTimestampWithTimeZone;
-import static io.prestosql.type.Timestamps.rescale;
-import static io.prestosql.type.Timestamps.round;
+import static io.prestosql.type.DateTimes.MILLISECONDS_PER_SECOND;
+import static io.prestosql.type.DateTimes.longTimestampWithTimeZone;
+import static io.prestosql.type.DateTimes.rescale;
+import static io.prestosql.type.DateTimes.round;
 
 @ScalarOperator(CAST)
 public final class VarcharToTimestampWithTimeZoneCast
@@ -84,7 +84,7 @@ public final class VarcharToTimestampWithTimeZoneCast
     {
         checkArgument(precision <= MAX_SHORT_PRECISION, "precision must be less than max short timestamp precision");
 
-        Matcher matcher = Timestamps.DATETIME_PATTERN.matcher(value);
+        Matcher matcher = DateTimes.DATETIME_PATTERN.matcher(value);
         if (!matcher.matches()) {
             throw new IllegalArgumentException("Invalid timestamp: " + value);
         }
@@ -129,7 +129,7 @@ public final class VarcharToTimestampWithTimeZoneCast
     {
         checkArgument(precision > MAX_SHORT_PRECISION && precision <= MAX_PRECISION, "precision out of range");
 
-        Matcher matcher = Timestamps.DATETIME_PATTERN.matcher(value);
+        Matcher matcher = DateTimes.DATETIME_PATTERN.matcher(value);
         if (!matcher.matches()) {
             throw new IllegalArgumentException("Invalid timestamp: " + value);
         }

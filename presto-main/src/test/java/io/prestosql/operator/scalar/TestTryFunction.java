@@ -59,7 +59,7 @@ public class TestTryFunction
         assertFunction(createTryExpression("'hello'"), createVarcharType(5), "hello");
         assertFunction(createTryExpression("JSON '[true, false, 12, 12.7, \"12\", null]'"), JSON, "[true,false,12,12.7,\"12\",null]");
         assertFunction(createTryExpression("ARRAY [1, 2]"), new ArrayType(INTEGER), asList(1, 2));
-        assertFunction(createTryExpression("TIMESTAMP '2020-05-10 12:34:56.123456789'"), createTimestampType(9), legacyTimestamp(9, "2020-05-10 12:34:56.123456789"));
+        assertFunction(createTryExpression("TIMESTAMP '2020-05-10 12:34:56.123456789'"), createTimestampType(9), timestamp(9, "2020-05-10 12:34:56.123456789"));
         assertFunction(createTryExpression("NULL"), UNKNOWN, null);
     }
 

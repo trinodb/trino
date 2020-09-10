@@ -60,9 +60,9 @@ def get_version():
 
 # -- General configuration -----------------------------------------------------
 
-needs_sphinx = '1.1'
+needs_sphinx = '2.0'
 
-extensions = ['backquote', 'download', 'issue']
+extensions = ['myst_parser', 'backquote', 'download', 'issue']
 
 templates_path = ['templates']
 
@@ -87,8 +87,9 @@ rst_epilog = """
 
 # -- Options for HTML output ---------------------------------------------------
 
-html_theme_path = ['themes']
-html_theme = 'presto'
+html_theme = 'sphinx_material'
+
+html_static_path = ['static']
 
 html_title = '%s %s Documentation' % (project, release)
 
@@ -104,4 +105,15 @@ html_sidebars = {
 
 html_theme_options = {
     'base_url': '/',
+    'globaltoc_depth': -1,
+    'theme_color': '2196f3',
+    'color_primary': 'blue-grey',
+    'color_accent': 'light-blue',
+    'repo_url': 'https://github.com/prestosql/presto',
+    'repo_name': 'Presto',
+    'version_json': '../versions.json',
 }
+
+html_css_files = [
+    'presto.css',
+]

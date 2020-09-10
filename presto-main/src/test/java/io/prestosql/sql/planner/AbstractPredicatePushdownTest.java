@@ -81,7 +81,7 @@ public abstract class AbstractPredicatePushdownTest
         assertPlan("SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders)) " +
                         "WHERE linenumber = 2",
                 anyTree(
-                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
+                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT", enableDynamicFiltering,
                                 anyTree(
                                         filter("LINE_NUMBER = 2",
                                                 tableScan("lineitem", ImmutableMap.of(
@@ -96,7 +96,7 @@ public abstract class AbstractPredicatePushdownTest
     {
         assertPlan("SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders) AND orderkey = random(5)",
                 anyTree(
-                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
+                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT", enableDynamicFiltering,
                                 anyTree(
                                         filter("LINE_ORDER_KEY = CAST(random(5) AS bigint)",
                                                 tableScan("lineitem", ImmutableMap.of(
@@ -122,11 +122,10 @@ public abstract class AbstractPredicatePushdownTest
     {
         assertPlan("SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey = random(5))",
                 anyTree(
-                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
-                                // NO filter here
-                                project(
-                                        tableScan("lineitem", ImmutableMap.of(
-                                                "LINE_ORDER_KEY", "orderkey"))),
+                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT", enableDynamicFiltering,
+                                        anyTree(
+                                                tableScan("lineitem", ImmutableMap.of(
+                                                        "LINE_ORDER_KEY", "orderkey"))),
                                 node(ExchangeNode.class,
                                         project(
                                                 filter("ORDERS_ORDER_KEY = CAST(random(5) AS bigint)",
@@ -138,7 +137,7 @@ public abstract class AbstractPredicatePushdownTest
     {
         assertPlan("SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey > 2))",
                 anyTree(
-                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
+                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT", enableDynamicFiltering,
                                 anyTree(
                                         filter("LINE_ORDER_KEY > BIGINT '2'",
                                                 tableScan("lineitem", ImmutableMap.of(
@@ -154,7 +153,7 @@ public abstract class AbstractPredicatePushdownTest
     {
         assertPlan("SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders WHERE orderkey = 2))",
                 anyTree(
-                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
+                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT", enableDynamicFiltering,
                                 anyTree(
                                         filter("LINE_ORDER_KEY = BIGINT '2'",
                                                 tableScan("lineitem", ImmutableMap.of(
@@ -187,7 +186,7 @@ public abstract class AbstractPredicatePushdownTest
     {
         assertPlan("SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders) AND orderkey > 2)",
                 anyTree(
-                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
+                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT", enableDynamicFiltering,
                                 anyTree(
                                         filter("LINE_ORDER_KEY > BIGINT '2'",
                                                 tableScan("lineitem", ImmutableMap.of(
@@ -203,7 +202,7 @@ public abstract class AbstractPredicatePushdownTest
     {
         assertPlan("SELECT quantity FROM (SELECT * FROM lineitem WHERE orderkey IN (SELECT orderkey FROM orders) AND orderkey = 2)",
                 anyTree(
-                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT",
+                        semiJoin("LINE_ORDER_KEY", "ORDERS_ORDER_KEY", "SEMI_JOIN_RESULT", enableDynamicFiltering,
                                 anyTree(
                                         filter("LINE_ORDER_KEY = BIGINT '2'",
                                                 tableScan("lineitem", ImmutableMap.of(

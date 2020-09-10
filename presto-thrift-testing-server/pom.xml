@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>339-SNAPSHOT</version>
+        <version>342-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-thrift-testing-server</artifactId>
@@ -20,28 +20,22 @@
     <dependencies>
         <dependency>
             <groupId>io.prestosql</groupId>
+            <artifactId>presto-main</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-spi</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-testing</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
             <artifactId>presto-thrift-api</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift.drift</groupId>
-            <artifactId>drift-server</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift.drift</groupId>
-            <artifactId>drift-transport-netty</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.code.findbugs</groupId>
-            <artifactId>jsr305</artifactId>
-            <optional>true</optional>
         </dependency>
 
         <dependency>
@@ -56,12 +50,53 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
+            <artifactId>bootstrap</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>concurrent</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>json</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
             <artifactId>log</artifactId>
         </dependency>
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>bootstrap</artifactId>
+            <artifactId>slice</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift.drift</groupId>
+            <artifactId>drift-server</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift.drift</groupId>
+            <artifactId>drift-transport-netty</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-annotations</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.code.findbugs</groupId>
+            <artifactId>jsr305</artifactId>
+            <optional>true</optional>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
         </dependency>
 
         <dependency>
@@ -72,41 +107,6 @@
         <dependency>
             <groupId>javax.annotation</groupId>
             <artifactId>javax.annotation-api</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>concurrent</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-spi</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.fasterxml.jackson.core</groupId>
-            <artifactId>jackson-annotations</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>json</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>slice</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-testing</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-main</artifactId>
         </dependency>
 
         <!-- for testing -->

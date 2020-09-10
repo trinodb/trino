@@ -13,7 +13,6 @@
  */
 package io.prestosql.operator.scalar.timestamptz;
 
-import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.function.LiteralParameter;
 import io.prestosql.spi.function.LiteralParameters;
 import io.prestosql.spi.function.ScalarOperator;
@@ -25,12 +24,12 @@ import static io.prestosql.spi.function.OperatorType.CAST;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.TimeZoneKey.getTimeZoneKey;
-import static io.prestosql.type.Timestamps.PICOSECONDS_PER_MICROSECOND;
-import static io.prestosql.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
-import static io.prestosql.type.Timestamps.round;
-import static io.prestosql.type.Timestamps.roundToNearest;
-import static io.prestosql.type.Timestamps.scaleEpochMillisToMicros;
-import static io.prestosql.type.Timestamps.toEpochMicros;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MICROSECOND;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MILLISECOND;
+import static io.prestosql.type.DateTimes.round;
+import static io.prestosql.type.DateTimes.roundToNearest;
+import static io.prestosql.type.DateTimes.scaleEpochMillisToMicros;
+import static io.prestosql.type.DateTimes.toEpochMicros;
 import static io.prestosql.util.DateTimeZoneIndex.getChronology;
 
 @ScalarOperator(CAST)
@@ -42,20 +41,11 @@ public final class TimestampWithTimezoneToTimestampCast
     @SqlType("timestamp(targetPrecision)")
     public static long shortToShort(
             @LiteralParameter("targetPrecision") long targetPrecision,
-            ConnectorSession session,
             @SqlType("timestamp(sourcePrecision) with time zone") long timestamp)
     {
-        long epochMillis = unpackMillisUtc(timestamp);
-
-        if (!session.isLegacyTimestamp()) {
-            epochMillis = getChronology(unpackZoneKey(timestamp))
-                    .getZone()
-                    .convertUTCToLocal(epochMillis);
-        }
-
-        if (targetPrecision <= 3) {
-            return round(epochMillis, (int) (3 - targetPrecision));
-        }
+        long epochMillis = getChronology(unpackZoneKey(timestamp))
+                .getZone()
+                .convertUTCToLocal(unpackMillisUtc(timestamp));
 
         return round(scaleEpochMillisToMicros(epochMillis), (int) (6 - targetPrecision));
     }
@@ -64,28 +54,12 @@ public final class TimestampWithTimezoneToTimestampCast
     @SqlType("timestamp(targetPrecision)")
     public static long longToShort(
             @LiteralParameter("targetPrecision") long targetPrecision,
-            ConnectorSession session,
             @SqlType("timestamp(sourcePrecision) with time zone") LongTimestampWithTimeZone timestamp)
     {
-        long epochMillis = timestamp.getEpochMillis();
+        long epochMillis = getChronology(getTimeZoneKey(timestamp.getTimeZoneKey()))
+                .getZone()
+                .convertUTCToLocal(timestamp.getEpochMillis());
         int picosOfMilli = timestamp.getPicosOfMilli();
-
-        if (!session.isLegacyTimestamp()) {
-            epochMillis = getChronology(getTimeZoneKey(timestamp.getTimeZoneKey()))
-                    .getZone()
-                    .convertUTCToLocal(epochMillis);
-        }
-
-        if (targetPrecision < 3) {
-            return round(epochMillis, (int) (3 - targetPrecision));
-        }
-
-        if (targetPrecision == 3) {
-            if (roundToNearest(timestamp.getPicosOfMilli(), PICOSECONDS_PER_MILLISECOND) == PICOSECONDS_PER_MILLISECOND) {
-                epochMillis++;
-            }
-            return epochMillis;
-        }
 
         long epochMicros = toEpochMicros(epochMillis, picosOfMilli);
         if (targetPrecision < 6) {
@@ -101,15 +75,11 @@ public final class TimestampWithTimezoneToTimestampCast
 
     @LiteralParameters({"sourcePrecision", "targetPrecision"})
     @SqlType("timestamp(targetPrecision)")
-    public static LongTimestamp shortToLong(ConnectorSession session, @SqlType("timestamp(sourcePrecision) with time zone") long timestamp)
+    public static LongTimestamp shortToLong(@SqlType("timestamp(sourcePrecision) with time zone") long timestamp)
     {
-        long epochMillis = unpackMillisUtc(timestamp);
-
-        if (!session.isLegacyTimestamp()) {
-            epochMillis = getChronology(unpackZoneKey(timestamp))
-                    .getZone()
-                    .convertUTCToLocal(epochMillis);
-        }
+        long epochMillis = getChronology(unpackZoneKey(timestamp))
+                .getZone()
+                .convertUTCToLocal(unpackMillisUtc(timestamp));
 
         return new LongTimestamp(scaleEpochMillisToMicros(epochMillis), 0);
     }
@@ -118,24 +88,15 @@ public final class TimestampWithTimezoneToTimestampCast
     @SqlType("timestamp(targetPrecision)")
     public static LongTimestamp longToLong(
             @LiteralParameter("targetPrecision") long targetPrecision,
-            ConnectorSession session,
             @SqlType("timestamp(sourcePrecision) with time zone") LongTimestampWithTimeZone timestamp)
     {
-        long epochMillis = timestamp.getEpochMillis();
-
-        if (!session.isLegacyTimestamp()) {
-            epochMillis = getChronology(getTimeZoneKey(timestamp.getTimeZoneKey()))
-                    .getZone()
-                    .convertUTCToLocal(epochMillis);
-        }
+        long epochMillis = getChronology(getTimeZoneKey(timestamp.getTimeZoneKey()))
+                .getZone()
+                .convertUTCToLocal(timestamp.getEpochMillis());
 
         long epochMicros;
         int picosOfMicro;
-        if (targetPrecision <= 3) {
-            epochMicros = scaleEpochMillisToMicros(round(epochMillis, (int) (3 - targetPrecision)));
-            picosOfMicro = 0;
-        }
-        else if (targetPrecision <= 6) {
+        if (targetPrecision <= 6) {
             epochMicros = toEpochMicros(epochMillis, timestamp.getPicosOfMilli());
             epochMicros = round(epochMicros, (int) (6 - targetPrecision));
             picosOfMicro = 0;

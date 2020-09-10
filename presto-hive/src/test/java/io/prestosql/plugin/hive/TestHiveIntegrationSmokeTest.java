@@ -105,6 +105,7 @@ import static io.prestosql.plugin.hive.HiveTableProperties.BUCKET_COUNT_PROPERTY
 import static io.prestosql.plugin.hive.HiveTableProperties.PARTITIONED_BY_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTableProperties.STORAGE_FORMAT_PROPERTY;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
+import static io.prestosql.plugin.hive.HiveType.toHiveType;
 import static io.prestosql.plugin.hive.util.HiveUtil.columnExtraInfo;
 import static io.prestosql.spi.predicate.Marker.Bound.ABOVE;
 import static io.prestosql.spi.predicate.Marker.Bound.EXACTLY;
@@ -158,13 +159,11 @@ public class TestHiveIntegrationSmokeTest
 {
     private final String catalog;
     private final Session bucketedSession;
-    private final TypeTranslator typeTranslator;
 
     public TestHiveIntegrationSmokeTest()
     {
         this.catalog = HIVE_CATALOG;
         this.bucketedSession = createBucketedSession(Optional.of(new SelectedRole(ROLE, Optional.of("admin"))));
-        this.typeTranslator = new HiveTypeTranslator();
     }
 
     @Override
@@ -172,7 +171,10 @@ public class TestHiveIntegrationSmokeTest
             throws Exception
     {
         return HiveQueryRunner.builder()
-                .setHiveProperties(ImmutableMap.of("hive.allow-register-partition-procedure", "true"))
+                .setHiveProperties(ImmutableMap.of(
+                        "hive.allow-register-partition-procedure", "true",
+                        // Reduce writer sort buffer size to ensure SortingFileWriter gets used
+                        "hive.writer-sort-buffer-size", "1MB"))
                 .setInitialTables(ImmutableList.of(CUSTOMER, NATION, ORDERS, REGION))
                 .build();
     }
@@ -1179,7 +1181,7 @@ public class TestHiveIntegrationSmokeTest
         data.put("1.2345678901234578E14", new TypeAndEstimate(DOUBLE, new EstimatedStatsAndCost(1.0, 17.0, 17.0, 0.0, 0.0)));
         data.put("123456789012345678901234.567", new TypeAndEstimate(createDecimalType(30, 3), new EstimatedStatsAndCost(1.0, 25.0, 25.0, 0.0, 0.0)));
         data.put("2019-01-01", new TypeAndEstimate(DateType.DATE, new EstimatedStatsAndCost(1.0, 13.0, 13.0, 0.0, 0.0)));
-        data.put("2019-01-01 23:22:21.123", new TypeAndEstimate(TimestampType.TIMESTAMP, new EstimatedStatsAndCost(1.0, 17.0, 17.0, 0.0, 0.0)));
+        data.put("2019-01-01 23:22:21.123", new TypeAndEstimate(TimestampType.TIMESTAMP_MILLIS, new EstimatedStatsAndCost(1.0, 17.0, 17.0, 0.0, 0.0)));
         int index = 0;
         for (Map.Entry<Object, TypeAndEstimate> entry : data.entrySet()) {
             index++;
@@ -1595,8 +1597,8 @@ public class TestHiveIntegrationSmokeTest
     @Test
     public void testCreateTableWithUnsupportedType()
     {
-        assertQueryFails("CREATE TABLE test_create_table_with_unsupported_type(x time)", "Unsupported Hive type: time");
-        assertQueryFails("CREATE TABLE test_create_table_with_unsupported_type AS SELECT TIME '00:00:00' x", "Unsupported Hive type: time");
+        assertQueryFails("CREATE TABLE test_create_table_with_unsupported_type(x time)", "\\QUnsupported Hive type: time(3)\\E");
+        assertQueryFails("CREATE TABLE test_create_table_with_unsupported_type AS SELECT TIME '00:00:00' x", "\\QUnsupported Hive type: time(0)\\E");
     }
 
     @Test
@@ -3259,7 +3261,8 @@ public class TestHiveIntegrationSmokeTest
                         "   orc_bloom_filter_columns = ARRAY['c1','c2'],\n" +
                         "   orc_bloom_filter_fpp = 7E-1,\n" +
                         "   partitioned_by = ARRAY['c5'],\n" +
-                        "   sorted_by = ARRAY['c1','c 2 DESC']\n" +
+                        "   sorted_by = ARRAY['c1','c 2 DESC'],\n" +
+                        "   transactional = true\n" +
                         ")",
                 getSession().getCatalog().get(),
                 getSession().getSchema().get(),
@@ -4121,6 +4124,7 @@ public class TestHiveIntegrationSmokeTest
     {
         assertUpdate("CREATE TABLE test_parquet_timestamp_predicate_pushdown (t TIMESTAMP) WITH (format = 'PARQUET')");
         assertUpdate("INSERT INTO test_parquet_timestamp_predicate_pushdown VALUES (TIMESTAMP '2012-10-31 01:00')", 1);
+        assertQuery("SELECT * FROM test_parquet_timestamp_predicate_pushdown", "VALUES (TIMESTAMP '2012-10-31 01:00')");
 
         DistributedQueryRunner queryRunner = (DistributedQueryRunner) getQueryRunner();
         ResultWithQueryId<MaterializedResult> queryResult = queryRunner.executeWithQueryId(
@@ -4332,6 +4336,19 @@ public class TestHiveIntegrationSmokeTest
             assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(b bigint, c varchar)");
             assertUpdate("INSERT INTO evolve_test values (2, row(2, 'def'), 2)", 1);
             assertQuery("SELECT a.c FROM evolve_test", "SELECT 'def' UNION SELECT null");
+        }
+        finally {
+            assertUpdate("DROP TABLE IF EXISTS evolve_test");
+        }
+
+        // Verify field access when the row evolves without changes to field type
+        try {
+            assertUpdate("CREATE TABLE evolve_test (dummy bigint, a row(b bigint, c varchar), d bigint) with (format = '" + format + "', partitioned_by=array['d'])");
+            assertUpdate("INSERT INTO evolve_test values (1, row(1, 'abc'), 1)", 1);
+            assertUpdate("ALTER TABLE evolve_test DROP COLUMN a");
+            assertUpdate("ALTER TABLE evolve_test ADD COLUMN a row(b bigint, c varchar, e int)");
+            assertUpdate("INSERT INTO evolve_test values (2, row(2, 'def', 2), 2)", 1);
+            assertQuery("SELECT a.b FROM evolve_test", "VALUES 1, 2");
         }
         finally {
             assertUpdate("DROP TABLE IF EXISTS evolve_test");
@@ -6844,6 +6861,33 @@ public class TestHiveIntegrationSmokeTest
     }
 
     @Test
+    public void testSortedWritingTempStaging()
+    {
+        String tableName = "test_sorted_writing";
+        @Language("SQL") String createTableSql = format("" +
+                        "CREATE TABLE %s " +
+                        "WITH (" +
+                        "   bucket_count = 7," +
+                        "   bucketed_by = ARRAY['shipmode']," +
+                        "   sorted_by = ARRAY['shipmode']" +
+                        ") AS " +
+                        "SELECT * FROM tpch.tiny.lineitem",
+                tableName);
+
+        Session session = Session.builder(getSession())
+                .setCatalogSessionProperty("hive", "sorted_writing_enabled", "true")
+                .setCatalogSessionProperty("hive", "temporary_staging_directory_enabled", "true")
+                .setCatalogSessionProperty("hive", "temporary_staging_directory_path", "/tmp/custom/temporary-${USER}")
+                .build();
+
+        assertUpdate(session, createTableSql, 60175L);
+        MaterializedResult expected = computeActual("SELECT * FROM tpch.tiny.lineitem");
+        MaterializedResult actual = computeActual("SELECT * FROM " + tableName);
+        assertEqualsIgnoreOrder(actual.getMaterializedRows(), expected.getMaterializedRows());
+        assertUpdate("DROP TABLE " + tableName);
+    }
+
+    @Test
     public void testSelectWithNoColumns()
     {
         testWithAllStorageFormats(this::testSelectWithNoColumns);
@@ -6968,8 +7012,7 @@ public class TestHiveIntegrationSmokeTest
 
     private Type canonicalizeType(Type type)
     {
-        HiveType hiveType = HiveType.toHiveType(typeTranslator, type);
-        return TYPE_MANAGER.getType(hiveType.getTypeSignature());
+        return TYPE_MANAGER.getType(toHiveType(type).getTypeSignature());
     }
 
     private void assertColumnType(TableMetadata tableMetadata, String columnName, Type expectedType)

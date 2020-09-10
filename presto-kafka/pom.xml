@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>339-SNAPSHOT</version>
+        <version>342-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-kafka</artifactId>
@@ -23,8 +23,18 @@
         </dependency>
 
         <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-record-decoder</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>io.airlift</groupId>
             <artifactId>bootstrap</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>configuration</artifactId>
         </dependency>
 
         <dependency>
@@ -39,48 +49,7 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>configuration</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
             <artifactId>units</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-record-decoder</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.guava</groupId>
-            <artifactId>guava</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.google.inject</groupId>
-            <artifactId>guice</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>javax.validation</groupId>
-            <artifactId>validation-api</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.kafka</groupId>
-            <artifactId>kafka-clients</artifactId>
-            <version>2.4.1</version>
-        </dependency>
-
-        <dependency>
-            <groupId>joda-time</groupId>
-            <artifactId>joda-time</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>javax.inject</groupId>
-            <artifactId>javax.inject</artifactId>
         </dependency>
 
         <dependency>
@@ -94,6 +63,31 @@
         </dependency>
 
         <dependency>
+            <groupId>com.google.guava</groupId>
+            <artifactId>guava</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.google.inject</groupId>
+            <artifactId>guice</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.inject</groupId>
+            <artifactId>javax.inject</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>javax.validation</groupId>
+            <artifactId>validation-api</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>joda-time</groupId>
+            <artifactId>joda-time</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>net.sf.opencsv</groupId>
             <artifactId>opencsv</artifactId>
         </dependency>
@@ -101,6 +95,29 @@
         <dependency>
             <groupId>org.apache.avro</groupId>
             <artifactId>avro</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.kafka</groupId>
+            <artifactId>kafka-clients</artifactId>
+        </dependency>
+
+        <!-- used by tests but also needed transitively -->
+        <dependency>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log-manager</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.zookeeper</groupId>
+            <artifactId>zookeeper</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- Presto SPI -->
@@ -128,29 +145,10 @@
             <scope>provided</scope>
         </dependency>
 
-        <!-- used by tests but also needed transitively -->
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log-manager</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.apache.zookeeper</groupId>
-            <artifactId>zookeeper</artifactId>
-            <scope>runtime</scope>
-        </dependency>
-
         <!-- for testing -->
         <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>testing</artifactId>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-client</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -162,19 +160,19 @@
 
         <dependency>
             <groupId>io.prestosql</groupId>
-            <artifactId>presto-tpch</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-client</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>io.prestosql</groupId>
             <artifactId>presto-testing</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-testing-kafka</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-tpch</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -185,20 +183,14 @@
         </dependency>
 
         <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
+            <groupId>io.airlift</groupId>
+            <artifactId>testing</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>kafka</artifactId>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

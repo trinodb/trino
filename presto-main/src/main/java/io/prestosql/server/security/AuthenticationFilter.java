@@ -41,14 +41,20 @@ public class AuthenticationFilter
     private final List<Authenticator> authenticators;
     private final InternalAuthenticationManager internalAuthenticationManager;
     private final boolean insecureAuthenticationOverHttpAllowed;
+    private final InsecureAuthenticator insecureAuthenticator;
 
     @Inject
-    public AuthenticationFilter(List<Authenticator> authenticators, InternalAuthenticationManager internalAuthenticationManager, SecurityConfig securityConfig)
+    public AuthenticationFilter(
+            List<Authenticator> authenticators,
+            InternalAuthenticationManager internalAuthenticationManager,
+            SecurityConfig securityConfig,
+            InsecureAuthenticator insecureAuthenticator)
     {
         this.authenticators = ImmutableList.copyOf(requireNonNull(authenticators, "authenticators is null"));
         checkArgument(!authenticators.isEmpty(), "authenticators is empty");
         this.internalAuthenticationManager = requireNonNull(internalAuthenticationManager, "internalAuthenticationManager is null");
         insecureAuthenticationOverHttpAllowed = requireNonNull(securityConfig, "securityConfig is null").isInsecureAuthenticationOverHttpAllowed();
+        this.insecureAuthenticator = requireNonNull(insecureAuthenticator, "insecureAuthenticator is null");
     }
 
     @Override
@@ -64,7 +70,7 @@ public class AuthenticationFilter
             authenticators = this.authenticators;
         }
         else if (insecureAuthenticationOverHttpAllowed) {
-            authenticators = ImmutableList.of(new InsecureAuthenticator());
+            authenticators = ImmutableList.of(insecureAuthenticator);
         }
         else {
             throw new ForbiddenException("Authentication over HTTP is not enabled");

@@ -16,7 +16,7 @@ package io.prestosql.tests.product.launcher.env.common;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
+import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.testcontainers.PortBinder;
 import io.prestosql.tests.product.launcher.testcontainers.SelectedPortWaitStrategy;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
@@ -33,6 +33,7 @@ public final class Hadoop
         implements EnvironmentExtender
 {
     public static final String CONTAINER_PRESTO_HIVE_PROPERTIES = CONTAINER_PRESTO_ETC + "/catalog/hive.properties";
+    public static final String CONTAINER_PRESTO_HIVE_WITH_EXTERNAL_WRITES_PROPERTIES = CONTAINER_PRESTO_ETC + "/catalog/hive_with_external_writes.properties";
     public static final String CONTAINER_PRESTO_ICEBERG_PROPERTIES = CONTAINER_PRESTO_ETC + "/catalog/iceberg.properties";
 
     private final DockerFiles dockerFiles;
@@ -45,13 +46,12 @@ public final class Hadoop
     public Hadoop(
             DockerFiles dockerFiles,
             PortBinder portBinder,
-            EnvironmentOptions environmentOptions)
+            EnvironmentConfig environmentConfig)
     {
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
         this.portBinder = requireNonNull(portBinder, "portBinder is null");
-        requireNonNull(environmentOptions, "environmentOptions is null");
-        hadoopBaseImage = requireNonNull(environmentOptions.hadoopBaseImage, "environmentOptions.hadoopBaseImage is null");
-        hadoopImagesVersion = requireNonNull(environmentOptions.hadoopImagesVersion, "environmentOptions.hadoopImagesVersion is null");
+        hadoopBaseImage = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopBaseImage();
+        hadoopImagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopImagesVersion();
     }
 
     @Override
@@ -59,18 +59,10 @@ public final class Hadoop
     {
         builder.addContainer("hadoop-master", createHadoopMaster());
 
-        builder.configureContainer("presto-master", container -> {
-            container
-                    .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES)
-                    .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/iceberg.properties")), CONTAINER_PRESTO_ICEBERG_PROPERTIES);
-
-            if (System.getenv("HADOOP_PRESTO_INIT_SCRIPT") != null) {
-                container
-                        .withCopyFileToContainer(
-                                forHostPath(dockerFiles.getDockerFilesHostPath(System.getenv("HADOOP_PRESTO_INIT_SCRIPT"))),
-                                "/docker/presto-init.d/hadoop-presto-init.sh");
-            }
-        });
+        builder.configureContainer("presto-master", container -> container
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES)
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive_with_external_writes.properties")), CONTAINER_PRESTO_HIVE_WITH_EXTERNAL_WRITES_PROPERTIES)
+                .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/iceberg.properties")), CONTAINER_PRESTO_ICEBERG_PROPERTIES));
     }
 
     @SuppressWarnings("resource")
@@ -79,6 +71,7 @@ public final class Hadoop
         DockerContainer container = new DockerContainer(hadoopBaseImage + ":" + hadoopImagesVersion)
                 // TODO HIVE_PROXY_PORT:1180
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
+                .withExposedLogPaths("/var/log/hadoop-yarn", "/var/log/hadoop-hdfs", "/var/log/hive")
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(new SelectedPortWaitStrategy(10000)) // HiveServer2
                 .withStartupTimeout(Duration.ofMinutes(5));

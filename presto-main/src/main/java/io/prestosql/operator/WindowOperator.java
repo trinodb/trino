@@ -29,7 +29,6 @@ import io.prestosql.operator.window.FramedWindowFunction;
 import io.prestosql.operator.window.WindowPartition;
 import io.prestosql.spi.Page;
 import io.prestosql.spi.PageBuilder;
-import io.prestosql.spi.block.Block;
 import io.prestosql.spi.block.SortOrder;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spiller.Spiller;
@@ -738,12 +737,12 @@ public class WindowOperator
         checkArgument(page.getPositionCount() > startPosition);
 
         // TODO: Fix pagesHashStrategy to allow specifying channels for comparison, it currently requires us to rearrange the right side blocks in consecutive channel order
-        Page preGroupedPage = rearrangePage(page, pagesIndexWithHashStrategies.preGroupedPartitionChannels);
+        Page preGroupedPage = page.getColumns(pagesIndexWithHashStrategies.preGroupedPartitionChannels);
 
         PagesIndex pagesIndex = pagesIndexWithHashStrategies.pagesIndex;
         PagesHashStrategy preGroupedPartitionHashStrategy = pagesIndexWithHashStrategies.preGroupedPartitionHashStrategy;
         if (currentSpillGroupRowPage.isPresent()) {
-            if (!preGroupedPartitionHashStrategy.rowEqualsRow(0, rearrangePage(currentSpillGroupRowPage.get(), pagesIndexWithHashStrategies.preGroupedPartitionChannels), startPosition, preGroupedPage)) {
+            if (!preGroupedPartitionHashStrategy.rowEqualsRow(0, currentSpillGroupRowPage.get().getColumns(pagesIndexWithHashStrategies.preGroupedPartitionChannels), startPosition, preGroupedPage)) {
                 return startPosition;
             }
         }
@@ -764,15 +763,6 @@ public class WindowOperator
         }
         // We had previous results buffered, but the remaining page starts with new group values
         return startPosition;
-    }
-
-    private static Page rearrangePage(Page page, int[] channels)
-    {
-        Block[] newBlocks = new Block[channels.length];
-        for (int i = 0; i < channels.length; i++) {
-            newBlocks[i] = page.getBlock(channels[i]);
-        }
-        return new Page(page.getPositionCount(), newBlocks);
     }
 
     private void sortPagesIndexIfNecessary(PagesIndexWithHashStrategies pagesIndexWithHashStrategies, List<Integer> orderChannels, List<SortOrder> ordering)

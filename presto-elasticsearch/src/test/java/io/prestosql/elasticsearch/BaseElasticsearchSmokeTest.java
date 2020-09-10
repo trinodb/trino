@@ -43,6 +43,8 @@ import static io.prestosql.testing.assertions.Assert.assertEquals;
 import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
 public abstract class BaseElasticsearchSmokeTest
         extends AbstractTestIntegrationSmokeTest
@@ -818,6 +820,56 @@ public abstract class BaseElasticsearchSmokeTest
                 "Elasticsearch query for 'orders' is not valid JSON");
     }
 
+    @Test
+    public void testEmptyIndexWithMappings()
+            throws IOException
+    {
+        String indexName = "test_empty_index_with_mappings";
+
+        @Language("JSON")
+        String mappings = "" +
+                "{" +
+                "  \"properties\": { " +
+                "    \"dummy_column\":     { \"type\": \"long\" }" +
+                "  }" +
+                "}";
+
+        createIndex(indexName, mappings);
+
+        assertQuery(format("SELECT column_name FROM information_schema.columns WHERE table_name = '%s'", indexName), "VALUES ('dummy_column')");
+        assertTrue(computeActual("SHOW TABLES").getOnlyColumnAsSet().contains(indexName));
+        assertQueryReturnsEmptyResult("SELECT * FROM " + indexName);
+    }
+
+    @Test
+    public void testEmptyIndexNoMappings()
+            throws IOException
+    {
+        String indexName = "test_empty_index";
+
+        createIndex(indexName);
+        assertTableDoesNotExist(indexName);
+    }
+
+    @Test
+    public void testEmptyAliasNoMappings()
+            throws IOException
+    {
+        String indexName = "test_empty_index_for_alias";
+        String aliasName = "test_empty_alias";
+
+        createIndex(indexName);
+        addAlias(indexName, aliasName);
+        assertTableDoesNotExist(aliasName);
+    }
+
+    private void assertTableDoesNotExist(String name)
+    {
+        assertQueryReturnsEmptyResult(format("SELECT * FROM information_schema.columns WHERE table_name = '%s'", name));
+        assertFalse(computeActual("SHOW TABLES").getOnlyColumnAsSet().contains(name));
+        assertQueryFails("SELECT * FROM " + name, ".*Table 'elasticsearch.tpch." + name + "' does not exist");
+    }
+
     protected abstract String indexEndpoint(String index, String docId);
 
     private void index(String index, Map<String, Object> document)
@@ -839,6 +891,12 @@ public abstract class BaseElasticsearchSmokeTest
     }
 
     protected abstract String indexMapping(@Language("JSON") String properties);
+
+    private void createIndex(String indexName)
+            throws IOException
+    {
+        client.getLowLevelClient().performRequest("PUT", "/" + indexName);
+    }
 
     private void createIndex(String indexName, @Language("JSON") String properties)
             throws IOException

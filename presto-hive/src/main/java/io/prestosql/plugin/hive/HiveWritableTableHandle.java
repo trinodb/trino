@@ -34,6 +34,7 @@ public class HiveWritableTableHandle
     private final Optional<HiveBucketProperty> bucketProperty;
     private final HiveStorageFormat tableStorageFormat;
     private final HiveStorageFormat partitionStorageFormat;
+    private final boolean transactional;
 
     public HiveWritableTableHandle(
             String schemaName,
@@ -43,7 +44,8 @@ public class HiveWritableTableHandle
             LocationHandle locationHandle,
             Optional<HiveBucketProperty> bucketProperty,
             HiveStorageFormat tableStorageFormat,
-            HiveStorageFormat partitionStorageFormat)
+            HiveStorageFormat partitionStorageFormat,
+            boolean transactional)
     {
         this.schemaName = requireNonNull(schemaName, "schemaName is null");
         this.tableName = requireNonNull(tableName, "tableName is null");
@@ -53,6 +55,7 @@ public class HiveWritableTableHandle
         this.bucketProperty = requireNonNull(bucketProperty, "bucketProperty is null");
         this.tableStorageFormat = requireNonNull(tableStorageFormat, "tableStorageFormat is null");
         this.partitionStorageFormat = requireNonNull(partitionStorageFormat, "partitionStorageFormat is null");
+        this.transactional = transactional;
     }
 
     @JsonProperty
@@ -107,6 +110,12 @@ public class HiveWritableTableHandle
     public HiveStorageFormat getPartitionStorageFormat()
     {
         return partitionStorageFormat;
+    }
+
+    @JsonProperty
+    public boolean isTransactional()
+    {
+        return transactional;
     }
 
     @Override

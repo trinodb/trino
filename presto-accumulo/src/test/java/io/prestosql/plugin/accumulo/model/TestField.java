@@ -39,7 +39,7 @@ import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
 import static io.prestosql.spi.type.TimeType.TIME;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -201,9 +201,9 @@ public class TestField
     @Test
     public void testTimestamp()
     {
-        Type type = TIMESTAMP;
+        Type type = TIMESTAMP_MILLIS;
         Timestamp expected = new Timestamp(new GregorianCalendar(1999, 0, 1, 12, 30, 0).getTime().getTime());
-        Field f1 = new Field(915219000000L, type);
+        Field f1 = new Field(915_219_000_000_000L, type);
         assertEquals(f1.getTimestamp(), expected);
         assertEquals(f1.getObject(), expected);
         assertEquals(f1.getType(), type);

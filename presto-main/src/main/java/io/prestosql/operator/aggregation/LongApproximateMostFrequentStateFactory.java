@@ -18,34 +18,34 @@ import io.prestosql.operator.aggregation.state.AbstractGroupedAccumulatorState;
 import io.prestosql.spi.function.AccumulatorStateFactory;
 
 public class LongApproximateMostFrequentStateFactory
-        implements AccumulatorStateFactory<ApproximateMostFrequentFunction.LongState>
+        implements AccumulatorStateFactory<BigintApproximateMostFrequent.State>
 {
     @Override
-    public ApproximateMostFrequentFunction.LongState createSingleState()
+    public BigintApproximateMostFrequent.State createSingleState()
     {
         return new SingleLongApproximateMostFrequentState();
     }
 
     @Override
-    public Class<? extends ApproximateMostFrequentFunction.LongState> getSingleStateClass()
+    public Class<? extends BigintApproximateMostFrequent.State> getSingleStateClass()
     {
         return SingleLongApproximateMostFrequentState.class;
     }
 
     @Override
-    public ApproximateMostFrequentFunction.LongState createGroupedState()
+    public BigintApproximateMostFrequent.State createGroupedState()
     {
         return new GroupedLongApproximateMostFrequentState();
     }
 
     @Override
-    public Class<? extends ApproximateMostFrequentFunction.LongState> getGroupedStateClass()
+    public Class<? extends BigintApproximateMostFrequent.State> getGroupedStateClass()
     {
         return GroupedLongApproximateMostFrequentState.class;
     }
 
     public static class SingleLongApproximateMostFrequentState
-            implements ApproximateMostFrequentFunction.LongState
+            implements BigintApproximateMostFrequent.State
     {
         private ApproximateMostFrequentHistogram<Long> histogram;
         private long size;
@@ -72,7 +72,7 @@ public class LongApproximateMostFrequentStateFactory
 
     public static class GroupedLongApproximateMostFrequentState
             extends AbstractGroupedAccumulatorState
-            implements ApproximateMostFrequentFunction.LongState
+            implements BigintApproximateMostFrequent.State
     {
         private final ObjectBigArray<ApproximateMostFrequentHistogram<Long>> histograms = new ObjectBigArray<>();
         private long size;

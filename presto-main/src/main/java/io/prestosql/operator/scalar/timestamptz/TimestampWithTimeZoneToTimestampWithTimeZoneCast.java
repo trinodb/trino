@@ -25,9 +25,9 @@ import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
 import static io.prestosql.spi.type.DateTimeEncoding.unpackZoneKey;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.MAX_PRECISION;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.MAX_SHORT_PRECISION;
-import static io.prestosql.type.Timestamps.PICOSECONDS_PER_MILLISECOND;
-import static io.prestosql.type.Timestamps.round;
-import static io.prestosql.type.Timestamps.roundToNearest;
+import static io.prestosql.type.DateTimes.PICOSECONDS_PER_MILLISECOND;
+import static io.prestosql.type.DateTimes.round;
+import static io.prestosql.type.DateTimes.roundToNearest;
 
 @ScalarOperator(CAST)
 public final class TimestampWithTimeZoneToTimestampWithTimeZoneCast

@@ -36,6 +36,7 @@ import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.EmptyPageSource;
 import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.transaction.IsolationLevel;
@@ -54,7 +55,6 @@ import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.function.Supplier;
 
 import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_REORDERING_STRATEGY;
@@ -66,6 +66,7 @@ import static java.lang.Thread.sleep;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static java.util.concurrent.Executors.newSingleThreadScheduledExecutor;
+import static org.testng.Assert.assertFalse;
 
 public class TestCoordinatorDynamicFiltering
         extends AbstractCoordinatorDynamicFilteringTest
@@ -170,11 +171,13 @@ public class TestCoordinatorDynamicFiltering
                         ConnectorSession session,
                         ConnectorTableHandle table,
                         SplitSchedulingStrategy splitSchedulingStrategy,
-                        Supplier<TupleDomain<ColumnHandle>> dynamicFilter)
+                        DynamicFilter dynamicFilter)
                 {
                     long start = System.nanoTime();
                     AtomicBoolean splitProduced = new AtomicBoolean();
                     TupleDomain<ColumnHandle> expectedDynamicFilter = getExpectedDynamicFilter(session);
+
+                    assertFalse(dynamicFilter.isBlocked().isDone() && isExpectedDynamicFilterLazy(session), "Dynamic filter should be initially blocked");
 
                     return new ConnectorSplitSource()
                     {
@@ -209,14 +212,14 @@ public class TestCoordinatorDynamicFiltering
                         @Override
                         public boolean isFinished()
                         {
-                            if (dynamicFilter.get().equals(expectedDynamicFilter)) {
+                            if (dynamicFilter.getCurrentPredicate().equals(expectedDynamicFilter)) {
                                 // if we received expected dynamic filter then we are done
                                 return true;
                             }
                             else if (Duration.nanosSince(start).compareTo(scanDuration) > 0) {
                                 throw new AssertionError(format(
                                         "Received %s instead of expected dynamic filter %s after waiting for %s",
-                                        dynamicFilter.get().toString(session),
+                                        dynamicFilter.getCurrentPredicate().toString(session),
                                         expectedDynamicFilter.toString(session),
                                         scanDuration));
                             }

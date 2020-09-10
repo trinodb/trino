@@ -14,11 +14,11 @@
 package io.prestosql.tests.product.launcher.env.environment;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.tests.product.launcher.PathResolver;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
+import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
+import io.prestosql.tests.product.launcher.env.ServerPackage;
 import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Standard;
@@ -33,7 +33,6 @@ import static io.prestosql.tests.product.launcher.env.common.Hadoop.CONTAINER_PR
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_JVM_CONFIG;
 import static io.prestosql.tests.product.launcher.env.common.Standard.createPrestoContainer;
-import static io.prestosql.tests.product.launcher.env.common.Standard.enablePrestoJavaDebugger;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
 
@@ -41,27 +40,23 @@ import static org.testcontainers.utility.MountableFile.forHostPath;
 public final class Multinode
         extends AbstractEnvironmentProvider
 {
-    private final PathResolver pathResolver;
     private final DockerFiles dockerFiles;
 
     private final String imagesVersion;
     private final File serverPackage;
-    private final boolean debug;
 
     @Inject
     public Multinode(
-            PathResolver pathResolver,
             DockerFiles dockerFiles,
             Standard standard,
             Hadoop hadoop,
-            EnvironmentOptions environmentOptions)
+            EnvironmentConfig environmentConfig,
+            @ServerPackage File serverPackage)
     {
         super(ImmutableList.of(standard, hadoop));
-        this.pathResolver = requireNonNull(pathResolver, "pathResolver is null");
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
-        this.imagesVersion = requireNonNull(environmentOptions.imagesVersion, "environmentOptions.imagesVersion is null");
-        this.serverPackage = requireNonNull(environmentOptions.serverPackage, "environmentOptions.serverPackage is null");
-        this.debug = environmentOptions.debug;
+        this.imagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getImagesVersion();
+        this.serverPackage = requireNonNull(serverPackage, "serverPackage is null");
     }
 
     @Override
@@ -79,16 +74,10 @@ public final class Multinode
     @SuppressWarnings("resource")
     private DockerContainer createPrestoWorker()
     {
-        DockerContainer container = createPrestoContainer(dockerFiles, pathResolver, serverPackage, "prestodev/centos7-oj11:" + imagesVersion)
+        return createPrestoContainer(dockerFiles, serverPackage, "prestodev/centos7-oj11:" + imagesVersion)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode/multinode-worker-jvm.config")), CONTAINER_PRESTO_JVM_CONFIG)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/multinode/multinode-worker-config.properties")), CONTAINER_PRESTO_CONFIG_PROPERTIES)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/hive.properties")), CONTAINER_PRESTO_HIVE_PROPERTIES)
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("common/hadoop/iceberg.properties")), CONTAINER_PRESTO_ICEBERG_PROPERTIES);
-
-        if (debug) {
-            enablePrestoJavaDebugger(container, 5008); // debug port
-        }
-
-        return container;
     }
 }

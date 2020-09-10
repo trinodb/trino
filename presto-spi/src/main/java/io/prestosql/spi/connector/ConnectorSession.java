@@ -50,9 +50,5 @@ public interface ConnectorSession
 
     Instant getStart();
 
-    boolean isLegacyTimestamp();
-
-    boolean isOmitDatetimeTypePrecision();
-
     <T> T getProperty(String name, Class<T> type);
 }

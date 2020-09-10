@@ -123,6 +123,12 @@ public final class CachingJdbcClient
     }
 
     @Override
+    public List<ColumnMapping> getColumnMappings(ConnectorSession session, List<JdbcTypeHandle> typeHandles)
+    {
+        return delegate.getColumnMappings(session, typeHandles);
+    }
+
+    @Override
     public WriteMapping toWriteMapping(ConnectorSession session, Type type)
     {
         return delegate.toWriteMapping(session, type);
@@ -313,6 +319,24 @@ public final class CachingJdbcClient
     public Optional<SystemTable> getSystemTable(ConnectorSession session, SchemaTableName tableName)
     {
         return delegate.getSystemTable(session, tableName);
+    }
+
+    @Override
+    public String quoted(String name)
+    {
+        return delegate.quoted(name);
+    }
+
+    @Override
+    public String quoted(RemoteTableName remoteTableName)
+    {
+        return delegate.quoted(remoteTableName);
+    }
+
+    @Override
+    public Map<String, Object> getTableProperties(JdbcIdentity identity, JdbcTableHandle tableHandle)
+    {
+        return delegate.getTableProperties(identity, tableHandle);
     }
 
     private void invalidateSchemasCache()

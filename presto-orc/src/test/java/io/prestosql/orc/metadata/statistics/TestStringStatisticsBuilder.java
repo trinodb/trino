@@ -301,6 +301,7 @@ public class TestStringStatisticsBuilder
                 null,
                 null,
                 null,
+                null,
                 null);
     }
 

@@ -22,6 +22,7 @@ import io.prestosql.spi.ErrorCode;
 import io.prestosql.spi.ErrorType;
 import io.prestosql.spi.QueryId;
 import io.prestosql.spi.memory.MemoryPoolId;
+import io.prestosql.spi.resourcegroups.QueryType;
 import io.prestosql.spi.resourcegroups.ResourceGroupId;
 
 import javax.annotation.Nullable;
@@ -53,6 +54,7 @@ public class BasicQueryInfo
     private final BasicQueryStats queryStats;
     private final ErrorType errorType;
     private final ErrorCode errorCode;
+    private final Optional<QueryType> queryType;
 
     @JsonCreator
     public BasicQueryInfo(
@@ -68,7 +70,8 @@ public class BasicQueryInfo
             @JsonProperty("preparedQuery") Optional<String> preparedQuery,
             @JsonProperty("queryStats") BasicQueryStats queryStats,
             @JsonProperty("errorType") ErrorType errorType,
-            @JsonProperty("errorCode") ErrorCode errorCode)
+            @JsonProperty("errorCode") ErrorCode errorCode,
+            @JsonProperty("queryType") Optional<QueryType> queryType)
     {
         this.queryId = requireNonNull(queryId, "queryId is null");
         this.session = requireNonNull(session, "session is null");
@@ -83,6 +86,7 @@ public class BasicQueryInfo
         this.updateType = requireNonNull(updateType, "updateType is null");
         this.preparedQuery = requireNonNull(preparedQuery, "preparedQuery is null");
         this.queryStats = requireNonNull(queryStats, "queryStats is null");
+        this.queryType = requireNonNull(queryType, "queryType is null");
     }
 
     public BasicQueryInfo(QueryInfo queryInfo)
@@ -99,7 +103,8 @@ public class BasicQueryInfo
                 queryInfo.getPreparedQuery(),
                 new BasicQueryStats(queryInfo.getQueryStats()),
                 queryInfo.getErrorType(),
-                queryInfo.getErrorCode());
+                queryInfo.getErrorCode(),
+                queryInfo.getQueryType());
     }
 
     @JsonProperty
@@ -180,6 +185,12 @@ public class BasicQueryInfo
     public ErrorCode getErrorCode()
     {
         return errorCode;
+    }
+
+    @JsonProperty
+    public Optional<QueryType> getQueryType()
+    {
+        return queryType;
     }
 
     @Override

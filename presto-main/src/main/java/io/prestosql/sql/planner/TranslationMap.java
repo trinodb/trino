@@ -45,7 +45,6 @@ import java.util.Optional;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Verify.verify;
-import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.sql.planner.ScopeAware.scopeAwareKey;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -110,12 +109,9 @@ class TranslationMap
         return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fields.toArray(new Symbol[0]), astToSymbols);
     }
 
-    public TranslationMap withNewMappings(Map<Expression, Symbol> mappings, List<Symbol> fields)
+    public TranslationMap withNewMappings(Map<ScopeAware<Expression>, Symbol> mappings, List<Symbol> fields)
     {
-        Map<ScopeAware<Expression>, Symbol> newMappings = mappings.entrySet().stream()
-                .collect(toImmutableMap(entry -> scopeAwareKey(entry.getKey(), analysis, scope), Map.Entry::getValue));
-
-        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fields, newMappings);
+        return new TranslationMap(outerContext, scope, analysis, lambdaArguments, fields, mappings);
     }
 
     public TranslationMap withAdditionalMappings(Map<ScopeAware<Expression>, Symbol> mappings)
@@ -330,7 +326,7 @@ class TranslationMap
     {
         verify(AstUtils.preOrder(astExpression).noneMatch(expression ->
                 expression instanceof SymbolReference ||
-                expression instanceof FunctionCall && ResolvedFunction.fromQualifiedName(((FunctionCall) expression).getName()).isPresent()));
+                expression instanceof FunctionCall && ResolvedFunction.isResolved(((FunctionCall) expression).getName())));
     }
 
     public Scope getScope()

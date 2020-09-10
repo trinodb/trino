@@ -61,6 +61,7 @@ import com.amazonaws.services.s3.transfer.Upload;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Splitter;
 import com.google.common.collect.AbstractSequentialIterator;
+import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterators;
 import com.google.common.io.Closer;
 import io.airlift.log.Logger;
@@ -101,11 +102,14 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.OptionalInt;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.amazonaws.regions.Regions.US_EAST_1;
 import static com.amazonaws.services.s3.Headers.SERVER_SIDE_ENCRYPTION;
 import static com.amazonaws.services.s3.Headers.UNENCRYPTED_CONTENT_LENGTH;
+import static com.amazonaws.services.s3.model.StorageClass.DeepArchive;
 import static com.amazonaws.services.s3.model.StorageClass.Glacier;
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkPositionIndexes;
@@ -181,6 +185,7 @@ public class PrestoS3FileSystem
     private static final Duration BACKOFF_MIN_SLEEP = new Duration(1, SECONDS);
     private static final int HTTP_RANGE_NOT_SATISFIABLE = 416;
     private static final String S3_CUSTOM_SIGNER = "PrestoS3CustomSigner";
+    private static final Set<String> GLACIER_STORAGE_CLASSES = ImmutableSet.of(Glacier.toString(), DeepArchive.toString());
 
     private URI uri;
     private Path workingDirectory;
@@ -306,37 +311,53 @@ public class PrestoS3FileSystem
     }
 
     @Override
+    public RemoteIterator<LocatedFileStatus> listFiles(Path path, boolean recursive)
+    {
+        // Either a single level or full listing, depending on the recursive flag, no "directories"
+        // included in either path
+        return new S3ObjectsV2RemoteIterator(listPrefix(path, OptionalInt.empty(), recursive ? ListingMode.RECURSIVE_FILES_ONLY : ListingMode.SHALLOW_FILES_ONLY));
+    }
+
+    @Override
     public RemoteIterator<LocatedFileStatus> listLocatedStatus(Path path)
     {
         STATS.newListLocatedStatusCall();
-        return new RemoteIterator<>()
+        return new S3ObjectsV2RemoteIterator(listPrefix(path, OptionalInt.empty(), ListingMode.SHALLOW_ALL));
+    }
+
+    private static final class S3ObjectsV2RemoteIterator
+            implements RemoteIterator<LocatedFileStatus>
+    {
+        private final Iterator<LocatedFileStatus> iterator;
+
+        public S3ObjectsV2RemoteIterator(Iterator<LocatedFileStatus> iterator)
         {
-            private final Iterator<LocatedFileStatus> iterator = listPrefix(path);
+            this.iterator = requireNonNull(iterator, "iterator is null");
+        }
 
-            @Override
-            public boolean hasNext()
-                    throws IOException
-            {
-                try {
-                    return iterator.hasNext();
-                }
-                catch (AmazonClientException e) {
-                    throw new IOException(e);
-                }
+        @Override
+        public boolean hasNext()
+                throws IOException
+        {
+            try {
+                return iterator.hasNext();
             }
+            catch (AmazonClientException e) {
+                throw new IOException(e);
+            }
+        }
 
-            @Override
-            public LocatedFileStatus next()
-                    throws IOException
-            {
-                try {
-                    return iterator.next();
-                }
-                catch (AmazonClientException e) {
-                    throw new IOException(e);
-                }
+        @Override
+        public LocatedFileStatus next()
+                throws IOException
+        {
+            try {
+                return iterator.next();
             }
-        };
+            catch (AmazonClientException e) {
+                throw new IOException(e);
+            }
+        }
     }
 
     @Override
@@ -355,7 +376,7 @@ public class PrestoS3FileSystem
 
         if (metadata == null) {
             // check if this path is a directory
-            Iterator<LocatedFileStatus> iterator = listPrefix(path);
+            Iterator<LocatedFileStatus> iterator = listPrefix(path, OptionalInt.of(1), ListingMode.SHALLOW_ALL);
             if (iterator.hasNext()) {
                 return new FileStatus(0, true, 1, 0, 0, qualifiedPath(path));
             }
@@ -517,7 +538,22 @@ public class PrestoS3FileSystem
         return true;
     }
 
-    private Iterator<LocatedFileStatus> listPrefix(Path path)
+    /**
+     * Enum representing the valid listing modes. This could be two booleans (recursive, filesOnly) except
+     * that (recursive=true, filesOnly=false) can't be translated directly to a natively supported behavior
+     */
+    private enum ListingMode {
+        SHALLOW_ALL,
+        SHALLOW_FILES_ONLY,
+        RECURSIVE_FILES_ONLY;
+
+        public boolean isFilesOnly()
+        {
+            return (this == SHALLOW_FILES_ONLY || this == RECURSIVE_FILES_ONLY);
+        }
+    }
+
+    private Iterator<LocatedFileStatus> listPrefix(Path path, OptionalInt initialMaxKeys, ListingMode mode)
     {
         String key = keyFromPath(path);
         if (!key.isEmpty()) {
@@ -527,7 +563,8 @@ public class PrestoS3FileSystem
         ListObjectsV2Request request = new ListObjectsV2Request()
                 .withBucketName(getBucketName(uri))
                 .withPrefix(key)
-                .withDelimiter(PATH_SEPARATOR)
+                .withDelimiter(mode == ListingMode.RECURSIVE_FILES_ONLY ? null : PATH_SEPARATOR)
+                .withMaxKeys(initialMaxKeys.isPresent() ? initialMaxKeys.getAsInt() : null)
                 .withRequesterPays(requesterPaysEnabled);
 
         STATS.newListObjectsCall();
@@ -539,26 +576,38 @@ public class PrestoS3FileSystem
                 if (!previous.isTruncated()) {
                     return null;
                 }
-
-                request.setContinuationToken(previous.getNextContinuationToken());
-
+                // Clear any max keys after the first batch completes
+                request.withMaxKeys(null).setContinuationToken(previous.getNextContinuationToken());
                 return s3.listObjectsV2(request);
             }
         };
 
-        return Iterators.concat(Iterators.transform(listings, this::statusFromListing));
+        Iterator<LocatedFileStatus> results = Iterators.concat(Iterators.transform(listings, this::statusFromListing));
+        if (mode.isFilesOnly()) {
+            //  Even recursive listing can still contain empty "directory" objects, must filter them out
+            results = Iterators.filter(results, LocatedFileStatus::isFile);
+        }
+        return results;
     }
 
     private Iterator<LocatedFileStatus> statusFromListing(ListObjectsV2Result listing)
     {
+        List<String> prefixes = listing.getCommonPrefixes();
+        List<S3ObjectSummary> objects = listing.getObjectSummaries();
+        if (prefixes.isEmpty()) {
+            return statusFromObjects(objects);
+        }
+        if (objects.isEmpty()) {
+            return statusFromPrefixes(prefixes);
+        }
         return Iterators.concat(
-                statusFromPrefixes(listing.getCommonPrefixes()),
-                statusFromObjects(listing.getObjectSummaries()));
+                statusFromPrefixes(prefixes),
+                statusFromObjects(objects));
     }
 
     private Iterator<LocatedFileStatus> statusFromPrefixes(List<String> prefixes)
     {
-        List<LocatedFileStatus> list = new ArrayList<>();
+        List<LocatedFileStatus> list = new ArrayList<>(prefixes.size());
         for (String prefix : prefixes) {
             Path path = qualifiedPath(new Path(PATH_SEPARATOR + prefix));
             FileStatus status = new FileStatus(0, true, 1, 0, 0, path);
@@ -575,6 +624,7 @@ public class PrestoS3FileSystem
         return objects.stream()
                 .filter(object -> !object.getKey().endsWith(PATH_SEPARATOR))
                 .filter(object -> !skipGlacierObjects || !isGlacierObject(object))
+                .filter(object -> !isHadoopFolderMarker(object))
                 .map(object -> new FileStatus(
                         object.getSize(),
                         false,
@@ -588,7 +638,12 @@ public class PrestoS3FileSystem
 
     private static boolean isGlacierObject(S3ObjectSummary object)
     {
-        return Glacier.toString().equals(object.getStorageClass());
+        return GLACIER_STORAGE_CLASSES.contains(object.getStorageClass());
+    }
+
+    private static boolean isHadoopFolderMarker(S3ObjectSummary object)
+    {
+        return object.getKey().endsWith("_$folder$");
     }
 
     /**

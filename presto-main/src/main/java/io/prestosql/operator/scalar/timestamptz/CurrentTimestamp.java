@@ -20,15 +20,15 @@ import io.prestosql.spi.function.ScalarFunction;
 import io.prestosql.spi.function.SqlNullable;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.type.LongTimestampWithTimeZone;
-import io.prestosql.type.Timestamps;
+import io.prestosql.type.DateTimes;
 
 import java.time.Instant;
 
 import static io.prestosql.spi.type.DateTimeEncoding.packDateTimeWithZone;
 import static io.prestosql.spi.type.TimestampWithTimeZoneType.MAX_SHORT_PRECISION;
-import static io.prestosql.type.Timestamps.NANOSECONDS_PER_MILLISECOND;
-import static io.prestosql.type.Timestamps.round;
-import static io.prestosql.type.Timestamps.roundToNearest;
+import static io.prestosql.type.DateTimes.NANOSECONDS_PER_MILLISECOND;
+import static io.prestosql.type.DateTimes.round;
+import static io.prestosql.type.DateTimes.roundToNearest;
 
 @ScalarFunction(value = "$current_timestamp", hidden = true)
 public final class CurrentTimestamp
@@ -68,6 +68,6 @@ public final class CurrentTimestamp
     {
         Instant start = session.getStart();
 
-        return Timestamps.longTimestampWithTimeZone(precision, start, session.getTimeZoneKey());
+        return DateTimes.longTimestampWithTimeZone(precision, start, session.getTimeZoneKey());
     }
 }

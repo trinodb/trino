@@ -107,7 +107,7 @@ public class TestMapTransformValuesFunction
         assertFunction(
                 "transform_values(map(ARRAY[1, 2], ARRAY [TIMESTAMP '2020-05-10 12:34:56.123456789', TIMESTAMP '2010-05-10 12:34:56.123456789']), (k, v) -> date_add('year', 1, v))",
                 mapType(INTEGER, createTimestampType(9)),
-                ImmutableMap.of(1, legacyTimestamp(9, "2021-05-10 12:34:56.123456789"), 2, legacyTimestamp(9, "2011-05-10 12:34:56.123456789")));
+                ImmutableMap.of(1, timestamp(9, "2021-05-10 12:34:56.123456789"), 2, timestamp(9, "2011-05-10 12:34:56.123456789")));
     }
 
     @Test

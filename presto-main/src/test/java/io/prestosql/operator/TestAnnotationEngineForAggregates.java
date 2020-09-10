@@ -14,11 +14,19 @@
 package io.prestosql.operator;
 
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSet;
 import io.airlift.slice.Slice;
-import io.prestosql.metadata.BoundVariables;
+import io.prestosql.metadata.AggregationFunctionMetadata;
+import io.prestosql.metadata.BoundSignature;
+import io.prestosql.metadata.FunctionBinding;
+import io.prestosql.metadata.FunctionDependencies;
+import io.prestosql.metadata.FunctionMetadata;
 import io.prestosql.metadata.LongVariableConstraint;
-import io.prestosql.metadata.Metadata;
+import io.prestosql.metadata.MetadataManager;
+import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.Signature;
+import io.prestosql.metadata.SqlAggregationFunction;
 import io.prestosql.operator.aggregation.AggregationImplementation;
 import io.prestosql.operator.aggregation.AggregationMetadata;
 import io.prestosql.operator.aggregation.InternalAggregationFunction;
@@ -45,11 +53,11 @@ import io.prestosql.spi.function.OutputFunction;
 import io.prestosql.spi.function.SqlType;
 import io.prestosql.spi.function.TypeParameter;
 import io.prestosql.spi.function.TypeParameterSpecialization;
+import io.prestosql.spi.type.ArrayType;
 import io.prestosql.spi.type.DoubleType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.spi.type.TypeSignature;
 import io.prestosql.spi.type.TypeSignatureParameter;
-import io.prestosql.spi.type.VarcharType;
 import io.prestosql.type.Constraint;
 import org.testng.annotations.Test;
 
@@ -62,9 +70,12 @@ import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
 import static io.prestosql.metadata.Signature.typeVariable;
 import static io.prestosql.operator.aggregation.AggregationFromAnnotationsParser.parseFunctionDefinition;
 import static io.prestosql.operator.aggregation.AggregationFromAnnotationsParser.parseFunctionDefinitions;
+import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL;
+import static io.prestosql.operator.aggregation.AggregationMetadata.ParameterMetadata.ParameterType.STATE;
 import static io.prestosql.spi.function.OperatorType.LESS_THAN;
 import static io.prestosql.spi.type.StandardTypes.ARRAY;
 import static io.prestosql.spi.type.StandardTypes.DOUBLE;
+import static io.prestosql.spi.type.VarcharType.createVarcharType;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
@@ -72,7 +83,8 @@ import static org.testng.Assert.assertTrue;
 public class TestAnnotationEngineForAggregates
         extends TestAnnotationEngine
 {
-    private static final Metadata METADATA = createTestMetadataManager();
+    private static final MetadataManager METADATA = createTestMetadataManager();
+    protected static final FunctionDependencies NO_FUNCTION_DEPENDENCIES = new FunctionDependencies(METADATA, ImmutableMap.of(), ImmutableSet.of());
 
     @AggregationFunction("simple_exact_aggregate")
     @Description("Simple exact aggregate description")
@@ -109,17 +121,24 @@ public class TestAnnotationEngineForAggregates
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple exact aggregate description");
         assertTrue(aggregation.getFunctionMetadata().isDeterministic());
         assertEquals(aggregation.getFunctionMetadata().getSignature(), expectedSignature);
-        assertTrue(aggregation.isDecomposable());
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
         assertImplementationCount(implementations, 1, 0, 0);
         AggregationImplementation implementation = getOnlyElement(implementations.getExactImplementations().values());
         assertEquals(implementation.getDefinitionClass(), ExactAggregationFunction.class);
         assertDependencyCount(implementation, 0, 0, 0);
         assertFalse(implementation.hasSpecializedTypeParameters());
-        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
+        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(STATE, INPUT_CHANNEL);
         assertTrue(implementation.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
-        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().build(), 1, METADATA);
+        FunctionBinding functionBinding = new FunctionBinding(
+                aggregation.getFunctionMetadata().getFunctionId(),
+                new BoundSignature(expectedSignature.getName(), DoubleType.DOUBLE, ImmutableList.of(DoubleType.DOUBLE)),
+                ImmutableMap.of(),
+                ImmutableMap.of());
+        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata(functionBinding);
+        assertFalse(aggregationMetadata.isOrderSensitive());
+        assertTrue(aggregationMetadata.getIntermediateType().isPresent());
+        InternalAggregationFunction specialized = aggregation.specialize(functionBinding, NO_FUNCTION_DEPENDENCIES);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertEquals(specialized.name(), "simple_exact_aggregate");
     }
@@ -160,7 +179,7 @@ public class TestAnnotationEngineForAggregates
 
         AggregationImplementation implementation = getOnlyElement(aggregation.getImplementations().getExactImplementations().values());
         assertEquals(implementation.getDefinitionClass(), StateOnDifferentThanFirstPositionAggregationFunction.class);
-        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL, AggregationMetadata.ParameterMetadata.ParameterType.STATE);
+        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(INPUT_CHANNEL, STATE);
         assertTrue(implementation.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
     }
 
@@ -191,13 +210,20 @@ public class TestAnnotationEngineForAggregates
     public void testNotAnnotatedAggregateStateAggregationParse()
     {
         ParametricAggregation aggregation = parseFunctionDefinition(NotAnnotatedAggregateStateAggregationFunction.class);
-        assertTrue(aggregation.isDecomposable());
 
         AggregationImplementation implementation = getOnlyElement(aggregation.getImplementations().getExactImplementations().values());
-        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
+        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(STATE, INPUT_CHANNEL);
         assertTrue(implementation.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
-        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().build(), 1, METADATA);
+        FunctionBinding functionBinding = new FunctionBinding(
+                aggregation.getFunctionMetadata().getFunctionId(),
+                new BoundSignature(aggregation.getFunctionMetadata().getSignature().getName(), DoubleType.DOUBLE, ImmutableList.of(DoubleType.DOUBLE)),
+                ImmutableMap.of(),
+                ImmutableMap.of());
+        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata(functionBinding);
+        assertFalse(aggregationMetadata.isOrderSensitive());
+        assertTrue(aggregationMetadata.getIntermediateType().isPresent());
+        InternalAggregationFunction specialized = aggregation.specialize(functionBinding, NO_FUNCTION_DEPENDENCIES);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertEquals(specialized.name(), "no_aggregation_state_aggregate");
     }
@@ -243,9 +269,16 @@ public class TestAnnotationEngineForAggregates
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Aggregate with Decomposable=false");
         assertTrue(aggregation.getFunctionMetadata().isDeterministic());
         assertEquals(aggregation.getFunctionMetadata().getSignature(), expectedSignature);
-        assertFalse(aggregation.isDecomposable());
 
-        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().build(), 1, METADATA);
+        FunctionBinding functionBinding = new FunctionBinding(
+                aggregation.getFunctionMetadata().getFunctionId(),
+                new BoundSignature(aggregation.getFunctionMetadata().getSignature().getName(), DoubleType.DOUBLE, ImmutableList.of(DoubleType.DOUBLE)),
+                ImmutableMap.of(),
+                ImmutableMap.of());
+        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata(functionBinding);
+        assertFalse(aggregationMetadata.isOrderSensitive());
+        assertFalse(aggregationMetadata.getIntermediateType().isPresent());
+        InternalAggregationFunction specialized = aggregation.specialize(functionBinding, NO_FUNCTION_DEPENDENCIES);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertEquals(specialized.name(), "custom_decomposable_aggregate");
     }
@@ -320,14 +353,13 @@ public class TestAnnotationEngineForAggregates
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple aggregate with two generic implementations");
         assertTrue(aggregation.getFunctionMetadata().isDeterministic());
         assertEquals(aggregation.getFunctionMetadata().getSignature(), expectedSignature);
-        assertTrue(aggregation.isDecomposable());
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
         assertImplementationCount(implementations, 0, 0, 2);
         AggregationImplementation implementationDouble = implementations.getGenericImplementations().stream().filter(impl -> impl.getStateClass() == NullableDoubleState.class).collect(toImmutableList()).get(0);
         assertEquals(implementationDouble.getDefinitionClass(), GenericAggregationFunction.class);
         assertDependencyCount(implementationDouble, 0, 0, 0);
         assertFalse(implementationDouble.hasSpecializedTypeParameters());
-        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
+        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(STATE, INPUT_CHANNEL);
         assertTrue(implementationDouble.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
         assertEquals(implementationDouble.getStateClass(), NullableDoubleState.class);
 
@@ -338,10 +370,15 @@ public class TestAnnotationEngineForAggregates
         assertTrue(implementationLong.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
         assertEquals(implementationLong.getStateClass(), NullableLongState.class);
 
-        InternalAggregationFunction specialized = aggregation.specialize(
-                BoundVariables.builder().setTypeVariable("T", DoubleType.DOUBLE).build(),
-                1,
-                METADATA);
+        FunctionBinding functionBinding = new FunctionBinding(
+                aggregation.getFunctionMetadata().getFunctionId(),
+                new BoundSignature(aggregation.getFunctionMetadata().getSignature().getName(), DoubleType.DOUBLE, ImmutableList.of(DoubleType.DOUBLE)),
+                ImmutableMap.of("T", DoubleType.DOUBLE),
+                ImmutableMap.of());
+        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata(functionBinding);
+        assertFalse(aggregationMetadata.isOrderSensitive());
+        assertTrue(aggregationMetadata.getIntermediateType().isPresent());
+        InternalAggregationFunction specialized = aggregation.specialize(functionBinding, NO_FUNCTION_DEPENDENCIES);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertTrue(specialized.getParameterTypes().equals(ImmutableList.of(DoubleType.DOUBLE)));
         assertEquals(specialized.name(), "simple_generic_implementations");
@@ -389,17 +426,24 @@ public class TestAnnotationEngineForAggregates
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple aggregate with @BlockPosition usage");
         assertTrue(aggregation.getFunctionMetadata().isDeterministic());
         assertEquals(aggregation.getFunctionMetadata().getSignature(), expectedSignature);
-        assertTrue(aggregation.isDecomposable());
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
         assertImplementationCount(implementations, 1, 0, 0);
         AggregationImplementation implementation = getOnlyElement(implementations.getExactImplementations().values());
         assertEquals(implementation.getDefinitionClass(), BlockInputAggregationFunction.class);
         assertDependencyCount(implementation, 0, 0, 0);
         assertFalse(implementation.hasSpecializedTypeParameters());
-        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL, AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX);
+        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(STATE, AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INPUT_CHANNEL, AggregationMetadata.ParameterMetadata.ParameterType.BLOCK_INDEX);
         assertEquals(implementation.getInputParameterMetadataTypes(), expectedMetadataTypes);
 
-        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().build(), 1, METADATA);
+        FunctionBinding functionBinding = new FunctionBinding(
+                aggregation.getFunctionMetadata().getFunctionId(),
+                new BoundSignature(aggregation.getFunctionMetadata().getSignature().getName(), DoubleType.DOUBLE, ImmutableList.of(DoubleType.DOUBLE)),
+                ImmutableMap.of(),
+                ImmutableMap.of());
+        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata(functionBinding);
+        assertFalse(aggregationMetadata.isOrderSensitive());
+        assertTrue(aggregationMetadata.getIntermediateType().isPresent());
+        InternalAggregationFunction specialized = aggregation.specialize(functionBinding, NO_FUNCTION_DEPENDENCIES);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertEquals(specialized.name(), "block_input_aggregate");
     }
@@ -474,14 +518,13 @@ public class TestAnnotationEngineForAggregates
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple implicit specialized aggregate");
         assertTrue(aggregation.getFunctionMetadata().isDeterministic());
         assertEquals(aggregation.getFunctionMetadata().getSignature(), expectedSignature);
-        assertTrue(aggregation.isDecomposable());
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
         assertImplementationCount(implementations, 0, 0, 2);
 
         AggregationImplementation implementation1 = implementations.getSpecializedImplementations().get(0);
         assertTrue(implementation1.hasSpecializedTypeParameters());
         assertFalse(implementation1.hasSpecializedTypeParameters());
-        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
+        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(STATE, INPUT_CHANNEL, INPUT_CHANNEL);
         assertTrue(implementation1.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
         AggregationImplementation implementation2 = implementations.getSpecializedImplementations().get(1);
@@ -489,7 +532,15 @@ public class TestAnnotationEngineForAggregates
         assertFalse(implementation2.hasSpecializedTypeParameters());
         assertTrue(implementation2.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
-        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().setTypeVariable("T", DoubleType.DOUBLE).build(), 1, METADATA);
+        FunctionBinding functionBinding = new FunctionBinding(
+                aggregation.getFunctionMetadata().getFunctionId(),
+                new BoundSignature(aggregation.getFunctionMetadata().getSignature().getName(), DoubleType.DOUBLE, ImmutableList.of(new ArrayType(DoubleType.DOUBLE))),
+                ImmutableMap.of("T", DoubleType.DOUBLE),
+                ImmutableMap.of());
+        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata(functionBinding);
+        assertFalse(aggregationMetadata.isOrderSensitive());
+        assertTrue(aggregationMetadata.getIntermediateType().isPresent());
+        InternalAggregationFunction specialized = aggregation.specialize(functionBinding, NO_FUNCTION_DEPENDENCIES);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertEquals(specialized.name(), "implicit_specialized_aggregate");
     }
@@ -565,13 +616,12 @@ public class TestAnnotationEngineForAggregates
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple explicit specialized aggregate");
         assertTrue(aggregation.getFunctionMetadata().isDeterministic());
         assertEquals(aggregation.getFunctionMetadata().getSignature(), expectedSignature);
-        assertTrue(aggregation.isDecomposable());
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
         assertImplementationCount(implementations, 0, 1, 1);
         AggregationImplementation implementation1 = implementations.getSpecializedImplementations().get(0);
         assertTrue(implementation1.hasSpecializedTypeParameters());
         assertFalse(implementation1.hasSpecializedTypeParameters());
-        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
+        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(STATE, INPUT_CHANNEL);
         assertTrue(implementation1.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
         AggregationImplementation implementation2 = implementations.getSpecializedImplementations().get(1);
@@ -579,7 +629,15 @@ public class TestAnnotationEngineForAggregates
         assertFalse(implementation2.hasSpecializedTypeParameters());
         assertTrue(implementation2.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
-        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().setTypeVariable("T", DoubleType.DOUBLE).build(), 1, METADATA);
+        FunctionBinding functionBinding = new FunctionBinding(
+                aggregation.getFunctionMetadata().getFunctionId(),
+                new BoundSignature(aggregation.getFunctionMetadata().getSignature().getName(), DoubleType.DOUBLE, ImmutableList.of(new ArrayType(DoubleType.DOUBLE))),
+                ImmutableMap.of("T", DoubleType.DOUBLE),
+                ImmutableMap.of());
+        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata(functionBinding);
+        assertFalse(aggregationMetadata.isOrderSensitive());
+        assertTrue(aggregationMetadata.getIntermediateType().isPresent());
+        InternalAggregationFunction specialized = aggregation.specialize(functionBinding, NO_FUNCTION_DEPENDENCIES);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertEquals(specialized.name(), "implicit_specialized_aggregate");
     }
@@ -643,13 +701,12 @@ public class TestAnnotationEngineForAggregates
         ParametricAggregation aggregation1 = aggregations.stream().filter(aggregate -> aggregate.getFunctionMetadata().getSignature().getName().equals("multi_output_aggregate_1")).collect(toImmutableList()).get(0);
         assertEquals(aggregation1.getFunctionMetadata().getSignature(), expectedSignature1);
         assertEquals(aggregation1.getFunctionMetadata().getDescription(), "Simple multi output function aggregate specialized description");
-        assertTrue(aggregation1.isDecomposable());
 
         ParametricAggregation aggregation2 = aggregations.stream().filter(aggregate -> aggregate.getFunctionMetadata().getSignature().getName().equals("multi_output_aggregate_2")).collect(toImmutableList()).get(0);
         assertEquals(aggregation2.getFunctionMetadata().getSignature(), expectedSignature2);
         assertEquals(aggregation2.getFunctionMetadata().getDescription(), "Simple multi output function aggregate generic description");
 
-        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
+        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(STATE, INPUT_CHANNEL);
 
         ParametricImplementationsGroup<AggregationImplementation> implementations1 = aggregation1.getImplementations();
         assertImplementationCount(implementations1, 1, 0, 0);
@@ -663,7 +720,15 @@ public class TestAnnotationEngineForAggregates
         assertFalse(implementation.hasSpecializedTypeParameters());
         assertTrue(implementation.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
-        InternalAggregationFunction specialized = aggregation1.specialize(BoundVariables.builder().build(), 1, METADATA);
+        FunctionBinding functionBinding = new FunctionBinding(
+                aggregation1.getFunctionMetadata().getFunctionId(),
+                new BoundSignature(aggregation1.getFunctionMetadata().getSignature().getName(), DoubleType.DOUBLE, ImmutableList.of(DoubleType.DOUBLE)),
+                ImmutableMap.of(),
+                ImmutableMap.of());
+        AggregationFunctionMetadata aggregationMetadata = aggregation1.getAggregationMetadata(functionBinding);
+        assertFalse(aggregationMetadata.isOrderSensitive());
+        assertTrue(aggregationMetadata.getIntermediateType().isPresent());
+        InternalAggregationFunction specialized = aggregation1.specialize(functionBinding, NO_FUNCTION_DEPENDENCIES);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertEquals(specialized.name(), "multi_output_aggregate_1");
     }
@@ -712,7 +777,6 @@ public class TestAnnotationEngineForAggregates
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple aggregate with operator injected");
         assertTrue(aggregation.getFunctionMetadata().isDeterministic());
         assertEquals(aggregation.getFunctionMetadata().getSignature(), expectedSignature);
-        assertTrue(aggregation.isDecomposable());
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
 
         AggregationImplementation implementation = getOnlyElement(implementations.getExactImplementations().values());
@@ -724,10 +788,11 @@ public class TestAnnotationEngineForAggregates
         assertTrue(implementation.getOutputDependencies().get(0) instanceof OperatorImplementationDependency);
 
         assertFalse(implementation.hasSpecializedTypeParameters());
-        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
+        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(STATE, INPUT_CHANNEL);
         assertTrue(implementation.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
-        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().build(), 1, METADATA);
+        BoundSignature boundSignature = new BoundSignature(aggregation.getFunctionMetadata().getSignature().getName(), DoubleType.DOUBLE, ImmutableList.of(DoubleType.DOUBLE));
+        InternalAggregationFunction specialized = specializeAggregationFunction(boundSignature, aggregation);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertEquals(specialized.name(), "inject_operator_aggregate");
     }
@@ -780,7 +845,6 @@ public class TestAnnotationEngineForAggregates
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple aggregate with type injected");
         assertTrue(aggregation.getFunctionMetadata().isDeterministic());
         assertEquals(aggregation.getFunctionMetadata().getSignature(), expectedSignature);
-        assertTrue(aggregation.isDecomposable());
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
 
         assertEquals(implementations.getGenericImplementations().size(), 1);
@@ -793,10 +857,11 @@ public class TestAnnotationEngineForAggregates
         assertTrue(implementation.getOutputDependencies().get(0) instanceof TypeImplementationDependency);
 
         assertFalse(implementation.hasSpecializedTypeParameters());
-        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
+        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(STATE, INPUT_CHANNEL);
         assertTrue(implementation.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
-        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().setTypeVariable("T", DoubleType.DOUBLE).build(), 1, METADATA);
+        BoundSignature boundSignature = new BoundSignature(aggregation.getFunctionMetadata().getSignature().getName(), DoubleType.DOUBLE, ImmutableList.of(DoubleType.DOUBLE));
+        InternalAggregationFunction specialized = specializeAggregationFunction(boundSignature, aggregation);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
         assertEquals(specialized.name(), "inject_type_aggregate");
     }
@@ -846,7 +911,6 @@ public class TestAnnotationEngineForAggregates
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple aggregate with type literal");
         assertTrue(aggregation.getFunctionMetadata().isDeterministic());
         assertEquals(aggregation.getFunctionMetadata().getSignature(), expectedSignature);
-        assertTrue(aggregation.isDecomposable());
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
 
         assertEquals(implementations.getGenericImplementations().size(), 1);
@@ -859,11 +923,19 @@ public class TestAnnotationEngineForAggregates
         assertTrue(implementation.getOutputDependencies().get(0) instanceof LiteralImplementationDependency);
 
         assertFalse(implementation.hasSpecializedTypeParameters());
-        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
+        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(STATE, INPUT_CHANNEL);
         assertTrue(implementation.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
-        InternalAggregationFunction specialized = aggregation.specialize(BoundVariables.builder().setLongVariable("x", 17L).build(), 1, METADATA);
-        assertEquals(specialized.getFinalType(), VarcharType.createVarcharType(17));
+        FunctionBinding functionBinding = new FunctionBinding(
+                aggregation.getFunctionMetadata().getFunctionId(),
+                new BoundSignature(aggregation.getFunctionMetadata().getSignature().getName(), createVarcharType(17), ImmutableList.of(createVarcharType(17))),
+                ImmutableMap.of(),
+                ImmutableMap.of("x", 17L));
+        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata(functionBinding);
+        assertFalse(aggregationMetadata.isOrderSensitive());
+        assertTrue(aggregationMetadata.getIntermediateType().isPresent());
+        InternalAggregationFunction specialized = aggregation.specialize(functionBinding, NO_FUNCTION_DEPENDENCIES);
+        assertEquals(specialized.getFinalType(), createVarcharType(17));
         assertEquals(specialized.name(), "inject_literal_aggregate");
     }
 
@@ -915,7 +987,6 @@ public class TestAnnotationEngineForAggregates
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Parametric aggregate with parametric type returned");
         assertTrue(aggregation.getFunctionMetadata().isDeterministic());
         assertEquals(aggregation.getFunctionMetadata().getSignature(), expectedSignature);
-        assertTrue(aggregation.isDecomposable());
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
 
         assertEquals(implementations.getGenericImplementations().size(), 1);
@@ -924,18 +995,23 @@ public class TestAnnotationEngineForAggregates
         assertDependencyCount(implementation, 0, 0, 0);
 
         assertFalse(implementation.hasSpecializedTypeParameters());
-        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
+        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(STATE, INPUT_CHANNEL, INPUT_CHANNEL);
         assertTrue(implementation.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
 
-        InternalAggregationFunction specialized = aggregation.specialize(
-                BoundVariables.builder()
-                        .setLongVariable("x", 17L)
-                        .setLongVariable("y", 13L)
-                        .setLongVariable("z", 30L)
-                        .build(),
-                2,
-                METADATA);
-        assertEquals(specialized.getFinalType(), VarcharType.createVarcharType(30));
+        FunctionBinding functionBinding = new FunctionBinding(
+                aggregation.getFunctionMetadata().getFunctionId(),
+                new BoundSignature(aggregation.getFunctionMetadata().getSignature().getName(), createVarcharType(30), ImmutableList.of(createVarcharType(17), createVarcharType(13))),
+                ImmutableMap.of(),
+                ImmutableMap.<String, Long>builder()
+                        .put("x", 17L)
+                        .put("y", 13L)
+                        .put("z", 30L)
+                        .build());
+        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata(functionBinding);
+        assertFalse(aggregationMetadata.isOrderSensitive());
+        assertTrue(aggregationMetadata.getIntermediateType().isPresent());
+        InternalAggregationFunction specialized = aggregation.specialize(functionBinding, NO_FUNCTION_DEPENDENCIES);
+        assertEquals(specialized.getFinalType(), createVarcharType(30));
         assertEquals(specialized.name(), "parametric_aggregate_long_constraint");
     }
 
@@ -992,7 +1068,7 @@ public class TestAnnotationEngineForAggregates
         assertEquals(implementationDouble.getDefinitionClass(), FixedTypeParameterInjectionAggregateFunction.class);
         assertDependencyCount(implementationDouble, 1, 1, 1);
         assertFalse(implementationDouble.hasSpecializedTypeParameters());
-        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
+        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(STATE, INPUT_CHANNEL);
         assertTrue(implementationDouble.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
         assertEquals(implementationDouble.getStateClass(), NullableDoubleState.class);
     }
@@ -1007,9 +1083,9 @@ public class TestAnnotationEngineForAggregates
         public static void input(
                 @TypeParameter("ROW(ARRAY(T1),ROW(ROW(T2)),CHAR)") Type type,
                 @AggregationState NullableDoubleState state,
-                @SqlType("double") double value)
+                @SqlType("T1") double x, @SqlType("T2") double y)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @CombineFunction
@@ -1020,7 +1096,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 @AggregationState NullableDoubleState otherState)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
 
         @OutputFunction("double")
@@ -1031,7 +1107,7 @@ public class TestAnnotationEngineForAggregates
                 @AggregationState NullableDoubleState state,
                 BlockBuilder out)
         {
-            // noop this is only for annotation testing puproses
+            // noop this is only for annotation testing purposes
         }
     }
 
@@ -1043,30 +1119,40 @@ public class TestAnnotationEngineForAggregates
                 ImmutableList.of(typeVariable("T1"), typeVariable("T2")),
                 ImmutableList.of(),
                 DoubleType.DOUBLE.getTypeSignature(),
-                ImmutableList.of(DoubleType.DOUBLE.getTypeSignature()),
+                ImmutableList.of(new TypeSignature("T1"), new TypeSignature("T2")),
                 false);
 
         ParametricAggregation aggregation = parseFunctionDefinition(PartiallyFixedTypeParameterInjectionAggregateFunction.class);
         assertEquals(aggregation.getFunctionMetadata().getDescription(), "Simple aggregate with fixed parameter type injected");
         assertTrue(aggregation.getFunctionMetadata().isDeterministic());
         assertEquals(aggregation.getFunctionMetadata().getSignature(), expectedSignature);
-        assertTrue(aggregation.isDecomposable());
         ParametricImplementationsGroup<AggregationImplementation> implementations = aggregation.getImplementations();
         assertImplementationCount(implementations, 0, 0, 1);
         AggregationImplementation implementationDouble = implementations.getGenericImplementations().stream().filter(impl -> impl.getStateClass() == NullableDoubleState.class).collect(toImmutableList()).get(0);
         assertEquals(implementationDouble.getDefinitionClass(), PartiallyFixedTypeParameterInjectionAggregateFunction.class);
         assertDependencyCount(implementationDouble, 1, 1, 1);
         assertFalse(implementationDouble.hasSpecializedTypeParameters());
-        List<AggregationMetadata.ParameterMetadata.ParameterType> expectedMetadataTypes = ImmutableList.of(AggregationMetadata.ParameterMetadata.ParameterType.STATE, AggregationMetadata.ParameterMetadata.ParameterType.INPUT_CHANNEL);
-        assertTrue(implementationDouble.getInputParameterMetadataTypes().equals(expectedMetadataTypes));
+        assertEquals(implementationDouble.getInputParameterMetadataTypes(), ImmutableList.of(STATE, INPUT_CHANNEL, INPUT_CHANNEL));
         assertEquals(implementationDouble.getStateClass(), NullableDoubleState.class);
 
-        InternalAggregationFunction specialized = aggregation.specialize(
-                BoundVariables.builder().setTypeVariable("T1", DoubleType.DOUBLE).setTypeVariable("T2", DoubleType.DOUBLE).build(),
-                1,
-                METADATA);
+        BoundSignature boundSignature = new BoundSignature(aggregation.getFunctionMetadata().getSignature().getName(), DoubleType.DOUBLE, ImmutableList.of(DoubleType.DOUBLE, DoubleType.DOUBLE));
+        InternalAggregationFunction specialized = specializeAggregationFunction(boundSignature, aggregation);
         assertEquals(specialized.getFinalType(), DoubleType.DOUBLE);
-        assertTrue(specialized.getParameterTypes().equals(ImmutableList.of(DoubleType.DOUBLE)));
+        assertEquals(ImmutableList.of(DoubleType.DOUBLE, DoubleType.DOUBLE), specialized.getParameterTypes());
         assertEquals(specialized.name(), "partially_fixed_type_parameter_injection");
+    }
+
+    private static InternalAggregationFunction specializeAggregationFunction(BoundSignature boundSignature, SqlAggregationFunction aggregation)
+    {
+        FunctionMetadata functionMetadata = aggregation.getFunctionMetadata();
+        FunctionBinding functionBinding = MetadataManager.toFunctionBinding(functionMetadata.getFunctionId(), boundSignature, functionMetadata.getSignature());
+
+        AggregationFunctionMetadata aggregationMetadata = aggregation.getAggregationMetadata(functionBinding);
+        assertFalse(aggregationMetadata.isOrderSensitive());
+        assertTrue(aggregationMetadata.getIntermediateType().isPresent());
+
+        ResolvedFunction resolvedFunction = METADATA.resolve(functionBinding, aggregation.getFunctionDependencies(functionBinding));
+        FunctionDependencies functionDependencies = new FunctionDependencies(METADATA, resolvedFunction.getTypeDependencies(), resolvedFunction.getFunctionDependencies());
+        return aggregation.specialize(functionBinding, functionDependencies);
     }
 }

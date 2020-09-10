@@ -15,7 +15,6 @@ package io.prestosql.sql.planner;
 
 import com.google.common.primitives.Ints;
 import io.prestosql.metadata.ResolvedFunction;
-import io.prestosql.metadata.Signature;
 import io.prestosql.spi.type.BigintType;
 import io.prestosql.spi.type.Type;
 import io.prestosql.sql.analyzer.Field;
@@ -116,10 +115,7 @@ public class SymbolAllocator
         }
         else if (expression instanceof FunctionCall) {
             FunctionCall functionCall = (FunctionCall) expression;
-            nameHint = ResolvedFunction.fromQualifiedName(functionCall.getName())
-                    .map(ResolvedFunction::getSignature)
-                    .map(Signature::getName)
-                    .orElse(functionCall.getName().getSuffix());
+            nameHint = ResolvedFunction.extractFunctionName(functionCall.getName());
         }
         else if (expression instanceof SymbolReference) {
             nameHint = ((SymbolReference) expression).getName();

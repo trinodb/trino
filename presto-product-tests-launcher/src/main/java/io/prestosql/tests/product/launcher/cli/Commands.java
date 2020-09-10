@@ -13,10 +13,10 @@
  */
 package io.prestosql.tests.product.launcher.cli;
 
+import com.google.common.collect.ImmutableList;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
-import org.testcontainers.shaded.com.google.common.collect.ImmutableList;
 
 import java.util.List;
 

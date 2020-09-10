@@ -62,6 +62,7 @@ import static io.prestosql.testing.TestingSession.testSessionBuilder;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.CompletableFuture.completedFuture;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 public class TestLazyCoordinatorDynamicFiltering
@@ -96,7 +97,42 @@ public class TestLazyCoordinatorDynamicFiltering
     @Override
     public void testBroadcastJoinWithSelectiveBuildSide()
     {
-        // lazy dynamic filters on coordinator do not work with broadcast joins
+        // for broadcast joins lazy dynamic filters are non blocking
+    }
+
+    @Test(enabled = false)
+    @Override
+    public void testBroadcastJoinWithEmptyBuildSide()
+    {
+        // for broadcast joins lazy dynamic filters are non blocking
+    }
+
+    @Test(enabled = false)
+    @Override
+    public void testBroadcastJoinWithLargeBuildSide()
+    {
+        // for broadcast joins lazy dynamic filters are non blocking
+    }
+
+    @Test(enabled = false)
+    @Override
+    public void testBroadcastSemiJoinWithSelectiveBuildSide()
+    {
+        // for broadcast semi-joins lazy dynamic filters are non blocking
+    }
+
+    @Test(enabled = false)
+    @Override
+    public void testBroadcastSemiJoinWithEmptyBuildSide()
+    {
+        // for broadcast semi-joins lazy dynamic filters are non blocking
+    }
+
+    @Test(enabled = false)
+    @Override
+    public void testBroadcastSemiJoinWithLargeBuildSide()
+    {
+        // for broadcast semi-joins lazy dynamic filters are non blocking
     }
 
     private class TestPlugin
@@ -167,6 +203,8 @@ public class TestLazyCoordinatorDynamicFiltering
                 {
                     AtomicBoolean splitProduced = new AtomicBoolean();
                     TupleDomain<ColumnHandle> expectedDynamicFilter = getExpectedDynamicFilter(session);
+
+                    assertFalse(dynamicFilter.isBlocked().isDone(), "Dynamic filter should be initially blocked");
 
                     return new ConnectorSplitSource()
                     {

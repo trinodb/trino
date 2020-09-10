@@ -89,7 +89,8 @@ public class TestDeallocateTask
                 accessControl,
                 executor,
                 metadata,
-                WarningCollector.NOOP);
+                WarningCollector.NOOP,
+                Optional.empty());
         Deallocate deallocate = new Deallocate(new Identifier(statementName));
         new DeallocateTask().execute(deallocate, transactionManager, metadata, new AllowAllAccessControl(), stateMachine, emptyList());
         return stateMachine.getDeallocatedPreparedStatements();

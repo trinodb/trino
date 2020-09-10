@@ -22,6 +22,7 @@ import io.prestosql.plugin.hive.metastore.PartitionWithStatistics;
 import io.prestosql.spi.PrestoException;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.security.RoleGrant;
 import io.prestosql.spi.statistics.ColumnStatisticType;
 import io.prestosql.spi.type.Type;
@@ -68,9 +69,7 @@ public interface ThriftMetastore
 
     void alterPartition(HiveIdentity identity, String databaseName, String tableName, PartitionWithStatistics partition);
 
-    Optional<List<String>> getPartitionNames(HiveIdentity identity, String databaseName, String tableName);
-
-    Optional<List<String>> getPartitionNamesByParts(HiveIdentity identity, String databaseName, String tableName, List<String> parts);
+    Optional<List<String>> getPartitionNamesByFilter(HiveIdentity identity, String databaseName, String tableName, List<String> columnNames, TupleDomain<String> partitionKeysFilter);
 
     Optional<Partition> getPartition(HiveIdentity identity, String databaseName, String tableName, List<String> partitionValues);
 

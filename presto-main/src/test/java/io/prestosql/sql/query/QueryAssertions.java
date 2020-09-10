@@ -14,6 +14,7 @@
 package io.prestosql.sql.query;
 
 import io.prestosql.Session;
+import io.prestosql.cost.PlanNodeStatsEstimate;
 import io.prestosql.execution.warnings.WarningCollector;
 import io.prestosql.spi.type.SqlTime;
 import io.prestosql.spi.type.SqlTimeWithTimeZone;
@@ -23,6 +24,8 @@ import io.prestosql.spi.type.Type;
 import io.prestosql.sql.planner.Plan;
 import io.prestosql.sql.planner.assertions.PlanAssert;
 import io.prestosql.sql.planner.assertions.PlanMatchPattern;
+import io.prestosql.sql.planner.plan.PlanNode;
+import io.prestosql.sql.planner.plan.TableScanNode;
 import io.prestosql.testing.LocalQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
@@ -41,9 +44,11 @@ import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 import static io.airlift.testing.Assertions.assertEqualsIgnoreOrder;
+import static io.prestosql.sql.planner.assertions.PlanAssert.assertPlan;
 import static io.prestosql.sql.query.QueryAssertions.ExpressionAssert.newExpressionAssert;
 import static io.prestosql.sql.query.QueryAssertions.QueryAssert.newQueryAssert;
 import static io.prestosql.testing.TestingSession.testSessionBuilder;
+import static io.prestosql.transaction.TransactionBuilder.transaction;
 import static java.util.Objects.requireNonNull;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.testng.Assert.assertEquals;
@@ -84,10 +89,16 @@ public class QueryAssertions
 
     public AssertProvider<QueryAssert> query(@Language("SQL") String query)
     {
-        return query(query, runner.getDefaultSession());
+        return query(runner.getDefaultSession(), query);
     }
 
+    @Deprecated
     public AssertProvider<QueryAssert> query(@Language("SQL") String query, Session session)
+    {
+        return query(session, query);
+    }
+
+    public AssertProvider<QueryAssert> query(Session session, @Language("SQL") String query)
     {
         return newQueryAssert(query, runner, session);
     }
@@ -222,19 +233,21 @@ public class QueryAssertions
 
         private final QueryRunner runner;
         private final Session session;
+        private final String query;
         private boolean ordered;
 
         static AssertProvider<QueryAssert> newQueryAssert(String query, QueryRunner runner, Session session)
         {
             MaterializedResult result = runner.execute(session, query);
-            return () -> new QueryAssert(runner, session, result);
+            return () -> new QueryAssert(runner, session, query, result);
         }
 
-        public QueryAssert(QueryRunner runner, Session session, MaterializedResult actual)
+        public QueryAssert(QueryRunner runner, Session session, String query, MaterializedResult actual)
         {
             super(actual, Object.class);
-            this.runner = runner;
-            this.session = session;
+            this.runner = requireNonNull(runner, "runner is null");
+            this.session = requireNonNull(session, "session is null");
+            this.query = requireNonNull(query, "query is null");
         }
 
         public QueryAssert matches(BiFunction<Session, QueryRunner, MaterializedResult> evaluator)
@@ -252,7 +265,11 @@ public class QueryAssertions
         public QueryAssert matches(@Language("SQL") String query)
         {
             MaterializedResult expected = runner.execute(session, query);
+            return matches(expected);
+        }
 
+        private QueryAssert matches(MaterializedResult expected)
+        {
             return satisfies(actual -> {
                 assertThat(actual.getTypes())
                         .as("Output types")
@@ -270,6 +287,72 @@ public class QueryAssertions
                 }
             });
         }
+
+        public QueryAssert returnsEmptyResult()
+        {
+            return satisfies(actual -> {
+                assertThat(actual.getRowCount()).as("row count").isEqualTo(0);
+            });
+        }
+
+        /**
+         * Verifies query is fully pushed down and verifies the results are the same as when the pushdown is disabled.
+         */
+        public QueryAssert isCorrectlyPushedDown()
+        {
+            // Compare the results with pushdown disabled, so that explicit matches() call is not needed
+            verifyResultsWithPushdownDisabled();
+
+            transaction(runner.getTransactionManager(), runner.getAccessControl())
+                    .execute(session, session -> {
+                        Plan plan = runner.createPlan(session, query, WarningCollector.NOOP);
+                        assertPlan(
+                                session,
+                                runner.getMetadata(),
+                                (node, sourceStats, lookup, ignore, types) -> PlanNodeStatsEstimate.unknown(),
+                                plan,
+                                PlanMatchPattern.output(
+                                        PlanMatchPattern.exchange(
+                                                PlanMatchPattern.node(TableScanNode.class))));
+                    });
+
+            return this;
+        }
+
+        /**
+         * Verifies query is not fully pushed down and verifies the results are the same as when the pushdown is fully disabled.
+         * <p>
+         * <b>Note:</b> the primary intent of this assertion is to ensure the test is updated to {@link #isCorrectlyPushedDown()}
+         * when pushdown capabilities are improved.
+         */
+        public QueryAssert isNotFullyPushedDown(Class<? extends PlanNode> retainedNode)
+        {
+            // Compare the results with pushdown disabled, so that explicit matches() call is not needed
+            verifyResultsWithPushdownDisabled();
+
+            transaction(runner.getTransactionManager(), runner.getAccessControl())
+                    .execute(session, session -> {
+                        Plan plan = runner.createPlan(session, query, WarningCollector.NOOP);
+                        assertPlan(
+                                session,
+                                runner.getMetadata(),
+                                (node, sourceStats, lookup, ignore, types) -> PlanNodeStatsEstimate.unknown(),
+                                plan,
+                                PlanMatchPattern.anyTree(
+                                        PlanMatchPattern.node(retainedNode,
+                                                PlanMatchPattern.node(TableScanNode.class))));
+                    });
+
+            return this;
+        }
+
+        private void verifyResultsWithPushdownDisabled()
+        {
+            Session withoutPushdown = Session.builder(session)
+                    .setSystemProperty("allow_pushdown_into_connectors", "false")
+                    .build();
+            matches(runner.execute(withoutPushdown, query));
+        }
     }
 
     public static class ExpressionAssert
@@ -283,12 +366,11 @@ public class QueryAssertions
                 if (object instanceof SqlTimestamp) {
                     SqlTimestamp timestamp = (SqlTimestamp) object;
                     return String.format(
-                            "%s [p = %s, epochMicros = %s, fraction = %s, tz = %s]",
+                            "%s [p = %s, epochMicros = %s, fraction = %s]",
                             timestamp,
                             timestamp.getPrecision(),
                             timestamp.getEpochMicros(),
-                            timestamp.getPicosOfMicros(),
-                            timestamp.getSessionTimeZoneKey().map(Object::toString).orElse("ø"));
+                            timestamp.getPicosOfMicros());
                 }
                 else if (object instanceof SqlTimestampWithTimeZone) {
                     SqlTimestampWithTimeZone timestamp = (SqlTimestampWithTimeZone) object;
@@ -302,19 +384,15 @@ public class QueryAssertions
                 }
                 else if (object instanceof SqlTime) {
                     SqlTime time = (SqlTime) object;
-                    return String.format(
-                            "%s [millis = %s, tz = %s]",
-                            time,
-                            time.getMillis(),
-                            time.getSessionTimeZoneKey().map(Object::toString).orElse("ø"));
+                    return String.format("%s [picos = %s]", time, time.getPicos());
                 }
                 else if (object instanceof SqlTimeWithTimeZone) {
                     SqlTimeWithTimeZone time = (SqlTimeWithTimeZone) object;
                     return String.format(
-                            "%s [millis = %s, tz = %s]",
+                            "%s [picos = %s, offset = %s]",
                             time,
-                            time.getMillisUtc(),
-                            time.getTimeZoneKey());
+                            time.getPicos(),
+                            time.getOffsetMinutes());
                 }
 
                 return Objects.toString(object);

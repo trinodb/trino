@@ -90,26 +90,9 @@ CALL system.rollback_to_snapshot(schema_name, table_name, snapshot_id)
 
 * Update the README to reflect the current status, and convert it to proper connector documentation
   before announcing the connector as ready for use.
-* Predicate pushdown is currently broken, which means delete is also broken. The code from the
-  original `getTableLayouts()` implementation needs to be updated for `applyFilter()`.
-* Writing of decimals and timestamps is broken, since their representation in Parquet seems
-  to be different for Iceberg and Hive. Reads are probably also broken, but this isn't tested
-  yet since writes don't work.
-* UUID likely does not work and is not tested.
-* Implement time type.
-* System tables (history, snapshots, manifests, partitions) probably do not work and are not tested.
-  These likely need to be implemented as a Presto `SystemTable` using the API in the Iceberg library.
-* Needs complete tests for all data types and all partitioning transforms.
-* Needs integration tests (probably as product tests) for interoperability with Spark in both directions
-  (write Spark -> read Presto, write Presto -> read Spark).
-* Needs correctness tests for partition pruning.
-  (also validate the pushdown is happening by checking the query plans?)
-* Return table statistics so CBO can leverage them.
-* Iceberg table properties.
-* Add tests for `CREATE TABLE LIKE`.
-* Add test for creating `NOT NULL` columns.
-* Add tests for table comments.
-* Add tests for column comments.
+* Add tests for truncate on numeric types.
+* Test Iceberg table names like my_table@456 and my_table@456$partitions.
+* Test partition transforms on structured types.
 * Add tests for non-Iceberg tables
   * listing tables in a schema
   * listing columns in a schema

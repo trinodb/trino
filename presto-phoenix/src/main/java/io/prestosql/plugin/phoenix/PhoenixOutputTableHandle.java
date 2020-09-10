@@ -22,10 +22,12 @@ import io.prestosql.spi.type.Type;
 import java.util.List;
 import java.util.Optional;
 
+import static java.util.Objects.requireNonNull;
+
 public class PhoenixOutputTableHandle
         extends JdbcOutputTableHandle
 {
-    private final boolean hasUuidRowKey;
+    private final Optional<String> rowkeyColumn;
 
     @JsonCreator
     public PhoenixOutputTableHandle(
@@ -34,15 +36,15 @@ public class PhoenixOutputTableHandle
             @JsonProperty("columnNames") List<String> columnNames,
             @JsonProperty("columnTypes") List<Type> columnTypes,
             @JsonProperty("jdbcColumnTypes") Optional<List<JdbcTypeHandle>> jdbcColumnTypes,
-            @JsonProperty("hadUUIDRowkey") boolean hasUUIDRowkey)
+            @JsonProperty("rowkeyColumn") Optional<String> rowkeyColumn)
     {
         super("", schemaName.orElse(null), tableName, columnNames, columnTypes, jdbcColumnTypes, "");
-        this.hasUuidRowKey = hasUUIDRowkey;
+        this.rowkeyColumn = requireNonNull(rowkeyColumn, "rowkeyColumn is null");
     }
 
     @JsonProperty
-    public boolean hasUUIDRowkey()
+    public Optional<String> rowkeyColumn()
     {
-        return hasUuidRowKey;
+        return rowkeyColumn;
     }
 }

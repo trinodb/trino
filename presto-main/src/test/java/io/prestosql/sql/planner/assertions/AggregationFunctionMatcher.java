@@ -21,7 +21,6 @@ import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.AggregationNode.Aggregation;
 import io.prestosql.sql.planner.plan.PlanNode;
 import io.prestosql.sql.tree.FunctionCall;
-import io.prestosql.sql.tree.QualifiedName;
 
 import java.util.Map;
 import java.util.Objects;
@@ -29,7 +28,7 @@ import java.util.Optional;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Preconditions.checkState;
-import static io.prestosql.sql.ExpressionTestUtils.getFunctionName;
+import static io.prestosql.metadata.ResolvedFunction.extractFunctionName;
 import static java.util.Objects.requireNonNull;
 
 public class AggregationFunctionMatcher
@@ -70,7 +69,7 @@ public class AggregationFunctionMatcher
             return false;
         }
         checkArgument(aggregation.getFilter().isEmpty(), "Cannot match filters");
-        return Objects.equals(getFunctionName(expectedCall), QualifiedName.of(aggregation.getResolvedFunction().getSignature().getName())) &&
+        return Objects.equals(extractFunctionName(expectedCall.getName()), aggregation.getResolvedFunction().getSignature().getName()) &&
                 aggregation.getFilter().isEmpty() &&
                 Objects.equals(expectedCall.getOrderBy().map(OrderingScheme::fromOrderBy), aggregation.getOrderingScheme()) &&
                 Objects.equals(expectedCall.isDistinct(), aggregation.isDistinct()) &&

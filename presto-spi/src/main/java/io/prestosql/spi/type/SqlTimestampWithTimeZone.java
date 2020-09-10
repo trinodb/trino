@@ -29,9 +29,6 @@ public final class SqlTimestampWithTimeZone
     private static final int NANOSECONDS_PER_MILLISECOND = 1_000_000;
     private static final int PICOSECONDS_PER_NANOSECOND = 1_000;
 
-    // This needs to be Locale-independent, Java Time's DateTimeFormatter compatible and should never change, as it defines the external API data format.
-    public static final String JSON_FORMAT = "uuuu-MM-dd HH:mm:ss[.SSS] VV";
-
     private final int precision;
     private final long epochMillis;
     private final int picosOfMilli;

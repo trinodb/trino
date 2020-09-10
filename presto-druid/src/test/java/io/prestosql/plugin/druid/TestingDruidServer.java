@@ -18,15 +18,15 @@ import com.google.common.io.Closer;
 import com.google.common.io.MoreFiles;
 import com.google.common.io.Resources;
 import io.prestosql.testing.assertions.Assert;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 import org.testcontainers.containers.BindMode;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import org.testcontainers.containers.wait.strategy.Wait;
-import org.testcontainers.shaded.okhttp3.OkHttpClient;
-import org.testcontainers.shaded.okhttp3.Request;
-import org.testcontainers.shaded.okhttp3.RequestBody;
-import org.testcontainers.shaded.okhttp3.Response;
 
 import java.io.Closeable;
 import java.io.File;
@@ -48,11 +48,11 @@ public class TestingDruidServer
         implements Closeable
 {
     private final String hostWorkingDirectory;
-    private final GenericContainer broker;
-    private final GenericContainer coordinator;
-    private final GenericContainer historical;
-    private final GenericContainer middleManager;
-    private final GenericContainer zookeeper;
+    private final GenericContainer<?> broker;
+    private final GenericContainer<?> coordinator;
+    private final GenericContainer<?> historical;
+    private final GenericContainer<?> middleManager;
+    private final GenericContainer<?> zookeeper;
     private final OkHttpClient httpClient;
 
     private static final int DRUID_COORDINATOR_PORT = 8081;
@@ -77,14 +77,14 @@ public class TestingDruidServer
             f.setExecutable(true, false);
             this.httpClient = new OkHttpClient();
             Network network = Network.newNetwork();
-            this.zookeeper = new GenericContainer("zookeeper")
+            this.zookeeper = new GenericContainer<>("zookeeper")
                     .withNetwork(network)
                     .withNetworkAliases("zookeeper")
                     .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                     .waitingFor(Wait.forListeningPort());
             zookeeper.start();
 
-            this.coordinator = new GenericContainer(DRUID_DOCKER_IMAGE)
+            this.coordinator = new GenericContainer<>(DRUID_DOCKER_IMAGE)
                     .withExposedPorts(DRUID_COORDINATOR_PORT)
                     .withNetwork(network)
                     .withCommand("coordinator")
@@ -104,7 +104,7 @@ public class TestingDruidServer
                     .waitingFor(Wait.forHttp("/status/selfDiscovered"));
             coordinator.start();
 
-            this.broker = new GenericContainer(DRUID_DOCKER_IMAGE)
+            this.broker = new GenericContainer<>(DRUID_DOCKER_IMAGE)
                     .withExposedPorts(DRUID_BROKER_PORT)
                     .withNetwork(network)
                     .withCommand("broker")
@@ -124,7 +124,7 @@ public class TestingDruidServer
                     .waitingFor(Wait.forHttp("/status/selfDiscovered"));
             broker.start();
 
-            this.historical = new GenericContainer(DRUID_DOCKER_IMAGE)
+            this.historical = new GenericContainer<>(DRUID_DOCKER_IMAGE)
                     .withExposedPorts(DRUID_HISTORICAL_PORT)
                     .withNetwork(network)
                     .withCommand("historical")
@@ -144,7 +144,7 @@ public class TestingDruidServer
                     .waitingFor(Wait.forHttp("/status/selfDiscovered"));
             historical.start();
 
-            this.middleManager = new GenericContainer(DRUID_DOCKER_IMAGE)
+            this.middleManager = new GenericContainer<>(DRUID_DOCKER_IMAGE)
                     .withExposedPorts(DRUID_MIDDLE_MANAGER_PORT)
                     .withNetwork(network)
                     .withCommand("middleManager")

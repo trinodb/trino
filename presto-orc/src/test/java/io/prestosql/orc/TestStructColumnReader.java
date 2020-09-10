@@ -44,7 +44,6 @@ import java.util.Optional;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.metadata.MetadataManager.createTestMetadataManager;
-import static io.prestosql.orc.OrcTester.HIVE_STORAGE_TIME_ZONE;
 import static io.prestosql.orc.OrcTester.READER_OPTIONS;
 import static io.prestosql.orc.OrcWriteValidation.OrcWriteValidationMode.BOTH;
 import static io.prestosql.orc.TestingOrcPredicate.ORC_ROW_GROUP_SIZE;
@@ -231,7 +230,6 @@ public class TestStructColumnReader
                         .withDictionaryMaxMemory(DataSize.of(32, MEGABYTE)),
                 false,
                 ImmutableMap.of(),
-                HIVE_STORAGE_TIME_ZONE,
                 true,
                 BOTH,
                 new OrcWriterStats());

@@ -61,6 +61,7 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.mapping;
 import static java.util.stream.Collectors.toList;
+import static org.joda.time.DateTimeZone.UTC;
 
 public class OrcReader
 {
@@ -231,7 +232,7 @@ public class OrcReader
             List<OrcColumn> readColumns,
             List<Type> readTypes,
             OrcPredicate predicate,
-            DateTimeZone hiveStorageTimeZone,
+            DateTimeZone legacyFileTimeZone,
             AggregatedMemoryContext systemMemoryUsage,
             int initialBatchSize,
             Function<Exception, RuntimeException> exceptionTransform)
@@ -243,7 +244,7 @@ public class OrcReader
                 predicate,
                 0,
                 orcDataSource.getSize(),
-                hiveStorageTimeZone,
+                legacyFileTimeZone,
                 systemMemoryUsage,
                 initialBatchSize,
                 exceptionTransform);
@@ -255,7 +256,7 @@ public class OrcReader
             OrcPredicate predicate,
             long offset,
             long length,
-            DateTimeZone hiveStorageTimeZone,
+            DateTimeZone legacyFileTimeZone,
             AggregatedMemoryContext systemMemoryUsage,
             int initialBatchSize,
             Function<Exception, RuntimeException> exceptionTransform)
@@ -268,7 +269,7 @@ public class OrcReader
                 predicate,
                 offset,
                 length,
-                hiveStorageTimeZone,
+                legacyFileTimeZone,
                 systemMemoryUsage,
                 initialBatchSize,
                 exceptionTransform);
@@ -281,7 +282,7 @@ public class OrcReader
             OrcPredicate predicate,
             long offset,
             long length,
-            DateTimeZone hiveStorageTimeZone,
+            DateTimeZone legacyFileTimeZone,
             AggregatedMemoryContext systemMemoryUsage,
             int initialBatchSize,
             Function<Exception, RuntimeException> exceptionTransform)
@@ -302,7 +303,7 @@ public class OrcReader
                 footer.getTypes(),
                 decompressor,
                 footer.getRowsInRowGroup(),
-                requireNonNull(hiveStorageTimeZone, "hiveStorageTimeZone is null"),
+                requireNonNull(legacyFileTimeZone, "legacyFileTimeZone is null"),
                 hiveWriterVersion,
                 metadataReader,
                 options,
@@ -412,8 +413,7 @@ public class OrcReader
     static void validateFile(
             OrcWriteValidation writeValidation,
             OrcDataSource input,
-            List<Type> readTypes,
-            DateTimeZone hiveStorageTimeZone)
+            List<Type> readTypes)
             throws OrcCorruptionException
     {
         try {
@@ -422,7 +422,7 @@ public class OrcReader
                     orcReader.getRootColumn().getNestedColumns(),
                     readTypes,
                     OrcPredicate.TRUE,
-                    hiveStorageTimeZone,
+                    UTC,
                     newSimpleAggregatedMemoryContext(),
                     INITIAL_BATCH_SIZE,
                     exception -> {

@@ -140,6 +140,7 @@ import io.prestosql.sql.planner.iterative.rule.PushProjectionThroughUnion;
 import io.prestosql.sql.planner.iterative.rule.PushRemoteExchangeThroughAssignUniqueId;
 import io.prestosql.sql.planner.iterative.rule.PushSampleIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.PushTableWriteThroughUnion;
+import io.prestosql.sql.planner.iterative.rule.PushTopNIntoTableScan;
 import io.prestosql.sql.planner.iterative.rule.PushTopNThroughOuterJoin;
 import io.prestosql.sql.planner.iterative.rule.PushTopNThroughProject;
 import io.prestosql.sql.planner.iterative.rule.PushTopNThroughUnion;
@@ -206,7 +207,7 @@ import java.util.Set;
 public class PlanOptimizers
 {
     private final List<PlanOptimizer> optimizers;
-    private final RuleStatsRecorder ruleStats = new RuleStatsRecorder();
+    private final RuleStatsRecorder ruleStats;
     private final OptimizerStatsRecorder optimizerStats = new OptimizerStatsRecorder();
     private final MBeanExporter exporter;
 
@@ -222,7 +223,8 @@ public class PlanOptimizers
             CostCalculator costCalculator,
             @EstimatedExchanges CostCalculator estimatedExchangesCostCalculator,
             CostComparator costComparator,
-            TaskCountEstimator taskCountEstimator)
+            TaskCountEstimator taskCountEstimator,
+            RuleStatsRecorder ruleStats)
     {
         this(metadata,
                 typeAnalyzer,
@@ -235,7 +237,8 @@ public class PlanOptimizers
                 costCalculator,
                 estimatedExchangesCostCalculator,
                 costComparator,
-                taskCountEstimator);
+                taskCountEstimator,
+                ruleStats);
     }
 
     @PostConstruct
@@ -264,8 +267,10 @@ public class PlanOptimizers
             CostCalculator costCalculator,
             CostCalculator estimatedExchangesCostCalculator,
             CostComparator costComparator,
-            TaskCountEstimator taskCountEstimator)
+            TaskCountEstimator taskCountEstimator,
+            RuleStatsRecorder ruleStats)
     {
+        this.ruleStats = ruleStats;
         this.exporter = exporter;
         ImmutableList.Builder<PlanOptimizer> builder = ImmutableList.builder();
 
@@ -427,7 +432,8 @@ public class PlanOptimizers
                                         new MergeLimitWithDistinct(),
                                         new PruneCountAggregationOverScalar(metadata),
                                         new PruneOrderByInAggregation(metadata),
-                                        new RewriteSpatialPartitioningAggregation(metadata)))
+                                        new RewriteSpatialPartitioningAggregation(metadata),
+                                        new SimplifyCountOverConstant(metadata)))
                                 .build()),
                 new IterativeOptimizer(
                         ruleStats,
@@ -514,7 +520,9 @@ public class PlanOptimizers
                         statsCalculator,
                         estimatedExchangesCostCalculator,
                         ImmutableSet.<Rule<?>>builder()
+                                .addAll(columnPruningRules)
                                 .addAll(projectionPushdownRules)
+                                .add(new RemoveRedundantIdentityProjections())
                                 .add(new PushLimitIntoTableScan(metadata))
                                 .add(new PushPredicateIntoTableScan(metadata, typeAnalyzer))
                                 .add(new PushSampleIntoTableScan(metadata))
@@ -552,11 +560,6 @@ public class PlanOptimizers
                 new UnaliasSymbolReferences(metadata), // Run again because predicate pushdown and projection pushdown might add more projections
                 columnPruningOptimizer, // Make sure to run this before index join. Filtered projections may not have all the columns.
                 new IndexJoinOptimizer(metadata), // Run this after projections and filters have been fully simplified and pushed down
-                new IterativeOptimizer(
-                        ruleStats,
-                        statsCalculator,
-                        estimatedExchangesCostCalculator,
-                        ImmutableSet.of(new SimplifyCountOverConstant(metadata))),
                 new LimitPushDown(), // Run LimitPushDown before WindowFilterPushDown
                 new WindowFilterPushDown(metadata), // This must run after PredicatePushDown and LimitPushDown so that it squashes any successive filter nodes and limits
                 new IterativeOptimizer(
@@ -627,7 +630,8 @@ public class PlanOptimizers
                         new CreatePartialTopN(),
                         new PushTopNThroughProject(),
                         new PushTopNThroughOuterJoin(),
-                        new PushTopNThroughUnion())));
+                        new PushTopNThroughUnion(),
+                        new PushTopNIntoTableScan(metadata))));
         builder.add(new IterativeOptimizer(
                 ruleStats,
                 statsCalculator,

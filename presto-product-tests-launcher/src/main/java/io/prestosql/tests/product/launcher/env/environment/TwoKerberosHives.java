@@ -18,7 +18,7 @@ import com.google.common.io.Closer;
 import io.prestosql.tests.product.launcher.docker.DockerFiles;
 import io.prestosql.tests.product.launcher.env.DockerContainer;
 import io.prestosql.tests.product.launcher.env.Environment;
-import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
+import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.common.AbstractEnvironmentProvider;
 import io.prestosql.tests.product.launcher.env.common.Hadoop;
 import io.prestosql.tests.product.launcher.env.common.Kerberos;
@@ -65,12 +65,12 @@ public final class TwoKerberosHives
             Standard standard,
             Hadoop hadoop,
             Kerberos kerberos,
-            EnvironmentOptions environmentOptions)
+            EnvironmentConfig environmentConfig)
     {
         super(ImmutableList.of(standard, hadoop, kerberos));
         this.dockerFiles = requireNonNull(dockerFiles, "dockerFiles is null");
-        hadoopBaseImage = requireNonNull(environmentOptions.hadoopBaseImage, "environmentOptions.hadoopBaseImage is null");
-        hadoopImagesVersion = requireNonNull(environmentOptions.hadoopImagesVersion, "environmentOptions.hadoopImagesVersion is null");
+        hadoopBaseImage = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopBaseImage();
+        hadoopImagesVersion = requireNonNull(environmentConfig, "environmentConfig is null").getHadoopImagesVersion();
     }
 
     @PreDestroy

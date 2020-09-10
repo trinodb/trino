@@ -16,13 +16,23 @@ package io.prestosql.rcfile.binary;
 import io.prestosql.rcfile.ColumnEncoding;
 import io.prestosql.rcfile.RcFileEncoding;
 import io.prestosql.spi.type.Type;
+import org.joda.time.DateTimeZone;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static java.util.Objects.requireNonNull;
+
 public class BinaryRcFileEncoding
         implements RcFileEncoding
 {
+    private final DateTimeZone timeZone;
+
+    public BinaryRcFileEncoding(DateTimeZone timeZone)
+    {
+        this.timeZone = requireNonNull(timeZone, "timeZone is null");
+    }
+
     @Override
     public ColumnEncoding booleanEncoding(Type type)
     {
@@ -92,7 +102,7 @@ public class BinaryRcFileEncoding
     @Override
     public ColumnEncoding timestampEncoding(Type type)
     {
-        return new TimestampEncoding(type);
+        return new TimestampEncoding(type, timeZone);
     }
 
     @Override

@@ -39,6 +39,7 @@ import org.apache.parquet.column.statistics.IntStatistics;
 import org.apache.parquet.column.statistics.LongStatistics;
 import org.apache.parquet.column.statistics.Statistics;
 import org.apache.parquet.schema.PrimitiveType.PrimitiveTypeName;
+import org.joda.time.DateTimeZone;
 
 import java.math.BigDecimal;
 import java.util.ArrayList;
@@ -57,6 +58,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.Varchars.isVarcharType;
 import static java.lang.Float.floatToRawIntBits;
@@ -68,11 +70,13 @@ public class TupleDomainParquetPredicate
 {
     private final TupleDomain<ColumnDescriptor> effectivePredicate;
     private final List<RichColumnDescriptor> columns;
+    private final DateTimeZone timeZone;
 
-    public TupleDomainParquetPredicate(TupleDomain<ColumnDescriptor> effectivePredicate, List<RichColumnDescriptor> columns)
+    public TupleDomainParquetPredicate(TupleDomain<ColumnDescriptor> effectivePredicate, List<RichColumnDescriptor> columns, DateTimeZone timeZone)
     {
         this.effectivePredicate = requireNonNull(effectivePredicate, "effectivePredicate is null");
         this.columns = ImmutableList.copyOf(requireNonNull(columns, "columns is null"));
+        this.timeZone = requireNonNull(timeZone, "timeZone is null");
     }
 
     @Override
@@ -100,7 +104,7 @@ public class TupleDomainParquetPredicate
                 continue;
             }
 
-            Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnStatistics, id, column.toString(), failOnCorruptedParquetStatistics);
+            Domain domain = getDomain(effectivePredicateDomain.getType(), numberOfRows, columnStatistics, id, column.toString(), failOnCorruptedParquetStatistics, timeZone);
             if (!effectivePredicateDomain.overlaps(domain)) {
                 return false;
             }
@@ -129,7 +133,14 @@ public class TupleDomainParquetPredicate
     }
 
     @VisibleForTesting
-    public static Domain getDomain(Type type, long rowCount, Statistics<?> statistics, ParquetDataSourceId id, String column, boolean failOnCorruptedParquetStatistics)
+    public static Domain getDomain(
+            Type type,
+            long rowCount,
+            Statistics<?> statistics,
+            ParquetDataSourceId id,
+            String column,
+            boolean failOnCorruptedParquetStatistics,
+            DateTimeZone timeZone)
             throws ParquetCorruptionException
     {
         if (statistics == null || statistics.isEmpty()) {
@@ -239,14 +250,15 @@ public class TupleDomainParquetPredicate
 
         if (type instanceof TimestampType && statistics instanceof BinaryStatistics) {
             BinaryStatistics binaryStatistics = (BinaryStatistics) statistics;
-            long max = getTimestampMillis(binaryStatistics.genericGetMax());
-            long min = getTimestampMillis(binaryStatistics.genericGetMin());
-            if (min > max) {
-                failWithCorruptionException(failOnCorruptedParquetStatistics, column, id, binaryStatistics);
-                return Domain.create(ValueSet.all(type), hasNullValue);
+            // Parquet INT96 timestamp values were compared incorrectly for the purposes of producing statistics by older parquet writers, so
+            // PARQUET-1065 deprecated them. The result is that any writer that produced stats was producing unusable incorrect values, except
+            // the special case where min == max and an incorrect ordering would not be material to the result. PARQUET-1026 made binary stats
+            // available and valid in that special case
+            if (binaryStatistics.genericGetMin().equals(binaryStatistics.genericGetMax())) {
+                long timestampValue = getTimestampMillis(binaryStatistics.genericGetMax());
+                timestampValue = timeZone.convertUTCToLocal(timestampValue) * MICROSECONDS_PER_MILLISECOND;
+                return createDomain(type, hasNullValue, new ParquetTimestampStatistics(timestampValue, timestampValue));
             }
-            ParquetTimestampStatistics parquetTimestampStatistics = new ParquetTimestampStatistics(min, max);
-            return createDomain(type, hasNullValue, parquetTimestampStatistics);
         }
 
         return Domain.create(ValueSet.all(type), hasNullValue);

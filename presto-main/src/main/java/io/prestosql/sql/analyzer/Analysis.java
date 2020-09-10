@@ -99,8 +99,15 @@ public class Analysis
     private final Map<NodeRef<Parameter>, Expression> parameters;
     private String updateType;
     private Optional<QualifiedObjectName> target = Optional.empty();
+    private boolean skipMaterializedViewRefresh;
 
     private final Map<NodeRef<Table>, Query> namedQueries = new LinkedHashMap<>();
+
+    // map expandable query to the node being the inner recursive reference
+    private final Map<NodeRef<Query>, Node> expandableNamedQueries = new LinkedHashMap<>();
+
+    // map inner recursive reference in the expandable query to the recursion base scope
+    private final Map<NodeRef<Node>, Scope> expandableBaseScopes = new LinkedHashMap<>();
 
     // Synthetic scope when a query does not have a FROM clause
     // We need to track this separately because there's no node we can attach it to.
@@ -162,6 +169,7 @@ public class Analysis
     private final Map<NodeRef<Unnest>, UnnestAnalysis> unnestAnalysis = new LinkedHashMap<>();
     private Optional<Create> create = Optional.empty();
     private Optional<Insert> insert = Optional.empty();
+    private Optional<RefreshMaterializedViewAnalysis> refreshMaterializedView = Optional.empty();
     private Optional<TableHandle> analyzeTarget = Optional.empty();
 
     // for describe input and describe output
@@ -205,6 +213,16 @@ public class Analysis
     {
         this.updateType = null;
         this.target = Optional.empty();
+    }
+
+    public boolean isSkipMaterializedViewRefresh()
+    {
+        return skipMaterializedViewRefresh;
+    }
+
+    public void setSkipMaterializedViewRefresh(boolean skipMaterializedViewRefresh)
+    {
+        this.skipMaterializedViewRefresh = skipMaterializedViewRefresh;
     }
 
     public void setAggregates(QuerySpecification node, List<FunctionCall> aggregates)
@@ -601,6 +619,16 @@ public class Analysis
         return insert;
     }
 
+    public void setRefreshMaterializedView(RefreshMaterializedViewAnalysis refreshMaterializedView)
+    {
+        this.refreshMaterializedView = Optional.of(refreshMaterializedView);
+    }
+
+    public Optional<RefreshMaterializedViewAnalysis> getRefreshMaterializedView()
+    {
+        return refreshMaterializedView;
+    }
+
     public Query getNamedQuery(Table table)
     {
         return namedQueries.get(NodeRef.of(table));
@@ -612,6 +640,35 @@ public class Analysis
         requireNonNull(query, "query is null");
 
         namedQueries.put(NodeRef.of(tableReference), query);
+    }
+
+    public void registerExpandableQuery(Query query, Node recursiveReference)
+    {
+        requireNonNull(query, "query is null");
+        requireNonNull(recursiveReference, "recursiveReference is null");
+
+        expandableNamedQueries.put(NodeRef.of(query), recursiveReference);
+    }
+
+    public boolean isExpandableQuery(Query query)
+    {
+        return expandableNamedQueries.containsKey(NodeRef.of(query));
+    }
+
+    public Node getRecursiveReference(Query query)
+    {
+        checkArgument(isExpandableQuery(query), "query is not registered as expandable");
+        return expandableNamedQueries.get(NodeRef.of(query));
+    }
+
+    public void setExpandableBaseScope(Node node, Scope scope)
+    {
+        expandableBaseScopes.put(NodeRef.of(node), scope);
+    }
+
+    public Optional<Scope> getExpandableBaseScope(Node node)
+    {
+        return Optional.ofNullable(expandableBaseScopes.get(NodeRef.of(node)));
     }
 
     public void registerTableForView(Table tableReference)
@@ -938,6 +995,44 @@ public class Analysis
         public Optional<NewTableLayout> getNewTableLayout()
         {
             return newTableLayout;
+        }
+    }
+
+    @Immutable
+    public static final class RefreshMaterializedViewAnalysis
+    {
+        private final TableHandle materializedViewHandle;
+        private final TableHandle target;
+        private final Query query;
+        private final List<ColumnHandle> columns;
+
+        public RefreshMaterializedViewAnalysis(TableHandle materializedViewHandle, TableHandle target, Query query, List<ColumnHandle> columns)
+        {
+            this.materializedViewHandle = requireNonNull(materializedViewHandle, "Materialized view handle is null");
+            this.target = requireNonNull(target, "target is null");
+            this.query = query;
+            this.columns = requireNonNull(columns, "columns is null");
+            checkArgument(columns.size() > 0, "No columns given to refresh materialized view");
+        }
+
+        public Query getQuery()
+        {
+            return query;
+        }
+
+        public List<ColumnHandle> getColumns()
+        {
+            return columns;
+        }
+
+        public TableHandle getTarget()
+        {
+            return target;
+        }
+
+        public TableHandle getMaterializedViewHandle()
+        {
+            return materializedViewHandle;
         }
     }
 

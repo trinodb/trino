@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>339-SNAPSHOT</version>
+        <version>342-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-testing</artifactId>
@@ -23,11 +23,6 @@
 
         <dependency>
             <groupId>io.prestosql</groupId>
-            <artifactId>presto-parser</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.prestosql</groupId>
             <artifactId>presto-main</artifactId>
         </dependency>
 
@@ -35,6 +30,16 @@
             <groupId>io.prestosql</groupId>
             <artifactId>presto-main</artifactId>
             <type>test-jar</type>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-parser</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-plugin-toolkit</artifactId>
         </dependency>
 
         <dependency>
@@ -48,13 +53,8 @@
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql</groupId>
-            <artifactId>presto-plugin-toolkit</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>io.airlift.discovery</groupId>
-            <artifactId>discovery-server</artifactId>
+            <groupId>io.prestosql.tpch</groupId>
+            <artifactId>tpch</artifactId>
         </dependency>
 
         <dependency>
@@ -73,8 +73,8 @@
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql.tpch</groupId>
-            <artifactId>tpch</artifactId>
+            <groupId>io.airlift</groupId>
+            <artifactId>testing</artifactId>
         </dependency>
 
         <dependency>
@@ -83,13 +83,8 @@
         </dependency>
 
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>testing</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp</artifactId>
+            <groupId>io.airlift.discovery</groupId>
+            <artifactId>discovery-server</artifactId>
         </dependency>
 
         <dependency>
@@ -108,18 +103,13 @@
         </dependency>
 
         <dependency>
+            <groupId>com.squareup.okhttp3</groupId>
+            <artifactId>okhttp</artifactId>
+        </dependency>
+
+        <dependency>
             <groupId>joda-time</groupId>
             <artifactId>joda-time</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.jdbi</groupId>
-            <artifactId>jdbi3-core</artifactId>
-        </dependency>
-
-        <dependency>
-            <groupId>org.weakref</groupId>
-            <artifactId>jmxutils</artifactId>
         </dependency>
 
         <dependency>
@@ -128,9 +118,13 @@
         </dependency>
 
         <dependency>
-            <groupId>org.jetbrains</groupId>
-            <artifactId>annotations</artifactId>
-            <scope>provided</scope>
+            <groupId>org.assertj</groupId>
+            <artifactId>assertj-core</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>org.jdbi</groupId>
+            <artifactId>jdbi3-core</artifactId>
         </dependency>
 
         <dependency>
@@ -139,8 +133,21 @@
         </dependency>
 
         <dependency>
-            <groupId>org.assertj</groupId>
-            <artifactId>assertj-core</artifactId>
+            <groupId>org.weakref</groupId>
+            <artifactId>jmxutils</artifactId>
+        </dependency>
+
+        <!-- used by tests but also needed transitively -->
+        <dependency>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-testng-services</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>io.airlift</groupId>
+            <artifactId>log-manager</artifactId>
+            <scope>runtime</scope>
         </dependency>
 
         <dependency>
@@ -149,11 +156,10 @@
             <scope>runtime</scope>
         </dependency>
 
-        <!-- used by tests but also needed transitively -->
         <dependency>
-            <groupId>io.airlift</groupId>
-            <artifactId>log-manager</artifactId>
-            <scope>runtime</scope>
+            <groupId>org.jetbrains</groupId>
+            <artifactId>annotations</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <!-- for benchmarks -->

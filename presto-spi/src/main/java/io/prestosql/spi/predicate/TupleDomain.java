@@ -37,6 +37,7 @@ import java.util.function.Function;
 import java.util.stream.Collector;
 
 import static java.lang.String.format;
+import static java.util.Collections.emptyMap;
 import static java.util.Collections.unmodifiableList;
 import static java.util.Objects.requireNonNull;
 import static java.util.stream.Collectors.toList;
@@ -47,6 +48,9 @@ import static java.util.stream.Collectors.toMap;
  */
 public final class TupleDomain<T>
 {
+    private static final TupleDomain<?> NONE = new TupleDomain<>(Optional.empty());
+    private static final TupleDomain<?> ALL = new TupleDomain<>(Optional.of(emptyMap()));
+
     /**
      * TupleDomain is internally represented as a normalized map of each column to its
      * respective allowable value Domain. Conceptually, these Domains can be thought of
@@ -76,17 +80,23 @@ public final class TupleDomain<T>
 
     public static <T> TupleDomain<T> withColumnDomains(Map<T, Domain> domains)
     {
-        return new TupleDomain<>(Optional.of(requireNonNull(domains, "domains is null")));
+        requireNonNull(domains, "domains is null");
+        if (domains.isEmpty()) {
+            return all();
+        }
+        return new TupleDomain<>(Optional.of(domains));
     }
 
+    @SuppressWarnings("unchecked")
     public static <T> TupleDomain<T> none()
     {
-        return new TupleDomain<>(Optional.empty());
+        return (TupleDomain<T>) NONE;
     }
 
+    @SuppressWarnings("unchecked")
     public static <T> TupleDomain<T> all()
     {
-        return withColumnDomains(Collections.emptyMap());
+        return (TupleDomain<T>) ALL;
     }
 
     /**
@@ -216,10 +226,18 @@ public final class TupleDomain<T>
      */
     public TupleDomain<T> intersect(TupleDomain<T> other)
     {
+        requireNonNull(other, "other is null");
+
         if (this.isNone() || other.isNone()) {
             return none();
         }
         if (this == other) {
+            return this;
+        }
+        if (this.isAll()) {
+            return other;
+        }
+        if (other.isAll()) {
             return this;
         }
 
@@ -416,12 +434,16 @@ public final class TupleDomain<T>
 
     public <U> TupleDomain<U> transform(Function<T, U> function)
     {
-        if (domains.isEmpty()) {
-            return TupleDomain.none();
+        if (isNone()) {
+            return none();
+        }
+        if (isAll()) {
+            return all();
         }
 
-        HashMap<U, Domain> result = new LinkedHashMap<>(domains.get().size());
-        for (Map.Entry<T, Domain> entry : domains.get().entrySet()) {
+        Map<T, Domain> domains = this.domains.orElseThrow();
+        HashMap<U, Domain> result = new LinkedHashMap<>(domains.size());
+        for (Map.Entry<T, Domain> entry : domains.entrySet()) {
             U key = function.apply(entry.getKey());
 
             if (key == null) {

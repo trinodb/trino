@@ -5,7 +5,7 @@
     <parent>
         <groupId>io.prestosql</groupId>
         <artifactId>presto-root</artifactId>
-        <version>339-SNAPSHOT</version>
+        <version>342-SNAPSHOT</version>
     </parent>
 
     <artifactId>presto-oracle</artifactId>
@@ -14,22 +14,9 @@
 
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <dep.oracle.version>19.3.0.0</dep.oracle.version>
     </properties>
 
     <dependencies>
-        <dependency>
-            <groupId>com.oracle.ojdbc</groupId>
-            <artifactId>ojdbc8</artifactId>
-            <version>${dep.oracle.version}</version>
-        </dependency>
-
-        <dependency>
-            <groupId>com.oracle.ojdbc</groupId>
-            <artifactId>ucp</artifactId>
-            <version>${dep.oracle.version}</version>
-        </dependency>
-
         <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-base-jdbc</artifactId>
@@ -47,8 +34,7 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>log-manager</artifactId>
-            <scope>runtime</scope>
+            <artifactId>units</artifactId>
         </dependency>
 
         <dependency>
@@ -59,6 +45,18 @@
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
+        </dependency>
+
+        <dependency>
+            <groupId>com.oracle.ojdbc</groupId>
+            <artifactId>ojdbc8</artifactId>
+            <version>${dep.oracle.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>com.oracle.ojdbc</groupId>
+            <artifactId>ucp</artifactId>
+            <version>${dep.oracle.version}</version>
         </dependency>
 
         <dependency>
@@ -73,7 +71,15 @@
 
         <dependency>
             <groupId>io.airlift</groupId>
-            <artifactId>units</artifactId>
+            <artifactId>log-manager</artifactId>
+            <scope>runtime</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>com.oracle.ojdbc</groupId>
+            <artifactId>orai18n</artifactId>
+            <version>${dep.oracle.version}</version>
+            <scope>runtime</scope>
         </dependency>
 
         <!-- Presto SPI -->
@@ -103,14 +109,15 @@
 
         <!-- for testing -->
         <dependency>
-            <groupId>org.testng</groupId>
-            <artifactId>testng</artifactId>
+            <groupId>io.prestosql</groupId>
+            <artifactId>presto-main</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-main</artifactId>
+            <type>test-jar</type>
             <scope>test</scope>
         </dependency>
 
@@ -121,26 +128,14 @@
         </dependency>
 
         <dependency>
-            <groupId>io.prestosql.tpch</groupId>
-            <artifactId>tpch</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
             <groupId>io.prestosql</groupId>
             <artifactId>presto-tpch</artifactId>
             <scope>test</scope>
         </dependency>
 
         <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>testcontainers</artifactId>
-            <scope>test</scope>
-        </dependency>
-
-        <dependency>
-            <groupId>org.testcontainers</groupId>
-            <artifactId>oracle-xe</artifactId>
+            <groupId>io.prestosql.tpch</groupId>
+            <artifactId>tpch</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -153,6 +148,24 @@
         <dependency>
             <groupId>org.assertj</groupId>
             <artifactId>assertj-core</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>oracle-xe</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testcontainers</groupId>
+            <artifactId>testcontainers</artifactId>
+            <scope>test</scope>
+        </dependency>
+
+        <dependency>
+            <groupId>org.testng</groupId>
+            <artifactId>testng</artifactId>
             <scope>test</scope>
         </dependency>
     </dependencies>

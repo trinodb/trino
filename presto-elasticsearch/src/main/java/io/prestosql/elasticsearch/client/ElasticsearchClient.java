@@ -447,12 +447,22 @@ public class ElasticsearchClient
 
     public List<String> getIndexes()
     {
-        return doRequest("/_cat/indices?h=index&format=json&s=index:asc", body -> {
+        return doRequest("/_cat/indices?h=index,docs.count,docs.deleted&format=json&s=index:asc", body -> {
             try {
                 ImmutableList.Builder<String> result = ImmutableList.builder();
                 JsonNode root = OBJECT_MAPPER.readTree(body);
                 for (int i = 0; i < root.size(); i++) {
-                    result.add(root.get(i).get("index").asText());
+                    String index = root.get(i).get("index").asText();
+                    // make sure the index has mappings we can use to derive the schema
+                    int docsCount = root.get(i).get("docs.count").asInt();
+                    int deletedDocsCount = root.get(i).get("docs.deleted").asInt();
+                    if (docsCount == 0 && deletedDocsCount == 0) {
+                        // without documents, the index won't have any dynamic mappings, but maybe there are some explicit ones
+                        if (getIndexMetadata(index).getSchema().getFields().isEmpty()) {
+                            continue;
+                        }
+                    }
+                    result.add(index);
                 }
                 return result.build();
             }
@@ -462,18 +472,21 @@ public class ElasticsearchClient
         });
     }
 
-    public List<String> getAliases()
+    public Map<String, List<String>> getAliases()
     {
         return doRequest("/_aliases", body -> {
             try {
-                ImmutableList.Builder<String> result = ImmutableList.builder();
+                ImmutableMap.Builder<String, List<String>> result = ImmutableMap.builder();
                 JsonNode root = OBJECT_MAPPER.readTree(body);
 
-                Iterator<JsonNode> elements = root.elements();
+                Iterator<Map.Entry<String, JsonNode>> elements = root.fields();
                 while (elements.hasNext()) {
-                    JsonNode element = elements.next();
-                    JsonNode aliases = element.get("aliases");
-                    result.addAll(aliases.fieldNames());
+                    Map.Entry<String, JsonNode> element = elements.next();
+                    JsonNode aliases = element.getValue().get("aliases");
+                    Iterator<String> aliasNames = aliases.fieldNames();
+                    if (aliasNames.hasNext()) {
+                        result.put(element.getKey(), ImmutableList.copyOf(aliasNames));
+                    }
                 }
                 return result.build();
             }
@@ -493,6 +506,9 @@ public class ElasticsearchClient
                         .elements().next()
                         .get("mappings");
 
+                if (!mappings.elements().hasNext()) {
+                    return new IndexMetadata(new IndexMetadata.ObjectType(ImmutableList.of()));
+                }
                 if (!mappings.has("properties")) {
                     // Older versions of ElasticSearch supported multiple "type" mappings
                     // for a given index. Newer versions support only one and don't

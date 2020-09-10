@@ -424,7 +424,6 @@ public class TestPageProcessor
         Metadata metadata = createTestMetadataManager();
         CallExpression add10Expression = call(
                 metadata.resolveOperator(ADD, ImmutableList.of(BIGINT, BIGINT)),
-                BIGINT,
                 field(0, BIGINT),
                 constant(10L, BIGINT));
 

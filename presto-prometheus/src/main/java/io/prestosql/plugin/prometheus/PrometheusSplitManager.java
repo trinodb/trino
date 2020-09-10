@@ -24,12 +24,12 @@ import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.FixedSplitSource;
 import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.Marker;
 import io.prestosql.spi.predicate.TupleDomain;
-import io.prestosql.spi.type.TimestampType;
 import org.apache.http.NameValuePair;
 import org.apache.http.client.utils.URIBuilder;
 import org.apache.http.message.BasicNameValuePair;
@@ -41,9 +41,6 @@ import java.math.RoundingMode;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZonedDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -52,7 +49,10 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
+import static io.prestosql.plugin.prometheus.PrometheusClient.TIMESTAMP_COLUMN_TYPE;
 import static io.prestosql.plugin.prometheus.PrometheusErrorCode.PROMETHEUS_UNKNOWN_ERROR;
+import static io.prestosql.spi.type.DateTimeEncoding.unpackMillisUtc;
+import static java.time.Instant.ofEpochMilli;
 import static java.util.Objects.requireNonNull;
 
 public class PrometheusSplitManager
@@ -60,15 +60,22 @@ public class PrometheusSplitManager
 {
     static final long OFFSET_MILLIS = 1L;
     private final PrometheusClient prometheusClient;
-    private final PrometheusConnectorConfig config;
+    private final PrometheusClock prometheusClock;
+
+    private final URI prometheusURI;
+    private final Duration maxQueryRangeDuration;
+    private final Duration queryChunkSizeDuration;
 
     @Inject
-    public PrometheusSplitManager(PrometheusClient prometheusClient, PrometheusConnectorConfig config)
+    public PrometheusSplitManager(PrometheusClient prometheusClient, PrometheusClock prometheusClock, PrometheusConnectorConfig config)
     {
         this.prometheusClient = requireNonNull(prometheusClient, "client is null");
-        this.config = requireNonNull(config, "config is null");
-        requireNonNull(config.getQueryChunkSizeDuration(), "prometheus.query.chunk.size.duration is null");
-        requireNonNull(config.getMaxQueryRangeDuration(), "prometheus.max.query.range.duration is null");
+        this.prometheusClock = requireNonNull(prometheusClock, "prometheusClock is null");
+
+        requireNonNull(config, "config is null");
+        this.prometheusURI = config.getPrometheusURI();
+        this.maxQueryRangeDuration = config.getMaxQueryRangeDuration();
+        this.queryChunkSizeDuration = config.getQueryChunkSizeDuration();
     }
 
     @Override
@@ -76,7 +83,8 @@ public class PrometheusSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle connectorTableHandle,
-            SplitSchedulingStrategy splitSchedulingStrategy)
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            DynamicFilter dynamicFilter)
     {
         PrometheusTableHandle tableHandle = (PrometheusTableHandle) connectorTableHandle;
         PrometheusTable table = prometheusClient.getTable(tableHandle.getSchemaName(), tableHandle.getTableName());
@@ -85,14 +93,15 @@ public class PrometheusSplitManager
         if (table == null) {
             throw new TableNotFoundException(tableHandle.toSchemaTableName());
         }
-        List<ConnectorSplit> splits = generateTimesForSplits(PrometheusTimeMachine.now(), config.getMaxQueryRangeDuration(), config.getQueryChunkSizeDuration(), tableHandle)
+        List<ConnectorSplit> splits = generateTimesForSplits(prometheusClock.now(), maxQueryRangeDuration, queryChunkSizeDuration, tableHandle)
                 .stream()
                 .map(time -> {
                     try {
-                        return new PrometheusSplit(buildQuery(config.getPrometheusURI(),
+                        return new PrometheusSplit(buildQuery(
+                                prometheusURI,
                                 time,
                                 table.getName(),
-                                config.getQueryChunkSizeDuration()));
+                                queryChunkSizeDuration));
                     }
                     catch (URISyntaxException e) {
                         throw new PrestoException(PROMETHEUS_UNKNOWN_ERROR, "split URI invalid: " + e.getMessage());
@@ -102,11 +111,11 @@ public class PrometheusSplitManager
     }
 
     // URIBuilder handles URI encode
-    private URI buildQuery(URI baseURI, String time, String metricName, Duration queryChunkSizeDuration)
+    private static URI buildQuery(URI baseURI, String time, String metricName, Duration queryChunkSizeDuration)
             throws URISyntaxException
     {
         List<NameValuePair> nameValuePairs = new ArrayList<>(2);
-        nameValuePairs.add(new BasicNameValuePair("query", metricName + "[" + String.valueOf(queryChunkSizeDuration.roundTo(queryChunkSizeDuration.getUnit())) +
+        nameValuePairs.add(new BasicNameValuePair("query", metricName + "[" + queryChunkSizeDuration.roundTo(queryChunkSizeDuration.getUnit()) +
                 Duration.timeUnitToString(queryChunkSizeDuration.getUnit()) + "]"));
         nameValuePairs.add(new BasicNameValuePair("time", time));
         return new URIBuilder(baseURI.toString())
@@ -119,21 +128,18 @@ public class PrometheusSplitManager
      * Utility method to get the end times in decimal seconds that divide up the query into chunks
      * The times will be used in queries to Prometheus like: `http://localhost:9090/api/v1/query?query=up[21d]&time=1568229904.000"`
      * ** NOTE: Prometheus instant query wants the duration and end time specified.
-     * We use now() for the defaultUpperBound when none is specified, for instance, from predicate pushdown
+     * We use now() for the defaultUpperBound when none is specified, for instance, from predicate push down
      *
-     * @param defaultUpperBound a LocalDateTime likely from PrometheusTimeMachine class for testability
-     * @param maxQueryRangeDurationStr a String like `21d`
-     * @param queryChunkSizeDurationStr a String like `1d`
      * @return list of end times as decimal epoch seconds, like ["1568053244.143", "1568926595.321"]
      */
-    protected static List<String> generateTimesForSplits(LocalDateTime defaultUpperBound, Duration maxQueryRangeDurationRequested, Duration queryChunkSizeDurationRequested,
+    protected static List<String> generateTimesForSplits(Instant defaultUpperBound, Duration maxQueryRangeDurationRequested, Duration queryChunkSizeDurationRequested,
             PrometheusTableHandle tableHandle)
     {
         Optional<PrometheusPredicateTimeInfo> predicateRange = tableHandle.getPredicate()
-                .flatMap(predicate -> determinePredicateTimes(predicate));
+                .flatMap(PrometheusSplitManager::determinePredicateTimes);
 
         EffectiveLimits effectiveLimits = new EffectiveLimits(defaultUpperBound, maxQueryRangeDurationRequested, predicateRange);
-        ZonedDateTime upperBound = effectiveLimits.getUpperBound();
+        Instant upperBound = effectiveLimits.getUpperBound();
         java.time.Duration maxQueryRangeDuration = effectiveLimits.getMaxQueryRangeDuration();
 
         java.time.Duration queryChunkSizeDuration = java.time.Duration.ofMillis(queryChunkSizeDurationRequested.toMillis());
@@ -151,29 +157,36 @@ public class PrometheusSplitManager
 
         int numChunks = maxQueryRangeDecimal.divide(queryChunkSizeDecimal, 0, RoundingMode.UP).intValue();
 
-        return Lists.reverse(IntStream.range(0, numChunks).mapToObj(n -> {
-            long endTime = upperBound.toInstant().toEpochMilli() -
-                    n * queryChunkSizeDuration.toMillis() - n * OFFSET_MILLIS;
-            return endTime;
-        }).map(endTimeMilli -> decimalSecondString(endTimeMilli)).collect(Collectors.toList()));
+        return Lists.reverse(IntStream.range(0, numChunks)
+                .mapToObj(n -> {
+                    long endTime = upperBound.toEpochMilli() -
+                            n * queryChunkSizeDuration.toMillis() - n * OFFSET_MILLIS;
+                    return endTime;
+                })
+                .map(PrometheusSplitManager::decimalSecondString)
+                .collect(Collectors.toList()));
     }
 
     protected static Optional<PrometheusPredicateTimeInfo> determinePredicateTimes(TupleDomain<ColumnHandle> predicate)
     {
         Optional<Map<ColumnHandle, Domain>> maybeColumnHandleDomainMap = predicate.getDomains();
-        Optional<Set<ColumnHandle>> maybeKeySet = maybeColumnHandleDomainMap.map(columnHandleDomainMap -> columnHandleDomainMap.keySet());
+        Optional<Set<ColumnHandle>> maybeKeySet = maybeColumnHandleDomainMap.map(Map::keySet);
         Optional<Set<ColumnHandle>> maybeOnlyPromColHandles = maybeKeySet.map(keySet -> keySet.stream()
-                .filter(columnHandle -> columnHandle instanceof PrometheusColumnHandle).collect(Collectors.toSet()));
-        Optional<Set<ColumnHandle>> maybeOnlyTimeStampColumnHandles = maybeOnlyPromColHandles.map(columnHandles -> columnHandles.stream()
-                .filter(colHandle -> ((PrometheusColumnHandle) colHandle).getColumnType() instanceof TimestampType &&
-                        ((PrometheusColumnHandle) colHandle).getColumnName().equals("timestamp")).collect(Collectors.toSet()));
+                .filter(PrometheusColumnHandle.class::isInstance)
+                .collect(Collectors.toSet()));
+        Optional<Set<PrometheusColumnHandle>> maybeOnlyTimeStampColumnHandles = maybeOnlyPromColHandles.map(handles -> handles.stream()
+                .map(PrometheusColumnHandle.class::cast)
+                .filter(handle -> handle.getColumnType().equals(TIMESTAMP_COLUMN_TYPE))
+                .filter(handle -> handle.getColumnName().equals("timestamp"))
+                .collect(Collectors.toSet()));
 
         // below we have a set of ColumnHandle that are all PrometheusColumnHandle AND of TimestampType wrapped in Optional: maybeOnlyTimeStampColumnHandles
         // the ColumnHandles in maybeOnlyTimeStampColumnHandles are keys to the map maybeColumnHandleDomainMap
         // and the values in that map are Domains which hold the timestamp predicate range info
         Map<ColumnHandle, Domain> columnHandleDomainMap = maybeColumnHandleDomainMap.orElse(ImmutableMap.of());
-        Optional<Set<Domain>> maybeTimeDomains = maybeOnlyTimeStampColumnHandles
-                .map(columnHandles -> columnHandles.stream().map(colHandle -> columnHandleDomainMap.get(colHandle)).collect(Collectors.toSet()));
+        Optional<Set<Domain>> maybeTimeDomains = maybeOnlyTimeStampColumnHandles.map(columnHandles -> columnHandles.stream()
+                .map(columnHandleDomainMap::get)
+                .collect(Collectors.toSet()));
         return processTimeDomains(maybeTimeDomains);
     }
 
@@ -181,19 +194,18 @@ public class PrometheusSplitManager
     {
         return maybeTimeDomains.map(timeDomains -> {
             PrometheusPredicateTimeInfo.Builder timeInfoBuilder = PrometheusPredicateTimeInfo.builder();
-            timeDomains.stream()
-                    .forEach(domain -> {
-                        if (!domain.getValues().getRanges().getSpan().includes(Marker.lowerUnbounded(TimestampType.TIMESTAMP))) {
-                            timeInfoBuilder.predicateLowerTimeBound = Optional.of(ZonedDateTime.ofInstant(Instant.ofEpochMilli(
-                                    (long) domain.getValues().getRanges().getSpan().getLow().getValue()),
-                                    ZoneId.systemDefault()));
-                        }
-                        if (!domain.getValues().getRanges().getSpan().includes(Marker.upperUnbounded(TimestampType.TIMESTAMP))) {
-                            timeInfoBuilder.predicateUpperTimeBound = Optional.of(ZonedDateTime.ofInstant(Instant.ofEpochMilli(
-                                    (long) domain.getValues().getRanges().getSpan().getHigh().getValue()),
-                                    ZoneId.systemDefault()));
-                        }
-                    });
+            timeDomains.forEach(domain -> {
+                if (!domain.getValues().getRanges().getSpan().includes(Marker.lowerUnbounded(TIMESTAMP_COLUMN_TYPE))) {
+                    long packedValue = (long) domain.getValues().getRanges().getSpan().getLow().getValue();
+                    Instant instant = ofEpochMilli(unpackMillisUtc(packedValue));
+                    timeInfoBuilder.setPredicateLowerTimeBound(Optional.of(instant));
+                }
+                if (!domain.getValues().getRanges().getSpan().includes(Marker.upperUnbounded(TIMESTAMP_COLUMN_TYPE))) {
+                    long packedValue = (long) domain.getValues().getRanges().getSpan().getHigh().getValue();
+                    Instant instant = ofEpochMilli(unpackMillisUtc(packedValue));
+                    timeInfoBuilder.setPredicateUpperTimeBound(Optional.of(instant));
+                }
+            });
             return timeInfoBuilder.build();
         });
     }
@@ -205,8 +217,8 @@ public class PrometheusSplitManager
 
     private static class EffectiveLimits
     {
-        private ZonedDateTime upperBound;
-        private java.time.Duration maxQueryRangeDuration;
+        private final Instant upperBound;
+        private final java.time.Duration maxQueryRangeDuration;
 
         /**
          * If no upper bound is specified by the predicate, we use the time now() as the defaultUpperBound
@@ -227,23 +239,21 @@ public class PrometheusSplitManager
          * @param maxQueryRangeDurationRequested Likely from config properties
          * @param maybePredicateRange Optional of pushed down predicate values for high and low timestamp values
          */
-        public EffectiveLimits(LocalDateTime defaultUpperBound, Duration maxQueryRangeDurationRequested, Optional<PrometheusPredicateTimeInfo> maybePredicateRange)
+        public EffectiveLimits(Instant defaultUpperBound, Duration maxQueryRangeDurationRequested, Optional<PrometheusPredicateTimeInfo> maybePredicateRange)
         {
-            ZonedDateTime defaultUpperBoundZoned = ZonedDateTime.of(defaultUpperBound, ZoneId.systemDefault());
-
             if (maybePredicateRange.isPresent()) {
-                if (maybePredicateRange.get().predicateUpperTimeBound.isPresent()) {
+                if (maybePredicateRange.get().getPredicateUpperTimeBound().isPresent()) {
                     // predicate upper bound set
-                    upperBound = maybePredicateRange.get().predicateUpperTimeBound.get();
+                    upperBound = maybePredicateRange.get().getPredicateUpperTimeBound().get();
                 }
                 else {
                     // predicate upper bound NOT set
-                    upperBound = defaultUpperBoundZoned;
+                    upperBound = defaultUpperBound;
                 }
                 // here we're just working out the max duration using the above upperBound for upper bound
-                if (maybePredicateRange.get().predicateLowerTimeBound.isPresent()) {
+                if (maybePredicateRange.get().getPredicateLowerTimeBound().isPresent()) {
                     // predicate lower bound set
-                    maxQueryRangeDuration = java.time.Duration.between(maybePredicateRange.get().predicateLowerTimeBound.get(), upperBound);
+                    maxQueryRangeDuration = java.time.Duration.between(maybePredicateRange.get().getPredicateLowerTimeBound().get(), upperBound);
                 }
                 else {
                     // predicate lower bound NOT set
@@ -252,12 +262,12 @@ public class PrometheusSplitManager
             }
             else {
                 // no predicate set, so no predicate value for upper bound, use defaultUpperBound (possibly now()) for upper bound and config for max durations
-                upperBound = defaultUpperBoundZoned;
+                upperBound = defaultUpperBound;
                 maxQueryRangeDuration = java.time.Duration.ofMillis(maxQueryRangeDurationRequested.toMillis());
             }
         }
 
-        public ZonedDateTime getUpperBound()
+        public Instant getUpperBound()
         {
             return upperBound;
         }

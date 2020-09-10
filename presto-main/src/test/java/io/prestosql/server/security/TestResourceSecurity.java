@@ -57,15 +57,19 @@ import static javax.servlet.http.HttpServletResponse.SC_UNAUTHORIZED;
 public class TestResourceSecurity
 {
     private static final String LOCALHOST_KEYSTORE = Resources.getResource("cert/localhost.pem").getPath();
+    private static final String ALLOWED_USER_MAPPING_PATTERN = "(.*)@allowed";
     private static final ImmutableMap<String, String> SECURE_PROPERTIES = ImmutableMap.<String, String>builder()
             .put("http-server.https.enabled", "true")
             .put("http-server.https.keystore.path", LOCALHOST_KEYSTORE)
             .put("http-server.https.keystore.key", "")
             .put("http-server.process-forwarded", "true")
+            .put("http-server.authentication.insecure.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
             .build();
     private static final String TEST_USER = "test-user";
+    private static final String TEST_USER_LOGIN = TEST_USER + "@allowed";
     private static final String TEST_PASSWORD = "test-password";
     private static final String MANAGEMENT_USER = "management-user";
+    private static final String MANAGEMENT_USER_LOGIN = MANAGEMENT_USER + "@allowed";
     private static final String MANAGEMENT_PASSWORD = "management-password";
     private static final String HMAC_KEY = Resources.getResource("hmac_key.txt").getPath();
 
@@ -80,7 +84,9 @@ public class TestResourceSecurity
                 clientBuilder,
                 Optional.empty(),
                 Optional.empty(),
+                Optional.empty(),
                 Optional.of(LOCALHOST_KEYSTORE),
+                Optional.empty(),
                 Optional.empty());
         client = clientBuilder.build();
     }
@@ -90,6 +96,9 @@ public class TestResourceSecurity
             throws Exception
     {
         try (TestingPrestoServer server = TestingPrestoServer.builder()
+                .setProperties(ImmutableMap.<String, String>builder()
+                        .put("http-server.authentication.insecure.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
+                        .build())
                 .build()) {
             server.getInstance(Key.get(AccessControlManager.class)).addSystemAccessControl(new TestSystemAccessControl());
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
@@ -136,6 +145,7 @@ public class TestResourceSecurity
                 .setProperties(ImmutableMap.<String, String>builder()
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.type", "password")
+                        .put("http-server.authentication.password.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
                         .build())
                 .build()) {
             server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticator(TestResourceSecurity::authenticate);
@@ -155,6 +165,7 @@ public class TestResourceSecurity
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.type", "password")
                         .put("http-server.authentication.allow-insecure-over-http", "true")
+                        .put("http-server.authentication.password.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
                         .build())
                 .build()) {
             server.getInstance(Key.get(PasswordAuthenticatorManager.class)).setAuthenticator(TestResourceSecurity::authenticate);
@@ -174,6 +185,7 @@ public class TestResourceSecurity
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.type", "password")
                         .put("http-server.authentication.allow-insecure-over-http", "true")
+                        .put("http-server.authentication.password.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
                         .put("management.user", MANAGEMENT_USER)
                         .build())
                 .build()) {
@@ -195,6 +207,7 @@ public class TestResourceSecurity
                         .putAll(SECURE_PROPERTIES)
                         .put("http-server.authentication.type", "password")
                         .put("http-server.authentication.allow-insecure-over-http", "false")
+                        .put("http-server.authentication.password.user-mapping.pattern", ALLOWED_USER_MAPPING_PATTERN)
                         .put("management.user", MANAGEMENT_USER)
                         .build())
                 .build()) {
@@ -203,7 +216,7 @@ public class TestResourceSecurity
 
             HttpServerInfo httpServerInfo = server.getInstance(Key.get(HttpServerInfo.class));
             assertResponseCode(client, getPublicLocation(httpServerInfo.getHttpUri()), SC_OK);
-            assertResponseCode(client, getAuthorizedUserLocation(httpServerInfo.getHttpUri()), SC_FORBIDDEN, TEST_USER, null);
+            assertResponseCode(client, getAuthorizedUserLocation(httpServerInfo.getHttpUri()), SC_FORBIDDEN, TEST_USER_LOGIN, null);
             assertResponseCode(client, getManagementLocation(httpServerInfo.getHttpUri()), SC_OK);
             assertResponseCode(client, getManagementLocation(httpServerInfo.getHttpUri()), SC_OK, "unknown", "something");
 
@@ -255,7 +268,9 @@ public class TestResourceSecurity
                     clientBuilder,
                     Optional.of(LOCALHOST_KEYSTORE),
                     Optional.empty(),
+                    Optional.empty(),
                     Optional.of(LOCALHOST_KEYSTORE),
+                    Optional.empty(),
                     Optional.empty());
             OkHttpClient clientWithCert = clientBuilder.build();
             assertAuthenticationAutomatic(httpServerInfo.getHttpsUri(), clientWithCert);
@@ -297,22 +312,26 @@ public class TestResourceSecurity
     private void assertInsecureAuthentication(URI baseUri)
             throws IOException
     {
+        assertResponseCode(client, getManagementLocation(baseUri), SC_OK, MANAGEMENT_USER_LOGIN, null);
         // public
         assertOk(client, getPublicLocation(baseUri));
         // authorized user
         assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_UNAUTHORIZED);
-        assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_OK, "unknown", null);
-        assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_UNAUTHORIZED, "unknown", "something");
+        assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_OK, TEST_USER_LOGIN, null);
+        assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_UNAUTHORIZED, TEST_USER_LOGIN, "something");
+        assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_UNAUTHORIZED, "unknown", null);
         // management
         assertResponseCode(client, getManagementLocation(baseUri), SC_UNAUTHORIZED);
-        assertResponseCode(client, getManagementLocation(baseUri), SC_FORBIDDEN, "unknown", null);
-        assertResponseCode(client, getManagementLocation(baseUri), SC_UNAUTHORIZED, "unknown", "something");
-        assertResponseCode(client, getManagementLocation(baseUri), SC_OK, MANAGEMENT_USER, null);
-        assertResponseCode(client, getManagementLocation(baseUri), SC_UNAUTHORIZED, MANAGEMENT_USER, "something");
-        assertResponseCode(client, getManagementLocation(baseUri), SC_UNAUTHORIZED, MANAGEMENT_USER, MANAGEMENT_PASSWORD);
+        assertResponseCode(client, getManagementLocation(baseUri), SC_FORBIDDEN, TEST_USER_LOGIN, null);
+        assertResponseCode(client, getManagementLocation(baseUri), SC_UNAUTHORIZED, TEST_USER_LOGIN, "something");
+        assertResponseCode(client, getManagementLocation(baseUri), SC_UNAUTHORIZED, "unknown", null);
+        assertResponseCode(client, getManagementLocation(baseUri), SC_OK, MANAGEMENT_USER_LOGIN, null);
+        assertResponseCode(client, getManagementLocation(baseUri), SC_UNAUTHORIZED, MANAGEMENT_USER_LOGIN, "something");
+        assertResponseCode(client, getManagementLocation(baseUri), SC_UNAUTHORIZED, MANAGEMENT_USER_LOGIN, MANAGEMENT_PASSWORD);
         // internal
         assertResponseCode(client, getInternalLocation(baseUri), SC_FORBIDDEN);
-        assertResponseCode(client, getInternalLocation(baseUri), SC_FORBIDDEN, "unknown", null);
+        assertResponseCode(client, getInternalLocation(baseUri), SC_FORBIDDEN, TEST_USER_LOGIN, null);
+        assertResponseCode(client, getInternalLocation(baseUri), SC_FORBIDDEN, MANAGEMENT_USER_LOGIN, null);
     }
 
     private void assertPasswordAuthentication(URI baseUri)
@@ -322,20 +341,20 @@ public class TestResourceSecurity
         assertOk(client, getPublicLocation(baseUri));
         // authorized user
         assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_UNAUTHORIZED);
-        assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_UNAUTHORIZED, TEST_USER, null);
-        assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_UNAUTHORIZED, TEST_USER, "invalid");
-        assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_OK, TEST_USER, TEST_PASSWORD);
+        assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_UNAUTHORIZED, TEST_USER_LOGIN, null);
+        assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_UNAUTHORIZED, TEST_USER_LOGIN, "invalid");
+        assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_OK, TEST_USER_LOGIN, TEST_PASSWORD);
         // management
         assertResponseCode(client, getManagementLocation(baseUri), SC_UNAUTHORIZED);
-        assertResponseCode(client, getManagementLocation(baseUri), SC_UNAUTHORIZED, TEST_USER, null);
-        assertResponseCode(client, getManagementLocation(baseUri), SC_UNAUTHORIZED, TEST_USER, "invalid");
-        assertResponseCode(client, getManagementLocation(baseUri), SC_FORBIDDEN, TEST_USER, TEST_PASSWORD);
-        assertResponseCode(client, getManagementLocation(baseUri), SC_UNAUTHORIZED, MANAGEMENT_USER, null);
-        assertResponseCode(client, getManagementLocation(baseUri), SC_UNAUTHORIZED, MANAGEMENT_USER, "invalid");
-        assertResponseCode(client, getManagementLocation(baseUri), SC_OK, MANAGEMENT_USER, MANAGEMENT_PASSWORD);
+        assertResponseCode(client, getManagementLocation(baseUri), SC_UNAUTHORIZED, TEST_USER_LOGIN, null);
+        assertResponseCode(client, getManagementLocation(baseUri), SC_UNAUTHORIZED, TEST_USER_LOGIN, "invalid");
+        assertResponseCode(client, getManagementLocation(baseUri), SC_FORBIDDEN, TEST_USER_LOGIN, TEST_PASSWORD);
+        assertResponseCode(client, getManagementLocation(baseUri), SC_UNAUTHORIZED, MANAGEMENT_USER_LOGIN, null);
+        assertResponseCode(client, getManagementLocation(baseUri), SC_UNAUTHORIZED, MANAGEMENT_USER_LOGIN, "invalid");
+        assertResponseCode(client, getManagementLocation(baseUri), SC_OK, MANAGEMENT_USER_LOGIN, MANAGEMENT_PASSWORD);
         // internal
         assertResponseCode(client, getInternalLocation(baseUri), SC_FORBIDDEN);
-        assertResponseCode(client, getInternalLocation(baseUri), SC_FORBIDDEN, TEST_USER, TEST_PASSWORD);
+        assertResponseCode(client, getInternalLocation(baseUri), SC_FORBIDDEN, TEST_USER_LOGIN, TEST_PASSWORD);
     }
 
     private static void assertAuthenticationAutomatic(URI baseUri, OkHttpClient authorizedClient)
@@ -361,17 +380,17 @@ public class TestResourceSecurity
         assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_FORBIDDEN);
         assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_FORBIDDEN, "unknown", null);
         assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_FORBIDDEN, "unknown", "something");
-        assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_FORBIDDEN, TEST_USER, TEST_PASSWORD);
+        assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_FORBIDDEN, TEST_USER_LOGIN, TEST_PASSWORD);
         // management
         assertResponseCode(client, getManagementLocation(baseUri), SC_FORBIDDEN);
         assertResponseCode(client, getManagementLocation(baseUri), SC_FORBIDDEN, "unknown", null);
         assertResponseCode(client, getManagementLocation(baseUri), SC_FORBIDDEN, "unknown", "something");
-        assertResponseCode(client, getManagementLocation(baseUri), SC_FORBIDDEN, TEST_USER, TEST_PASSWORD);
+        assertResponseCode(client, getManagementLocation(baseUri), SC_FORBIDDEN, TEST_USER_LOGIN, TEST_PASSWORD);
         // internal
         assertResponseCode(client, getInternalLocation(baseUri), SC_FORBIDDEN);
         assertResponseCode(client, getInternalLocation(baseUri), SC_FORBIDDEN, "unknown", null);
         assertResponseCode(client, getInternalLocation(baseUri), SC_FORBIDDEN, "unknown", "something");
-        assertResponseCode(client, getInternalLocation(baseUri), SC_FORBIDDEN, TEST_USER, TEST_PASSWORD);
+        assertResponseCode(client, getInternalLocation(baseUri), SC_FORBIDDEN, TEST_USER_LOGIN, TEST_PASSWORD);
     }
 
     private void assertFixedManagementUser(URI baseUri, boolean insecureAuthentication)
@@ -379,10 +398,11 @@ public class TestResourceSecurity
     {
         assertResponseCode(client, getPublicLocation(baseUri), SC_OK);
         if (insecureAuthentication) {
-            assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_OK, TEST_USER, null);
+            assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_OK, TEST_USER_LOGIN, null);
+            assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_UNAUTHORIZED, "unknown", null);
         }
         else {
-            assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_OK, TEST_USER, TEST_PASSWORD);
+            assertResponseCode(client, getAuthorizedUserLocation(baseUri), SC_OK, TEST_USER_LOGIN, TEST_PASSWORD);
         }
         assertResponseCode(client, getManagementLocation(baseUri), SC_OK);
         assertResponseCode(client, getManagementLocation(baseUri), SC_OK, "unknown", "something");
@@ -452,7 +472,7 @@ public class TestResourceSecurity
 
     private static Principal authenticate(String user, String password)
     {
-        if ((TEST_USER.equals(user) && TEST_PASSWORD.equals(password)) || (MANAGEMENT_USER.equals(user) && MANAGEMENT_PASSWORD.equals(password))) {
+        if ((TEST_USER_LOGIN.equals(user) && TEST_PASSWORD.equals(password)) || (MANAGEMENT_USER_LOGIN.equals(user) && MANAGEMENT_PASSWORD.equals(password))) {
             return new BasicPrincipal(user);
         }
         throw new AccessDeniedException("Invalid credentials");

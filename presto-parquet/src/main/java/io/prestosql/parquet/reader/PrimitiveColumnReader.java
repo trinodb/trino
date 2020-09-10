@@ -34,6 +34,7 @@ import org.apache.parquet.column.values.ValuesReader;
 import org.apache.parquet.column.values.rle.RunLengthBitPackingHybridDecoder;
 import org.apache.parquet.io.ParquetDecodingException;
 import org.apache.parquet.schema.OriginalType;
+import org.joda.time.DateTimeZone;
 
 import java.io.IOException;
 import java.util.Optional;
@@ -77,7 +78,7 @@ public abstract class PrimitiveColumnReader
         return ParquetTypeUtils.isValueNull(columnDescriptor.isRequired(), definitionLevel, columnDescriptor.getMaxDefinitionLevel());
     }
 
-    public static PrimitiveColumnReader createReader(RichColumnDescriptor descriptor)
+    public static PrimitiveColumnReader createReader(RichColumnDescriptor descriptor, DateTimeZone timeZone)
     {
         switch (descriptor.getPrimitiveType().getPrimitiveTypeName()) {
             case BOOLEAN:
@@ -85,12 +86,18 @@ public abstract class PrimitiveColumnReader
             case INT32:
                 return createDecimalColumnReader(descriptor).orElse(new IntColumnReader(descriptor));
             case INT64:
+                if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.TIME_MICROS) {
+                    return new TimeMicrosColumnReader(descriptor);
+                }
                 if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.TIMESTAMP_MICROS) {
                     return new TimestampMicrosColumnReader(descriptor);
                 }
+                if (descriptor.getPrimitiveType().getOriginalType() == OriginalType.TIMESTAMP_MILLIS) {
+                    return new Int64TimestampMillisColumnReader(descriptor);
+                }
                 return createDecimalColumnReader(descriptor).orElse(new LongColumnReader(descriptor));
             case INT96:
-                return new TimestampColumnReader(descriptor);
+                return new TimestampColumnReader(descriptor, timeZone);
             case FLOAT:
                 return new FloatColumnReader(descriptor);
             case DOUBLE:

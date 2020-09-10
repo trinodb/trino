@@ -28,7 +28,6 @@ import io.prestosql.sql.analyzer.Analysis.UnnestAnalysis;
 import io.prestosql.sql.analyzer.Field;
 import io.prestosql.sql.analyzer.RelationType;
 import io.prestosql.sql.analyzer.Scope;
-import io.prestosql.sql.planner.QueryPlanner.NodeAndMappings;
 import io.prestosql.sql.planner.plan.AggregationNode;
 import io.prestosql.sql.planner.plan.Assignments;
 import io.prestosql.sql.planner.plan.CorrelatedJoinNode;
@@ -94,6 +93,7 @@ import static io.prestosql.sql.analyzer.TypeSignatureTranslator.toSqlType;
 import static io.prestosql.sql.planner.PlanBuilder.newPlanBuilder;
 import static io.prestosql.sql.planner.QueryPlanner.coerce;
 import static io.prestosql.sql.planner.QueryPlanner.coerceIfNecessary;
+import static io.prestosql.sql.planner.QueryPlanner.pruneInvisibleFields;
 import static io.prestosql.sql.planner.plan.AggregationNode.singleGroupingSet;
 import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 import static io.prestosql.sql.tree.Join.Type.CROSS;
@@ -113,6 +113,7 @@ class RelationPlanner
     private final Optional<TranslationMap> outerContext;
     private final Session session;
     private final SubqueryPlanner subqueryPlanner;
+    private final Map<NodeRef<Node>, RelationPlan> recursiveSubqueries;
 
     RelationPlanner(
             Analysis analysis,
@@ -121,7 +122,8 @@ class RelationPlanner
             Map<NodeRef<LambdaArgumentDeclaration>, Symbol> lambdaDeclarationToSymbolMap,
             Metadata metadata,
             Optional<TranslationMap> outerContext,
-            Session session)
+            Session session,
+            Map<NodeRef<Node>, RelationPlan> recursiveSubqueries)
     {
         requireNonNull(analysis, "analysis is null");
         requireNonNull(symbolAllocator, "symbolAllocator is null");
@@ -130,6 +132,7 @@ class RelationPlanner
         requireNonNull(metadata, "metadata is null");
         requireNonNull(outerContext, "outerContext is null");
         requireNonNull(session, "session is null");
+        requireNonNull(recursiveSubqueries, "recursiveSubqueries is null");
 
         this.analysis = analysis;
         this.symbolAllocator = symbolAllocator;
@@ -139,7 +142,8 @@ class RelationPlanner
         this.typeCoercion = new TypeCoercion(metadata::getType);
         this.outerContext = outerContext;
         this.session = session;
-        this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, typeCoercion, outerContext, session);
+        this.subqueryPlanner = new SubqueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, typeCoercion, outerContext, session, recursiveSubqueries);
+        this.recursiveSubqueries = recursiveSubqueries;
     }
 
     @Override
@@ -151,12 +155,26 @@ class RelationPlanner
     @Override
     protected RelationPlan visitTable(Table node, Void context)
     {
+        // is this a recursive reference in expandable named query? If so, there's base relation already planned.
+        RelationPlan expansion = recursiveSubqueries.get(NodeRef.of(node));
+        if (expansion != null) {
+            // put the pre-planned recursive subquery in the actual outer context to enable resolving correlation
+            return new RelationPlan(expansion.getRoot(), expansion.getScope(), expansion.getFieldMappings(), outerContext);
+        }
+
         Query namedQuery = analysis.getNamedQuery(node);
         Scope scope = analysis.getScope(node);
 
         RelationPlan plan;
         if (namedQuery != null) {
-            RelationPlan subPlan = process(namedQuery, null);
+            RelationPlan subPlan;
+            if (analysis.isExpandableQuery(namedQuery)) {
+                subPlan = new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, outerContext, session, recursiveSubqueries)
+                        .planExpand(namedQuery);
+            }
+            else {
+                subPlan = process(namedQuery, null);
+            }
 
             // Add implicit coercions if view query produces types that don't match the declared output types
             // of the view (e.g., if the underlying tables referenced by the view changed)
@@ -166,7 +184,7 @@ class RelationPlanner
                     .map(Field::getType)
                     .collect(toImmutableList());
 
-            NodeAndMappings coerced = coerce(subPlan.getRoot(), visibleFields(subPlan), types, symbolAllocator, idAllocator);
+            NodeAndMappings coerced = coerce(subPlan, types, symbolAllocator, idAllocator);
 
             plan = new RelationPlan(coerced.getNode(), scope, coerced.getFields(), outerContext);
         }
@@ -635,7 +653,7 @@ class RelationPlanner
     {
         PlanBuilder leftPlanBuilder = newPlanBuilder(leftPlan, analysis, lambdaDeclarationToSymbolMap);
 
-        RelationPlan rightPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, Optional.of(leftPlanBuilder.getTranslations()), session)
+        RelationPlan rightPlan = new RelationPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, Optional.of(leftPlanBuilder.getTranslations()), session, recursiveSubqueries)
                 .process(lateral.getQuery(), null);
 
         PlanBuilder rightPlanBuilder = newPlanBuilder(rightPlan, analysis, lambdaDeclarationToSymbolMap);
@@ -752,14 +770,14 @@ class RelationPlanner
     @Override
     protected RelationPlan visitQuery(Query node, Void context)
     {
-        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, outerContext, session)
+        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, outerContext, session, recursiveSubqueries)
                 .plan(node);
     }
 
     @Override
     protected RelationPlan visitQuerySpecification(QuerySpecification node, Void context)
     {
-        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, outerContext, session)
+        return new QueryPlanner(analysis, symbolAllocator, idAllocator, lambdaDeclarationToSymbolMap, metadata, outerContext, session, recursiveSubqueries)
                 .plan(node);
     }
 
@@ -874,17 +892,16 @@ class RelationPlanner
         for (Relation child : node.getRelations()) {
             RelationPlan plan = process(child, null);
 
+            NodeAndMappings planAndMappings;
             List<Type> types = analysis.getRelationCoercion(child);
             if (types == null) {
-                // If there are no coercions, we still want to call the coerce method below to create a plan
-                // with just the visible fields
-                types = plan.getDescriptor()
-                        .getVisibleFields().stream()
-                        .map(Field::getType)
-                        .collect(toImmutableList());
+                // no coercion required, only prune invisible fields from child outputs
+                planAndMappings = pruneInvisibleFields(plan, idAllocator);
             }
-
-            NodeAndMappings planAndMappings = coerce(plan.getRoot(), visibleFields(plan), types, symbolAllocator, idAllocator);
+            else {
+                // apply required coercion and prune invisible fields from child outputs
+                planAndMappings = coerce(plan, types, symbolAllocator, idAllocator);
+            }
             for (int i = 0; i < outputFields.getAllFields().size(); i++) {
                 symbolMapping.put(outputs.get(i), planAndMappings.getFields().get(i));
             }
@@ -904,16 +921,6 @@ class RelationPlanner
                 AggregationNode.Step.SINGLE,
                 Optional.empty(),
                 Optional.empty());
-    }
-
-    private static List<Symbol> visibleFields(RelationPlan subPlan)
-    {
-        RelationType descriptor = subPlan.getDescriptor();
-        return descriptor.getAllFields().stream()
-                .filter(field -> !field.isHidden())
-                .map(descriptor::indexOf)
-                .map(subPlan.getFieldMappings()::get)
-                .collect(toImmutableList());
     }
 
     private static class SetOperationPlan

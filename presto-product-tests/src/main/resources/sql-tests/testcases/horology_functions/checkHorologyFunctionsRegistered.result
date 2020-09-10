@@ -1,23 +1,22 @@
 -- delimiter: |; ignoreOrder: true; ignoreExcessRows: true; trimValues:true
  current_date | date | | scalar | true | Current date |
- current_time | time with time zone | | scalar | true | Current time with time zone |
  current_timezone | varchar | | scalar | true | Current time zone |
  date_add | date | varchar(x), bigint, date | scalar | true | Add the specified amount of date to the given date |
- date_add | time | varchar(x), bigint, time | scalar | true | Add the specified amount of time to the given time |
- date_add | time with time zone | varchar(x), bigint, time with time zone | scalar | true | Add the specified amount of time to the given time |
+ date_add | time(p) | varchar(x), bigint, time(p) | scalar | true | Add the specified amount of time to the given time |
+ date_add | time(p) with time zone | varchar(x), bigint, time(p) with time zone | scalar | true | Add the specified amount of time to the given time |
  date_add | timestamp(p) | varchar(x), bigint, timestamp(p) | scalar | true | Add the specified amount of time to the given timestamp |
  date_add | timestamp(p) with time zone | varchar(x), bigint, timestamp(p) with time zone | scalar | true | Add the specified amount of time to the given timestamp |
  date_diff | bigint | varchar(x), date, date | scalar | true | Difference of the given dates in the given unit |
- date_diff | bigint | varchar(x), time with time zone, time with time zone | scalar | true | Difference of the given times in the given unit |
- date_diff | bigint | varchar(x), time, time | scalar | true | Difference of the given times in the given unit |
+ date_diff | bigint | varchar(x), time(p) with time zone, time(p) with time zone | scalar | true | Difference of the given times in the given unit |
+ date_diff | bigint | varchar(x), time(p), time(p) | scalar | true | Difference of the given times in the given unit |
  date_diff | bigint | varchar(x), timestamp(p) with time zone, timestamp(p) with time zone | scalar | true | Difference of the given times in the given unit |
  date_diff | bigint | varchar(x), timestamp(p), timestamp(p) | scalar | true | Difference of the given times in the given unit |
  date_format | varchar | timestamp(p) with time zone, varchar(x) | scalar | true | Formats the given timestamp by the given format |
  date_format | varchar | timestamp(p), varchar(x) | scalar | true | Formats the given timestamp by the given format |
  date_parse | timestamp(3) | varchar(x), varchar(y) | scalar | true | |
  date_trunc | date | varchar(x), date | scalar | true | Truncate to the specified precision in the session timezone |
- date_trunc | time | varchar(x), time | scalar | true | Truncate to the specified precision in the session timezone |
- date_trunc | time with time zone | varchar(x), time with time zone | scalar | true | Truncate to the specified precision |
+ date_trunc | time(p) | varchar(x), time(p) | scalar | true | Truncate to the specified precision |
+ date_trunc | time(p) with time zone | varchar(x), time(p) with time zone | scalar | true | Truncate to the specified precision |
  date_trunc | timestamp(p) | varchar(x), timestamp(p) | scalar | true | Truncate to the specified precision in the session timezone |
  date_trunc | timestamp(p) with time zone | varchar(x), timestamp(p) with time zone | scalar | true | Truncate to the specified precision |
  day | bigint | date | scalar | true | Day of the month of the given date |
@@ -48,14 +47,13 @@
  from_unixtime | timestamp(3) | double | scalar | true | |
  from_unixtime | timestamp(3) with time zone | double, bigint, bigint | scalar | true | |
  hour | bigint | interval day to second | scalar | true | Hour of the day of the given interval |
- hour | bigint | time | scalar | true | Hour of the day of the given time |
- hour | bigint | time with time zone | scalar | true | Hour of the day of the given time |
+ hour | bigint | time(p) | scalar | true | Hour of the day of the given time |
+ hour | bigint | time(p) with time zone | scalar | true | Hour of the day of the given time |
  hour | bigint | timestamp(p) | scalar | true | Hour of the day of the given timestamp |
  hour | bigint | timestamp(p) with time zone | scalar | true | Hour of the day of the given timestamp |
- localtime | time | | scalar | true | Current time without time zone |
  minute | bigint | interval day to second | scalar | true | Minute of the hour of the given interval |
- minute | bigint | time | scalar | true | Minute of the hour of the given time |
- minute | bigint | time with time zone | scalar | true | Minute of the hour of the given time |
+ minute | bigint | time(p) | scalar | true | Minute of the hour of the given time |
+ minute | bigint | time(p) with time zone | scalar | true | Minute of the hour of the given time |
  minute | bigint | timestamp(p) | scalar | true | Minute of the hour of the given timestamp |
  minute | bigint | timestamp(p) with time zone | scalar | true | Minute of the hour of the given timestamp |
  month | bigint | date | scalar | true | Month of the year of the given date |

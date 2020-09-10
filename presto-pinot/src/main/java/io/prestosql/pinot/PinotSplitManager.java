@@ -26,6 +26,7 @@ import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.FixedSplitSource;
 
 import javax.inject.Inject;
@@ -154,7 +155,8 @@ public class PinotSplitManager
             ConnectorTransactionHandle transactionHandle,
             ConnectorSession session,
             ConnectorTableHandle tableHandle,
-            SplitSchedulingStrategy splitSchedulingStrategy)
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            DynamicFilter dynamicFilter)
     {
         PinotTableHandle pinotTableHandle = (PinotTableHandle) tableHandle;
         Supplier<PrestoException> errorSupplier = () -> new QueryNotAdequatelyPushedDownException(QueryNotAdequatelyPushedDownErrorCode.PQL_NOT_PRESENT, pinotTableHandle, "");

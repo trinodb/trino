@@ -61,6 +61,19 @@ The table comments table contains the list of table comment.
 The nodes table contains the list of visible nodes in the Presto
 cluster along with their status.
 
+.. _optimizer_rule_stats:
+
+``runtime.optimizer_rule_stats``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The ``optimizer_rule_stats`` table contains the statistics for optimizer
+rule invocations during the query planning phase. The statistics are
+aggregated over all queries since the server start-up. The table contains
+information about invocation frequency, failure rates and performance for
+optimizer rules. For example, you can look at the multiplication of columns
+``invocations`` and ``average_time`` to get an idea about which rules
+generally impact query planning times the most.
+
 ``runtime.queries``
 ^^^^^^^^^^^^^^^^^^^
 

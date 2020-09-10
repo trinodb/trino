@@ -26,6 +26,7 @@ import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.DynamicFilter;
 import io.prestosql.spi.connector.FixedSplitSource;
 
 import java.util.ArrayList;
@@ -94,7 +95,12 @@ public class KinesisSplitManager
     }
 
     @Override
-    public ConnectorSplitSource getSplits(ConnectorTransactionHandle transactionHandle, ConnectorSession session, ConnectorTableHandle table, ConnectorSplitManager.SplitSchedulingStrategy splitSchedulingStrategy)
+    public ConnectorSplitSource getSplits(
+            ConnectorTransactionHandle transactionHandle,
+            ConnectorSession session,
+            ConnectorTableHandle table,
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            DynamicFilter dynamicFilter)
     {
         KinesisTableHandle kinesisTableHandle = (KinesisTableHandle) table;
 

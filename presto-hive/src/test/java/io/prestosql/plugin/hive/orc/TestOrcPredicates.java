@@ -34,7 +34,6 @@ import io.prestosql.spi.predicate.Domain;
 import io.prestosql.spi.predicate.TupleDomain;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.mapred.FileSplit;
-import org.joda.time.DateTimeZone;
 import org.testng.annotations.Test;
 
 import java.io.File;
@@ -53,7 +52,6 @@ import static io.prestosql.plugin.hive.HiveStorageFormat.ORC;
 import static io.prestosql.plugin.hive.HiveTestUtils.HDFS_ENVIRONMENT;
 import static io.prestosql.plugin.hive.HiveTestUtils.TYPE_MANAGER;
 import static io.prestosql.plugin.hive.HiveTestUtils.getHiveSession;
-import static io.prestosql.plugin.hive.parquet.ParquetTester.HIVE_STORAGE_TIME_ZONE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.testing.StructuralTestUtil.rowBlockOf;
 import static java.lang.String.format;
@@ -63,6 +61,7 @@ import static org.apache.hadoop.hive.serde.serdeConstants.SERIALIZATION_LIB;
 import static org.apache.hadoop.hive.serde2.objectinspector.ObjectInspectorFactory.getStandardStructObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaIntObjectInspector;
 import static org.apache.hadoop.hive.serde2.objectinspector.primitive.PrimitiveObjectInspectorFactory.javaLongObjectInspector;
+import static org.joda.time.DateTimeZone.UTC;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
@@ -98,8 +97,8 @@ public class TestOrcPredicates
         file.delete();
         try {
             // Write data
-            OrcFileWriterFactory writerFactory = new OrcFileWriterFactory(HDFS_ENVIRONMENT, TYPE_MANAGER, new NodeVersion("test"), HIVE_STORAGE_TIME_ZONE, false, STATS, new OrcWriterOptions());
-            FileSplit split = createTestFile(file.getAbsolutePath(), ORC, HiveCompressionCodec.NONE, columnsToWrite, session, NUM_ROWS, writerFactory);
+            OrcFileWriterFactory writerFactory = new OrcFileWriterFactory(HDFS_ENVIRONMENT, TYPE_MANAGER, new NodeVersion("test"), false, STATS, new OrcWriterOptions());
+            FileSplit split = createTestFilePresto(file.getAbsolutePath(), ORC, HiveCompressionCodec.NONE, columnsToWrite, session, NUM_ROWS, writerFactory);
 
             TupleDomain<TestColumn> testingPredicate;
 
@@ -162,7 +161,7 @@ public class TestOrcPredicates
             ConnectorSession session,
             FileSplit split)
     {
-        OrcPageSourceFactory readerFactory = new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_ENVIRONMENT, STATS);
+        OrcPageSourceFactory readerFactory = new OrcPageSourceFactory(new OrcReaderOptions(), HDFS_ENVIRONMENT, STATS, UTC);
 
         Properties splitProperties = new Properties();
         splitProperties.setProperty(FILE_INPUT_FORMAT, ORC.getInputFormat());
@@ -220,7 +219,6 @@ public class TestOrcPredicates
                 columnHandles,
                 partitionName,
                 partitionKeys,
-                DateTimeZone.getDefault(),
                 TYPE_MANAGER,
                 TableToPartitionMapping.empty(),
                 Optional.empty(),

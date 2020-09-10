@@ -23,6 +23,7 @@ import io.prestosql.plugin.jdbc.ConnectionFactory;
 import io.prestosql.plugin.jdbc.DriverConnectionFactory;
 import io.prestosql.plugin.jdbc.ForBaseJdbc;
 import io.prestosql.plugin.jdbc.JdbcClient;
+import io.prestosql.plugin.jdbc.RetryingConnectionFactory;
 import io.prestosql.plugin.jdbc.credential.CredentialProvider;
 import oracle.jdbc.OracleConnection;
 import oracle.jdbc.OracleDriver;
@@ -54,18 +55,19 @@ public class OracleClientModule
         connectionProperties.setProperty(OracleConnection.CONNECTION_PROPERTY_INCLUDE_SYNONYMS, String.valueOf(oracleConfig.isSynonymsEnabled()));
 
         if (oracleConfig.isConnectionPoolEnabled()) {
-            return new OraclePoolConnectorFactory(
+            return new OraclePoolConnectionFactory(
                     config.getConnectionUrl(),
                     connectionProperties,
                     credentialProvider,
                     oracleConfig.getConnectionPoolMinSize(),
-                    oracleConfig.getConnectionPoolMaxSize());
+                    oracleConfig.getConnectionPoolMaxSize(),
+                    oracleConfig.getInactiveConnectionTimeout());
         }
 
-        return new DriverConnectionFactory(
+        return new RetryingConnectionFactory(new DriverConnectionFactory(
                 new OracleDriver(),
                 config.getConnectionUrl(),
                 connectionProperties,
-                credentialProvider);
+                credentialProvider));
     }
 }

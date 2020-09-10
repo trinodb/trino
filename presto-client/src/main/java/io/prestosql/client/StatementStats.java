@@ -42,6 +42,7 @@ public class StatementStats
     private final long elapsedTimeMillis;
     private final long processedRows;
     private final long processedBytes;
+    private final long physicalInputBytes;
     private final long peakMemoryBytes;
     private final long spilledBytes;
     private final StageStats rootStage;
@@ -62,6 +63,7 @@ public class StatementStats
             @JsonProperty("elapsedTimeMillis") long elapsedTimeMillis,
             @JsonProperty("processedRows") long processedRows,
             @JsonProperty("processedBytes") long processedBytes,
+            @JsonProperty("physicalInputBytes") long physicalInputBytes,
             @JsonProperty("peakMemoryBytes") long peakMemoryBytes,
             @JsonProperty("spilledBytes") long spilledBytes,
             @JsonProperty("rootStage") StageStats rootStage)
@@ -80,6 +82,7 @@ public class StatementStats
         this.elapsedTimeMillis = elapsedTimeMillis;
         this.processedRows = processedRows;
         this.processedBytes = processedBytes;
+        this.physicalInputBytes = physicalInputBytes;
         this.peakMemoryBytes = peakMemoryBytes;
         this.spilledBytes = spilledBytes;
         this.rootStage = rootStage;
@@ -170,6 +173,12 @@ public class StatementStats
     }
 
     @JsonProperty
+    public long getPhysicalInputBytes()
+    {
+        return physicalInputBytes;
+    }
+
+    @JsonProperty
     public long getPeakMemoryBytes()
     {
         return peakMemoryBytes;
@@ -215,6 +224,7 @@ public class StatementStats
                 .add("elapsedTimeMillis", elapsedTimeMillis)
                 .add("processedRows", processedRows)
                 .add("processedBytes", processedBytes)
+                .add("physicalInputBytes", physicalInputBytes)
                 .add("peakMemoryBytes", peakMemoryBytes)
                 .add("spilledBytes", spilledBytes)
                 .add("rootStage", rootStage)
@@ -242,6 +252,7 @@ public class StatementStats
         private long elapsedTimeMillis;
         private long processedRows;
         private long processedBytes;
+        private long physicalInputBytes;
         private long peakMemoryBytes;
         private long spilledBytes;
         private StageStats rootStage;
@@ -332,6 +343,12 @@ public class StatementStats
             return this;
         }
 
+        public Builder setPhysicalInputBytes(long physicalInputBytes)
+        {
+            this.physicalInputBytes = physicalInputBytes;
+            return this;
+        }
+
         public Builder setPeakMemoryBytes(long peakMemoryBytes)
         {
             this.peakMemoryBytes = peakMemoryBytes;
@@ -367,6 +384,7 @@ public class StatementStats
                     elapsedTimeMillis,
                     processedRows,
                     processedBytes,
+                    physicalInputBytes,
                     peakMemoryBytes,
                     spilledBytes,
                     rootStage);

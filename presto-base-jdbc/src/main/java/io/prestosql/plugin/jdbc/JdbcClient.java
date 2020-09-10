@@ -50,6 +50,11 @@ public interface JdbcClient
 
     Optional<ColumnMapping> toPrestoType(ConnectorSession session, Connection connection, JdbcTypeHandle typeHandle);
 
+    /**
+     * Bulk variant of {@link #toPrestoType(ConnectorSession, Connection, JdbcTypeHandle)}.
+     */
+    List<ColumnMapping> getColumnMappings(ConnectorSession session, List<JdbcTypeHandle> typeHandles);
+
     WriteMapping toWriteMapping(ConnectorSession session, Type type);
 
     default boolean supportsGroupingSets()
@@ -120,4 +125,10 @@ public interface JdbcClient
     {
         return Optional.empty();
     }
+
+    String quoted(String name);
+
+    String quoted(RemoteTableName remoteTableName);
+
+    Map<String, Object> getTableProperties(JdbcIdentity identity, JdbcTableHandle tableHandle);
 }

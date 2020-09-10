@@ -181,8 +181,10 @@ public final class OkHttpUtil
             OkHttpClient.Builder clientBuilder,
             Optional<String> keyStorePath,
             Optional<String> keyStorePassword,
+            Optional<String> keyStoreType,
             Optional<String> trustStorePath,
-            Optional<String> trustStorePassword)
+            Optional<String> trustStorePassword,
+            Optional<String> trustStoreType)
     {
         if (!keyStorePath.isPresent() && !trustStorePath.isPresent()) {
             return;
@@ -203,7 +205,7 @@ public final class OkHttpUtil
                 catch (IOException | GeneralSecurityException ignored) {
                     keyManagerPassword = keyStorePassword.map(String::toCharArray).orElse(null);
 
-                    keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+                    keyStore = KeyStore.getInstance(keyStoreType.orElse(KeyStore.getDefaultType()));
                     try (InputStream in = new FileInputStream(keyStorePath.get())) {
                         keyStore.load(in, keyManagerPassword);
                     }
@@ -217,7 +219,7 @@ public final class OkHttpUtil
             // load TrustStore if configured, otherwise use KeyStore
             KeyStore trustStore = keyStore;
             if (trustStorePath.isPresent()) {
-                trustStore = loadTrustStore(new File(trustStorePath.get()), trustStorePassword);
+                trustStore = loadTrustStore(new File(trustStorePath.get()), trustStorePassword, trustStoreType);
             }
 
             // create TrustManagerFactory
@@ -286,10 +288,10 @@ public final class OkHttpUtil
         }
     }
 
-    private static KeyStore loadTrustStore(File trustStorePath, Optional<String> trustStorePassword)
+    private static KeyStore loadTrustStore(File trustStorePath, Optional<String> trustStorePassword, Optional<String> trustStoreType)
             throws IOException, GeneralSecurityException
     {
-        KeyStore trustStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        KeyStore trustStore = KeyStore.getInstance(trustStoreType.orElse(KeyStore.getDefaultType()));
         try {
             // attempt to read the trust store as a PEM file
             List<X509Certificate> certificateChain = PemReader.readCertificateChain(trustStorePath);

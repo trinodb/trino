@@ -16,6 +16,7 @@ package io.prestosql.server.security;
 import io.prestosql.spi.security.BasicPrincipal;
 import io.prestosql.spi.security.Identity;
 
+import javax.inject.Inject;
 import javax.ws.rs.container.ContainerRequestContext;
 
 import java.util.Optional;
@@ -23,10 +24,21 @@ import java.util.Optional;
 import static com.google.common.base.Strings.emptyToNull;
 import static io.prestosql.client.PrestoHeaders.PRESTO_USER;
 import static io.prestosql.server.security.BasicAuthCredentials.extractBasicAuthCredentials;
+import static io.prestosql.server.security.UserMapping.createUserMapping;
+import static java.util.Objects.requireNonNull;
 
 public class InsecureAuthenticator
         implements Authenticator
 {
+    private final UserMapping userMapping;
+
+    @Inject
+    public InsecureAuthenticator(InsecureAuthenticatorConfig config)
+    {
+        requireNonNull(config, "config is null");
+        this.userMapping = createUserMapping(config.getUserMappingPattern(), config.getUserMappingFile());
+    }
+
     @Override
     public Identity authenticate(ContainerRequestContext request)
             throws AuthenticationException
@@ -48,8 +60,14 @@ public class InsecureAuthenticator
             throw new AuthenticationException("Basic authentication or " + PRESTO_USER + " must be sent", BasicAuthCredentials.AUTHENTICATE_HEADER);
         }
 
-        return Identity.forUser(user)
-                .withPrincipal(new BasicPrincipal(user))
-                .build();
+        try {
+            String authenticatedUser = userMapping.mapUser(user);
+            return Identity.forUser(authenticatedUser)
+                    .withPrincipal(new BasicPrincipal(user))
+                    .build();
+        }
+        catch (UserMappingException e) {
+            throw new AuthenticationException(e.getMessage());
+        }
     }
 }

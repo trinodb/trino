@@ -34,6 +34,7 @@ import io.prestosql.spi.connector.ConnectorSplitManager;
 import io.prestosql.spi.connector.ConnectorSplitSource;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTransactionHandle;
+import io.prestosql.spi.connector.DynamicFilter;
 
 import javax.annotation.concurrent.NotThreadSafe;
 import javax.inject.Inject;
@@ -73,7 +74,8 @@ public class ThriftSplitManager
             ConnectorTransactionHandle transaction,
             ConnectorSession session,
             ConnectorTableHandle table,
-            SplitSchedulingStrategy splitSchedulingStrategy)
+            SplitSchedulingStrategy splitSchedulingStrategy,
+            DynamicFilter dynamicFilter)
     {
         ThriftTableHandle tableHandle = (ThriftTableHandle) table;
         return new ThriftSplitSource(

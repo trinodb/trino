@@ -46,7 +46,6 @@ import java.util.Optional;
 import java.util.Set;
 
 import static com.google.inject.multibindings.Multibinder.newSetBinder;
-import static io.prestosql.jdbc.TestPrestoDriver.closeQuietly;
 import static io.prestosql.metadata.MetadataUtil.TableMetadataBuilder.tableMetadataBuilder;
 import static io.prestosql.spi.connector.SystemTable.Distribution.ALL_NODES;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
@@ -89,8 +88,9 @@ public class TestJdbcConnection
 
     @AfterClass(alwaysRun = true)
     public void tearDownServer()
+            throws Exception
     {
-        closeQuietly(server);
+        server.close();
     }
 
     @Test

@@ -23,22 +23,22 @@ import io.airlift.units.MaxDataSize;
 import io.airlift.units.MinDataSize;
 import io.airlift.units.MinDuration;
 import io.prestosql.orc.OrcReaderOptions;
-import io.prestosql.spi.type.TimeZoneKey;
-import org.joda.time.DateTimeZone;
 
 import javax.validation.constraints.Max;
 import javax.validation.constraints.Min;
 import javax.validation.constraints.NotNull;
 
 import java.io.File;
-import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static java.lang.Math.max;
 import static java.lang.Runtime.getRuntime;
 
-@DefunctConfig("storage.backup-directory")
+@DefunctConfig({
+        "storage.backup-directory",
+        "storage.shard-day-boundary-time-zone",
+})
 public class StorageManagerConfig
 {
     private File dataDirectory;
@@ -60,7 +60,6 @@ public class StorageManagerConfig
     private DataSize maxShardSize = DataSize.of(256, MEGABYTE);
     private DataSize maxBufferSize = DataSize.of(256, MEGABYTE);
     private int oneSplitPerBucketThreshold;
-    private String shardDayBoundaryTimeZone = TimeZoneKey.UTC_KEY.getId();
 
     @NotNull
     public File getDataDirectory()
@@ -384,19 +383,6 @@ public class StorageManagerConfig
     public StorageManagerConfig setOneSplitPerBucketThreshold(int oneSplitPerBucketThreshold)
     {
         this.oneSplitPerBucketThreshold = oneSplitPerBucketThreshold;
-        return this;
-    }
-
-    public DateTimeZone getShardDayBoundaryTimeZone()
-    {
-        return DateTimeZone.forTimeZone(TimeZone.getTimeZone(shardDayBoundaryTimeZone));
-    }
-
-    @Config("storage.shard-day-boundary-time-zone")
-    @ConfigDescription("Time zone to use for computing day boundary for shards")
-    public StorageManagerConfig setShardDayBoundaryTimeZone(String timeZone)
-    {
-        this.shardDayBoundaryTimeZone = timeZone;
         return this;
     }
 }

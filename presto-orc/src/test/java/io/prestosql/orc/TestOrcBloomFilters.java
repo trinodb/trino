@@ -55,7 +55,7 @@ import static io.prestosql.spi.type.DoubleType.DOUBLE;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static io.prestosql.spi.type.RealType.REAL;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static io.prestosql.spi.type.TimestampType.TIMESTAMP;
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TinyintType.TINYINT;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
 import static io.prestosql.spi.type.VarcharType.VARCHAR;
@@ -81,7 +81,7 @@ public class TestOrcBloomFilters
             .put(789, SMALLINT)
             .put(77, TINYINT)
             .put(901, DATE)
-            .put(987654L, TIMESTAMP)
+            .put(987654L, TIMESTAMP_MILLIS)
             .put(234.567, DOUBLE)
             .put((long) floatToIntBits(987.654f), REAL)
             .build();
@@ -230,7 +230,7 @@ public class TestOrcBloomFilters
                 .put(SMALLINT, 789L)
                 .put(TINYINT, 77L)
                 .put(DATE, 901L)
-                .put(TIMESTAMP, 987654L)
+                .put(TIMESTAMP_MILLIS, 987654L)
                 .put(BIGINT, 4321L)
                 .put(DOUBLE, 0.123)
                 .put(REAL, (long) (floatToIntBits(0.456f)))
@@ -267,6 +267,7 @@ public class TestOrcBloomFilters
                 null,
                 null,
                 null,
+                null,
                 new Utf8BloomFilterBuilder(1000, 0.01)
                         .addLong(1234L)
                         .buildBloomFilter())));
@@ -281,6 +282,7 @@ public class TestOrcBloomFilters
                 null,
                 null,
                 null,
+                null,
                 new Utf8BloomFilterBuilder(1000, 0.01)
                         .buildBloomFilter())));
 
@@ -289,6 +291,7 @@ public class TestOrcBloomFilters
                 0,
                 null,
                 new IntegerStatistics(10L, 2000L, null),
+                null,
                 null,
                 null,
                 null,

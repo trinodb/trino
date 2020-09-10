@@ -586,8 +586,8 @@ Example::
 See also `Column Properties`_.
 
 
-Known limitations
------------------
+Limitations
+-----------
 
 -  Only lower case table and column names in Kudu are supported.
 -  Using a secured Kudu cluster has not been tested.

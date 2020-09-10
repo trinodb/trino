@@ -28,7 +28,6 @@ import io.prestosql.execution.StageInfo;
 import io.prestosql.execution.StageStats;
 import io.prestosql.execution.TableInfo;
 import io.prestosql.metadata.Metadata;
-import io.prestosql.metadata.ResolvedFunction;
 import io.prestosql.metadata.TableHandle;
 import io.prestosql.operator.StageExecutionDescriptor;
 import io.prestosql.spi.connector.ColumnHandle;
@@ -127,6 +126,7 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static com.google.common.collect.ImmutableMap.toImmutableMap;
 import static io.prestosql.execution.StageInfo.getAllStages;
+import static io.prestosql.metadata.ResolvedFunction.extractFunctionName;
 import static io.prestosql.operator.StageExecutionDescriptor.ungroupedExecution;
 import static io.prestosql.sql.DynamicFilters.extractDynamicFilters;
 import static io.prestosql.sql.ExpressionUtils.combineConjunctsWithDuplicates;
@@ -449,6 +449,7 @@ public class PlanPrinter
                             node.getFilteringSourceJoinSymbol(),
                             formatHash(node.getSourceHashSymbol(), node.getFilteringSourceHashSymbol())));
             node.getDistributionType().ifPresent(distributionType -> nodeOutput.appendDetailsLine("Distribution: %s", distributionType));
+            node.getDynamicFilterId().ifPresent(dynamicFilterId -> nodeOutput.appendDetailsLine("dynamicFilterId: %s", dynamicFilterId));
             node.getSource().accept(this, context);
             node.getFilteringSource().accept(this, context);
 
@@ -1365,17 +1366,15 @@ public class PlanPrinter
             {
                 FunctionCall rewritten = treeRewriter.defaultRewrite(node, context);
 
-                return ResolvedFunction.fromQualifiedName(node.getName())
-                        .map(function -> new FunctionCall(
-                                rewritten.getLocation(),
-                                QualifiedName.of(function.getSignature().getName()),
-                                rewritten.getWindow(),
-                                rewritten.getFilter(),
-                                rewritten.getOrderBy(),
-                                rewritten.isDistinct(),
-                                rewritten.getNullTreatment(),
-                                rewritten.getArguments()))
-                        .orElse(rewritten);
+                return new FunctionCall(
+                        rewritten.getLocation(),
+                        QualifiedName.of(extractFunctionName(node.getName())),
+                        rewritten.getWindow(),
+                        rewritten.getFilter(),
+                        rewritten.getOrderBy(),
+                        rewritten.isDistinct(),
+                        rewritten.getNullTreatment(),
+                        rewritten.getArguments());
             }
         }, expression);
     }
