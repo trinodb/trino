@@ -88,7 +88,6 @@
 * Fix incorrect query results when reading an ORC ACID table that has deleted rows 
   and underwent a minor compaction. ({issue}`4623`)
 * Fix query failure when storage caching is enabled and cached data is evicted during query execution. ({issue}`3580`)
-* Fix incorrect results when filtering on columns of `TIMESTAMP` type. ({issue}`5083`)
 
 ## JMX Connector Changes
 
