@@ -85,24 +85,24 @@ public class TestSqlServerIntegrationSmokeTest
         // TODO support aggregation pushdown with GROUPING SETS
         // TODO support aggregation over expressions
 
-        assertPushedDown("SELECT count(*) FROM orders");
-        assertPushedDown("SELECT count(nationkey) FROM nation");
-        assertPushedDown("SELECT min(totalprice) FROM orders");
-        assertPushedDown("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey");
-        assertPushedDown("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey");
+        assertThat(query("SELECT regionkey, min(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
 
-        assertPushedDown(
-                "SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey",
-                "SELECT regionkey, avg(CAST(nationkey AS double)) FROM nation GROUP BY regionkey");
+        assertThat(query("SELECT count(*) FROM orders")).isCorrectlyPushedDown();
+        assertThat(query("SELECT count(nationkey) FROM nation")).isCorrectlyPushedDown();
+        assertThat(query("SELECT min(totalprice) FROM orders")).isCorrectlyPushedDown();
+        assertThat(query("SELECT regionkey, max(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
+        assertThat(query("SELECT regionkey, sum(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
+
+        assertThat(query("SELECT regionkey, avg(nationkey) FROM nation GROUP BY regionkey")).isCorrectlyPushedDown();
 
         try (AutoCloseable ignoreTable = withTable("test_aggregation_pushdown", "(short_decimal decimal(9, 3), long_decimal decimal(30, 10))")) {
             sqlServer.execute("INSERT INTO test_aggregation_pushdown VALUES (100.000, 100000000.000000000)");
             sqlServer.execute("INSERT INTO test_aggregation_pushdown VALUES (123.321, 123456789.987654321)");
 
-            assertPushedDown("SELECT min(short_decimal), min(long_decimal) FROM test_aggregation_pushdown", "SELECT 100.000, 100000000.000000000");
-            assertPushedDown("SELECT max(short_decimal), max(long_decimal) FROM test_aggregation_pushdown", "SELECT 123.321, 123456789.987654321");
-            assertPushedDown("SELECT sum(short_decimal), sum(long_decimal) FROM test_aggregation_pushdown", "SELECT 223.321, 223456789.987654321");
-            assertPushedDown("SELECT avg(short_decimal), avg(long_decimal) FROM test_aggregation_pushdown", "SELECT 223.321 / 2, 223456789.987654321 / 2");
+            assertThat(query("SELECT min(short_decimal), min(long_decimal) FROM test_aggregation_pushdown")).isCorrectlyPushedDown();
+            assertThat(query("SELECT max(short_decimal), max(long_decimal) FROM test_aggregation_pushdown")).isCorrectlyPushedDown();
+            assertThat(query("SELECT sum(short_decimal), sum(long_decimal) FROM test_aggregation_pushdown")).isCorrectlyPushedDown();
+            assertThat(query("SELECT avg(short_decimal), avg(long_decimal) FROM test_aggregation_pushdown")).isCorrectlyPushedDown();
         }
     }
 
