@@ -10,7 +10,7 @@
 package com.starburstdata.presto.plugin.sqlserver;
 
 import com.google.common.collect.ImmutableList;
-import io.prestosql.plugin.jdbc.JdbcConnectorFactory;
+import com.starburstdata.presto.plugin.jdbc.dynamicfiltering.jdbc.DynamicFilteringJdbcConnectorFactory;
 import io.prestosql.spi.Plugin;
 import io.prestosql.spi.connector.ConnectorFactory;
 
@@ -20,7 +20,7 @@ public class StarburstSqlServerPlugin
     @Override
     public Iterable<ConnectorFactory> getConnectorFactories()
     {
-        return ImmutableList.of(new JdbcConnectorFactory(
+        return ImmutableList.of(new DynamicFilteringJdbcConnectorFactory(
                 "sqlserver",
                 StarburstSqlServerClientModule::new));
     }
