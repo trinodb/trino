@@ -829,14 +829,14 @@ public class TestOracleTypeMapping
      */
     private void testUnsupportedOracleType(String dataTypeName)
     {
-        try (TestTable table = new TestTable(getSqlExecutor(), "unsupported_type", format("(unsupported_type %s)", dataTypeName))) {
+        try (TestTable table = new TestTable(getOracleSqlExecutor(), "unsupported_type", format("(unsupported_type %s)", dataTypeName))) {
             assertQueryFails("SELECT * FROM " + table.getName(), NO_SUPPORTED_COLUMNS);
         }
     }
 
     private DataSetup oracleCreateAndInsert(String tableNamePrefix)
     {
-        return new CreateAndInsertDataSetup(getSqlExecutor(), tableNamePrefix);
+        return new CreateAndInsertDataSetup(getOracleSqlExecutor(), tableNamePrefix);
     }
 
     /**
@@ -890,7 +890,7 @@ public class TestOracleTypeMapping
         test.execute(getQueryRunner(), session.build(), dataSetup);
     }
 
-    private SqlExecutor getSqlExecutor()
+    private SqlExecutor getOracleSqlExecutor()
     {
         return sql -> oracleServer.execute(sql);
     }
@@ -922,6 +922,6 @@ public class TestOracleTypeMapping
 
     private TestTable oracleTable(String tableName, String schema, String data)
     {
-        return new TestTable(getSqlExecutor(), tableName, format("(%s)", schema), ImmutableList.of(data));
+        return new TestTable(getOracleSqlExecutor(), tableName, format("(%s)", schema), ImmutableList.of(data));
     }
 }
