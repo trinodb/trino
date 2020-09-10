@@ -55,7 +55,7 @@ public abstract class AbstractTestHiveLocal
 
     protected abstract HiveMetastore createMetastore(File tempDir);
 
-    @BeforeClass
+    @BeforeClass(alwaysRun = true)
     public void initialize()
     {
         tempDir = Files.createTempDir();

@@ -147,6 +147,7 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.IntStream;
 import java.util.stream.LongStream;
 
@@ -331,6 +332,8 @@ public abstract class AbstractTestHive
             .addAll(CREATE_TABLE_COLUMNS)
             .add(new ColumnMetadata("ds", createUnboundedVarcharType()))
             .build();
+
+    protected static final Predicate<String> PARTITION_COLUMN_FILTER = columnName -> columnName.equals("ds") || columnName.startsWith("part_");
 
     private static final MaterializedResult CREATE_TABLE_PARTITIONED_DATA = new MaterializedResult(
             CREATE_TABLE_DATA.getMaterializedRows().stream()
@@ -608,7 +611,7 @@ public abstract class AbstractTestHive
 
     private ScheduledExecutorService heartbeatService;
 
-    @BeforeClass
+    @BeforeClass(alwaysRun = true)
     public void setupClass()
     {
         executor = newCachedThreadPool(daemonThreadsNamed("hive-%s"));
@@ -3266,10 +3269,16 @@ public abstract class AbstractTestHive
             throws Exception
     {
         List<String> partitionedBy = createTableColumns.stream()
-                .filter(column -> column.getName().equals("ds"))
                 .map(ColumnMetadata::getName)
+                .filter(PARTITION_COLUMN_FILTER)
                 .collect(toList());
 
+        doCreateEmptyTable(tableName, storageFormat, createTableColumns, partitionedBy);
+    }
+
+    protected void doCreateEmptyTable(SchemaTableName tableName, HiveStorageFormat storageFormat, List<ColumnMetadata> createTableColumns, List<String> partitionedBy)
+            throws Exception
+    {
         String queryId;
         try (Transaction transaction = newTransaction()) {
             ConnectorSession session = newSession();

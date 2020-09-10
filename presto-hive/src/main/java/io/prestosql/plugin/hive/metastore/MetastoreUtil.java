@@ -22,7 +22,6 @@ import io.prestosql.plugin.hive.PartitionOfflineException;
 import io.prestosql.plugin.hive.TableOfflineException;
 import io.prestosql.plugin.hive.authentication.HiveIdentity;
 import io.prestosql.spi.PrestoException;
-import io.prestosql.spi.connector.ColumnHandle;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.TableNotFoundException;
 import io.prestosql.spi.predicate.Domain;
@@ -58,7 +57,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static com.google.common.collect.ImmutableList.toImmutableList;
 import static io.prestosql.plugin.hive.HiveMetadata.AVRO_SCHEMA_URL_KEY;
-import static io.prestosql.plugin.hive.HivePartitionKey.HIVE_DEFAULT_DYNAMIC_PARTITION;
 import static io.prestosql.plugin.hive.HiveSplitManager.PRESTO_OFFLINE;
 import static io.prestosql.plugin.hive.HiveStorageFormat.AVRO;
 import static io.prestosql.spi.StandardErrorCode.NOT_SUPPORTED;
@@ -357,24 +355,37 @@ public final class MetastoreUtil
     private static String domainToString(Domain domain, boolean assumeCanonicalPartitionKeys, String partitionWildcardString)
     {
         if (domain != null && domain.isNullableSingleValue()) {
-            return sqlScalarToString(domain.getType(), domain.getNullableSingleValue(), assumeCanonicalPartitionKeys, partitionWildcardString);
+            return sqlScalarToStringForParts(domain.getType(), domain.getNullableSingleValue(), assumeCanonicalPartitionKeys, partitionWildcardString);
         }
 
-        // null or not a single value
         return partitionWildcardString;
     }
 
+    public static boolean canConvertSqlTypeToStringForParts(Type type, boolean assumeCanonicalPartitionKeys)
+    {
+        return !(type instanceof TimestampType) && (type instanceof CharType || type instanceof VarcharType || assumeCanonicalPartitionKeys);
+    }
+
     /**
-     * @param type
-     * @param value
-     * @param assumeCanonicalPartitionKeys
-     * @param partitionWildcardString
-     * @return value converted a string format. Returns
+     * @return canonical string representation of a given value according to its type. If there isn't a valid conversion, returns ""
      */
-    public static String sqlScalarToString(Type type, Object value, boolean assumeCanonicalPartitionKeys, String partitionWildcardString)
+    public static String sqlScalarToStringForParts(Type type, Object value, boolean assumeCanonicalPartitionKeys, String partitionWildcardString)
+    {
+        if (!canConvertSqlTypeToStringForParts(type, assumeCanonicalPartitionKeys)) {
+            return partitionWildcardString;
+        }
+
+        return sqlScalarToString(type, value, HIVE_PARTITION_VALUE_WILDCARD);
+    }
+
+    /**
+     * @return canonical string representation of a given value according to its type.
+     * @throws PrestoException if the type is not supported
+     */
+    public static String sqlScalarToString(Type type, Object value, String nullString)
     {
         if (value == null) {
-            return HIVE_DEFAULT_DYNAMIC_PARTITION;
+            return nullString;
         }
         else if (type instanceof CharType) {
             Slice slice = (Slice) value;
@@ -383,9 +394,6 @@ public final class MetastoreUtil
         else if (type instanceof VarcharType) {
             Slice slice = (Slice) value;
             return slice.toStringUtf8();
-        }
-        else if (!assumeCanonicalPartitionKeys) {
-            return partitionWildcardString;
         }
         else if (type instanceof DecimalType && !((DecimalType) type).isShort()) {
             Slice slice = (Slice) value;
@@ -399,8 +407,8 @@ public final class MetastoreUtil
             return dateTimeFormatter.print(TimeUnit.DAYS.toMillis((long) value));
         }
         else if (type instanceof TimestampType) {
-            // we don't have time zone info, so just add a wildcard
-            return partitionWildcardString;
+            // we throw on this type as we don't have timezone. Callers should not ask for this conversion type, but document for possible future work (?)
+            throw new PrestoException(NOT_SUPPORTED, "TimestampType conversion to scalar expressions is not supported");
         }
         else if (type instanceof TinyintType
                 || type instanceof SmallintType
@@ -421,7 +429,7 @@ public final class MetastoreUtil
      *
      * @return filtered version of relevant Domains in effectivePredicate.
      */
-    public static TupleDomain<String> computePartitionKeyFilter(List<HiveColumnHandle> partitionKeys, TupleDomain<ColumnHandle> effectivePredicate)
+    public static TupleDomain<String> computePartitionKeyFilter(List<HiveColumnHandle> partitionKeys, TupleDomain<HiveColumnHandle> effectivePredicate)
     {
         checkArgument(effectivePredicate.getDomains().isPresent());
 
