@@ -28,6 +28,7 @@ import javax.inject.Inject;
 
 import java.time.Duration;
 
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.utility.MountableFile.forHostPath;
@@ -53,15 +54,15 @@ public final class SinglenodeCassandra
     @Override
     protected void extendEnvironment(Environment.Builder builder)
     {
-        builder.addContainer("cassandra", createCassandra());
+        builder.addContainer(createCassandra());
 
-        builder.configureContainer("presto-master", container -> container
+        builder.configureContainer(COORDINATOR, container -> container
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath("conf/environment/singlenode-cassandra/cassandra.properties")), CONTAINER_PRESTO_CASSANDRA_PROPERTIES));
     }
 
     private DockerContainer createCassandra()
     {
-        DockerContainer container = new DockerContainer("cassandra:3.9")
+        DockerContainer container = new DockerContainer("cassandra:3.9", "cassandra")
                 .withEnv("HEAP_NEWSIZE", "128M")
                 .withEnv("MAX_HEAP_SIZE", "512M")
                 .withCommand(

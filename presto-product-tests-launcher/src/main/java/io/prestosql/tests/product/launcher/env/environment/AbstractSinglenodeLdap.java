@@ -26,6 +26,9 @@ import org.testcontainers.containers.startupcheck.IsRunningStartupCheckStrategy;
 import java.time.Duration;
 import java.util.List;
 
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.LDAP;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_CONFIG_PROPERTIES;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
@@ -55,7 +58,7 @@ public abstract class AbstractSinglenodeLdap
     {
         String baseImage = format("prestodev/%s:%s", getBaseImage(), imagesVersion);
 
-        builder.configureContainer("presto-master", dockerContainer -> {
+        builder.configureContainer(COORDINATOR, dockerContainer -> {
             dockerContainer.setDockerImageName(baseImage);
 
             dockerContainer.withCopyFileToContainer(
@@ -69,20 +72,20 @@ public abstract class AbstractSinglenodeLdap
             portBinder.exposePort(dockerContainer, 8443);
         });
 
-        builder.configureContainer("tests", dockerContainer -> {
+        builder.configureContainer(TESTS, dockerContainer -> {
             dockerContainer.setDockerImageName(baseImage);
             dockerContainer.withCopyFileToContainer(
                     forHostPath(dockerFiles.getDockerFilesHostPath("conf/tempto/tempto-configuration-for-docker-ldap.yaml")),
                     CONTAINER_TEMPTO_PROFILE_CONFIG);
         });
 
-        DockerContainer container = new DockerContainer(baseImage)
+        DockerContainer container = new DockerContainer(baseImage, LDAP)
                 .withStartupCheckStrategy(new IsRunningStartupCheckStrategy())
                 .waitingFor(new SelectedPortWaitStrategy(LDAP_PORT))
                 .withStartupTimeout(Duration.ofMinutes(5));
         portBinder.exposePort(container, LDAP_PORT);
 
-        builder.addContainer("ldapserver", container);
+        builder.addContainer(container);
     }
 
     protected String getBaseImage()

@@ -34,17 +34,18 @@ import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.nio.file.Path;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ExecutionException;
-import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Throwables.getStackTraceAsString;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.prestosql.tests.product.launcher.env.Environments.pruneEnvironment;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -134,7 +135,7 @@ public final class Environment
 
     public long awaitTestsCompletion()
     {
-        Container<?> container = getContainer("tests");
+        Container<?> container = getContainer(TESTS);
         log.info("Waiting for test completion");
 
         try {
@@ -156,7 +157,7 @@ public final class Environment
         }
     }
 
-    public Container<?> getContainer(String name)
+    public DockerContainer getContainer(String name)
     {
         return Optional.ofNullable(containers.get(requireNonNull(name, "name is null")))
                 .orElseThrow(() -> new IllegalArgumentException("No container with name " + name));
@@ -203,57 +204,65 @@ public final class Environment
             this.name = requireNonNull(name, "name is null");
         }
 
-        public Builder addContainer(String name, DockerContainer container)
+        public Builder addContainers(DockerContainer... containers)
         {
-            requireNonNull(name, "name is null");
-            checkState(!containers.containsKey(name), "Container with name %s is already registered", name);
-            containers.put(name, requireNonNull(container, "container is null"));
-
-            String containerName = "ptl-" + name;
-            container
-                    .withNetwork(network)
-                    .withNetworkAliases(name)
-                    .withLabel(PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME, PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE)
-                    .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd
-                            .withName(containerName)
-                            .withHostName(name));
+            Arrays.stream(containers)
+                    .forEach(this::addContainer);
 
             return this;
         }
 
-        public Builder containerDependsOnRest(String name)
+        public Builder addContainer(DockerContainer container)
         {
-            checkState(containers.containsKey(name), "Container with name %s does not exist", name);
-            DockerContainer container = containers.get(name);
+            String containerName = container.getLogicalName();
+
+            checkState(!containers.containsKey(containerName), "Container with name %s is already registered", containerName);
+            containers.put(containerName, requireNonNull(container, "container is null"));
+
+            container
+                    .withNetwork(network)
+                    .withNetworkAliases(containerName)
+                    .withLabel(PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME, PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE)
+                    .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd
+                            .withName("ptl-" + containerName)
+                            .withHostName(containerName));
+
+            return this;
+        }
+
+        public Builder containerDependsOnRest(String logicalName)
+        {
+            checkState(containers.containsKey(logicalName), "Container with name %s does not exist", logicalName);
+            DockerContainer container = containers.get(logicalName);
 
             containers.entrySet()
                     .stream()
-                    .filter(entry -> !entry.getKey().equals(name))
+                    .filter(entry -> !entry.getKey().equals(logicalName))
                     .map(entry -> entry.getValue())
                     .forEach(dependant -> container.dependsOn(dependant));
 
             return this;
         }
 
-        public Builder configureContainer(String name, Consumer<DockerContainer> configurer)
+        public Builder configureContainer(String logicalName, Consumer<DockerContainer> configurer)
         {
-            requireNonNull(name, "name is null");
-            checkState(containers.containsKey(name), "Container with name %s is not registered", name);
-            requireNonNull(configurer, "configurer is null").accept(containers.get(name));
+            requireNonNull(logicalName, "logicalName is null");
+            checkState(containers.containsKey(logicalName), "Container with name %s is not registered", logicalName);
+            requireNonNull(configurer, "configurer is null").accept(containers.get(logicalName));
             return this;
         }
 
-        public Builder configureContainers(BiConsumer<String, DockerContainer> configurer)
+        public Builder configureContainers(Consumer<DockerContainer> configurer)
         {
             requireNonNull(configurer, "configurer is null");
-            containers.forEach(configurer);
+            containers.values().forEach(configurer::accept);
             return this;
         }
 
-        public Builder removeContainer(String name)
+        public Builder removeContainer(String logicalName)
         {
-            requireNonNull(name, "name is null");
-            GenericContainer<?> container = containers.remove(name);
+            requireNonNull(logicalName, "logicalName is null");
+            GenericContainer<?> container = containers.remove(logicalName);
             if (container != null) {
                 container.close();
             }
@@ -303,9 +312,9 @@ public final class Environment
         {
             log.info("Exposing environment '%s' logs in: '%s'", name, basePath);
 
-            return configureContainers((containerName, dockerContainer) -> {
-                Path containerLogPath = basePath.resolve(containerName);
-                log.info("Exposing container '%s' logs in host directory '%s'", containerName, containerLogPath);
+            return configureContainers(dockerContainer -> {
+                Path containerLogPath = basePath.resolve(dockerContainer.getLogicalName());
+                log.info("Exposing container '%s' logs in host directory '%s'", dockerContainer.getLogicalName(), containerLogPath);
                 dockerContainer.exposeLogsInHostPath(containerLogPath);
             });
         }

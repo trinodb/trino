@@ -38,6 +38,8 @@ import java.time.Duration;
 
 import static com.google.common.io.MoreFiles.deleteRecursively;
 import static com.google.common.io.RecursiveDeleteOption.ALLOW_INSECURE;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.HADOOP;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_PRESTO_ETC;
 import static java.util.Objects.requireNonNull;
 import static java.util.UUID.randomUUID;
@@ -85,7 +87,7 @@ public final class TwoKerberosHives
     {
         String keytabsHostDirectory = createKeytabsHostDirectory().toString();
 
-        builder.configureContainer("presto-master", container -> {
+        builder.configureContainer(COORDINATOR, container -> {
             container
                     .withFileSystemBind(keytabsHostDirectory, "/etc/presto/conf", READ_WRITE)
 
@@ -110,14 +112,14 @@ public final class TwoKerberosHives
                             CONTAINER_PRESTO_ETC + "/catalog/iceberg2.properties");
         });
 
-        builder.configureContainer("hadoop-master", container -> {
+        builder.configureContainer(HADOOP, container -> {
             container
                     .withFileSystemBind(keytabsHostDirectory, "/presto_keytabs", READ_WRITE)
                     .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withEntrypoint(ImmutableList.of(
                             "/docker/presto-product-tests/conf/environment/two-kerberos-hives/hadoop-master-entrypoint.sh")));
         });
 
-        builder.addContainer("hadoop-master-2", createHadoopMaster2(keytabsHostDirectory));
+        builder.addContainer(createHadoopMaster2(keytabsHostDirectory));
     }
 
     private Path createKeytabsHostDirectory()
@@ -136,7 +138,7 @@ public final class TwoKerberosHives
     @SuppressWarnings("resource")
     private DockerContainer createHadoopMaster2(String keytabsHostDirectory)
     {
-        DockerContainer container = new DockerContainer(hadoopBaseImage + "-kerberized-2:" + hadoopImagesVersion)
+        DockerContainer container = new DockerContainer(hadoopBaseImage + "-kerberized-2:" + hadoopImagesVersion, HADOOP + "-2")
                 .withCopyFileToContainer(forHostPath(dockerFiles.getDockerFilesHostPath()), "/docker/presto-product-tests")
                 .withFileSystemBind(keytabsHostDirectory, "/presto_keytabs", READ_WRITE)
                 .withCreateContainerCmdModifier(createContainerCmd -> createContainerCmd.withEntrypoint(ImmutableList.of(

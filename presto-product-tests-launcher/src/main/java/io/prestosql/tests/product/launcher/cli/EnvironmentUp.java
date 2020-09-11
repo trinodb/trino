@@ -38,6 +38,8 @@ import java.nio.file.Path;
 import java.util.Optional;
 
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
+import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TESTS;
 import static io.prestosql.tests.product.launcher.env.EnvironmentListener.loggingListener;
 import static java.util.Objects.requireNonNull;
 import static picocli.CommandLine.Mixin;
@@ -128,10 +130,10 @@ public final class EnvironmentUp
             Environments.pruneEnvironment();
 
             Environment.Builder builder = environmentFactory.get(environment)
-                    .removeContainer("tests");
+                    .removeContainer(TESTS);
 
             if (withoutPrestoMaster) {
-                builder.removeContainer("presto-master");
+                builder.removeContainer(COORDINATOR);
             }
 
             log.info("Creating environment '%s' with configuration %s", environment, environmentConfig);
