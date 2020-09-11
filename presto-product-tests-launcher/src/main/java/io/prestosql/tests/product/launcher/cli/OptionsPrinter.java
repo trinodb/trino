@@ -74,6 +74,10 @@ public final class OptionsPrinter
 
     private static String formatOption(Object value, Option annotation)
     {
+        if (annotation.hidden()) {
+            return null;
+        }
+
         if (value instanceof Boolean) {
             if ((boolean) value) {
                 return annotation.names()[0].replaceFirst("--no-", "--");

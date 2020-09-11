@@ -212,7 +212,7 @@ public class SuiteRun
         {
             log.info("Starting test run #%02d %s with config %s", runId, suiteTestRun, environmentConfig);
             TestRun.TestRunOptions testRunOptions = createTestRunOptions(runId, suiteName, suiteTestRun, environmentConfig, suiteRunOptions.logsDirBase);
-            log.info("Execute this test run using:\npresto-product-tests-launcher/bin/run-launcher test run %s", OptionsPrinter.format(environmentOptions, testRunOptions));
+            log.info("Execute this test run using:\n%s test run %s", environmentOptions.launcherBin, OptionsPrinter.format(environmentOptions, testRunOptions));
 
             Stopwatch stopwatch = Stopwatch.createStarted();
             Optional<Throwable> exception = runTest(environmentConfig, testRunOptions);

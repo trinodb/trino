@@ -160,6 +160,7 @@ public class Launcher
                     {"product-tests.module", "presto-product-tests"},
                     {"server.module", "presto-server"},
                     {"server.name", "presto-server"},
+                    {"launcher.bin", "presto-product-tests-launcher/bin/run-launcher"},
             };
         }
     }
