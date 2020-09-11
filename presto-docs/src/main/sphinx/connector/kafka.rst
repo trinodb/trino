@@ -56,17 +56,18 @@ Configuration Properties
 
 The following configuration properties are available:
 
-=============================== ==============================================================
-Property Name                   Description
-=============================== ==============================================================
-``kafka.table-names``           List of all tables provided by the catalog
-``kafka.default-schema``        Default schema name for tables
-``kafka.nodes``                 List of nodes in the Kafka cluster
-``kafka.buffer-size``           Kafka read buffer size
-``kafka.table-description-dir`` Directory containing topic description files
-``kafka.hide-internal-columns`` Controls whether internal columns are part of the table schema or not
-``kafka.messages-per-split``    Number of messages that are processed by each Presto split, defaults to 100000
-=============================== ==============================================================
+========================================================== ==============================================================================
+Property Name                                              Description
+========================================================== ==============================================================================
+``kafka.table-names``                                      List of all tables provided by the catalog
+``kafka.default-schema``                                   Default schema name for tables
+``kafka.nodes``                                            List of nodes in the Kafka cluster
+``kafka.buffer-size``                                      Kafka read buffer size
+``kafka.table-description-dir``                            Directory containing topic description files
+``kafka.hide-internal-columns``                            Controls whether internal columns are part of the table schema or not
+``kafka.messages-per-split``                               Number of messages that are processed by each Presto split, defaults to 100000
+``kafka.timestamp-upper-bound-force-push-down-enabled``    Controls if upper bound timestamp push down is enabled for topics using ``CreateTime`` mode
+========================================================== ==============================================================================
 
 ``kafka.table-names``
 ^^^^^^^^^^^^^^^^^^^^^
@@ -120,6 +121,18 @@ References a folder within Presto deployment that holds one or more JSON
 files (must end with ``.json``) which contain table description files.
 
 This property is optional; the default is ``etc/kafka``.
+
+``kafka.timestamp-upper-bound-force-push-down-enabled``
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+The upper bound predicate on ``_timestamp`` column
+is pushed down only for topics using ``LogAppendTime`` mode.
+
+For topics using ``CreateTime`` mode, upper bound push down must be explicitly
+allowed via ``kafka.timestamp-upper-bound-force-push-down-enabled`` config property
+or ``timestamp_upper_bound_force_push_down_enabled`` session property.
+
+This property is optional; the default is ``false``.
 
 ``kafka.hide-internal-columns``
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
