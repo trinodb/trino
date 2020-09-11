@@ -55,8 +55,10 @@ import static io.prestosql.plugin.kafka.KafkaInternalFieldManager.KEY_LENGTH_FIE
 import static io.prestosql.plugin.kafka.KafkaInternalFieldManager.MESSAGE_CORRUPT_FIELD;
 import static io.prestosql.plugin.kafka.KafkaInternalFieldManager.MESSAGE_FIELD;
 import static io.prestosql.plugin.kafka.KafkaInternalFieldManager.MESSAGE_LENGTH_FIELD;
+import static io.prestosql.plugin.kafka.KafkaInternalFieldManager.OFFSET_TIMESTAMP_FIELD;
 import static io.prestosql.plugin.kafka.KafkaInternalFieldManager.PARTITION_ID_FIELD;
 import static io.prestosql.plugin.kafka.KafkaInternalFieldManager.PARTITION_OFFSET_FIELD;
+import static io.prestosql.spi.type.Timestamps.MICROSECONDS_PER_MILLISECOND;
 import static io.prestosql.spi.type.TypeUtils.writeNativeValue;
 import static java.lang.Math.max;
 import static java.lang.invoke.MethodType.methodType;
@@ -185,6 +187,7 @@ public class KafkaRecordSet
             if (message.value() != null) {
                 messageData = message.value();
             }
+            long timeStamp = message.timestamp();
 
             Map<ColumnHandle, FieldValueProvider> currentRowValuesMap = new HashMap<>();
 
@@ -208,6 +211,10 @@ public class KafkaRecordSet
                             break;
                         case KEY_LENGTH_FIELD:
                             currentRowValuesMap.put(columnHandle, longValueProvider(keyData.length));
+                            break;
+                        case OFFSET_TIMESTAMP_FIELD:
+                            timeStamp *= MICROSECONDS_PER_MILLISECOND;
+                            currentRowValuesMap.put(columnHandle, longValueProvider(timeStamp));
                             break;
                         case KEY_CORRUPT_FIELD:
                             currentRowValuesMap.put(columnHandle, booleanValueProvider(decodedKey.isEmpty()));

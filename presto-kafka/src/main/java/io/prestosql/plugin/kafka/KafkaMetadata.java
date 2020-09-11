@@ -26,9 +26,12 @@ import io.prestosql.spi.connector.ConnectorSession;
 import io.prestosql.spi.connector.ConnectorTableHandle;
 import io.prestosql.spi.connector.ConnectorTableMetadata;
 import io.prestosql.spi.connector.ConnectorTableProperties;
+import io.prestosql.spi.connector.Constraint;
+import io.prestosql.spi.connector.ConstraintApplicationResult;
 import io.prestosql.spi.connector.SchemaTableName;
 import io.prestosql.spi.connector.SchemaTablePrefix;
 import io.prestosql.spi.connector.TableNotFoundException;
+import io.prestosql.spi.predicate.TupleDomain;
 import io.prestosql.spi.statistics.ComputedStatistics;
 
 import javax.inject.Inject;
@@ -94,7 +97,8 @@ public class KafkaMetadata
                         kafkaTopicDescription.getMessage().flatMap(KafkaTopicFieldGroup::getDataSchema),
                         getColumnHandles(schemaTableName).values().stream()
                                 .map(KafkaColumnHandle.class::cast)
-                                .collect(toImmutableList())))
+                                .collect(toImmutableList()),
+                        TupleDomain.all()))
                 .orElse(null);
     }
 
@@ -235,6 +239,30 @@ public class KafkaMetadata
         return new ConnectorTableProperties();
     }
 
+    @Override
+    public Optional<ConstraintApplicationResult<ConnectorTableHandle>> applyFilter(ConnectorSession session, ConnectorTableHandle table, Constraint constraint)
+    {
+        KafkaTableHandle handle = (KafkaTableHandle) table;
+        TupleDomain<ColumnHandle> oldDomain = handle.getConstraint();
+        TupleDomain<ColumnHandle> newDomain = oldDomain.intersect(constraint.getSummary());
+        if (oldDomain.equals(newDomain)) {
+            return Optional.empty();
+        }
+
+        handle = new KafkaTableHandle(
+                handle.getSchemaName(),
+                handle.getTableName(),
+                handle.getTopicName(),
+                handle.getKeyDataFormat(),
+                handle.getMessageDataFormat(),
+                handle.getKeyDataSchemaLocation(),
+                handle.getMessageDataSchemaLocation(),
+                handle.getColumns(),
+                newDomain);
+
+        return Optional.of(new ConstraintApplicationResult<>(handle, constraint.getSummary()));
+    }
+
     private KafkaTopicDescription getRequiredTopicDescription(SchemaTableName schemaTableName)
     {
         return getTopicDescription(schemaTableName).orElseThrow(() -> new TableNotFoundException(schemaTableName));
@@ -268,7 +296,8 @@ public class KafkaMetadata
                 table.getMessageDataFormat(),
                 table.getKeyDataSchemaLocation(),
                 table.getMessageDataSchemaLocation(),
-                actualColumns);
+                actualColumns,
+                TupleDomain.none());
     }
 
     @Override
