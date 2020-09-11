@@ -5,9 +5,9 @@ set -euxo pipefail
 
 test -v ABFS_ACCOUNT
 test -v ABFS_CONTAINER
-test -v ABFS_OAUTH_CLIENT_ENDPOINT
-test -v ABFS_OAUTH_CLIENT_ID
-test -v ABFS_OAUTH_CLIENT_SECRET
+test -v ABFS_OAUTH_ENDPOINT
+test -v ABFS_OAUTH_CLIENTID
+test -v ABFS_OAUTH_SECRET
 
 test_directory="$(date '+%Y%m%d-%H%M%S')-$(uuidgen | sha1sum | cut -b 1-6)"
 
@@ -17,7 +17,7 @@ start_hadoop_docker_containers
 # insert Azure credentials
 deploy_core_site_xml core-site.xml.abfs-oauth-template \
     ABFS_ACCOUNT ABFS_CONTAINER \
-    ABFS_OAUTH_CLIENT_ENDPOINT ABFS_OAUTH_CLIENT_ID ABFS_OAUTH_CLIENT_SECRET
+    ABFS_OAUTH_ENDPOINT ABFS_OAUTH_CLIENTID ABFS_OAUTH_SECRET
 
 # restart hive-server2 to apply changes in core-site.xml
 exec_in_hadoop_master_container supervisorctl restart hive-server2
@@ -38,9 +38,9 @@ set +e
     -Dtest.hive.azure.abfs.container="$ABFS_CONTAINER" \
     -Dtest.hive.azure.abfs.storage-account="$ABFS_ACCOUNT" \
     -Dtest.hive.azure.abfs.test-directory="$test_directory" \
-    -Dhive.azure.abfs.oauth-client-endpoint="$ABFS_OAUTH_CLIENT_ENDPOINT" \
-    -Dhive.azure.abfs.oauth-client-id="$ABFS_OAUTH_CLIENT_ID" \
-    -Dhive.azure.abfs.oauth-client-secret="$ABFS_OAUTH_CLIENT_SECRET"
+    -Dtest.hive.azure.abfs.oauth.endpoint="$ABFS_OAUTH_ENDPOINT" \
+    -Dtest.hive.azure.abfs.oauth.client-id="$ABFS_OAUTH_CLIENTID" \
+    -Dtest.hive.azure.abfs.oauth.secret="$ABFS_OAUTH_SECRET"
 EXIT_CODE=$?
 set -e
 popd

@@ -20,9 +20,9 @@ import org.testng.annotations.Parameters;
 public class TestHiveFileSystemAbfsOAuth
         extends AbstractTestHiveFileSystemAbfs
 {
-    private String clientEndpoint;
+    private String endpoint;
     private String clientId;
-    private String clientSecret;
+    private String secret;
 
     @Parameters({
             "hive.hadoop2.metastoreHost",
@@ -31,9 +31,9 @@ public class TestHiveFileSystemAbfsOAuth
             "test.hive.azure.abfs.container",
             "test.hive.azure.abfs.storage-account",
             "test.hive.azure.abfs.test-directory",
-            "hive.azure.abfs.oauth-client-endpoint",
-            "hive.azure.abfs.oauth-client-id",
-            "hive.azure.abfs.oauth-client-secret",
+            "test.hive.azure.abfs.oauth.endpoint",
+            "test.hive.azure.abfs.oauth.client-id",
+            "test.hive.azure.abfs.oauth.secret",
     })
     @BeforeClass
     public void setup(
@@ -47,9 +47,9 @@ public class TestHiveFileSystemAbfsOAuth
             String clientId,
             String clientSecret)
     {
-        this.clientEndpoint = checkParameter(clientEndpoint, "client endpoint");
+        this.endpoint = checkParameter(clientEndpoint, "endpoint");
         this.clientId = checkParameter(clientId, "client ID");
-        this.clientSecret = checkParameter(clientSecret, "client secret");
+        this.secret = checkParameter(clientSecret, "secret");
         super.setup(host, port, databaseName, container, account, testDirectory);
     }
 
@@ -57,8 +57,8 @@ public class TestHiveFileSystemAbfsOAuth
     protected HiveAzureConfig getConfig()
     {
         return new HiveAzureConfig()
-                .setAbfsOAuthClientEndpoint(clientEndpoint)
+                .setAbfsOAuthClientEndpoint(endpoint)
                 .setAbfsOAuthClientId(clientId)
-                .setAbfsOAuthClientSecret(clientSecret);
+                .setAbfsOAuthClientSecret(secret);
     }
 }

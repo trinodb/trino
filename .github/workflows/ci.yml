@@ -147,9 +147,9 @@ jobs:
         env:
           ABFS_CONTAINER: ${{ secrets.AZURE_ABFS_CONTAINER }}
           ABFS_ACCOUNT: ${{ secrets.AZURE_ABFS_ACCOUNT }}
-          ABFS_OAUTH_CLIENT_ENDPOINT: ${{ secrets.AZURE_ABFS_OAUTH_CLIENT_ENDPOINT }}
-          ABFS_OAUTH_CLIENT_ID: ${{ secrets.AZURE_ABFS_OAUTH_CLIENT_ID }}
-          ABFS_OAUTH_CLIENT_SECRET: ${{ secrets.AZURE_ABFS_OAUTH_CLIENT_SECRET }}
+          ABFS_OAUTH_ENDPOINT: ${{ secrets.AZURE_ABFS_OAUTH_ENDPOINT }}
+          ABFS_OAUTH_CLIENTID: ${{ secrets.AZURE_ABFS_OAUTH_CLIENTID }}
+          ABFS_OAUTH_SECRET: ${{ secrets.AZURE_ABFS_OAUTH_SECRET }}
         run: |
           if [ -n "$ABFS_CONTAINER" ]; then
             source presto-product-tests/conf/product-tests-${{ matrix.config }}.sh &&

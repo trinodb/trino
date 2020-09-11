@@ -45,16 +45,16 @@
 
     <property>
         <name>fs.azure.account.oauth2.client.id</name>
-        <value>%ABFS_OAUTH_CLIENT_ID%</value>
+        <value>%ABFS_OAUTH_CLIENTID%</value>
     </property>
 
     <property>
         <name>fs.azure.account.oauth2.client.secret</name>
-        <value>%ABFS_OAUTH_CLIENT_SECRET%</value>
+        <value>%ABFS_OAUTH_SECRET%</value>
     </property>
 
     <property>
         <name>fs.azure.account.oauth2.client.endpoint</name>
-        <value>%ABFS_OAUTH_CLIENT_ENDPOINT%</value>
+        <value>%ABFS_OAUTH_ENDPOINT%</value>
     </property>
 </configuration>

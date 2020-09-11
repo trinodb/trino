@@ -123,7 +123,7 @@ public class HiveAzureConfig
     }
 
     @ConfigSecuritySensitive
-    @Config("hive.azure.abfs.oauth-client-endpoint")
+    @Config("hive.azure.abfs.oauth.endpoint")
     public HiveAzureConfig setAbfsOAuthClientEndpoint(String endpoint)
     {
         abfsOAuthClientEndpoint = endpoint;
@@ -136,7 +136,7 @@ public class HiveAzureConfig
     }
 
     @ConfigSecuritySensitive
-    @Config("hive.azure.abfs.oauth-client-id")
+    @Config("hive.azure.abfs.oauth.client-id")
     public HiveAzureConfig setAbfsOAuthClientId(String id)
     {
         abfsOAuthClientId = id;
@@ -149,7 +149,7 @@ public class HiveAzureConfig
     }
 
     @ConfigSecuritySensitive
-    @Config("hive.azure.abfs.oauth-client-secret")
+    @Config("hive.azure.abfs.oauth.secret")
     public HiveAzureConfig setAbfsOAuthClientSecret(String secret)
     {
         abfsOAuthClientSecret = secret;
