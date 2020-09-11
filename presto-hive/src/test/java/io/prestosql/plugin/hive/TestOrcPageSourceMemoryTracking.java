@@ -414,7 +414,7 @@ public class TestOrcPageSourceMemoryTracking
         private final Properties schema;
         private final List<HiveColumnHandle> columns;
         private final List<Type> types;
-        private final String partitonName;
+        private final String partitionName;
         private final List<HivePartitionKey> partitionKeys;
         private final ExecutorService executor = newCachedThreadPool(daemonThreadsNamed("test-executor-%s"));
         private final ScheduledExecutorService scheduledExecutor = newScheduledThreadPool(2, daemonThreadsNamed("test-scheduledExecutor-%s"));
@@ -446,15 +446,14 @@ public class TestOrcPageSourceMemoryTracking
                     .map(input -> new HivePartitionKey(input.getName(), (String) input.getWriteValue()))
                     .collect(toList());
 
-            partitonName = String.join("/", partitionKeys.stream()
+            partitionName = String.join("/", partitionKeys.stream()
                     .map(partitionKey -> format("%s=%s", partitionKey.getName(), partitionKey.getValue()))
                     .collect(toImmutableList()));
 
             ImmutableList.Builder<HiveColumnHandle> columnsBuilder = ImmutableList.builder();
             ImmutableList.Builder<Type> typesBuilder = ImmutableList.builder();
             int nextHiveColumnIndex = 0;
-            for (int i = 0; i < testColumns.size(); i++) {
-                TestColumn testColumn = testColumns.get(i);
+            for (TestColumn testColumn : testColumns) {
                 int columnIndex = testColumn.isPartitionKey() ? -1 : nextHiveColumnIndex++;
 
                 ObjectInspector inspector = testColumn.getObjectInspector();
@@ -497,14 +496,14 @@ public class TestOrcPageSourceMemoryTracking
                     schema,
                     TupleDomain.all(),
                     columns,
-                    partitonName,
+                    partitionName,
                     partitionKeys,
                     TYPE_MANAGER,
                     TableToPartitionMapping.empty(),
                     Optional.empty(),
                     false,
                     Optional.empty())
-                    .get();
+                    .orElseThrow();
         }
 
         public SourceOperator newTableScanOperator(DriverContext driverContext)
@@ -515,7 +514,7 @@ public class TestOrcPageSourceMemoryTracking
                     new PlanNodeId("0"),
                     (session, split, table, columnHandles, dynamicFilter) -> pageSource,
                     TEST_TABLE_HANDLE,
-                    columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toImmutableList()),
+                    columns.stream().map(ColumnHandle.class::cast).collect(toImmutableList()),
                     DynamicFilter.EMPTY);
             SourceOperator operator = sourceOperatorFactory.createOperator(driverContext);
             operator.addSplit(new Split(new CatalogName("test"), TestingSplit.createLocalSplit(), Lifespan.taskWide()));
@@ -539,7 +538,7 @@ public class TestOrcPageSourceMemoryTracking
                     cursorProcessor,
                     pageProcessor,
                     TEST_TABLE_HANDLE,
-                    columns.stream().map(columnHandle -> (ColumnHandle) columnHandle).collect(toList()),
+                    columns.stream().map(ColumnHandle.class::cast).collect(toList()),
                     DynamicFilter.EMPTY,
                     types,
                     DataSize.ofBytes(0),
@@ -558,7 +557,7 @@ public class TestOrcPageSourceMemoryTracking
         }
     }
 
-    public static FileSplit createTestFile(
+    private static FileSplit createTestFile(
             String filePath,
             Serializer serializer,
             String compressionCodec,
