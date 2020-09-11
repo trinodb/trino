@@ -46,20 +46,20 @@ public abstract class AbstractTestIntegrationSmokeTest
      * Ensure the tests are run with {@link DistributedQueryRunner}. E.g. {@link LocalQueryRunner} takes some
      * shortcuts, not exercising certain aspects.
      */
-    @Test(enabled = false)
+    @Test
     public void ensureDistributedQueryRunner()
     {
         assertThat(getQueryRunner().getNodeCount()).as("query runner node count")
                 .isGreaterThanOrEqualTo(3);
     }
 
-    @Test(enabled = false)
+    @Test
     public void testColumnsInReverseOrder()
     {
         assertQuery("SELECT shippriority, clerk, totalprice FROM orders");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testAggregation()
     {
         assertQuery("SELECT sum(orderkey) FROM orders");
@@ -109,7 +109,7 @@ public abstract class AbstractTestIntegrationSmokeTest
                 "SELECT regionkey, avg(CAST(nationkey AS double)) FROM nation GROUP BY regionkey");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testExactPredicate()
     {
         assertQueryReturnsEmptyResult("SELECT * FROM orders WHERE orderkey = 10");
@@ -121,7 +121,7 @@ public abstract class AbstractTestIntegrationSmokeTest
         assertQuery("SELECT custkey FROM orders WHERE orderkey = 32", "VALUES (1301)");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testInListPredicate()
     {
         assertQueryReturnsEmptyResult("SELECT * FROM orders WHERE orderkey IN (10, 11, 20, 21)");
@@ -133,7 +133,7 @@ public abstract class AbstractTestIntegrationSmokeTest
         assertQuery("SELECT custkey FROM orders WHERE orderkey IN (7, 10, 32, 33)", "VALUES (392), (1301), (670)");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testIsNullPredicate()
     {
         assertQueryReturnsEmptyResult("SELECT * FROM orders WHERE orderkey IS NULL");
@@ -146,7 +146,7 @@ public abstract class AbstractTestIntegrationSmokeTest
         assertQuery("SELECT custkey FROM orders WHERE orderkey = 32 OR orderkey IS NULL", "VALUES (1301)");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testLikePredicate()
     {
         // filtered column is not selected
@@ -162,13 +162,13 @@ public abstract class AbstractTestIntegrationSmokeTest
         assertQuery("SELECT orderkey, orderpriority FROM orders WHERE orderpriority LIKE '5-L__'");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testLimit()
     {
         assertEquals(computeActual("SELECT * FROM orders LIMIT 10").getRowCount(), 10);
     }
 
-    @Test(enabled = false)
+    @Test
     public void testMultipleRangesPredicate()
     {
         // List columns explicitly. Some connectors do not maintain column ordering.
@@ -178,7 +178,7 @@ public abstract class AbstractTestIntegrationSmokeTest
                 "WHERE orderkey BETWEEN 10 AND 50");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testRangePredicate()
     {
         // List columns explicitly. Some connectors do not maintain column ordering.
@@ -188,14 +188,14 @@ public abstract class AbstractTestIntegrationSmokeTest
                 "WHERE orderkey BETWEEN 10 AND 50");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testConcurrentScans()
     {
         String unionMultipleTimes = join(" UNION ALL ", nCopies(25, "SELECT * FROM orders"));
         assertQuery("SELECT sum(if(rand() >= 0, orderkey)) FROM (" + unionMultipleTimes + ")", "VALUES 11246812500");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testSelectAll()
     {
         assertQuery("SELECT * FROM orders");
@@ -226,7 +226,7 @@ public abstract class AbstractTestIntegrationSmokeTest
     /**
      * Test interactions between optimizer (including CBO) and connector metadata APIs.
      */
-    @Test(enabled = false)
+    @Test
     public void testJoin()
     {
         Session session = Session.builder(getSession())
@@ -259,7 +259,7 @@ public abstract class AbstractTestIntegrationSmokeTest
                         "JOIN region r ON n.regionkey = r.regionkey");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testShowSchemas()
     {
         MaterializedResult actualSchemas = computeActual("SHOW SCHEMAS").toTestTypes();
@@ -270,7 +270,7 @@ public abstract class AbstractTestIntegrationSmokeTest
         assertContains(actualSchemas, resultBuilder.build());
     }
 
-    @Test(enabled = false)
+    @Test
     public void testShowTables()
     {
         MaterializedResult actualTables = computeActual("SHOW TABLES").toTestTypes();
@@ -280,7 +280,7 @@ public abstract class AbstractTestIntegrationSmokeTest
         assertContains(actualTables, expectedTables);
     }
 
-    @Test(enabled = false)
+    @Test
     public void testDescribeTable()
     {
         MaterializedResult expectedColumns = MaterializedResult.resultBuilder(getQueryRunner().getDefaultSession(), VARCHAR, VARCHAR, VARCHAR, VARCHAR)
@@ -298,7 +298,7 @@ public abstract class AbstractTestIntegrationSmokeTest
         assertEquals(actualColumns, expectedColumns);
     }
 
-    @Test(enabled = false)
+    @Test
     public void testExplainAnalyze()
     {
         assertExplainAnalyze("EXPLAIN ANALYZE SELECT * FROM orders");
@@ -319,7 +319,7 @@ public abstract class AbstractTestIntegrationSmokeTest
         assertExplainAnalyze("EXPLAIN ANALYZE SHOW SESSION");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testExplainAnalyzeVerbose()
     {
         assertExplainAnalyze("EXPLAIN ANALYZE VERBOSE SELECT * FROM orders");
@@ -337,7 +337,7 @@ public abstract class AbstractTestIntegrationSmokeTest
         // assertTrue(value.contains("Cost: "), format("Expected output to contain \"Cost: \", but it is %s", value));
     }
 
-    @Test(enabled = false)
+    @Test
     public void testTableSampleSystem()
     {
         MaterializedResult fullSample = computeActual("SELECT orderkey FROM orders TABLESAMPLE SYSTEM (100)");
@@ -350,7 +350,7 @@ public abstract class AbstractTestIntegrationSmokeTest
         assertTrue(all.getMaterializedRows().size() >= randomSample.getMaterializedRows().size());
     }
 
-    @Test(enabled = false)
+    @Test
     public void testTableSampleWithFiltering()
     {
         MaterializedResult emptySample = computeActual("SELECT DISTINCT orderkey, orderdate FROM orders TABLESAMPLE SYSTEM (99) WHERE orderkey BETWEEN 0 AND 0");
@@ -363,7 +363,7 @@ public abstract class AbstractTestIntegrationSmokeTest
         assertTrue(all.getMaterializedRows().size() >= halfSample.getMaterializedRows().size());
     }
 
-    @Test(enabled = false)
+    @Test
     public void testShowCreateTable()
     {
         assertThat((String) computeActual("SHOW CREATE TABLE orders").getOnlyValue())
@@ -381,7 +381,7 @@ public abstract class AbstractTestIntegrationSmokeTest
                         ")");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testSelectInformationSchemaTables()
     {
         String catalog = getSession().getCatalog().get();
@@ -411,7 +411,7 @@ public abstract class AbstractTestIntegrationSmokeTest
                         "('views')");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testSelectInformationSchemaColumns()
     {
         String catalog = getSession().getCatalog().get();

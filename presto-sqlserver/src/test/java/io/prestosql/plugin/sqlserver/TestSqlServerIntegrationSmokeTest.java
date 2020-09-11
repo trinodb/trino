@@ -49,7 +49,7 @@ public class TestSqlServerIntegrationSmokeTest
         sqlServer.close();
     }
 
-    @Test(enabled = false)
+    @Test
     public void testInsert()
     {
         sqlServer.execute("CREATE TABLE test_insert (x bigint, y varchar(100))");
@@ -58,7 +58,7 @@ public class TestSqlServerIntegrationSmokeTest
         assertUpdate("DROP TABLE test_insert");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testInsertInPresenceOfNotSupportedColumn()
     {
         sqlServer.execute("CREATE TABLE test_insert_not_supported_column_present(x bigint, y sql_variant, z varchar(10))");
@@ -69,7 +69,7 @@ public class TestSqlServerIntegrationSmokeTest
         assertUpdate("DROP TABLE test_insert_not_supported_column_present");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testView()
     {
         sqlServer.execute("CREATE VIEW test_view AS SELECT * FROM orders");
@@ -78,7 +78,7 @@ public class TestSqlServerIntegrationSmokeTest
         sqlServer.execute("DROP VIEW IF EXISTS test_view");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testAggregationPushdown()
             throws Exception
     {
@@ -106,7 +106,7 @@ public class TestSqlServerIntegrationSmokeTest
         }
     }
 
-    @Test(enabled = false)
+    @Test
     public void testColumnComment()
             throws Exception
     {
@@ -126,7 +126,7 @@ public class TestSqlServerIntegrationSmokeTest
         }
     }
 
-    @Test(enabled = false)
+    @Test
     public void testDecimalPredicatePushdown()
             throws Exception
     {

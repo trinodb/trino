@@ -101,7 +101,7 @@ public abstract class AbstractTestQueries
 
     private static final String UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG = "line .*: Given correlated subquery is not supported";
 
-    @Test(enabled = false)
+    @Test
     public void testAggregationOverUnknown()
     {
         assertQuery("SELECT clerk, min(totalprice), max(totalprice), min(nullvalue), max(nullvalue) " +
@@ -109,14 +109,14 @@ public abstract class AbstractTestQueries
                 "GROUP BY clerk");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testLimitIntMax()
     {
         assertQuery("SELECT orderkey FROM orders LIMIT " + Integer.MAX_VALUE);
         assertQuery("SELECT orderkey FROM orders ORDER BY orderkey LIMIT " + Integer.MAX_VALUE);
     }
 
-    @Test(enabled = false)
+    @Test
     public void testNonDeterministic()
     {
         MaterializedResult materializedResult = computeActual("SELECT rand() FROM orders LIMIT 10");
@@ -134,7 +134,7 @@ public abstract class AbstractTestQueries
         assertTrue(distinctCount >= 8, "rand() must produce different rows");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testComplexQuery()
     {
         assertQueryOrdered(
@@ -148,25 +148,25 @@ public abstract class AbstractTestQueries
                 "VALUES (7, 5), (6, 4), (5, 3)");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testDistinctMultipleFields()
     {
         assertQuery("SELECT DISTINCT custkey, orderstatus FROM orders");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testArithmeticNegation()
     {
         assertQuery("SELECT -custkey FROM orders");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testDistinct()
     {
         assertQuery("SELECT DISTINCT custkey FROM orders");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testDistinctHaving()
     {
         assertQuery("SELECT COUNT(DISTINCT clerk) AS count " +
@@ -175,7 +175,7 @@ public abstract class AbstractTestQueries
                 "HAVING COUNT(DISTINCT clerk) > 1");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testDistinctLimit()
     {
         assertQuery("" +
@@ -192,25 +192,25 @@ public abstract class AbstractTestQueries
                 "SELECT 1");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testDistinctWithOrderBy()
     {
         assertQueryOrdered("SELECT DISTINCT custkey FROM orders ORDER BY custkey LIMIT 10");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testRepeatedAggregations()
     {
         assertQuery("SELECT SUM(orderkey), SUM(orderkey) FROM orders");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testRepeatedOutputs()
     {
         assertQuery("SELECT orderkey a, orderkey b FROM orders WHERE orderstatus = 'F'");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testRepeatedOutputs2()
     {
         // this test exposed a bug that wasn't caught by other tests that resulted in the execution engine
@@ -218,7 +218,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT orderdate, orderdate, orderkey FROM orders");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testLimit()
     {
         MaterializedResult actual = computeActual("SELECT orderkey FROM orders LIMIT 10");
@@ -228,7 +228,7 @@ public abstract class AbstractTestQueries
         assertContains(all, actual);
     }
 
-    @Test(enabled = false)
+    @Test
     public void testLimitWithAggregation()
     {
         MaterializedResult actual = computeActual("SELECT custkey, SUM(CAST(totalprice * 100 AS BIGINT)) FROM orders GROUP BY custkey LIMIT 10");
@@ -238,7 +238,7 @@ public abstract class AbstractTestQueries
         assertContains(all, actual);
     }
 
-    @Test(enabled = false)
+    @Test
     public void testLimitInInlineView()
     {
         MaterializedResult actual = computeActual("SELECT orderkey FROM (SELECT orderkey FROM orders LIMIT 100) T LIMIT 10");
@@ -248,7 +248,7 @@ public abstract class AbstractTestQueries
         assertContains(all, actual);
     }
 
-    @Test(enabled = false)
+    @Test
     public void testCountAll()
     {
         assertQuery("SELECT COUNT(*) FROM orders");
@@ -257,7 +257,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT COUNT(null) FROM orders", "SELECT 0");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testCountColumn()
     {
         assertQuery("SELECT COUNT(orderkey) FROM orders");
@@ -269,7 +269,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT COUNT(CAST(NULL AS BIGINT)) FROM orders"); // todo: make COUNT(null) work
     }
 
-    @Test(enabled = false)
+    @Test
     public void testSelectAllFromTable()
     {
         assertQuery("SELECT * FROM orders");
@@ -306,7 +306,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT y FROM (SELECT r.* AS (x, y, z) FROM region r ORDER BY y DESC LIMIT 2)", "VALUES 'MIDDLE EAST', 'EUROPE'");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testSelectAllFromOuterScopeTable()
     {
         // scalar subquery
@@ -345,7 +345,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT * FROM region r, LATERAL (SELECT t2.a from (VALUES 1) t, LATERAL (SELECT r.*) t2(a, b, c))", "SELECT *, regionkey FROM region");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testSelectAllFromRow()
     {
         // wildcard from row with aggreggation
@@ -384,13 +384,13 @@ public abstract class AbstractTestQueries
                         "('AFRICA',         0) ");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testAverageAll()
     {
         assertQuery("SELECT AVG(totalprice) FROM orders");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testRollupOverUnion()
     {
         assertQuery("" +
@@ -415,7 +415,7 @@ public abstract class AbstractTestQueries
                 "SELECT * FROM (VALUES  (0, 5), (1, 5), (2, 6), (3, 5), (4, 5), (100, 1), (NULL, 27))");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testIntersect()
     {
         assertQuery(
@@ -461,7 +461,7 @@ public abstract class AbstractTestQueries
         assertEquals(emptyResult.getMaterializedRows().size(), 0);
     }
 
-    @Test(enabled = false)
+    @Test
     public void testIntersectWithAggregation()
     {
         assertQuery("SELECT COUNT(*) FROM nation INTERSECT SELECT COUNT(regionkey) FROM nation HAVING SUM(regionkey) IS NOT NULL");
@@ -472,7 +472,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT COUNT(*) FROM (SELECT nationkey FROM nation INTERSECT SELECT 2) n1 INTERSECT SELECT regionkey FROM nation");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testExcept()
     {
         assertQuery(
@@ -518,7 +518,7 @@ public abstract class AbstractTestQueries
         assertEquals(emptyResult.getMaterializedRows().size(), 0);
     }
 
-    @Test(enabled = false)
+    @Test
     public void testExceptWithAggregation()
     {
         assertQuery("SELECT COUNT(*) FROM nation EXCEPT SELECT COUNT(regionkey) FROM nation WHERE regionkey < 3 HAVING SUM(regionkey) IS NOT NULL");
@@ -529,70 +529,70 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT COUNT(*) FROM (SELECT nationkey FROM nation EXCEPT SELECT 10) n1 EXCEPT SELECT regionkey FROM nation");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testSelectWithComparison()
     {
         assertQuery("SELECT orderkey FROM lineitem WHERE tax < discount");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testInlineView()
     {
         assertQuery("SELECT orderkey, custkey FROM (SELECT orderkey, custkey FROM orders) U");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testAliasedInInlineView()
     {
         assertQuery("SELECT x, y FROM (SELECT orderkey x, custkey y FROM orders) U");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testInlineViewWithProjections()
     {
         assertQuery("SELECT x + 1, y FROM (SELECT orderkey * 10 x, custkey y FROM orders) u");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testMaxBy()
     {
         assertQuery("SELECT MAX_BY(orderkey, totalprice) FROM orders", "SELECT orderkey FROM orders ORDER BY totalprice DESC LIMIT 1");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testMaxByN()
     {
         assertQuery("SELECT y FROM (SELECT MAX_BY(orderkey, totalprice, 2) mx FROM orders) CROSS JOIN UNNEST(mx) u(y)",
                 "SELECT orderkey FROM orders ORDER BY totalprice DESC LIMIT 2");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testMinBy()
     {
         assertQuery("SELECT MIN_BY(orderkey, totalprice) FROM orders", "SELECT orderkey FROM orders ORDER BY totalprice ASC LIMIT 1");
         assertQuery("SELECT MIN_BY(a, ROW(b, c)) FROM (VALUES (1, 2, 3), (2, 2, 1)) AS t(a, b, c)", "SELECT 2");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testMinByN()
     {
         assertQuery("SELECT y FROM (SELECT MIN_BY(orderkey, totalprice, 2) mx FROM orders) CROSS JOIN UNNEST(mx) u(y)",
                 "SELECT orderkey FROM orders ORDER BY totalprice ASC LIMIT 2");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testHaving()
     {
         assertQuery("SELECT orderstatus, sum(totalprice) FROM orders GROUP BY orderstatus HAVING orderstatus = 'O'");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testHaving2()
     {
         assertQuery("SELECT custkey, sum(orderkey) FROM orders GROUP BY custkey HAVING sum(orderkey) > 400000");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testHaving3()
     {
         assertQuery("SELECT custkey, sum(totalprice) * 2 FROM orders GROUP BY custkey");
@@ -600,13 +600,13 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT custkey, sum(totalprice) * 2 FROM orders GROUP BY custkey HAVING avg(totalprice + 5) > 10");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testHavingWithoutGroupBy()
     {
         assertQuery("SELECT sum(orderkey) FROM orders HAVING sum(orderkey) > 400000");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testColumnAliases()
     {
         assertQuery(
@@ -617,7 +617,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT a, b, c FROM (SELECT T.* FROM region T (a, b, c))");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testCast()
     {
         assertQuery("SELECT CAST('1' AS BIGINT)");
@@ -645,13 +645,13 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT try_cast(x AS BIGINT) FROM (VALUES 1, 2, 3, NULL) t (x)", "VALUES 1, 2, 3, NULL");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testQuotedIdentifiers()
     {
         assertQuery("SELECT \"TOTALPRICE\" \"my price\" FROM \"ORDERS\"");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testIn()
     {
         assertQuery("SELECT orderkey FROM orders WHERE orderkey IN (1, 2, 3)");
@@ -660,7 +660,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT orderkey FROM orders WHERE totalprice IN (1, 2, 3)");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testLargeIn()
     {
         String longValues = range(0, 5000)
@@ -673,28 +673,28 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT orderkey FROM orders WHERE orderkey NOT IN (mod(1000, orderkey), " + longValues + ")");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testShowSchemas()
     {
         MaterializedResult result = computeActual("SHOW SCHEMAS");
         assertTrue(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of(getSession().getSchema().get(), INFORMATION_SCHEMA)));
     }
 
-    @Test(enabled = false)
+    @Test
     public void testShowSchemasFrom()
     {
         MaterializedResult result = computeActual(format("SHOW SCHEMAS FROM %s", getSession().getCatalog().get()));
         assertTrue(result.getOnlyColumnAsSet().containsAll(ImmutableSet.of(getSession().getSchema().get(), INFORMATION_SCHEMA)));
     }
 
-    @Test(enabled = false)
+    @Test
     public void testShowSchemasLike()
     {
         MaterializedResult result = computeActual(format("SHOW SCHEMAS LIKE '%s'", getSession().getSchema().get()));
         assertEquals(result.getOnlyColumnAsSet(), ImmutableSet.of(getSession().getSchema().get()));
     }
 
-    @Test(enabled = false)
+    @Test
     public void testShowSchemasLikeWithEscape()
     {
         assertQueryFails("SHOW SCHEMAS LIKE 't$_%' ESCAPE ''", "Escape string must be a single character");
@@ -707,7 +707,7 @@ public abstract class AbstractTestQueries
         assertThat(result).contains("information_schema").allMatch(schemaName -> ((String) schemaName).contains("_"));
     }
 
-    @Test(enabled = false)
+    @Test
     public void testShowTables()
     {
         Set<String> expectedTables = TpchTable.getTables().stream()
@@ -718,7 +718,7 @@ public abstract class AbstractTestQueries
         assertTrue(result.getOnlyColumnAsSet().containsAll(expectedTables));
     }
 
-    @Test(enabled = false)
+    @Test
     public void testShowTablesFrom()
     {
         Set<String> expectedTables = TpchTable.getTables().stream()
@@ -738,7 +738,7 @@ public abstract class AbstractTestQueries
         assertQueryFails("SHOW TABLES FROM UNKNOWNCATALOG.UNKNOWNSCHEMA", "line 1:1: Catalog 'unknowncatalog' does not exist");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testShowTablesLike()
     {
         assertThat(computeActual("SHOW TABLES LIKE 'or%'").getOnlyColumnAsSet())
@@ -746,7 +746,7 @@ public abstract class AbstractTestQueries
                 .allMatch(tableName -> ((String) tableName).startsWith("or"));
     }
 
-    @Test(enabled = false)
+    @Test
     public void testShowColumns()
     {
         MaterializedResult actual = computeActual("SHOW COLUMNS FROM orders");
@@ -780,7 +780,7 @@ public abstract class AbstractTestQueries
                 format("%s does not matche neither of %s and %s", actual, expectedParametrizedVarchar, expectedUnparametrizedVarchar));
     }
 
-    @Test(enabled = false)
+    @Test
     public void testInformationSchemaFiltering()
     {
         assertQuery(
@@ -791,7 +791,7 @@ public abstract class AbstractTestQueries
                 "SELECT 'customer' table_name");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testInformationSchemaUppercaseName()
     {
         assertQuery(
@@ -805,27 +805,27 @@ public abstract class AbstractTestQueries
                 "SELECT '' WHERE false");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testSelectColumnOfNulls()
     {
         // Currently nulls can confuse the local planner, so select some
         assertQueryOrdered("SELECT CAST(NULL AS VARCHAR), CAST(NULL AS BIGINT) FROM orders ORDER BY 1");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testSelectCaseInsensitive()
     {
         assertQuery("SELECT ORDERKEY FROM ORDERS");
         assertQuery("SELECT OrDeRkEy FROM OrDeRs");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testTopN()
     {
         assertQuery("SELECT n.name, r.name FROM nation n LEFT JOIN region r ON n.regionkey = r.regionkey ORDER BY n.name LIMIT 1");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testTopNByMultipleFields()
     {
         assertQueryOrdered("SELECT orderkey, custkey, orderstatus FROM orders ORDER BY orderkey ASC, custkey ASC LIMIT 10");
@@ -853,7 +853,7 @@ public abstract class AbstractTestQueries
                 "SELECT orderkey, custkey, orderstatus FROM orders ORDER BY nullif(orderkey, 3) ASC NULLS LAST, custkey ASC LIMIT 10");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testLimitPushDown()
     {
         MaterializedResult actual = computeActual(
@@ -868,7 +868,7 @@ public abstract class AbstractTestQueries
         assertContains(all, actual);
     }
 
-    @Test(enabled = false)
+    @Test
     public void testScalarSubquery()
     {
         // nested
@@ -961,7 +961,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT * FROM (VALUES 1.0) t(a) WHERE 1=(SELECT count(*) WHERE 1 = a)", "SELECT 1.0");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testExistsSubquery()
     {
         // nested
@@ -1034,7 +1034,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT orderkey, totalprice FROM orders ORDER BY NOT(EXISTS(SELECT 2))");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testScalarSubqueryWithGroupBy()
     {
         // using the same subquery in query
@@ -1076,7 +1076,7 @@ public abstract class AbstractTestQueries
                 "HAVING min(orderkey) < (SELECT sum(orderkey) FROM orders WHERE orderkey < 7)");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testExistsSubqueryWithGroupBy()
     {
         // using the same subquery in query
@@ -1118,7 +1118,7 @@ public abstract class AbstractTestQueries
                 "HAVING EXISTS(SELECT orderkey FROM orders WHERE orderkey < 27)");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testCorrelatedScalarSubqueries()
     {
         assertQuery("SELECT (SELECT n.nationkey) FROM nation n");
@@ -1156,7 +1156,7 @@ public abstract class AbstractTestQueries
                 UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
     }
 
-    @Test(enabled = false)
+    @Test
     public void testCorrelatedNonAggregationScalarSubqueries()
     {
         String subqueryReturnedTooManyRows = "Scalar sub-query has returned multiple rows";
@@ -1239,7 +1239,7 @@ public abstract class AbstractTestQueries
                 "VALUES 'AMERICA'");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testCorrelatedScalarSubqueriesWithScalarAggregationAndEqualityPredicatesInWhere()
     {
         assertQuery("SELECT (SELECT count(*) WHERE o.orderkey = 1) FROM orders o");
@@ -1287,7 +1287,7 @@ public abstract class AbstractTestQueries
                 "SELECT count(*) FROM orders o WHERE o.orderkey = 0");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testCorrelatedScalarSubqueriesWithScalarAggregation()
     {
         // projection
@@ -1385,7 +1385,7 @@ public abstract class AbstractTestQueries
                 "VALUES (1)");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testCorrelatedInPredicateSubqueries()
     {
         assertQuery("SELECT orderkey, clerk IN (SELECT clerk FROM orders s WHERE s.custkey = o.custkey AND s.orderkey < o.orderkey) FROM orders o");
@@ -1428,7 +1428,7 @@ public abstract class AbstractTestQueries
         assertQueryFails("SELECT * FROM lineitem l WHERE true IN (SELECT 1 IN (SELECT 2 * l.orderkey))", UNSUPPORTED_CORRELATED_SUBQUERY_ERROR_MSG);
     }
 
-    @Test(enabled = false)
+    @Test
     public void testCorrelatedExistsSubqueriesWithPrunedCorrelationSymbols()
     {
         assertQuery("SELECT EXISTS(SELECT o.orderkey) FROM orders o");
@@ -1455,7 +1455,7 @@ public abstract class AbstractTestQueries
                 "VALUES 15000");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testCorrelatedExistsSubqueriesWithEqualityPredicatesInWhere()
     {
         assertQuery("SELECT EXISTS(SELECT 1 WHERE o.orderkey = 1) FROM orders o");
@@ -1511,7 +1511,7 @@ public abstract class AbstractTestQueries
                 "VALUES 500");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testCorrelatedExistsSubqueries()
     {
         // projection
@@ -1592,7 +1592,7 @@ public abstract class AbstractTestQueries
                 "VALUES 14999");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testTwoCorrelatedExistsSubqueries()
     {
         // This is simplified TPC-H q21
@@ -1618,7 +1618,7 @@ public abstract class AbstractTestQueries
                 "VALUES 0"); // EXISTS predicates are contradictory
     }
 
-    @Test(enabled = false)
+    @Test
     public void testPredicatePushdown()
     {
         assertQuery("" +
@@ -1632,7 +1632,7 @@ public abstract class AbstractTestQueries
                 "ORDER BY a");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testGroupByKeyPredicatePushdown()
     {
         assertQuery("" +
@@ -1659,7 +1659,7 @@ public abstract class AbstractTestQueries
                 "ORDER BY custkey1, orderstatus1, totalprice, maxcustkey");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testNonDeterministicTableScanPredicatePushdown()
     {
         MaterializedResult materializedResult = computeActual("" +
@@ -1677,7 +1677,7 @@ public abstract class AbstractTestQueries
         assertTrue(count > 0 && count < 1000);
     }
 
-    @Test(enabled = false)
+    @Test
     public void testNonDeterministicAggregationPredicatePushdown()
     {
         MaterializedResult materializedResult = computeActual("" +
@@ -1696,7 +1696,7 @@ public abstract class AbstractTestQueries
         assertTrue(count > 0 && count < 1000);
     }
 
-    @Test(enabled = false)
+    @Test
     public void testUnionAllPredicateMoveAroundWithOverlappingProjections()
     {
         assertQuery("" +
@@ -1717,7 +1717,7 @@ public abstract class AbstractTestQueries
                 "ON a.x = b.x");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testTableSampleBernoulliBoundaryValues()
     {
         MaterializedResult fullSample = computeActual("SELECT orderkey FROM orders TABLESAMPLE BERNOULLI (100)");
@@ -1728,7 +1728,7 @@ public abstract class AbstractTestQueries
         assertEquals(emptySample.getMaterializedRows().size(), 0);
     }
 
-    @Test(enabled = false)
+    @Test
     public void testTableSampleBernoulli()
     {
         DescriptiveStatistics stats = new DescriptiveStatistics();
@@ -1746,14 +1746,14 @@ public abstract class AbstractTestQueries
         assertTrue(mean > 0.45 && mean < 0.55, format("Expected mean sampling rate to be ~0.5, but was %s", mean));
     }
 
-    @Test(enabled = false)
+    @Test
     public void testFilterPushdownWithAggregation()
     {
         assertQuery("SELECT * FROM (SELECT count(*) FROM orders) WHERE 0=1");
         assertQuery("SELECT * FROM (SELECT count(*) FROM orders) WHERE null");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testAccessControl()
     {
         assertAccessDenied("SELECT * FROM orders", "Cannot execute query", privilege("query", EXECUTE_QUERY));
@@ -1791,7 +1791,7 @@ public abstract class AbstractTestQueries
         assertAccessDenied("SHOW STATS FOR (SELECT * FROM nation)", "Cannot show stats for columns \\[nationkey, regionkey, name, comment\\] in table or view .*.nation.*", privilege("nation", SELECT_COLUMN));
     }
 
-    @Test(enabled = false)
+    @Test
     public void testCorrelatedJoin()
     {
         assertQuery(
@@ -1885,7 +1885,7 @@ public abstract class AbstractTestQueries
                         "(4, 'EGYPT')");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testPruningCountAggregationOverScalar()
     {
         assertQuery("SELECT COUNT(*) FROM (SELECT SUM(orderkey) FROM orders)");
@@ -1897,7 +1897,7 @@ public abstract class AbstractTestQueries
         assertQuery("SELECT count(*) FROM (VALUES 2) t(a) GROUP BY a+1", "VALUES 1");
     }
 
-    @Test(enabled = false)
+    @Test
     public void testSubqueriesWithDisjunction()
     {
         List<QueryTemplate.Parameter> projections = parameter("projection").of("count(*)", "*", "%condition%");

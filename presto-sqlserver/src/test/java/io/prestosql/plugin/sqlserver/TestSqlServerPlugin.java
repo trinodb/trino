@@ -23,7 +23,7 @@ import static com.google.common.collect.Iterables.getOnlyElement;
 
 public class TestSqlServerPlugin
 {
-    @Test(enabled = false)
+    @Test
     public void testCreateConnector()
     {
         Plugin plugin = new SqlServerPlugin();
