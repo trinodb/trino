@@ -27,7 +27,9 @@ import io.prestosql.plugin.hive.HivePageSourceFactory;
 import io.prestosql.plugin.hive.ReaderProjections;
 import io.prestosql.rcfile.AircompressorCodecFactory;
 import io.prestosql.rcfile.HadoopCodecFactory;
+import io.prestosql.rcfile.MemoryRcFileDataSource;
 import io.prestosql.rcfile.RcFileCorruptionException;
+import io.prestosql.rcfile.RcFileDataSource;
 import io.prestosql.rcfile.RcFileEncoding;
 import io.prestosql.rcfile.RcFileReader;
 import io.prestosql.rcfile.binary.BinaryRcFileEncoding;
@@ -65,6 +67,7 @@ import static io.prestosql.plugin.hive.ReaderProjections.projectBaseColumns;
 import static io.prestosql.plugin.hive.util.HiveUtil.getDeserializerClassName;
 import static io.prestosql.rcfile.text.TextRcFileEncoding.DEFAULT_NULL_SEQUENCE;
 import static io.prestosql.rcfile.text.TextRcFileEncoding.DEFAULT_SEPARATORS;
+import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static org.apache.hadoop.hive.serde.serdeConstants.COLLECTION_DELIM;
@@ -82,6 +85,7 @@ public class RcFilePageSourceFactory
 {
     private static final int TEXT_LEGACY_NESTING_LEVELS = 8;
     private static final int TEXT_EXTENDED_NESTING_LEVELS = 29;
+    private static final DataSize BUFFER_SIZE = DataSize.of(8, Unit.MEGABYTE);
 
     private final TypeManager typeManager;
     private final HdfsEnvironment hdfsEnvironment;
@@ -134,10 +138,21 @@ public class RcFilePageSourceFactory
                 .map(ReaderProjections::getReaderColumns)
                 .orElse(columns);
 
-        FSDataInputStream inputStream;
+        RcFileDataSource dataSource;
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(session.getUser(), path, configuration);
-            inputStream = hdfsEnvironment.doAs(session.getUser(), () -> fileSystem.open(path));
+            FSDataInputStream inputStream = hdfsEnvironment.doAs(session.getUser(), () -> fileSystem.open(path));
+            dataSource = new HdfsRcFileDataSource(path.toString(), inputStream, estimatedFileSize, stats);
+            if (estimatedFileSize < BUFFER_SIZE.toBytes()) {
+                byte[] buffer = new byte[toIntExact(estimatedFileSize)];
+                try {
+                    dataSource.readFully(0, buffer, 0, buffer.length);
+                }
+                finally {
+                    dataSource.close();
+                }
+                dataSource = new MemoryRcFileDataSource(dataSource.getId(), Slices.wrappedBuffer(buffer));
+            }
         }
         catch (Exception e) {
             if (nullToEmpty(e.getMessage()).trim().equals("Filesystem closed") ||
@@ -154,20 +169,20 @@ public class RcFilePageSourceFactory
             }
 
             RcFileReader rcFileReader = new RcFileReader(
-                    new HdfsRcFileDataSource(path.toString(), inputStream, estimatedFileSize, stats),
+                    dataSource,
                     rcFileEncoding,
                     readColumns.build(),
                     new AircompressorCodecFactory(new HadoopCodecFactory(configuration.getClassLoader())),
                     start,
                     length,
-                    DataSize.of(8, Unit.MEGABYTE));
+                    BUFFER_SIZE);
 
             ConnectorPageSource pageSource = new RcFilePageSource(rcFileReader, projectedReaderColumns);
             return Optional.of(new ReaderPageSourceWithProjections(pageSource, readerProjections));
         }
         catch (Throwable e) {
             try {
-                inputStream.close();
+                dataSource.close();
             }
             catch (IOException ignored) {
             }
