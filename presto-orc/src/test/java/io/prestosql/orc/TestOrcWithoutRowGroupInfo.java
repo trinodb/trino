@@ -29,6 +29,7 @@ import java.util.OptionalInt;
 import static com.google.common.io.Resources.getResource;
 import static io.prestosql.memory.context.AggregatedMemoryContext.newSimpleAggregatedMemoryContext;
 import static io.prestosql.orc.OrcReader.INITIAL_BATCH_SIZE;
+import static io.prestosql.orc.OrcReader.createOrcReader;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.IntegerType.INTEGER;
 import static org.testng.Assert.assertEquals;
@@ -57,7 +58,7 @@ public class TestOrcWithoutRowGroupInfo
         // this file was written by minor compaction in hive
         File file = new File(getResource("orcFileWithoutRowGroupInfo.orc").getPath());
 
-        OrcReader orcReader = new OrcReader(new FileOrcDataSource(file, new OrcReaderOptions()), new OrcReaderOptions());
+        OrcReader orcReader = createOrcReader(new FileOrcDataSource(file, new OrcReaderOptions()), new OrcReaderOptions()).orElseThrow();
 
         assertEquals(orcReader.getFooter().getNumberOfRows(), 2);
         assertEquals(orcReader.getFooter().getRowsInRowGroup(), OptionalInt.empty());

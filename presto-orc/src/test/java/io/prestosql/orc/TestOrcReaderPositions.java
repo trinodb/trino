@@ -304,7 +304,8 @@ public class TestOrcReaderPositions
             createFileWithOnlyUserMetadata(tempFile.getFile(), metadata);
 
             OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS);
-            OrcReader orcReader = new OrcReader(orcDataSource, READER_OPTIONS);
+            OrcReader orcReader = OrcReader.createOrcReader(orcDataSource, READER_OPTIONS)
+                    .orElseThrow(() -> new RuntimeException("File is empty"));
             Footer footer = orcReader.getFooter();
             Map<String, String> readMetadata = Maps.transformValues(footer.getUserMetadata(), Slice::toStringAscii);
             assertEquals(readMetadata, metadata);

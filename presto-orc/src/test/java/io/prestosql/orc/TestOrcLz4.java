@@ -43,7 +43,8 @@ public class TestOrcLz4
         // TODO: use Apache ORC library in OrcTester
         byte[] data = toByteArray(getResource("apache-lz4.orc"));
 
-        OrcReader orcReader = new OrcReader(new MemoryOrcDataSource(new OrcDataSourceId("memory"), Slices.wrappedBuffer(data)), new OrcReaderOptions());
+        OrcReader orcReader = OrcReader.createOrcReader(new MemoryOrcDataSource(new OrcDataSourceId("memory"), Slices.wrappedBuffer(data)), new OrcReaderOptions())
+                .orElseThrow(() -> new RuntimeException("File is empty"));
 
         assertEquals(orcReader.getCompressionKind(), LZ4);
         assertEquals(orcReader.getFooter().getNumberOfRows(), 10_000);
