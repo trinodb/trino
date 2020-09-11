@@ -22,6 +22,8 @@ import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Optional;
 
+import static java.util.Objects.requireNonNull;
+
 public interface EnvironmentListener
 {
     Logger log = Logger.get(EnvironmentListener.class);
@@ -167,17 +169,14 @@ public interface EnvironmentListener
         };
     }
 
-    static EnvironmentListener logCopyingListener(Optional<Path> logBaseDir)
+    static EnvironmentListener logCopyingListener(Path logBaseDir)
     {
-        if (logBaseDir.isEmpty()) {
-            return noop();
-        }
-
+        requireNonNull(logBaseDir, "logBaseDir is null");
         return new EnvironmentListener() {
             @Override
             public void containerStopping(DockerContainer container, InspectContainerResponse response)
             {
-                container.copyLogsToHostPath(logBaseDir.get());
+                container.copyLogsToHostPath(logBaseDir);
             }
         };
     }
@@ -199,8 +198,14 @@ public interface EnvironmentListener
         };
     }
 
-    static EnvironmentListener noop()
+    static EnvironmentListener getStandardListeners(Optional<Path> logsDirBase)
     {
-        return new EnvironmentListener() {};
+        EnvironmentListener listener = compose(loggingListener(), statsPrintingListener());
+
+        if (logsDirBase.isPresent()) {
+            return compose(listener, logCopyingListener(logsDirBase.get()));
+        }
+
+        return listener;
     }
 }
