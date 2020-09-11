@@ -142,7 +142,7 @@ public class SuiteDescribe
 
             for (SuiteTestRun testRun : suite.getTestRuns(config)) {
                 TestRun.TestRunOptions runOptions = createTestRunOptions(suiteName, testRun, config);
-                out.println(format("\npresto-product-tests-launcher/bin/run-launcher test run %s\n", OptionsPrinter.format(environmentOptions, runOptions)));
+                out.println(format("\n%s run %s\n", environmentOptions.launcherBin, OptionsPrinter.format(environmentOptions, runOptions)));
             }
 
             return OK;
