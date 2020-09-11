@@ -13,8 +13,6 @@
  */
 package io.prestosql.tests.product.launcher.cli;
 
-import com.github.dockerjava.api.command.InspectContainerResponse;
-import com.github.dockerjava.api.command.InspectContainerResponse.ContainerState;
 import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import com.google.inject.Module;
@@ -27,11 +25,8 @@ import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.EnvironmentFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
-import io.prestosql.tests.product.launcher.env.Environments;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import io.prestosql.tests.product.launcher.testcontainers.ExistingNetwork;
-import net.jodah.failsafe.Failsafe;
-import net.jodah.failsafe.RetryPolicy;
 import org.testcontainers.containers.Container;
 import org.testcontainers.containers.wait.strategy.LogMessageWaitStrategy;
 import picocli.CommandLine.Mixin;
@@ -45,12 +40,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
-import static com.google.common.base.Preconditions.checkState;
 import static com.google.common.base.Strings.isNullOrEmpty;
-import static com.google.common.base.Throwables.getStackTraceAsString;
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static io.prestosql.tests.product.launcher.docker.ContainerUtil.exposePort;
 import static io.prestosql.tests.product.launcher.env.DockerContainer.cleanOrCreateHostPath;
+import static io.prestosql.tests.product.launcher.env.EnvironmentListener.loggingListener;
 import static io.prestosql.tests.product.launcher.env.common.Standard.CONTAINER_TEMPTO_PROFILE_CONFIG;
 import static java.util.Objects.requireNonNull;
 import static org.testcontainers.containers.BindMode.READ_ONLY;
@@ -160,18 +154,12 @@ public final class TestRun
         @Override
         public void run()
         {
-            RetryPolicy<Object> retryPolicy = new RetryPolicy<>()
-                    .withMaxRetries(startupRetries)
-                    .onFailedAttempt(event -> log.warn("Could not start environment '%s': %s", environment, getStackTraceAsString(event.getLastFailure())))
-                    .onRetry(event -> log.info("Trying to start environment '%s', %d failed attempt(s)", environment, event.getAttemptCount() + 1))
-                    .onSuccess(event -> log.info("Environment '%s' started in %s, %d attempt(s)", environment, event.getElapsedTime(), event.getAttemptCount()))
-                    .onFailure(event -> log.info("Environment '%s' failed to start in attempt(s): %d: %s", environment, event.getAttemptCount(), event.getFailure()));
+            try (Environment environment = startEnvironment()) {
+                long exitCode = environment.awaitTestsCompletion();
 
-            try (UncheckedCloseable ignore = this::cleanUp) {
-                Environment environment = Failsafe.with(retryPolicy)
-                        .get(() -> tryStartEnvironment());
-
-                awaitTestsCompletion(environment);
+                if (exitCode != 0L) {
+                    throw new RuntimeException("Tests exited with " + exitCode);
+                }
             }
             catch (Throwable e) {
                 // log failure (tersely) because cleanup may take some time
@@ -180,16 +168,13 @@ public final class TestRun
             }
         }
 
-        private Environment tryStartEnvironment()
+        private Environment startEnvironment()
         {
             Environment environment = getEnvironment();
 
             if (!attach) {
-                log.info("Pruning old environment(s)");
-                Environments.pruneEnvironment();
-
                 log.info("Starting the environment '%s' with configuration %s", this.environment, environmentConfig);
-                environment.start();
+                environment.start(startupRetries);
             }
             else {
                 DockerContainer tests = (DockerContainer) environment.getContainer("tests");
@@ -200,14 +185,6 @@ public final class TestRun
             }
 
             return environment;
-        }
-
-        private void cleanUp()
-        {
-            if (!attach) {
-                log.info("Done, cleaning up");
-                Environments.pruneEnvironment();
-            }
         }
 
         private Environment getEnvironment()
@@ -263,8 +240,9 @@ public final class TestRun
             environmentConfig.extendEnvironment(this.environment).ifPresent(extender -> extender.extendEnvironment(environment));
 
             logsDirBase.ifPresent(environment::exposeLogsInHostPath);
+
             return environment
-                    .build();
+                    .build(loggingListener());
         }
 
         private static Iterable<? extends String> reportsDirOptions(Path path)
@@ -285,31 +263,6 @@ public final class TestRun
             cleanOrCreateHostPath(reportsDirBase);
             container.withFileSystemBind(reportsDirBase.toString(), CONTAINER_REPORTS_DIR, READ_WRITE);
             log.info("Exposing tests report dir in host directory '%s'", reportsDirBase);
-        }
-
-        private void awaitTestsCompletion(Environment environment)
-        {
-            Container<?> container = environment.getContainer("tests");
-
-            log.info("Waiting for test completion");
-            try {
-                while (container.isRunning()) {
-                    Thread.sleep(1000);
-                }
-
-                InspectContainerResponse containerInfo = container.getCurrentContainerInfo();
-                ContainerState containerState = containerInfo.getState();
-                Long exitCode = containerState.getExitCodeLong();
-                log.info("Test container %s is %s, with exitCode %s", containerInfo.getId(), containerState.getStatus(), exitCode);
-                checkState(exitCode != null, "No exitCode for tests container %s in state %s", container, containerState);
-                if (exitCode != 0L) {
-                    throw new RuntimeException("Tests exited with " + exitCode);
-                }
-            }
-            catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-                throw new RuntimeException("Interrupted", e);
-            }
         }
     }
 
