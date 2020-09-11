@@ -28,7 +28,9 @@ public interface ParquetDataSource
 
     long getReadTimeNanos();
 
-    long getSize();
+    long getEstimatedSize();
+
+    Slice readTail(int length);
 
     Slice readFully(long position, int length);
 

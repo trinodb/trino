@@ -155,7 +155,7 @@ public class ParquetPageSourceFactory
             Path path,
             long start,
             long length,
-            long fileSize,
+            long estimatedFileSize,
             List<HiveColumnHandle> columns,
             TupleDomain<HiveColumnHandle> effectivePredicate,
             boolean useColumnNames,
@@ -177,7 +177,7 @@ public class ParquetPageSourceFactory
         try {
             FileSystem fileSystem = hdfsEnvironment.getFileSystem(user, path, configuration);
             FSDataInputStream inputStream = hdfsEnvironment.doAs(user, () -> fileSystem.open(path));
-            dataSource = new HdfsParquetDataSource(new ParquetDataSourceId(path.toString()), fileSize, inputStream, stats, options);
+            dataSource = new HdfsParquetDataSource(new ParquetDataSourceId(path.toString()), estimatedFileSize, inputStream, stats, options);
 
             ParquetMetadata parquetMetadata = MetadataReader.readFooter(dataSource);
             FileMetaData fileMetaData = parquetMetadata.getFileMetaData();

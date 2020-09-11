@@ -45,7 +45,7 @@ public class HdfsParquetDataSource
         implements ParquetDataSource
 {
     private final ParquetDataSourceId id;
-    private final long size;
+    private final long estimatedSize;
     private final FSDataInputStream inputStream;
     private long readTimeNanos;
     private long readBytes;
@@ -54,13 +54,13 @@ public class HdfsParquetDataSource
 
     public HdfsParquetDataSource(
             ParquetDataSourceId id,
-            long size,
+            long estimatedSize,
             FSDataInputStream inputStream,
             FileFormatDataSourceStats stats,
             ParquetReaderOptions options)
     {
         this.id = requireNonNull(id, "id is null");
-        this.size = size;
+        this.estimatedSize = estimatedSize;
         this.inputStream = inputStream;
         this.stats = stats;
         this.options = requireNonNull(options, "options is null");
@@ -85,9 +85,9 @@ public class HdfsParquetDataSource
     }
 
     @Override
-    public final long getSize()
+    public final long getEstimatedSize()
     {
-        return size;
+        return estimatedSize;
     }
 
     @Override
@@ -95,6 +95,12 @@ public class HdfsParquetDataSource
             throws IOException
     {
         inputStream.close();
+    }
+
+    @Override
+    public Slice readTail(int length)
+    {
+        return readFully(estimatedSize - length, length);
     }
 
     @Override
