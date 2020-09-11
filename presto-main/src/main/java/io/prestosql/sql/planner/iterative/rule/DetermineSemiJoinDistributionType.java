@@ -34,6 +34,7 @@ import java.util.List;
 import static io.prestosql.SystemSessionProperties.getJoinDistributionType;
 import static io.prestosql.SystemSessionProperties.getJoinMaxBroadcastTableSize;
 import static io.prestosql.cost.CostCalculatorWithEstimatedExchanges.calculateJoinCostWithoutOutput;
+import static io.prestosql.sql.planner.iterative.rule.DetermineJoinDistributionType.getSourceTablesSizeInBytes;
 import static io.prestosql.sql.planner.plan.Patterns.semiJoin;
 import static io.prestosql.sql.planner.plan.SemiJoinNode.DistributionType.PARTITIONED;
 import static io.prestosql.sql.planner.plan.SemiJoinNode.DistributionType.REPLICATED;
@@ -91,12 +92,24 @@ public class DetermineSemiJoinDistributionType
         possibleJoinNodes.add(getSemiJoinNodeWithCost(node.withDistributionType(PARTITIONED), context));
 
         if (possibleJoinNodes.stream().anyMatch(result -> result.getCost().hasUnknownComponents())) {
-            return node.withDistributionType(PARTITIONED);
+            return getSizeBaseDistributionType(node, context);
         }
 
         // Using Ordering to facilitate rule determinism
         Ordering<PlanNodeWithCost> planNodeOrderings = costComparator.forSession(context.getSession()).onResultOf(PlanNodeWithCost::getCost);
         return planNodeOrderings.min(possibleJoinNodes).getPlanNode();
+    }
+
+    private PlanNode getSizeBaseDistributionType(SemiJoinNode node, Context context)
+    {
+        DataSize joinMaxBroadcastTableSize = getJoinMaxBroadcastTableSize(context.getSession());
+
+        if (getSourceTablesSizeInBytes(node.getFilteringSource(), context) <= joinMaxBroadcastTableSize.toBytes()) {
+            // choose replicated distribution type as filtering source contains small source tables only
+            return node.withDistributionType(REPLICATED);
+        }
+
+        return node.withDistributionType(PARTITIONED);
     }
 
     private boolean canReplicate(SemiJoinNode node, Context context)
@@ -106,7 +119,8 @@ public class DetermineSemiJoinDistributionType
         PlanNode buildSide = node.getFilteringSource();
         PlanNodeStatsEstimate buildSideStatsEstimate = context.getStatsProvider().getStats(buildSide);
         double buildSideSizeInBytes = buildSideStatsEstimate.getOutputSizeInBytes(buildSide.getOutputSymbols(), context.getSymbolAllocator().getTypes());
-        return buildSideSizeInBytes <= joinMaxBroadcastTableSize.toBytes();
+        return buildSideSizeInBytes <= joinMaxBroadcastTableSize.toBytes()
+                || getSourceTablesSizeInBytes(buildSide, context) <= joinMaxBroadcastTableSize.toBytes();
     }
 
     private PlanNodeWithCost getSemiJoinNodeWithCost(SemiJoinNode possibleJoinNode, Context context)
