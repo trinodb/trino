@@ -30,8 +30,6 @@ public interface ParquetDataSource
 
     void readFully(long position, byte[] buffer);
 
-    void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength);
-
     <K> Map<K, ChunkReader> planRead(Map<K, DiskRange> diskRanges);
 
     @Override
