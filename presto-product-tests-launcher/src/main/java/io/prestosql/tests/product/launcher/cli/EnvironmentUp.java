@@ -43,6 +43,7 @@ import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.TEST
 import static io.prestosql.tests.product.launcher.env.EnvironmentListener.compose;
 import static io.prestosql.tests.product.launcher.env.EnvironmentListener.logCopyingListener;
 import static io.prestosql.tests.product.launcher.env.EnvironmentListener.loggingListener;
+import static io.prestosql.tests.product.launcher.env.EnvironmentListener.statsPrintingListener;
 import static java.util.Objects.requireNonNull;
 import static picocli.CommandLine.Mixin;
 import static picocli.CommandLine.Option;
@@ -144,7 +145,11 @@ public final class EnvironmentUp
             }
 
             Optional<Path> environmentLogPath = logsDirBase.map(dir -> dir.resolve(environment));
-            Environment environment = builder.build(compose(loggingListener(), logCopyingListener(environmentLogPath)));
+            Environment environment = builder.build(compose(
+                    loggingListener(),
+                    logCopyingListener(environmentLogPath),
+                    statsPrintingListener()));
+
             environment.start();
 
             if (background) {
