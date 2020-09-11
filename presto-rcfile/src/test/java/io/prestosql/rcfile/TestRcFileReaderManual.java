@@ -31,7 +31,6 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static io.airlift.slice.Slices.utf8Slice;
 import static io.airlift.units.DataSize.Unit.MEGABYTE;
 import static io.prestosql.spi.type.SmallintType.SMALLINT;
-import static java.lang.Math.toIntExact;
 import static java.util.stream.Collectors.toList;
 import static org.testng.Assert.assertEquals;
 
@@ -237,7 +236,7 @@ public class TestRcFileReaderManual
         }
 
         RcFileReader reader = new RcFileReader(
-                new SliceRcFileDataSource(data),
+                new MemoryRcFileDataSource(new RcFileDataSourceId("test"), data),
                 new BinaryRcFileEncoding(DateTimeZone.UTC),
                 ImmutableMap.of(0, SMALLINT),
                 new BogusRcFileCodecFactory(),
@@ -289,54 +288,6 @@ public class TestRcFileReaderManual
         public List<Integer> getRowGroupSegmentOffsets()
         {
             return rowGroupSegmentOffsets;
-        }
-    }
-
-    private static class SliceRcFileDataSource
-            implements RcFileDataSource
-    {
-        private static final RcFileDataSourceId DATA_SOURCE_ID = new RcFileDataSourceId("test");
-
-        private final Slice data;
-
-        public SliceRcFileDataSource(Slice data)
-        {
-            this.data = data;
-        }
-
-        @Override
-        public long getReadBytes()
-        {
-            return 0;
-        }
-
-        @Override
-        public long getReadTimeNanos()
-        {
-            return 0;
-        }
-
-        @Override
-        public long getSize()
-        {
-            return data.length();
-        }
-
-        @Override
-        public void readFully(long position, byte[] buffer, int bufferOffset, int bufferLength)
-        {
-            data.getBytes(toIntExact(position), buffer, bufferOffset, bufferLength);
-        }
-
-        @Override
-        public void close()
-        {
-        }
-
-        @Override
-        public RcFileDataSourceId getId()
-        {
-            return DATA_SOURCE_ID;
         }
     }
 
