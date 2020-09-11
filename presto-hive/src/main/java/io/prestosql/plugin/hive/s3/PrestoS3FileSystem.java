@@ -35,6 +35,7 @@ import com.amazonaws.metrics.RequestMetricCollector;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Builder;
 import com.amazonaws.services.s3.AmazonS3Client;
+import com.amazonaws.services.s3.AmazonS3Encryption;
 import com.amazonaws.services.s3.AmazonS3EncryptionClient;
 import com.amazonaws.services.s3.Headers;
 import com.amazonaws.services.s3.internal.Constants;
@@ -67,6 +68,7 @@ import com.google.common.io.Closer;
 import io.airlift.log.Logger;
 import io.airlift.units.DataSize;
 import io.airlift.units.Duration;
+import io.prestosql.plugin.hive.util.FSDataInputStreamTail;
 import org.apache.hadoop.conf.Configurable;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.fs.BlockLocation;
@@ -107,6 +109,7 @@ import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.amazonaws.regions.Regions.US_EAST_1;
+import static com.amazonaws.services.s3.Headers.CRYPTO_KEYWRAP_ALGORITHM;
 import static com.amazonaws.services.s3.Headers.SERVER_SIDE_ENCRYPTION;
 import static com.amazonaws.services.s3.Headers.UNENCRYPTED_CONTENT_LENGTH;
 import static com.amazonaws.services.s3.model.StorageClass.DeepArchive;
@@ -392,7 +395,7 @@ public class PrestoS3FileSystem
                 qualifiedPath(path));
     }
 
-    private static long getObjectSize(Path path, ObjectMetadata metadata)
+    private long getObjectSize(Path path, ObjectMetadata metadata)
             throws IOException
     {
         Map<String, String> userMetadata = metadata.getUserMetadata();
@@ -400,7 +403,19 @@ public class PrestoS3FileSystem
         if (userMetadata.containsKey(SERVER_SIDE_ENCRYPTION) && length == null) {
             throw new IOException(format("%s header is not set on an encrypted object: %s", UNENCRYPTED_CONTENT_LENGTH, path));
         }
-        return (length != null) ? Long.parseLong(length) : metadata.getContentLength();
+
+        if (length != null) {
+            return Long.parseLong(length);
+        }
+
+        long reportedObjectSize = metadata.getContentLength();
+        // x-amz-unencrypted-content-length was not set, infer length for cse-kms encrypted objects by reading the tail until EOF
+        if (s3 instanceof AmazonS3Encryption && "kms".equalsIgnoreCase(userMetadata.get(CRYPTO_KEYWRAP_ALGORITHM))) {
+            try (FSDataInputStream in = open(path, FSDataInputStreamTail.MAX_SUPPORTED_PADDING_BYTES + 1)) {
+                return FSDataInputStreamTail.readTailForFileSize(path.toString(), reportedObjectSize, in);
+            }
+        }
+        return reportedObjectSize;
     }
 
     @Override
