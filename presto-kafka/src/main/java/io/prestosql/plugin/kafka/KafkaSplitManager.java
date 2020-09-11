@@ -53,13 +53,15 @@ public class KafkaSplitManager
         implements ConnectorSplitManager
 {
     private final KafkaConsumerFactory consumerFactory;
+    private final KafkaFilterManager kafkaFilterManager;
     private final int messagesPerSplit;
 
     @Inject
-    public KafkaSplitManager(KafkaConsumerFactory consumerFactory, KafkaConfig kafkaConfig)
+    public KafkaSplitManager(KafkaConsumerFactory consumerFactory, KafkaConfig kafkaConfig, KafkaFilterManager kafkaFilterManager)
     {
         this.consumerFactory = requireNonNull(consumerFactory, "consumerManager is null");
-        messagesPerSplit = requireNonNull(kafkaConfig, "kafkaConfig is null").getMessagesPerSplit();
+        this.messagesPerSplit = requireNonNull(kafkaConfig, "kafkaConfig is null").getMessagesPerSplit();
+        this.kafkaFilterManager = requireNonNull(kafkaFilterManager, "kafkaFilterManager is null");
     }
 
     @Override
@@ -80,12 +82,18 @@ public class KafkaSplitManager
 
             Map<TopicPartition, Long> partitionBeginOffsets = kafkaConsumer.beginningOffsets(topicPartitions);
             Map<TopicPartition, Long> partitionEndOffsets = kafkaConsumer.endOffsets(topicPartitions);
+            KafkaFilteringResult kafkaFilteringResult = kafkaFilterManager.getKafkaFilterResult(session, kafkaTableHandle,
+                    partitionInfos, partitionBeginOffsets, partitionEndOffsets);
+            partitionInfos = kafkaFilteringResult.getPartitionInfos();
+            partitionBeginOffsets = kafkaFilteringResult.getPartitionBeginOffsets();
+            partitionEndOffsets = kafkaFilteringResult.getPartitionEndOffsets();
 
             ImmutableList.Builder<KafkaSplit> splits = ImmutableList.builder();
             Optional<String> keyDataSchemaContents = kafkaTableHandle.getKeyDataSchemaLocation()
                     .map(KafkaSplitManager::readSchema);
             Optional<String> messageDataSchemaContents = kafkaTableHandle.getMessageDataSchemaLocation()
                     .map(KafkaSplitManager::readSchema);
+
             for (PartitionInfo partitionInfo : partitionInfos) {
                 TopicPartition topicPartition = toTopicPartition(partitionInfo);
                 HostAddress leader = HostAddress.fromParts(partitionInfo.leader().host(), partitionInfo.leader().port());
