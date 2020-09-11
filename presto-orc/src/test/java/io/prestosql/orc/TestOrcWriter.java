@@ -109,6 +109,9 @@ public class TestOrcWriter
             OrcDataSource orcDataSource = new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS);
             Footer footer = new OrcReader(orcDataSource, READER_OPTIONS).getFooter();
 
+            // OrcReader closes the original data source because it buffers the full file, so we need to reopen
+            orcDataSource = new FileOrcDataSource(tempFile.getFile(), READER_OPTIONS);
+
             for (StripeInformation stripe : footer.getStripes()) {
                 // read the footer
                 Slice tailBuffer = orcDataSource.readFully(stripe.getOffset() + stripe.getIndexLength() + stripe.getDataLength(), toIntExact(stripe.getFooterLength()));

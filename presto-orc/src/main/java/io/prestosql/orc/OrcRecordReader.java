@@ -265,7 +265,7 @@ public class OrcRecordReader
     @VisibleForTesting
     static OrcDataSource wrapWithCacheIfTinyStripes(OrcDataSource dataSource, List<StripeInformation> stripes, DataSize maxMergeDistance, DataSize tinyStripeThreshold)
     {
-        if (dataSource instanceof CachingOrcDataSource) {
+        if (dataSource instanceof MemoryOrcDataSource || dataSource instanceof CachingOrcDataSource) {
             return dataSource;
         }
         for (StripeInformation stripe : stripes) {

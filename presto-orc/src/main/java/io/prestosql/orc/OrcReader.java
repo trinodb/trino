@@ -315,15 +315,17 @@ public class OrcReader
     }
 
     private static OrcDataSource wrapWithCacheIfTiny(OrcDataSource dataSource, DataSize maxCacheSize)
+            throws IOException
     {
-        if (dataSource instanceof CachingOrcDataSource) {
+        if (dataSource instanceof MemoryOrcDataSource || dataSource instanceof CachingOrcDataSource) {
             return dataSource;
         }
         if (dataSource.getSize() > maxCacheSize.toBytes()) {
             return dataSource;
         }
-        DiskRange diskRange = new DiskRange(0, toIntExact(dataSource.getSize()));
-        return new CachingOrcDataSource(dataSource, desiredOffset -> diskRange);
+        Slice data = dataSource.readFully(0, toIntExact(dataSource.getSize()));
+        dataSource.close();
+        return new MemoryOrcDataSource(dataSource.getId(), data);
     }
 
     private static OrcColumn createOrcColumn(
