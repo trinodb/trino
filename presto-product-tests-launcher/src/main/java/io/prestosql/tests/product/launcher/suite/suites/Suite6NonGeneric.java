@@ -40,66 +40,12 @@ public class Suite6NonGeneric
         verify(config.getHadoopBaseImage().equals(EnvironmentDefaults.HADOOP_BASE_IMAGE), "The suite should be run with default HADOOP_BASE_IMAGE. Leave HADOOP_BASE_IMAGE unset.");
 
         return ImmutableList.of(
-                /**
-                 * Uses hadoop, but it irrelevant from these tests' perspective.
-                 *
-                 * presto-product-tests-launcher/bin/run-launcher test run \
-                 *     --environment singlenode-ldap \
-                 *     -- -g ldap \
-                 *     || suite_exit_code=1
-                 */
                 testOnEnvironment(SinglenodeLdap.class).withGroups("ldap").build(),
-
-                /**
-                 * presto-product-tests-launcher/bin/run-launcher test run \
-                 *     --environment singlenode-ldap-insecure \
-                 *     -- -g ldap \
-                 *     || suite_exit_code=1
-                 */
                 testOnEnvironment(SinglenodeLdapInsecure.class).withGroups("ldap").build(),
-
-                /**
-                 * presto-product-tests-launcher/bin/run-launcher test run \
-                 *     --environment singlenode-ldap-referrals \
-                 *     -- -g ldap \
-                 *     || suite_exit_code=1
-                 */
                 testOnEnvironment(SinglenodeLdapReferrals.class).withGroups("ldap").build(),
-
-                /**
-                 * We have docker images with KMS on CDH only. TODO (https://github.com/prestosql/presto/issues/1652) create images with HDP and KMS
-                 *
-                 * presto-product-tests-launcher/bin/run-launcher test run \
-                 *     --environment singlenode-kerberos-kms-hdfs-no-impersonation \
-                 *     -- -g storage_formats \
-                 *     || suite_exit_code=1
-                 */
                 testOnEnvironment(SinglenodeKerberosKmsHdfsNoImpersonation.class).withGroups("storage_formats").build(),
-
-                /**
-                 * We have docker images with KMS on CDH only. TODO (https://github.com/prestosql/presto/issues/1652) create images with HDP and KMS
-                 *
-                 * presto-product-tests-launcher/bin/run-launcher test run \
-                 *     --environment singlenode-kerberos-kms-hdfs-impersonation \
-                 *     -- -g storage_formats \
-                 *     || suite_exit_code=1
-                 */
                 testOnEnvironment(SinglenodeKerberosKmsHdfsImpersonation.class).withGroups("storage_formats").build(),
-
-                /**
-                 * presto-product-tests-launcher/bin/run-launcher test run \
-                 *     --environment singlenode-cassandra \
-                 *     -- -g cassandra \
-                 *     || suite_exit_code=1
-                 */
                 testOnEnvironment(SinglenodeCassandra.class).withGroups("cassandra").build(),
-
-                /**
-                 * presto-product-tests-launcher/bin/run-launcher test run \
-                 *     --environment singlenode-kafka \
-                 *     -- -g kafka \
-                 *     || suite_exit_code=1
-                 */
                 testOnEnvironment(SinglenodeKafka.class).withGroups("kafka").build());
     }
 }

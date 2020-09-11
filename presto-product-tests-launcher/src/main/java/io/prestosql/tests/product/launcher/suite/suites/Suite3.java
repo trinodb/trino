@@ -33,43 +33,15 @@ public class Suite3
     public List<SuiteTestRun> getTestRuns(EnvironmentConfig config)
     {
         return ImmutableList.of(
-                /**
-                 * presto-product-tests-launcher/bin/run-launcher test run \
-                 *     --environment multinode-tls \
-                 *     -- -g smoke,cli,group-by,join,tls -x "${DISTRO_SKIP_GROUP}" -e "${DISTRO_SKIP_TEST}" \
-                 *     || suite_exit_code=1
-                 */
                 testOnEnvironment(MultinodeTls.class)
                         .withGroups("smoke", "cli", "group-by", "join", "tls")
                         .build(),
-
-                /**
-                 * presto-product-tests-launcher/bin/run-launcher test run \
-                 *     --environment multinode-tls-kerberos \
-                 *     -- -g cli,group-by,join,tls -x "${DISTRO_SKIP_GROUP}" -e "${DISTRO_SKIP_TEST}" \
-                 *     || suite_exit_code=1
-                 */
                 testOnEnvironment(MultinodeTlsKerberos.class)
                         .withGroups("cli", "group-by", "join", "tls")
                         .build(),
-
-                /**
-                 * presto-product-tests-launcher/bin/run-launcher test run \
-                 *     --environment singlenode-kerberos-hdfs-impersonation-with-wire-encryption \
-                 *     -- -g storage_formats,cli,hdfs_impersonation,authorization -x "${DISTRO_SKIP_GROUP}" -e "${DISTRO_SKIP_TEST}" \
-                 *     || suite_exit_code=1
-                 */
                 testOnEnvironment(SinglenodeKerberosHdfsImpersonationWithWireEncryption.class)
                         .withGroups("storage_formats", "cli", "hdfs_impersonation,authorization")
                         .build(),
-
-                /**
-                 * # Smoke run af a few tests in environment with dfs.data.transfer.protection=true. Arbitrary tests which access HDFS data were chosen.
-                 * presto-product-tests-launcher/bin/run-launcher test run \
-                 *     --environment singlenode-kerberos-hdfs-impersonation-with-data-protection \
-                 *     -- -t TestHiveStorageFormats.testOrcTableCreatedInPresto,TestHiveCreateTable.testCreateTable  -x "${DISTRO_SKIP_GROUP}" -e "${DISTRO_SKIP_TEST}" \
-                 *     || suite_exit_code=1
-                 */
                 testOnEnvironment(SinglenodeKerberosHdfsImpersonationWithDataProtection.class)
                         .withTests("TestHiveStorageFormats.testOrcTableCreatedInPresto", "TestHiveCreateTable.testCreateTable")
                         .build());

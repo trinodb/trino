@@ -41,76 +41,13 @@ public class Suite7NonGeneric
         verify(config.getHadoopBaseImage().equals(EnvironmentDefaults.HADOOP_BASE_IMAGE), "The suite should be run with default HADOOP_BASE_IMAGE. Leave HADOOP_BASE_IMAGE unset.");
 
         return ImmutableList.of(
-                /**
-                 * Does not use hadoop
-                 *
-                 * presto-product-tests-launcher/bin/run-launcher test run \
-                 *     --environment singlenode-mysql \
-                 *     -- -g mysql \
-                 *     || suite_exit_code=1
-                 */
                 testOnEnvironment(SinglenodeMysql.class).withGroups("mysql").build(),
-
-                /**
-                 * Does not use hadoop
-                 *
-                 * presto-product-tests-launcher/bin/run-launcher test run \
-                 *     --environment singlenode-postgresql \
-                 *     -- -g postgresql \
-                 *     || suite_exit_code=1
-                 */
                 testOnEnvironment(SinglenodePostgresql.class).withGroups("postgresql").build(),
-
-                /**
-                 * Does not use hadoop
-                 *
-                 * presto-product-tests-launcher/bin/run-launcher test run \
-                 *     --environment singlenode-sqlserver \
-                 *     -- -g sqlserver \
-                 *     || suite_exit_code=1
-                 */
                 testOnEnvironment(SinglenodeSqlserver.class).withGroups("sqlserver").build(),
-
-                /**
-                 * presto-product-tests-launcher/bin/run-launcher test run \
-                 *     --environment singlenode-spark-iceberg \
-                 *     -- -g iceberg -x storage_formats \
-                 *     || suite_exit_code=1
-                 */
                 testOnEnvironment(SinglenodeSparkIceberg.class).withGroups("iceberg").withExcludedGroups("storage_formats").build(),
-
-                /**
-                 * Environment not set up on CDH. (TODO run on HDP 2.6 and HDP 3.1)
-                 *
-                 * presto-product-tests-launcher/bin/run-launcher test run \
-                 *     --environment singlenode-kerberos-hdfs-impersonation-cross-realm \
-                 *     -- -g storage_formats,cli,hdfs_impersonation \
-                 *     || suite_exit_code=1
-                 */
                 testOnEnvironment(SinglenodeKerberosHdfsImpersonationCrossRealm.class).withGroups("storage_formats", "cli", "hdfs_impersonation").build(),
-
-                /**
-                 * presto-product-tests-launcher/bin/run-launcher test run \
-                 *     --environment two-mixed-hives \
-                 *     -- -g two_hives \
-                 *     || suite_exit_code=1
-                 */
                 testOnEnvironment(TwoMixedHives.class).withGroups("two_hives").build(),
-
-                /**
-                 * presto-product-tests-launcher/bin/run-launcher test run \
-                 *     --environment two-kerberos-hives \
-                 *     -- -g two_hives \
-                 *     || suite_exit_code=1
-                 */
                 testOnEnvironment(TwoKerberosHives.class).withGroups("two_hives").build(),
-
-                /**
-                 * presto-product-tests-launcher/bin/run-launcher test run \
-                 *     --environment singlenode-ldap-bind-dn \
-                 *     -- -g ldap \
-                 *     || suite_exit_code=1
-                 */
                 testOnEnvironment(SinglenodeLdapBindDn.class).withGroups("ldap").build());
     }
 }
