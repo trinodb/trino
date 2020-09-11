@@ -26,7 +26,6 @@ import io.prestosql.parquet.ParquetReaderOptions;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
 import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.fs.FSDataInputStream;
-import org.apache.hadoop.fs.Path;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -217,17 +216,7 @@ public class HdfsParquetDataSource
         return slices.build();
     }
 
-    public static HdfsParquetDataSource buildHdfsParquetDataSource(
-            FSDataInputStream inputStream,
-            Path path,
-            long fileSize,
-            FileFormatDataSourceStats stats,
-            ParquetReaderOptions options)
-    {
-        return new HdfsParquetDataSource(new ParquetDataSourceId(path.toString()), fileSize, inputStream, stats, options);
-    }
-
-    public static List<DiskRange> mergeAdjacentDiskRanges(Collection<DiskRange> diskRanges, DataSize maxMergeDistance, DataSize maxReadSize)
+    private static List<DiskRange> mergeAdjacentDiskRanges(Collection<DiskRange> diskRanges, DataSize maxMergeDistance, DataSize maxReadSize)
     {
         // sort ranges by start offset
         List<DiskRange> ranges = new ArrayList<>(diskRanges);
