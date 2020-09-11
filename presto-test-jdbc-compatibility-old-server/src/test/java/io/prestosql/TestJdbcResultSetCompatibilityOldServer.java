@@ -13,6 +13,7 @@
  */
 package io.prestosql;
 
+import com.google.common.base.Splitter;
 import com.google.common.collect.ImmutableList;
 import io.prestosql.jdbc.BaseTestJdbcResultSet;
 import io.prestosql.jdbc.PrestoDriver;
@@ -42,6 +43,7 @@ public class TestJdbcResultSetCompatibilityOldServer
 {
     private static final int NUMBER_OF_TESTED_VERSIONS = 5;
     private static final int TESTED_VERSIONS_GRANULARITY = 3;
+    private static final String TESTED_VERSIONS_ENV_KEY = "TESTED_PRESTO_SERVER_VERSIONS";
 
     /**
      * Empty means that we could not obtain current Presto version and tests defined here will be marked as failed.
@@ -59,6 +61,14 @@ public class TestJdbcResultSetCompatibilityOldServer
     public static Object[][] testedPrestoVersions()
     {
         try {
+            if (System.getenv(TESTED_VERSIONS_ENV_KEY) != null) {
+                // This is currently needed so that the test is runnable from IDE
+                // TODO use filtered resource to provide current version instead.
+                return Splitter.on(",").trimResults().splitToList(System.getenv(TESTED_VERSIONS_ENV_KEY)).stream()
+                        .map(Optional::of)
+                        .collect(TestngUtils.toDataProvider());
+            }
+
             String currentVersionString = requireNonNull(PrestoDriver.class.getPackage().getImplementationVersion());
             // this should match git-describe output which is used as version stored in metadata
             Matcher matcher = Pattern.compile("(\\d+)(?:-\\d+-[a-z0-9]+)?").matcher(currentVersionString);
