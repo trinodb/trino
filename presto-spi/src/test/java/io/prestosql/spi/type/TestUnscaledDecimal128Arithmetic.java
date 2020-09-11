@@ -99,29 +99,30 @@ public class TestUnscaledDecimal128Arithmetic
     @Test
     public void testRescale()
     {
-        assertEquals(rescale(unscaledDecimal(10), 0), unscaledDecimal(10L));
-        assertEquals(rescale(unscaledDecimal(10), -20), unscaledDecimal(0L));
-        assertEquals(rescale(unscaledDecimal(15), -1), unscaledDecimal(2));
-        assertEquals(rescale(unscaledDecimal(1050), -3), unscaledDecimal(1));
-        assertEquals(rescale(unscaledDecimal(15), 1), unscaledDecimal(150));
-        assertEquals(rescale(unscaledDecimal(-14), -1), unscaledDecimal(-1));
-        assertEquals(rescale(unscaledDecimal(-14), 1), unscaledDecimal(-140));
-        assertEquals(rescale(unscaledDecimal(0), 1), unscaledDecimal(0));
-        assertEquals(rescale(unscaledDecimal(5), -1), unscaledDecimal(1));
-        assertEquals(rescale(unscaledDecimal(10), 10), unscaledDecimal(100000000000L));
-        assertEquals(rescale(unscaledDecimal("150000000000000000000"), -20), unscaledDecimal(2));
-        assertEquals(rescale(unscaledDecimal("-140000000000000000000"), -20), unscaledDecimal(-1));
-        assertEquals(rescale(unscaledDecimal("50000000000000000000"), -20), unscaledDecimal(1));
-        assertEquals(rescale(unscaledDecimal("150500000000000000000"), -18), unscaledDecimal(151));
-        assertEquals(rescale(unscaledDecimal("-140000000000000000000"), -18), unscaledDecimal(-140));
-        assertEquals(rescale(unscaledDecimal(BigInteger.ONE.shiftLeft(63)), -18), unscaledDecimal(9L));
-        assertEquals(rescale(unscaledDecimal(BigInteger.ONE.shiftLeft(62)), -18), unscaledDecimal(5L));
-        assertEquals(rescale(unscaledDecimal(BigInteger.ONE.shiftLeft(62)), -19), unscaledDecimal(0L));
-        assertEquals(rescale(MAX_DECIMAL, -1), unscaledDecimal(MAX_DECIMAL_UNSCALED_VALUE.divide(BigInteger.TEN).add(BigInteger.ONE)));
-        assertEquals(rescale(MIN_DECIMAL, -10), unscaledDecimal(MIN_DECIMAL_UNSCALED_VALUE.divide(BigInteger.valueOf(10000000000L)).subtract(BigInteger.ONE)));
-        assertEquals(rescale(unscaledDecimal(1), 37), unscaledDecimal("10000000000000000000000000000000000000"));
-        assertEquals(rescale(unscaledDecimal(-1), 37), unscaledDecimal("-10000000000000000000000000000000000000"));
-        assertEquals(rescale(unscaledDecimal("10000000000000000000000000000000000000"), -37), unscaledDecimal(1));
+        assertRescale(unscaledDecimal(10), 0, unscaledDecimal(10L));
+        assertRescale(unscaledDecimal(-10), 0, unscaledDecimal(-10L));
+        assertRescale(unscaledDecimal(10), -20, unscaledDecimal(0L));
+        assertRescale(unscaledDecimal(15), -1, unscaledDecimal(2));
+        assertRescale(unscaledDecimal(1050), -3, unscaledDecimal(1));
+        assertRescale(unscaledDecimal(15), 1, unscaledDecimal(150));
+        assertRescale(unscaledDecimal(-14), -1, unscaledDecimal(-1));
+        assertRescale(unscaledDecimal(-14), 1, unscaledDecimal(-140));
+        assertRescale(unscaledDecimal(0), 1, unscaledDecimal(0));
+        assertRescale(unscaledDecimal(5), -1, unscaledDecimal(1));
+        assertRescale(unscaledDecimal(10), 10, unscaledDecimal(100000000000L));
+        assertRescale(unscaledDecimal("150000000000000000000"), -20, unscaledDecimal(2));
+        assertRescale(unscaledDecimal("-140000000000000000000"), -20, unscaledDecimal(-1));
+        assertRescale(unscaledDecimal("50000000000000000000"), -20, unscaledDecimal(1));
+        assertRescale(unscaledDecimal("150500000000000000000"), -18, unscaledDecimal(151));
+        assertRescale(unscaledDecimal("-140000000000000000000"), -18, unscaledDecimal(-140));
+        assertRescale(unscaledDecimal(BigInteger.ONE.shiftLeft(63)), -18, unscaledDecimal(9L));
+        assertRescale(unscaledDecimal(BigInteger.ONE.shiftLeft(62)), -18, unscaledDecimal(5L));
+        assertRescale(unscaledDecimal(BigInteger.ONE.shiftLeft(62)), -19, unscaledDecimal(0L));
+        assertRescale(MAX_DECIMAL, -1, unscaledDecimal(MAX_DECIMAL_UNSCALED_VALUE.divide(BigInteger.TEN).add(BigInteger.ONE)));
+        assertRescale(MIN_DECIMAL, -10, unscaledDecimal(MIN_DECIMAL_UNSCALED_VALUE.divide(BigInteger.valueOf(10000000000L)).subtract(BigInteger.ONE)));
+        assertRescale(unscaledDecimal(1), 37, unscaledDecimal("10000000000000000000000000000000000000"));
+        assertRescale(unscaledDecimal(-1), 37, unscaledDecimal("-10000000000000000000000000000000000000"));
+        assertRescale(unscaledDecimal("10000000000000000000000000000000000000"), -37, unscaledDecimal(1));
     }
 
     @Test
@@ -800,6 +801,15 @@ public class TestUnscaledDecimal128Arithmetic
         }
         if (!isShort(a) && isShort(b)) {
             assertEquals(unscaledDecimal(result), multiply(unscaledDecimal(a), b.longValue()));
+        }
+    }
+
+    private static void assertRescale(Slice decimal, int rescale, Slice expected)
+    {
+        assertEquals(rescale(decimal, rescale), expected);
+        if (isShort(unscaledDecimalToBigInteger(decimal))) {
+            Slice actual = rescale(unscaledDecimalToUnscaledLong(decimal), rescale);
+            assertEquals(expected, actual);
         }
     }
 }
