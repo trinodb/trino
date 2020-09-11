@@ -254,7 +254,8 @@ public class IcebergPageSourceProvider
                     inputStream,
                     stats);
 
-            OrcReader reader = new OrcReader(orcDataSource, options);
+            OrcReader reader = OrcReader.createOrcReader(orcDataSource, options)
+                    .orElseThrow(() -> new PrestoException(ICEBERG_BAD_DATA, "ORC file is zero length"));
             List<OrcColumn> fileColumns = reader.getRootColumn().getNestedColumns();
             Map<Integer, OrcColumn> fileColumnsByIcebergId = fileColumns.stream()
                     .filter(orcColumn -> orcColumn.getAttributes().containsKey(ORC_ICEBERG_ID_KEY))

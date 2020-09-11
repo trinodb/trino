@@ -56,7 +56,7 @@ public class MemoryOrcDataSource
     }
 
     @Override
-    public final long getSize()
+    public final long getEstimatedSize()
     {
         return data.length();
     }
@@ -65,6 +65,12 @@ public class MemoryOrcDataSource
     public long getRetainedSize()
     {
         return data.getRetainedSize();
+    }
+
+    @Override
+    public Slice readTail(int length)
+    {
+        return readFully(data.length() - length, length);
     }
 
     @Override

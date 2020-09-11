@@ -17,6 +17,7 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.io.Resources;
 import io.prestosql.orc.OrcReaderOptions;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
+import io.prestosql.spi.connector.ConnectorPageSource;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import org.apache.hadoop.conf.Configuration;
@@ -45,7 +46,7 @@ public class TestOrcDeleteDeltaPageSource
                 HDFS_ENVIRONMENT,
                 new FileFormatDataSourceStats());
 
-        OrcDeleteDeltaPageSource pageSource = pageSourceFactory.createPageSource(new Path(deleteDeltaFile.toURI()), deleteDeltaFile.length());
+        ConnectorPageSource pageSource = pageSourceFactory.createPageSource(new Path(deleteDeltaFile.toURI()), deleteDeltaFile.length()).orElseThrow();
         MaterializedResult materializedRows = MaterializedResult.materializeSourceDataStream(SESSION, pageSource, ImmutableList.of(BIGINT, BIGINT));
 
         assertEquals(materializedRows.getRowCount(), 1);
