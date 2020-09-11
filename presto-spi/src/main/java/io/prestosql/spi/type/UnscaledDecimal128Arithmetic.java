@@ -211,11 +211,30 @@ public final class UnscaledDecimal128Arithmetic
             if (rescaleFactor >= POWERS_OF_TEN.length) {
                 throwOverflowException();
             }
-            multiply(decimal, POWERS_OF_TEN[rescaleFactor], result);
+            shiftLeftBy10(decimal, rescaleFactor, result);
         }
         else {
             scaleDownRoundUp(decimal, -rescaleFactor, result);
         }
+    }
+
+    public static Slice rescale(long decimal, int rescaleFactor)
+    {
+        Slice result = unscaledDecimal();
+        if (rescaleFactor == 0) {
+            return unscaledDecimal(decimal);
+        }
+        else if (rescaleFactor > 0) {
+            if (rescaleFactor >= POWERS_OF_TEN.length) {
+                throwOverflowException();
+            }
+            shiftLeftBy10(decimal, rescaleFactor, result);
+        }
+        else {
+            scaleDownRoundUp(unscaledDecimal(decimal), -rescaleFactor, result);
+        }
+
+        return result;
     }
 
     public static Slice rescaleTruncate(Slice decimal, int rescaleFactor)
@@ -239,10 +258,38 @@ public final class UnscaledDecimal128Arithmetic
             if (rescaleFactor >= POWERS_OF_TEN.length) {
                 throwOverflowException();
             }
-            multiply(decimal, POWERS_OF_TEN[rescaleFactor], result);
+            shiftLeftBy10(decimal, rescaleFactor, result);
         }
         else {
             scaleDownTruncate(decimal, -rescaleFactor, result);
+        }
+    }
+
+    // Multiplies by 10^rescaleFactor. Only positive rescaleFactor values are allowed
+    private static void shiftLeftBy10(Slice decimal, int rescaleFactor, Slice result)
+    {
+        if (rescaleFactor <= MAX_POWER_OF_TEN_INT) {
+            multiply(decimal, (int) longTenToNth(rescaleFactor), result);
+        }
+        else if (rescaleFactor <= MAX_POWER_OF_TEN_LONG) {
+            multiply(decimal, longTenToNth(rescaleFactor), result);
+        }
+        else {
+            multiply(POWERS_OF_TEN[rescaleFactor], decimal, result);
+        }
+    }
+
+    // Multiplies by 10^rescaleFactor. Only positive rescaleFactor values are allowed
+    private static void shiftLeftBy10(long decimal, int rescaleFactor, Slice result)
+    {
+        if (rescaleFactor <= MAX_POWER_OF_TEN_INT) {
+            multiply(decimal, (int) longTenToNth(rescaleFactor), result);
+        }
+        else if (rescaleFactor <= MAX_POWER_OF_TEN_LONG) {
+            multiply(decimal, longTenToNth(rescaleFactor), result);
+        }
+        else {
+            multiply(POWERS_OF_TEN[rescaleFactor], decimal, result);
         }
     }
 
@@ -410,6 +457,13 @@ public final class UnscaledDecimal128Arithmetic
         return result;
     }
 
+    public static Slice multiply(long left, int right)
+    {
+        Slice result = unscaledDecimal();
+        multiply(left, right, result);
+        return result;
+    }
+
     public static void multiply(Slice left, Slice right, Slice result)
     {
         checkArgument(result.length() == NUMBER_OF_LONGS * Long.BYTES);
@@ -557,6 +611,44 @@ public final class UnscaledDecimal128Arithmetic
         pack(result, (int) z0, (int) z1, (int) z2, (int) z3, leftNegative != rightNegative);
     }
 
+    public static void multiply(Slice left, int right, Slice result)
+    {
+        checkArgument(result.length() == NUMBER_OF_LONGS * Long.BYTES);
+
+        long l0 = toUnsignedLong(getInt(left, 0));
+        long l1 = toUnsignedLong(getInt(left, 1));
+        long l2 = toUnsignedLong(getInt(left, 2));
+        int l3raw = getRawInt(left, 3);
+        boolean leftNegative = isNegative(l3raw);
+        long l3 = toUnsignedLong(unpackUnsignedInt(l3raw));
+
+        boolean rightNegative = right < 0;
+        long r0 = abs(right);
+
+        long z0;
+        long z1;
+        long z2;
+        long z3;
+
+        long accumulator = r0 * l0;
+        z0 = accumulator & LOW_32_BITS;
+        accumulator = (accumulator >>> 32) + l1 * r0;
+
+        z1 = accumulator & LOW_32_BITS;
+        accumulator = (accumulator >>> 32) + l2 * r0;
+
+        z2 = accumulator & LOW_32_BITS;
+        accumulator = (accumulator >>> 32) + l3 * r0;
+
+        z3 = accumulator & LOW_32_BITS;
+
+        if ((accumulator >>> 32) != 0) {
+            throwOverflowException();
+        }
+
+        pack(result, (int) z0, (int) z1, (int) z2, (int) z3, leftNegative != rightNegative);
+    }
+
     public static void multiply(long left, long right, Slice result)
     {
         checkArgument(result.length() == NUMBER_OF_LONGS * Long.BYTES);
@@ -595,6 +687,32 @@ public final class UnscaledDecimal128Arithmetic
         }
 
         pack(result, (int) z0, (int) z1, (int) z2, (int) z3, leftNegative != rightNegative);
+    }
+
+    public static void multiply(long left, int right, Slice result)
+    {
+        checkArgument(result.length() == NUMBER_OF_LONGS * Long.BYTES);
+        boolean rightNegative = right < 0;
+        boolean leftNegative = left < 0;
+        left = abs(left);
+        long r0 = abs(right);
+
+        long l0 = left & LOW_32_BITS;
+        long l1 = left >>> 32;
+
+        long z0;
+        long z1;
+        long z2;
+
+        long accumulator = r0 * l0;
+        z0 = accumulator & LOW_32_BITS;
+        z1 = accumulator >>> 32;
+
+        accumulator = r0 * l1 + z1;
+        z1 = accumulator & LOW_32_BITS;
+        z2 = accumulator >>> 32;
+
+        pack(result, (int) z0, (int) z1, (int) z2, 0, leftNegative != rightNegative);
     }
 
     public static void multiply256(Slice left, Slice right, Slice result)

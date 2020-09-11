@@ -120,13 +120,32 @@ public final class DecimalOperators
     @UsedByGeneratedCode
     public static Slice addShortLongLong(long a, Slice b, int rescale, boolean left)
     {
-        return internalAddLongLongLong(unscaledDecimal(a), b, rescale, left);
+        return addLongShortLong(b, a, rescale, !left);
     }
 
     @UsedByGeneratedCode
-    public static Slice addLongShortLong(Slice a, long b, int rescale, boolean left)
+    public static Slice addLongShortLong(Slice a, long b, int rescale, boolean rescaleLeft)
     {
-        return internalAddLongLongLong(a, unscaledDecimal(b), rescale, left);
+        try {
+            Slice left;
+            Slice right;
+
+            if (rescaleLeft) {
+                left = rescale(a, rescale);
+                right = unscaledDecimal(b);
+            }
+            else {
+                left = rescale(b, rescale);
+                right = a;
+            }
+
+            add(left, right, left);
+            throwIfOverflows(left);
+            return left;
+        }
+        catch (ArithmeticException e) {
+            throw new PrestoException(NUMERIC_VALUE_OUT_OF_RANGE, "Decimal overflow", e);
+        }
     }
 
     private static Slice internalAddLongLongLong(Slice a, Slice b, int rescale, boolean rescaleLeft)
