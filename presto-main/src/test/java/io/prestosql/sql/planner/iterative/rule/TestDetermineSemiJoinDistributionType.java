@@ -35,12 +35,14 @@ import static io.prestosql.SystemSessionProperties.JOIN_DISTRIBUTION_TYPE;
 import static io.prestosql.SystemSessionProperties.JOIN_MAX_BROADCAST_TABLE_SIZE;
 import static io.prestosql.spi.type.BigintType.BIGINT;
 import static io.prestosql.spi.type.VarcharType.createUnboundedVarcharType;
+import static io.prestosql.sql.planner.assertions.PlanMatchPattern.filter;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.semiJoin;
 import static io.prestosql.sql.planner.assertions.PlanMatchPattern.values;
 import static io.prestosql.sql.planner.iterative.rule.test.PlanBuilder.expressions;
 import static io.prestosql.sql.planner.iterative.rule.test.RuleTester.defaultRuleTester;
 import static io.prestosql.sql.planner.plan.SemiJoinNode.DistributionType.PARTITIONED;
 import static io.prestosql.sql.planner.plan.SemiJoinNode.DistributionType.REPLICATED;
+import static io.prestosql.sql.tree.BooleanLiteral.TRUE_LITERAL;
 
 @Test(singleThreaded = true)
 public class TestDetermineSemiJoinDistributionType
@@ -299,6 +301,59 @@ public class TestDetermineSemiJoinDistributionType
                         Optional.of(PARTITIONED),
                         values(ImmutableMap.of("A1", 0)),
                         values(ImmutableMap.of("B1", 0))));
+    }
+
+    @Test
+    public void testReplicatesWhenSourceIsSmall()
+    {
+        Type symbolType = createUnboundedVarcharType(); // variable width so that average row size is respected
+        int aRows = 10_000;
+        int bRows = 10;
+
+        PlanNodeStatsEstimate probeSideStatsEstimate = PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(aRows)
+                .addSymbolStatistics(ImmutableMap.of(new Symbol("A1"), new SymbolStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
+                .build();
+        PlanNodeStatsEstimate buildSideStatsEstimate = PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(bRows)
+                .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 640000d * 10000, 10)))
+                .build();
+        PlanNodeStatsEstimate buildSideSourceStatsEstimate = PlanNodeStatsEstimate.builder()
+                .setOutputRowCount(bRows)
+                .addSymbolStatistics(ImmutableMap.of(new Symbol("B1"), new SymbolStatsEstimate(0, 100, 0, 64, 10)))
+                .build();
+
+        // build side exceeds AUTOMATIC_RESTRICTED limit but source plan nodes are small
+        // therefore replicated distribution type is chosen
+        assertDetermineSemiJoinDistributionType()
+                .setSystemProperty(JOIN_DISTRIBUTION_TYPE, JoinDistributionType.AUTOMATIC.name())
+                .setSystemProperty(JOIN_MAX_BROADCAST_TABLE_SIZE, "100MB")
+                .overrideStats("valuesA", probeSideStatsEstimate)
+                .overrideStats("filterB", buildSideStatsEstimate)
+                .overrideStats("valuesB", buildSideSourceStatsEstimate)
+                .on(p -> {
+                    Symbol a1 = p.symbol("A1", symbolType);
+                    Symbol b1 = p.symbol("B1", symbolType);
+                    return p.semiJoin(
+                            p.values(new PlanNodeId("valuesA"), aRows, a1),
+                            p.filter(
+                                    new PlanNodeId("filterB"),
+                                    TRUE_LITERAL,
+                                    p.values(new PlanNodeId("valuesB"), bRows, b1)),
+                            a1,
+                            b1,
+                            p.symbol("output"),
+                            Optional.empty(),
+                            Optional.empty(),
+                            Optional.empty());
+                })
+                .matches(semiJoin(
+                        "A1",
+                        "B1",
+                        "output",
+                        Optional.of(REPLICATED),
+                        values(ImmutableMap.of("A1", 0)),
+                        filter("true", values(ImmutableMap.of("B1", 0)))));
     }
 
     private RuleAssert assertDetermineSemiJoinDistributionType()
