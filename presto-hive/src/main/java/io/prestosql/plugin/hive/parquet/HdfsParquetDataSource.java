@@ -24,6 +24,7 @@ import io.prestosql.parquet.ParquetDataSource;
 import io.prestosql.parquet.ParquetDataSourceId;
 import io.prestosql.parquet.ParquetReaderOptions;
 import io.prestosql.plugin.hive.FileFormatDataSourceStats;
+import io.prestosql.plugin.hive.util.FSDataInputStreamTail;
 import io.prestosql.spi.PrestoException;
 import org.apache.hadoop.fs.FSDataInputStream;
 
@@ -100,7 +101,21 @@ public class HdfsParquetDataSource
     @Override
     public Slice readTail(int length)
     {
-        return readFully(estimatedSize - length, length);
+        long start = System.nanoTime();
+        Slice tailSlice;
+        try {
+            //  Handle potentially imprecise file lengths by reading the footer
+            FSDataInputStreamTail fileTail = FSDataInputStreamTail.readTail(getId().toString(), getEstimatedSize(), inputStream, length);
+            tailSlice = fileTail.getTailSlice();
+        }
+        catch (IOException e) {
+            throw new PrestoException(HIVE_FILESYSTEM_ERROR, format("Error reading tail from %s with length %s", id, length), e);
+        }
+        long currentReadTimeNanos = System.nanoTime() - start;
+
+        readTimeNanos += currentReadTimeNanos;
+        readBytes += tailSlice.length();
+        return tailSlice;
     }
 
     @Override
