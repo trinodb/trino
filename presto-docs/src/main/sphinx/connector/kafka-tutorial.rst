@@ -145,16 +145,17 @@ built-in ones:
 .. code-block:: none
 
     presto:tpch> DESCRIBE customer;
-          Column       |  Type   | Extra |                   Comment
-    -------------------+---------+-------+---------------------------------------------
-     _partition_id     | bigint  |       | Partition Id
-     _partition_offset | bigint  |       | Offset for the message within the partition
-     _key              | varchar |       | Key text
-     _key_corrupt      | boolean |       | Key data is corrupt
-     _key_length       | bigint  |       | Total number of key bytes
-     _message          | varchar |       | Message text
-     _message_corrupt  | boolean |       | Message data is corrupt
-     _message_length   | bigint  |       | Total number of message bytes
+          Column       |  Type      | Extra |                   Comment
+    -------------------+------------+-------+---------------------------------------------
+     _partition_id     | bigint     |       | Partition Id
+     _partition_offset | bigint     |       | Offset for the message within the partition
+     _key              | varchar    |       | Key text
+     _key_corrupt      | boolean    |       | Key data is corrupt
+     _key_length       | bigint     |       | Total number of key bytes
+     _message          | varchar    |       | Message text
+     _message_corrupt  | boolean    |       | Message data is corrupt
+     _message_length   | bigint     |       | Total number of message bytes
+     _timestamp        | timestamp  |       | Message timestamp
     (11 rows)
 
     presto:tpch> SELECT count(*) FROM customer;
@@ -218,17 +219,18 @@ The customer table now has an additional column: ``kafka_key``.
 .. code-block:: none
 
     presto:tpch> DESCRIBE customer;
-          Column       |  Type   | Extra |                   Comment
-    -------------------+---------+-------+---------------------------------------------
-     kafka_key         | bigint  |       |
-     _partition_id     | bigint  |       | Partition Id
-     _partition_offset | bigint  |       | Offset for the message within the partition
-     _key              | varchar |       | Key text
-     _key_corrupt      | boolean |       | Key data is corrupt
-     _key_length       | bigint  |       | Total number of key bytes
-     _message          | varchar |       | Message text
-     _message_corrupt  | boolean |       | Message data is corrupt
-     _message_length   | bigint  |       | Total number of message bytes
+          Column       |  Type      | Extra |                   Comment
+    -------------------+------------+-------+---------------------------------------------
+     kafka_key         | bigint     |       |
+     _partition_id     | bigint     |       | Partition Id
+     _partition_offset | bigint     |       | Offset for the message within the partition
+     _key              | varchar    |       | Key text
+     _key_corrupt      | boolean    |       | Key data is corrupt
+     _key_length       | bigint     |       | Total number of key bytes
+     _message          | varchar    |       | Message text
+     _message_corrupt  | boolean    |       | Message data is corrupt
+     _message_length   | bigint     |       | Total number of message bytes
+     _timestamp        | timestamp  |       | Message timestamp
     (12 rows)
 
     presto:tpch> SELECT kafka_key FROM customer ORDER BY kafka_key LIMIT 10;
@@ -332,26 +334,27 @@ the sum query from earlier can operate on the ``account_balance`` column directl
 .. code-block:: none
 
     presto:tpch> DESCRIBE customer;
-          Column       |  Type   | Extra |                   Comment
-    -------------------+---------+-------+---------------------------------------------
-     kafka_key         | bigint  |       |
-     row_number        | bigint  |       |
-     customer_key      | bigint  |       |
-     name              | varchar |       |
-     address           | varchar |       |
-     nation_key        | bigint  |       |
-     phone             | varchar |       |
-     account_balance   | double  |       |
-     market_segment    | varchar |       |
-     comment           | varchar |       |
-     _partition_id     | bigint  |       | Partition Id
-     _partition_offset | bigint  |       | Offset for the message within the partition
-     _key              | varchar |       | Key text
-     _key_corrupt      | boolean |       | Key data is corrupt
-     _key_length       | bigint  |       | Total number of key bytes
-     _message          | varchar |       | Message text
-     _message_corrupt  | boolean |       | Message data is corrupt
-     _message_length   | bigint  |       | Total number of message bytes
+          Column       |  Type      | Extra |                   Comment
+    -------------------+------------+-------+---------------------------------------------
+     kafka_key         | bigint     |       |
+     row_number        | bigint     |       |
+     customer_key      | bigint     |       |
+     name              | varchar    |       |
+     address           | varchar    |       |
+     nation_key        | bigint     |       |
+     phone             | varchar    |       |
+     account_balance   | double     |       |
+     market_segment    | varchar    |       |
+     comment           | varchar    |       |
+     _partition_id     | bigint     |       | Partition Id
+     _partition_offset | bigint     |       | Offset for the message within the partition
+     _key              | varchar    |       | Key text
+     _key_corrupt      | boolean    |       | Key data is corrupt
+     _key_length       | bigint     |       | Total number of key bytes
+     _message          | varchar    |       | Message text
+     _message_corrupt  | boolean    |       | Message data is corrupt
+     _message_length   | bigint     |       | Total number of message bytes
+     _timestamp        | timestamp  |       | Message timestamp
     (21 rows)
 
     presto:tpch> SELECT * FROM customer LIMIT 5;

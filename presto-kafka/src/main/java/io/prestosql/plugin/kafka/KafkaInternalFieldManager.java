@@ -24,6 +24,7 @@ import io.prestosql.spi.type.TypeManager;
 import java.util.Map;
 import java.util.Optional;
 
+import static io.prestosql.spi.type.TimestampType.TIMESTAMP_MILLIS;
 import static io.prestosql.spi.type.TypeSignature.arrayType;
 import static io.prestosql.spi.type.TypeSignature.mapType;
 import static io.prestosql.spi.type.VarbinaryType.VARBINARY;
@@ -77,6 +78,11 @@ public class KafkaInternalFieldManager
      * <tt>_key_length</tt> - length in bytes of the key.
      */
     public static final String KEY_LENGTH_FIELD = "_key_length";
+
+    /**
+     * <tt>_timestamp</tt> - message timestamp
+     */
+    public static final String OFFSET_TIMESTAMP_FIELD = "_timestamp";
 
     public static class InternalField
     {
@@ -169,6 +175,10 @@ public class KafkaInternalFieldManager
                         KEY_LENGTH_FIELD,
                         "Total number of key bytes",
                         BigintType.BIGINT))
+                .put(OFFSET_TIMESTAMP_FIELD, new InternalField(
+                        OFFSET_TIMESTAMP_FIELD,
+                        "Message timestamp",
+                        TIMESTAMP_MILLIS))
                 .build();
     }
 
