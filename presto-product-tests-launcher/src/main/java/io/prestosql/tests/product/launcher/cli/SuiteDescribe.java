@@ -37,10 +37,12 @@ import java.io.PrintStream;
 import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.nio.file.Paths;
+import java.util.concurrent.Callable;
 
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
+import static picocli.CommandLine.ExitCode.OK;
 import static picocli.CommandLine.Option;
 
 @Command(
@@ -48,7 +50,7 @@ import static picocli.CommandLine.Option;
         description = "Describe tests suite",
         usageHelpAutoWidth = true)
 public class SuiteDescribe
-        implements Runnable
+        implements Callable<Integer>
 {
     private final Module additionalSuites;
     private final Module additionalEnvironments;
@@ -69,9 +71,9 @@ public class SuiteDescribe
     }
 
     @Override
-    public void run()
+    public Integer call()
     {
-        runCommand(
+        return runCommand(
                 ImmutableList.<Module>builder()
                         .add(new LauncherModule())
                         .add(new SuiteModule(additionalSuites))
@@ -98,7 +100,7 @@ public class SuiteDescribe
     }
 
     public static class Execution
-            implements Runnable
+            implements Callable<Integer>
     {
         private final String suiteName;
         private final File testJar;
@@ -131,7 +133,7 @@ public class SuiteDescribe
         }
 
         @Override
-        public void run()
+        public Integer call()
         {
             Suite suite = suiteFactory.getSuite(suiteName);
             EnvironmentConfig config = configFactory.getConfig(this.config);
@@ -142,6 +144,8 @@ public class SuiteDescribe
                 TestRun.TestRunOptions runOptions = createTestRunOptions(suiteName, testRun, config);
                 out.println(format("\npresto-product-tests-launcher/bin/run-launcher test run %s\n", OptionsPrinter.format(environmentOptions, runOptions)));
             }
+
+            return OK;
         }
 
         private TestRun.TestRunOptions createTestRunOptions(String suiteName, SuiteTestRun suiteTestRun, EnvironmentConfig environmentConfig)
