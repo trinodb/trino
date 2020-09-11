@@ -116,7 +116,7 @@ public final class TestRun
         public Optional<Path> logsDirBase;
 
         @Option(names = "--startup-retries", paramLabel = "<retries>", description = "Environment startup retries " + DEFAULT_VALUE, defaultValue = "5")
-        public int startupRetries;
+        public Integer startupRetries = 5;
 
         @Parameters(paramLabel = "<argument>", description = "Test arguments")
         public List<String> testArguments;

@@ -93,6 +93,10 @@ public final class OptionsPrinter
             return null;
         }
 
+        if (value == null) {
+            return null;
+        }
+
         if (value instanceof Optional) {
             if (((Optional<?>) value).isPresent()) {
                 return formatOption(((Optional<?>) value).get(), annotation);
