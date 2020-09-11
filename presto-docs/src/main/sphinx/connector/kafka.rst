@@ -151,6 +151,7 @@ Column name             Type                            Description
 ``_key_corrupt``        BOOLEAN                         True if the key decoder could not decode the key for this row. When true, data columns mapped from the key should be treated as invalid.
 ``_key``                VARCHAR                         Key bytes as an UTF-8 encoded string. This is only useful for textual keys.
 ``_key_length``         BIGINT                          Number of bytes in the key.
+``_timestamp``          TIMESTAMP                       Message timestamp.
 ======================= =============================== =============================
 
 For tables without a table definition file, the ``_key_corrupt`` and
