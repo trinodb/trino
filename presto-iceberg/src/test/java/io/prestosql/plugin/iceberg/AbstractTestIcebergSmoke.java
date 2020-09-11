@@ -31,7 +31,6 @@ import io.prestosql.testing.DistributedQueryRunner;
 import io.prestosql.testing.MaterializedResult;
 import io.prestosql.testing.MaterializedRow;
 import io.prestosql.testing.QueryRunner;
-import io.prestosql.testing.assertions.Assert;
 import org.apache.iceberg.FileFormat;
 import org.intellij.lang.annotations.Language;
 import org.testng.annotations.Test;
@@ -41,7 +40,6 @@ import java.util.Optional;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import static com.google.common.base.Preconditions.checkArgument;
@@ -70,7 +68,7 @@ public abstract class AbstractTestIcebergSmoke
 
     private final FileFormat format;
 
-    public AbstractTestIcebergSmoke(FileFormat format)
+    protected AbstractTestIcebergSmoke(FileFormat format)
     {
         this.format = requireNonNull(format, "format is null");
     }
@@ -89,7 +87,7 @@ public abstract class AbstractTestIcebergSmoke
                 .matches("CREATE SCHEMA iceberg.tpch\n" +
                         "AUTHORIZATION USER user\n" +
                         "WITH \\(\n" +
-                        "   location = '.*/iceberg_data/tpch'\n" +
+                        "\\s+location = '.*/iceberg_data/tpch'\n" +
                         "\\)");
     }
 
@@ -109,7 +107,7 @@ public abstract class AbstractTestIcebergSmoke
                 .row("comment", "varchar", "", "")
                 .build();
         MaterializedResult actualColumns = computeActual("DESCRIBE orders");
-        Assert.assertEquals(actualColumns, expectedColumns);
+        assertEquals(actualColumns, expectedColumns);
     }
 
     @Override
@@ -218,12 +216,12 @@ public abstract class AbstractTestIcebergSmoke
         String tableName = format("test_%s_by_timestamp", partitioned ? "partitioned" : "selected");
         assertUpdate(format("CREATE TABLE %s (_timestamp timestamp(6)) %s",
                 tableName, partitioned ? "WITH (partitioning = ARRAY['_timestamp'])" : ""));
-        String select1 = "SELECT TIMESTAMP '2017-05-01 10:12:34' _timestamp";
-        assertUpdate(format("INSERT INTO %s ", tableName) + select1, 1);
-        String select2 = "SELECT TIMESTAMP '2017-10-01 10:12:34' _timestamp";
-        assertUpdate(format("INSERT INTO %s " + select2, tableName), 1);
-        String select3 = "SELECT TIMESTAMP '2018-05-01 10:12:34' _timestamp";
-        assertUpdate(format("INSERT INTO %s " + select3, tableName), 1);
+        @Language("SQL") String select1 = "SELECT TIMESTAMP '2017-05-01 10:12:34' _timestamp";
+        @Language("SQL") String select2 = "SELECT TIMESTAMP '2017-10-01 10:12:34' _timestamp";
+        @Language("SQL") String select3 = "SELECT TIMESTAMP '2018-05-01 10:12:34' _timestamp";
+        assertUpdate(format("INSERT INTO %s %s", tableName, select1), 1);
+        assertUpdate(format("INSERT INTO %s %s", tableName, select2), 1);
+        assertUpdate(format("INSERT INTO %s %s", tableName, select3), 1);
         assertQuery(format("SELECT COUNT(*) from %s", tableName), "SELECT 3");
 
         assertQuery(format("SELECT * from %s WHERE _timestamp = TIMESTAMP '2017-05-01 10:12:34'", tableName), select1);
@@ -286,7 +284,7 @@ public abstract class AbstractTestIcebergSmoke
         assertUpdate(format("INSERT INTO test_partitioned_table %s", select), 1);
         assertQuery("SELECT * FROM test_partitioned_table", select);
 
-        String selectAgain = "" +
+        @Language("SQL") String selectAgain = "" +
                 "SELECT * FROM test_partitioned_table WHERE" +
                 " 'foo' = _string" +
                 " AND 456 = _integer" +
@@ -396,8 +394,8 @@ public abstract class AbstractTestIcebergSmoke
                         "   format = '%s',\n" +
                         "   partitioning = ARRAY['order_status','ship_priority','bucket(order_key, 9)']\n" +
                         ")",
-                getSession().getCatalog().get(),
-                getSession().getSchema().get(),
+                getSession().getCatalog().orElseThrow(),
+                getSession().getSchema().orElseThrow(),
                 "test_create_partitioned_table_as",
                 format);
 
@@ -430,11 +428,11 @@ public abstract class AbstractTestIcebergSmoke
                 "WITH (\n" +
                 format("   format = '%s'\n", format) +
                 ")";
-        String createTableSql = format(createTableTemplate, "test table comment", format);
+        @Language("SQL") String createTableSql = format(createTableTemplate, "test table comment", format);
         assertUpdate(createTableSql);
         MaterializedResult resultOfCreate = computeActual("SHOW CREATE TABLE test_table_comments");
         assertEquals(getOnlyElement(resultOfCreate.getOnlyColumnAsSet()), createTableSql);
-        String showCreateTable = "SHOW CREATE TABLE test_table_comments";
+        @Language("SQL") String showCreateTable = "SHOW CREATE TABLE test_table_comments";
 
         assertUpdate("COMMENT ON TABLE test_table_comments IS 'different test table comment'");
         MaterializedResult resultOfCommentChange = computeActual(showCreateTable);
@@ -593,12 +591,7 @@ public abstract class AbstractTestIcebergSmoke
         MaterializedResult showCreateTable = computeActual("SHOW CREATE TABLE " + tableName);
         String createTable = (String) getOnlyElement(showCreateTable.getOnlyColumnAsSet());
         Matcher matcher = WITH_CLAUSE_EXTRACTER.matcher(createTable);
-        if (matcher.matches()) {
-            return matcher.group(1);
-        }
-        else {
-            return null;
-        }
+        return matcher.matches() ? matcher.group(1) : null;
     }
 
     @Test
@@ -838,7 +831,7 @@ public abstract class AbstractTestIcebergSmoke
 
         assertUpdate("CREATE TABLE test_truncate_transform (d VARCHAR, b BIGINT) WITH (partitioning = ARRAY['truncate(d, 2)'])");
 
-        String insertSql = "INSERT INTO test_truncate_transform VALUES" +
+        @Language("SQL") String insertSql = "INSERT INTO test_truncate_transform VALUES" +
                 "('abcd', 1)," +
                 "('abxy', 2)," +
                 "('ab598', 3)," +
@@ -868,7 +861,7 @@ public abstract class AbstractTestIcebergSmoke
         String select = "SELECT d_bucket, row_count, d.min AS d_min, d.max AS d_max, b.min AS b_min, b.max AS b_max FROM \"test_bucket_transform$partitions\"";
 
         assertUpdate("CREATE TABLE test_bucket_transform (d VARCHAR, b BIGINT) WITH (partitioning = ARRAY['bucket(d, 2)'])");
-        String insertSql = "INSERT INTO test_bucket_transform VALUES" +
+        @Language("SQL") String insertSql = "INSERT INTO test_bucket_transform VALUES" +
                 "('abcd', 1)," +
                 "('abxy', 2)," +
                 "('ab598', 3)," +
@@ -958,7 +951,7 @@ public abstract class AbstractTestIcebergSmoke
         assertUpdate("CREATE TABLE test_in_set (col1 INTEGER, col2 BIGINT)");
         assertUpdate(format("INSERT INTO test_in_set VALUES %s", values), inCount);
         // This proves that SELECTs with large IN phrases work correctly
-        MaterializedResult result = computeActual(format("SELECT col1 FROM test_in_set WHERE col1 IN (%s)", inList));
+        computeActual(format("SELECT col1 FROM test_in_set WHERE col1 IN (%s)", inList));
         dropTable("test_in_set");
     }
 
@@ -996,7 +989,7 @@ public abstract class AbstractTestIcebergSmoke
 
     private Double columnSizeForFormat(double size)
     {
-        return format == FileFormat.PARQUET ? size : null;
+        return format == PARQUET ? size : null;
     }
 
     @Test
@@ -1032,11 +1025,11 @@ public abstract class AbstractTestIcebergSmoke
 
         assertUpdate(insertStart + " VALUES " + IntStream.rangeClosed(21, 25)
                 .mapToObj(i -> format("(200, %d, DATE '2020-07-%d')", i, i))
-                .collect(Collectors.joining(", ")), 5);
+                .collect(joining(", ")), 5);
 
         assertUpdate(insertStart + " VALUES " + IntStream.rangeClosed(26, 30)
                 .mapToObj(i -> format("(NULL, %d, DATE '2020-06-%d')", i, i))
-                .collect(Collectors.joining(", ")), 5);
+                .collect(joining(", ")), 5);
 
         result = computeActual("SHOW STATS FOR " + tableName);
 
@@ -1065,10 +1058,10 @@ public abstract class AbstractTestIcebergSmoke
         assertEquals(result.getRowCount(), 3);
 
         MaterializedRow row0 = result.getMaterializedRows().get(0);
-        org.testng.Assert.assertEquals(row0.getField(0), "col1");
-        org.testng.Assert.assertEquals(row0.getField(3), 0.0);
-        org.testng.Assert.assertEquals(row0.getField(5), "-10.0");
-        org.testng.Assert.assertEquals(row0.getField(6), "100.0");
+        assertEquals(row0.getField(0), "col1");
+        assertEquals(row0.getField(3), 0.0);
+        assertEquals(row0.getField(5), "-10.0");
+        assertEquals(row0.getField(6), "100.0");
 
         MaterializedRow row1 = result.getMaterializedRows().get(1);
         assertEquals(row1.getField(0), "col2");
@@ -1081,11 +1074,11 @@ public abstract class AbstractTestIcebergSmoke
 
         assertUpdate(insertStart + " VALUES " + IntStream.rangeClosed(1, 5)
                 .mapToObj(i -> format("(%d, 10)", i + 100))
-                .collect(Collectors.joining(", ")), 5);
+                .collect(joining(", ")), 5);
 
         assertUpdate(insertStart + " VALUES " + IntStream.rangeClosed(6, 10)
                 .mapToObj(i -> "(NULL, 10)")
-                .collect(Collectors.joining(", ")), 5);
+                .collect(joining(", ")), 5);
 
         result = computeActual("SHOW STATS FOR iceberg.tpch.test_partitioned_table_statistics");
         assertEquals(result.getRowCount(), 3);
@@ -1106,7 +1099,7 @@ public abstract class AbstractTestIcebergSmoke
 
         assertUpdate(insertStart + " VALUES " + IntStream.rangeClosed(6, 10)
                 .mapToObj(i -> "(100, NULL)")
-                .collect(Collectors.joining(", ")), 5);
+                .collect(joining(", ")), 5);
 
         result = computeActual("SHOW STATS FOR iceberg.tpch.test_partitioned_table_statistics");
         row0 = result.getMaterializedRows().get(0);
@@ -1146,7 +1139,7 @@ public abstract class AbstractTestIcebergSmoke
         tableStatistics = getTableStatistics(tableName, constraint);
         assertEquals(tableStatistics.getRowCount().getValue(), 2.0);
         ColumnStatistics columnStatistics = getStatisticsForColumn(tableStatistics, "col1");
-        assertEquals(columnStatistics.getRange().get(), new DoubleRange(3, 4));
+        assertThat(columnStatistics.getRange()).hasValue(new DoubleRange(3, 4));
 
         // This shows that Predicate<ColumnHandle, NullableValue> only filters rows for partitioned columns.
         predicate = new TestRelationalNumberPredicate("col2", 102, i -> i >= 0);
@@ -1154,7 +1147,7 @@ public abstract class AbstractTestIcebergSmoke
         tableStatistics = getTableStatistics(tableName, new Constraint(TupleDomain.all(), Optional.of(predicate), Optional.empty()));
         assertEquals(tableStatistics.getRowCount().getValue(), 4.0);
         columnStatistics = getStatisticsForColumn(tableStatistics, "col2");
-        assertEquals(columnStatistics.getRange().get(), new DoubleRange(101, 104));
+        assertThat(columnStatistics.getRange()).hasValue(new DoubleRange(101, 104));
 
         dropTable(tableName);
     }
@@ -1183,7 +1176,7 @@ public abstract class AbstractTestIcebergSmoke
                     if (object instanceof Long) {
                         return comparePredicate.test(((Long) object).compareTo(comparand.longValue()));
                     }
-                    else if (object instanceof Double) {
+                    if (object instanceof Double) {
                         return comparePredicate.test(((Double) object).compareTo(comparand.doubleValue()));
                     }
                     throw new IllegalArgumentException(format("NullableValue is neither Long or Double, but %s", object));
@@ -1204,7 +1197,7 @@ public abstract class AbstractTestIcebergSmoke
         throw new IllegalArgumentException("TableStatistics did not contain column named " + columnName);
     }
 
-    private IcebergColumnHandle getColumnHandleFromStatistics(TableStatistics tableStatistics, String columnName)
+    private static IcebergColumnHandle getColumnHandleFromStatistics(TableStatistics tableStatistics, String columnName)
     {
         for (ColumnHandle columnHandle : tableStatistics.getColumnStatistics().keySet()) {
             IcebergColumnHandle handle = (IcebergColumnHandle) columnHandle;
@@ -1220,7 +1213,7 @@ public abstract class AbstractTestIcebergSmoke
         assertNotNull(statistics, "statistics is null");
         // Sadly, statistics.getDataSize().isUnknown() for columns in ORC files. See the TODO
         // in IcebergOrcFileWriter.
-        if (format != FileFormat.ORC) {
+        if (format != ORC) {
             assertFalse(statistics.getDataSize().isUnknown());
         }
         assertFalse(statistics.getNullsFraction().isUnknown(), "statistics nulls fraction is unknown");
@@ -1262,7 +1255,7 @@ public abstract class AbstractTestIcebergSmoke
 
         assertUpdate(createTable);
 
-        String insertSql = "INSERT INTO test_nested_table_1 " +
+        @Language("SQL") String insertSql = "INSERT INTO test_nested_table_1 " +
                 " select true, 1, array['uno', 'dos', 'tres'], BIGINT '1', REAL '1.0', DOUBLE '1.0', map(array[1,2,3,4], array['ek','don','teen','char'])," +
                 " CAST(1.0 as DECIMAL(5,2))," +
                 " 'one', VARBINARY 'binary0/1values',\n" +
