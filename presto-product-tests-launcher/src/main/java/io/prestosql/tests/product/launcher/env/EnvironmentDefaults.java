@@ -13,7 +13,7 @@
  */
 package io.prestosql.tests.product.launcher.env;
 
-public class EnvironmentDefaults
+public final class EnvironmentDefaults
 {
     public static final String DOCKER_IMAGES_VERSION = "32";
     public static final String HADOOP_BASE_IMAGE = "prestodev/hdp2.6-hive";
