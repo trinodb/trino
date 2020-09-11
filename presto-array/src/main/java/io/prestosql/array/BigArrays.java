@@ -57,7 +57,6 @@ final class BigArrays
      * @param index an index into a big array.
      * @return the associated offset (in the associated {@linkplain #segment(long) segment}).
      */
-    @SuppressWarnings("NumericCastThatLosesPrecision")
     public static int offset(long index)
     {
         return (int) (index & SEGMENT_MASK);
