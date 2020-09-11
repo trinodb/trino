@@ -29,6 +29,7 @@ import io.prestosql.tests.product.launcher.env.Environments;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import org.testcontainers.DockerClientFactory;
 import picocli.CommandLine.Command;
+import picocli.CommandLine.ExitCode;
 
 import javax.inject.Inject;
 
@@ -36,6 +37,7 @@ import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Path;
 import java.util.Optional;
+import java.util.concurrent.Callable;
 
 import static io.prestosql.tests.product.launcher.cli.Commands.runCommand;
 import static io.prestosql.tests.product.launcher.env.EnvironmentContainers.COORDINATOR;
@@ -53,7 +55,7 @@ import static picocli.CommandLine.Option;
         description = "Start an environment",
         usageHelpAutoWidth = true)
 public final class EnvironmentUp
-        implements Runnable
+        implements Callable<Integer>
 {
     private static final Logger log = Logger.get(EnvironmentUp.class);
     private static final String LOGS_DIR = "logs/";
@@ -75,9 +77,9 @@ public final class EnvironmentUp
     }
 
     @Override
-    public void run()
+    public Integer call()
     {
-        runCommand(
+        return runCommand(
                 ImmutableList.<Module>builder()
                         .add(new LauncherModule())
                         .add(new EnvironmentModule(environmentOptions, additionalEnvironments))
@@ -104,7 +106,7 @@ public final class EnvironmentUp
     }
 
     public static class Execution
-            implements Runnable
+            implements Callable<Integer>
     {
         private final EnvironmentFactory environmentFactory;
         private final boolean withoutPrestoMaster;
@@ -127,7 +129,7 @@ public final class EnvironmentUp
         }
 
         @Override
-        public void run()
+        public Integer call()
         {
             log.info("Pruning old environment(s)");
             Environments.pruneEnvironment();
@@ -154,11 +156,13 @@ public final class EnvironmentUp
 
             if (background) {
                 killContainersReaperContainer();
-                return;
+                return ExitCode.OK;
             }
 
             environment.awaitContainersStopped();
             log.info("Exiting, the containers will exit too");
+
+            return ExitCode.OK;
         }
 
         private void killContainersReaperContainer()

@@ -19,12 +19,13 @@ import com.google.inject.Module;
 import io.airlift.bootstrap.Bootstrap;
 
 import java.util.List;
+import java.util.concurrent.Callable;
 
 final class Commands
 {
     private Commands() {}
 
-    public static void runCommand(List<Module> modules, Class<? extends Runnable> commandExecution)
+    public static int runCommand(List<Module> modules, Class<? extends Callable<Integer>> commandExecution)
     {
         Bootstrap app = new Bootstrap(
                 ImmutableList.<Module>builder()
@@ -36,7 +37,12 @@ final class Commands
                 .strictConfig()
                 .initialize();
 
-        injector.getInstance(commandExecution)
-                .run();
+        try {
+            return injector.getInstance(commandExecution)
+                    .call();
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
     }
 }
