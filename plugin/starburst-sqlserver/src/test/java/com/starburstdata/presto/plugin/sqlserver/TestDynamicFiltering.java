@@ -15,7 +15,6 @@ import io.prestosql.testing.QueryRunner;
 import org.testng.annotations.AfterClass;
 
 import static com.starburstdata.presto.plugin.sqlserver.StarburstSqlServerQueryRunner.createStarburstSqlServerQueryRunner;
-import static io.prestosql.tpch.TpchTable.LINE_ITEM;
 import static io.prestosql.tpch.TpchTable.ORDERS;
 
 public class TestDynamicFiltering
@@ -29,7 +28,7 @@ public class TestDynamicFiltering
     {
         sqlServer = new TestingSqlServer();
         sqlServer.start();
-        return createStarburstSqlServerQueryRunner(sqlServer, ORDERS, LINE_ITEM);
+        return createStarburstSqlServerQueryRunner(sqlServer, ORDERS);
     }
 
     @AfterClass(alwaysRun = true)
