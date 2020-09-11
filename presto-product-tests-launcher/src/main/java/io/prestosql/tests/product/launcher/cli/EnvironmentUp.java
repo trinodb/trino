@@ -26,7 +26,6 @@ import io.prestosql.tests.product.launcher.env.EnvironmentConfig;
 import io.prestosql.tests.product.launcher.env.EnvironmentFactory;
 import io.prestosql.tests.product.launcher.env.EnvironmentModule;
 import io.prestosql.tests.product.launcher.env.EnvironmentOptions;
-import io.prestosql.tests.product.launcher.env.Environments;
 import io.prestosql.tests.product.launcher.env.common.Standard;
 import org.testcontainers.DockerClientFactory;
 import picocli.CommandLine.Command;
@@ -131,9 +130,6 @@ public final class EnvironmentUp
         @Override
         public Integer call()
         {
-            log.info("Pruning old environment(s)");
-            Environments.pruneEnvironment();
-
             Optional<Path> environmentLogPath = logsDirBase.map(dir -> dir.resolve(environment));
 
             Environment.Builder builder = environmentFactory.get(environment)
