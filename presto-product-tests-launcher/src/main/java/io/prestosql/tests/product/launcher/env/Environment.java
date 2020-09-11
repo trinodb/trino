@@ -13,13 +13,17 @@
  */
 package io.prestosql.tests.product.launcher.env;
 
+import com.github.dockerjava.api.command.InspectContainerResponse;
 import com.github.dockerjava.api.model.Bind;
 import com.github.dockerjava.api.model.HostConfig;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import io.airlift.log.Logger;
 import io.prestosql.tests.product.launcher.testcontainers.PrintingLogConsumer;
+import net.jodah.failsafe.Failsafe;
+import net.jodah.failsafe.RetryPolicy;
 import org.testcontainers.containers.Container;
+import org.testcontainers.containers.ContainerState;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.Network;
 import org.testcontainers.lifecycle.Startables;
@@ -40,10 +44,13 @@ import java.util.function.Consumer;
 
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Preconditions.checkState;
+import static com.google.common.base.Throwables.getStackTraceAsString;
+import static io.prestosql.tests.product.launcher.env.Environments.pruneEnvironment;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
 public final class Environment
+        implements AutoCloseable
 {
     public static final String PRODUCT_TEST_LAUNCHER_STARTED_LABEL_NAME = Environment.class.getName() + ".ptl-started";
     public static final String PRODUCT_TEST_LAUNCHER_STARTED_LABEL_VALUE = "true";
@@ -53,17 +60,41 @@ public final class Environment
 
     private final String name;
     private final Map<String, DockerContainer> containers;
+    private final Optional<EnvironmentListener> listener;
 
-    public Environment(String name, Map<String, DockerContainer> containers)
+    public Environment(String name, Map<String, DockerContainer> containers, Optional<EnvironmentListener> listener)
     {
         this.name = requireNonNull(name, "name is null");
         this.containers = requireNonNull(containers, "containers is null");
+        this.listener = requireNonNull(listener, "listener is null");
     }
 
     public void start()
     {
+        start(1);
+    }
+
+    public Environment start(int startupRetries)
+    {
+        RetryPolicy<Object> retryPolicy = new RetryPolicy<>()
+                .withMaxRetries(startupRetries)
+                .onFailedAttempt(event -> log.warn("Could not start environment '%s': %s", this, getStackTraceAsString(event.getLastFailure())))
+                .onRetry(event -> log.info("Trying to start environment '%s', %d failed attempt(s)", this, event.getAttemptCount() + 1))
+                .onSuccess(event -> log.info("Environment '%s' started in %s, %d attempt(s)", this, event.getElapsedTime(), event.getAttemptCount()))
+                .onFailure(event -> log.info("Environment '%s' failed to start in attempt(s): %d: %s", this, event.getAttemptCount(), event.getFailure()));
+
+        return Failsafe
+                .with(retryPolicy)
+                .get(() -> tryStart());
+    }
+
+    private Environment tryStart()
+    {
         try {
+            pruneEnvironment();
             Startables.deepStart(ImmutableList.copyOf(containers.values())).get();
+            this.listener.ifPresent(listener -> listener.environmentStarted(this));
+            return this;
         }
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
@@ -71,6 +102,57 @@ public final class Environment
         }
         catch (ExecutionException e) {
             throw new RuntimeException(e);
+        }
+    }
+
+    public void stop()
+    {
+        this.listener.ifPresent(listener -> listener.environmentStopping(this));
+
+        ImmutableList.copyOf(containers.values())
+                .forEach(DockerContainer::stop);
+
+        awaitContainersStopped();
+        pruneEnvironment();
+    }
+
+    public void awaitContainersStopped()
+    {
+        try {
+            while (ImmutableList.copyOf(containers.values()).stream().anyMatch(ContainerState::isRunning)) {
+                Thread.sleep(1_000);
+            }
+
+            this.listener.ifPresent(listener -> listener.environmentStopped(this));
+            return;
+        }
+        catch (InterruptedException e) {
+            log.info("Interrupted");
+            // It's OK not to restore interrupt flag here. When we return we're exiting the process.
+        }
+    }
+
+    public long awaitTestsCompletion()
+    {
+        Container<?> container = getContainer("tests");
+        log.info("Waiting for test completion");
+
+        try {
+            while (container.isRunning()) {
+                Thread.sleep(1000);
+            }
+
+            InspectContainerResponse containerInfo = container.getCurrentContainerInfo();
+            InspectContainerResponse.ContainerState containerState = containerInfo.getState();
+            Long exitCode = containerState.getExitCodeLong();
+            log.info("Test container %s is %s, with exitCode %s", containerInfo.getId(), containerState.getStatus(), exitCode);
+            checkState(exitCode != null, "No exitCode for tests container %s in state %s", container, containerState);
+
+            return exitCode;
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new RuntimeException("Interrupted", e);
         }
     }
 
@@ -94,6 +176,12 @@ public final class Environment
     public static Builder builder(String name)
     {
         return new Builder(name);
+    }
+
+    @Override
+    public void close()
+    {
+        stop();
     }
 
     public static class Builder
@@ -174,6 +262,16 @@ public final class Environment
 
         public Environment build()
         {
+            return build(Optional.empty());
+        }
+
+        public Environment build(EnvironmentListener listener)
+        {
+            return build(Optional.of(listener));
+        }
+
+        private Environment build(Optional<EnvironmentListener> listener)
+        {
             // write directly to System.out, bypassing logging & io.airlift.log.Logging#rewireStdStreams
             PrintStream out;
             try {
@@ -186,6 +284,7 @@ public final class Environment
 
             containers.forEach((name, container) -> {
                 container
+                        .withEnvironmentListener(listener)
                         .withLogConsumer(new PrintingLogConsumer(out, format("%-20s| ", name)))
                         .withCreateContainerCmdModifier(createContainerCmd -> {
                             Map<String, Bind> binds = new HashMap<>();
@@ -197,7 +296,7 @@ public final class Environment
                         });
             });
 
-            return new Environment(name, containers);
+            return new Environment(name, containers, listener);
         }
 
         public Builder exposeLogsInHostPath(Path basePath)
